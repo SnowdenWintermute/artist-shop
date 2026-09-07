@@ -3,10 +3,17 @@ using ArtistShop.Web.Components;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+
+builder.Services.AddSingleton<ArtistShop.Web.Database.DatabaseInitializer>();
 
 var app = builder.Build();
+
+var databaseInitializer =
+    app.Services.GetRequiredService<ArtistShop.Web.Database.DatabaseInitializer>();
+
+await databaseInitializer.EnsureDatabaseExistsAsync();
+Console.WriteLine("Database initialization completed.");
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -21,7 +28,6 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();

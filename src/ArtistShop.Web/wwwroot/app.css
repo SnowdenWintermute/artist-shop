@@ -246,6 +246,11 @@
   .last\:mr-0:last-child {
     margin-right: 0px;
   }
+  @media (hover: hover) {
+    .hover\:text-theme-hovered:hover {
+      color: var(--theme-hovered);
+    }
+  }
 }
 :root {
   --theme-recessed: #ffffff;
