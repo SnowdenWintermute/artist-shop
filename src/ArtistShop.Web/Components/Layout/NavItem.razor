@@ -1,0 +1,12 @@
+<div class="mr-2 last:mr-0">
+  <NavLink class="font-serif text-3xl text-theme-base hover:text-theme-hovered" href="@Href" Match="Match"
+           ActiveClass="underline">
+    @Text
+  </NavLink>
+</div>
+
+@code {
+  [Parameter, EditorRequired] public required string Href { get; set; }
+  [Parameter, EditorRequired] public required string Text { get; set; }
+  [Parameter] public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+}

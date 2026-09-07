@@ -1,3 +1,90 @@
 @import "tailwindcss";
 
 @source "../Components";
+
+:root {
+  --theme-recessed: #ffffff; /* furthest back: cards, insets */
+  --theme-sunken: #e9e7e2; /* body background */
+  --theme-base: black; /* header / footer */
+  --theme-muted: grey; /* secondary text, borders */
+  --theme-hovered: blue; /* primary text */
+}
+
+@theme inline {
+  --color-theme-recessed: var(--theme-recessed);
+  --color-theme-sunken: var(--theme-sunken);
+  --color-theme-base: var(--theme-base);
+  --color-theme-muted: var(--theme-muted);
+  --color-theme-emphasis: var(--theme-emphasis);
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto/Roboto-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto/Roboto-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto/Roboto-Regular-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto/Roboto-Bold-Italic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JosefinSlab";
+  src: url("/fonts/josefin-slab/JosefinSlab-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JosefinSlab";
+  src: url("/fonts/josefin-slab/JosefinSlab-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JosefinSlab";
+  src: url("/fonts/josefin-slab/JosefinSlab-Regular-Italic.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JosefinSlab";
+  src: url("/fonts/josefin-slab/JosefinSlab-Bold-Italic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-serif:
+    "JosefinSlab", ui-serif, Georgia, Cambria, "Times New Roman", serif;
+}
