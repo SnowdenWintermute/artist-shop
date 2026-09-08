@@ -4,4 +4,4 @@ using Microsoft.EntityFrameworkCore;
 namespace ArtistShop.Web.Identity;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-    : IdentityDbContext(options) { }
+    : IdentityDbContext<ApplicationUser>(options) { }
