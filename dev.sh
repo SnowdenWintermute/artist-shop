@@ -15,14 +15,7 @@ if [[ ! -x ./tailwindcss ]]; then
   exit 1
 fi
 
-if [[ ! -f .env ]]; then
-  echo "error: .env not found. Copy .env.example and set MSSQL_SA_PASSWORD." >&2
-  exit 1
-fi
-
-set -a
-. ./.env
-set +a
+. ./env.sh
 
 # dotnet watch catches SIGINT and shuts down on its own schedule, and bash leaves huponexit off, so
 # a Ctrl-C that never finishes -- or a closed window -- strands the watcher with its file watches
@@ -36,14 +29,25 @@ for _ in $(seq 20); do
 done
 
 # SQL Server gets its own window, the way start.sh does it, so its boot log and T-SQL errors stay
-# readable instead of interleaving with dotnet watch. No guard needed: `up` on an already-running
-# container re-attaches to it rather than recreating it, so a dev.sh restart just gets a fresh log
-# window onto the same database.
+# readable instead of interleaving with dotnet watch.
 #
 # The two ways out of that window differ: Ctrl-C in it sends SIGINT to `docker compose up`, which
 # stops the container. Closing the window only kills the compose client -- dockerd keeps the
 # container running. `docker compose down` is the real stop.
-alacritty -e bash -c "cd '$PWD' && docker compose up; exec bash" &
+#
+# Ctrl-C on dotnet watch does not touch this window, so it outlives the run that opened it and an
+# unguarded restart stacks a second window onto the same container. The title is both the label and
+# what we match on. Ctrl-C *inside* the window is the case the title alone cannot see -- compose
+# exits but `exec bash` keeps the window open on an idle shell -- so check the container too, and
+# open a fresh window when the one already there is no longer attached to anything.
+SQL_WINDOW_TITLE=artist-shop-sql
+
+if pgrep -f "alacritty --title $SQL_WINDOW_TITLE" >/dev/null &&
+  [[ "$(docker inspect -f '{{.State.Running}}' artist-shop-mssql 2>/dev/null)" == true ]]; then
+  echo "sql server window already open, reusing it"
+else
+  alacritty --title "$SQL_WINDOW_TITLE" -e bash -c "cd '$PWD' && docker compose up; exec bash" &
+fi
 
 # Build once up front so app.css exists before the app starts. Runs while SQL Server boots.
 ./tailwindcss -i "$TAILWIND_IN" -o "$TAILWIND_OUT"
@@ -59,11 +63,6 @@ if [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-mssql 2>/dev/n
   echo "error: sql server never became healthy -- see the sql window." >&2
   exit 1
 fi
-
-# Assembled here from the one secret in .env rather than stored as a second copy of the
-# password. The app reads it as a plain environment variable, which is how it will read it in
-# production too -- only the thing setting the variable differs.
-export ConnectionStrings__ArtistShop="Server=localhost,1433;Database=ArtistShop;User Id=sa;Password=$MSSQL_SA_PASSWORD;TrustServerCertificate=True"
 
 # No --watch on tailwind here on purpose. The csproj runs tailwind from BuildTailwindCss, before
 # static web assets are resolved, so a build always produces app.css and the manifest that

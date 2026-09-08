@@ -2,42 +2,39 @@ namespace ArtistShop.Web.Database;
 
 using Microsoft.Data.SqlClient;
 
-public class DatabaseInitializer(IConfiguration configuration)
+public class DatabaseInitializer
 {
-    private readonly string _connectionString = CreateConnectionString(configuration);
-
-    private static string CreateConnectionString(IConfiguration configuration)
+    public async Task EnsureDatabaseExistsAsync(string connectionString)
     {
-        var password =
-            configuration["MSSQL_SA_PASSWORD"]
-            ?? throw new InvalidOperationException(
-                "MSSQL_SA_PASSWORD environment variable is missing."
-            );
+        var target = new SqlConnectionStringBuilder(connectionString);
+        var databaseName = target.InitialCatalog;
 
-        return new SqlConnectionStringBuilder
+        if (string.IsNullOrEmpty(databaseName))
         {
-            DataSource = "localhost,1433",
-            UserID = "sa",
-            Password = password,
-            TrustServerCertificate = true,
-        }.ConnectionString;
-    }
+            throw new InvalidOperationException("Connection string names no database.");
+        }
 
-    public async Task EnsureDatabaseExistsAsync()
-    {
-        await using var connection = new SqlConnection(_connectionString);
+        // The database being created cannot be the one we connect to.
+        target.InitialCatalog = "master";
+
+        await using var connection = new SqlConnection(target.ConnectionString);
 
         await connection.OpenAsync();
 
+        // CREATE DATABASE takes an identifier, not a parameter, so the name goes in through
+        // QUOTENAME rather than string concatenation.
         await using var command = new SqlCommand(
             """
-            IF DB_ID(N'ArtistShop') IS NULL
+            IF DB_ID(@databaseName) IS NULL
             BEGIN
-                CREATE DATABASE [ArtistShop];
+                DECLARE @sql nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(@databaseName);
+                EXEC sp_executesql @sql;
             END
             """,
             connection
         );
+
+        command.Parameters.AddWithValue("@databaseName", databaseName);
 
         await command.ExecuteNonQueryAsync();
     }
