@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="/" />
   <ResourcePreloader />
-  <link rel="stylesheet" href="@Assets["app.css"]" />
+  <link rel="stylesheet" href="@AppCssHref" />
   <ImportMap />
   <link rel="icon" type="image/png" href="favicon.png" />
   <HeadOutlet />
@@ -26,3 +26,16 @@
 </body>
 
 </html>
+
+@code
+{
+  // Assets fingerprints app.css from the bytes it saw at build time, and hot reload never builds,
+  // so in development that url is wrong in both directions: it stays frozen while the tailwind
+  // watcher rewrites app.css underneath it, and when something does force a build it moves, leaving
+  // every open tab pointed at a url that now 404s. Versioning on the file's own write time instead
+  // means the url changes exactly when the css does, and the path behind it always resolves.
+  private string AppCssHref =>
+      Env.IsDevelopment()
+          ? $"app.css?v={File.GetLastWriteTimeUtc(Path.Combine(Env.WebRootPath, "app.css")).Ticks}"
+          : Assets["app.css"];
+}

@@ -17,16 +17,13 @@ fi
 
 . ./env.sh
 
-# dotnet watch catches SIGINT and shuts down on its own schedule, and bash leaves huponexit off, so
-# a Ctrl-C that never finishes -- or a closed window -- strands the watcher with its file watches
-# and its port. They accumulate one per run, race over the same obj/, and the survivors end up
-# serving a stale build. Start from a known-empty state instead.
-pkill -f 'project src/ArtistShop\.Web' 2>/dev/null || true
-pkill -f 'bin/Debug/net10\.0/ArtistShop\.Web' 2>/dev/null || true
-for _ in $(seq 20); do
-  pgrep -f 'project src/ArtistShop\.Web' >/dev/null || break
-  sleep 0.25
-done
+# dotnet watch traps SIGTERM and then never finishes shutting down, and bash leaves huponexit off,
+# so neither a plain pkill nor a closed window clears one. They accumulate one per run, keep their
+# file watches, race over the same obj/, and the survivors end up serving a stale build. SIGKILL is
+# the only signal that actually clears them, so start from a known-empty state with that.
+pkill -9 -f 'project src/ArtistShop\.Web' 2>/dev/null || true
+pkill -9 -f 'bin/Debug/net10\.0/ArtistShop\.Web' 2>/dev/null || true
+pkill -9 -f 'tailwindcss -i src/ArtistShop\.Web' 2>/dev/null || true
 
 # SQL Server gets its own window, the way start.sh does it, so its boot log and T-SQL errors stay
 # readable instead of interleaving with dotnet watch.
@@ -49,8 +46,13 @@ else
   alacritty --title "$SQL_WINDOW_TITLE" -e bash -c "cd '$PWD' && docker compose up; exec bash" &
 fi
 
-# Build once up front so app.css exists before the app starts. Runs while SQL Server boots.
-./tailwindcss -i "$TAILWIND_IN" -o "$TAILWIND_OUT"
+# Tailwind gets its own watcher rather than running only from BuildTailwindCss in the csproj. Hot
+# reload applies razor and cs edits as deltas without an msbuild, so that target does not fire on a
+# save and a class typed for the first time never reaches app.css. This watcher regenerates it on
+# the same save, and dotnet watch picks the changed file up and pushes it to the browser. Plain
+# --watch quits as soon as stdin closes, which it does here, so it has to be --watch=always. The
+# first pass runs now, while SQL Server boots, which is what gets app.css there before the build.
+./tailwindcss -i "$TAILWIND_IN" -o "$TAILWIND_OUT" --watch=always &
 
 # 1433 accepts connections well before the engine answers queries, so wait on the healthcheck
 # (sqlcmd SELECT 1) rather than the port.
@@ -64,13 +66,10 @@ if [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-mssql 2>/dev/n
   exit 1
 fi
 
-# No --watch on tailwind here on purpose. The csproj runs tailwind from BuildTailwindCss, before
-# static web assets are resolved, so a build always produces app.css and the manifest that
-# fingerprints it together. A watcher writing app.css *after* the build leaves MapStaticAssets
-# serving the build-time url, etag and last-modified for changed bytes, and the refresh that
-# dotnet watch triggers can then be answered 304 from cache -- new tailwind classes silently do
-# not arrive. --no-hot-reload keeps every save going through a real build, so the fingerprint
-# moves whenever the css does.
+# Not --no-hot-reload. That mode does rebuild and restart on every save, but its restart path never
+# sends the browser refresh socket anything -- no wait, no reload -- so the page only updates when
+# you refresh it by hand. Only the hot reload path drives that socket, and it is what turns the
+# regenerated app.css above into an UpdateStaticFile push.
 echo "app: ${APP_URL:-see the 'Now listening on' line below}"
 
-dotnet watch --no-hot-reload --project src/ArtistShop.Web
+dotnet watch --project src/ArtistShop.Web

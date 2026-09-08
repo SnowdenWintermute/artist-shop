@@ -1,4 +1,14 @@
-//         DRAWING MATERIAL
+namespace ArtistShop.Web.Domain;
+
+public record MediumId(string Value);
+
+public record MediumName(string Value);
+
+public class Medium(string id, string name)
+{
+    public MediumId Id { get; } = new(id);
+    public MediumName Name { get; private set; } = new(name);
+}
 //         "oil",
 //         "pastel",
 //         "oil pastel",
@@ -22,19 +32,3 @@
 //         "print",
 //         "",
 //
-//         SUPPORT
-// "canvas",
-// "paper",
-// "card stock",
-// "vellum",
-// "fabric",
-// "stone",
-// "wood",
-// "metal",
-// "fiber cloth",
-// "wool felt",
-// "tape",
-// "canvas board",
-// "board",
-// "paper/matted",
-// "",
