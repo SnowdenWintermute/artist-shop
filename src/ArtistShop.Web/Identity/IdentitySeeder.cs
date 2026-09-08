@@ -18,11 +18,15 @@ public static class IdentitySeeder
 
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
-        var user = await userManager.FindByNameAsync("Mike");
+        var user = await userManager.FindByEmailAsync("mike@example.com");
 
         if (user is null)
         {
-            user = new ApplicationUser { UserName = "Mike", Email = "mike@example.com" };
+            user = new ApplicationUser
+            {
+                UserName = "mike@example.com",
+                Email = "mike@example.com",
+            };
             var configuration = services.GetRequiredService<IConfiguration>();
             var devAdminPassword =
                 configuration["DEV_ADMIN_PASSWORD"]
@@ -32,6 +36,13 @@ public static class IdentitySeeder
                 await userManager.CreateAsync(user, devAdminPassword),
                 "Creating the admin user"
             );
+        }
+
+        if (!user.EmailConfirmed)
+        {
+            user.EmailConfirmed = true;
+
+            ThrowIfFailed(await userManager.UpdateAsync(user), "confirming the admin user's email");
         }
 
         var userIsAdmin = await userManager.IsInRoleAsync(user, "Admin");
