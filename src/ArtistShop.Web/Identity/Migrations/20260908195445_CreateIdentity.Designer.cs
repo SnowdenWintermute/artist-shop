@@ -9,10 +9,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace ArtistShop.Web.Migrations
+namespace ArtistShop.Web.Identity.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260908194435_CreateIdentity")]
+    [Migration("20260908195445_CreateIdentity")]
     partial class CreateIdentity
     {
         /// <inheritdoc />

@@ -1,27 +1,16 @@
-﻿@inject NavigationManager NavigationManager
-
-<div class="h-[70px] border-b flex items-center px-4 bg-theme-sunken "
+﻿<div class="h-[70px] border-b flex justify-between items-center px-4 bg-theme-sunken "
      onclick="document.querySelector('.navbar-toggler').click()">
-  <div class="mr-4">
-    <div class="rounded-full border h-[45px] w-[45px] text-center leading-0 flex items-center justify-center">LE</div>
+  <div class="flex items-center ">
+    <div class="mr-4 pointer-events-none">
+      <div class="rounded-full border h-[45px] w-[45px] text-center leading-0 flex items-center justify-center">LE</div>
+    </div>
+    <nav class="flex">
+      <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
+      <NavItem Text="Paintings" Href="paintings"></NavItem>
+    </nav>
   </div>
-  <nav class="flex">
-    <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
-    <NavItem Text="Paintings" Href="paintings"></NavItem>
-  </nav>
 
-  <AuthorizeView>
-    <Authorized>
-      <a href="Account/Manage">@context.User.Identity?.Name</a>
-      <form action="Account/Logout" method="post">
-        <AntiforgeryToken />
-        <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
-        <button type="submit">Logout</button>
-      </form>
-    </Authorized>
-    <NotAuthorized>
-      <a href="Account/Register">Register</a>
-      <a href="Account/Login">Login</a>
-    </NotAuthorized>
-  </AuthorizeView>
+  <div>
+    <UserAuthMenu />
+  </div>
 </div>

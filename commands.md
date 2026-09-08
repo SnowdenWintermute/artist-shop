@@ -1,8 +1,13 @@
 -- set up identity db --
 
-`dotnet ef` runs Program.cs as far as builder.Build(), so both connection strings have to be in the
-environment first. From the repo root:
-
 . ./env.sh
-dotnet ef migrations add CreateIdentity --project src/ArtistShop.Web
+dotnet ef migrations add CreateIdentity --project src/ArtistShop.Web --output-dir Identity/Migrations
+dotnet ef database update --project src/ArtistShop.Web
+
+-- wipe all identity data and restart --
+
+dotnet ef database drop --project src/ArtistShop.Web --force
+rm -rf src/ArtistShop.Web/Identity/Migrations
+. ./env.sh
+dotnet ef migrations add CreateIdentity --project src/ArtistShop.Web --output-dir Identity/Migrations
 dotnet ef database update --project src/ArtistShop.Web

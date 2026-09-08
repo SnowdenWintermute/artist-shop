@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ArtistShop.Web.Migrations
+namespace ArtistShop.Web.Identity.Migrations
 {
     /// <inheritdoc />
     public partial class CreateIdentity : Migration
