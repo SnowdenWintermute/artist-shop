@@ -8,14 +8,15 @@
     <AssemblyName>$(AssemblyName.Replace(' ', '_'))</AssemblyName>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <!-- dotnet watch builds the path to staticwebassets.development.json by pasting this
-         property in front of it, and never normalises the separator, so the SDK default of
-         'obj\' sends it looking for 'obj\Debug/net10.0/...' on linux. It cannot read the
-         manifest, so it silently stops pushing static asset updates to the browser and
-         regenerated tailwind css only lands on a reload. -->
+      property in front of it, and never normalises the separator, so the SDK default of
+      'obj\' sends it looking for 'obj\Debug/net10.0/...' on linux. It cannot read the
+      manifest, so it silently stops pushing static asset updates to the browser and
+    regenerated tailwind css only lands on a reload. -->
     <BaseIntermediateOutputPath>obj/</BaseIntermediateOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="dbup-sqlserver" Version="7.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.11" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
@@ -24,6 +25,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Database/Scripts/*.sql" />
+    <EmbeddedResource Include="Database/Scripts/*.sql" />
   </ItemGroup>
   <Target Name="BuildTailwindCss" BeforeTargets="ResolveStaticWebAssetsInputs">
     <Exec Command="../../tailwindcss -i Styles/app.css -o wwwroot/app.css" />

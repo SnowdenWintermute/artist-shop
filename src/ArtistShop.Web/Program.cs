@@ -21,6 +21,7 @@ var identityConnectionString =
 
 // domain database
 builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<SchemaMigrator>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -61,6 +62,9 @@ var app = builder.Build();
 var databaseInitializer = app.Services.GetRequiredService<DatabaseInitializer>();
 await databaseInitializer.EnsureDatabaseExistsAsync(shopConnectionString);
 await databaseInitializer.EnsureDatabaseExistsAsync(identityConnectionString);
+
+var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
+schemaMigrator.Upgrade(shopConnectionString);
 
 if (app.Environment.IsDevelopment())
 {
