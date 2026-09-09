@@ -4,9 +4,12 @@ public record ShopItemId(int Value);
 
 public record ShopItemName(string Value);
 
+public record ShopItemSlug(string Value);
+
 public abstract class ShopItem(
     int id,
     string name,
+    string slug,
     decimal price,
     int stock,
     IEnumerable<string> imageRelativeUrls
@@ -14,6 +17,8 @@ public abstract class ShopItem(
 {
     public ShopItemId Id { get; } = new(id);
     public ShopItemName Name { get; set; } = new(name);
+    public ShopItemSlug Slug { get; set; } = new(slug);
+
     public decimal Price { get; set; } = price;
     public int Stock { get; set; } = stock;
 

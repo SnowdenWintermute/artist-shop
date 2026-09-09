@@ -1,7 +1,9 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Database;
+using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
+using Dapper;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +25,8 @@ var identityConnectionString =
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<SchemaMigrator>();
 builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
+SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+builder.Services.AddScoped<PaintingRepository>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

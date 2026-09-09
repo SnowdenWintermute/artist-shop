@@ -5,16 +5,17 @@ namespace ArtistShop.Web.Domain.Catalog;
 public class Painting(
     int id,
     string name,
+    string slug,
     decimal price,
     int stock,
     DateOnly datePainted,
-    IEnumerable<string> imageUrls,
+    IEnumerable<string> imageRelativeUrls,
     DimensionsCentimeters? dimensions,
     string? description,
     IEnumerable<SeriesId>? seriesIds,
     IEnumerable<Medium>? mediums,
     IEnumerable<Support>? supports
-) : ShopItem(id, name, price, stock, imageUrls)
+) : ShopItem(id, name, slug, price, stock, imageRelativeUrls)
 {
     public DateOnly DatePainted { get; set; } = datePainted;
 
