@@ -1,3 +1,21 @@
+// Users browse Paintings sorted by their various Series and other ShopItems such as PostCards,
+// add and remove them from their Cart, proceed to CheckOut
+// where they may provide their ShippingAddress, PaymentInformation,
+// and create Orders while being charged a Payment.
+//
+// AdminUsers maintain, edit, and add new Paintings and their Series, setting details
+// about them. AdminUsers update Orders' OrderStatus which trigger Notifications
+// to users (via email)
+//
+// Desired features
+// - view all series
+// - view all paintings in a series
+// - view other (non-unique) shop items
+// - show "recently added" on the home/landing page
+// - display a sort of "social media feed" or "blog post feed"
+//   which has "blog posts" by the artist with arbitrary embedded
+//   videos, images, and text
+//
 // Artist
 //
 // ArtworkSeries
@@ -28,6 +46,8 @@
 // - id
 // - userId
 // - CheckoutStep
+//
+// Order
 //
 // User
 // - id

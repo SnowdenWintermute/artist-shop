@@ -1,4 +1,4 @@
-namespace ArtistShop.Web.Domain;
+namespace ArtistShop.Web.Domain.Catalog;
 
 public record SupportId(string Value);
 
