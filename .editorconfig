@@ -387,3 +387,14 @@ dotnet_naming_style.s_camelcase.required_suffix =
 dotnet_naming_style.s_camelcase.word_separator = 
 dotnet_naming_style.s_camelcase.capitalization = camel_case
 
+
+# SQL files
+# indent_size must agree with tabWidth in .sql-formatter.json: nvim reads this
+# one while typing, sql-formatter reads that one on save, and it does not read
+# .editorconfig the way csharpier does.
+[*.sql]
+indent_size = 4
+tab_width = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+end_of_line = lf

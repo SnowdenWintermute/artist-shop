@@ -1,0 +1,6 @@
+{
+  "language": "tsql",
+  "keywordCase": "upper",
+  "dataTypeCase": "lower",
+  "tabWidth": 4
+}
