@@ -22,6 +22,7 @@ var identityConnectionString =
 // domain database
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<SchemaMigrator>();
+builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -57,7 +58,10 @@ builder
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+/////////////////////////////
 var app = builder.Build();
+
+/////////////////////////////
 
 var databaseInitializer = app.Services.GetRequiredService<DatabaseInitializer>();
 await databaseInitializer.EnsureDatabaseExistsAsync(shopConnectionString);
