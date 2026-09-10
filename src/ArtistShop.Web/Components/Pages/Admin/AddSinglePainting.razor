@@ -1,0 +1,58 @@
+@page "/admin/paintings/add-single"
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject PaintingRepository PaintingRepository
+@inject NavigationManager NavigationManager
+
+<PageTitle>Add a painting</PageTitle>
+
+@if (AddedSlug is not null)
+{
+  <p>
+    Painting added.
+    <a href="@($"/paintings/{AddedSlug}")">
+      View it
+    </a>
+  </p>
+}
+
+<main class="pt-10">
+  <div class="border max-w-[600px] mx-auto p-4">
+    <h1>Add a painting</h1>
+
+    <EditForm Model="Input" FormName="new-painting" OnValidSubmit="AddPainting" Enhance>
+      <DataAnnotationsValidator />
+
+      <TextField Label="Title" @bind-Value="Input.Name" />
+      <NumberField Label="Price" @bind-Value="Input.Price" />
+      <NumberField Label="Stock" @bind-Value="Input.Stock" />
+      <DateField Label="Date painted" @bind-Value="Input.DatePainted" />
+      <TextAreaField Label="Description" @bind-Value="Input.Description" />
+      <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+      <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
+
+      <button type="submit">Add painting</button>
+    </EditForm>
+  </div>
+</main>
+
+@code {
+  [SupplyParameterFromForm]
+  private PaintingCatalogAdditionForm Input { get; set; } = default!;
+  [SupplyParameterFromQuery(Name = "added")]
+  private string? AddedSlug { get; set; }
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task AddPainting()
+  {
+    var identifiers = await PaintingRepository.AddAsync(Input.ToCatalogAddition());
+ 
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["added"] = identifiers.Slug.Value }));
+
+  }
+}

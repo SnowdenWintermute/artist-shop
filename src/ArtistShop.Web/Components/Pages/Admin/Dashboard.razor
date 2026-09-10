@@ -1,5 +1,7 @@
+@using ArtistShop.Web.Identity
 @using Microsoft.AspNetCore.Authorization
 @page "/admin"
 
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = RoleNames.Admin)]
 <div>admins allowed</div>
+

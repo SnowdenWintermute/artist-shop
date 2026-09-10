@@ -2,5 +2,7 @@
   "language": "tsql",
   "keywordCase": "upper",
   "dataTypeCase": "lower",
+  "functionCase": "upper",
+  "expressionWidth": 80,
   "tabWidth": 4
 }

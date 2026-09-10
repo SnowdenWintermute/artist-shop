@@ -8,10 +8,10 @@ public static class IdentitySeeder
     {
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
-        if (!await roleManager.RoleExistsAsync("Admin"))
+        if (!await roleManager.RoleExistsAsync(RoleNames.Admin))
         {
             ThrowIfFailed(
-                await roleManager.CreateAsync(new IdentityRole("Admin")),
+                await roleManager.CreateAsync(new IdentityRole(RoleNames.Admin)),
                 "creating Admin role"
             );
         }
@@ -45,12 +45,12 @@ public static class IdentitySeeder
             ThrowIfFailed(await userManager.UpdateAsync(user), "confirming the admin user's email");
         }
 
-        var userIsAdmin = await userManager.IsInRoleAsync(user, "Admin");
+        var userIsAdmin = await userManager.IsInRoleAsync(user, RoleNames.Admin);
 
         if (!userIsAdmin)
         {
             ThrowIfFailed(
-                await userManager.AddToRoleAsync(user, "Admin"),
+                await userManager.AddToRoleAsync(user, RoleNames.Admin),
                 "adding user to Admin role"
             );
         }

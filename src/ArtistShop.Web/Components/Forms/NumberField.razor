@@ -1,0 +1,23 @@
+@typeparam TValue
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  [Parameter]
+  public TValue? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<TValue?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;
+
+  private string ElementId => FieldIdentifier.Create(ValueExpression).FieldName;
+}
+
+<FieldLayout TValue="TValue" Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+  <InputNumber class="artist-shop-field-input" TValue="TValue" id="@elementId" Value="Value" ValueChanged="ValueChanged"
+               ValueExpression="ValueExpression" />
+</FieldLayout>
+

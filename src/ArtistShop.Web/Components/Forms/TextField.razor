@@ -1,0 +1,20 @@
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public string? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<string?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<string?>> ValueExpression { get; set; } = default!;
+
+  private string ElementId => FieldIdentifier.Create(ValueExpression).FieldName;
+}
+
+<FieldLayout Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+  <InputText class="artist-shop-field-input" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
+             ValueExpression="ValueExpression" />
+</FieldLayout>

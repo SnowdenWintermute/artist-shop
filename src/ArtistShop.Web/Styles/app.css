@@ -88,3 +88,7 @@
   --font-serif:
     "JosefinSlab", ui-serif, Georgia, Cambria, "Times New Roman", serif;
 }
+
+.artist-shop-field-input {
+  @apply border border-theme-base px-2 h-10;
+}

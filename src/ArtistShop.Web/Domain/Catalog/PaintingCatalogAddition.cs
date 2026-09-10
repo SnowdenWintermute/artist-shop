@@ -4,7 +4,7 @@ using ArtistShop.Web.Domain.Commerce;
 
 public record PaintingCatalogAddition(
     ShopItemName Name,
-    ShopItemSlug Slug,
+    ShopItemSlug CandidateSlug,
     decimal Price,
     int Stock,
     DateOnly DatePainted,

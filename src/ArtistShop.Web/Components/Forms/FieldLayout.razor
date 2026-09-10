@@ -1,0 +1,21 @@
+@typeparam TValue
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment<string> ChildContent { get; set; } = default!;
+
+  private string ElementId => FieldIdentifier.Create(ValueExpression).FieldName;
+}
+
+<div class="mb-4">
+  <label class="mb-1 block text-sm" for="@ElementId">@Label</label>
+  @ChildContent(ElementId)
+  <ValidationMessage For="ValueExpression" />
+</div>
+

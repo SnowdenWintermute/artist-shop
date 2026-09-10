@@ -1,0 +1,52 @@
+@* this component has a generic type. when called in Painting form, it is DateOnly *@
+@typeparam TValue
+
+@code {
+  // set default! to tell compiler "we will set this via the framework as it takes in the parameter"
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  // The current value of the input
+  [Parameter]
+  public TValue? Value { get; set; }
+
+  // onChange callback
+  [Parameter]
+  public EventCallback<TValue?> ValueChanged { get; set; }
+
+  // Func<TValue?> would be a compiled function -- you could call it and get a
+  // value, nothing more. Expression<Func<TValue?>> is the *code itself* kept as
+  // inspectable data: a little tree saying "read the property DatePainted off
+  // this object". Blazor reads that tree to learn which model property this
+  // input is bound to, which is how a validation error finds the right field,
+  // and how the name="Input.DatePainted" attribute gets generated for the POST.
+  //
+  // The caller never writes this. @bind-Value="Input.DatePainted" expands into
+  // all three parameters at once, and the compiler supplies "() => Input.DatePainted"
+  // here automatically.
+  [Parameter]
+  public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;
+  private string ElementId => FieldIdentifier.Create(ValueExpression).FieldName;
+}
+
+<div>
+  @* InputDate is a framework component that renders <input type="date"> and
+     handles parsing text into a DateOnly. TValue="TValue" hands our type
+     parameter through to it.
+
+     q: how does it know it can accept TValue, what if that isn't a date type?
+     shouldn't it be TValue extends Date or something?
+
+     We forward all three binding parameters rather than re-binding. Forwarding
+     ValueExpression is the important one: if we wrote @bind-Value="Value" here,
+     the inner input would think it was bound to *our* Value property, and both
+     the validation matching and the form's name attribute would point at the
+     wrong thing. 
+
+q: clearly there is some concept of "Binding" that I need to understand first
+     *@
+  <FieldLayout Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+    <InputDate class="artist-shop-field-input" id="@elementId" Value="Value" ValueChanged="ValueChanged"
+               ValueExpression="ValueExpression" />
+  </FieldLayout>
+</div>

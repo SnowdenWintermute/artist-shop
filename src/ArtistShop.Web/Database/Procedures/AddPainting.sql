@@ -1,5 +1,5 @@
 CREATE OR ALTER PROCEDURE dbo.AddPainting @Name nvarchar(200),
-@Slug nvarchar(200),
+@CandidateSlug nvarchar(200),
 @Price decimal(10, 2),
 @Stock int,
 @DatePainted date,
@@ -19,7 +19,12 @@ NOCOUNT ON;
 SET
 XACT_ABORT ON;
 
+SET
+TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
 BEGIN TRANSACTION;
+
+DECLARE @Slug nvarchar(210) = dbo.ResolveShopItemSlug (@CandidateSlug);
 
 INSERT INTO
     dbo.ShopItems (Name, Slug, Price, Stock)
@@ -36,13 +41,7 @@ SET
 INSERT INTO
     dbo.Paintings (Id, DatePainted, Description, WidthCm, HeightCm)
 VALUES
-    (
-        @Id,
-        @DatePainted,
-        @Description,
-        @WidthCm,
-        @HeightCm
-    );
+    (@Id, @DatePainted, @Description, @WidthCm, @HeightCm);
 
 -- inserts all the rows in the table returned from the select
 INSERT INTO
@@ -83,6 +82,7 @@ FROM
 COMMIT TRANSACTION;
 
 SELECT
-    @Id;
+    @Id AS Id,
+    @Slug AS Slug;
 
 END;

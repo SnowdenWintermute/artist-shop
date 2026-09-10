@@ -41,7 +41,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         return table;
     }
 
-    public async Task<int> AddAsync(PaintingCatalogAddition paintingCatalogAddition)
+    public async Task<ShopItemIdentifiers> AddAsync(PaintingCatalogAddition paintingCatalogAddition)
     {
         var images = CreateImageDataTable(paintingCatalogAddition);
         var paintingSeriesIds = CreateIdDataTable(
@@ -59,12 +59,12 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
 
         await using var connection = connectionFactory.Create();
 
-        return await connection.QuerySingleAsync<int>(
+        var row = await connection.QuerySingleAsync<AddedPaintingRow>(
             "dbo.AddPainting",
             new
             {
                 Name = paintingCatalogAddition.Name.Value,
-                Slug = paintingCatalogAddition.Slug.Value,
+                CandidateSlug = paintingCatalogAddition.CandidateSlug.Value,
                 paintingCatalogAddition.Price,
                 paintingCatalogAddition.Stock,
                 paintingCatalogAddition.DatePainted,
@@ -78,6 +78,8 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             },
             commandType: CommandType.StoredProcedure
         );
+
+        return new ShopItemIdentifiers(new ShopItemId(row.Id), new ShopItemSlug(row.Slug));
     }
 
     public async Task<Painting?> GetBySlugAsync(string slug)
@@ -135,6 +137,12 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         };
 
         return painting;
+    }
+
+    private sealed class AddedPaintingRow
+    {
+        public required int Id { get; init; }
+        public required string Slug { get; init; }
     }
 
     private sealed class PaintingRow
