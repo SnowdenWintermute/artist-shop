@@ -6,9 +6,10 @@ CREATE OR ALTER PROCEDURE dbo.AddPainting @Name nvarchar(200),
 @Description nvarchar(max),
 @WidthCm decimal(6, 2),
 @HeightCm decimal(6, 2),
--- how is it we are passing a "table type" as a parameter from
--- the frontend to this procedure?
-@Images dbo.ShopItemImageList READONLY AS BEGIN
+@Images dbo.ShopItemImageList READONLY,
+@MediumIds dbo.IdList READONLY,
+@SupportIds dbo.IdList READONLY,
+@SeriesIds dbo.IdList READONLY AS BEGIN
 -- Stops SQL Server emitting a "(1 row affected)" message per statement. Those
 -- are extra results the client has to skip past, and they confuse some drivers.
 SET
@@ -53,6 +54,31 @@ SELECT
     IsPrimary
 FROM
     @Images;
+
+INSERT INTO
+    dbo.PaintingAndMediumsJunction (PaintingId, MediumId)
+SELECT
+    @Id,
+    Id
+FROM
+    @MediumIds;
+
+INSERT INTO
+    dbo.PaintingAndSupportsJunction (PaintingId, SupportId)
+SELECT
+    @Id,
+    Id
+FROM
+    @SupportIds;
+
+-- the column is SeriesId but the source column is just Id
+INSERT INTO
+    dbo.PaintingAndSeriesJunction (PaintingId, SeriesId)
+SELECT
+    @Id,
+    Id
+FROM
+    @SeriesIds;
 
 COMMIT TRANSACTION;
 

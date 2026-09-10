@@ -1,10 +1,10 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
-public record MediumId(string Value);
+public record MediumId(int Value);
 
 public record MediumName(string Value);
 
-public class Medium(string id, string name)
+public class Medium(int id, string name)
 {
     public MediumId Id { get; } = new(id);
     public MediumName Name { get; private set; } = new(name);

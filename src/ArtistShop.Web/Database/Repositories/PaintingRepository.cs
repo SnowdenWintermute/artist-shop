@@ -2,28 +2,60 @@ namespace ArtistShop.Web.Database.Repositories;
 
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Commerce;
 using Dapper;
 
 public class PaintingRepository(SqlConnectionFactory connectionFactory)
 {
-    private static DataTable CreateImageDataTable(Painting painting)
+    private static DataTable CreateImageDataTable(PaintingCatalogAddition paintingCatalogAddition)
     {
         var images = new DataTable();
         images.Columns.Add("Path", typeof(string));
         images.Columns.Add("SortOrder", typeof(int));
         images.Columns.Add("IsPrimary", typeof(bool));
 
-        for (var i = 0; i < painting.ImageRelativeUrls.Count; i += 1)
+        for (var i = 0; i < paintingCatalogAddition.ImageRelativeUrls.Count; i += 1)
         {
-            images.Rows.Add(painting.ImageRelativeUrls[i], i, i == painting.MainImageIndex);
+            images.Rows.Add(
+                paintingCatalogAddition.ImageRelativeUrls[i],
+                i,
+                i == paintingCatalogAddition.MainImageIndex
+            );
         }
 
         return images;
     }
 
-    public async Task<int> AddAsync(Painting painting)
+    // for PaintingSeries, Medium and Support which all are stored
+    // as id lists
+    private static DataTable CreateIdDataTable(IEnumerable<int> ids)
     {
-        var images = CreateImageDataTable(painting);
+        var table = new DataTable();
+        table.Columns.Add("Id", typeof(int));
+
+        foreach (var id in ids)
+        {
+            table.Rows.Add(id);
+        }
+
+        return table;
+    }
+
+    public async Task<int> AddAsync(PaintingCatalogAddition paintingCatalogAddition)
+    {
+        var images = CreateImageDataTable(paintingCatalogAddition);
+        var paintingSeriesIds = CreateIdDataTable(
+                paintingCatalogAddition.SeriesIds.Select((id) => id.Value)
+            )
+            .AsTableValuedParameter("dbo.IdList");
+        var mediumIds = CreateIdDataTable(
+                paintingCatalogAddition.MediumIds.Select((id) => id.Value)
+            )
+            .AsTableValuedParameter("dbo.IdList");
+        var supportIds = CreateIdDataTable(
+                paintingCatalogAddition.SupportIds.Select((id) => id.Value)
+            )
+            .AsTableValuedParameter("dbo.IdList");
 
         await using var connection = connectionFactory.Create();
 
@@ -31,15 +63,18 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             "dbo.AddPainting",
             new
             {
-                Name = painting.Name.Value,
-                Slug = painting.Slug.Value,
-                painting.Price,
-                painting.Stock,
-                painting.DatePainted,
-                painting.Description,
-                WidthCm = painting.Dimensions?.Width,
-                HeightCm = painting.Dimensions?.Height,
+                Name = paintingCatalogAddition.Name.Value,
+                Slug = paintingCatalogAddition.Slug.Value,
+                paintingCatalogAddition.Price,
+                paintingCatalogAddition.Stock,
+                paintingCatalogAddition.DatePainted,
+                paintingCatalogAddition.Description,
+                WidthCm = paintingCatalogAddition.Dimensions?.Width,
+                HeightCm = paintingCatalogAddition.Dimensions?.Height,
                 Images = images.AsTableValuedParameter("dbo.ShopItemImageList"),
+                SeriesIds = paintingSeriesIds,
+                MediumIds = mediumIds,
+                SupportIds = supportIds,
             },
             commandType: CommandType.StoredProcedure
         );
@@ -55,6 +90,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             commandType: CommandType.StoredProcedure
         );
 
+        // These Read calls MUST run in the same order as the SELECTs in the procedure
         var row = await results.ReadSingleOrDefaultAsync<PaintingRow>();
 
         if (row is null)
@@ -64,23 +100,35 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
 
         var images = (await results.ReadAsync<ImageRow>()).ToList();
 
+        var mediums = (await results.ReadAsync<LookupRow>())
+            .Select(lookup => new Medium(lookup.Id, lookup.Name))
+            .ToList();
+
+        var supports = (await results.ReadAsync<LookupRow>())
+            .Select(lookup => new Support(lookup.Id, lookup.Name))
+            .ToList();
+
+        var series = (await results.ReadAsync<LookupRow>())
+            .Select(lookup => new PaintingSeries(lookup.Id, lookup.Name))
+            .ToList();
+
         var dimensions = row is { WidthCm: decimal width, HeightCm: decimal height }
             ? new DimensionsCentimeters(new Dimensions(width, height))
             : null;
 
         var painting = new Painting(
             row.Id,
-            row.Name,
-            row.Slug,
+            new ShopItemName(row.Name),
+            new ShopItemSlug(row.Slug),
             row.Price,
             row.Stock,
             row.DatePainted,
             images.Select(image => image.Path),
             dimensions,
             row.Description,
-            seriesIds: null,
-            mediums: null,
-            supports: null
+            mediums,
+            supports,
+            series
         )
         {
             MainImageIndex = Math.Max(images.FindIndex(image => image.IsPrimary), 0),
@@ -106,5 +154,11 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
     {
         public required string Path { get; init; }
         public required bool IsPrimary { get; init; }
+    }
+
+    private sealed class LookupRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
     }
 }

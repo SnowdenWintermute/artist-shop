@@ -8,16 +8,16 @@ public record ShopItemSlug(string Value);
 
 public abstract class ShopItem(
     int id,
-    string name,
-    string slug,
+    ShopItemName name,
+    ShopItemSlug slug,
     decimal price,
     int stock,
     IEnumerable<string> imageRelativeUrls
 )
 {
     public ShopItemId Id { get; } = new(id);
-    public ShopItemName Name { get; set; } = new(name);
-    public ShopItemSlug Slug { get; set; } = new(slug);
+    public ShopItemName Name { get; set; } = name;
+    public ShopItemSlug Slug { get; set; } = slug;
 
     public decimal Price { get; set; } = price;
     public int Stock { get; set; } = stock;

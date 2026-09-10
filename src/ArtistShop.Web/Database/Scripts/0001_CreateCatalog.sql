@@ -68,35 +68,35 @@ CREATE TABLE dbo.Supports (
     CONSTRAINT Unique_Supports_Name UNIQUE (Name)
 );
 
-CREATE TABLE dbo.Series (
+CREATE TABLE dbo.PaintingSeries (
     Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_Series PRIMARY KEY (Id),
+    CONSTRAINT PrimaryKey_PaintingSeries PRIMARY KEY (Id),
     Name nvarchar(256) NOT NULL,
-    CONSTRAINT Unique_Series_Name UNIQUE (Name),
+    CONSTRAINT Unique_PaintingSeries_Name UNIQUE (Name),
     Slug nvarchar(256) NOT NULL,
-    CONSTRAINT Unique_Series_Slug UNIQUE (Slug)
+    CONSTRAINT Unique_PaintingSeries_Slug UNIQUE (Slug)
 );
 
-CREATE TABLE dbo.PaintingMediums (
+CREATE TABLE dbo.PaintingAndMediumsJunction (
     PaintingId int NOT NULL,
     MediumId int NOT NULL,
-    CONSTRAINT PrimaryKey_PaintingMediums PRIMARY KEY (PaintingId, MediumId),
-    CONSTRAINT ForeignKey_PaintingMediums_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
-    CONSTRAINT ForeignKey_PaintingMediums_Mediums FOREIGN KEY (MediumId) REFERENCES dbo.Mediums (Id)
+    CONSTRAINT PrimaryKey_PaintingAndMediumsJunction PRIMARY KEY (PaintingId, MediumId),
+    CONSTRAINT ForeignKey_PaintingAndMediumsJunction_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
+    CONSTRAINT ForeignKey_PaintingAndMediumsJunction_Mediums FOREIGN KEY (MediumId) REFERENCES dbo.Mediums (Id)
 );
 
-CREATE TABLE dbo.PaintingSupports (
+CREATE TABLE dbo.PaintingAndSupportsJunction (
     PaintingId int NOT NULL,
     SupportId int NOT NULL,
-    CONSTRAINT PrimaryKey_PaintingSupports PRIMARY KEY (PaintingId, SupportId),
-    CONSTRAINT ForeignKey_PaintingSupports_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
-    CONSTRAINT ForeignKey_PaintingSupports_Supports FOREIGN KEY (SupportId) REFERENCES dbo.Supports (Id)
+    CONSTRAINT PrimaryKey_PaintingAndSupportsJunction PRIMARY KEY (PaintingId, SupportId),
+    CONSTRAINT ForeignKey_PaintingAndSupportsJunction_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
+    CONSTRAINT ForeignKey_PaintingAndSupportsJunction_Supports FOREIGN KEY (SupportId) REFERENCES dbo.Supports (Id)
 );
 
-CREATE TABLE dbo.PaintingSeries (
+CREATE TABLE dbo.PaintingAndSeriesJunction (
     PaintingId int NOT NULL,
     SeriesId int NOT NULL,
-    CONSTRAINT PrimaryKey_PaintingSeries PRIMARY KEY (PaintingId, SeriesId),
-    CONSTRAINT ForeignKey_PaintingSeries_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
-    CONSTRAINT ForeignKey_PaintingSeries_Series FOREIGN KEY (SeriesId) REFERENCES dbo.Series (Id)
+    CONSTRAINT PrimaryKey_PaintingAndSeriesJunction PRIMARY KEY (PaintingId, SeriesId),
+    CONSTRAINT ForeignKey_PaintingAndSeriesJunction_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
+    CONSTRAINT ForeignKey_PaintingAndSeriesJunction_PaintingSeries FOREIGN KEY (SeriesId) REFERENCES dbo.PaintingSeries (Id)
 );

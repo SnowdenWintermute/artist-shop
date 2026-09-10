@@ -5,3 +5,7 @@ TABLE (
     SortOrder int NOT NULL,
     IsPrimary bit NOT NULL
 );
+
+CREATE
+TYPE dbo.IdList AS
+TABLE (Id int NOT NULL);

@@ -4,17 +4,17 @@ namespace ArtistShop.Web.Domain.Catalog;
 
 public class Painting(
     int id,
-    string name,
-    string slug,
+    ShopItemName name,
+    ShopItemSlug slug,
     decimal price,
     int stock,
     DateOnly datePainted,
     IEnumerable<string> imageRelativeUrls,
     DimensionsCentimeters? dimensions,
     string? description,
-    IEnumerable<SeriesId>? seriesIds,
     IEnumerable<Medium>? mediums,
-    IEnumerable<Support>? supports
+    IEnumerable<Support>? supports,
+    IEnumerable<PaintingSeries>? series
 ) : ShopItem(id, name, slug, price, stock, imageRelativeUrls)
 {
     public DateOnly DatePainted { get; set; } = datePainted;
@@ -23,8 +23,8 @@ public class Painting(
     public IReadOnlyList<Medium> Mediums => _mediums;
     private readonly List<Support> _supports = supports?.ToList() ?? [];
     public IReadOnlyList<Support> Supports => _supports;
-    private readonly List<SeriesId> _seriesIds = seriesIds?.ToList() ?? [];
-    public IReadOnlyList<SeriesId> SeriesIds => _seriesIds;
+    private readonly List<PaintingSeries> _series = series?.ToList() ?? [];
+    public IReadOnlyList<PaintingSeries> Series => _series;
 
     public DimensionsCentimeters? Dimensions { get; private set; } = dimensions;
     public string? Description { get; private set; } = description;
