@@ -7,7 +7,7 @@ public record ShopItemId(int Value);
 
 public record ShopItemName(string Value);
 
-public record ShopItemImage(string RelativePath, int Width, int Height);
+public record ShopItemImage(string RelativePath, int Width, int Height, string? BlurDataUri);
 
 public record ShopItemSlug(string Value)
 {

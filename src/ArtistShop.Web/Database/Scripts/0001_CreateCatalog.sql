@@ -45,7 +45,8 @@ CREATE TABLE dbo.ShopItemImages (
     -- DEFAULT can't be put in a standalone constraint
     IsPrimary bit NOT NULL CONSTRAINT Default_ShopItemImages_IsPrimary DEFAULT 0,
     Width int NOT NULL,
-    Height int NOT NULL
+    Height int NOT NULL,
+    BlurDataUri nvarchar(1000)
 );
 
 CREATE UNIQUE INDEX UniqueIndex_ShopItemImages_Primary ON dbo.ShopItemImages (ShopItemId)

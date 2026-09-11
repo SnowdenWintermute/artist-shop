@@ -22,7 +22,8 @@ SELECT
     shopItemImages.RelativePath,
     shopItemImages.IsPrimary,
     shopItemImages.Width,
-    shopItemImages.Height
+    shopItemImages.Height,
+    shopItemImages.BlurDataUri
 FROM
     dbo.ShopItemImages AS shopItemImages
     JOIN dbo.ShopItems shopItem ON shopItem.Id = shopItemImages.ShopItemId

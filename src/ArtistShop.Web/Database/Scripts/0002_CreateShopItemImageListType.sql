@@ -5,7 +5,8 @@ TABLE (
     SortOrder int NOT NULL,
     IsPrimary bit NOT NULL,
     Width int NOT NULL,
-    Height int NOT NULL
+    Height int NOT NULL,
+    BlurDataUri nvarchar(1000)
 );
 
 CREATE

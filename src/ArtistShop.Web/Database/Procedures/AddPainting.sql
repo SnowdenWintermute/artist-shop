@@ -45,14 +45,15 @@ VALUES
 
 -- inserts all the rows in the table returned from the select
 INSERT INTO
-    dbo.ShopItemImages (ShopItemId, RelativePath, SortOrder, IsPrimary, Width, Height)
+    dbo.ShopItemImages (ShopItemId, RelativePath, SortOrder, IsPrimary, Width, Height, BlurDataUri)
 SELECT
     @Id,
     RelativePath,
     SortOrder,
     IsPrimary,
     Width,
-    Height
+    Height,
+    BlurDataUri
 FROM
     @Images;
 

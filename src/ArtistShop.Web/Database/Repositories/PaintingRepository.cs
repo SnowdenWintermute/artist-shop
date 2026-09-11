@@ -15,13 +15,20 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         images.Columns.Add("IsPrimary", typeof(bool));
         images.Columns.Add("Width", typeof(int));
         images.Columns.Add("Height", typeof(int));
+        images.Columns.Add("BlurDataUri", typeof(string));
 
         for (var i = 0; i < paintingCatalogAddition.Images.Count; i += 1)
         {
+            var image = paintingCatalogAddition.Images[i];
+            // must match the Table Value Property dbo.ShopItemImageList
+            // parameter order
             images.Rows.Add(
-                paintingCatalogAddition.Images[i],
+                image.RelativePath,
                 i,
-                i == paintingCatalogAddition.MainImageIndex
+                i == paintingCatalogAddition.MainImageIndex,
+                image.Width,
+                image.Height,
+                image.BlurDataUri
             );
         }
 
@@ -130,7 +137,8 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             images.Select(image => new ShopItemImage(
                 image.RelativePath,
                 image.Width,
-                image.Height
+                image.Height,
+                image.BlurDataUri
             )),
             dimensions,
             row.Description,
@@ -170,6 +178,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         public required bool IsPrimary { get; init; }
         public required int Width { get; init; }
         public required int Height { get; init; }
+        public string? BlurDataUri { get; init; }
     }
 
     private sealed class LookupRow
