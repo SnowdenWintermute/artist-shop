@@ -47,7 +47,7 @@ public class PaintingCatalogAdditionForm : IValidatableObject
             WidthCm.HasValue && HeightCm.HasValue
                 ? new DimensionsCentimeters(new Dimensions(WidthCm.Value, HeightCm.Value))
                 : null,
-            ImageRelativeUrls: [],
+            Images: [],
             MainImageIndex: 0,
             MediumIds: [],
             SupportIds: [],

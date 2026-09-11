@@ -1,9 +1,11 @@
 CREATE
 TYPE dbo.ShopItemImageList AS
 TABLE (
-    Path nvarchar(400) NOT NULL,
+    RelativePath nvarchar(400) NOT NULL,
     SortOrder int NOT NULL,
-    IsPrimary bit NOT NULL
+    IsPrimary bit NOT NULL,
+    Width int NOT NULL,
+    Height int NOT NULL
 );
 
 CREATE

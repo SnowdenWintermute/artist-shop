@@ -10,7 +10,7 @@ public record PaintingCatalogAddition(
     DateOnly DatePainted,
     string? Description,
     DimensionsCentimeters? Dimensions,
-    IReadOnlyList<string> ImageRelativeUrls,
+    IReadOnlyList<ShopItemImage> Images,
     int MainImageIndex,
     IReadOnlyList<MediumId> MediumIds,
     IReadOnlyList<SupportId> SupportIds,

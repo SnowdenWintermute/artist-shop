@@ -19,8 +19,10 @@ WHERE
     shopItem.Slug = @Slug;
 
 SELECT
-    shopItemImages.Path,
-    shopItemImages.IsPrimary
+    shopItemImages.RelativePath,
+    shopItemImages.IsPrimary,
+    shopItemImages.Width,
+    shopItemImages.Height
 FROM
     dbo.ShopItemImages AS shopItemImages
     JOIN dbo.ShopItems shopItem ON shopItem.Id = shopItemImages.ShopItemId

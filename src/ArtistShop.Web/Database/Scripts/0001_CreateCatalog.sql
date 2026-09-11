@@ -40,10 +40,12 @@ CREATE TABLE dbo.ShopItemImages (
     CONSTRAINT PrimaryKey_ShopItemImages PRIMARY KEY (Id),
     ShopItemId int NOT NULL,
     CONSTRAINT ForeignKey_ShopItemImages_ShopItems FOREIGN KEY (ShopItemId) REFERENCES dbo.ShopItems (Id) ON DELETE CASCADE,
-    Path nvarchar(400) NOT NULL,
+    RelativePath nvarchar(400) NOT NULL,
     SortOrder int NOT NULL,
     -- DEFAULT can't be put in a standalone constraint
-    IsPrimary bit NOT NULL CONSTRAINT Default_ShopItemImages_IsPrimary DEFAULT 0
+    IsPrimary bit NOT NULL CONSTRAINT Default_ShopItemImages_IsPrimary DEFAULT 0,
+    Width int NOT NULL,
+    Height int NOT NULL
 );
 
 CREATE UNIQUE INDEX UniqueIndex_ShopItemImages_Primary ON dbo.ShopItemImages (ShopItemId)

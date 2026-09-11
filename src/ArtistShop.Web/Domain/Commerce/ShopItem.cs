@@ -7,6 +7,8 @@ public record ShopItemId(int Value);
 
 public record ShopItemName(string Value);
 
+public record ShopItemImage(string RelativePath, int Width, int Height);
+
 public record ShopItemSlug(string Value)
 {
     public static ShopItemSlug FromName(string name)
@@ -48,7 +50,7 @@ public abstract class ShopItem(
     ShopItemSlug slug,
     decimal price,
     int stock,
-    IEnumerable<string> imageRelativeUrls
+    IEnumerable<ShopItemImage> images
 )
 {
     public ShopItemId Id { get; } = new(id);
@@ -58,8 +60,8 @@ public abstract class ShopItem(
     public decimal Price { get; set; } = price;
     public int Stock { get; set; } = stock;
 
-    private readonly List<string> _imageRelativeUrls = imageRelativeUrls?.ToList() ?? [];
-    public IReadOnlyList<string> ImageRelativeUrls => _imageRelativeUrls;
+    private readonly List<ShopItemImage> _images = [.. images];
+    public IReadOnlyList<ShopItemImage> Images => _images;
 
     // determine which thumbnail to show
     public int MainImageIndex { get; set; } = 0;

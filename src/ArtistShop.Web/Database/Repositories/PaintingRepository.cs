@@ -10,14 +10,16 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
     private static DataTable CreateImageDataTable(PaintingCatalogAddition paintingCatalogAddition)
     {
         var images = new DataTable();
-        images.Columns.Add("Path", typeof(string));
+        images.Columns.Add("RelativePath", typeof(string));
         images.Columns.Add("SortOrder", typeof(int));
         images.Columns.Add("IsPrimary", typeof(bool));
+        images.Columns.Add("Width", typeof(int));
+        images.Columns.Add("Height", typeof(int));
 
-        for (var i = 0; i < paintingCatalogAddition.ImageRelativeUrls.Count; i += 1)
+        for (var i = 0; i < paintingCatalogAddition.Images.Count; i += 1)
         {
             images.Rows.Add(
-                paintingCatalogAddition.ImageRelativeUrls[i],
+                paintingCatalogAddition.Images[i],
                 i,
                 i == paintingCatalogAddition.MainImageIndex
             );
@@ -125,7 +127,11 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             row.Price,
             row.Stock,
             row.DatePainted,
-            images.Select(image => image.Path),
+            images.Select(image => new ShopItemImage(
+                image.RelativePath,
+                image.Width,
+                image.Height
+            )),
             dimensions,
             row.Description,
             mediums,
@@ -160,8 +166,10 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
 
     private sealed class ImageRow
     {
-        public required string Path { get; init; }
+        public required string RelativePath { get; init; }
         public required bool IsPrimary { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
     }
 
     private sealed class LookupRow

@@ -1,0 +1,31 @@
+@page "/paintings/{slug}"
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject PaintingRepository PaintingRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public string Slug { get; set; } = default!;
+
+  private Painting? painting;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    painting = await PaintingRepository.GetBySlugAsync(Slug);
+
+    if (painting is null)
+    {
+      NavigationManager.NotFound();
+    }
+  }
+}
+
+@if (painting is not null)
+{
+  <PageTitle>@painting.Name.Value</PageTitle>
+  <h1>@painting.Name.Value</h1>
+  <h1>@painting.Description</h1>
+}
+
+

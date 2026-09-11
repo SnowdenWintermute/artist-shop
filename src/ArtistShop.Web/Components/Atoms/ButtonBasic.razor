@@ -1,0 +1,18 @@
+@code {
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+
+  private const string BaseClass = "p-2 h-10 leading-0 cursor-pointer disabled:cursor-auto";
+
+  [Parameter]
+  public string? Class { get; set; }
+
+  private string CssClass =>
+    string.IsNullOrWhiteSpace(Class) ? BaseClass : $"{BaseClass} {Class}";
+
+}
+
+<button @attributes="AdditionalAttributes" class="@CssClass">@ChildContent</button>

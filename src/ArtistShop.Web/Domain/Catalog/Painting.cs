@@ -9,13 +9,13 @@ public class Painting(
     decimal price,
     int stock,
     DateOnly datePainted,
-    IEnumerable<string> imageRelativeUrls,
+    IEnumerable<ShopItemImage> images,
     DimensionsCentimeters? dimensions,
     string? description,
     IEnumerable<Medium>? mediums,
     IEnumerable<Support>? supports,
     IEnumerable<PaintingSeries>? series
-) : ShopItem(id, name, slug, price, stock, imageRelativeUrls)
+) : ShopItem(id, name, slug, price, stock, images)
 {
     public DateOnly DatePainted { get; set; } = datePainted;
 
