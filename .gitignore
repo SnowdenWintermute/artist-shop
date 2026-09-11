@@ -483,3 +483,5 @@ $RECYCLE.BIN/
 
 # Tailwind standalone CLI
 /tailwindcss
+# Uploaded images
+/src/ArtistShop.Web/content/

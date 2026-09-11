@@ -31,6 +31,8 @@ public class PaintingCatalogAdditionForm : IValidatableObject
     [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
     public decimal? HeightCm { get; set; }
 
+    public string? SpikeValue { get; set; }
+
     public PaintingCatalogAddition ToCatalogAddition()
     {
         ArgumentNullException.ThrowIfNull(Name);

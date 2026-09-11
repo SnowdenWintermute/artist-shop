@@ -1,0 +1,16 @@
+@rendermode InteractiveServer
+
+@code {
+  private int _clickCount;
+  private void Increment() => _clickCount++;
+}
+
+<div class="mb-4 border border-dashed p-4">
+  <p class="mb-1 text-sm">Island clicks: @_clickCount</p>
+
+  <input type="hidden" name="Input.SpikeValue" value="clicked-@_clickCount" />
+
+  <button type="button" class="cursor-pointer border p-2" @onclick="Increment">
+    Click me
+  </button>
+</div>

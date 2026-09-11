@@ -43,6 +43,10 @@
       </p>
     }
 
+    <p class="mb-4 text-sm text-purple-600">
+      Bound spike value: @(Input.SpikeValue ?? "(none)")
+    </p>
+
     <EditForm Model="Input" FormName="new-painting" OnValidSubmit="AddPainting" Enhance>
       <DataAnnotationsValidator />
 
@@ -54,10 +58,20 @@
       <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
       <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
 
+      <ImagesField />
+
       <ButtonBasic type="submit" Class="bg-blue-400 text-white text-lg">
         Add painting
       </ButtonBasic>
     </EditForm>
+
+
+    <form action="/admin/uploads" method="post" enctype="multipart/form-data">
+      <AntiforgeryToken />
+      <input type="file" name="file" />
+      <button type="submit">Upload test</button>
+    </form>
+
   </div>
 </main>
 

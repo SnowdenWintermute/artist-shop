@@ -1,3 +1,12 @@
+// TODO LIST
+// - image storage
+// - image auto-convert to blur data, thumbnail, other sizes
+// - add painting reactivity to facilitate
+//   - image upload progress bar
+//   - drag image around to order them
+//   - set image as primary
+//
+// DOMAIN KNOWLEDGE CRUNCHING
 // Users browse Paintings sorted by their various Series and other ShopItems such as PostCards,
 // add and remove them from their Cart, proceed to CheckOut
 // where they may provide their ShippingAddress, PaymentInformation,

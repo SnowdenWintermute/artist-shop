@@ -3,10 +3,12 @@ using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
+using ArtistShop.Web.Images;
 using Dapper;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,14 @@ var shopConnectionString =
 var identityConnectionString =
     builder.Configuration.GetConnectionString("ArtistShopIdentity")
     ?? throw new InvalidOperationException("ConnectionStrings:ArtistShopIdentity is not set.");
+
+var imageStorageRootPath = Path.Combine(
+    builder.Environment.ContentRootPath,
+    builder.Configuration["ImageStorage:RootPath"]
+        ?? throw new InvalidOperationException("ImageStorage:RootPath is not set.")
+);
+
+builder.Services.AddSingleton(new ImageStoragePaths(imageStorageRootPath));
 
 // domain database
 builder.Services.AddSingleton<DatabaseInitializer>();
@@ -74,6 +84,10 @@ await databaseInitializer.EnsureDatabaseExistsAsync(identityConnectionString);
 var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
 schemaMigrator.Upgrade(shopConnectionString);
 
+var imageStoragePaths = app.Services.GetRequiredService<ImageStoragePaths>();
+Directory.CreateDirectory(imageStoragePaths.Originals);
+Directory.CreateDirectory(imageStoragePaths.Variants);
+
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -92,6 +106,14 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+app.UseStaticFiles(
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(imageStoragePaths.Variants),
+        RequestPath = "/media",
+    }
+);
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
@@ -99,5 +121,8 @@ app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 // identity
 app.MapAdditionalIdentityEndpoints();
+
+// image endpoints
+app.MapImageUploadEndpoints();
 
 app.Run();
