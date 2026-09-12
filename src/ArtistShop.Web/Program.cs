@@ -30,6 +30,7 @@ var imageStorageRootPath = Path.Combine(
 );
 
 builder.Services.AddSingleton(new ImageStoragePaths(imageStorageRootPath));
+builder.Services.AddSingleton<ImageProcessor>();
 
 // domain database
 builder.Services.AddSingleton<DatabaseInitializer>();

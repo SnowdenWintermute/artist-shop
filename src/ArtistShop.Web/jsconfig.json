@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "checkJs": true,
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["Components/**/*.js", "wwwroot/**/*.js"]
+}

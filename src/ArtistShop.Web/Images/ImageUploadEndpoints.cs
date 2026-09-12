@@ -1,9 +1,10 @@
 using ArtistShop.Web.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
+using NetVips;
 
 namespace ArtistShop.Web.Images;
 
-public record ImageUploadResult(string StorageKey);
+public record ImageUploadResult(string StorageKey, int Width, int Height, string BlurDataUri);
 
 public static class ImageUploadEndpoints
 {
@@ -28,6 +29,7 @@ public static class ImageUploadEndpoints
     private static async Task<Results<Ok<ImageUploadResult>, BadRequest<string>>> UploadAsync(
         IFormFile file, // binds the form field named "file", the names must match
         ImageStoragePaths paths,
+        ImageProcessor imageProcessor,
         CancellationToken cancellationToken
     )
     {
@@ -54,9 +56,39 @@ public static class ImageUploadEndpoints
         var storageKey = Guid.CreateVersion7().ToString("n");
 
         // FileStream is IAsyncDisposable
-        await using var destination = File.Create(Path.Combine(paths.Originals, storageKey));
-        await file.CopyToAsync(destination, cancellationToken);
+        var originalPath = Path.Combine(paths.Originals, storageKey);
 
-        return TypedResults.Ok(new ImageUploadResult(storageKey));
+        // putting braces after using makes the using release the resource
+        // after the braces, which we need to do before letting Vips
+        // process it
+        await using (var destination = File.Create(originalPath))
+        {
+            await file.CopyToAsync(destination, cancellationToken);
+        }
+
+        try
+        {
+            var processed = imageProcessor.Process(storageKey);
+            return TypedResults.Ok(
+                new ImageUploadResult(
+                    storageKey,
+                    processed.Width,
+                    processed.Height,
+                    processed.BlurDataUri
+                )
+            );
+        }
+        catch (Exception exception) when (exception is VipsException or ImageTooSmallException)
+        {
+            File.Delete(originalPath);
+
+            var variantDirectory = Path.Combine(paths.Variants, storageKey);
+            if (Directory.Exists(variantDirectory))
+            {
+                Directory.Delete(variantDirectory, recursive: true);
+            }
+
+            return TypedResults.BadRequest(exception.Message);
+        }
     }
 }
