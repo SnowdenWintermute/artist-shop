@@ -181,6 +181,9 @@
   .pointer-events-none {
     pointer-events: none;
   }
+  .invisible {
+    visibility: hidden;
+  }
   .visible {
     visibility: visible;
   }
@@ -198,11 +201,32 @@
   .absolute {
     position: absolute;
   }
+  .fixed {
+    position: fixed;
+  }
   .static {
     position: static;
   }
   .z-10 {
     z-index: 10;
+  }
+  .container {
+    width: 100%;
+    @media (width >= 40rem) {
+      max-width: 40rem;
+    }
+    @media (width >= 48rem) {
+      max-width: 48rem;
+    }
+    @media (width >= 64rem) {
+      max-width: 64rem;
+    }
+    @media (width >= 80rem) {
+      max-width: 80rem;
+    }
+    @media (width >= 96rem) {
+      max-width: 96rem;
+    }
   }
   .mx-auto {
     margin-inline: auto;
@@ -256,8 +280,14 @@
   .h-dvh {
     height: 100dvh;
   }
+  .h-full {
+    height: 100%;
+  }
   .w-\[45px\] {
     width: 45px;
+  }
+  .w-full {
+    width: 100%;
   }
   .max-w-\[600px\] {
     max-width: 600px;
@@ -318,6 +348,9 @@
   }
   .bg-theme-sunken {
     background-color: var(--theme-sunken);
+  }
+  .bg-white {
+    background-color: var(--color-white);
   }
   .object-cover {
     object-fit: cover;
@@ -423,7 +456,7 @@
   }
 }
 :root {
-  --theme-recessed: #ffffff;
+  --theme-recessed: #f5f5f5;
   --theme-sunken: #e9e7e2;
   --theme-base: black;
   --theme-muted: grey;

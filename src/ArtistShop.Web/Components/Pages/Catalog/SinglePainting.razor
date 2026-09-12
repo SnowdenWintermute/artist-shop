@@ -26,7 +26,13 @@
   <PageTitle>@painting.Name.Value</PageTitle>
   <h1>@painting.Name.Value</h1>
   <h1>@painting.Description</h1>
-  <img src="@painting.Images[0].BlurDataUri" />
+  @foreach (var image in painting.Images)
+  {
+
+    <img src="@image.BlurDataUri" />
+    <img src="@($"/media/{image.RelativePath}/800.webp")" />
+    <div>@image.RelativePath </div>
+  }
 }
 
 

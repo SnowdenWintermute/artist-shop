@@ -7,6 +7,54 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
+## Where this stands — 2026-09-12
+
+Steps 0-7 are done and verified against the database. You can drop or pick multiple images on
+`/admin/paintings/add-single`, watch each upload with a real progress bar, reorder by dragging,
+star one as primary, and it all persists in order with the right primary. The catalog and the
+image directories were cleared at the end of the session, so the next run starts empty.
+
+**Layout.** Uploads live at `<repo>/content/images/{originals,variants}` — deliberately outside
+the project directory, because `dotnet watch` treats files under the project as project changes
+and refreshes the browser, which kills the SignalR circuit mid-upload. Components are under
+`src/ArtistShop.Web/Components/Forms/FileUpload/`: `FileDropZone.razor` (+ its `.razor.js`) is
+file-type agnostic and is what the future CSV upload should compose; `Images/` holds
+`ImagesField`, `ImageUploadRow` and `SelectedImage`.
+
+**If something looks flaky, check these before theorising.** Both bugs this session were
+invisible by default:
+- `appsettings.json` pins `Microsoft.AspNetCore` to `Warning`, which hides SignalR and circuit
+  diagnostics. Raise `Microsoft.AspNetCore.SignalR`, `.Http.Connections` and `.Components.Server`
+  to Debug in Development first.
+- A `dotnet watch ⌚ Files added:` line naming your own runtime output means the watcher is
+  fighting you.
+- Exceeding SignalR's 32KB `MaximumReceiveMessageSize` closes the circuit with **no exception**,
+  so an empty server log does not mean nothing went wrong.
+
+## Open question: two paintings sharing a storage key
+
+It happened once (paintings 6 and 7) and it was a **bug**, not a designed behaviour: the form
+didn't reset after a successful save, so the island still held the previous painting's images and
+resubmitting posted the same storage keys against a new painting. `@key="AddedSlug"` fixed the
+cause.
+
+The question worth deciding deliberately is whether sharing should be *possible* at all.
+
+**Argument for forbidding it** — a `UNIQUE` constraint on `dbo.ShopItemImages.RelativePath` would
+have turned that silent duplicate into a loud error on the second submit. Same reasoning as the
+filtered unique index that makes zero-or-many primaries unrepresentable. It also means every
+deletion path can assume one row per file instead of reference counting.
+
+**Argument against** — `Postcard extends ShopItem` is in the domain notes, and a postcard of a
+painting plausibly wants to reuse that painting's photograph. A global unique forecloses that.
+
+**Leaning:** add the constraint now. The only sharing observed so far was an accident, and if
+postcards later need reuse, dropping the constraint and adding reference counting should be a
+deliberate schema change rather than something discovered after the fact.
+
+**Either way, until it is decided the orphan sweep must not assume one row per file** — it has to
+check for *any* referencing row.
+
 ## 0. Spike the boundary — DONE
 
 - [x] Minimal `InteractiveServer` island inside the EditForm, rendering one hardcoded hidden input
@@ -87,14 +135,19 @@ variant arrives fast enough that a client-side preview earns nothing.
 - [x] `ValidationMessage For="() => Input.Images"` — no field component, so no home otherwise
 - [x] Confirmed in the database: SortOrder 0,1,2 with the star on the right row
 
-### Still open from this step
+### Resolved from this step
 
-- [ ] `forceLoad: true` on the success redirect — enhanced navigation preserves the island,
-      so the form keeps its images after a save and a second submit duplicates the painting
-      (painting 7 duplicated painting 6 this way). Validation failures must stay enhanced.
-- [ ] Delete duplicate painting 7
-- [ ] Intermittent: upload stuck at 100% after a submit. Not reproducible; `.catch` handlers
-      are now in place, so check the browser console next time it appears.
+- [x] Form reset after save — `@key="AddedSlug"` on `ImagesField`. Blazor rebuilds the component
+      when the key changes, which also disposes the uploader and frees the JS `File` map.
+      `forceLoad` was the heavier alternative and wasn't needed.
+- [x] Frozen upload bars / circuit reconnects — two causes, both fixed: the content directory sat
+      inside the project so `dotnet watch` refreshed the browser mid-upload, and the blur data URI
+      carried the source EXIF, blowing SignalR's 32KB receive limit.
+- [x] Metadata stripped: variants keep only ICC, the blur keeps nothing and is converted to sRGB.
+      Fixes a real privacy leak — public variants were carrying camera GPS.
+- [x] Error bodies only rendered when `text/plain` and short, so an exception page can't paint
+      itself into the UI
+- [x] Test catalog and orphaned files cleared
 
 ## 8. Cleanup
 
@@ -103,10 +156,11 @@ variant arrives fast enough that a client-side preview earns nothing.
       still open. Done by hand once: 49 of 56 keys were orphans, 54M -> 4.4M.
 - [ ] Deletion stays in the sweep, not on the ✕ button — ✕ must mean "unlink" so the same
       component works on an edit screen where the file is still referenced
-- [ ] Note: two paintings can share a storage key (see painting 6/7), so the sweep must check
-      for *any* referencing row, not assume one-to-one
+- [ ] Decide the shared-storage-key question above, then make the sweep match it
 - [ ] Abort in-flight XHRs when the island is disposed
 - [ ] `MSSQL_PID=Express` in docker-compose (Developer edition is not production-licensed)
+- [ ] Consider a `VARCHAR` widening or a size guard on `BlurDataUri` — the column is
+      `nvarchar(1000)` and nothing currently checks the blur fits before the insert
 
 ## 9. Later — bulk import (not started)
 

@@ -3,7 +3,8 @@
 @source "../Components";
 
 :root {
-  --theme-recessed: #ffffff; /* furthest back: cards, insets */
+  --theme-recessed: #f5f5f5; /* furthest back: cards, insets */
+  --theme-sunken: #e9e7e2; /* body background */
   --theme-sunken: #e9e7e2; /* body background */
   --theme-base: black; /* header / footer */
   --theme-muted: grey; /* secondary text, borders */

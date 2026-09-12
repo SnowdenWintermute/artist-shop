@@ -36,17 +36,19 @@ public class ImageProcessor(ImageStoragePaths paths)
             // reading gps coords metadata from uploaded images
             // blur uri strips all metadata
             using var variant = Image.Thumbnail(originalPath, width).CopyMemory();
+            var exifMetadataDesired = Enums.ForeignKeep.Icc | Enums.ForeignKeep.Xmp;
             variant.WriteToFile(
                 Path.Combine(variantDirectory, $"{width}.avif"),
-                new VOption { { "Q", 50 }, { "keep", Enums.ForeignKeep.Icc } }
+                new VOption { { "Q", 50 }, { "keep", exifMetadataDesired } }
             );
             variant.WriteToFile(
                 Path.Combine(variantDirectory, $"{width}.webp"),
-                new VOption { { "Q", 75 }, { "keep", Enums.ForeignKeep.Icc } }
+                new VOption { { "Q", 75 }, { "keep", exifMetadataDesired } }
             );
         }
 
-        using var blur = Image.Thumbnail(originalPath, BlurWidth);
+        using var blur = Image.Thumbnail(originalPath, BlurWidth, outputProfile: "srgb");
+
         var blurBytes = blur.WriteToBuffer(
             ".webp",
             new VOption { { "Q", 40 }, { "keep", Enums.ForeignKeep.None } }
