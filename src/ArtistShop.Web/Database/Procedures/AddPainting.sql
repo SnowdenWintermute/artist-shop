@@ -45,7 +45,16 @@ VALUES
 
 -- inserts all the rows in the table returned from the select
 INSERT INTO
-    dbo.ShopItemImages (ShopItemId, RelativePath, SortOrder, IsPrimary, Width, Height, BlurDataUri)
+    dbo.ShopItemImages (
+        ShopItemId,
+        RelativePath,
+        OriginalFileName,
+        SortOrder,
+        IsPrimary,
+        Width,
+        Height,
+        BlurDataUri
+    )
 SELECT
     @Id,
     RelativePath,
@@ -53,7 +62,8 @@ SELECT
     IsPrimary,
     Width,
     Height,
-    BlurDataUri
+    BlurDataUri,
+    OriginalFileName
 FROM
     @Images;
 

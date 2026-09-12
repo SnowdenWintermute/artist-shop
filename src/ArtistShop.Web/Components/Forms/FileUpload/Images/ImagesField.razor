@@ -1,0 +1,108 @@
+@using ArtistShop.Web.Images
+@using BlazorBlueprint.Primitives.Sortable
+@using ArtistShop.Web.Components.Forms.FileUpload
+@rendermode InteractiveServer
+
+@code {
+  private readonly List<SelectedImage> _files = [];
+  private string? _primaryFileId;
+  private SelectedImage? PrimaryFile => _files.FirstOrDefault(file => file.Id == _primaryFileId && file.Result is not
+null)
+   ?? _files.FirstOrDefault(file => file.Result is not null);
+
+  private FileDropZone<ImageUploadResult>? _dropZone;
+
+  private void SetPrimary(SelectedImage file) => _primaryFileId = file.Id;
+
+  private void OnSelected((string Id, string Name, long Size) file) =>
+    _files.Add(new SelectedImage(file.Id, file.Name, file.Size));
+
+  private void OnProgress((string Id, int PercentComplete) progress)
+  {
+    var file = FindFile(progress.Id);
+    if (file is not null)
+    {
+      file.UploadPercentComplete = progress.PercentComplete;
+    }
+  }
+
+  private void OnCompleted((string Id, ImageUploadResult Result) completion)
+  {
+    var file = FindFile(completion.Id);
+    if (file is not null)
+    {
+      file.UploadPercentComplete = 100;
+      file.Result = completion.Result;
+    }
+  }
+
+  private void OnFailed((string Id, string Message) failure)
+  {
+    var file = FindFile(failure.Id);
+    if (file is not null)
+    {
+      file.Error = failure.Message;
+    }
+  }
+
+  private async Task RemoveFile(SelectedImage file)
+  {
+    _files.Remove(file);
+
+    if (_dropZone is not null)
+    {
+      await _dropZone.ForgetAsync(file.Id);
+    }
+  }
+
+  private async Task RetryUpload(SelectedImage file)
+  {
+    file.Error = null;
+    file.UploadPercentComplete = 0;
+
+    if (_dropZone is not null)
+    {
+      await _dropZone.UploadAsync(file.Id);
+    }
+  }
+
+  private void MoveFile((int OldIndex, int NewIndex) move)
+  {
+    var file = _files[move.OldIndex];
+    _files.RemoveAt(move.OldIndex);
+    _files.Insert(move.NewIndex, file);
+  }
+
+  private void NudgeFile(SelectedImage file, int offset)
+  {
+    var index = _files.IndexOf(file);
+    var target = index + offset;
+
+    if (target < 0 || target >= _files.Count)
+    {
+      return;
+    }
+
+    MoveFile((index, target));
+  }
+
+  private SelectedImage? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
+
+}
+
+<div class="mb-4">
+  <FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="/admin/uploads" Prompt="Drop images here"
+                Accept="image/*" Multiple="true" OnSelected="OnSelected" OnProgress="OnProgress" OnCompleted="OnCompleted"
+                OnFailed="OnFailed" />
+  <BbSortable Items="_files" OnUpdate="MoveFile" Filter="input, button" AriaLabel="Image order">
+    <ItemTemplate Context="file">
+      <ImageUploadRow SelectedImage="file" PrimaryFieldName="Input.PrimaryImageKey" IsPrimary="PrimaryFile == file"
+                      IsPrimaryExplicit="file.Id == _primaryFileId" IsFirst="_files.IndexOf(file) is 0"
+                      IsLast="_files.IndexOf(file) == _files.Count - 1" OnSetPrimary="() => SetPrimary(file)"
+                      OnMove="offset => NudgeFile(file, offset)" OnRemove="() => RemoveFile(file)"
+                      OnRetry="() => RetryUpload(file)" />
+    </ItemTemplate>
+  </BbSortable>
+  
+</div>
+

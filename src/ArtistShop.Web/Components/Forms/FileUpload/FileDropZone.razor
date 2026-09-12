@@ -1,0 +1,132 @@
+@typeparam TResult
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@code {
+  [Parameter, EditorRequired]
+  public string UploadUrl { get; set; } = default!;
+  [Parameter]
+  public string Prompt { get; set; } = "Drop files here";
+  [Parameter]
+  public string? Accept { get; set; }
+  [Parameter]
+  public bool Multiple { get; set; }
+  [Parameter]
+  public EventCallback<(string Id, string Name, long Size)> OnSelected { get; set; }
+  [Parameter]
+  public EventCallback<(string Id, int PercentComplete)> OnProgress { get; set; }
+  [Parameter]
+  public EventCallback<(string Id, TResult Result)> OnCompleted { get; set; }
+  [Parameter]
+  public EventCallback<(string Id, string Message)> OnFailed { get; set; }
+
+  // these are populated by the @ref after the first render
+  // and can be passed to JS as the real DOM element
+  private ElementReference _dropZone;
+  private ElementReference _fileInput;
+
+  private IJSObjectReference? _module;
+  private IJSObjectReference? _uploader;
+
+  // wraps this Blazor component instance so JS can call back into
+  // it. Must be explicitly disposed or will memory leak.
+  private DotNetObjectReference<FileDropZone<TResult>>? _selfReference;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    _module = await JS.InvokeAsync<IJSObjectReference>(
+      "import",
+      "./Components/Forms/FileUpload/FileDropZone.razor.js"
+    );
+
+    _selfReference = DotNetObjectReference.Create(this);
+
+    _uploader = await _module.InvokeAsync<IJSObjectReference>(
+      "createUploader", _dropZone, _fileInput, _selfReference, UploadUrl);
+  }
+
+  public async Task UploadAsync(string id)
+  {
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("upload", id);
+    }
+  }
+
+  public async Task ForgetAsync(string id)
+  {
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("forget", id);
+    }
+  }
+
+  private async Task OpenFilePicker()
+  {
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("open");
+    }
+  }
+
+  // allows JS to call this method via dotNetReference.invokeMethodAsync
+  // the name must match the string passed to dotNetReference.invokeMethodAsync
+  // in js
+  [JSInvokable]
+  public async Task OnFileSelected(string id, string name, long size)
+  {
+    await OnSelected.InvokeAsync((id, name, size));
+    await UploadAsync(id);
+  }
+
+  [JSInvokable]
+  public Task OnUploadProgress(string id, int percentComplete) =>
+    OnProgress.InvokeAsync((id, percentComplete));
+
+  [JSInvokable]
+  public Task OnUploadCompleted(string id, JsonElement result) =>
+    OnCompleted.InvokeAsync((id, result.Deserialize<TResult>(JsonSerializerOptions.Web)!));
+
+  [JSInvokable]
+  public Task OnUploadFailed(string id, string message) =>
+    OnFailed.InvokeAsync((id, message));
+
+  public async ValueTask DisposeAsync()
+  {
+    try
+    {
+      if (_uploader is not null)
+      {
+        await _uploader.InvokeVoidAsync("dispose");
+        await _uploader.DisposeAsync();
+      }
+
+      if (_module is not null)
+      {
+        await _module.DisposeAsync();
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+
+    _selfReference?.Dispose();
+  }
+}
+
+<div @ref="_dropZone" class="mb-2 border border-dashed p-6 text-center">
+  <p class="mb-2 text-sm">@Prompt</p>
+
+  <ButtonBasic type="button" Class="border" @onclick="OpenFilePicker">
+    Choose files
+  </ButtonBasic>
+
+  <input @ref="_fileInput" type="file" multiple="@Multiple" accept="@Accept" class="hidden" />
+</div>

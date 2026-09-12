@@ -20,6 +20,7 @@ WHERE
 
 SELECT
     shopItemImages.RelativePath,
+    shopItemImages.OriginalFileName,
     shopItemImages.IsPrimary,
     shopItemImages.Width,
     shopItemImages.Height,

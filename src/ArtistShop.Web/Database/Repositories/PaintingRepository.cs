@@ -11,6 +11,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
     {
         var images = new DataTable();
         images.Columns.Add("RelativePath", typeof(string));
+        images.Columns.Add("OriginalFileName", typeof(string));
         images.Columns.Add("SortOrder", typeof(int));
         images.Columns.Add("IsPrimary", typeof(bool));
         images.Columns.Add("Width", typeof(int));
@@ -24,6 +25,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             // parameter order
             images.Rows.Add(
                 image.RelativePath,
+                image.OriginalFileName,
                 i,
                 i == paintingCatalogAddition.MainImageIndex,
                 image.Width,
@@ -136,6 +138,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             row.DatePainted,
             images.Select(image => new ShopItemImage(
                 image.RelativePath,
+                image.OriginalFileName,
                 image.Width,
                 image.Height,
                 image.BlurDataUri
@@ -175,6 +178,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
     private sealed class ImageRow
     {
         public required string RelativePath { get; init; }
+        public string? OriginalFileName { get; init; }
         public required bool IsPrimary { get; init; }
         public required int Width { get; init; }
         public required int Height { get; init; }

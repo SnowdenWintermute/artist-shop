@@ -1,10 +1,17 @@
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using NetVips;
 
 namespace ArtistShop.Web.Images;
 
-public record ImageUploadResult(string StorageKey, int Width, int Height, string BlurDataUri);
+public record ImageUploadResult(
+    string StorageKey,
+    string? OriginalFileName,
+    int Width,
+    int Height,
+    string BlurDataUri
+);
 
 public static class ImageUploadEndpoints
 {
@@ -33,6 +40,16 @@ public static class ImageUploadEndpoints
         CancellationToken cancellationToken
     )
     {
+        // client input must be run through GetFileName to sanitize
+        // potentially malicious input
+        var originalFileName = Path.GetFileName(file.FileName);
+        if (originalFileName.Length > CatalogLimits.ShopItemImageFileNameMaximumLength)
+        {
+            return TypedResults.BadRequest(
+                $"File names must be {CatalogLimits.ShopItemImageFileNameMaximumLength} characters or fewer."
+            );
+        }
+
         if (file.Length is 0)
         {
             return TypedResults.BadRequest("Attempted to upload an empty file");
@@ -72,6 +89,7 @@ public static class ImageUploadEndpoints
             return TypedResults.Ok(
                 new ImageUploadResult(
                     storageKey,
+                    originalFileName,
                     processed.Width,
                     processed.Height,
                     processed.BlurDataUri

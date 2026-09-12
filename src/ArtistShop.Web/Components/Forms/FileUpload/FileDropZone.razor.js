@@ -1,13 +1,18 @@
 const DRAG_OVER_CLASS = "bg-blue-50";
 const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
-const UPLOADS_ROUTE = "/admin/uploads";
 
 /**
  * @param {HTMLElement} dropZone
  * @param {HTMLInputElement} fileInput
  * @param {{ invokeMethodAsync: (method: string, ...args: unknown[]) => Promise<unknown> }} dotNetReference
+ * @param {string} uploadUrl
  */
-export function createUploader(dropZone, fileInput, dotNetReference) {
+export function createUploader(
+  dropZone,
+  fileInput,
+  dotNetReference,
+  uploadUrl
+) {
   /** @type {Map<string, File>} */
   const pendingFiles = new Map();
 
@@ -113,7 +118,7 @@ export function createUploader(dropZone, fileInput, dotNetReference) {
       );
     });
 
-    request.open("POST", UPLOADS_ROUTE);
+    request.open("POST", uploadUrl);
     request.send(formData);
   }
 

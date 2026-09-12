@@ -1,0 +1,85 @@
+@using BlazorBlueprint.Primitives.Progress
+@code {
+  [Parameter, EditorRequired]
+  public SelectedImage SelectedImage { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string PrimaryFieldName { get; set; } = default!;
+  [Parameter]
+  public bool IsPrimary { get; set; }
+  [Parameter]
+  public bool IsPrimaryExplicit { get; set; }
+  [Parameter]
+  public bool IsFirst { get; set; }
+  [Parameter]
+  public bool IsLast { get; set; }
+  [Parameter]
+  public EventCallback OnSetPrimary { get; set; }
+  [Parameter]
+  public EventCallback<int> OnMove { get; set; }
+  [Parameter]
+  public EventCallback OnRemove { get; set; }
+  [Parameter]
+  public EventCallback OnRetry { get; set; }
+
+  private string StatusLabel =>
+  SelectedImage.Error is not null ? SelectedImage.Error
+  : SelectedImage.Result is not null ? "Done"
+  : SelectedImage.UploadPercentComplete is 100 ? "Processing…"
+  : $"{SelectedImage.UploadPercentComplete}%";
+
+  private string StarClass =>
+  IsPrimaryExplicit ? "text-blue-400"
+  : IsPrimary ? "text-yellow-500"
+  : "text-gray-300";
+}
+
+<div class="mb-2 flex cursor-move items-center gap-2 border p-2 text-sm bg-theme-recessed">
+  @if (SelectedImage.Result is not null)
+  {
+    <img src="/media/@SelectedImage.Result.StorageKey/400.avif" alt="" class="size-10 object-cover" />
+  }
+
+  <div class="grow">
+    <div class="mb-1 flex justify-between">
+      <span>@SelectedImage.Name</span>
+      <span>@StatusLabel</span>
+    </div>
+
+    @if (SelectedImage.Error is null && SelectedImage.Result is null)
+    {
+      <BbProgress Value="SelectedImage.UploadPercentComplete" Max="100" class="block h-1 bg-gray-200">
+        <BbProgressIndicator class="block h-1 bg-blue-500" style="@($"width: {SelectedImage.UploadPercentComplete}%")" />
+      </BbProgress>
+    }
+  </div>
+
+  @if (SelectedImage.Result is not null)
+  {
+    <label class="cursor-pointer px-1 text-lg leading-none" title="Set as main image">
+      <input type="radio" name="@PrimaryFieldName" value="@SelectedImage.Result.StorageKey" checked="@IsPrimary"
+             @onchange="OnSetPrimary" class="peer sr-only" />
+      <span class="@StarClass peer-focus-visible:outline">★</span>
+    </label>
+  }
+
+  @if (SelectedImage.Error is not null)
+  {
+    <button type="button" class="cursor-pointer border px-2" @onclick="OnRetry">
+      Retry
+    </button>
+  }
+
+  <button type="button" class="cursor-pointer px-1" title="Move up" disabled="@IsFirst"
+          @onclick="() => OnMove.InvokeAsync(-1)">
+    ↑
+  </button>
+
+  <button type="button" class="cursor-pointer px-1" title="Move down" disabled="@IsLast"
+          @onclick="() => OnMove.InvokeAsync(1)">
+    ↓
+  </button>
+
+  <button type="button" class="cursor-pointer px-1" title="Remove" @onclick="OnRemove">
+    ✕
+  </button>
+</div>

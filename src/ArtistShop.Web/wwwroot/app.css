@@ -14,7 +14,6 @@
     --color-blue-50: oklch(97% 0.014 254.604);
     --color-blue-400: oklch(70.7% 0.165 254.624);
     --color-blue-500: oklch(62.3% 0.214 259.815);
-    --color-purple-600: oklch(55.8% 0.288 302.321);
     --color-fuchsia-300: oklch(83.3% 0.145 321.434);
     --color-gray-200: oklch(92.8% 0.006 264.531);
     --color-gray-300: oklch(87.2% 0.01 258.338);
@@ -341,9 +340,6 @@
   .bg-gray-200 {
     background-color: var(--color-gray-200);
   }
-  .bg-theme-base {
-    background-color: var(--theme-base);
-  }
   .bg-theme-recessed {
     background-color: var(--theme-recessed);
   }
@@ -415,9 +411,6 @@
   .text-green-600 {
     color: var(--color-green-600);
   }
-  .text-purple-600 {
-    color: var(--color-purple-600);
-  }
   .text-red-400 {
     color: var(--color-red-400);
   }
@@ -443,9 +436,6 @@
   }
   .filter {
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
-  }
-  .peer-checked\:text-yellow-500:is(:where(.peer):checked ~ *) {
-    color: var(--color-yellow-500);
   }
   .peer-focus-visible\:outline:is(:where(.peer):focus-visible ~ *) {
     outline-style: var(--tw-outline-style);

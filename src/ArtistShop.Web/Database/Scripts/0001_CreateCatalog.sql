@@ -41,6 +41,7 @@ CREATE TABLE dbo.ShopItemImages (
     ShopItemId int NOT NULL,
     CONSTRAINT ForeignKey_ShopItemImages_ShopItems FOREIGN KEY (ShopItemId) REFERENCES dbo.ShopItems (Id) ON DELETE CASCADE,
     RelativePath nvarchar(400) NOT NULL,
+    OriginalFileName nvarchar(260),
     SortOrder int NOT NULL,
     -- DEFAULT can't be put in a standalone constraint
     IsPrimary bit NOT NULL CONSTRAINT Default_ShopItemImages_IsPrimary DEFAULT 0,
