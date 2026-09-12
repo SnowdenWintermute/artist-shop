@@ -58,12 +58,12 @@ INSERT INTO
 SELECT
     @Id,
     RelativePath,
+    OriginalFileName,
     SortOrder,
     IsPrimary,
     Width,
     Height,
-    BlurDataUri,
-    OriginalFileName
+    BlurDataUri
 FROM
     @Images;
 

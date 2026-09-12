@@ -14,7 +14,10 @@ using Microsoft.Extensions.FileProviders;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder
+    .Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddInteractiveServerComponents(options => options.DetailedErrors = true);
 builder.Services.AddBlazorBlueprintPrimitives();
 
 var shopConnectionString =
@@ -25,10 +28,12 @@ var identityConnectionString =
     builder.Configuration.GetConnectionString("ArtistShopIdentity")
     ?? throw new InvalidOperationException("ConnectionStrings:ArtistShopIdentity is not set.");
 
-var imageStorageRootPath = Path.Combine(
-    builder.Environment.ContentRootPath,
-    builder.Configuration["ImageStorage:RootPath"]
-        ?? throw new InvalidOperationException("ImageStorage:RootPath is not set.")
+var imageStorageRootPath = Path.GetFullPath(
+    Path.Combine(
+        builder.Environment.ContentRootPath,
+        builder.Configuration["ImageStorage:RootPath"]
+            ?? throw new InvalidOperationException("ImageStorage:RootPath is not set.")
+    )
 );
 
 builder.Services.AddSingleton(new ImageStoragePaths(imageStorageRootPath));

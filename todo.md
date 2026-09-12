@@ -51,35 +51,68 @@ means reprocessing `originals/`.
 - [x] Listeners and the `DotNetObjectReference` cleaned up on dispose
 - [x] `jsconfig.json` + JSDoc for type checking without a Node toolchain
 
-## 5. The island component — MOSTLY DONE
+## 5. The island component — DONE
 
 - [x] Row per file: name, progress bar, status, real thumbnail once processed
 - [x] Distinct "Processing…" state between 100% and the server finishing
 - [x] Per-file error message from the server's own text
-- [ ] Retry a failed upload (the `File` is still held in the JS Map for this)
-- [ ] Remove a file
-- [ ] Delete the temporary `<form action="/admin/uploads">` scaffold
+- [x] Retry a failed upload (the `File` is still held in the JS Map for this)
+- [x] Remove a file
+- [x] Temporary upload scaffold deleted
+- [x] Split into `FileUpload/` (shared) and `FileUpload/Images/` (image-specific)
+- [x] `FileDropZone<TResult>` extracted — drop zone, XHR driver, progress plumbing,
+      generic only at its public API so the JSInvokable stays non-generic
+- [x] `.catch` on every JS→.NET call, after two silent-rejection debugging sessions
 
 Dropped: `IBrowserFile.RequestImageFileAsync` preview. Unnecessary — the served
 variant arrives fast enough that a client-side preview earns nothing.
 
-## 6. Reorder and primary
+## 6. Reorder and primary — DONE
 
-- [ ] Drag to reorder the thumbnails
-- [ ] Star icon sets primary; exactly one, default to the first
-- [ ] Keyboard alternative to dragging
+- [x] BlazorBlueprint.Primitives `BbSortable` (SortableJS) — touch works, unlike raw HTML5 DnD
+- [x] `BbProgress` for real `role="progressbar"` semantics
+- [x] Native radio group for primary — grouping is by `name`, so nesting in sortable rows is fine;
+      `Filter="input, button"` stops the controls initiating a drag
+- [x] ↑/↓ buttons as the keyboard path (SortableJS has no keyboard reorder)
+- Primitives only: 247 bytes of CSS, so no second Tailwind build. Components' 129KB sheet not taken.
 
-## 7. Wire into the form
+## 7. Wire into the form — VERIFIED WORKING
 
-- [ ] Hidden inputs in DOM order: storage key, width, height, blur, plus the primary index
-- [ ] Bind them onto `PaintingCatalogAdditionForm`
-- [ ] `ToCatalogAddition()` builds real `ShopItemImage` records instead of `Images: []`
-- [ ] Server-side validation: at least one image, primary index in range
-- [ ] Confirm files are written before rows are inserted
+- [x] Indexed hidden inputs `Input.Images[n].*`; the index carries the order
+- [x] Original filename captured and persisted (the bulk-CSV join key)
+- [x] `ToCatalogAddition()` builds real `ShopItemImage` records
+- [x] `NonEmptyAttribute` — property-level so it doesn't hit the `IValidatableObject`
+      short-circuit; `[MinLength]` alone was useless because every DataAnnotations
+      validator except `[Required]` treats null as valid
+- [x] `ValidationMessage For="() => Input.Images"` — no field component, so no home otherwise
+- [x] Confirmed in the database: SortOrder 0,1,2 with the star on the right row
+
+### Still open from this step
+
+- [ ] `forceLoad: true` on the success redirect — enhanced navigation preserves the island,
+      so the form keeps its images after a save and a second submit duplicates the painting
+      (painting 7 duplicated painting 6 this way). Validation failures must stay enhanced.
+- [ ] Delete duplicate painting 7
+- [ ] Intermittent: upload stuck at 100% after a submit. Not reproducible; `.catch` handlers
+      are now in place, so check the browser console next time it appears.
 
 ## 8. Cleanup
 
-- [ ] Orphan sweep for uploads whose form was never submitted
-- [ ] Delete files when an image is removed from a saved painting
+- [ ] Orphan sweep: delete files with no `ShopItemImages.RelativePath`, **older than a grace
+      period** — "unreferenced" is also true of a file uploaded a minute ago with the form
+      still open. Done by hand once: 49 of 56 keys were orphans, 54M -> 4.4M.
+- [ ] Deletion stays in the sweep, not on the ✕ button — ✕ must mean "unlink" so the same
+      component works on an edit screen where the file is still referenced
+- [ ] Note: two paintings can share a storage key (see painting 6/7), so the sweep must check
+      for *any* referencing row, not assume one-to-one
 - [ ] Abort in-flight XHRs when the island is disposed
 - [ ] `MSSQL_PID=Express` in docker-compose (Developer edition is not production-licensed)
+
+## 9. Later — bulk import (not started)
+
+- [ ] CSV of the artist's spreadsheet creates shop items with no images
+- [ ] Bulk image upload matched to existing items by original filename
+- [ ] Attach-images must be its own operation, not only reachable through `AddPainting`
+- [ ] Directory upload: `webkitdirectory` on the picker, `dataTransfer.items` +
+      `webkitGetAsEntry()` on the drop zone (currently `.files`, which flattens folders)
+- [ ] Concurrency cap in the upload driver — hundreds of files means queueing 3-4 at a time

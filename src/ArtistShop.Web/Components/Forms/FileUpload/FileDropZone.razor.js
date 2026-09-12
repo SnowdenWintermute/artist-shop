@@ -21,12 +21,9 @@ export function createUploader(
     for (const file of files) {
       const id = crypto.randomUUID();
       pendingFiles.set(id, file);
-      dotNetReference.invokeMethodAsync(
-        "OnFileSelected",
-        id,
-        file.name,
-        file.size
-      );
+      dotNetReference
+        .invokeMethodAsync("OnFileSelected", id, file.name, file.size)
+        .catch((error) => console.error("OnUploadCompleted failed", error));
     }
   }
 
@@ -86,40 +83,52 @@ export function createUploader(
 
       const percentComplete = Math.round((event.loaded / event.total) * 100);
 
-      dotNetReference.invokeMethodAsync(
-        "OnUploadProgress",
-        id,
-        percentComplete
-      );
+      dotNetReference
+        .invokeMethodAsync("OnUploadProgress", id, percentComplete)
+        .catch((error) => console.error("OnUploadProgress failed", error));
     });
 
     request.addEventListener("load", () => {
       if (request.status === 200) {
         pendingFiles.delete(id);
-        dotNetReference.invokeMethodAsync(
-          "OnUploadCompleted",
-          id,
-          JSON.parse(request.responseText)
-        );
+        dotNetReference
+          .invokeMethodAsync(
+            "OnUploadCompleted",
+            id,
+            JSON.parse(request.responseText)
+          )
+          .catch((error) => console.error("OnUploadCompleted failed", error));
       } else {
-        dotNetReference.invokeMethodAsync(
-          "OnUploadFailed",
-          id,
-          request.responseText || `Upload failed (${request.status})`
-        );
+        dotNetReference
+          .invokeMethodAsync("OnUploadFailed", id, errorMessageFrom(request))
+          .catch((error) => console.error("OnUploadFailed failed", error));
       }
     });
 
     request.addEventListener("error", () => {
-      dotNetReference.invokeMethodAsync(
-        "OnUploadFailed",
-        id,
-        "The upload could not reach the server."
-      );
+      dotNetReference
+        .invokeMethodAsync(
+          "OnUploadFailed",
+          id,
+          "The upload could not reach the server."
+        )
+        .catch((error) => console.error("OnUploadFailed failed", error));
     });
 
     request.open("POST", uploadUrl);
     request.send(formData);
+  }
+
+  /** @param {XMLHttpRequest} request */
+  function errorMessageFrom(request) {
+    const contentType = request.getResponseHeader("Content-Type") ?? "";
+    const isPlainMessage =
+      contentType.startsWith("text/plain") &&
+      request.responseText.length <= 300;
+
+    return isPlainMessage
+      ? request.responseText
+      : `Upload failed (${request.status}).`;
   }
 
   dropZone.addEventListener("dragover", onDragOver);

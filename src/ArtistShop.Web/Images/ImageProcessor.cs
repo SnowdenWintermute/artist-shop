@@ -31,19 +31,26 @@ public class ImageProcessor(ImageStoragePaths paths)
 
         foreach (var width in fittingWidths)
         {
+            // keeping International Color Consortium metadata but
+            // stripping everything else to protect against people
+            // reading gps coords metadata from uploaded images
+            // blur uri strips all metadata
             using var variant = Image.Thumbnail(originalPath, width).CopyMemory();
             variant.WriteToFile(
                 Path.Combine(variantDirectory, $"{width}.avif"),
-                new VOption { { "Q", 50 } }
+                new VOption { { "Q", 50 }, { "keep", Enums.ForeignKeep.Icc } }
             );
             variant.WriteToFile(
                 Path.Combine(variantDirectory, $"{width}.webp"),
-                new VOption { { "Q", 75 } }
+                new VOption { { "Q", 75 }, { "keep", Enums.ForeignKeep.Icc } }
             );
         }
 
         using var blur = Image.Thumbnail(originalPath, BlurWidth);
-        var blurBytes = blur.WriteToBuffer(".webp", new VOption { { "Q", 40 } });
+        var blurBytes = blur.WriteToBuffer(
+            ".webp",
+            new VOption { { "Q", 40 }, { "keep", Enums.ForeignKeep.None } }
+        );
 
         return new ProcessedImage(
             source.Width,

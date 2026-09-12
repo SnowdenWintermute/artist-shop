@@ -49,13 +49,14 @@
 
       <TextField Label="Title" @bind-Value="Input.Name" />
       <NumberField Label="Price" @bind-Value="Input.Price" />
-      <NumberField Label="Stock" @bind-Value="Input.Stock" />
       <DateField Label="Date painted" @bind-Value="Input.DatePainted" />
       <TextAreaField Label="Description" @bind-Value="Input.Description" />
       <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
       <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
 
-      <ImagesField />
+      <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+      <ImagesField @key="AddedSlug" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
+                   SuggestNameInto="Input.Name" />
 
       <ButtonBasic type="submit" Class="bg-blue-400 text-white text-lg">
         Add painting

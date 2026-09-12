@@ -6,6 +6,15 @@ using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin;
 
+public class ImageInput
+{
+    public string? StorageKey { get; set; }
+    public string? OriginalFileName { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public string? BlurDataUri { get; set; }
+}
+
 public class PaintingCatalogAdditionForm : IValidatableObject
 {
     [Required]
@@ -15,10 +24,6 @@ public class PaintingCatalogAdditionForm : IValidatableObject
     [Required]
     [Range(typeof(decimal), CatalogLimits.MinimumPrice, CatalogLimits.MaximumPrice)]
     public decimal? Price { get; set; }
-
-    [Required]
-    [Range(CatalogLimits.MinimumStock, int.MaxValue)]
-    public int? Stock { get; set; }
 
     [Required]
     public DateOnly? DatePainted { get; set; }
@@ -31,24 +36,44 @@ public class PaintingCatalogAdditionForm : IValidatableObject
     [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
     public decimal? HeightCm { get; set; }
 
+    [NonEmpty(ErrorMessage = "Add at least one image.")]
+    public List<ImageInput> Images { get; set; } = [];
+
+    public string? PrimaryImageKey { get; set; }
+
     public PaintingCatalogAddition ToCatalogAddition()
     {
         ArgumentNullException.ThrowIfNull(Name);
 
         var name = Unwrap.Value(Name);
 
+        var images = Images
+            .Select(image => new ShopItemImage(
+                Unwrap.Value(image.StorageKey),
+                image.OriginalFileName,
+                image.Width,
+                image.Height,
+                image.BlurDataUri
+            ))
+            .ToList();
+
+        var mainImageIndex = Math.Max(
+            images.FindIndex(image => image.RelativePath == PrimaryImageKey),
+            0
+        );
+
         return new PaintingCatalogAddition(
             new ShopItemName(name),
             ShopItemSlug.FromName(name),
             Unwrap.Value(Price),
-            Unwrap.Value(Stock),
+            1,
             Unwrap.Value(DatePainted),
             Description,
             WidthCm.HasValue && HeightCm.HasValue
                 ? new DimensionsCentimeters(new Dimensions(WidthCm.Value, HeightCm.Value))
                 : null,
-            Images: [],
-            MainImageIndex: 0,
+            Images: images,
+            MainImageIndex: mainImageIndex,
             MediumIds: [],
             SupportIds: [],
             SeriesIds: []
@@ -72,6 +97,18 @@ public class PaintingCatalogAdditionForm : IValidatableObject
             yield return new ValidationResult(
                 "This title has no letters or numbers to build a web address from.",
                 [nameof(Name)]
+            );
+        }
+
+        var primaryNotAmongImages =
+            PrimaryImageKey is not null
+            && !Images.Any(image => image.StorageKey == PrimaryImageKey);
+
+        if (primaryNotAmongImages)
+        {
+            yield return new ValidationResult(
+                "The main image is not one of the uploaded images.",
+                [nameof(PrimaryImageKey)]
             );
         }
     }

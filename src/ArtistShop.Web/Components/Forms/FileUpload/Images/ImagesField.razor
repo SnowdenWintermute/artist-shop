@@ -1,9 +1,17 @@
-@using ArtistShop.Web.Images
-@using BlazorBlueprint.Primitives.Sortable
 @using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
+@using BlazorBlueprint.Primitives.Sortable
 @rendermode InteractiveServer
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 @code {
+  [Parameter, EditorRequired]
+  public string FieldName { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string PrimaryFieldName { get; set; } = default!;
+
   private readonly List<SelectedImage> _files = [];
   private string? _primaryFileId;
   private SelectedImage? PrimaryFile => _files.FirstOrDefault(file => file.Id == _primaryFileId && file.Result is not
@@ -14,8 +22,16 @@ null)
 
   private void SetPrimary(SelectedImage file) => _primaryFileId = file.Id;
 
-  private void OnSelected((string Id, string Name, long Size) file) =>
+  private async void OnSelected((string Id, string Name, long Size) file)
+  {
+    var isFirstFile = _files.Count is 0;
+
     _files.Add(new SelectedImage(file.Id, file.Name, file.Size));
+    if (isFirstFile && SuggestNameInto is not null && _module is not null)
+    {
+      await _module.InvokeVoidAsync("fillInputIfEmpty", SuggestNameInto, FileNameStringUtils.NameFromFileName(file.Name));
+    }
+  }
 
   private void OnProgress((string Id, int PercentComplete) progress)
   {
@@ -86,8 +102,40 @@ null)
     MoveFile((index, target));
   }
 
+  [Parameter]
+  public string? SuggestNameInto { get; set; }
+
+  private IJSObjectReference? _module;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (firstRender)
+    {
+      _module = await JS.InvokeAsync<IJSObjectReference>(
+        "import",
+        "./Components/Forms/FileUpload/Images/ImagesField.razor.js"
+      );
+    }
+  }
+
   private SelectedImage? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
 
+  public async ValueTask DisposeAsync()
+  {
+    try
+    {
+      if (_module is not null)
+      {
+        await _module.DisposeAsync();
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  private IReadOnlyList<ImageUploadResult> UploadedImages =>
+    [.. _files.Select(file => file.Result).OfType<ImageUploadResult>()];
 }
 
 <div class="mb-4">
@@ -96,13 +144,29 @@ null)
                 OnFailed="OnFailed" />
   <BbSortable Items="_files" OnUpdate="MoveFile" Filter="input, button" AriaLabel="Image order">
     <ItemTemplate Context="file">
-      <ImageUploadRow SelectedImage="file" PrimaryFieldName="Input.PrimaryImageKey" IsPrimary="PrimaryFile == file"
+      <ImageUploadRow SelectedImage="file" PrimaryFieldName="@PrimaryFieldName" IsPrimary="PrimaryFile == file"
                       IsPrimaryExplicit="file.Id == _primaryFileId" IsFirst="_files.IndexOf(file) is 0"
                       IsLast="_files.IndexOf(file) == _files.Count - 1" OnSetPrimary="() => SetPrimary(file)"
                       OnMove="offset => NudgeFile(file, offset)" OnRemove="() => RemoveFile(file)"
                       OnRetry="() => RetryUpload(file)" />
     </ItemTemplate>
   </BbSortable>
+
+  @{
+    // why do we declare this here
+    var uploadedImages = UploadedImages;
+  }
+
+  @for (var index = 0; index < uploadedImages.Count; index++)
+  {
+    var image = uploadedImages[index];
+
+    <input type="hidden" name="@($"{FieldName}[{index}].StorageKey")" value="@image.StorageKey" />
+    <input type="hidden" name="@($"{FieldName}[{index}].OriginalFileName")" value="@image.OriginalFileName" />
+    <input type="hidden" name="@($"{FieldName}[{index}].Width")" value="@image.Width" />
+    <input type="hidden" name="@($"{FieldName}[{index}].Height")" value="@image.Height" />
+    <input type="hidden" name="@($"{FieldName}[{index}].BlurDataUri")" value="@image.BlurDataUri" />
+  }
   
 </div>
 
