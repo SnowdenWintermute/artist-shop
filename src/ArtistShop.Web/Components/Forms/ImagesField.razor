@@ -1,4 +1,7 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Images
+@using BlazorBlueprint.Primitives.Sortable
+@using BlazorBlueprint.Primitives.Progress
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -9,9 +12,60 @@
     public string Id { get; } = id;
     public string Name { get; } = name;
     public long Size { get; } = size;
+    public int UploadPercentComplete { get; set; }
+    public string? Error { get; set; }
+    public ImageUploadResult? Result { get; set; }
   }
 
   private readonly List<SelectedFile> _files = [];
+  private string? _primaryFileId;
+  private SelectedFile? PrimaryFile => _files.FirstOrDefault(file => file.Id == _primaryFileId && file.Result is not null)
+   ?? _files.FirstOrDefault(file => file.Result is not null);
+
+  private void SetPrimary(SelectedFile file) => _primaryFileId = file.Id;
+
+  private void MoveFile((int OldIndex, int NewIndex) move)
+  {
+    var file = _files[move.OldIndex];
+    _files.RemoveAt(move.OldIndex);
+    _files.Insert(move.NewIndex, file);
+  }
+
+  private void NudgeFile(SelectedFile file, int offset)
+  {
+    var index = _files.IndexOf(file);
+    var target = index + offset;
+
+    if (target < 0 || target >= _files.Count)
+    {
+      return;
+    }
+
+    MoveFile((index, target));
+  }
+
+  private async Task RemoveFile(SelectedFile file)
+  {
+    _files.Remove(file);
+
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("forget", file.Id);
+    }
+  }
+
+  private async Task RetryUpload(SelectedFile file)
+  {
+    file.Error = null;
+    file.UploadPercentComplete = 0;
+
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("upload", file.Id);
+    }
+
+  }
+
 
   // these are populated by the @ref after the first render
   // and can be passed to JS as the real DOM element
@@ -48,10 +102,16 @@
   {
     _files.Add(new SelectedFile(id, name, size));
     // js callbacks arrive on an arbitrary thread
-    // don't know why that means we need to use
-    // InvokeAsync but aparently without it we would get
-    // "intermittent hard to reproduce bugs"
+    // that means we need to use InvokeAsync
+    // so it queues the update instead of trying to
+    // do it at the same time as another one potentially
+    // in flight which might corrupt the render tree
     await InvokeAsync(StateHasChanged);
+
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("upload", id);
+    }
   }
 
   private async Task OpenFilePicker()
@@ -61,6 +121,59 @@
       await _uploader.InvokeVoidAsync("open");
     }
   }
+
+  [JSInvokable]
+  public async Task OnUploadProgress(string id, int percentComplete)
+  {
+    var file = FindFile(id);
+    if (file is null)
+    {
+      return;
+    }
+
+    file.UploadPercentComplete = percentComplete;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnUploadCompleted(string id, ImageUploadResult result)
+  {
+    var file = FindFile(id);
+    if (file is null)
+    {
+      return;
+    }
+
+    file.UploadPercentComplete = 100;
+    file.Result = result;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnUploadFailed(string id, string message)
+  {
+    var file = FindFile(id);
+    if (file is null)
+    {
+      return;
+    }
+
+    file.Error = message;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private SelectedFile? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
+
+  private static string StatusLabel(SelectedFile file) =>
+    file.Error is not null ? file.Error
+    : file.Result is not null ? "Done"
+    : file.UploadPercentComplete is 100 ? "Processing…"
+    : $"{file.UploadPercentComplete}%";
+
+  private string StarClass(SelectedFile file) =>
+file.Id == _primaryFileId ? "text-blue-400"
+: PrimaryFile == file ? "text-yellow-500"
+: "text-gray-300";
 
   public async ValueTask DisposeAsync()
   {
@@ -89,16 +202,59 @@
 <div class="mb-4">
   <div @ref="_dropZone" class="mb-2 border border-dashed p-6 text-center">
     <p class="mb-2 text-sm">Drop images here</p>
-    <ButtonBasic type="button" class="cursor-pointer border p-2" @onclick="OpenFilePicker">
+    <ButtonBasic type="button" Class="border bg-gray-200" @onclick="OpenFilePicker">
       Choose files
     </ButtonBasic>
     <input @ref="_fileInput" type="file" multiple accept="image/*" class="hidden" />
   </div>
-  @foreach (var file in _files)
-  {
-    <div class="mb-2 flex justify-between border p-2 text-sm">
-      <span>@file.Name</span>
-      <span>@(file.Size / 1024) KB</span>
-    </div>
-  }
+  <BbSortable Items="_files" OnUpdate="MoveFile" Filter="input, button" AriaLabel="Image order">
+    <ItemTemplate Context="file">
+      <div class="mb-2 flex cursor-move items-center gap-2 border p-2 text-sm bg-theme-recessed">
+        @if (file.Result is not null)
+        {
+          <img src="/media/@file.Result.StorageKey/400.avif" alt="" class="size-10 object-cover" />
+        }
+        <div class="grow">
+          <div class="mb-1 flex justify-between">
+            <span>@file.Name</span>
+            <span>@StatusLabel(file)</span>
+          </div>
+          @if (file.Error is null && file.Result is null)
+          {
+            <BbProgress Value="file.UploadPercentComplete" Max="100" class="block h-1 bg-gray-200">
+              <BbProgressIndicator class="block h-1 bg-blue-500" style="@($"width: {file.UploadPercentComplete}%")" />
+            </BbProgress>
+          }
+        </div>
+        @if (file.Result is not null)
+        {
+          <label class="cursor-pointer px-1 text-lg leading-none" title="Set as main image">
+            <input type="radio" name="Input.PrimaryImageKey" value="@file.Result.StorageKey"
+                   checked="@(PrimaryFile == file)" userSelectedChecked="@(file.Id == _primaryFileId)"
+                   @onchange="() => SetPrimary(file)" class="peer sr-only" />
+            <span class="@StarClass(file) peer-focus-visible:outline">★</span>
+          </label>
+        }
+        @if (file.Error is not null)
+        {
+          <button type="button" class="cursor-pointer border px-2" @onclick="() => RetryUpload(file)">
+            Retry
+          </button>
+        }
+        <button type="button" class="cursor-pointer px-1" title="Move up" disabled="@(_files.IndexOf(file) is 0)"
+                @onclick="() => NudgeFile(file, -1)">
+          ↑
+        </button>
+
+        <button type="button" class="cursor-pointer px-1" title="Move down"
+                disabled="@(_files.IndexOf(file) == _files.Count - 1)" @onclick="() => NudgeFile(file, 1)">
+          ↓
+        </button>
+        <button type="button" class="cursor-pointer px-1" title="Remove" @onclick="() => RemoveFile(file)">
+          ✕
+        </button>
+      </div>
+    </ItemTemplate>
+  </BbSortable>
+  
 </div>

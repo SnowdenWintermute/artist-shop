@@ -7,51 +7,61 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## 0. Spike the boundary
+## 0. Spike the boundary — DONE
 
-- [ ] Minimal `InteractiveServer` island inside the EditForm, rendering one hardcoded hidden input
-- [ ] Submit; confirm it model-binds into `PaintingCatalogAdditionForm`
-- [ ] Confirm the island survives a failed-validation re-render
+- [x] Minimal `InteractiveServer` island inside the EditForm, rendering one hardcoded hidden input
+- [x] Submit; confirm it model-binds into `PaintingCatalogAdditionForm`
+- [x] Island state survives a failed-validation re-render, so the image list can live in the circuit
 
-Everything below assumes this works. Check it before building anything else.
+## 1. Storage and serving — DONE
 
-## 1. Storage and serving
+- [x] `ImageStorage:RootPath` in config, resolved against `ContentRootPath`
+- [x] Split into `originals/` (never served) and `variants/` (served at `/media`)
+- [x] `UseStaticFiles` + `PhysicalFileProvider` on `variants/` only
+- [x] Gitignore `src/ArtistShop.Web/content/`
 
-- [ ] Pick a content directory outside `wwwroot` (uploads must not land in the publish output or git)
-- [ ] `UseStaticFiles` with a `PhysicalFileProvider` on that directory, under its own request path
-- [ ] Decide staging vs. final layout — the painting row does not exist yet at upload time
-- [ ] Gitignore the content directory
+Decided: files never move after upload. Key is a v7 GUID, orphans get swept later.
 
-## 2. Upload endpoint
+## 2. Upload endpoint — DONE
 
-- [ ] Minimal API `POST /admin/uploads`, admin-only, one file per request
-- [ ] Send the antiforgery token as a `RequestVerificationToken` header or it 400s
-- [ ] Validate content type and size; reject non-images
-- [ ] Return `{ storageKey, width, height, blurDataUri }`
+- [x] Minimal API `POST /admin/uploads`, admin-only, one file per request
+- [x] Antiforgery — ended up as a **form field**, not a header; the server checks that first
+- [x] Size and content-type filter (cheap; the real check is whether libvips can decode it)
+- [x] Returns `{ storageKey, width, height, blurDataUri }`
 
-## 3. Image processing
+## 3. Image processing — DONE
 
-- [ ] Choose the library (see licensing notes — Magick.NET or libvips, probably not ImageSharp)
-- [ ] Save the original master
-- [ ] Generate the `-400` / `-800` size variants
-- [ ] Generate the blur data URI (tiny WebP, base64, inlined)
-- [ ] Read real width and height off the decoded image, not the client
+- [x] NetVips + `NetVips.Native.linux-x64` (MIT, AVIF in the box, streams so memory stays low)
+- [x] Original master saved untouched, no extension
+- [x] Variants at 400 / 800 / 1600, AVIF + WebP, never upscaled
+- [x] Blur data URI — 20px WebP, base64, inlined
+- [x] Width/height read after `.Autorot()` so EXIF orientation can't transpose them
+- [x] Failed processing deletes both the original and any partial variant directory
 
-## 4. JS interop module
+Widths are placeholders until the gallery and detail pages exist. Changing them later
+means reprocessing `originals/`.
 
-- [ ] Drop zone: `dragover` / `drop`, read `dataTransfer.files` (Blazor cannot reach the bytes)
-- [ ] Click-to-pick: hidden `<input type="file" multiple>`
-- [ ] XHR per file, `upload.onprogress` for the real percentage
-- [ ] Report progress and completion back via `DotNetObjectReference`
-- [ ] Clean up listeners and the object reference on dispose
+## 4. JS interop — DONE
 
-## 5. The island component
+- [x] Drop zone: `dragover` + `drop`, `preventDefault` or the browser navigates away
+- [x] Click-to-pick via hidden `<input type="file" multiple>`
+- [x] `File` objects stay in a JS `Map`; only metadata crosses the circuit
+- [x] XHR per file, `request.upload` progress (fetch still has no upload progress)
+- [x] C# starts each upload after its row exists, so progress can't arrive first
+- [x] Listeners and the `DotNetObjectReference` cleaned up on dispose
+- [x] `jsconfig.json` + JSDoc for type checking without a Node toolchain
 
-- [ ] Row per file: name, size, progress bar, thumbnail
-- [ ] Preview via `IBrowserFile.RequestImageFileAsync` so 4MB never crosses the circuit
-- [ ] Distinct "processing" state after the bar reaches 100% — encoding takes seconds
-- [ ] Per-file error state and retry
+## 5. The island component — MOSTLY DONE
+
+- [x] Row per file: name, progress bar, status, real thumbnail once processed
+- [x] Distinct "Processing…" state between 100% and the server finishing
+- [x] Per-file error message from the server's own text
+- [ ] Retry a failed upload (the `File` is still held in the JS Map for this)
 - [ ] Remove a file
+- [ ] Delete the temporary `<form action="/admin/uploads">` scaffold
+
+Dropped: `IBrowserFile.RequestImageFileAsync` preview. Unnecessary — the served
+variant arrives fast enough that a client-side preview earns nothing.
 
 ## 6. Reorder and primary
 
@@ -71,3 +81,5 @@ Everything below assumes this works. Check it before building anything else.
 
 - [ ] Orphan sweep for uploads whose form was never submitted
 - [ ] Delete files when an image is removed from a saved painting
+- [ ] Abort in-flight XHRs when the island is disposed
+- [ ] `MSSQL_PID=Express` in docker-compose (Developer edition is not production-licensed)

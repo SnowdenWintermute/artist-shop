@@ -4,6 +4,7 @@ using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
+using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddBlazorBlueprintPrimitives();
 
 var shopConnectionString =
     builder.Configuration.GetConnectionString("ArtistShop")
