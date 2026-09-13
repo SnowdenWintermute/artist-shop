@@ -9,7 +9,7 @@
 @attribute [Authorize(Roles = RoleNames.Admin)]
 @inject PaintingRepository PaintingRepository
 @inject NavigationManager NavigationManager
-@inject ImageStoragePaths ImageStoragePaths
+@inject ImageStorage ImageStorage
 
 @code {
   [SupplyParameterFromForm]
@@ -23,7 +23,7 @@
   {
     // if the form sat open longer than the grace period, the sweep may have deleted uploads
     var missingImages = Input.Images
-      .Where(image => !ImageStoragePaths.OriginalExists(image.StorageKey))
+      .Where(image => !ImageStorage.OriginalExists(image.StorageKey))
       .ToList();
 
     if (missingImages.Count > 0)

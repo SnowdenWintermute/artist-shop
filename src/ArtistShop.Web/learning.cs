@@ -20,7 +20,6 @@
 // meaning "one isntance per scope"
 // - hosted service
 //
-// OrphanedImageSweeper questions
-// - comment/questions
-// - isn't this a bit complicated, do people normally do this?
-// - can we do automated testing with fake timers advancing
+// OrphanedImageSweeper test questions
+// - AddUploadToDisk may drift from how we upload
+// files, can we re-use the real upload handler method?

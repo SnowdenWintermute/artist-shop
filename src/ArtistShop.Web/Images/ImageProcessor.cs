@@ -7,7 +7,7 @@ public record ProcessedImage(int Width, int Height, string BlurDataUri);
 public class ImageTooSmallException(int minimumWidth)
     : Exception($"Images must be at least {minimumWidth} pixels wide.");
 
-public class ImageProcessor(ImageStoragePaths paths)
+public class ImageProcessor(ImageStorage imageStorage)
 {
     // @TODO once frontend gallery grid exists, measure the size of the elements
     // and derive these values from it
@@ -17,7 +17,7 @@ public class ImageProcessor(ImageStoragePaths paths)
 
     public ProcessedImage Process(string storageKey)
     {
-        var originalPath = Path.Combine(paths.Originals, storageKey);
+        var originalPath = imageStorage.OriginalPath(storageKey);
         var source = Image.NewFromFile(originalPath).Autorot();
         var fittingWidths = VariantWidths.Where(width => width <= source.Width).ToArray();
 
@@ -26,7 +26,7 @@ public class ImageProcessor(ImageStoragePaths paths)
             throw new ImageTooSmallException(VariantWidths.Min());
         }
 
-        var variantDirectory = Path.Combine(paths.Variants, storageKey);
+        var variantDirectory = imageStorage.VariantDirectory(storageKey);
         Directory.CreateDirectory(variantDirectory);
 
         foreach (var width in fittingWidths)

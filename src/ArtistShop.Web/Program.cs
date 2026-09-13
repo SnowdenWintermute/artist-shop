@@ -13,6 +13,8 @@ using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton(TimeProvider.System);
+
 // Add services to the container.
 builder
     .Services.AddRazorComponents()
@@ -36,10 +38,12 @@ var imageStorageRootPath = Path.GetFullPath(
     )
 );
 
-builder.Services.AddSingleton(new ImageStoragePaths(imageStorageRootPath));
+builder.Services.AddSingleton(new ImageStorage(imageStorageRootPath));
 builder.Services.AddSingleton<ImageProcessor>();
+builder.Services.AddSingleton<ImageUploadStore>();
 
-// Configuration.GetValue reads from appsettings.json
+// Configuration.GetValue reads from appsettings.json or ENV
+// or any other "configuration store"
 var orphanedImageSweepSettings = new OrphanedImageSweepSettings(
     GracePeriod: builder.Configuration.GetValue<TimeSpan?>("ImageStorage:OrphanGracePeriod")
         ?? throw new InvalidOperationException("ImageStorage:OrphanGracePeriod is not set."),
@@ -106,9 +110,9 @@ await databaseInitializer.EnsureDatabaseExistsAsync(identityConnectionString);
 var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
 schemaMigrator.Upgrade(shopConnectionString);
 
-var imageStoragePaths = app.Services.GetRequiredService<ImageStoragePaths>();
-Directory.CreateDirectory(imageStoragePaths.Originals);
-Directory.CreateDirectory(imageStoragePaths.Variants);
+var imageStorage = app.Services.GetRequiredService<ImageStorage>();
+Directory.CreateDirectory(imageStorage.Originals);
+Directory.CreateDirectory(imageStorage.Variants);
 
 if (app.Environment.IsDevelopment())
 {
@@ -131,7 +135,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles(
     new StaticFileOptions
     {
-        FileProvider = new PhysicalFileProvider(imageStoragePaths.Variants),
+        FileProvider = new PhysicalFileProvider(imageStorage.Variants),
         RequestPath = "/media",
     }
 );

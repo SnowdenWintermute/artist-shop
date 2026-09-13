@@ -5,9 +5,10 @@ namespace ArtistShop.Web.Images;
 public record OrphanedImageSweepSettings(TimeSpan GracePeriod, TimeSpan Interval);
 
 public class OrphanedImageSweeper(
-    ImageStoragePaths paths,
+    ImageStorage imageStorage,
     ShopItemImageRepository imageRepository,
     OrphanedImageSweepSettings settings,
+    TimeProvider timeProvider,
     // labels messages about this class with the class's
     // full name. controls exist in appsettings.json "Logging:LogLevel"
     ILogger<OrphanedImageSweeper> logger
@@ -15,7 +16,7 @@ public class OrphanedImageSweeper(
 {
     public async Task SweepAsync()
     {
-        var uploadedBefore = DateTimeOffset.UtcNow - settings.GracePeriod;
+        var uploadedBefore = timeProvider.GetUtcNow() - settings.GracePeriod;
 
         var candidateKeys = FindStorageKeysUploadedBefore(uploadedBefore);
 
@@ -36,7 +37,7 @@ public class OrphanedImageSweeper(
 
             try
             {
-                DeleteStoredFiles(storageKey);
+                imageStorage.Delete(storageKey);
                 deletedCount += 1;
             }
             catch (Exception exception)
@@ -50,14 +51,19 @@ public class OrphanedImageSweeper(
             }
         }
 
-        logger.LogInformation("Removed {deletedCount} orphaned images", deletedCount);
+        if (deletedCount > 0)
+        {
+#pragma warning disable CA1873
+            logger.LogInformation("Removed {DeletedCount} orphaned images", deletedCount);
+#pragma warning restore CA1873
+        }
     }
 
     private List<string> FindStorageKeysUploadedBefore(DateTimeOffset uploadedBefore)
     {
         var storageKeys = new List<string>();
 
-        foreach (var originalPath in Directory.EnumerateFiles(paths.Originals))
+        foreach (var originalPath in Directory.EnumerateFiles(imageStorage.Originals))
         {
             var name = Path.GetFileName(originalPath);
 
@@ -76,20 +82,5 @@ public class OrphanedImageSweeper(
         }
 
         return storageKeys;
-    }
-
-    private void DeleteStoredFiles(string storageKey)
-    {
-        // trying to delete a directory that doesn't exist
-        // will throw
-        var variantDirectory = Path.Combine(paths.Variants, storageKey);
-        if (Directory.Exists(variantDirectory))
-        {
-            Directory.Delete(variantDirectory, recursive: true);
-        }
-
-        // delete originals last because sweep looks for originals
-        // to determine orphans
-        File.Delete(Path.Combine(paths.Originals, storageKey));
     }
 }

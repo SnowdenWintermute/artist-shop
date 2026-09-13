@@ -35,8 +35,7 @@ public static class ImageUploadEndpoints
 
     private static async Task<Results<Ok<ImageUploadResult>, BadRequest<string>>> UploadAsync(
         IFormFile file, // binds the form field named "file", the names must match
-        ImageStoragePaths paths,
-        ImageProcessor imageProcessor,
+        ImageUploadStore imageUploadStore,
         CancellationToken cancellationToken
     )
     {
@@ -67,45 +66,23 @@ public static class ImageUploadEndpoints
             return TypedResults.BadRequest($"{file.ContentType} is not an image format we accept.");
         }
 
-        // version 7 embeds timestamp when created so they can be sorted by date
-        // and avoid database fragmenting if stored there
-        // "n" gives 32 hex characters with no dash or braces
-        var storageKey = Guid.CreateVersion7().ToString("n");
-
-        // FileStream is IAsyncDisposable
-        var originalPath = Path.Combine(paths.Originals, storageKey);
-
-        // putting braces after using makes the using release the resource
-        // after the braces, which we need to do before letting Vips
-        // process it
-        await using (var destination = File.Create(originalPath))
-        {
-            await file.CopyToAsync(destination, cancellationToken);
-        }
-
         try
         {
-            var processed = imageProcessor.Process(storageKey);
+            // OpenReadStream reads the uploaded bytes as a stream rather than all at once
+            await using var content = file.OpenReadStream();
+            var stored = await imageUploadStore.SaveAsync(content, cancellationToken);
             return TypedResults.Ok(
                 new ImageUploadResult(
-                    storageKey,
+                    stored.StorageKey,
                     originalFileName,
-                    processed.Width,
-                    processed.Height,
-                    processed.BlurDataUri
+                    stored.Processed.Width,
+                    stored.Processed.Height,
+                    stored.Processed.BlurDataUri
                 )
             );
         }
         catch (Exception exception) when (exception is VipsException or ImageTooSmallException)
         {
-            File.Delete(originalPath);
-
-            var variantDirectory = Path.Combine(paths.Variants, storageKey);
-            if (Directory.Exists(variantDirectory))
-            {
-                Directory.Delete(variantDirectory, recursive: true);
-            }
-
             return TypedResults.BadRequest(exception.Message);
         }
     }

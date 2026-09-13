@@ -1,0 +1,30 @@
+
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- xUnit v3 test projects are programs in their own right; xUnit generates the Main method -->
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- includes xUnit's own Microsoft Testing Platform support; nothing else is needed to run -->
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
+    <!-- FakeTimeProvider -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the tests use the web project's classes directly. Its ASP.NET Core framework
+    reference comes along with it, which is where NullLogger comes from -->
+    <ProjectReference Include="../../src/ArtistShop.Web/ArtistShop.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- a project-wide `using Xunit;`, so [Fact] and Assert work in every file -->
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

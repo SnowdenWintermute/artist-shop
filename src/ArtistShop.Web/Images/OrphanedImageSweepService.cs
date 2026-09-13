@@ -3,13 +3,14 @@ namespace ArtistShop.Web.Images;
 public class OrphanedImageSweepService(
     IServiceScopeFactory scopeFactory,
     OrphanedImageSweepSettings settings,
+    TimeProvider timeProvider,
     ILogger<OrphanedImageSweepService> logger
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // "ticks" once per interval
-        using var timer = new PeriodicTimer(settings.Interval);
+        using var timer = new PeriodicTimer(settings.Interval, timeProvider);
 
         // why are we using do while instead of just while?
         do
