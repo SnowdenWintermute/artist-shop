@@ -35,7 +35,9 @@ public class ImageProcessor(ImageStorage imageStorage)
             // stripping everything else to protect against people
             // reading gps coords metadata from uploaded images
             // blur uri strips all metadata
-            using var variant = Image.Thumbnail(originalPath, width).CopyMemory();
+            using var variant = Image
+                .Thumbnail(originalPath, width, height: source.Height)
+                .CopyMemory();
             var exifMetadataDesired = Enums.ForeignKeep.Icc | Enums.ForeignKeep.Xmp;
             variant.WriteToFile(
                 Path.Combine(variantDirectory, $"{width}.avif"),

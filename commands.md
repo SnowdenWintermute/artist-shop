@@ -17,3 +17,8 @@ cd ~/projects/artist-shop && set -a && . ./.env && set +a
 docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd \
 -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -I -d master \
 -Q "DROP DATABASE ArtistShop;"
+
+-- check the database server property --
+docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd \
+-S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -h -1 -W \
+-Q "SELECT SERVERPROPERTY('Edition');"

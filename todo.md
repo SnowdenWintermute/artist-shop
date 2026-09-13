@@ -7,12 +7,27 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-12
+## Where this stands — 2026-09-13
 
 Steps 0-7 are done and verified against the database. You can drop or pick multiple images on
 `/admin/paintings/add-single`, watch each upload with a real progress bar, reorder by dragging,
-star one as primary, and it all persists in order with the right primary. The catalog and the
-image directories were cleared at the end of the session, so the next run starts empty.
+star one as primary, and it all persists in order with the right primary.
+
+Step 8 is mostly done:
+- **Orphan sweep:** `OrphanedImageSweepService` (a `BackgroundService` on a `PeriodicTimer`) runs
+  `OrphanedImageSweeper` at startup and then every interval. It deletes unreferenced originals
+  older than the grace period. The settings are `ImageStorage:OrphanGracePeriod` and
+  `OrphanSweepInterval`: 7 days / 1 day, and 5 minutes / 1 minute in Development.
+- **Submit check:** the add-painting submit rejects images whose original the sweep already deleted.
+- **Storage split:** `ImageStorage` owns the file layout (paths, save original, delete variants
+  then original). `ImageUploadStore` is the upload itself, shared by the endpoint and the tests,
+  and is what bulk import should call.
+- **Tests:** `tests/ArtistShop.Web.Tests` (xUnit v3) runs against a separate `ArtistShopTests`
+  database with `FakeTimeProvider`. Run `source env.sh && dotnet test` from the repo root with SQL
+  Server up. `global.json` switches `dotnet test` to Microsoft Testing Platform mode, which
+  xUnit 4 requires on the .NET 10 SDK.
+
+**Next session starts at step 9**, beginning with the open questions listed there.
 
 **Layout.** Uploads live at `<repo>/content/images/{originals,variants}` — deliberately outside
 the project directory, because `dotnet watch` treats files under the project as project changes
@@ -31,29 +46,12 @@ invisible by default:
 - Exceeding SignalR's 32KB `MaximumReceiveMessageSize` closes the circuit with **no exception**,
   so an empty server log does not mean nothing went wrong.
 
-## Open question: two paintings sharing a storage key
+## Decided: shop items don't share storage keys
 
-It happened once (paintings 6 and 7) and it was a **bug**, not a designed behaviour: the form
-didn't reset after a successful save, so the island still held the previous painting's images and
-resubmitting posted the same storage keys against a new painting. `@key="AddedSlug"` fixed the
-cause.
-
-The question worth deciding deliberately is whether sharing should be *possible* at all.
-
-**Argument for forbidding it** — a `UNIQUE` constraint on `dbo.ShopItemImages.RelativePath` would
-have turned that silent duplicate into a loud error on the second submit. Same reasoning as the
-filtered unique index that makes zero-or-many primaries unrepresentable. It also means every
-deletion path can assume one row per file instead of reference counting.
-
-**Argument against** — `Postcard extends ShopItem` is in the domain notes, and a postcard of a
-painting plausibly wants to reuse that painting's photograph. A global unique forecloses that.
-
-**Leaning:** add the constraint now. The only sharing observed so far was an accident, and if
-postcards later need reuse, dropping the constraint and adding reference counting should be a
-deliberate schema change rather than something discovered after the fact.
-
-**Either way, until it is decided the orphan sweep must not assume one row per file** — it has to
-check for *any* referencing row.
+`Unique_ShopItemImages_RelativePath` makes a second row for the same file a loud error. It came up
+because paintings 6 and 7 once shared keys by accident (the form didn't reset after a save, fixed
+with `@key="AddedSlug"`). If postcards later need to reuse a painting's photo, dropping the
+constraint and adding reference counting is a deliberate schema change.
 
 ## 0. Spike the boundary — DONE
 
@@ -149,23 +147,57 @@ variant arrives fast enough that a client-side preview earns nothing.
       itself into the UI
 - [x] Test catalog and orphaned files cleared
 
-## 8. Cleanup
+## 8. Cleanup — MOSTLY DONE
 
-- [ ] Orphan sweep: delete files with no `ShopItemImages.RelativePath`, **older than a grace
-      period** — "unreferenced" is also true of a file uploaded a minute ago with the form
-      still open. Done by hand once: 49 of 56 keys were orphans, 54M -> 4.4M.
-- [ ] Deletion stays in the sweep, not on the ✕ button — ✕ must mean "unlink" so the same
-      component works on an edit screen where the file is still referenced
-- [ ] Decide the shared-storage-key question above, then make the sweep match it
+- [x] Orphan sweep with a grace period, run by a background service; 4 tests
+- [x] Deletion stays in the sweep, not on the ✕ button (✕ only unlinks)
+- [x] Shared storage keys decided (forbidden, see above)
+- [x] Expired uploads caught at submit
+- [x] `MSSQL_PID=Express`. `SERVERPROPERTY('Edition')` confirmed it applied to the existing volume
+- [x] Portrait variants: libvips `thumbnail` fits a `width`×`width` square unless given a height,
+      so `800.webp` of a portrait photo came out 800 *tall*. Fixed with `height: source.Height`.
+      Worth a test: upload `Image.Black(1000, 2000, bands: 3)` and assert `800.webp` is 800 wide
+- [x] `BlurDataUri` size guard dropped. The same square rule bounds the blur at 20×20, and its
+      metadata is stripped, so it stays far below the `nvarchar(1000)` column
 - [ ] Abort in-flight XHRs when the island is disposed
-- [ ] `MSSQL_PID=Express` in docker-compose (Developer edition is not production-licensed)
-- [ ] Consider a `VARCHAR` widening or a size guard on `BlurDataUri` — the column is
-      `nvarchar(1000)` and nothing currently checks the blur fits before the insert
+- [x] Leftover variant folders cleared. Their originals were deleted before the delete order was
+      fixed, and the sweep lists only `originals/`, so it couldn't see them
+- [ ] Check whether keeping `Xmp` on variants can leak location. The processor keeps
+      `Icc | Xmp`, and XMP can carry its own copy of the GPS fields
 
-## 9. Later — bulk import (not started)
+## 9. Next — bulk import (not started)
 
-- [ ] CSV of the artist's spreadsheet creates shop items with no images
-- [ ] Bulk image upload matched to existing items by original filename
+**How matching works (decided 2026-09-13).** The CSV creates the shop items. The artist then
+uploads a folder of images, and each image's file name (without its extension) is compared to
+`ShopItems.Name`. This works for any shop item type, not only paintings:
+- **Exactly one item has that name:** create a `ShopItemImage` linked to it.
+- **Several items share the name** (two "Sunset" paintings): attach nothing, and list it for the
+  artist to assign by hand.
+- **At the end, a report:** how many matched, which items already had images (so the artist can
+  go and look), and which were ambiguous.
+
+**Open questions to settle first:**
+1. **Several images for one item.** File names in a folder are unique, so only one file can be
+   `Sunset.jpg`. Either bulk upload attaches one image per item, or there's a suffix convention
+   (`Sunset-2.jpg`) — which collides with a real title like "Sunset 2".
+2. **How names compare.** Exact, case-insensitive, or as slugs? Titles can hold characters file
+   names can't (`/` everywhere, `?` `:` on Windows). Slugs are the most forgiving but merge
+   "Sunset!" with "Sunset", which the ambiguity rule would report rather than guess.
+3. **Items that already have images.** Attach and flag, or skip and flag? Re-uploading the same
+   folder shouldn't duplicate: `OriginalFileName` is stored, so "already has an image with this
+   exact file name" can be told apart from "has other images".
+4. **Primary image.** Presumably primary when the item had no images, otherwise appended.
+5. **Images matching nothing** need a report line. The files need no cleanup code, since the
+   sweep removes them.
+6. **Attach as each file arrives, or preview then confirm?** A preview ("578 will attach, 3 are
+   ambiguous") changes nothing until the artist approves; unconfirmed uploads are left to the sweep.
+7. **Where the report lives.** Built in the page from each file's response (lost if the tab
+   closes), or saved on the server as a record of the run.
+
+- [ ] CSV of the artist's spreadsheet creates shop items with no images: which columns, and what
+      re-importing the same spreadsheet does
+- [ ] Bulk image upload matched to existing items by file name = item name, per the questions
+      above
 - [ ] Attach-images must be its own operation, not only reachable through `AddPainting`
 - [ ] Directory upload: `webkitdirectory` on the picker, `dataTransfer.items` +
       `webkitGetAsEntry()` on the drop zone (currently `.files`, which flattens folders)
