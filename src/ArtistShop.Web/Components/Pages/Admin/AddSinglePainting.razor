@@ -4,10 +4,12 @@
 @using ArtistShop.Web.Components.Forms.FileUpload.Images
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Images
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = RoleNames.Admin)]
 @inject PaintingRepository PaintingRepository
 @inject NavigationManager NavigationManager
+@inject ImageStoragePaths ImageStoragePaths
 
 @code {
   [SupplyParameterFromForm]
@@ -17,8 +19,29 @@
 
   protected override void OnInitialized() => Input ??= new();
 
-  private async Task AddPainting()
+  private async Task AddPainting(EditContext editContext)
   {
+    // if the form sat open longer than the grace period, the sweep may have deleted uploads
+    var missingImages = Input.Images
+      .Where(image => !ImageStoragePaths.OriginalExists(image.StorageKey))
+      .ToList();
+
+    if (missingImages.Count > 0)
+    {
+      // <ValidationMessage /> will show these
+      var validationMessages = new ValidationMessageStore(editContext);
+
+      foreach (var image in missingImages)
+      {
+        var staleImageMessage = $"{image.OriginalFileName ?? "An image"} is no longer on the server because the form was open too long. Remove it and upload it again.";
+        validationMessages.Add(() => Input.Images, staleImageMessage);
+      }
+
+      // tells the ValidationMessage components to re-render with the new messages
+      editContext.NotifyValidationStateChanged();
+      return;
+    }
+
     var identifiers = await PaintingRepository.AddAsync(Input.ToCatalogAddition());
  
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>

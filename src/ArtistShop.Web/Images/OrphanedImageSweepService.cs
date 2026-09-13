@@ -6,20 +6,29 @@ public class OrphanedImageSweepService(
     ILogger<OrphanedImageSweepService> logger
 ) : BackgroundService
 {
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // "ticks" once per interval
         using var timer = new PeriodicTimer(settings.Interval);
 
-        // do{
-        //     await SweepOnceAsync();
-        // }while (await )
+        // why are we using do while instead of just while?
+        do
+        {
+            await SweepOnceAsync();
+        } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private Task SweepOnceAsync()
+    private async Task SweepOnceAsync()
     {
-        // try{
-
-        // }
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var sweeper = scope.ServiceProvider.GetRequiredService<OrphanedImageSweeper>();
+            await sweeper.SweepAsync();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Orphaned image sweep failed");
+        }
     }
 }

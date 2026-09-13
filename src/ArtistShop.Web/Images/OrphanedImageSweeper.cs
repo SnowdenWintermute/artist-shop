@@ -36,8 +36,6 @@ public class OrphanedImageSweeper(
 
             try
             {
-                // why this is sync? is deleting sync
-                // in the OS?
                 DeleteStoredFiles(storageKey);
                 deletedCount += 1;
             }
@@ -51,28 +49,27 @@ public class OrphanedImageSweeper(
                 );
             }
         }
+
+        logger.LogInformation("Removed {deletedCount} orphaned images", deletedCount);
     }
 
-    private HashSet<string> FindStorageKeysUploadedBefore(DateTimeOffset uploadedBefore)
+    private List<string> FindStorageKeysUploadedBefore(DateTimeOffset uploadedBefore)
     {
-        var entries = Directory
-            .EnumerateFiles(paths.Originals)
-            .Concat(Directory.EnumerateDirectories(paths.Variants));
-        var storageKeys = new HashSet<string>();
+        var storageKeys = new List<string>();
 
-        foreach (var entry in entries)
+        foreach (var originalPath in Directory.EnumerateFiles(paths.Originals))
         {
-            var name = Path.GetFileName(entry);
+            var name = Path.GetFileName(originalPath);
 
-            // how does this prevent deleting something "this code"
-            // did not create
-            if (!TryGetUploadTime(name, out var uploadedAt))
+            // skip anything not named like an upload
+            if (!Guid.TryParseExact(name, "N", out _))
             {
-                logger.LogWarning("Skipping {Entry}, its name is not an image storage key", entry);
                 continue;
             }
 
-            if (uploadedAt < uploadedBefore)
+            // the file system records the modified time as a DateTime in UTC,
+            // so compare against the UTC DateTime form of the cutoff
+            if (File.GetLastWriteTimeUtc(originalPath) < uploadedBefore.UtcDateTime)
             {
                 storageKeys.Add(name);
             }
@@ -81,31 +78,18 @@ public class OrphanedImageSweeper(
         return storageKeys;
     }
 
-    // how does out work ?
-    private static bool TryGetUploadTime(string name, out DateTimeOffset uploadedAt)
-    {
-        if (!Guid.TryParseExact(name, "N", out var guid) || guid.Version is not 7)
-        {
-            uploadedAt = default;
-            return false;
-        }
-
-        var radix = 16;
-        // why range is from 0 to 12?
-        var millisecondsSince1970 = Convert.ToInt64(name[..12], radix);
-        uploadedAt = DateTimeOffset.FromUnixTimeMilliseconds(millisecondsSince1970);
-        return true;
-    }
-
     private void DeleteStoredFiles(string storageKey)
     {
-        File.Delete(Path.Combine(paths.Originals, storageKey));
         // trying to delete a directory that doesn't exist
         // will throw
         var variantDirectory = Path.Combine(paths.Variants, storageKey);
         if (Directory.Exists(variantDirectory))
         {
-            Directory.Delete(variantDirectory);
+            Directory.Delete(variantDirectory, recursive: true);
         }
+
+        // delete originals last because sweep looks for originals
+        // to determine orphans
+        File.Delete(Path.Combine(paths.Originals, storageKey));
     }
 }

@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE dbo.GetAllShopItemImagesRelativePaths AS BEGIN
+CREATE OR ALTER PROCEDURE dbo.GetAllShopItemImageRelativePaths AS BEGIN
 SET
 NOCOUNT ON;
 

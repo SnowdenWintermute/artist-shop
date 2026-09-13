@@ -39,14 +39,26 @@ var imageStorageRootPath = Path.GetFullPath(
 builder.Services.AddSingleton(new ImageStoragePaths(imageStorageRootPath));
 builder.Services.AddSingleton<ImageProcessor>();
 
+// Configuration.GetValue reads from appsettings.json
+var orphanedImageSweepSettings = new OrphanedImageSweepSettings(
+    GracePeriod: builder.Configuration.GetValue<TimeSpan?>("ImageStorage:OrphanGracePeriod")
+        ?? throw new InvalidOperationException("ImageStorage:OrphanGracePeriod is not set."),
+    Interval: builder.Configuration.GetValue<TimeSpan?>("ImageStorage:OrphanSweepInterval")
+        ?? throw new InvalidOperationException("ImageStorage:OrphanSweepInterval is not set.")
+);
+builder.Services.AddSingleton(orphanedImageSweepSettings);
+builder.Services.AddScoped<OrphanedImageSweeper>();
+
+// hosted service
+builder.Services.AddHostedService<OrphanedImageSweepService>();
+
 // domain database
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<SchemaMigrator>();
 builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 builder.Services.AddScoped<PaintingRepository>();
-
-// builder.Services.AddScoped<ShopItemImageRepository>();
+builder.Services.AddScoped<ShopItemImageRepository>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
