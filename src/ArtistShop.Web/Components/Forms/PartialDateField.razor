@@ -1,0 +1,73 @@
+@using System.Globalization
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  // @bind-Year="Input.YearPainted" on the caller fills in these three parameters.
+  // Blazor finds them by name: Year, YearChanged and YearExpression.
+  [Parameter]
+  public int? Year { get; set; }
+  [Parameter]
+  public EventCallback<int?> YearChanged { get; set; }
+  [Parameter, EditorRequired]
+  public Expression<Func<int?>> YearExpression { get; set; } = default!;
+  [Parameter]
+  public int? Month { get; set; }
+  [Parameter]
+  public EventCallback<int?> MonthChanged { get; set; }
+  [Parameter, EditorRequired]
+  public Expression<Func<int?>> MonthExpression { get; set; } = default!;
+  [Parameter]
+  public int? Day { get; set; }
+  [Parameter]
+  public EventCallback<int?> DayChanged { get; set; }
+  [Parameter, EditorRequired]
+  public Expression<Func<int?>> DayExpression { get; set; } = default!;
+  // same id scheme as FieldLayout: the property name, e.g. "YearPainted"
+  private static string IdFor(Expression<Func<int?>> expression) =>
+    FieldIdentifier.Create(expression).FieldName;
+
+  // days above this render disabled; the script keeps it up to date as the artist edits
+  private int MaximumDay => PartialDate.MaximumDayIn(Year, Month);
+}
+
+@* custom elements display inline by default, so "block" makes it lay out like a div *@
+<partial-date-field class="block">
+  <fieldset class="mb-4">
+    <legend class="mb-1 block text-sm">@Label</legend>
+
+    <div class="flex gap-2">
+      <label class="sr-only" for="@IdFor(YearExpression)">Year</label>
+      @* data-part is how the script finds each input *@
+      <InputNumber class="artist-shop-field-input" id="@IdFor(YearExpression)" placeholder="Year" data-part="year"
+                   TValue="int?" Value="Year" ValueChanged="YearChanged" ValueExpression="YearExpression" />
+
+      <label class="sr-only" for="@IdFor(MonthExpression)">Month</label>
+      <InputSelect class="artist-shop-field-input" id="@IdFor(MonthExpression)" data-part="month" TValue="int?"
+                   Value="Month" ValueChanged="MonthChanged" ValueExpression="MonthExpression">
+        <option value="">Month unknown</option>
+        @for (var month = 1; month <= 12; month++)
+        {
+          <option value="@month">@PartialDate.MonthName(month)</option>
+        }
+      </InputSelect>
+
+      <label class="sr-only" for="@IdFor(DayExpression)">Day</label>
+      <InputSelect class="artist-shop-field-input" id="@IdFor(DayExpression)" data-part="day" TValue="int?" Value="Day"
+                   ValueChanged="DayChanged" ValueExpression="DayExpression">
+        <option value="">Day unknown</option>
+        @for (var day = 1; day <= 31; day++)
+        {
+          @* a bool attribute value: Razor writes "disabled" when true and leaves it out when false *@
+          <option value="@day" disabled="@(day > MaximumDay)">@day</option>
+        }
+      </InputSelect>
+    </div>
+
+    <ValidationMessage class="text-red-400" For="YearExpression" />
+    <ValidationMessage class="text-red-400" For="MonthExpression" />
+    <ValidationMessage class="text-red-400" For="DayExpression" />
+  </fieldset>
+</partial-date-field>

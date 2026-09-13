@@ -54,7 +54,7 @@ public abstract class ShopItem(
     int id,
     ShopItemName name,
     ShopItemSlug slug,
-    decimal price,
+    decimal? price,
     int stock,
     IEnumerable<ShopItemImage> images
 )
@@ -63,7 +63,7 @@ public abstract class ShopItem(
     public ShopItemName Name { get; set; } = name;
     public ShopItemSlug Slug { get; set; } = slug;
 
-    public decimal Price { get; set; } = price;
+    public decimal? Price { get; set; } = price;
     public int Stock { get; set; } = stock;
 
     private readonly List<ShopItemImage> _images = [.. images];

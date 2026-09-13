@@ -13,6 +13,10 @@
 //      to a synchronous function. The function must assign
 //      the value
 // background service: a .NET way to run schedulable code
+// record: a value object, equality compared by equal fields instead of object id
+// [NotNullWhen(true)] out MyType? myParameter: attribute telling compiler that if the
+// routine returns true then the out parameter will be not null
+// is: means x matches shape of y even if y contains additional stuff
 //
 //
 // UNCERTAIN:

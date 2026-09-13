@@ -3,9 +3,10 @@ CREATE OR ALTER PROCEDURE dbo.AddPainting @Name nvarchar(200),
 @Price decimal(10, 2),
 @Stock int,
 @DatePainted date,
+@DatePaintedPrecision tinyint,
 @Description nvarchar(max),
-@WidthCm decimal(6, 2),
-@HeightCm decimal(6, 2),
+@WidthCm decimal(8, 4),
+@HeightCm decimal(8, 4),
 @Images dbo.ShopItemImageList READONLY,
 @MediumIds dbo.IdList READONLY,
 @SupportIds dbo.IdList READONLY,
@@ -39,9 +40,9 @@ SET
     @Id = SCOPE_IDENTITY();
 
 INSERT INTO
-    dbo.Paintings (Id, DatePainted, Description, WidthCm, HeightCm)
+    dbo.Paintings (Id, DatePainted, DatePaintedPrecision, Description, WidthCm, HeightCm)
 VALUES
-    (@Id, @DatePainted, @Description, @WidthCm, @HeightCm);
+    (@Id, @DatePainted, @DatePaintedPrecision, @Description, @WidthCm, @HeightCm);
 
 -- inserts all the rows in the table returned from the select
 INSERT INTO

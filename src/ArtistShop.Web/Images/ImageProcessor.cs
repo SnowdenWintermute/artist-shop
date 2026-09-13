@@ -38,7 +38,9 @@ public class ImageProcessor(ImageStorage imageStorage)
             using var variant = Image
                 .Thumbnail(originalPath, width, height: source.Height)
                 .CopyMemory();
-            var exifMetadataDesired = Enums.ForeignKeep.Icc | Enums.ForeignKeep.Xmp;
+            // ForeignKeep is a set of flags (a "bitfield"), so Icc on its own means
+            // "keep only the colour profile": no Exif, no Xmp, no Iptc
+            var exifMetadataDesired = Enums.ForeignKeep.Icc;
             variant.WriteToFile(
                 Path.Combine(variantDirectory, $"{width}.avif"),
                 new VOption { { "Q", 50 }, { "keep", exifMetadataDesired } }

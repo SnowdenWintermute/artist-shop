@@ -13,5 +13,5 @@ public static class CatalogLimits
     public const int MinimumStock = 0;
 
     public const string MinimumDimensionCm = "0.01";
-    public const string MaximumDimensionCm = "9999.99";
+    public const string MaximumDimensionCm = "9999.9999";
 }

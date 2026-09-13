@@ -9,6 +9,7 @@ SELECT
     shopItem.Price,
     shopItem.Stock,
     painting.DatePainted,
+    painting.DatePaintedPrecision,
     painting.Description,
     painting.WidthCm,
     painting.HeightCm

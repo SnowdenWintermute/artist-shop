@@ -121,7 +121,7 @@ public sealed class OrphanedImageSweeperTests : IClassFixture<TestDatabaseFixtur
                 ShopItemSlug.FromName("Sweeper test painting"),
                 Price: 100m,
                 Stock: 1,
-                DatePainted: new DateOnly(2026, 1, 1),
+                DatePainted: new PartialDate(new DateOnly(2026, 1, 1), DatePrecision.Day),
                 Description: null,
                 Dimensions: null,
                 Images: [new ShopItemImage(storageKey, "test.jpg", 800, 600, BlurDataUri: null)],

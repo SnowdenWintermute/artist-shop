@@ -78,7 +78,8 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
                 CandidateSlug = paintingCatalogAddition.CandidateSlug.Value,
                 paintingCatalogAddition.Price,
                 paintingCatalogAddition.Stock,
-                paintingCatalogAddition.DatePainted,
+                DatePainted = paintingCatalogAddition.DatePainted?.Date,
+                DatePaintedPrecision = paintingCatalogAddition.DatePainted?.Precision,
                 paintingCatalogAddition.Description,
                 WidthCm = paintingCatalogAddition.Dimensions?.Width,
                 HeightCm = paintingCatalogAddition.Dimensions?.Height,
@@ -129,13 +130,21 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             ? new DimensionsCentimeters(new Dimensions(width, height))
             : null;
 
+        var paintedDate = row.DatePainted;
+        var precision = row.DatePaintedPrecision;
+
+        var datePainted =
+            paintedDate is not null && precision is not null
+                ? new PartialDate(paintedDate.Value, precision.Value)
+                : null;
+
         var painting = new Painting(
             row.Id,
             new ShopItemName(row.Name),
             new ShopItemSlug(row.Slug),
             row.Price,
             row.Stock,
-            row.DatePainted,
+            datePainted,
             images.Select(image => new ShopItemImage(
                 image.RelativePath,
                 image.OriginalFileName,
@@ -167,9 +176,10 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         public required int Id { get; init; }
         public required string Name { get; init; }
         public required string Slug { get; init; }
-        public required decimal Price { get; init; }
+        public decimal? Price { get; init; }
         public required int Stock { get; init; }
-        public required DateOnly DatePainted { get; init; }
+        public required DateOnly? DatePainted { get; init; }
+        public required DatePrecision? DatePaintedPrecision { get; init; }
         public string? Description { get; init; }
         public decimal? WidthCm { get; init; }
         public decimal? HeightCm { get; init; }

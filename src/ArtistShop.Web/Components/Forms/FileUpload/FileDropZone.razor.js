@@ -15,6 +15,12 @@ export function createUploader(
 ) {
   /** @type {Map<string, File>} */
   const pendingFiles = new Map();
+  /**
+   * we want to track requests so they can be cancelled
+   * to save bandwidth instead of letting them finish then fail
+   * @type {Map<string, XMLHttpRequest>}
+   * */
+  const inFlightRequests = new Map();
 
   /** @param {FileList} files */
   function announce(files) {
@@ -23,7 +29,7 @@ export function createUploader(
       pendingFiles.set(id, file);
       dotNetReference
         .invokeMethodAsync("OnFileSelected", id, file.name, file.size)
-        .catch((error) => console.error("OnUploadCompleted failed", error));
+        .catch((error) => console.error("OnFileSelected failed", error));
     }
   }
 
@@ -75,6 +81,7 @@ export function createUploader(
     formData.append(REQUEST_VERIFICATION_TOKEN_INPUT_NAME, antiforgeryToken());
 
     const request = new XMLHttpRequest();
+    inFlightRequests.set(id, request);
 
     request.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable) {
@@ -105,6 +112,11 @@ export function createUploader(
       }
     });
 
+    // "loadend" fires exactly once after load, error, abort or timeout
+    request.addEventListener("loadend", () => {
+      inFlightRequests.delete(id);
+    });
+
     request.addEventListener("error", () => {
       dotNetReference
         .invokeMethodAsync(
@@ -117,6 +129,11 @@ export function createUploader(
 
     request.open("POST", uploadUrl);
     request.send(formData);
+  }
+
+  /** @param {string} id */
+  function abort(id) {
+    inFlightRequests.get(id)?.abort();
   }
 
   /** @param {XMLHttpRequest} request */
@@ -146,9 +163,15 @@ export function createUploader(
     },
     /** @param {string} id */
     forget(id) {
+      abort(id);
       pendingFiles.delete(id);
     },
     dispose() {
+      // copy the keys first since we delete them from
+      // inFlightRequests as we iterate
+      for (const id of [...inFlightRequests.keys()]) {
+        abort(id);
+      }
       dropZone.removeEventListener("dragover", onDragOver);
       dropZone.removeEventListener("dragleave", onDragLeave);
       dropZone.removeEventListener("drop", onDrop);

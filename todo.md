@@ -176,29 +176,48 @@ uploads a folder of images, and each image's file name (without its extension) i
 - **At the end, a report:** how many matched, which items already had images (so the artist can
   go and look), and which were ambiguous.
 
-**Open questions to settle first:**
-1. **Several images for one item.** File names in a folder are unique, so only one file can be
-   `Sunset.jpg`. Either bulk upload attaches one image per item, or there's a suffix convention
-   (`Sunset-2.jpg`) — which collides with a real title like "Sunset 2".
-2. **How names compare.** Exact, case-insensitive, or as slugs? Titles can hold characters file
-   names can't (`/` everywhere, `?` `:` on Windows). Slugs are the most forgiving but merge
-   "Sunset!" with "Sunset", which the ambiguity rule would report rather than guess.
-3. **Items that already have images.** Attach and flag, or skip and flag? Re-uploading the same
-   folder shouldn't duplicate: `OriginalFileName` is stored, so "already has an image with this
-   exact file name" can be told apart from "has other images".
-4. **Primary image.** Presumably primary when the item had no images, otherwise appended.
-5. **Images matching nothing** need a report line. The files need no cleanup code, since the
-   sweep removes them.
-6. **Attach as each file arrives, or preview then confirm?** A preview ("578 will attach, 3 are
-   ambiguous") changes nothing until the artist approves; unconfirmed uploads are left to the sweep.
-7. **Where the report lives.** Built in the page from each file's response (lost if the tab
-   closes), or saved on the server as a record of the run.
+**Decided (2026-09-13):**
+1. **One image per item.** More images are added on that item type's edit page, which doesn't
+   exist yet.
+2. **Names compare case-insensitively**, not as slugs. A title with a character file names
+   can't hold (`/`) can never match, so it ends up in the unmatched list.
+3. **Items that already have any image are skipped and flagged.** Re-uploading the same folder
+   therefore changes nothing.
+4. **Primary.** Always primary, since bulk upload only attaches to items with no images.
+5. **Images matching nothing are flagged** in the report. The sweep removes their files.
+6. **Attach as each file arrives**, no preview. There will be hundreds of matches.
+7. **The report is built in the page** from each file's response. Lost if the tab closes.
 
-- [ ] CSV of the artist's spreadsheet creates shop items with no images: which columns, and what
-      re-importing the same spreadsheet does
+**Consequences to handle:**
+- Two files can match the same item (`Sunset.jpg` and `sunset.png`) and upload concurrently,
+  so both could pass an "item has no images" check. Since a bulk attach is always primary, the
+  filtered unique index on `IsPrimary` rejects the second insert (error 2601). Report that as
+  skipped rather than letting it fail.
+- Order is CSV import first, then image matching.
+
+- [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
+      one CSV per item type; fixed header names the artist must use (no column mapping); unknown
+      medium/support/series names reject the file; a title already in `ShopItems` rejects the
+      file (same-named items are added by hand); any bad cell rejects the whole file with row
+      numbers. Sample export is `paintings.csv` at the repo root.
+      - One row per painting; several series/mediums/supports in one cell, split on a
+        configurable list delimiter, `;` by default (series names already contain commas)
+      - Dimensions stored in cm; the import is told the source unit and converts. Columns become
+        `decimal(8, 4)` so a 2-decimal inch value converts exactly
+      - `DatePainted` nullable, and stores how precise it is (a year alone is "exact date unknown").
+        Only `yyyy`, `yyyy-MM` and `yyyy-MM-dd` accepted; a year of `0` means blank
+      - Unknown header columns reject the file
+      - `Price` nullable: no price means viewable but not purchasable
+      - Blank rows skipped, every cell trimmed, file read as UTF-8
+      - Photographs and sculptures are their own item types, so their rows leave `paintings.csv`
+      - `catalogueNumber` is unused
+- [ ] Admin forms for mediums, supports and series. Prerequisite for the import, since unknown
+      names reject the file
+- [ ] Split the drop zone's look from its behaviour so the static CSV form reuses it
 - [ ] Bulk image upload matched to existing items by file name = item name, per the questions
       above
 - [ ] Attach-images must be its own operation, not only reachable through `AddPainting`
+- [ ] Edit page per shop item type, the only way to add a second image
 - [ ] Directory upload: `webkitdirectory` on the picker, `dataTransfer.items` +
       `webkitGetAsEntry()` on the drop zone (currently `.files`, which flattens folders)
 - [ ] Concurrency cap in the upload driver — hundreds of files means queueing 3-4 at a time

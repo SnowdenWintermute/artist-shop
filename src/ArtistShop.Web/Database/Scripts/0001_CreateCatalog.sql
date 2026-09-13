@@ -4,7 +4,7 @@ CREATE TABLE dbo.ShopItems (
     Name nvarchar(200) NOT NULL,
     Slug nvarchar(200) NOT NULL,
     CONSTRAINT Unique_ShopItems_Slug UNIQUE (Slug),
-    Price decimal(10, 2) NOT NULL,
+    Price decimal(10, 2),
     CONSTRAINT Check_ShopItems_Price CHECK (Price >= 0),
     Stock int NOT NULL,
     CONSTRAINT Check_ShopItems_Stock CHECK (Stock >= 0),
@@ -15,10 +15,38 @@ CREATE TABLE dbo.Paintings (
     Id int,
     CONSTRAINT PrimaryKey_Paintings PRIMARY KEY (Id),
     CONSTRAINT ForeignKey_Paintings_ShopItems FOREIGN KEY (Id) REFERENCES dbo.ShopItems (Id) ON DELETE CASCADE,
-    DatePainted date NOT NULL,
+    DatePainted date,
+    DatePaintedPrecision tinyint,
+    CONSTRAINT Check_Paintings_DatePainted CHECK (
+        (
+            DatePainted IS NULL
+            AND DatePaintedPrecision IS NULL
+        )
+        OR (
+            DatePainted IS NOT NULL
+            AND DatePaintedPrecision IS NOT NULL
+        )
+    ),
+    CONSTRAINT Check_Paintings_DatePaintedPrecision CHECK (DatePaintedPrecision IN (1, 2, 3)),
+    -- the parts below the precision must be "the first": a year-only date is stored
+    -- as January 1st, so two paintings from "2019" can't hold different hidden days
+    CONSTRAINT Check_Paintings_DatePaintedUnknownParts CHECK (
+        DatePaintedPrecision = 3
+        OR (
+            DatePaintedPrecision = 2
+            AND DAY(DatePainted) = 1
+        )
+        OR (
+            DatePaintedPrecision = 1
+            AND MONTH(DatePainted) = 1
+            AND DAY(DatePainted) = 1
+        )
+    ),
     Description nvarchar(max),
-    WidthCm decimal(6, 2),
-    HeightCm decimal(6, 2),
+    -- 4 digits before the decimal point and 4 after, so an inch value with
+    -- 2 decimals converts to centimetres with no rounding
+    WidthCm decimal(8, 4),
+    HeightCm decimal(8, 4),
     CONSTRAINT Check_Paintings_Dimensions CHECK (
         (
             WidthCm IS NULL

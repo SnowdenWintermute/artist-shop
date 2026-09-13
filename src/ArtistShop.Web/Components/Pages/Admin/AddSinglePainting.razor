@@ -72,7 +72,8 @@
 
       <TextField Label="Title" @bind-Value="Input.Name" />
       <NumberField Label="Price" @bind-Value="Input.Price" />
-      <DateField Label="Date painted" @bind-Value="Input.DatePainted" />
+      <PartialDateField Label="Date painted" @bind-Year="Input.YearPainted" @bind-Month="Input.MonthPainted"
+                        @bind-Day="Input.DayPainted" />
       <TextAreaField Label="Description" @bind-Value="Input.Description" />
       <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
       <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />

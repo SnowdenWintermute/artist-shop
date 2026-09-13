@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
@@ -21,12 +22,14 @@ public class PaintingCatalogAdditionForm : IValidatableObject
     [StringLength(CatalogLimits.ShopItemNameMaximumLength)]
     public string? Name { get; set; }
 
-    [Required]
     [Range(typeof(decimal), CatalogLimits.MinimumPrice, CatalogLimits.MaximumPrice)]
     public decimal? Price { get; set; }
 
-    [Required]
-    public DateOnly? DatePainted { get; set; }
+    public int? YearPainted { get; set; }
+
+    public int? MonthPainted { get; set; }
+
+    public int? DayPainted { get; set; }
 
     public string? Description { get; set; }
 
@@ -62,12 +65,14 @@ public class PaintingCatalogAdditionForm : IValidatableObject
             0
         );
 
+        var datePainted = PartialDate.FromParts(YearPainted, MonthPainted, DayPainted);
+
         return new PaintingCatalogAddition(
             new ShopItemName(name),
             ShopItemSlug.FromName(name),
-            Unwrap.Value(Price),
+            Price,
             1,
-            Unwrap.Value(DatePainted),
+            datePainted,
             Description,
             WidthCm.HasValue && HeightCm.HasValue
                 ? new DimensionsCentimeters(new Dimensions(WidthCm.Value, HeightCm.Value))
@@ -82,6 +87,28 @@ public class PaintingCatalogAdditionForm : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (
+            !PartialDate.TryFromParts(
+                YearPainted,
+                MonthPainted,
+                DayPainted,
+                out _,
+                out var dateError
+            )
+        )
+        {
+            // translate "which part of the date" into "which property of this form"
+            var memberName = dateError.Part switch
+            {
+                DatePart.Year => nameof(YearPainted),
+                DatePart.Month => nameof(MonthPainted),
+                DatePart.Day => nameof(DayPainted),
+                _ => throw new UnreachableException(),
+            };
+
+            yield return new ValidationResult(dateError.Message, [memberName]);
+        }
+
         var dimensionsPartiallyFilled = WidthCm.HasValue != HeightCm.HasValue;
         if (dimensionsPartiallyFilled)
         {

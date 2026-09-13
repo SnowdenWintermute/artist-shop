@@ -6,9 +6,9 @@ public class Painting(
     int id,
     ShopItemName name,
     ShopItemSlug slug,
-    decimal price,
+    decimal? price,
     int stock,
-    DateOnly datePainted,
+    PartialDate? datePainted,
     IEnumerable<ShopItemImage> images,
     DimensionsCentimeters? dimensions,
     string? description,
@@ -17,7 +17,7 @@ public class Painting(
     IEnumerable<PaintingSeries>? series
 ) : ShopItem(id, name, slug, price, stock, images)
 {
-    public DateOnly DatePainted { get; set; } = datePainted;
+    public PartialDate? DatePainted { get; set; } = datePainted;
 
     private readonly List<Medium> _mediums = mediums?.ToList() ?? [];
     public IReadOnlyList<Medium> Mediums => _mediums;
