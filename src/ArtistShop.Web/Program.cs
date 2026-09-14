@@ -63,6 +63,8 @@ builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 builder.Services.AddScoped<PaintingRepository>();
 builder.Services.AddScoped<ShopItemImageRepository>();
+builder.Services.AddScoped<ShopItemTypeRepository>();
+builder.Services.AddScoped<VocabularyRepository>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

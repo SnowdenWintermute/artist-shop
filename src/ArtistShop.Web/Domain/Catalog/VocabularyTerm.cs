@@ -1,9 +1,5 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
-public record VocabularyId(int Value);
-
-public record VocabularyName(string Value);
-
 public record VocabularyTermId(int Value);
 
 public record VocabularyTermName(string Value);

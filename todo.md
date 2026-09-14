@@ -7,13 +7,32 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-13
+## Where this stands — 2026-09-14
+
+**Next session starts at "Catalog vocabulary admin" in step 9**, build order step 1: the
+vocabulary procedures and `VocabularyRepository`. Design, routes and decisions are all settled
+there. Image upload (steps 0-8) is finished.
+
+Done since the image work, all tested (28 tests pass):
+- **Schema:** nullable `Price`; `DatePainted` plus `DatePaintedPrecision`; `decimal(8, 4)`
+  dimensions; `SortOrder` on the series junction.
+- **Vocabularies replace `Mediums`/`Supports`:** `ShopItemTypes`, `Vocabularies`,
+  `VocabularyAndShopItemTypesJunction`, `VocabularyTerms` and `ShopItemAndVocabularyTermsJunction`,
+  enforced with composite foreign keys. `Paintings.ShopItemTypeId` is a persisted computed `1`.
+  `AddPainting` takes `@VocabularyTermIds`; `GetPaintingBySlug` returns painting, images, series,
+  terms, in that order.
+- **`PartialDate`** and the Year/Month/Day `PartialDateField` with its day-limiting script.
+
+Nothing creates vocabularies, terms or series yet, so those insert paths haven't run against
+real rows.
+
+### Image upload, as of 2026-09-13
 
 Steps 0-7 are done and verified against the database. You can drop or pick multiple images on
 `/admin/paintings/add-single`, watch each upload with a real progress bar, reorder by dragging,
 star one as primary, and it all persists in order with the right primary.
 
-Step 8 is mostly done:
+Step 8 is done:
 - **Orphan sweep:** `OrphanedImageSweepService` (a `BackgroundService` on a `PeriodicTimer`) runs
   `OrphanedImageSweeper` at startup and then every interval. It deletes unreferenced originals
   older than the grace period. The settings are `ImageStorage:OrphanGracePeriod` and
@@ -26,8 +45,6 @@ Step 8 is mostly done:
   database with `FakeTimeProvider`. Run `source env.sh && dotnet test` from the repo root with SQL
   Server up. `global.json` switches `dotnet test` to Microsoft Testing Platform mode, which
   xUnit 4 requires on the .NET 10 SDK.
-
-**Next session starts at step 9**, beginning with the open questions listed there.
 
 **Layout.** Uploads live at `<repo>/content/images/{originals,variants}` — deliberately outside
 the project directory, because `dotnet watch` treats files under the project as project changes
@@ -147,7 +164,7 @@ variant arrives fast enough that a client-side preview earns nothing.
       itself into the UI
 - [x] Test catalog and orphaned files cleared
 
-## 8. Cleanup — MOSTLY DONE
+## 8. Cleanup — DONE
 
 - [x] Orphan sweep with a grace period, run by a background service; 4 tests
 - [x] Deletion stays in the sweep, not on the ✕ button (✕ only unlinks)
@@ -159,11 +176,11 @@ variant arrives fast enough that a client-side preview earns nothing.
       Worth a test: upload `Image.Black(1000, 2000, bands: 3)` and assert `800.webp` is 800 wide
 - [x] `BlurDataUri` size guard dropped. The same square rule bounds the blur at 20×20, and its
       metadata is stripped, so it stays far below the `nvarchar(1000)` column
-- [ ] Abort in-flight XHRs when the island is disposed
+- [x] Abort in-flight XHRs when the island is disposed, and when a row is removed mid-upload
 - [x] Leftover variant folders cleared. Their originals were deleted before the delete order was
       fixed, and the sweep lists only `originals/`, so it couldn't see them
-- [ ] Check whether keeping `Xmp` on variants can leak location. The processor keeps
-      `Icc | Xmp`, and XMP can carry its own copy of the GPS fields
+- [x] `Xmp` dropped from variants: XMP can carry its own copy of the GPS fields. Variants keep
+      `Icc` only. To verify on a real photo, `grep -c GPSLatitude` on a variant should print 0
 
 ## 9. Next — bulk import (not started)
 
@@ -196,12 +213,13 @@ uploads a folder of images, and each image's file name (without its extension) i
 - Order is CSV import first, then image matching.
 
 - [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
-      one CSV per item type; fixed header names the artist must use (no column mapping); unknown
-      medium/support/series names reject the file; any bad cell rejects the whole file with row
-      numbers. A title already in `ShopItems` is skipped and listed, not rejected, so a CSV can
+      one CSV per item type; fixed header names the artist must use (no column mapping); a header
+      must be a known field (`title`, `price`, …), `series`, or the name of an existing vocabulary
+      that applies to the item type; unknown term or series names reject the file; any bad cell
+      rejects the whole file with row numbers. A title already in `ShopItems` is skipped and listed, not rejected, so a CSV can
       be re-imported to add only its new rows; same-named items are added by hand. Sample
       export is `paintings.csv` at the repo root.
-      - One row per painting; several series/mediums/supports in one cell, split on a
+      - One row per painting; several series or terms in one cell, split on a
         configurable list delimiter, `;` by default (series names already contain commas)
       - Dimensions stored in cm; the import is told the source unit and converts. Columns become
         `decimal(8, 4)` so a 2-decimal inch value converts exactly
@@ -215,46 +233,56 @@ uploads a folder of images, and each image's file name (without its extension) i
 - [x] Schema edits (2026-09-13): nullable `Price`, `DatePainted` + `DatePaintedPrecision` with
       `PartialDate` owning date validation, `decimal(8, 4)` dimensions, and a Year/Month/Day
       `PartialDateField` whose script disables impossible days
-- [ ] **Revised 2026-09-14: mediums and supports become artist-defined vocabularies of terms**
-      (the Drupal/WordPress taxonomy pattern), replacing `Mediums`, `Supports` and their
-      junctions. The artist creates vocabularies on an admin page. The same create/edit page
-      has item type checkboxes saying which shop item types a vocabulary applies to; unchecking
-      a type removes that vocabulary's terms from items of that type. Series stays its own
-      entity. Schema design (junction tables, item type discriminator) under discussion.
-      Some bullets below still say "mediums/supports" and predate this.
-- [ ] Admin forms for the catalog vocabulary (mediums, supports, series). Decided 2026-09-13:
-      - Routes `/admin/vocabulary/mediums`, `/supports`, `/series` under a static tab bar of links
-        (Blueprint tabs need interactivity). Admin URLs use the id, since a series slug changes
-      - Separate types: series will grow (cover photo, other information)
-      - Admin vocabulary pages are `InteractiveServer`; static rendering isn't a goal for admin.
-        Deletes confirm with Primitives `BbAlertDialog` (no outside-click dismiss); renames use
-        `BbDialog`, in controlled mode (`@bind-Open`) so it stays open while the save runs
-      - Mediums and supports tabs: list; pencil opens a rename dialog, trash opens a confirm
-        delete dialog. Deleting unlinks the term from its paintings
-      - Series tab: list with painting counts; each row goes to `/admin/vocabulary/series/{id}`,
-        the edit series page: rename, drag to reorder its paintings, tick paintings and remove them
-        after one confirm dialog, delete the whole series after a confirm dialog
-      - Renaming a series changes its slug; broken old links accepted
-      - DONE 2026-09-14: `PaintingAndSeriesJunction.SortOrder` (order belongs to the pair) with
-        `UNIQUE (SeriesId, SortOrder)`, so reordering must be one set-based `UPDATE`. `AddPainting`
-        appends to each series with `MAX + 1` under `UPDLOCK`. The series insert hasn't run for
-        real yet, since no series exist
-      - Deleting a term: one procedure removes its junction rows, then the term, in one
-        transaction. The foreign keys keep refusing any other delete
-      - Spike DONE: `<BbPortalHost />` must render interactively. A host in the static
-        `MainLayout` shows nothing. Blueprint's README documents this for per-page interactivity.
-        Its fix is an interactive island host in the layout, which would open a circuit on
-        every public page too, so the host lives in the admin vocabulary shell instead. Delete
-        `Pages/Admin/DialogExperiment.razor`
-      - Not now: adding existing paintings to a series from the series page
-      - Public series ordering, later: customer picks the sort (chronological, painting count,
-        recently updated), the artist sets the default and can drag a custom order
+- [ ] **Catalog vocabulary admin — NEXT.** Mediums and supports became artist-defined
+      vocabularies of terms (the Drupal/WordPress taxonomy pattern, "controlled vocabulary" in
+      museum cataloguing); the schema is done. Series stays its own entity: it will grow a
+      cover photo and description, has a public page, and orders its paintings.
+
+      **Pages** (all `InteractiveServer`; static rendering isn't a goal for admin). A shared
+      catalog shell renders a tab bar of links, `[Medium] [Support] … [+ New vocabulary]
+      [Series]`, plus `<BbPortalHost />`. The host must render interactively, and keeping it out
+      of `MainLayout` avoids opening a circuit on public pages. Admin URLs use ids, and
+      `{id:int}` keeps `new` from matching.
+      - `/admin/catalog/vocabularies/new` and `/admin/catalog/vocabularies/{id}/edit` share one
+        form: the name, plus checkboxes for the shop item types the vocabulary applies to. Saving
+        with a type unticked confirms first ("removes Medium terms from 40 paintings"), then
+        unlinks. Edit also has Delete vocabulary, confirming with term and item counts.
+      - `/admin/catalog/vocabularies/{id}` lists terms with usage counts and an add-term box;
+        pencil opens a rename `BbDialog`, trash opens a delete `BbAlertDialog`, which unlinks
+        and then deletes.
+      - `/admin/catalog/series` lists series with painting counts, linking to
+        `/admin/catalog/series/{id}`: rename (the slug follows, breaking old links, accepted),
+        drag to reorder its paintings, tick paintings and remove them after one confirm, and
+        delete the series after a confirm. Adding existing paintings there: not now.
+
+      **Rules.** Names are trimmed before saving and empty names are rejected, for vocabularies,
+      terms and series. Delete and untick dialogs show counts from the page load, labelled
+      "(count as of page load)". Dialogs are controlled (`@bind-Open`) so they stay open while
+      the save runs. Deletes use `BbAlertDialog` (no dismiss by clicking outside). Every delete
+      procedure removes junction rows first, then the row, in one transaction; the foreign keys
+      keep refusing any other delete.
+
+      **Procedures.** Vocabularies: `GetVocabularies`, `GetShopItemTypes`, `GetVocabulary`
+      (name and ticked types), `CountVocabularyUsageByShopItemType`, `AddVocabulary`,
+      `UpdateVocabulary` (rename, add ticks, unlink then remove unticks, in one transaction),
+      `DeleteVocabulary`. Terms: `GetVocabularyTermsWithUsage`, `AddVocabularyTerm`,
+      `RenameVocabularyTerm`, `DeleteVocabularyTerm`. Duplicate names surface as error 2627 or
+      2601; turn them into a field message.
+
+      **Build order.** 1) vocabulary procedures and `VocabularyRepository`; 2) catalog shell and
+      the create/edit vocabulary page, then delete `Pages/Admin/DialogExperiment.razor`; 3) term
+      procedures, `VocabularyTermRepository` and the terms page; 4) series. A `ShopItemType`
+      C# enum mirroring `ShopItemTypes` arrives with the checkboxes, not before.
+
+      Already done for series: `SortOrder` on the junction with `UNIQUE (SeriesId, SortOrder)`, so
+      reordering must be one set-based `UPDATE`. `AddPainting` appends with `MAX + 1` under
+      `UPDLOCK`. Public series ordering, later: the customer picks the sort, the artist sets the
+      default and can drag a custom order.
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series
 - [ ] Edit painting flow. None exists, so a painting can't be renamed yet; decide whether its
-      slug follows the name like a series does Prerequisite for the import, since unknown
-      names reject the file
+      slug follows the name like a series does
 - [ ] Split the drop zone's look from its behaviour so the static CSV form reuses it
 - [ ] Bulk image upload matched to existing items by file name = item name, per the questions
       above

@@ -24,7 +24,7 @@ TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 BEGIN TRANSACTION;
 
-DECLARE @PaintingShopItemTypeId tinyint = 1;
+DECLARE @PaintingShopItemTypeId int = 1;
 
 -- A join below would silently skip a term id that no longer exists (say it was deleted in
 -- another tab while this form was open). Checking first turns that into a loud error.

@@ -1,5 +1,5 @@
 CREATE TABLE dbo.ShopItemTypes (
-    Id tinyint,
+    Id int,
     CONSTRAINT PrimaryKey_ShopItemTypes PRIMARY KEY (Id),
     Name nvarchar(50) NOT NULL,
     CONSTRAINT Unique_ShopItemTypes_Name UNIQUE (Name)
@@ -14,7 +14,7 @@ VALUES
 CREATE TABLE dbo.ShopItems (
     Id int IDENTITY(1, 1),
     CONSTRAINT PrimaryKey_ShopItems PRIMARY KEY (Id),
-    ShopItemTypeId tinyint NOT NULL,
+    ShopItemTypeId int NOT NULL,
     CONSTRAINT ForeignKey_ShopItems_ShopItemTypes FOREIGN KEY (ShopItemTypeId) REFERENCES dbo.ShopItemTypes (Id),
     CONSTRAINT Unique_ShopItems_IdShopItemType UNIQUE (Id, ShopItemTypeId),
     Name nvarchar(200) NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE dbo.Vocabularies (
 -- sets which vocabulary types are allowed on which shop item types
 CREATE TABLE dbo.VocabularyAndShopItemTypesJunction (
     VocabularyId int NOT NULL,
-    ShopItemTypeId tinyint NOT NULL,
+    ShopItemTypeId int NOT NULL,
     CONSTRAINT PrimaryKey_VocabularyAndShopItemTypesJunction PRIMARY KEY (VocabularyId, ShopItemTypeId),
     CONSTRAINT ForeignKey_VocabularyAndShopItemTypesJunction_Vocabularies FOREIGN KEY (VocabularyId) REFERENCES dbo.Vocabularies (Id),
     CONSTRAINT ForeignKey_VocabularyAndShopItemTypesJunction_ShopItemTypes FOREIGN KEY (ShopItemTypeId) REFERENCES dbo.ShopItemTypes (Id)
@@ -62,7 +62,7 @@ CREATE TABLE dbo.VocabularyTerms (
 
 CREATE TABLE dbo.ShopItemAndVocabularyTermsJunction (
     ShopItemId int NOT NULL,
-    ShopItemTypeId tinyint NOT NULL,
+    ShopItemTypeId int NOT NULL,
     TermId int NOT NULL,
     VocabularyId int NOT NULL,
     CONSTRAINT PrimaryKey_ShopItemAndVocabularyTermsJunction PRIMARY KEY (ShopItemId, TermId),
@@ -76,8 +76,7 @@ CREATE TABLE dbo.Paintings (
     CONSTRAINT PrimaryKey_Paintings PRIMARY KEY (Id),
     -- a computed column: its value is this expression, not something inserted. PERSISTED
     -- stores it in the row, which a computed column needs before a foreign key can use it.
-    -- The CAST makes the type tinyint to match ShopItems; a bare 1 would be an int.
-    ShopItemTypeId AS CAST(1 AS tinyint) PERSISTED NOT NULL,
+    ShopItemTypeId AS 1 PERSISTED NOT NULL,
     -- this row's shop item must be marked as a painting
     CONSTRAINT ForeignKey_Paintings_ShopItems FOREIGN KEY (Id, ShopItemTypeId) REFERENCES dbo.ShopItems (Id, ShopItemTypeId) ON DELETE CASCADE,
     DatePainted date,

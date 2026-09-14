@@ -2,13 +2,16 @@ using ArtistShop.Web.Database;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
+// xUnit v3: one instance for the whole test run, handed to any test class whose
+// constructor asks for it. The migrations then run once rather than once per class
+[assembly: AssemblyFixture(typeof(ArtistShop.Web.Tests.Database.TestDatabaseFixture))]
+
 namespace ArtistShop.Web.Tests.Database;
 
-// When a second test class needs the database, turn this into an assembly fixture
-// (created once for the whole test run). Otherwise two classes running in parallel
-// would each run the migrations at the same moment
 public class TestDatabaseFixture : IAsyncLifetime
 {
+    private const string DatabaseName = "ArtistShopTests";
+
     public string ConnectionString { get; }
     public SqlConnectionFactory ConnectionFactory { get; }
 
@@ -23,7 +26,7 @@ public class TestDatabaseFixture : IAsyncLifetime
         // same server and login as development, but a separate database
         var connectionStringBuilder = new SqlConnectionStringBuilder(developmentConnectionString)
         {
-            InitialCatalog = "ArtistShopTests",
+            InitialCatalog = DatabaseName,
         };
 
         ConnectionString = connectionStringBuilder.ConnectionString;
@@ -34,6 +37,8 @@ public class TestDatabaseFixture : IAsyncLifetime
     // after the constructor and before the first test runs
     public async ValueTask InitializeAsync()
     {
+        // fresh every run, so edits to already-journaled scripts like 0001 take effect
+        await DropDatabaseIfExistsAsync();
         await new DatabaseInitializer().EnsureDatabaseExistsAsync(ConnectionString);
         new SchemaMigrator().Upgrade(ConnectionString);
 
@@ -42,8 +47,27 @@ public class TestDatabaseFixture : IAsyncLifetime
         SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
     }
 
-    // called after the last test. The database is deliberately kept between runs: every
-    // test uses brand new storage keys and its own directory, so leftover rows from earlier
-    // runs can't affect any result
+    private async Task DropDatabaseIfExistsAsync()
+    {
+        var masterConnectionString = new SqlConnectionStringBuilder(ConnectionString)
+        {
+            InitialCatalog = "master",
+        }.ConnectionString;
+
+        await using var connection = new SqlConnection(masterConnectionString);
+
+        // SINGLE_USER WITH ROLLBACK IMMEDIATE disconnects other sessions, which would block the drop
+        await connection.ExecuteAsync(
+            $"""
+            IF DB_ID(N'{DatabaseName}') IS NOT NULL
+            BEGIN
+                ALTER DATABASE {DatabaseName} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                DROP DATABASE {DatabaseName};
+            END
+            """
+        );
+    }
+
+    // dropped at the start rather than here, so a failed run's rows can still be inspected
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

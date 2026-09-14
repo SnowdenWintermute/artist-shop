@@ -17,6 +17,7 @@
 // [NotNullWhen(true)] out MyType? myParameter: attribute telling compiler that if the
 // routine returns true then the out parameter will be not null
 // is: means x matches shape of y even if y contains additional stuff
+// delegate: keyword - a type declaration for a function
 //
 //
 // UNCERTAIN:

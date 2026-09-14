@@ -9,7 +9,7 @@ using NetVips;
 
 namespace ArtistShop.Web.Tests.Images;
 
-public sealed class OrphanedImageSweeperTests : IClassFixture<TestDatabaseFixture>, IDisposable
+public sealed class OrphanedImageSweeperTests : IDisposable
 {
     private static readonly TimeSpan GracePeriod = TimeSpan.FromDays(7);
 

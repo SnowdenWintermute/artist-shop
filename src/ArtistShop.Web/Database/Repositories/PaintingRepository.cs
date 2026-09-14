@@ -37,32 +37,16 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         return images;
     }
 
-    // for Series and VocabularyTerms which are stored as id lists
-    private static DataTable CreateIdDataTable(IEnumerable<int> ids)
-    {
-        var table = new DataTable();
-        table.Columns.Add("Id", typeof(int));
-
-        foreach (var id in ids)
-        {
-            table.Rows.Add(id);
-        }
-
-        return table;
-    }
-
     public async Task<ShopItemIdentifiers> AddAsync(PaintingCatalogAddition paintingCatalogAddition)
     {
         var images = CreateImageDataTable(paintingCatalogAddition);
-        var paintingSeriesIds = CreateIdDataTable(
-                paintingCatalogAddition.SeriesIds.Select((id) => id.Value)
-            )
-            .AsTableValuedParameter("dbo.IdList");
+        var paintingSeriesIds = IdListParameter.Create(
+            paintingCatalogAddition.SeriesIds.Select((id) => id.Value)
+        );
 
-        var vocabularyTermIds = CreateIdDataTable(
-                paintingCatalogAddition.VocabularyTermIds.Select(id => id.Value)
-            )
-            .AsTableValuedParameter("dbo.IdList");
+        var vocabularyTermIds = IdListParameter.Create(
+            paintingCatalogAddition.VocabularyTermIds.Select(id => id.Value)
+        );
 
         await using var connection = connectionFactory.Create();
 
