@@ -37,8 +37,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         return images;
     }
 
-    // for PaintingSeries, Medium and Support which all are stored
-    // as id lists
+    // for Series and VocabularyTerms which are stored as id lists
     private static DataTable CreateIdDataTable(IEnumerable<int> ids)
     {
         var table = new DataTable();
@@ -59,12 +58,9 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
                 paintingCatalogAddition.SeriesIds.Select((id) => id.Value)
             )
             .AsTableValuedParameter("dbo.IdList");
-        var mediumIds = CreateIdDataTable(
-                paintingCatalogAddition.MediumIds.Select((id) => id.Value)
-            )
-            .AsTableValuedParameter("dbo.IdList");
-        var supportIds = CreateIdDataTable(
-                paintingCatalogAddition.SupportIds.Select((id) => id.Value)
+
+        var vocabularyTermIds = CreateIdDataTable(
+                paintingCatalogAddition.VocabularyTermIds.Select(id => id.Value)
             )
             .AsTableValuedParameter("dbo.IdList");
 
@@ -85,8 +81,7 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
                 HeightCm = paintingCatalogAddition.Dimensions?.Height,
                 Images = images.AsTableValuedParameter("dbo.ShopItemImageList"),
                 SeriesIds = paintingSeriesIds,
-                MediumIds = mediumIds,
-                SupportIds = supportIds,
+                VocabularyTermIds = vocabularyTermIds,
             },
             commandType: CommandType.StoredProcedure
         );
@@ -114,16 +109,17 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
 
         var images = (await results.ReadAsync<ImageRow>()).ToList();
 
-        var mediums = (await results.ReadAsync<LookupRow>())
-            .Select(lookup => new Medium(lookup.Id, lookup.Name))
-            .ToList();
-
-        var supports = (await results.ReadAsync<LookupRow>())
-            .Select(lookup => new Support(lookup.Id, lookup.Name))
-            .ToList();
-
         var series = (await results.ReadAsync<LookupRow>())
             .Select(lookup => new PaintingSeries(lookup.Id, lookup.Name))
+            .ToList();
+
+        var vocabularyTerms = (await results.ReadAsync<VocabularyTermRow>())
+            .Select(term => new VocabularyTerm(
+                new VocabularyTermId(term.Id),
+                new VocabularyTermName(term.Name),
+                new VocabularyId(term.VocabularyId),
+                new VocabularyName(term.VocabularyName)
+            ))
             .ToList();
 
         var dimensions = row is { WidthCm: decimal width, HeightCm: decimal height }
@@ -154,9 +150,8 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
             )),
             dimensions,
             row.Description,
-            mediums,
-            supports,
-            series
+            series,
+            vocabularyTerms
         )
         {
             MainImageIndex = Math.Max(images.FindIndex(image => image.IsPrimary), 0),
@@ -199,5 +194,13 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
+    }
+
+    private sealed class VocabularyTermRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
+        public required int VocabularyId { get; init; }
+        public required string VocabularyName { get; init; }
     }
 }

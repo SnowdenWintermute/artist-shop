@@ -12,7 +12,6 @@ public record PaintingCatalogAddition(
     DimensionsCentimeters? Dimensions,
     IReadOnlyList<ShopItemImage> Images,
     int MainImageIndex,
-    IReadOnlyList<MediumId> MediumIds,
-    IReadOnlyList<SupportId> SupportIds,
+    IReadOnlyList<VocabularyTermId> VocabularyTermIds,
     IReadOnlyList<SeriesId> SeriesIds
 );

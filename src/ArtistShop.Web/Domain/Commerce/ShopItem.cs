@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Domain.Commerce;
 
@@ -56,7 +57,8 @@ public abstract class ShopItem(
     ShopItemSlug slug,
     decimal? price,
     int stock,
-    IEnumerable<ShopItemImage> images
+    IEnumerable<ShopItemImage> images,
+    IEnumerable<VocabularyTerm> vocabularyTerms
 )
 {
     public ShopItemId Id { get; } = new(id);
@@ -68,6 +70,8 @@ public abstract class ShopItem(
 
     private readonly List<ShopItemImage> _images = [.. images];
     public IReadOnlyList<ShopItemImage> Images => _images;
+    private readonly List<VocabularyTerm> _vocabularyTerms = [.. vocabularyTerms];
+    public IReadOnlyList<VocabularyTerm> VocabularyTerms => _vocabularyTerms;
 
     // determine which thumbnail to show
     public int MainImageIndex { get; set; } = 0;

@@ -197,9 +197,10 @@ uploads a folder of images, and each image's file name (without its extension) i
 
 - [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
       one CSV per item type; fixed header names the artist must use (no column mapping); unknown
-      medium/support/series names reject the file; a title already in `ShopItems` rejects the
-      file (same-named items are added by hand); any bad cell rejects the whole file with row
-      numbers. Sample export is `paintings.csv` at the repo root.
+      medium/support/series names reject the file; any bad cell rejects the whole file with row
+      numbers. A title already in `ShopItems` is skipped and listed, not rejected, so a CSV can
+      be re-imported to add only its new rows; same-named items are added by hand. Sample
+      export is `paintings.csv` at the repo root.
       - One row per painting; several series/mediums/supports in one cell, split on a
         configurable list delimiter, `;` by default (series names already contain commas)
       - Dimensions stored in cm; the import is told the source unit and converts. Columns become
@@ -211,7 +212,48 @@ uploads a folder of images, and each image's file name (without its extension) i
       - Blank rows skipped, every cell trimmed, file read as UTF-8
       - Photographs and sculptures are their own item types, so their rows leave `paintings.csv`
       - `catalogueNumber` is unused
-- [ ] Admin forms for mediums, supports and series. Prerequisite for the import, since unknown
+- [x] Schema edits (2026-09-13): nullable `Price`, `DatePainted` + `DatePaintedPrecision` with
+      `PartialDate` owning date validation, `decimal(8, 4)` dimensions, and a Year/Month/Day
+      `PartialDateField` whose script disables impossible days
+- [ ] **Revised 2026-09-14: mediums and supports become artist-defined vocabularies of terms**
+      (the Drupal/WordPress taxonomy pattern), replacing `Mediums`, `Supports` and their
+      junctions. The artist creates vocabularies on an admin page. The same create/edit page
+      has item type checkboxes saying which shop item types a vocabulary applies to; unchecking
+      a type removes that vocabulary's terms from items of that type. Series stays its own
+      entity. Schema design (junction tables, item type discriminator) under discussion.
+      Some bullets below still say "mediums/supports" and predate this.
+- [ ] Admin forms for the catalog vocabulary (mediums, supports, series). Decided 2026-09-13:
+      - Routes `/admin/vocabulary/mediums`, `/supports`, `/series` under a static tab bar of links
+        (Blueprint tabs need interactivity). Admin URLs use the id, since a series slug changes
+      - Separate types: series will grow (cover photo, other information)
+      - Admin vocabulary pages are `InteractiveServer`; static rendering isn't a goal for admin.
+        Deletes confirm with Primitives `BbAlertDialog` (no outside-click dismiss); renames use
+        `BbDialog`, in controlled mode (`@bind-Open`) so it stays open while the save runs
+      - Mediums and supports tabs: list; pencil opens a rename dialog, trash opens a confirm
+        delete dialog. Deleting unlinks the term from its paintings
+      - Series tab: list with painting counts; each row goes to `/admin/vocabulary/series/{id}`,
+        the edit series page: rename, drag to reorder its paintings, tick paintings and remove them
+        after one confirm dialog, delete the whole series after a confirm dialog
+      - Renaming a series changes its slug; broken old links accepted
+      - DONE 2026-09-14: `PaintingAndSeriesJunction.SortOrder` (order belongs to the pair) with
+        `UNIQUE (SeriesId, SortOrder)`, so reordering must be one set-based `UPDATE`. `AddPainting`
+        appends to each series with `MAX + 1` under `UPDLOCK`. The series insert hasn't run for
+        real yet, since no series exist
+      - Deleting a term: one procedure removes its junction rows, then the term, in one
+        transaction. The foreign keys keep refusing any other delete
+      - Spike DONE: `<BbPortalHost />` must render interactively. A host in the static
+        `MainLayout` shows nothing. Blueprint's README documents this for per-page interactivity.
+        Its fix is an interactive island host in the layout, which would open a circuit on
+        every public page too, so the host lives in the admin vocabulary shell instead. Delete
+        `Pages/Admin/DialogExperiment.razor`
+      - Not now: adding existing paintings to a series from the series page
+      - Public series ordering, later: customer picks the sort (chronological, painting count,
+        recently updated), the artist sets the default and can drag a custom order
+- [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
+      elsewhere. The CSV import only creates items, so the site becomes the source of truth once
+      the artist edits there; a CSV can't update existing paintings or add them to a series
+- [ ] Edit painting flow. None exists, so a painting can't be renamed yet; decide whether its
+      slug follows the name like a series does Prerequisite for the import, since unknown
       names reject the file
 - [ ] Split the drop zone's look from its behaviour so the static CSV form reuses it
 - [ ] Bulk image upload matched to existing items by file name = item name, per the questions

@@ -35,32 +35,27 @@ ORDER BY
     shopItemImages.SortOrder;
 
 SELECT
-    medium.Id,
-    medium.Name
-FROM
-    dbo.Mediums AS medium
-    JOIN dbo.PaintingAndMediumsJunction AS junction ON junction.MediumId = medium.Id
-    JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.PaintingId
-WHERE
-    shopItem.Slug = @Slug;
-
-SELECT
-    support.Id,
-    support.Name
-FROM
-    dbo.Supports AS support
-    JOIN dbo.PaintingAndSupportsJunction AS junction ON junction.SupportId = support.Id
-    JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.PaintingId
-WHERE
-    shopItem.Slug = @Slug;
-
-SELECT
     series.Id,
     series.Name
 FROM
     dbo.PaintingSeries AS series
     JOIN dbo.PaintingAndSeriesJunction AS junction ON junction.SeriesId = series.Id
     JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.PaintingId
+WHERE
+    shopItem.Slug = @Slug;
+
+-- result set 4: this painting's terms, each with its vocabulary so the page can
+-- show "Medium: Acrylic" without another query
+SELECT
+    term.Id,
+    term.Name,
+    vocabulary.Id AS VocabularyId,
+    vocabulary.Name AS VocabularyName
+FROM
+    dbo.ShopItemAndVocabularyTermsJunction AS junction
+    JOIN dbo.VocabularyTerms AS term ON term.Id = junction.TermId
+    JOIN dbo.Vocabularies AS vocabulary ON vocabulary.Id = junction.VocabularyId
+    JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.ShopItemId
 WHERE
     shopItem.Slug = @Slug;
 

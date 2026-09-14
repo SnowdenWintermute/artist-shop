@@ -126,9 +126,8 @@ public sealed class OrphanedImageSweeperTests : IClassFixture<TestDatabaseFixtur
                 Dimensions: null,
                 Images: [new ShopItemImage(storageKey, "test.jpg", 800, 600, BlurDataUri: null)],
                 MainImageIndex: 0,
-                MediumIds: [],
-                SupportIds: [],
-                SeriesIds: []
+                SeriesIds: [],
+                VocabularyTermIds: []
             )
         );
     }

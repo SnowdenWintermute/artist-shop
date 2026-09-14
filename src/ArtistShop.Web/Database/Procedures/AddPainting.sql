@@ -8,8 +8,7 @@ CREATE OR ALTER PROCEDURE dbo.AddPainting @Name nvarchar(200),
 @WidthCm decimal(8, 4),
 @HeightCm decimal(8, 4),
 @Images dbo.ShopItemImageList READONLY,
-@MediumIds dbo.IdList READONLY,
-@SupportIds dbo.IdList READONLY,
+@VocabularyTermIds dbo.IdList READONLY,
 @SeriesIds dbo.IdList READONLY AS BEGIN
 -- Stops SQL Server emitting a "(1 row affected)" message per statement. Those
 -- are extra results the client has to skip past, and they confuse some drivers.
@@ -25,12 +24,38 @@ TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 BEGIN TRANSACTION;
 
+DECLARE @PaintingShopItemTypeId tinyint = 1;
+
+-- A join below would silently skip a term id that no longer exists (say it was deleted in
+-- another tab while this form was open). Checking first turns that into a loud error.
+-- THROW needs the statement before it to end with a semicolon.
+IF EXISTS (
+    SELECT
+        1
+    FROM
+        @VocabularyTermIds AS vocabularyTermIds
+    WHERE
+        NOT EXISTS (
+            SELECT
+                1
+            FROM
+                dbo.VocabularyTerms AS vocabularyTerm
+            WHERE
+                vocabularyTerm.Id = vocabularyTermIds.Id
+        )
+)
+-- 50000 and above are free for our own errors. With XACT_ABORT ON, THROW also
+-- rolls the transaction back.
+THROW 50001,
+'A chosen vocabulary term no longer exists.',
+1;
+
 DECLARE @Slug nvarchar(210) = dbo.ResolveShopItemSlug (@CandidateSlug);
 
 INSERT INTO
-    dbo.ShopItems (Name, Slug, Price, Stock)
+    dbo.ShopItems (Name, ShopItemTypeId, Slug, Price, Stock)
 VALUES
-    (@Name, @Slug, @Price, @Stock);
+    (@Name, @PaintingShopItemTypeId, @Slug, @Price, @Stock);
 
 DECLARE @Id int;
 
@@ -68,30 +93,44 @@ SELECT
 FROM
     @Images;
 
+-- VocabularyId is looked up from each term rather than passed in, and ShopItemTypeId is
+-- copied in, so the three foreign keys on the junction can check the row. If a term's
+-- vocabulary isn't ticked for paintings, the insert fails with error 547.
 INSERT INTO
-    dbo.PaintingAndMediumsJunction (PaintingId, MediumId)
+    dbo.ShopItemAndVocabularyTermsJunction (ShopItemId, ShopItemTypeId, TermId, VocabularyId)
 SELECT
     @Id,
-    Id
+    @PaintingShopItemTypeId,
+    term.Id,
+    term.VocabularyId
 FROM
-    @MediumIds;
-
-INSERT INTO
-    dbo.PaintingAndSupportsJunction (PaintingId, SupportId)
-SELECT
-    @Id,
-    Id
-FROM
-    @SupportIds;
+    @VocabularyTermIds AS termIds
+    JOIN dbo.VocabularyTerms AS term ON term.Id = termIds.Id;
 
 -- the column is SeriesId but the source column is just Id
 INSERT INTO
-    dbo.PaintingAndSeriesJunction (PaintingId, SeriesId)
+    dbo.PaintingAndSeriesJunction (PaintingId, SeriesId, SortOrder)
 SELECT
     @Id,
-    Id
+    seriesIds.Id,
+    -- a correlated subquery: it runs once per row of @SeriesIds, with seriesIds.Id
+    -- filled in from the outer row. MAX over no rows is NULL, so COALESCE turns
+    -- "empty series" into -1, which the + 1 makes 0
+    COALESCE(
+        (
+            SELECT
+                MAX(existing.SortOrder)
+            FROM
+                dbo.PaintingAndSeriesJunction AS existing
+            WITH
+                (UPDLOCK)
+            WHERE
+                existing.SeriesId = seriesIds.Id
+        ),
+        -1
+    ) + 1
 FROM
-    @SeriesIds;
+    @SeriesIds AS seriesIds;
 
 COMMIT TRANSACTION;
 

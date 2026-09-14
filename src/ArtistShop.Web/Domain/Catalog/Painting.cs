@@ -12,17 +12,12 @@ public class Painting(
     IEnumerable<ShopItemImage> images,
     DimensionsCentimeters? dimensions,
     string? description,
-    IEnumerable<Medium>? mediums,
-    IEnumerable<Support>? supports,
-    IEnumerable<PaintingSeries>? series
-) : ShopItem(id, name, slug, price, stock, images)
+    IEnumerable<PaintingSeries>? series,
+    IEnumerable<VocabularyTerm> vocabularyTerms
+) : ShopItem(id, name, slug, price, stock, images, vocabularyTerms)
 {
     public PartialDate? DatePainted { get; set; } = datePainted;
 
-    private readonly List<Medium> _mediums = mediums?.ToList() ?? [];
-    public IReadOnlyList<Medium> Mediums => _mediums;
-    private readonly List<Support> _supports = supports?.ToList() ?? [];
-    public IReadOnlyList<Support> Supports => _supports;
     private readonly List<PaintingSeries> _series = series?.ToList() ?? [];
     public IReadOnlyList<PaintingSeries> Series => _series;
 

@@ -79,9 +79,8 @@ public class PaintingCatalogAdditionForm : IValidatableObject
                 : null,
             Images: images,
             MainImageIndex: mainImageIndex,
-            MediumIds: [],
-            SupportIds: [],
-            SeriesIds: []
+            SeriesIds: [],
+            VocabularyTermIds: []
         );
     }
 
