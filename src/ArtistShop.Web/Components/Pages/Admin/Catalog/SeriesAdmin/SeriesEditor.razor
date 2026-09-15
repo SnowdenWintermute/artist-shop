@@ -1,0 +1,39 @@
+@page "/admin/catalog/series/{Id:int}"
+@layout SeriesLayout
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject SeriesRepository SeriesRepository
+
+@code {
+  [Parameter]
+  public int Id { get; set; }
+
+  private SeriesWithShopItems? _series;
+
+  protected override async Task OnInitializedAsync() =>
+    _series = await SeriesRepository.GetAsync(new SeriesId(Id));
+}
+
+<PageTitle>@(_series?.Name.Value ?? "Series")</PageTitle>
+
+<a href="/admin/catalog/series" class="mb-4 inline-block">← All series</a>
+
+@if (_series is null)
+{
+  <p>This series doesn't exist. It may have been deleted.</p>
+}
+else
+{
+  <div class="mb-4 flex items-baseline justify-between">
+    <h1 class="text-xl">@_series.Name.Value</h1>
+    <SeriesActions @rendermode="InteractiveServer" @key="Id" SeriesId="_series.Id" SeriesName="_series.Name"
+                   ShopItemCount="_series.ShopItems.Count" />
+  </div>
+
+  @* the whole record, not _series.ShopItems: an island parameter is rebuilt from its runtime type, and a
+     list made by a collection expression is a compiler-generated type JSON can't create *@
+  <SeriesShopItemList @rendermode="InteractiveServer" @key="Id" Series="_series" />
+}

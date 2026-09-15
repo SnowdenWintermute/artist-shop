@@ -1,0 +1,148 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Commerce
+@inject SeriesRepository SeriesRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public SeriesWithShopItems Series { get; set; } = default!;
+
+  private List<SeriesShopItem> _shopItems = [];
+  private readonly HashSet<ShopItemId> _selected = [];
+  private bool _isSaving;
+  private bool _removeDialogOpen;
+  private bool _changedElsewhere;
+
+  // after a save, Refresh re-renders the page, which passes the saved list back in here
+  protected override void OnParametersSet()
+  {
+    _shopItems = [.. Series.ShopItems];
+    _selected.RemoveWhere(id => !Series.ShopItems.Any(shopItem => shopItem.Id == id));
+  }
+
+  // only shop items with an image can be the cover
+  private static string? StarValueOf(SeriesShopItem shopItem) =>
+    shopItem.PrimaryImage is null ? null : shopItem.Id.Value.ToString();
+
+  private string? StarredValue =>
+    _shopItems.FirstOrDefault(shopItem => shopItem.IsCover) is { } cover ? StarValueOf(cover) : null;
+
+  private void ToggleSelected(ShopItemId id)
+  {
+    if (!_selected.Remove(id))
+    {
+      _selected.Add(id);
+    }
+  }
+
+  private Task MoveAsync((int OldIndex, int NewIndex) move) =>
+    SaveAsync(async () =>
+    {
+      List<SeriesShopItem> reordered = [.. _shopItems];
+      var shopItem = reordered[move.OldIndex];
+      reordered.RemoveAt(move.OldIndex);
+      reordered.Insert(move.NewIndex, shopItem);
+
+      await SeriesRepository.ReorderShopItemsAsync(Series.Id, [.. reordered.Select(item => item.Id)]);
+      // shown only once saved, so a failed save can't leave an order on screen that isn't in the database
+      _shopItems = reordered;
+    });
+
+  private Task StarAsync(SeriesShopItem shopItem) =>
+    SaveAsync(() => SeriesRepository.SetCoverAsync(Series.Id, shopItem.Id));
+
+  private Task ClearStarAsync() => SaveAsync(() => SeriesRepository.ClearCoverAsync(Series.Id));
+
+  private Task RemoveSelectedAsync() =>
+    SaveAsync(async () =>
+    {
+      await SeriesRepository.RemoveShopItemsAsync(Series.Id, _selected);
+      _selected.Clear();
+      _removeDialogOpen = false;
+    });
+
+  private async Task SaveAsync(Func<Task> save)
+  {
+    // a second drag while the first is saving would send an order built from the old list
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      await save();
+    }
+    catch (CatalogChangedException)
+    {
+      _changedElsewhere = true;
+      _removeDialogOpen = false;
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+
+    NavigationManager.Refresh();
+  }
+}
+
+@if (_changedElsewhere)
+{
+  <p class="mb-2 text-red-600">This series was changed somewhere else, so the list has been reloaded.</p>
+}
+
+@if (_shopItems.Count == 0)
+{
+  <p>No artworks in this series yet.</p>
+}
+else
+{
+  <div class="mb-2 flex items-center justify-between text-sm">
+    <span>@_shopItems.Count artworks</span>
+    <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@(_selected.Count == 0 || _isSaving)"
+                 @onclick="() => _removeDialogOpen = true">
+      Remove selected (@_selected.Count)
+    </ButtonBasic>
+  </div>
+
+  <StarredSortableList TItem="SeriesShopItem" Items="_shopItems" AriaLabel="Artwork order" StarName="series-cover"
+                       StarTitle="Use as the series cover" StarValueOf="StarValueOf" StarredValue="@StarredValue"
+                       OnStar="StarAsync" ChosenStarMessage="Cover chosen by hand"
+                       ClearStarLabel="Use the first artwork instead" OnClearStar="ClearStarAsync" OnMove="MoveAsync">
+    <RowContent Context="shopItem">
+      @if (shopItem.PrimaryImage is { } image)
+      {
+        <img src="@($"/media/{image.RelativePath}/400.avif")" alt="" class="size-10 object-cover" />
+      }
+      else
+      {
+        <span class="flex size-10 items-center justify-center bg-gray-100 text-center text-[10px] text-gray-500">
+          No image
+        </span>
+      }
+
+      <div class="grow">
+        <div>@shopItem.Name.Value</div>
+        <div class="text-xs text-gray-500">@shopItem.ShopItemTypeName.Value</div>
+      </div>
+    </RowContent>
+    <RowActions Context="shopItem">
+      <input type="checkbox" class="mx-1 cursor-pointer" aria-label="@($"Select {shopItem.Name.Value}")"
+             checked="@_selected.Contains(shopItem.Id)" @onchange="() => ToggleSelected(shopItem.Id)" />
+    </RowActions>
+  </StarredSortableList>
+}
+
+<ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {_selected.Count} artworks from {Series.Name.Value}?")"
+               ConfirmLabel="Remove" OnConfirm="RemoveSelectedAsync" IsWorking="_isSaving">
+  They stay in the catalog.
+</ConfirmDialog>

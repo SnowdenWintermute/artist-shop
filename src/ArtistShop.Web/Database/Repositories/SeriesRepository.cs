@@ -11,6 +11,12 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
     private const string UniqueNameConstraint = "Unique_Series_Name";
     private const string UniqueSlugConstraint = "Unique_Series_Slug";
 
+    // the numbers THROWn by the series procedures
+    private const int SeriesNoLongerExists = 50004;
+    private const int ShopItemsChangedSincePageLoad = 50005;
+    private const int ShopItemNoLongerInSeries = 50006;
+    private const int ShopItemHasNoImage = 50007;
+
     // the same name also means the same slug, and which constraint SQL Server reports first isn't
     // defined, so both mean "name taken"
     private static bool IsNameTaken(SqlException exception) =>
@@ -130,6 +136,11 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         {
             throw new NameAlreadyInUseException(name.Value);
         }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, SeriesNoLongerExists))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
     }
 
     public async Task DeleteAsync(SeriesId id)
@@ -147,28 +158,45 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
     {
         await using var connection = connectionFactory.Create();
 
-        await connection.ExecuteAsync(
-            "dbo.ReorderSeriesShopItems",
-            new
-            {
-                SeriesId = id.Value,
-                ShopItemIds = IdListParameter.CreateOrdered(
-                    [.. shopItemIds.Select(shopItemId => shopItemId.Value)]
-                ),
-            },
-            commandType: CommandType.StoredProcedure
-        );
+        try
+        {
+            await connection.ExecuteAsync(
+                "dbo.ReorderSeriesShopItems",
+                new
+                {
+                    SeriesId = id.Value,
+                    ShopItemIds = IdListParameter.CreateOrdered(
+                        [.. shopItemIds.Select(shopItemId => shopItemId.Value)]
+                    ),
+                },
+                commandType: CommandType.StoredProcedure
+            );
+        }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, ShopItemsChangedSincePageLoad))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
     }
 
     public async Task SetCoverAsync(SeriesId id, ShopItemId shopItemId)
     {
         await using var connection = connectionFactory.Create();
 
-        await connection.ExecuteAsync(
-            "dbo.SetSeriesCover",
-            new { SeriesId = id.Value, ShopItemId = shopItemId.Value },
-            commandType: CommandType.StoredProcedure
-        );
+        try
+        {
+            await connection.ExecuteAsync(
+                "dbo.SetSeriesCover",
+                new { SeriesId = id.Value, ShopItemId = shopItemId.Value },
+                commandType: CommandType.StoredProcedure
+            );
+        }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, ShopItemNoLongerInSeries)
+                || SqlErrors.IsThrown(exception, ShopItemHasNoImage))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
     }
 
     public async Task ClearCoverAsync(SeriesId id)

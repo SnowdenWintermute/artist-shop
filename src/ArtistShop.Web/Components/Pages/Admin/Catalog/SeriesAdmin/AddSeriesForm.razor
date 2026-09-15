@@ -1,0 +1,34 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@inject SeriesRepository SeriesRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromForm(FormName = "add-series")]
+  private SeriesNameForm Input { get; set; } = default!;
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task AddAsync()
+  {
+    try
+    {
+      await SeriesRepository.AddAsync(Input.ToSeriesName(), Input.ToSeriesSlug());
+      // redirect to this same page: the list reloads, and refreshing the browser won't post again
+      NavigationManager.NavigateTo(NavigationManager.Uri);
+    }
+    catch (NameAlreadyInUseException)
+    {
+      Input.AddNameTakenError();
+    }
+  }
+}
+
+<EditForm EditContext="Input.EditContext" FormName="add-series" OnValidSubmit="AddAsync" Enhance class="mb-6">
+  <DataAnnotationsValidator />
+
+  <TextField Label="New series" @bind-Value="Input.Name" />
+  <ButtonBasic type="submit" Class="bg-blue-400 text-white">Add series</ButtonBasic>
+</EditForm>

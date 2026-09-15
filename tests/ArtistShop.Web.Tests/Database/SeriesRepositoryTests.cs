@@ -1,7 +1,6 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
-using Microsoft.Data.SqlClient;
 
 namespace ArtistShop.Web.Tests.Database;
 
@@ -176,10 +175,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var id = await _catalog.AddSeriesAsync();
         var shopItemId = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        var exception = await Assert.ThrowsAsync<SqlException>(() =>
-            _series.SetCoverAsync(id, shopItemId)
-        );
-        Assert.Equal(50007, exception.Number);
+        await Assert.ThrowsAsync<CatalogChangedException>(() => _series.SetCoverAsync(id, shopItemId));
     }
 
     [Fact]
@@ -205,10 +201,21 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
         await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        var exception = await Assert.ThrowsAsync<SqlException>(() =>
+        await Assert.ThrowsAsync<CatalogChangedException>(() =>
             _series.ReorderShopItemsAsync(id, [firstId])
         );
-        Assert.Equal(50005, exception.Number);
+    }
+
+    [Fact]
+    public async Task RenameRejectsADeletedSeries()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        await _series.DeleteAsync(id);
+        var name = $"Renamed {Guid.NewGuid():n}";
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+            _series.RenameAsync(id, new SeriesName(name), SeriesSlug.FromName(name))
+        );
     }
 
     [Fact]

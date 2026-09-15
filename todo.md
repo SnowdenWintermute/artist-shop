@@ -342,7 +342,14 @@ uploads a folder of images, and each image's file name (without its extension) i
       automatic star, one control for the whole list rather than click-again; series side is
       `ClearSeriesCover` + `SeriesRepository.ClearCoverAsync`;
       `ImagesField` uses it, `ImageUploadRow` is now only the thumbnail, name, status and progress;
-      star identity is the storage key, and Retry now sits after ↑/↓ beside ✕); 5) list page with add form, then the series page island. Name-taken wording, following
+      star identity is the storage key, and Retry now sits after ↑/↓ beside ✕); 5) list page with add form, then the series page island — BUILT 2026-09-15, builds, not yet
+      checked in the browser. Folder `Pages/Admin/Catalog/SeriesAdmin` (a folder named `Series` would
+      make a namespace hiding the `Series` record). Series have their own `SeriesLayout`, not a tab in
+      the vocabulary `CatalogLayout` (Mike: keep them separate). `SeriesList` (static, add form),
+      `SeriesEditor` (static) with two islands: `SeriesActions` (rename dialog, delete confirm) and
+      `SeriesShopItemList` (order, star, clear star, select and remove). The repository turns the
+      "page is stale" errors 50004-50007 into `CatalogChangedException`; the list island shows
+      "changed somewhere else" and refreshes. Nothing in the UI adds artworks to a series yet. Name-taken wording, following
       the painting form's "web address": "Another series already has this name, or one that only
       differs in punctuation, accents or capital letters." A name with no letters or digits needs
       the painting form's "no letters or numbers to build a web address from" check.
@@ -360,6 +367,20 @@ uploads a folder of images, and each image's file name (without its extension) i
         rows then the row in one transaction, dialog counts labelled "(count as of page load)".
       - Public series ordering, later: the customer picks the sort, the artist sets the default and
         can drag a custom order.
+      - **Later, noted 2026-09-15, not designed yet:**
+        - **Artist's order of the series themselves**, the default visitors see on the all-series
+          page, alongside orders visitors pick. Needs `SortOrder` on `Series` (`UNIQUE`, one set-based
+          reorder like the junction), and a drag list on `/admin/catalog/series` with no star.
+          `StarredSortableList` requires a star today, so either make the star optional or split out
+          a plain sortable list.
+        - **"Chronological" is undefined.** A series has no date of its own. It could come from its
+          artworks (earliest, latest, median), but dates are `Paintings.DatePainted` only, so other
+          types would need their own date or a shared one on `ShopItems`. Decide before sculptures
+          and photographs get their tables.
+        - **Browse series by artwork type**: Artworks → Paintings → the series containing paintings,
+          exclusively, mostly, or at least one. No schema change: count the junction rows per
+          `ShopItems.ShopItemTypeId`. The open questions are what "mostly" means (a share? the most
+          common type?) and whether the artist can override it.
 - [ ] Term and series pickers on the add-painting form. It passes empty `VocabularyTermIds` and
       `SeriesIds` today, so the admin can't attach either to a painting yet
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop

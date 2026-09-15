@@ -4,56 +4,56 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using BlazorBlueprint.Primitives.Dialog
-@inject VocabularyTermRepository VocabularyTermRepository
+@inject SeriesRepository SeriesRepository
+@inject NavigationManager NavigationManager
 
 @code {
-  // null means closed; @bind-Term lets the dialog close itself by setting it back to null
-  [Parameter, EditorRequired]
-  public VocabularyTermWithUsage? Term { get; set; }
-
   [Parameter]
-  public EventCallback<VocabularyTermWithUsage?> TermChanged { get; set; }
-
+  public bool Open { get; set; }
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
   [Parameter, EditorRequired]
-  public EventCallback OnRenamed { get; set; }
+  public SeriesId SeriesId { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public SeriesName SeriesName { get; set; } = default!;
 
-  private VocabularyTermWithUsage? _formTerm;
-  private VocabularyTermNameForm _form = new();
+  private SeriesNameForm _form = new();
+  private bool _wasOpen;
   private bool _isSaving;
 
   // a fresh form each time it opens, so text typed and then cancelled doesn't come back
   protected override void OnParametersSet()
   {
-    if (Term is null)
+    if (Open && !_wasOpen)
     {
-      _formTerm = null;
-      return;
+      _form = SeriesNameForm.WithName(SeriesName.Value);
     }
 
-    if (Term != _formTerm)
-    {
-      _formTerm = Term;
-      _form = VocabularyTermNameForm.WithName(Term.Name.Value);
-    }
+    _wasOpen = Open;
   }
 
   private Task HandleOpenChanged(bool open) =>
-    open || _isSaving ? Task.CompletedTask : TermChanged.InvokeAsync(null);
+    open || _isSaving ? Task.CompletedTask : OpenChanged.InvokeAsync(false);
 
-  private async Task RenameAsync(VocabularyTermWithUsage term)
+  private async Task RenameAsync()
   {
     _isSaving = true;
 
     try
     {
-      await VocabularyTermRepository.RenameAsync(term.Id, _form.ToVocabularyTermName());
-      await OnRenamed.InvokeAsync();
+      await SeriesRepository.RenameAsync(SeriesId, _form.ToSeriesName(), _form.ToSeriesSlug());
       _isSaving = false;
-      await TermChanged.InvokeAsync(null);
+      await OpenChanged.InvokeAsync(false);
+      NavigationManager.Refresh();
     }
-    catch (NameAlreadyInUseException exception)
+    catch (NameAlreadyInUseException)
     {
-      _form.AddNameTakenError(exception.Name);
+      _form.AddNameTakenError();
+    }
+    catch (CatalogChangedException)
+    {
+      // the series was deleted elsewhere; the reloaded page says so
+      NavigationManager.Refresh();
     }
     finally
     {
@@ -62,32 +62,26 @@
   }
 }
 
-@if (Term is { } term)
+@if (Open)
 {
   <BbDialog Open="true" OpenChanged="HandleOpenChanged">
     <BbDialogPortal>
       <BbDialogOverlay class="fixed inset-0 z-40 bg-black/40" />
       <BbDialogContent
         class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white p-6">
-        <BbDialogTitle class="mb-4 text-lg">Rename @term.Name.Value</BbDialogTitle>
+        <BbDialogTitle class="mb-4 text-lg">Rename @SeriesName.Value</BbDialogTitle>
 
-        <EditForm EditContext="_form.EditContext" OnValidSubmit="() => RenameAsync(term)">
+        <EditForm EditContext="_form.EditContext" OnValidSubmit="RenameAsync">
           <DataAnnotationsValidator />
 
           <TextField Label="Name" @bind-Value="_form.Name" />
+          <p class="mb-4 text-sm text-gray-500">Renaming changes the series' web address, so old links stop working.</p>
           <div class="flex justify-end gap-2">
             <ButtonBasic type="button" Class="border" disabled="@_isSaving" @onclick="() => HandleOpenChanged(false)">
               Cancel
             </ButtonBasic>
             <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
-              @if (_isSaving)
-              {
-                <span>Saving...</span>
-              }
-              else
-              {
-                <span>Rename</span>
-              }
+              @(_isSaving ? "Saving..." : "Rename")
             </ButtonBasic>
           </div>
         </EditForm>
