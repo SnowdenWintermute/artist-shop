@@ -155,6 +155,22 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task ClearingTheStarFallsBackToTheFirstShopItemWithAnImage()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        var firstImage = CatalogTestData.CreateTestImage();
+        await _catalog.AddPaintingInSeriesAsync(id, [firstImage]);
+        var secondId = await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
+        await _series.SetCoverAsync(id, secondId);
+
+        await _series.ClearCoverAsync(id);
+
+        var series = (await _series.GetAllWithCoversAsync()).Single(series => series.Id == id);
+        Assert.Equal(firstImage, series.Cover);
+        Assert.All((await GetExistingAsync(id)).ShopItems, shopItem => Assert.False(shopItem.IsCover));
+    }
+
+    [Fact]
     public async Task RejectsACoverWithNoImage()
     {
         var id = await _catalog.AddSeriesAsync();

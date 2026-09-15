@@ -1,7 +1,7 @@
 @using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Utilities
-@using BlazorBlueprint.Primitives.Sortable
+@using ArtistShop.Web.Components.Lists
 @rendermode InteractiveServer
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -13,14 +13,11 @@
   public string PrimaryFieldName { get; set; } = default!;
 
   private readonly List<SelectedImage> _files = [];
-  private string? _primaryFileId;
-  private SelectedImage? PrimaryFile => _files.FirstOrDefault(file => file.Id == _primaryFileId && file.Result is not
-null)
-   ?? _files.FirstOrDefault(file => file.Result is not null);
+  private string? _primaryStorageKey;
 
   private FileDropZone<ImageUploadResult>? _dropZone;
 
-  private void SetPrimary(SelectedImage file) => _primaryFileId = file.Id;
+  private void SetPrimary(SelectedImage file) => _primaryStorageKey = file.Result?.StorageKey;
 
   private async void OnSelected((string Id, string Name, long Size) file)
   {
@@ -89,19 +86,6 @@ null)
     _files.Insert(move.NewIndex, file);
   }
 
-  private void NudgeFile(SelectedImage file, int offset)
-  {
-    var index = _files.IndexOf(file);
-    var target = index + offset;
-
-    if (target < 0 || target >= _files.Count)
-    {
-      return;
-    }
-
-    MoveFile((index, target));
-  }
-
   [Parameter]
   public string? SuggestNameInto { get; set; }
 
@@ -142,15 +126,27 @@ null)
   <FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="/admin/uploads" Prompt="Drop images here"
                 Accept="image/*" Multiple="true" OnSelected="OnSelected" OnProgress="OnProgress" OnCompleted="OnCompleted"
                 OnFailed="OnFailed" />
-  <BbSortable Items="_files" OnUpdate="MoveFile" Filter="input, button" AriaLabel="Image order">
-    <ItemTemplate Context="file">
-      <ImageUploadRow SelectedImage="file" PrimaryFieldName="@PrimaryFieldName" IsPrimary="PrimaryFile == file"
-                      IsPrimaryExplicit="file.Id == _primaryFileId" IsFirst="_files.IndexOf(file) is 0"
-                      IsLast="_files.IndexOf(file) == _files.Count - 1" OnSetPrimary="() => SetPrimary(file)"
-                      OnMove="offset => NudgeFile(file, offset)" OnRemove="() => RemoveFile(file)"
-                      OnRetry="() => RetryUpload(file)" />
-    </ItemTemplate>
-  </BbSortable>
+  <StarredSortableList TItem="SelectedImage" Items="_files" AriaLabel="Image order" StarName="@PrimaryFieldName"
+                       StarTitle="Set as main image" StarValueOf="file => file.Result?.StorageKey" StarredValue="@_primaryStorageKey"
+                       OnStar="SetPrimary" ChosenStarMessage="Main image chosen by hand"
+                       ClearStarLabel="Use the first image instead" OnClearStar="() => _primaryStorageKey = null"
+                       OnMove="MoveFile">
+    <RowContent Context="file">
+      <ImageUploadRow SelectedImage="file" />
+    </RowContent>
+    <RowActions Context="file">
+      @if (file.Error is not null)
+      {
+        <button type="button" class="cursor-pointer border px-2" @onclick="() => RetryUpload(file)">
+          Retry
+        </button>
+      }
+
+      <button type="button" class="cursor-pointer px-1" title="Remove" @onclick="() => RemoveFile(file)">
+        ✕
+      </button>
+    </RowActions>
+  </StarredSortableList>
 
   @{
     // why do we declare this here

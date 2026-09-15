@@ -171,6 +171,17 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         );
     }
 
+    public async Task ClearCoverAsync(SeriesId id)
+    {
+        await using var connection = connectionFactory.Create();
+
+        await connection.ExecuteAsync(
+            "dbo.ClearSeriesCover",
+            new { SeriesId = id.Value },
+            commandType: CommandType.StoredProcedure
+        );
+    }
+
     public async Task RemoveShopItemsAsync(SeriesId id, IEnumerable<ShopItemId> shopItemIds)
     {
         await using var connection = connectionFactory.Create();

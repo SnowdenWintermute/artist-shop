@@ -337,7 +337,12 @@ uploads a folder of images, and each image's file name (without its extension) i
       2026-09-15:** series slugs are not numbered. A name whose slug another series has is
       rejected (`Unique_Series_Slug`), on add and rename, as `NameAlreadyInUseException`; the page
       must explain it in words the artist knows (see the wording under step 5); 4) extract the sortable list with
-      a star; 5) list page with add form, then the series page island. Name-taken wording, following
+      a star — BUILT 2026-09-15 and working in the browser (`Components/Lists/StarredSortableList`;
+      a line above the list appears only while a star is chosen by hand and offers going back to the
+      automatic star, one control for the whole list rather than click-again; series side is
+      `ClearSeriesCover` + `SeriesRepository.ClearCoverAsync`;
+      `ImagesField` uses it, `ImageUploadRow` is now only the thumbnail, name, status and progress;
+      star identity is the storage key, and Retry now sits after ↑/↓ beside ✕); 5) list page with add form, then the series page island. Name-taken wording, following
       the painting form's "web address": "Another series already has this name, or one that only
       differs in punctuation, accents or capital letters." A name with no letters or digits needs
       the painting form's "no letters or numbers to build a web address from" check.
