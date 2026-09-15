@@ -1,0 +1,87 @@
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject SeriesRepository SeriesRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  // List, not IReadOnlyList: an island parameter is rebuilt from its runtime type, and a declared List
+  // can't be a compiler-generated collection type that JSON can't create
+  [Parameter, EditorRequired]
+  public List<SeriesWithCover> Series { get; set; } = default!;
+
+  private List<SeriesWithCover> _series = [];
+  private bool _isSaving;
+  private bool _changedElsewhere;
+
+  protected override void OnParametersSet() => _series = [.. Series];
+
+  private async Task MoveAsync((int OldIndex, int NewIndex) move)
+  {
+    // a second drag while the first is saving would send an order built from the old list
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      List<SeriesWithCover> reordered = [.. _series];
+      var series = reordered[move.OldIndex];
+      reordered.RemoveAt(move.OldIndex);
+      reordered.Insert(move.NewIndex, series);
+
+      await SeriesRepository.ReorderAsync([.. reordered.Select(item => item.Id)]);
+      _series = reordered;
+    }
+    catch (CatalogChangedException)
+    {
+      _changedElsewhere = true;
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+
+    NavigationManager.Refresh();
+  }
+}
+
+@if (_changedElsewhere)
+{
+  <p class="mb-2 text-red-600">A series was added or deleted somewhere else, so the list has been reloaded.</p>
+}
+
+@if (_series.Count == 0)
+{
+  <p>No series yet.</p>
+}
+else
+{
+  <p class="mb-2 text-sm text-gray-500">Drag to set the order visitors see.</p>
+
+  <SortableList TItem="SeriesWithCover" Items="_series" AriaLabel="Series order" OnMove="MoveAsync">
+    <RowContent Context="series">
+      <a href="@($"/admin/catalog/series/{series.Id.Value}")" class="flex grow items-center gap-4">
+        @if (series.Cover is { } cover)
+        {
+          <img src="@($"/media/{cover.RelativePath}/400.avif")" alt="" class="size-16 object-cover" />
+        }
+        else
+        {
+          <span class="flex p-1 size-16 items-center justify-center bg-gray-100 text-center text-xs text-gray-500">
+            No images yet
+          </span>
+        }
+
+        <span class="grow">@series.Name.Value</span>
+        <span>@series.ShopItemCount artworks</span>
+      </a>
+    </RowContent>
+    <RowActions Context="series" />
+  </SortableList>
+}

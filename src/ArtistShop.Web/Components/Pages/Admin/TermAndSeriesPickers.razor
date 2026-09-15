@@ -1,0 +1,84 @@
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Interop
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@rendermode InteractiveServer
+@inject VocabularyRepository VocabularyRepository
+@inject SeriesRepository SeriesRepository
+
+@code {
+  // Lists, not IReadOnlyList: an island parameter is rebuilt from its runtime type, and a declared List
+  // can't be a compiler-generated collection type that JSON can't create
+  [Parameter, EditorRequired]
+  public List<VocabularyWithTerms> Vocabularies { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public List<Series> AllSeries { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public List<int> SelectedVocabularyTermIds { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public List<int> SelectedSeriesIds { get; set; } = default!;
+
+  private List<VocabularyWithTerms> _vocabularies = [];
+  private List<Series> _series = [];
+  private readonly HashSet<int> _selectedTermIds = [];
+  private readonly HashSet<int> _selectedSeriesIds = [];
+
+  // parameters only seed the lists; after that the island owns them, so a failed submit's re-render
+  // keeps what was checked and what was reloaded
+  protected override void OnInitialized()
+  {
+    _vocabularies = SortedByName(Vocabularies);
+    _series = AllSeries;
+    _selectedTermIds.UnionWith(SelectedVocabularyTermIds);
+    _selectedSeriesIds.UnionWith(SelectedSeriesIds);
+  }
+
+  private async Task ReloadOptionsAsync()
+  {
+    _vocabularies = SortedByName(await VocabularyRepository.GetAllWithTermsForShopItemTypeAsync(ShopItemTypeId.Painting));
+    _series = await SeriesRepository.GetAllAsync();
+
+    // a checked term or series deleted in the other tab can't be posted
+    _selectedTermIds.IntersectWith(_vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value));
+    _selectedSeriesIds.IntersectWith(_series.Select(series => series.Id.Value));
+  }
+
+  private static List<VocabularyWithTerms> SortedByName(IEnumerable<VocabularyWithTerms> vocabularies) =>
+    [.. vocabularies.OrderBy(vocabulary => vocabulary.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+
+  private static List<(int Value, string Label)> TermOptions(VocabularyWithTerms vocabulary) =>
+    [.. vocabulary.Terms
+      .OrderBy(term => term.Name.Value, StringComparer.CurrentCultureIgnoreCase)
+      .Select(term => (term.Id.Value, term.Name.Value))];
+
+  private List<(int Value, string Label)> SeriesOptions => [.. _series.Select(series => (series.Id.Value, series.Name.Value))];
+
+  private static void Toggle(HashSet<int> selected, int value)
+  {
+    if (!selected.Remove(value))
+    {
+      selected.Add(value);
+    }
+  }
+}
+
+<TabReturnWatcher OnTabReturn="ReloadOptionsAsync" />
+
+@if (_vocabularies.Count == 0)
+{
+  <p class="mb-4 text-sm text-gray-500">No vocabularies for paintings yet.</p>
+}
+
+@foreach (var vocabulary in _vocabularies)
+{
+  <CheckboxGroupField @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="Input.VocabularyTermIds"
+                      Options="TermOptions(vocabulary)" SelectedValues="_selectedTermIds"
+                      OnToggle="value => Toggle(_selectedTermIds, value)">
+    <EmptyContent>No terms yet.</EmptyContent>
+  </CheckboxGroupField>
+}
+
+<CheckboxGroupField Legend="Series" Name="Input.SeriesIds" Options="SeriesOptions" SelectedValues="_selectedSeriesIds"
+                    OnToggle="value => Toggle(_selectedSeriesIds, value)">
+  <EmptyContent>No series yet.</EmptyContent>
+</CheckboxGroupField>

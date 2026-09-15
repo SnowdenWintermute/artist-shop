@@ -379,14 +379,17 @@
     --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
-  .cursor-move {
-    cursor: move;
+  .cursor-grab {
+    cursor: grab;
   }
   .cursor-pointer {
     cursor: pointer;
   }
   .resize {
     resize: both;
+  }
+  .list-disc {
+    list-style-type: disc;
   }
   .flex-col {
     flex-direction: column;
@@ -485,6 +488,9 @@
   .p-2 {
     padding: calc(var(--spacing) * 2);
   }
+  .p-3 {
+    padding: calc(var(--spacing) * 3);
+  }
   .p-4 {
     padding: calc(var(--spacing) * 4);
   }
@@ -508,6 +514,9 @@
   }
   .pb-2 {
     padding-bottom: calc(var(--spacing) * 2);
+  }
+  .pl-5 {
+    padding-left: calc(var(--spacing) * 5);
   }
   .text-center {
     text-align: center;
@@ -617,6 +626,9 @@
       color: var(--theme-hovered);
     }
   }
+  .active\:cursor-grabbing:active {
+    cursor: grabbing;
+  }
   .disabled\:cursor-auto:disabled {
     cursor: auto;
   }
@@ -690,6 +702,9 @@
   border-width: 1px;
   border-color: var(--theme-base);
   padding-inline: calc(var(--spacing) * 2);
+}
+body:has(.sortable-fallback), body:has(.sortable-fallback) * {
+  cursor: grabbing !important;
 }
 @property --tw-translate-x {
   syntax: "*";

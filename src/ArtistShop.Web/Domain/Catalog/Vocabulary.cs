@@ -14,6 +14,12 @@ public record VocabularyWithShopItemTypes(
     IReadOnlyList<ShopItemTypeId> ShopItemTypeIds
 );
 
+public record VocabularyWithTerms(
+    VocabularyId Id,
+    VocabularyName Name,
+    IReadOnlyList<VocabularyTerm> Terms
+);
+
 public record ShopItemTypeUsage(ShopItemTypeId ShopItemTypeId, int ShopItemCount);
 
 public record VocabularyUsage(

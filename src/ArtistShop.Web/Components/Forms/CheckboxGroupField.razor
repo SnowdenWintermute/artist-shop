@@ -1,0 +1,37 @@
+@* every checked box posts its value under the same name *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Legend { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<(int Value, string Label)> Options { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlySet<int> SelectedValues { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<int> OnToggle { get; set; }
+  // shown instead of the checkboxes when there are no options
+  [Parameter, EditorRequired]
+  public RenderFragment EmptyContent { get; set; } = default!;
+}
+
+<fieldset class="mb-4">
+  <legend class="mb-1">@Legend</legend>
+
+  @if (Options.Count == 0)
+  {
+    <p class="text-sm text-gray-500">@EmptyContent</p>
+  }
+  else
+  {
+    @foreach (var option in Options)
+    {
+      <label @key="option.Value" class="mr-4 inline-flex cursor-pointer items-center gap-2">
+        <input type="checkbox" class="cursor-pointer" name="@Name" value="@option.Value"
+               checked="@SelectedValues.Contains(option.Value)" @onchange="() => OnToggle.InvokeAsync(option.Value)" />
+        @option.Label
+      </label>
+    }
+  }
+</fieldset>

@@ -153,7 +153,10 @@ CREATE TABLE dbo.Series (
     Name nvarchar(256) NOT NULL,
     CONSTRAINT Unique_Series_Name UNIQUE (Name),
     Slug nvarchar(200) NOT NULL,
-    CONSTRAINT Unique_Series_Slug UNIQUE (Slug)
+    CONSTRAINT Unique_Series_Slug UNIQUE (Slug),
+    -- the artist's order, the default visitors see
+    SortOrder int NOT NULL,
+    CONSTRAINT Unique_Series_SortOrder UNIQUE (SortOrder)
 );
 
 -- any shop item type can join any series, mixed freely

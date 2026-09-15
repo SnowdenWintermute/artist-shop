@@ -1,0 +1,82 @@
+@using ArtistShop.Web.Components.Interop
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@rendermode InteractiveServer
+@inject VocabularyRepository VocabularyRepository
+@inject SeriesRepository SeriesRepository
+
+@code {
+  // Lists, not IReadOnlyList: an island parameter is rebuilt from its runtime type
+  [Parameter, EditorRequired]
+  public List<VocabularyWithTerms> PaintingVocabularies { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public List<Vocabulary> VocabulariesWithoutShopItemTypes { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public int SeriesCount { get; set; }
+
+  private List<VocabularyWithTerms> _paintingVocabularies = [];
+  private List<Vocabulary> _vocabulariesWithoutShopItemTypes = [];
+  private int _seriesCount;
+
+  protected override void OnInitialized()
+  {
+    _paintingVocabularies = PaintingVocabularies;
+    _vocabulariesWithoutShopItemTypes = VocabulariesWithoutShopItemTypes;
+    _seriesCount = SeriesCount;
+  }
+
+  private async Task ReloadAsync()
+  {
+    _paintingVocabularies = await VocabularyRepository.GetAllWithTermsForShopItemTypeAsync(ShopItemTypeId.Painting);
+    _vocabulariesWithoutShopItemTypes = await VocabularyRepository.GetAllWithoutShopItemTypesAsync();
+    _seriesCount = (await SeriesRepository.GetAllAsync()).Count;
+  }
+
+  private IEnumerable<VocabularyWithTerms> VocabulariesWithoutTerms =>
+    _paintingVocabularies.Where(vocabulary => vocabulary.Terms.Count == 0);
+
+  // "create a vocabulary" only when there's none to fix instead
+  private bool NoVocabularyAtAll => _paintingVocabularies.Count == 0 && _vocabulariesWithoutShopItemTypes.Count == 0;
+
+  private bool NeedsSetup =>
+    NoVocabularyAtAll || _vocabulariesWithoutShopItemTypes.Count > 0 || VocabulariesWithoutTerms.Any() || _seriesCount == 0;
+}
+
+<TabReturnWatcher OnTabReturn="ReloadAsync" />
+
+@if (NeedsSetup)
+{
+  <div class="mb-4 border bg-theme-recessed p-3 text-sm">
+    <p class="mb-2">Before you start: links open in a new tab, and this form updates when you come back here.</p>
+    <ul class="list-disc pl-5">
+      @if (NoVocabularyAtAll)
+      {
+        <li>
+          Nothing to describe paintings with yet. Vocabularies hold terms like a painting's medium or support.
+          <a href="/admin/catalog/vocabularies/new" target="_blank" class="underline">Create a vocabulary</a>
+        </li>
+      }
+      @foreach (var vocabulary in _vocabulariesWithoutShopItemTypes)
+      {
+        <li>
+          @vocabulary.Name.Value doesn't apply to any kind of artwork yet.
+          <a href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}/edit")" target="_blank" class="underline">Choose where it applies</a>
+        </li>
+      }
+      @foreach (var vocabulary in VocabulariesWithoutTerms)
+      {
+        <li>
+          @vocabulary.Name.Value has no terms yet.
+          <a href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}")" target="_blank" class="underline">Add terms</a>
+        </li>
+      }
+      @if (_seriesCount == 0)
+      {
+        <li>
+          No series yet. A series groups related artworks, like a body of work.
+          <a href="/admin/catalog/series" target="_blank" class="underline">Create a series</a>
+        </li>
+      }
+    </ul>
+  </div>
+}

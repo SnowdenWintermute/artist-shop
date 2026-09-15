@@ -1,4 +1,3 @@
-@using BlazorBlueprint.Primitives.Sortable
 @typeparam TItem
 
 @code {
@@ -48,14 +47,6 @@
     IsExplicitlyStarred(item) ? "text-blue-400"
     : StarValueOf(item) == EffectiveStarredValue ? "text-yellow-500"
     : "text-gray-300";
-
-  private Task Nudge(TItem item, int offset)
-  {
-    var index = Items.IndexOf(item);
-    var target = index + offset;
-
-    return target < 0 || target >= Items.Count ? Task.CompletedTask : OnMove.InvokeAsync((index, target));
-  }
 }
 
 @if (Items.Any(IsExplicitlyStarred))
@@ -75,31 +66,17 @@ else if (Items.Count() > 0)
 
 }
 
-<BbSortable Items="Items" OnUpdate="OnMove" Filter="input, button" AriaLabel="@AriaLabel">
-  <ItemTemplate Context="item">
-    <div class="mb-2 flex cursor-move items-center gap-2 border p-2 text-sm bg-theme-recessed">
-      @RowContent(item)
+<SortableList TItem="TItem" Items="Items" AriaLabel="@AriaLabel" OnMove="OnMove" RowActions="RowActions">
+  <RowContent Context="item">
+    @RowContent(item)
 
-      @if (StarValueOf(item) is string starValue)
-      {
-        <label class="cursor-pointer px-1 text-lg leading-none" title="@StarTitle">
-          <input type="radio" name="@StarName" value="@starValue" checked="@(starValue == EffectiveStarredValue)"
-                 @onchange="() => OnStar.InvokeAsync(item)" class="peer sr-only" />
-          <span class="@StarClass(item) peer-focus-visible:outline">★</span>
-        </label>
-      }
-
-      <button type="button" class="cursor-pointer px-1" title="Move up" disabled="@(Items.IndexOf(item) is 0)"
-              @onclick="() => Nudge(item, -1)">
-        ↑
-      </button>
-
-      <button type="button" class="cursor-pointer px-1" title="Move down"
-              disabled="@(Items.IndexOf(item) == Items.Count - 1)" @onclick="() => Nudge(item, 1)">
-        ↓
-      </button>
-
-      @RowActions(item)
-    </div>
-  </ItemTemplate>
-</BbSortable>
+    @if (StarValueOf(item) is string starValue)
+    {
+      <label class="cursor-pointer px-1 text-lg leading-none" title="@StarTitle">
+        <input type="radio" name="@StarName" value="@starValue" checked="@(starValue == EffectiveStarredValue)"
+               @onchange="() => OnStar.InvokeAsync(item)" class="peer sr-only" />
+        <span class="@StarClass(item) peer-focus-visible:outline">★</span>
+      </label>
+    }
+  </RowContent>
+</SortableList>

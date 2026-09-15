@@ -40,6 +40,8 @@ FROM
         ORDER BY
             junction.IsCover DESC,
             junction.SortOrder
-    ) AS cover;
+    ) AS cover
+ORDER BY
+    series.SortOrder;
 
 END;

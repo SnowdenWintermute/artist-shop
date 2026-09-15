@@ -44,6 +44,11 @@ public class PaintingCatalogAdditionForm : IValidatableObject
 
     public string? PrimaryImageKey { get; set; }
 
+    // form binding sets a list to null when no box was checked; "field" is the property's own backing field
+    public List<int> VocabularyTermIds { get; set => field = value ?? []; } = [];
+
+    public List<int> SeriesIds { get; set => field = value ?? []; } = [];
+
     public PaintingCatalogAddition ToCatalogAddition()
     {
         ArgumentNullException.ThrowIfNull(Name);
@@ -79,8 +84,8 @@ public class PaintingCatalogAdditionForm : IValidatableObject
                 : null,
             Images: images,
             MainImageIndex: mainImageIndex,
-            SeriesIds: [],
-            VocabularyTermIds: []
+            SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))],
+            VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))]
         );
     }
 

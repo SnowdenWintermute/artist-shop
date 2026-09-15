@@ -16,12 +16,32 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
     private const int ShopItemsChangedSincePageLoad = 50005;
     private const int ShopItemNoLongerInSeries = 50006;
     private const int ShopItemHasNoImage = 50007;
+    private const int SeriesChangedSincePageLoad = 50008;
 
     // the same name also means the same slug, and which constraint SQL Server reports first isn't
     // defined, so both mean "name taken"
     private static bool IsNameTaken(SqlException exception) =>
         SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint)
         || SqlErrors.IsUniqueConstraintViolation(exception, UniqueSlugConstraint);
+
+    public async Task<List<Series>> GetAllAsync()
+    {
+        await using var connection = connectionFactory.Create();
+
+        var rows = await connection.QueryAsync<SeriesRow>(
+            "dbo.GetAllSeries",
+            commandType: CommandType.StoredProcedure
+        );
+
+        return
+        [
+            .. rows.Select(row => new Series(
+                new SeriesId(row.Id),
+                new SeriesName(row.Name),
+                new SeriesSlug(row.Slug)
+            )),
+        ];
+    }
 
     public async Task<List<SeriesWithCover>> GetAllWithCoversAsync()
     {
@@ -138,6 +158,25 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         }
         catch (SqlException exception)
             when (SqlErrors.IsThrown(exception, SeriesNoLongerExists))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
+    }
+
+    public async Task ReorderAsync(IReadOnlyList<SeriesId> ids)
+    {
+        await using var connection = connectionFactory.Create();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "dbo.ReorderSeries",
+                new { SeriesIds = IdListParameter.CreateOrdered([.. ids.Select(id => id.Value)]) },
+                commandType: CommandType.StoredProcedure
+            );
+        }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, SeriesChangedSincePageLoad))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }

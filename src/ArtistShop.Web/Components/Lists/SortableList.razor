@@ -1,0 +1,52 @@
+@using BlazorBlueprint.Primitives.Sortable
+@typeparam TItem
+
+@code {
+  [Parameter, EditorRequired]
+  public List<TItem> Items { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string AriaLabel { get; set; } = default!;
+
+  // reports a move without applying it, so the owner can save first
+  [Parameter, EditorRequired]
+  public EventCallback<(int OldIndex, int NewIndex)> OnMove { get; set; }
+
+  [Parameter, EditorRequired]
+  public RenderFragment<TItem> RowContent { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public RenderFragment<TItem> RowActions { get; set; } = default!;
+
+  private Task Nudge(TItem item, int offset)
+  {
+    var index = Items.IndexOf(item);
+    var target = index + offset;
+
+    return target < 0 || target >= Items.Count ? Task.CompletedTask : OnMove.InvokeAsync((index, target));
+  }
+}
+
+@* Handle: only the grip starts a drag, so the rest of a row can hold links. Keyboard users have ↑/↓.
+   ForceFallback: SortableJS moves the row itself instead of using the browser's drag, which ignores CSS
+   cursors; app.css keeps the closed hand during it *@
+<BbSortable Items="Items" OnUpdate="OnMove" Handle=".sortable-handle" ForceFallback="true" AriaLabel="@AriaLabel">
+  <ItemTemplate Context="item">
+    <div class="mb-2 flex items-center gap-2 border p-2 text-sm bg-theme-recessed">
+      <span class="sortable-handle cursor-grab px-1 text-lg text-gray-400 active:cursor-grabbing" title="Drag to reorder"
+            aria-hidden="true">⠿</span>
+
+      @RowContent(item)
+
+      <button type="button" class="cursor-pointer px-1" title="Move up" disabled="@(Items.IndexOf(item) is 0)"
+              @onclick="() => Nudge(item, -1)">
+        ↑
+      </button>
+
+      <button type="button" class="cursor-pointer px-1" title="Move down"
+              disabled="@(Items.IndexOf(item) == Items.Count - 1)" @onclick="() => Nudge(item, 1)">
+        ↓
+      </button>
+
+      @RowActions(item)
+    </div>
+  </ItemTemplate>
+</BbSortable>

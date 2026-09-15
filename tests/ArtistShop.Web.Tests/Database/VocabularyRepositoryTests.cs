@@ -123,4 +123,37 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
         Assert.NotNull(painting);
         Assert.Empty(painting.VocabularyTerms);
     }
+
+    [Fact]
+    public async Task ListsOnlyVocabulariesThatApplyToNoShopItemType()
+    {
+        var withoutTypesId = await _vocabularies.AddAsync(UniqueName(), []);
+        var forPaintingsId = await _catalog.AddPaintingVocabularyAsync();
+
+        var vocabularies = await _vocabularies.GetAllWithoutShopItemTypesAsync();
+
+        Assert.Contains(vocabularies, vocabulary => vocabulary.Id == withoutTypesId);
+        Assert.DoesNotContain(vocabularies, vocabulary => vocabulary.Id == forPaintingsId);
+    }
+
+    [Fact]
+    public async Task PaintingTypeIdMatchesTheSeededRow()
+    {
+        Assert.Equal(await _catalog.GetPaintingTypeIdAsync(), ShopItemTypeId.Painting);
+    }
+
+    [Fact]
+    public async Task ListsVocabulariesForAShopItemTypeWithTheirTerms()
+    {
+        var withTermsId = await _catalog.AddPaintingVocabularyAsync();
+        var termId = await _catalog.AddTermAsync(withTermsId);
+        var withoutTermsId = await _catalog.AddPaintingVocabularyAsync();
+        var notForPaintingsId = await _vocabularies.AddAsync(UniqueName(), []);
+
+        var vocabularies = await _vocabularies.GetAllWithTermsForShopItemTypeAsync(ShopItemTypeId.Painting);
+
+        Assert.Equal([termId], vocabularies.Single(vocabulary => vocabulary.Id == withTermsId).Terms.Select(term => term.Id));
+        Assert.Empty(vocabularies.Single(vocabulary => vocabulary.Id == withoutTermsId).Terms);
+        Assert.DoesNotContain(vocabularies, vocabulary => vocabulary.Id == notForPaintingsId);
+    }
 }

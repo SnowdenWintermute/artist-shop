@@ -49,6 +49,58 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task NewSeriesGoesLast()
+    {
+        var id = await _catalog.AddSeriesAsync();
+
+        Assert.Equal(id, (await _series.GetAllWithCoversAsync()).Last().Id);
+    }
+
+    // reordering takes every series, so these rely on no other test class adding series:
+    // xUnit runs the tests inside one class one at a time
+    [Fact]
+    public async Task ReorderSetsTheOrderOfAllSeries()
+    {
+        await _catalog.AddSeriesAsync();
+        await _catalog.AddSeriesAsync();
+        List<SeriesId> reversed = [.. (await _series.GetAllWithCoversAsync()).Select(series => series.Id).Reverse()];
+
+        await _series.ReorderAsync(reversed);
+
+        Assert.Equal(reversed, (await _series.GetAllWithCoversAsync()).Select(series => series.Id));
+    }
+
+    [Fact]
+    public async Task GetAllListsSeriesInTheArtistsOrder()
+    {
+        await _catalog.AddSeriesAsync();
+        await _catalog.AddSeriesAsync();
+        List<SeriesId> reversed = [.. (await _series.GetAllWithCoversAsync()).Select(series => series.Id).Reverse()];
+        await _series.ReorderAsync(reversed);
+
+        Assert.Equal(reversed, (await _series.GetAllAsync()).Select(series => series.Id));
+    }
+
+    [Fact]
+    public async Task PaintingAddedToASeriesJoinsItLast()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
+
+        Assert.Equal([firstId, secondId], (await GetExistingAsync(id)).ShopItems.Select(shopItem => shopItem.Id));
+    }
+
+    [Fact]
+    public async Task ReorderRejectsAListMissingASeries()
+    {
+        await _catalog.AddSeriesAsync();
+        List<SeriesId> allButOne = [.. (await _series.GetAllWithCoversAsync()).Select(series => series.Id).Skip(1)];
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() => _series.ReorderAsync(allButOne));
+    }
+
+    [Fact]
     public async Task RenameMovesTheSlugWithTheName()
     {
         var id = await _catalog.AddSeriesAsync();

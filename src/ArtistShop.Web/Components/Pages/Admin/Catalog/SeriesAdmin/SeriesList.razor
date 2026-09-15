@@ -8,13 +8,11 @@
 @inject SeriesRepository SeriesRepository
 
 @code {
+  // in the artist's order
   private List<SeriesWithCover> _series = [];
 
-  protected override async Task OnInitializedAsync()
-  {
-    var series = await SeriesRepository.GetAllWithCoversAsync();
-    _series = [.. series.OrderBy(series => series.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
-  }
+  protected override async Task OnInitializedAsync() =>
+    _series = await SeriesRepository.GetAllWithCoversAsync();
 }
 
 <PageTitle>Series</PageTitle>
@@ -23,31 +21,4 @@
 
 <AddSeriesForm />
 
-@if (_series.Count == 0)
-{
-  <p>No series yet.</p>
-}
-else
-{
-  <ul>
-    @foreach (var series in _series)
-    {
-      <li class="border-t">
-        <a href="@($"/admin/catalog/series/{series.Id.Value}")" class="flex items-center gap-4 py-2">
-          @if (series.Cover is { } cover)
-          {
-            <img src="@($"/media/{cover.RelativePath}/400.avif")" alt="" class="size-16 object-cover" />
-          }
-          else
-          {
-            <span class="flex p-1 size-16 items-center justify-center bg-gray-100 text-center text-xs text-gray-500">
-              No images yet
-            </span>
-          }
-          <span class="grow">@series.Name.Value</span>
-          <span class="text-sm">@series.ShopItemCount artworks</span>
-        </a>
-      </li>
-    }
-  </ul>
-}
+<SeriesOrderList @rendermode="InteractiveServer" Series="_series" />

@@ -368,21 +368,33 @@ uploads a folder of images, and each image's file name (without its extension) i
       - Public series ordering, later: the customer picks the sort, the artist sets the default and
         can drag a custom order.
       - **Later, noted 2026-09-15, not designed yet:**
-        - **Artist's order of the series themselves**, the default visitors see on the all-series
-          page, alongside orders visitors pick. Needs `SortOrder` on `Series` (`UNIQUE`, one set-based
-          reorder like the junction), and a drag list on `/admin/catalog/series` with no star.
-          `StarredSortableList` requires a star today, so either make the star optional or split out
-          a plain sortable list.
-        - **"Chronological" is undefined.** A series has no date of its own. It could come from its
+        - **Artist's order of the series themselves — BUILT 2026-09-15**, not yet checked in the
+          browser. `Series.SortOrder` (`UNIQUE`; new series go last), `dbo.ReorderSeries` (50008 when
+          the set changed), `SeriesOrderList` island on `/admin/catalog/series`, and the list component
+          split into `SortableList` with `StarredSortableList` built on it (Mike chose the split over
+          an optional star, keeping every parameter required). Visitors' own sort orders: much later.
+        - **"Chronological" is undefined**, deferred until visitors can sort. A series has no date of its own. It could come from its
           artworks (earliest, latest, median), but dates are `Paintings.DatePainted` only, so other
           types would need their own date or a shared one on `ShopItems`. Decide before sculptures
           and photographs get their tables.
         - **Browse series by artwork type**: Artworks → Paintings → the series containing paintings,
           exclusively, mostly, or at least one. No schema change: count the junction rows per
           `ShopItems.ShopItemTypeId`. The open questions are what "mostly" means (a share? the most
-          common type?) and whether the artist can override it.
-- [ ] Term and series pickers on the add-painting form. It passes empty `VocabularyTermIds` and
-      `SeriesIds` today, so the admin can't attach either to a painting yet
+          common type?) and whether the artist can override it. Deferred.
+- [ ] Term and series pickers on the add-painting form — BUILT 2026-09-15. A `CheckboxGroupField` per
+      vocabulary that applies to paintings, and one for series (in the artist's order); existing terms
+      and series only. The groups are the `TermAndSeriesPickers` island, which reloads its options when
+      the tab becomes visible again, so a term or series created in another tab appears without losing
+      the form. The `CatalogSetupNotice` island at the top of the form lists what isn't set up yet
+      (no vocabulary, a vocabulary applying to no artwork type, a vocabulary without terms, no series),
+      with links opening in a new tab, and refreshes the same way (Mike: tell them before they fill
+      the form in). Both islands use `Components/Interop/TabReturnWatcher`, which renders nothing and
+      raises `OnTabReturn` on `visibilitychange`. Checked boxes post repeated
+      `Input.VocabularyTermIds` / `Input.SeriesIds` values, and form binding reads those into
+      `List<int>` (verified with a real POST); with nothing checked it sets the list to null, so the
+      form's lists turn null into empty. `ShopItemTypeId.Painting` mirrors the
+      SQL `1`. Open: a term or series deleted while the form is open reaches `AddPainting` as error
+      50001 or a foreign key error, shown as an unhandled error.
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series

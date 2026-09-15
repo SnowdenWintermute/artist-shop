@@ -52,7 +52,7 @@
       if (Loaded is null)
       {
         var id = await VocabularyRepository.AddAsync(name, _form.ShopItemTypeIds);
-        NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}");
+        NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}/edit");
         return;
       }
 
@@ -117,9 +117,9 @@
 @if (Loaded is { } loaded)
 {
   <UnselectShopItemTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                               UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage"
-                               OnConfirm="SaveAsync" IsWorking="_isSaving" />
+                               UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
+                               IsWorking="_isSaving" />
 
-  <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                          Usage="loaded.Usage" OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
+  <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
+                          OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
 }

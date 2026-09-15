@@ -93,3 +93,10 @@
 .artist-shop-field-input {
   @apply border border-theme-base px-2 h-10;
 }
+
+/* SortableJS adds .sortable-fallback to the row copy it moves while dragging (ForceFallback mode, where the
+   browser's native drag isn't controlling the cursor), so keep the closed hand wherever the pointer goes */
+body:has(.sortable-fallback),
+body:has(.sortable-fallback) * {
+  cursor: grabbing !important;
+}

@@ -1,0 +1,49 @@
+@* renders nothing; only works inside an interactive island *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@code {
+  [Parameter, EditorRequired]
+  public EventCallback OnTabReturn { get; set; }
+
+  private IJSObjectReference? _module;
+  private IJSObjectReference? _watcher;
+  private DotNetObjectReference<TabReturnWatcher>? _selfReference;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    _module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Interop/TabReturnWatcher.razor.js");
+    _selfReference = DotNetObjectReference.Create(this);
+    _watcher = await _module.InvokeAsync<IJSObjectReference>("watchTabReturn", _selfReference);
+  }
+
+  [JSInvokable]
+  public Task NotifyTabReturn() => OnTabReturn.InvokeAsync();
+
+  public async ValueTask DisposeAsync()
+  {
+    try
+    {
+      if (_watcher is not null)
+      {
+        await _watcher.InvokeVoidAsync("dispose");
+        await _watcher.DisposeAsync();
+      }
+
+      if (_module is not null)
+      {
+        await _module.DisposeAsync();
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+
+    _selfReference?.Dispose();
+  }
+}

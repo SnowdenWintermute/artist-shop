@@ -2,6 +2,7 @@ namespace ArtistShop.Web.Database.Repositories;
 
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Utilities;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
@@ -24,6 +25,56 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
                 new VocabularyId(row.Id),
                 new VocabularyName(row.Name)
             )),
+        ];
+    }
+
+    public async Task<List<Vocabulary>> GetAllWithoutShopItemTypesAsync()
+    {
+        await using var connection = connectionFactory.Create();
+
+        var rows = await connection.QueryAsync<VocabularyRow>(
+            "dbo.GetVocabulariesWithoutShopItemTypes",
+            commandType: CommandType.StoredProcedure
+        );
+
+        return
+        [
+            .. rows.Select(row => new Vocabulary(
+                new VocabularyId(row.Id),
+                new VocabularyName(row.Name)
+            )),
+        ];
+    }
+
+    public async Task<List<VocabularyWithTerms>> GetAllWithTermsForShopItemTypeAsync(
+        ShopItemTypeId shopItemTypeId
+    )
+    {
+        await using var connection = connectionFactory.Create();
+
+        var rows = await connection.QueryAsync<VocabularyWithTermRow>(
+            "dbo.GetVocabulariesWithTermsForShopItemType",
+            new { ShopItemTypeId = shopItemTypeId.Value },
+            commandType: CommandType.StoredProcedure
+        );
+
+        return
+        [
+            .. rows.GroupBy(row => (row.Id, row.Name))
+                .Select(group => new VocabularyWithTerms(
+                    new VocabularyId(group.Key.Id),
+                    new VocabularyName(group.Key.Name),
+                    [
+                        .. group
+                            .Where(row => row.TermId is not null)
+                            .Select(row => new VocabularyTerm(
+                                new VocabularyTermId(Unwrap.Value(row.TermId)),
+                                new VocabularyTermName(Unwrap.Value(row.TermName)),
+                                new VocabularyId(row.Id),
+                                new VocabularyName(row.Name)
+                            )),
+                    ]
+                )),
         ];
     }
 
@@ -150,6 +201,14 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
     {
         public required int ShopItemTypeId { get; init; }
         public required int ShopItemCount { get; init; }
+    }
+
+    private sealed class VocabularyWithTermRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
+        public int? TermId { get; init; }
+        public string? TermName { get; init; }
     }
 
     private sealed class VocabularyRow
