@@ -11,6 +11,7 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
     private readonly VocabularyRepository _vocabularies = new(connectionFactory);
     private readonly VocabularyTermRepository _terms = new(connectionFactory);
     private readonly PaintingRepository _paintings = new(connectionFactory);
+    private readonly SeriesRepository _series = new(connectionFactory);
 
     public async Task<ShopItemTypeId> GetPaintingTypeIdAsync() =>
         (await _shopItemTypes.GetAllAsync()).Single(type => type.Name.Value == "Painting").Id;
@@ -24,9 +25,46 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
     public Task<VocabularyTermId> AddTermAsync(VocabularyId vocabularyId) =>
         _terms.AddAsync(vocabularyId, new VocabularyTermName($"Oil {Guid.NewGuid():n}"));
 
-    public async Task<ShopItemSlug> AddPaintingWithTermAsync(VocabularyTermId termId)
+    public Task<SeriesId> AddSeriesAsync()
     {
-        var name = $"Vocabulary test painting {Guid.NewGuid():n}";
+        var name = $"Series {Guid.NewGuid():n}";
+        return _series.AddAsync(new SeriesName(name), SeriesSlug.FromName(name));
+    }
+
+    // the path only has to be unique: nothing reads the file
+    public static ShopItemImage CreateTestImage() =>
+        new($"test/{Guid.NewGuid():n}", OriginalFileName: null, 800, 600, BlurDataUri: null);
+
+    public async Task<ShopItemSlug> AddPaintingWithTermAsync(VocabularyTermId termId) =>
+        (
+            await AddPaintingAsync(
+                $"Vocabulary test painting {Guid.NewGuid():n}",
+                termIds: [termId],
+                seriesIds: [],
+                images: []
+            )
+        ).Slug;
+
+    public async Task<ShopItemId> AddPaintingInSeriesAsync(
+        SeriesId seriesId,
+        IReadOnlyList<ShopItemImage> images
+    ) =>
+        (
+            await AddPaintingAsync(
+                $"Series test painting {Guid.NewGuid():n}",
+                termIds: [],
+                seriesIds: [seriesId],
+                images
+            )
+        ).Id;
+
+    public async Task<ShopItemIdentifiers> AddPaintingAsync(
+        string name,
+        IReadOnlyList<VocabularyTermId> termIds,
+        IReadOnlyList<SeriesId> seriesIds,
+        IReadOnlyList<ShopItemImage> images
+    )
+    {
         var identifiers = await _paintings.AddAsync(
             new PaintingCatalogAddition(
                 new ShopItemName(name),
@@ -36,13 +74,13 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
                 DatePainted: null,
                 Description: null,
                 Dimensions: null,
-                Images: [],
+                Images: images,
                 MainImageIndex: 0,
-                VocabularyTermIds: [termId],
-                SeriesIds: []
+                VocabularyTermIds: termIds,
+                SeriesIds: seriesIds
             )
         );
 
-        return identifiers.Slug;
+        return identifiers;
     }
 }

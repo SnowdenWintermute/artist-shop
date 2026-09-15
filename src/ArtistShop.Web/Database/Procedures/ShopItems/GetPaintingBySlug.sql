@@ -36,11 +36,12 @@ ORDER BY
 
 SELECT
     series.Id,
-    series.Name
+    series.Name,
+    series.Slug
 FROM
-    dbo.PaintingSeries AS series
-    JOIN dbo.PaintingAndSeriesJunction AS junction ON junction.SeriesId = series.Id
-    JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.PaintingId
+    dbo.Series AS series
+    JOIN dbo.ShopItemAndSeriesJunction AS junction ON junction.SeriesId = series.Id
+    JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.ShopItemId
 WHERE
     shopItem.Slug = @Slug;
 

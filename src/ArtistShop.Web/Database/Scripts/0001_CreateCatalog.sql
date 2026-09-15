@@ -147,21 +147,28 @@ CREATE UNIQUE INDEX UniqueIndex_ShopItemImages_Primary ON dbo.ShopItemImages (Sh
 WHERE
     IsPrimary = 1;
 
-CREATE TABLE dbo.PaintingSeries (
+CREATE TABLE dbo.Series (
     Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_PaintingSeries PRIMARY KEY (Id),
+    CONSTRAINT PrimaryKey_Series PRIMARY KEY (Id),
     Name nvarchar(256) NOT NULL,
-    CONSTRAINT Unique_PaintingSeries_Name UNIQUE (Name),
-    Slug nvarchar(256) NOT NULL,
-    CONSTRAINT Unique_PaintingSeries_Slug UNIQUE (Slug)
+    CONSTRAINT Unique_Series_Name UNIQUE (Name),
+    Slug nvarchar(200) NOT NULL,
+    CONSTRAINT Unique_Series_Slug UNIQUE (Slug)
 );
 
-CREATE TABLE dbo.PaintingAndSeriesJunction (
-    PaintingId int NOT NULL,
+-- any shop item type can join any series, mixed freely
+CREATE TABLE dbo.ShopItemAndSeriesJunction (
+    ShopItemId int NOT NULL,
     SeriesId int NOT NULL,
     SortOrder int NOT NULL,
-    CONSTRAINT Unique_PaintingAndSeriesJunction_SeriesSortOrder UNIQUE (SeriesId, SortOrder),
-    CONSTRAINT PrimaryKey_PaintingAndSeriesJunction PRIMARY KEY (PaintingId, SeriesId),
-    CONSTRAINT ForeignKey_PaintingAndSeriesJunction_Paintings FOREIGN KEY (PaintingId) REFERENCES dbo.Paintings (Id) ON DELETE CASCADE,
-    CONSTRAINT ForeignKey_PaintingAndSeriesJunction_PaintingSeries FOREIGN KEY (SeriesId) REFERENCES dbo.PaintingSeries (Id)
+    CONSTRAINT Unique_ShopItemAndSeriesJunction_SeriesSortOrder UNIQUE (SeriesId, SortOrder),
+    CONSTRAINT PrimaryKey_ShopItemAndSeriesJunction PRIMARY KEY (ShopItemId, SeriesId),
+    CONSTRAINT ForeignKey_ShopItemAndSeriesJunction_ShopItems FOREIGN KEY (ShopItemId) REFERENCES dbo.ShopItems (Id) ON DELETE CASCADE,
+    CONSTRAINT ForeignKey_ShopItemAndSeriesJunction_Series FOREIGN KEY (SeriesId) REFERENCES dbo.Series (Id),
+    -- the series cover is this shop item's primary image
+    IsCover bit NOT NULL CONSTRAINT Default_ShopItemAndSeriesJunction_IsCover DEFAULT 0
 );
+
+CREATE UNIQUE INDEX UniqueIndex_ShopItemAndSeriesJunction_Cover ON dbo.ShopItemAndSeriesJunction (SeriesId)
+WHERE
+    IsCover = 1;

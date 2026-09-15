@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Domain.Commerce;
@@ -18,35 +16,7 @@ public record ShopItemImage(
 
 public record ShopItemSlug(string Value)
 {
-    public static ShopItemSlug FromName(string name)
-    {
-        var normalized = name.Normalize(NormalizationForm.FormD);
-        var slug = new StringBuilder(normalized.Length);
-
-        foreach (var character in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) is UnicodeCategory.NonSpacingMark)
-            {
-                continue;
-            }
-
-            if (char.IsAsciiLetterOrDigit(character))
-            {
-                slug.Append(char.ToLowerInvariant(character));
-            }
-            else if (slug.Length > 0 && slug[^1] is not '-')
-            {
-                slug.Append('-');
-            }
-        }
-
-        if (slug.Length > CatalogLimits.BaseSlugMaximumLength)
-        {
-            slug.Length = CatalogLimits.BaseSlugMaximumLength;
-        }
-
-        return new(slug.ToString().Trim('-'));
-    }
+    public static ShopItemSlug FromName(string name) => new(ArtistShopSlug.FromName(name));
 }
 
 public record ShopItemIdentifiers(ShopItemId Id, ShopItemSlug Slug);
@@ -58,6 +28,7 @@ public abstract class ShopItem(
     decimal? price,
     int stock,
     IEnumerable<ShopItemImage> images,
+    IEnumerable<Series> series,
     IEnumerable<VocabularyTerm> vocabularyTerms
 )
 {
@@ -70,6 +41,8 @@ public abstract class ShopItem(
 
     private readonly List<ShopItemImage> _images = [.. images];
     public IReadOnlyList<ShopItemImage> Images => _images;
+    private readonly List<Series> _series = [.. series];
+    public IReadOnlyList<Series> Series => _series;
     private readonly List<VocabularyTerm> _vocabularyTerms = [.. vocabularyTerms];
     public IReadOnlyList<VocabularyTerm> VocabularyTerms => _vocabularyTerms;
 

@@ -7,13 +7,22 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-14
+## Where this stands — 2026-09-15
 
-**Next session starts at "Catalog vocabulary admin" in step 9**, build order step 1: the
-vocabulary procedures and `VocabularyRepository`. Design, routes and decisions are all settled
-there. Image upload (steps 0-8) is finished.
+**Next session starts at "Series admin" in step 9**, whose design was settled 2026-09-15. Vocabulary
+and term admin are built, working in the browser and committed (`b58a84d`). The tests haven't been
+re-run since the static pages + prerendered islands rework.
 
-Done since the image work, all tested (28 tests pass):
+Done 2026-09-14/15 (details under "Catalog vocabulary admin" in step 9):
+- Vocabulary and term procedures, `VocabularyRepository`, `VocabularyTermRepository`,
+  `ShopItemTypeRepository`, `SqlErrors`, and repository tests using a shared `CatalogTestData`.
+- `ShopItemTypeId` is `int` everywhere, not `tinyint`.
+- The test database is dropped and recreated on every run (an xUnit assembly fixture).
+- Admin pages at `/admin/catalog/vocabularies/...`: static pages, a static `CatalogLayout`,
+  and prerendered interactive islands for the dialogs.
+- Field ids get a per-instance suffix, so two fields bound to `Name` can share a page.
+
+Done before that, 2026-09-13/14:
 - **Schema:** nullable `Price`; `DatePainted` plus `DatePaintedPrecision`; `decimal(8, 4)`
   dimensions; `SortOrder` on the series junction.
 - **Vocabularies replace `Mediums`/`Supports`:** `ShopItemTypes`, `Vocabularies`,
@@ -23,8 +32,8 @@ Done since the image work, all tested (28 tests pass):
   terms, in that order.
 - **`PartialDate`** and the Year/Month/Day `PartialDateField` with its day-limiting script.
 
-Nothing creates vocabularies, terms or series yet, so those insert paths haven't run against
-real rows.
+Nothing creates series yet, and the add-painting form has no term or series pickers, so those
+paths of `AddPainting` have only run in tests.
 
 ### Image upload, as of 2026-09-13
 
@@ -233,51 +242,121 @@ uploads a folder of images, and each image's file name (without its extension) i
 - [x] Schema edits (2026-09-13): nullable `Price`, `DatePainted` + `DatePaintedPrecision` with
       `PartialDate` owning date validation, `decimal(8, 4)` dimensions, and a Year/Month/Day
       `PartialDateField` whose script disables impossible days
-- [ ] **Catalog vocabulary admin — NEXT.** Mediums and supports became artist-defined
-      vocabularies of terms (the Drupal/WordPress taxonomy pattern, "controlled vocabulary" in
-      museum cataloguing); the schema is done. Series stays its own entity: it will grow a
-      cover photo and description, has a public page, and orders its paintings.
+- [x] **Catalog vocabulary admin (built 2026-09-14/15).** Mediums and supports became
+      artist-defined vocabularies of terms (the Drupal/WordPress taxonomy pattern, "controlled
+      vocabulary" in museum cataloguing).
 
-      **Pages** (all `InteractiveServer`; static rendering isn't a goal for admin). A shared
-      catalog shell renders a tab bar of links, `[Medium] [Support] … [+ New vocabulary]
-      [Series]`, plus `<BbPortalHost />`. The host must render interactively, and keeping it out
-      of `MainLayout` avoids opening a circuit on public pages. Admin URLs use ids, and
-      `{id:int}` keeps `new` from matching.
-      - `/admin/catalog/vocabularies/new` and `/admin/catalog/vocabularies/{id}/edit` share one
-        form: the name, plus checkboxes for the shop item types the vocabulary applies to. Saving
-        with a type unticked confirms first ("removes Medium terms from 40 paintings"), then
-        unlinks. Edit also has Delete vocabulary, confirming with term and item counts.
-      - `/admin/catalog/vocabularies/{id}` lists terms with usage counts and an add-term box;
-        pencil opens a rename `BbDialog`, trash opens a delete `BbAlertDialog`, which unlinks
-        and then deletes.
-      - `/admin/catalog/series` lists series with painting counts, linking to
+      **Render model: static pages with prerendered islands.** The first build used
+      `InteractiveServer` pages with prerendering off, and every link click flickered. The page
+      went blank, then showed "Loading…", and the shell (inside the page) rebuilt its tabs. The rules now:
+      - Pages are static and load all the data. Islands (`@rendermode="InteractiveServer"`,
+        prerendered) never load their own data. A prerendered island that fetched its own data
+        would render "not loaded" when the circuit attaches, which is the flicker again.
+      - Island parameters travel as JSON. `IReadOnlySet` and dictionaries keyed by a record don't
+        deserialize (checked), so domain records use lists. Callbacks can't cross into an island.
+      - After writing, an island calls `NavigationManager.Refresh()`, so the static page
+        re-renders and passes new parameters in, or `NavigateTo` when the page changes.
+        `@key="Id"` gives a different entity a fresh island.
+      - `CatalogLayout` is a static layout holding the tabs (`SectionNavLink`, which stays active
+        on a vocabulary's edit and terms pages) and `<BbPortalHost @rendermode="InteractiveServer" />`.
+        That host island also keeps the circuit open between catalog pages.
+      - Rejected: interactive routing for all of `/admin`. `AddSinglePainting` would have to opt
+        out, and moving between static and interactive routing is a full page load.
+      - Known and accepted: on a full page load, clicks on island buttons do nothing until the
+        circuit attaches, and field ids change once when an island attaches.
+
+      **What exists.**
+      - `/admin/catalog/vocabularies/new` and `/{id}/edit`: `VocabularyEditor` (static) plus the
+        `VocabularyEditorForm` island. It holds the name, the shop item type checkboxes, a confirm
+        dialog when unselecting a type that has terms on items, and delete. `VocabularyForm` owns
+        its `EditContext`, the last-saved values (for `HasChanges` and `WasUnselected`), and the
+        store for database errors. Creating a vocabulary opens its terms page, and deleting one
+        opens `/new`.
+      - `/admin/catalog/vocabularies/{id}`: `VocabularyTermList` (static). `AddVocabularyTermForm` is
+        a static form post that redirects back to the page after adding, and the
+        `VocabularyTermTable` island holds the rename `BbDialog` and the delete confirm.
+      - `Components/Dialogs/ConfirmDialog` wraps `BbAlertDialog`, with plain buttons so it stays open
+        and disabled while saving.
+      - Procedures live in `Database/Procedures/Vocabularies/` and `VocabularyTerms/`. Duplicate names
+        are matched on the constraint name by `SqlErrors.IsUniqueConstraintViolation` and become
+        `NameAlreadyInUseException`, then a field message. No `ShopItemType` C# enum was needed.
+
+      **Open.** If another tab deletes the vocabulary mid-save, `UpdateVocabulary`'s error 50002
+      shows as Blazor's unhandled-error bar. Nothing links to `/admin/catalog` from the dashboard.
+
+- [ ] **Series admin — NEXT.** Series stays its own entity rather than a vocabulary: it will grow
+      a description, has a public page, and orders its artworks. Same render model as the
+      vocabulary pages; add a Series tab to `CatalogLayout` (`SectionNavLink` with
+      `ActivePath="/admin/catalog/series"`).
+
+      **Decided 2026-09-15:**
+      - **Any shop item type in any series, mixed freely** (a painting and a photograph can share
+        one). No type checklist like vocabularies. Schema, edited in place in `0001`:
+        `PaintingSeries` → `Series`, `PaintingAndSeriesJunction` → `ShopItemAndSeriesJunction
+        (ShopItemId, SeriesId, SortOrder, IsCover)` referencing `ShopItems (Id)`. In C#,
+        `PaintingSeries` → `Series`, and the series list moves from `Painting` up to `ShopItem`.
+        `AddPainting` and `GetPaintingBySlug` follow the rename. (`ShopItem` itself may be renamed.)
+      - **Created** by an add box on the list page, a static form post like `AddVocabularyTermForm`.
+      - **Slugs:** series slugs are never numbered; a name whose slug another series has is
+        rejected. Shop items keep `dbo.ResolveShopItemSlug`, which every `AddPainting`/`AddSculpture`
+        calls, since all shop items share `dbo.ShopItems`. (A caller-passes-slugs `dbo.ResolveSlug`
+        was built and removed the same day, once series stopped needing it.) When shop item editing
+        arrives, the function takes the item's own id to leave out, or renaming "Sunset" to
+        "Sunset!" yields `sunset-2`. One slug max length (`CatalogLimits.SlugMaximumLength`) and one
+        `ArtistShopSlug.FromName` for shop items and series.
+      - **Cover:** the artist stars one artwork on the series page, and its primary image is the
+        cover, like `IsPrimary` on images. `IsCover` on the junction with a filtered unique index
+        `WHERE IsCover = 1`, so the cover is always a member and leaves with it. The star is
+        disabled on artworks with no images. Cover = the starred artwork's primary image, else the
+        first artwork in order with an image, else a "no images yet" placeholder (a series can
+        have no images at all).
+      - **Custom order** is the same drag list as `ImagesField`. Series upload nothing (their images
+        are the artworks' own), so the island only saves order and star, immediately: one set-based
+        `UPDATE` for order (`UNIQUE (SeriesId, SortOrder)` forces that), one for the star.
+      - **Extract a generic sortable list with a star** from `ImagesField`/`ImageUploadRow`. It owns
+        `BbSortable`, move/nudge and ↑/↓, the radio star with explicit/fallback colours, and the
+        "first item that `CanStar`" fallback. Each user supplies the row's middle and its extra
+        actions as `RenderFragment<TItem>`s (images: progress, Retry, ✕; series: checkbox for bulk
+        remove). Not an island itself, so callbacks and fragments work. Suggested: it reports
+        moves rather than reordering `Items`, so the series island can save before showing the new
+        order, then `Refresh()`; `ImagesField` applies moves immediately.
+      - **Queries:** separate procedures for series with and without covers, not a flag parameter.
+
+      **Build order:** 1) schema — DONE 2026-09-15 (`Series`, `ShopItemAndSeriesJunction` with
+      `IsCover` + filtered unique index, series slug `nvarchar(200)`; `AddPainting` and
+      `GetPaintingBySlug` updated); 2) slugs — DONE 2026-09-15 (`ArtistShopSlug.FromName` shared,
+      `CatalogLimits.SlugMaximumLength`, test `NumbersTheSlugWhenItIsTaken`). Parallel tests
+      exposed deadlocks in `AddPainting` under `SERIALIZABLE`: fixed by `ResolveShopItemSlug`
+      reading once, over one prefix range, `WITH (UPDLOCK)`; 20 clean runs; 3) series procedures, repository, tests —
+      DONE 2026-09-15 (`Procedures/Series/`, `SeriesRepository`, 13 tests in
+      `SeriesRepositoryTests`; `0003` adds `dbo.OrderedIdList` for reorder; `PaintingSeries` →
+      `Series` record, series list moved up to `ShopItem`). Errors 50004 (renamed series gone),
+      50005 (reorder list no longer matches the series), 50006/50007 (cover not in series / has no
+      image) reach the caller as raw `SqlException`s; the island decides what to show in step 5.
+      The plain `GetAllSeries` (no covers) waits for the add-painting series picker. **Changed
+      2026-09-15:** series slugs are not numbered. A name whose slug another series has is
+      rejected (`Unique_Series_Slug`), on add and rename, as `NameAlreadyInUseException`; the page
+      must explain it in words the artist knows (see the wording under step 5); 4) extract the sortable list with
+      a star; 5) list page with add form, then the series page island. Name-taken wording, following
+      the painting form's "web address": "Another series already has this name, or one that only
+      differs in punctuation, accents or capital letters." A name with no letters or digits needs
+      the painting form's "no letters or numbers to build a web address from" check.
+
+      **Pages:**
+      - `/admin/catalog/series` lists series (with cover and artwork counts), linking to
         `/admin/catalog/series/{id}`: rename (the slug follows, breaking old links, accepted),
-        drag to reorder its paintings, tick paintings and remove them after one confirm, and
-        delete the series after a confirm. Adding existing paintings there: not now.
-
-      **Rules.** Names are trimmed before saving and empty names are rejected, for vocabularies,
-      terms and series. Delete and untick dialogs show counts from the page load, labelled
-      "(count as of page load)". Dialogs are controlled (`@bind-Open`) so they stay open while
-      the save runs. Deletes use `BbAlertDialog` (no dismiss by clicking outside). Every delete
-      procedure removes junction rows first, then the row, in one transaction; the foreign keys
-      keep refusing any other delete.
-
-      **Procedures.** Vocabularies: `GetVocabularies`, `GetShopItemTypes`, `GetVocabulary`
-      (name and ticked types), `CountVocabularyUsageByShopItemType`, `AddVocabulary`,
-      `UpdateVocabulary` (rename, add ticks, unlink then remove unticks, in one transaction),
-      `DeleteVocabulary`. Terms: `GetVocabularyTermsWithUsage`, `AddVocabularyTerm`,
-      `RenameVocabularyTerm`, `DeleteVocabularyTerm`. Duplicate names surface as error 2627 or
-      2601; turn them into a field message.
-
-      **Build order.** 1) vocabulary procedures and `VocabularyRepository`; 2) catalog shell and
-      the create/edit vocabulary page, then delete `Pages/Admin/DialogExperiment.razor`; 3) term
-      procedures, `VocabularyTermRepository` and the terms page; 4) series. A `ShopItemType`
-      C# enum mirroring `ShopItemTypes` arrives with the checkboxes, not before.
-
-      Already done for series: `SortOrder` on the junction with `UNIQUE (SeriesId, SortOrder)`, so
-      reordering must be one set-based `UPDATE`. `AddPainting` appends with `MAX + 1` under
-      `UPDLOCK`. Public series ordering, later: the customer picks the sort, the artist sets the
-      default and can drag a custom order.
+        reorder and star its artworks, tick artworks and remove them after one confirm, and
+        delete the series after a confirm. Each row shows the artwork's primary image. Adding
+        existing artworks there: not now.
+      - Reorder, star, tick and remove belong in one island over the artwork list.
+      - Already done: `SortOrder` on the junction with `UNIQUE (SeriesId, SortOrder)`. `AddPainting`
+        appends with `MAX + 1` under `UPDLOCK`.
+      - Same rules as vocabularies: names trimmed, empty rejected, delete procedures remove junction
+        rows then the row in one transaction, dialog counts labelled "(count as of page load)".
+      - Public series ordering, later: the customer picks the sort, the artist sets the default and
+        can drag a custom order.
+- [ ] Term and series pickers on the add-painting form. It passes empty `VocabularyTermIds` and
+      `SeriesIds` today, so the admin can't attach either to a painting yet
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series

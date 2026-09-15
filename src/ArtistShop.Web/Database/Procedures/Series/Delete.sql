@@ -1,0 +1,20 @@
+CREATE OR ALTER PROCEDURE dbo.DeleteSeries @Id int AS BEGIN
+SET
+NOCOUNT ON;
+
+SET
+XACT_ABORT ON;
+
+BEGIN TRANSACTION;
+
+DELETE FROM dbo.ShopItemAndSeriesJunction
+WHERE
+    SeriesId = @Id;
+
+DELETE FROM dbo.Series
+WHERE
+    Id = @Id;
+
+COMMIT TRANSACTION;
+
+END;

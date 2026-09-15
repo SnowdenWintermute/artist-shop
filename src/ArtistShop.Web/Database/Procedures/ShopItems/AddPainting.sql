@@ -109,7 +109,7 @@ FROM
 
 -- the column is SeriesId but the source column is just Id
 INSERT INTO
-    dbo.PaintingAndSeriesJunction (PaintingId, SeriesId, SortOrder)
+    dbo.ShopItemAndSeriesJunction (ShopItemId, SeriesId, SortOrder)
 SELECT
     @Id,
     seriesIds.Id,
@@ -121,7 +121,7 @@ SELECT
             SELECT
                 MAX(existing.SortOrder)
             FROM
-                dbo.PaintingAndSeriesJunction AS existing
+                dbo.ShopItemAndSeriesJunction AS existing
             WITH
                 (UPDLOCK)
             WHERE

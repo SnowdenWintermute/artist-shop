@@ -62,6 +62,7 @@ builder.Services.AddSingleton<SchemaMigrator>();
 builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 builder.Services.AddScoped<PaintingRepository>();
+builder.Services.AddScoped<SeriesRepository>();
 builder.Services.AddScoped<ShopItemImageRepository>();
 builder.Services.AddScoped<ShopItemTypeRepository>();
 builder.Services.AddScoped<VocabularyRepository>();

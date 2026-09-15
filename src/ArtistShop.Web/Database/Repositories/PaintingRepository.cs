@@ -93,8 +93,12 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
 
         var images = (await results.ReadAsync<ImageRow>()).ToList();
 
-        var series = (await results.ReadAsync<LookupRow>())
-            .Select(lookup => new PaintingSeries(lookup.Id, lookup.Name))
+        var series = (await results.ReadAsync<SeriesRow>())
+            .Select(seriesRow => new Series(
+                new SeriesId(seriesRow.Id),
+                new SeriesName(seriesRow.Name),
+                new SeriesSlug(seriesRow.Slug)
+            ))
             .ToList();
 
         var vocabularyTerms = (await results.ReadAsync<VocabularyTermRow>())
@@ -174,10 +178,11 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
         public string? BlurDataUri { get; init; }
     }
 
-    private sealed class LookupRow
+    private sealed class SeriesRow
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
+        public required string Slug { get; init; }
     }
 
     private sealed class VocabularyTermRow

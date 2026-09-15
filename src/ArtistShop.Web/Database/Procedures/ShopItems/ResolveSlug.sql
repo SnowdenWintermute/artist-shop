@@ -4,32 +4,32 @@ AS BEGIN
 --
 DECLARE @NumberSuffixPattern nvarchar(210) = @CandidateSlug + '-[0-9]%';
 
-DECLARE @CandidateSlugCount int = (
-    SELECT
-        COUNT(*)
-    FROM
-        dbo.ShopItems
-    WHERE
-        Slug = @CandidateSlug
-);
+DECLARE @SuffixStart int = LEN(@CandidateSlug) + 2;
+
+DECLARE @CandidateSlugCount int;
 
 DECLARE @HighestSlugNumber int;
 
-DECLARE @SuffixStart int = LEN(@CandidateSlug) + 2;
-
-WITH
-    NumberedSlugs AS (
-        SELECT
-            SUBSTRING(Slug, @SuffixStart, LEN(Slug)) AS SlugNumberText
-        FROM
-            dbo.ShopItems
-        WHERE
-            Slug LIKE @NumberSuffixPattern
-    )
+-- One read, not two. The candidate and candidate-N share a prefix, so one index seek covers both
+-- and takes its locks in key order: a second caller waits rather than deadlocking.
+-- UPDLOCK: with shared locks two callers could both read, then deadlock when both insert
 SELECT
-    @HighestSlugNumber = MAX(TRY_CAST(SlugNumberText AS int))
+    @CandidateSlugCount = COUNT(
+        CASE
+            WHEN Slug = @CandidateSlug THEN 1
+        END
+    ),
+    @HighestSlugNumber = MAX(
+        CASE
+            WHEN Slug LIKE @NumberSuffixPattern THEN TRY_CAST(SUBSTRING(Slug, @SuffixStart, LEN(Slug)) AS int)
+        END
+    )
 FROM
-    NumberedSlugs;
+    dbo.ShopItems
+WITH
+    (UPDLOCK)
+WHERE
+    Slug LIKE @CandidateSlug + '%';
 
 DECLARE @NextNumber int = COALESCE(@HighestSlugNumber, 1) + 1;
 

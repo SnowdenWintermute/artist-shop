@@ -5,8 +5,8 @@ public static class CatalogLimits
 {
     public const int ShopItemImageFileNameMaximumLength = 260;
     public const int ShopItemNameMaximumLength = 200;
-    public const int ShopItemSlugMaximumLength = 200;
-    public const int BaseSlugMaximumLength = ShopItemSlugMaximumLength - 10;
+    public const int SlugMaximumLength = 200;
+    public const int BaseSlugMaximumLength = SlugMaximumLength - 10;
 
     public const string MinimumPrice = "0";
     public const string MaximumPrice = "99999999.99";

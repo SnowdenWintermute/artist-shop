@@ -18,6 +18,11 @@
 // routine returns true then the out parameter will be not null
 // is: means x matches shape of y even if y contains additional stuff
 // delegate: keyword - a type declaration for a function
+// UPDLOCK: sql for when inside a transaction you read something you indend to write later in the
+// transaction because otherwise it could change after you read but before you wrote
+// BEGIN/END: the opening/closing of a sql block
+// IIF(condition, ifTrue, else): sql ternary expression
+//
 //
 //
 // UNCERTAIN:

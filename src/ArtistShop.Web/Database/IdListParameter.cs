@@ -20,4 +20,19 @@ public static class IdListParameter
 
         return table.AsTableValuedParameter("dbo.IdList");
     }
+
+    // each id's position in the list becomes its SortOrder
+    public static SqlMapper.ICustomQueryParameter CreateOrdered(IReadOnlyList<int> ids)
+    {
+        var table = new DataTable();
+        table.Columns.Add("Id", typeof(int));
+        table.Columns.Add("SortOrder", typeof(int));
+
+        for (var index = 0; index < ids.Count; index++)
+        {
+            table.Rows.Add(ids[index], index);
+        }
+
+        return table.AsTableValuedParameter("dbo.OrderedIdList");
+    }
 }
