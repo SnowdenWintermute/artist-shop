@@ -1,0 +1,38 @@
+@using ArtistShop.Web.Components.Atoms
+@using BlazorBlueprint.Primitives.AlertDialog
+
+@code {
+  [Parameter]
+  public bool Open { get; set; }
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string ConfirmLabel { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback OnConfirm { get; set; }
+  [Parameter]
+  public bool IsWorking { get; set; }
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<BbAlertDialog Open="Open" OpenChanged="OpenChanged">
+  <BbAlertDialogPortal>
+    <BbAlertDialogOverlay class="fixed inset-0 z-40 bg-black/40" />
+    <BbAlertDialogContent
+      class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white p-6">
+      <BbAlertDialogTitle class="mb-2 text-lg">@Title</BbAlertDialogTitle>
+      <BbAlertDialogDescription class="mb-6">@ChildContent</BbAlertDialogDescription>
+      <div class="flex justify-end gap-2">
+        <ButtonBasic type="button" Class="border" disabled="@IsWorking" @onclick="() => OpenChanged.InvokeAsync(false)">
+          Cancel
+        </ButtonBasic>
+        <ButtonBasic type="button" Class="bg-red-600 text-white" disabled="@IsWorking" @onclick="OnConfirm">
+          @ConfirmLabel
+        </ButtonBasic>
+      </div>
+    </BbAlertDialogContent>
+  </BbAlertDialogPortal>
+</BbAlertDialog>

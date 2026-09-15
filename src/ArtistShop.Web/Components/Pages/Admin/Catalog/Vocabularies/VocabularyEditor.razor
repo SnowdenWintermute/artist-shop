@@ -1,0 +1,181 @@
+@page "/admin/catalog/vocabularies/new"
+@page "/admin/catalog/vocabularies/{Id:int}/edit"
+@* no prerender: it would load twice, and clicks before the circuit connects do nothing *@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Catalog
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject VocabularyRepository VocabularyRepository
+@inject ShopItemTypeRepository ShopItemTypeRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public int? Id { get; set; }
+
+  private sealed record LoadedVocabulary(VocabularyWithShopItemTypes Vocabulary, VocabularyUsage Usage);
+
+  private CatalogShell _shell = default!;
+  private bool _isLoaded;
+  private List<ShopItemType> _shopItemTypes = [];
+  // null when creating, or when the id doesn't exist
+  private LoadedVocabulary? _loaded;
+  private VocabularyForm _form = VocabularyForm.ForNew();
+
+  private bool _isSaving;
+  private bool _justSaved;
+  private bool _unselectDialogOpen;
+  private bool _deleteDialogOpen;
+
+  // both routes use this one component, so going from /new to /{id}/edit reuses the
+  // instance and runs this again rather than OnInitializedAsync
+  protected override async Task OnParametersSetAsync()
+  {
+    _isLoaded = false;
+    _shopItemTypes = await ShopItemTypeRepository.GetAllAsync();
+    await LoadVocabularyAsync();
+    _isLoaded = true;
+  }
+
+  private async Task LoadVocabularyAsync()
+  {
+    _loaded = null;
+
+    if (Id is int id)
+    {
+      var vocabularyId = new VocabularyId(id);
+      var vocabulary = await VocabularyRepository.GetAsync(vocabularyId);
+
+      if (vocabulary is not null)
+      {
+        _loaded = new LoadedVocabulary(vocabulary, await VocabularyRepository.CountUsageAsync(vocabularyId));
+      }
+    }
+
+    _form = _loaded is null ? VocabularyForm.ForNew() : VocabularyForm.ForExisting(_loaded.Vocabulary);
+  }
+
+  private List<ShopItemType> UnselectedShopItemTypesInUse =>
+    _loaded is null
+      ? []
+      : [.. _shopItemTypes.Where(shopItemType =>
+          _form.WasUnselected(shopItemType.Id) && _loaded.Usage.ShopItemCountFor(shopItemType.Id) > 0)];
+
+  private async Task HandleValidSubmit()
+  {
+    if (UnselectedShopItemTypesInUse.Count > 0)
+    {
+      _unselectDialogOpen = true;
+      return;
+    }
+
+    await SaveAsync();
+  }
+
+  private async Task SaveAsync()
+  {
+    _isSaving = true;
+
+    try
+    {
+      var name = _form.ToVocabularyName();
+
+      if (_loaded is null)
+      {
+        var id = await VocabularyRepository.AddAsync(name, _form.ShopItemTypeIds);
+        await _shell.ReloadAsync();
+        NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}/edit");
+        return;
+      }
+
+      await VocabularyRepository.UpdateAsync(_loaded.Vocabulary.Id, name, _form.ShopItemTypeIds);
+      await LoadVocabularyAsync();
+      await _shell.ReloadAsync();
+      _justSaved = true;
+    }
+    catch (NameAlreadyInUseException exception)
+    {
+      _form.AddNameTakenError(exception.Name);
+    }
+    finally
+    {
+      _isSaving = false;
+      _unselectDialogOpen = false;
+    }
+  }
+
+  private async Task DeleteAsync(LoadedVocabulary loaded)
+  {
+    _isSaving = true;
+
+    try
+    {
+      await VocabularyRepository.DeleteAsync(loaded.Vocabulary.Id);
+      NavigationManager.NavigateTo("/admin/catalog/vocabularies/new");
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+  }
+}
+
+<PageTitle>@(_loaded is null ? "New vocabulary" : _loaded.Vocabulary.Name.Value)</PageTitle>
+
+<CatalogShell @ref="_shell">
+  @if (!_isLoaded)
+  {
+    <p>Loading…</p>
+  }
+  else if (Id is not null && _loaded is null)
+  {
+    <p>This vocabulary doesn't exist. It may have been deleted.</p>
+  }
+  else
+  {
+    <h1 class="mb-4 text-xl">@(_loaded is null ? "New vocabulary" : $"Edit {_loaded.Vocabulary.Name.Value}")</h1>
+
+    <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
+      <DataAnnotationsValidator />
+
+      <TextField Label="Name" @bind-Value="_form.Name" />
+      <ShopItemTypeCheckboxes ShopItemTypes="_shopItemTypes" Selected="_form.ShopItemTypeIds"
+                              OnToggle="_form.ToggleShopItemType" />
+
+      @if (_justSaved && !_form.HasChanges)
+      {
+        <p class="mb-4 text-green-600">Saved.</p>
+      }
+
+      <div class="flex justify-between">
+        <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">
+          @(_loaded is null ? "Create vocabulary" : "Save")
+        </ButtonBasic>
+
+        @if (_loaded is not null)
+        {
+          <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@_isSaving"
+                       @onclick="() => _deleteDialogOpen = true">
+            Delete vocabulary
+          </ButtonBasic>
+        }
+      </div>
+    </EditForm>
+
+    @if (_loaded is { } loaded)
+    {
+      <UnselectShopItemTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+                                   UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage"
+                                   OnConfirm="SaveAsync" IsWorking="_isSaving" />
+
+      <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+                              Usage="loaded.Usage" OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
+    }
+  }
+</CatalogShell>

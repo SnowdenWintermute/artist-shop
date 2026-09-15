@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Domain;
 
+// updates to these must be mirrored in sql
 public static class CatalogLimits
 {
     public const int ShopItemImageFileNameMaximumLength = 260;
@@ -14,4 +15,6 @@ public static class CatalogLimits
 
     public const string MinimumDimensionCm = "0.01";
     public const string MaximumDimensionCm = "9999.9999";
+
+    public const int VocabularyNameMaximumLength = 100;
 }

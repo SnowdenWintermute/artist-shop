@@ -1,0 +1,28 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter]
+  public bool Open { get; set; }
+
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
+
+  [Parameter, EditorRequired]
+  public VocabularyName VocabularyName { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public VocabularyUsage Usage { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback OnConfirm { get; set; }
+
+  [Parameter]
+  public bool IsWorking { get; set; }
+}
+
+<ConfirmDialog Open="Open" OpenChanged="OpenChanged" Title="@($"Delete {VocabularyName.Value}?")"
+               ConfirmLabel="Delete" OnConfirm="OnConfirm" IsWorking="IsWorking">
+  This deletes its @Usage.VocabularyTermCount terms and removes them from
+  @Usage.TotalShopItemCount items (count as of page load).
+</ConfirmDialog>

@@ -1,0 +1,34 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter]
+  public bool Open { get; set; }
+
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
+
+  [Parameter, EditorRequired]
+  public VocabularyName VocabularyName { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ShopItemType> UnselectedShopItemTypes { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public VocabularyUsage Usage { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback OnConfirm { get; set; }
+
+  [Parameter]
+  public bool IsWorking { get; set; }
+
+  private string AffectedItems =>
+    string.Join(", ", UnselectedShopItemTypes.Select(shopItemType =>
+      $"{Usage.ShopItemCountFor(shopItemType.Id)} {shopItemType.Name.Value} items"));
+}
+
+<ConfirmDialog Open="Open" OpenChanged="OpenChanged" Title="Remove terms from items?"
+               ConfirmLabel="Save and remove" OnConfirm="OnConfirm" IsWorking="IsWorking">
+  Unselecting removes @VocabularyName.Value terms from @AffectedItems (count as of page load).
+</ConfirmDialog>
