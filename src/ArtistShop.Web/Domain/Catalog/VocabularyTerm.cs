@@ -12,3 +12,9 @@ public record VocabularyTerm(
     VocabularyId VocabularyId,
     VocabularyName VocabularyName
 );
+
+public record VocabularyTermWithUsage(
+    VocabularyTermId Id,
+    VocabularyTermName Name,
+    int ShopItemCount
+);

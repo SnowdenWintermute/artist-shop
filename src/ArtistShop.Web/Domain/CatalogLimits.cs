@@ -17,4 +17,5 @@ public static class CatalogLimits
     public const string MaximumDimensionCm = "9999.9999";
 
     public const int VocabularyNameMaximumLength = 100;
+    public const int VocabularyTermNameMaximumLength = 100;
 }

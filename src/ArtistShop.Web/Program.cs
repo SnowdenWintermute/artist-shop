@@ -65,6 +65,7 @@ builder.Services.AddScoped<PaintingRepository>();
 builder.Services.AddScoped<ShopItemImageRepository>();
 builder.Services.AddScoped<ShopItemTypeRepository>();
 builder.Services.AddScoped<VocabularyRepository>();
+builder.Services.AddScoped<VocabularyTermRepository>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

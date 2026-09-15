@@ -7,12 +7,7 @@ using Microsoft.Data.SqlClient;
 
 public class VocabularyRepository(SqlConnectionFactory connectionFactory)
 {
-    // SQL Server's error number for a violated PRIMARY KEY or UNIQUE constraint
-    private const int UniqueConstraintViolation = 2627;
-
-    private static bool IsDuplicateName(SqlException exception) =>
-        exception.Number == UniqueConstraintViolation
-        && exception.Message.Contains("Unique_Vocabularies_Name");
+    private const string UniqueNameConstraint = "Unique_Vocabularies_Name";
 
     public async Task<List<Vocabulary>> GetAllAsync()
     {
@@ -50,7 +45,8 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
 
             return new VocabularyId(id);
         }
-        catch (SqlException exception) when (IsDuplicateName(exception))
+        catch (SqlException exception)
+            when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
         }
@@ -129,7 +125,8 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception) when (IsDuplicateName(exception))
+        catch (SqlException exception)
+            when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
         }

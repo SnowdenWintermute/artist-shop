@@ -1,8 +1,6 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
-using ArtistShop.Web.Domain.Commerce;
-using Dapper;
 
 namespace ArtistShop.Web.Tests.Database;
 
@@ -11,6 +9,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     private readonly VocabularyRepository _vocabularies = new(database.ConnectionFactory);
     private readonly ShopItemTypeRepository _shopItemTypes = new(database.ConnectionFactory);
     private readonly PaintingRepository _paintings = new(database.ConnectionFactory);
+    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
 
     // test classes share the database in parallel, so names must not collide
     private static VocabularyName UniqueName() => new($"Medium {Guid.NewGuid():n}");
@@ -28,7 +27,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     {
         var name = UniqueName();
 
-        var id = await _vocabularies.AddAsync(name, [await GetPaintingTypeIdAsync()]);
+        var id = await _vocabularies.AddAsync(name, [await _catalog.GetPaintingTypeIdAsync()]);
 
         Assert.Contains(new Vocabulary(id, name), await _vocabularies.GetAllAsync());
     }
@@ -46,7 +45,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     public async Task GetReturnsVocabularNameAndAssociatedShopItemTypes()
     {
         var name = UniqueName();
-        var paintingTypeId = await GetPaintingTypeIdAsync();
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
         var id = await _vocabularies.AddAsync(name, [paintingTypeId]);
 
         var vocabulary = await _vocabularies.GetAsync(id);
@@ -66,7 +65,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task UpdateRenames()
     {
-        var paintingTypeId = await GetPaintingTypeIdAsync();
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
         var id = await _vocabularies.AddAsync(UniqueName(), [paintingTypeId]);
         var newName = UniqueName();
 
@@ -93,9 +92,9 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     public async Task UntickingShopItemTypeRemovesVocabularyTermsFromItsItemsButKeepsTerms()
     {
         var name = UniqueName();
-        var paintingTypeId = await GetPaintingTypeIdAsync();
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
         var id = await _vocabularies.AddAsync(name, [paintingTypeId]);
-        await AddPaintingWithTermAsync(await AddTermAsync(id));
+        await _catalog.AddPaintingWithTermAsync(await _catalog.AddTermAsync(id));
         Assert.Equal(1, (await _vocabularies.CountUsageAsync(id)).ShopItemCountFor(paintingTypeId));
 
         await _vocabularies.UpdateAsync(id, name, []);
@@ -111,8 +110,11 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task DeleteRemovesVocabularyAndKeepsShopItems()
     {
-        var id = await _vocabularies.AddAsync(UniqueName(), [await GetPaintingTypeIdAsync()]);
-        var slug = await AddPaintingWithTermAsync(await AddTermAsync(id));
+        var id = await _vocabularies.AddAsync(
+            UniqueName(),
+            [await _catalog.GetPaintingTypeIdAsync()]
+        );
+        var slug = await _catalog.AddPaintingWithTermAsync(await _catalog.AddTermAsync(id));
 
         await _vocabularies.DeleteAsync(id);
 
@@ -120,43 +122,5 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
         var painting = await _paintings.GetBySlugAsync(slug.Value);
         Assert.NotNull(painting);
         Assert.Empty(painting.VocabularyTerms);
-    }
-
-    private async Task<ShopItemTypeId> GetPaintingTypeIdAsync() =>
-        (await _shopItemTypes.GetAllAsync()).Single(type => type.Name.Value == "Painting").Id;
-
-    // until VocabularyTermRepository exists (step 3)
-    private async Task<VocabularyTermId> AddTermAsync(VocabularyId vocabularyId)
-    {
-        await using var connection = database.ConnectionFactory.Create();
-
-        // OUTPUT INSERTED.Id returns the new row's id from the INSERT itself
-        var termId = await connection.QuerySingleAsync<int>(
-            "INSERT INTO dbo.VocabularyTerms (VocabularyId, Name) OUTPUT INSERTED.Id VALUES (@VocabularyId, N'Oil')",
-            new { VocabularyId = vocabularyId.Value }
-        );
-        return new VocabularyTermId(termId);
-    }
-
-    private async Task<ShopItemSlug> AddPaintingWithTermAsync(VocabularyTermId termId)
-    {
-        var name = $"Vocabulary test painting {Guid.NewGuid():n}";
-        var identifiers = await _paintings.AddAsync(
-            new PaintingCatalogAddition(
-                new ShopItemName(name),
-                ShopItemSlug.FromName(name),
-                Price: null,
-                Stock: 1,
-                DatePainted: null,
-                Description: null,
-                Dimensions: null,
-                Images: [],
-                MainImageIndex: 0,
-                VocabularyTermIds: [termId],
-                SeriesIds: []
-            )
-        );
-
-        return identifiers.Slug;
     }
 }

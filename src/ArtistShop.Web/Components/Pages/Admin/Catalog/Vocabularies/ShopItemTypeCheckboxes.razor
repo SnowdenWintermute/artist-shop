@@ -15,8 +15,8 @@
   <legend class="mb-1 text-sm">Applies to</legend>
   @foreach (var shopItemType in ShopItemTypes)
   {
-    <label class="mr-4 inline-flex items-center gap-2">
-      <input type="checkbox" checked="@Selected.Contains(shopItemType.Id)"
+    <label class="mr-4 inline-flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(shopItemType.Id)"
              @onchange="() => OnToggle.InvokeAsync(shopItemType.Id)" />
       @shopItemType.Name.Value
     </label>

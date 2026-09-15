@@ -1,0 +1,97 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using BlazorBlueprint.Primitives.Dialog
+@inject VocabularyTermRepository VocabularyTermRepository
+
+@code {
+  // null means closed; @bind-Term lets the dialog close itself by setting it back to null
+  [Parameter, EditorRequired]
+  public VocabularyTermWithUsage? Term { get; set; }
+
+  [Parameter]
+  public EventCallback<VocabularyTermWithUsage?> TermChanged { get; set; }
+
+  [Parameter, EditorRequired]
+  public EventCallback OnRenamed { get; set; }
+
+  private VocabularyTermWithUsage? _formTerm;
+  private VocabularyTermNameForm _form = new(null);
+  private bool _isSaving;
+
+  // a fresh form each time it opens, so text typed and then cancelled doesn't come back
+  protected override void OnParametersSet()
+  {
+    if (Term is null)
+    {
+      _formTerm = null;
+      return;
+    }
+
+    if (Term != _formTerm)
+    {
+      _formTerm = Term;
+      _form = new VocabularyTermNameForm(Term.Name.Value);
+    }
+  }
+
+  private Task HandleOpenChanged(bool open) =>
+    open || _isSaving ? Task.CompletedTask : TermChanged.InvokeAsync(null);
+
+  private async Task RenameAsync(VocabularyTermWithUsage term)
+  {
+    _isSaving = true;
+
+    try
+    {
+      await VocabularyTermRepository.RenameAsync(term.Id, _form.ToVocabularyTermName());
+      await OnRenamed.InvokeAsync();
+      _isSaving = false;
+      await TermChanged.InvokeAsync(null);
+    }
+    catch (NameAlreadyInUseException exception)
+    {
+      _form.AddNameTakenError(exception.Name);
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+  }
+}
+
+@if (Term is { } term)
+{
+  <BbDialog Open="true" OpenChanged="HandleOpenChanged">
+    <BbDialogPortal>
+      <BbDialogOverlay class="fixed inset-0 z-40 bg-black/40" />
+      <BbDialogContent
+        class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white p-6">
+        <BbDialogTitle class="mb-4 text-lg">Rename @term.Name.Value</BbDialogTitle>
+
+        <EditForm EditContext="_form.EditContext" OnValidSubmit="() => RenameAsync(term)">
+          <DataAnnotationsValidator />
+
+          <TextField Label="Name" @bind-Value="_form.Name" />
+          <div class="flex justify-end gap-2">
+            <ButtonBasic type="button" Class="border" disabled="@_isSaving" @onclick="() => HandleOpenChanged(false)">
+              Cancel
+            </ButtonBasic>
+            <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
+              @if (_isSaving)
+              {
+                <span>Saving...</span>
+              }
+              else
+              {
+                <span>Rename</span>
+              }
+            </ButtonBasic>
+          </div>
+        </EditForm>
+      </BbDialogContent>
+    </BbDialogPortal>
+  </BbDialog>
+}

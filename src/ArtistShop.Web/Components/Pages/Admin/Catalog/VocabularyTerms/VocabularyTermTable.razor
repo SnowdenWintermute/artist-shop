@@ -1,0 +1,43 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<VocabularyTermWithUsage> Terms { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback<VocabularyTermWithUsage> OnRename { get; set; }
+
+  [Parameter, EditorRequired]
+  public EventCallback<VocabularyTermWithUsage> OnDelete { get; set; }
+}
+
+@if (Terms.Count == 0)
+{
+  <p>No terms yet.</p>
+}
+else
+{
+  <table class="w-full">
+    <thead>
+      <tr class="text-left text-sm">
+        <th class="pb-2">Term</th>
+        <th class="pb-2">Used on</th>
+        <th class="pb-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var term in Terms)
+      {
+        <tr class="border-t">
+          <td class="py-2">@term.Name.Value</td>
+          <td class="py-2">@term.ShopItemCount items</td>
+          <td class="py-2 text-right">
+            <ButtonBasic type="button" @onclick="() => OnRename.InvokeAsync(term)">Rename</ButtonBasic>
+            <ButtonBasic type="button" Class="text-red-600" @onclick="() => OnDelete.InvokeAsync(term)">Delete</ButtonBasic>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

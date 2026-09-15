@@ -90,7 +90,7 @@
       {
         var id = await VocabularyRepository.AddAsync(name, _form.ShopItemTypeIds);
         await _shell.ReloadAsync();
-        NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}/edit");
+        NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}");
         return;
       }
 
@@ -139,7 +139,10 @@
   }
   else
   {
-    <h1 class="mb-4 text-xl">@(_loaded is null ? "New vocabulary" : $"Edit {_loaded.Vocabulary.Name.Value}")</h1>
+    <div class="mb-4 flex items-baseline justify-between">
+      <h1 class="mb-4 text-xl">@(_loaded is null ? "New vocabulary" : $"Edit {_loaded.Vocabulary.Name.Value}")</h1>
+      <a href="@($"/admin/catalog/vocabularies/{Id}")">Edit associated terms</a>
+    </div>
 
     <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
       <DataAnnotationsValidator />
@@ -171,11 +174,11 @@
     @if (_loaded is { } loaded)
     {
       <UnselectShopItemTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                                   UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage"
-                                   OnConfirm="SaveAsync" IsWorking="_isSaving" />
+                                   UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
+                                   IsWorking="_isSaving" />
 
-      <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                              Usage="loaded.Usage" OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
+      <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
+                              OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
     }
   }
 </CatalogShell>

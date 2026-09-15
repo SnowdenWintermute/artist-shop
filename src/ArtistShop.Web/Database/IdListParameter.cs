@@ -3,7 +3,6 @@ namespace ArtistShop.Web.Database;
 using System.Data;
 using Dapper;
 
-// builds a value for a stored procedure parameter declared as dbo.IdList READONLY
 public static class IdListParameter
 {
     // ICustomQueryParameter is Dapper's interface for "a parameter that knows how to add
