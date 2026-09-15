@@ -10,6 +10,10 @@ public class VocabularyTermNameForm
 {
     private readonly ValidationMessageStore _serverMessages;
 
+    // form posts create this through a parameterless constructor; ": this(null)" runs the other one
+    public VocabularyTermNameForm()
+        : this(null) { }
+
     public VocabularyTermNameForm(string? name)
     {
         Name = name;
@@ -33,13 +37,6 @@ public class VocabularyTermNameForm
             $"This vocabulary already has a term called \"{name}\"."
         );
         EditContext.NotifyValidationStateChanged();
-    }
-
-    // clears the box but keeps the same EditContext, so focus stays in the input
-    public void Reset()
-    {
-        Name = null;
-        EditContext.MarkAsUnmodified();
     }
 
     public VocabularyTermName ToVocabularyTermName() => new(Unwrap.Value(Name).Trim());

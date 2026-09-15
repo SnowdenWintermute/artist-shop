@@ -1,15 +1,16 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Domain.Catalog
+@inject NavigationManager NavigationManager
 
 @code {
   [Parameter, EditorRequired]
   public IReadOnlyList<VocabularyTermWithUsage> Terms { get; set; } = default!;
 
-  [Parameter, EditorRequired]
-  public EventCallback<VocabularyTermWithUsage> OnRename { get; set; }
+  private VocabularyTermWithUsage? _termToRename;
+  private VocabularyTermWithUsage? _termToDelete;
 
-  [Parameter, EditorRequired]
-  public EventCallback<VocabularyTermWithUsage> OnDelete { get; set; }
+  // re-renders the static page, which passes the updated terms back in
+  private void RefreshPage() => NavigationManager.Refresh();
 }
 
 @if (Terms.Count == 0)
@@ -33,11 +34,14 @@ else
           <td class="py-2">@term.Name.Value</td>
           <td class="py-2">@term.ShopItemCount items</td>
           <td class="py-2 text-right">
-            <ButtonBasic type="button" @onclick="() => OnRename.InvokeAsync(term)">Rename</ButtonBasic>
-            <ButtonBasic type="button" Class="text-red-600" @onclick="() => OnDelete.InvokeAsync(term)">Delete</ButtonBasic>
+            <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
+            <ButtonBasic type="button" Class="text-red-600" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
           </td>
         </tr>
       }
     </tbody>
   </table>
 }
+
+<RenameVocabularyTermDialog @bind-Term="_termToRename" OnRenamed="RefreshPage" />
+<DeleteVocabularyTermDialog @bind-Term="_termToDelete" OnDeleted="RefreshPage" />

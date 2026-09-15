@@ -74,7 +74,7 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         return new VocabularyWithShopItemTypes(
             new VocabularyId(row.Id),
             new VocabularyName(row.Name),
-            shopItemTypeIds.Select(shopItemTypeId => new ShopItemTypeId(shopItemTypeId)).ToHashSet()
+            [.. shopItemTypeIds.Select(shopItemTypeId => new ShopItemTypeId(shopItemTypeId))]
         );
     }
 
@@ -93,10 +93,12 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
 
         return new VocabularyUsage(
             termCount,
-            shopItemCounts.ToDictionary(
-                row => new ShopItemTypeId(row.ShopItemTypeId),
-                row => row.ShopItemCount
-            )
+            [
+                .. shopItemCounts.Select(row => new ShopItemTypeUsage(
+                    new ShopItemTypeId(row.ShopItemTypeId),
+                    row.ShopItemCount
+                )),
+            ]
         );
     }
 

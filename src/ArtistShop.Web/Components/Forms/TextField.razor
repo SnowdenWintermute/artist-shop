@@ -10,8 +10,6 @@
 
   [Parameter]
   public Expression<Func<string?>> ValueExpression { get; set; } = default!;
-
-  private string ElementId => FieldIdentifier.Create(ValueExpression).FieldName;
 }
 
 <FieldLayout Label="@Label" ValueExpression="ValueExpression" Context="elementId">

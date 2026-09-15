@@ -10,7 +10,10 @@
   [Parameter, EditorRequired]
   public RenderFragment<string> ChildContent { get; set; } = default!;
 
-  private string ElementId => FieldIdentifier.Create(ValueExpression).FieldName;
+  // unique per instance, so two fields bound to the same property name can share a page
+  private readonly string _idSuffix = Guid.NewGuid().ToString("n");
+
+  private string ElementId => $"{FieldIdentifier.Create(ValueExpression).FieldName}-{_idSuffix}";
 }
 
 <div class="mb-4">

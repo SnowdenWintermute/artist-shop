@@ -6,21 +6,27 @@ public record VocabularyName(string Value);
 
 public record Vocabulary(VocabularyId Id, VocabularyName Name);
 
+// lists, not a set or dictionary: these are passed to interactive islands as JSON,
+// and System.Text.Json can't read IReadOnlySet or dictionaries keyed by a record
 public record VocabularyWithShopItemTypes(
     VocabularyId Id,
     VocabularyName Name,
-    IReadOnlySet<ShopItemTypeId> ShopItemTypeIds
+    IReadOnlyList<ShopItemTypeId> ShopItemTypeIds
 );
+
+public record ShopItemTypeUsage(ShopItemTypeId ShopItemTypeId, int ShopItemCount);
 
 public record VocabularyUsage(
     int VocabularyTermCount,
-    IReadOnlyDictionary<ShopItemTypeId, int> ShopItemCountsByShopItemType
+    IReadOnlyList<ShopItemTypeUsage> ShopItemTypeUsages
 )
 {
     // types with no items using this vocabulary have no entry
     public int ShopItemCountFor(ShopItemTypeId shopItemTypeId) =>
-        ShopItemCountsByShopItemType.GetValueOrDefault(shopItemTypeId);
+        ShopItemTypeUsages
+            .FirstOrDefault(usage => usage.ShopItemTypeId == shopItemTypeId)
+            ?.ShopItemCount ?? 0;
 
     // each item has exactly one type, so no item is counted twice
-    public int TotalShopItemCount => ShopItemCountsByShopItemType.Values.Sum();
+    public int TotalShopItemCount => ShopItemTypeUsages.Sum(usage => usage.ShopItemCount);
 }

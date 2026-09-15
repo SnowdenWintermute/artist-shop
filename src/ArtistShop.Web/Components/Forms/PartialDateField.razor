@@ -25,9 +25,11 @@
   public EventCallback<int?> DayChanged { get; set; }
   [Parameter, EditorRequired]
   public Expression<Func<int?>> DayExpression { get; set; } = default!;
-  // same id scheme as FieldLayout: the property name, e.g. "YearPainted"
-  private static string IdFor(Expression<Func<int?>> expression) =>
-    FieldIdentifier.Create(expression).FieldName;
+  private readonly string _idSuffix = Guid.NewGuid().ToString("n");
+
+  // same id scheme as FieldLayout: the property name plus a per-instance suffix
+  private string IdFor(Expression<Func<int?>> expression) =>
+    $"{FieldIdentifier.Create(expression).FieldName}-{_idSuffix}";
 
   // days above this render disabled; the script keeps it up to date as the artist edits
   private int MaximumDay => PartialDate.MaximumDayIn(Year, Month);

@@ -1,5 +1,5 @@
 @page "/admin/catalog/vocabularies/{Id:int}"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@layout CatalogLayout
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -13,27 +13,14 @@
   [Parameter]
   public int Id { get; set; }
 
-  private bool _isLoaded;
   private VocabularyWithShopItemTypes? _vocabulary;
   private List<VocabularyTermWithUsage> _terms = [];
-  private VocabularyTermWithUsage? _termToRename;
-  private VocabularyTermWithUsage? _termToDelete;
 
   private VocabularyId VocabularyId => new(Id);
 
-  // switching tabs between vocabularies reuses this component, so this runs again
-  protected override async Task OnParametersSetAsync()
+  protected override async Task OnInitializedAsync()
   {
-    _isLoaded = false;
-    _termToRename = null;
-    _termToDelete = null;
     _vocabulary = await VocabularyRepository.GetAsync(VocabularyId);
-    await LoadTermsAsync();
-    _isLoaded = true;
-  }
-
-  private async Task LoadTermsAsync()
-  {
     var terms = await VocabularyTermRepository.GetAllWithUsageAsync(VocabularyId);
     _terms = [.. terms.OrderBy(term => term.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
   }
@@ -41,26 +28,17 @@
 
 <PageTitle>@(_vocabulary?.Name.Value ?? "Vocabulary")</PageTitle>
 
-<CatalogShell>
-  @if (!_isLoaded)
-  {
-    <p>Loading…</p>
-  }
-  else if (_vocabulary is null)
-  {
-    <p>This vocabulary doesn't exist. It may have been deleted.</p>
-  }
-  else
-  {
-    <div class="mb-4 flex items-baseline justify-between">
-      <h1 class="text-xl">@_vocabulary.Name.Value</h1>
-      <a href="@($"/admin/catalog/vocabularies/{Id}/edit")">Edit vocabulary</a>
-    </div>
+@if (_vocabulary is null)
+{
+  <p>This vocabulary doesn't exist. It may have been deleted.</p>
+}
+else
+{
+  <div class="mb-4 flex items-baseline justify-between">
+    <h1 class="text-xl">@_vocabulary.Name.Value</h1>
+    <a href="@($"/admin/catalog/vocabularies/{Id}/edit")">Edit vocabulary</a>
+  </div>
 
-    <AddVocabularyTermForm VocabularyId="VocabularyId" OnAdded="LoadTermsAsync" />
-    <VocabularyTermTable Terms="_terms" OnRename="term => _termToRename = term" OnDelete="term => _termToDelete = term" />
-
-    <RenameVocabularyTermDialog @bind-Term="_termToRename" OnRenamed="LoadTermsAsync" />
-    <DeleteVocabularyTermDialog @bind-Term="_termToDelete" OnDeleted="LoadTermsAsync" />
-  }
-</CatalogShell>
+  <AddVocabularyTermForm VocabularyId="VocabularyId" />
+  <VocabularyTermTable @rendermode="InteractiveServer" @key="Id" Terms="_terms" />
+}

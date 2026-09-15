@@ -4,41 +4,35 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject VocabularyTermRepository VocabularyTermRepository
+@inject NavigationManager NavigationManager
 
 @code {
   [Parameter, EditorRequired]
   public VocabularyId VocabularyId { get; set; } = default!;
 
-  [Parameter, EditorRequired]
-  public EventCallback OnAdded { get; set; }
+  [SupplyParameterFromForm(FormName = "add-vocabulary-term")]
+  private VocabularyTermNameForm Input { get; set; } = default!;
 
-  private readonly VocabularyTermNameForm _form = new(null);
-  private bool _isSaving;
+  protected override void OnInitialized() => Input ??= new();
 
   private async Task AddAsync()
   {
-    _isSaving = true;
-
     try
     {
-      await VocabularyTermRepository.AddAsync(VocabularyId, _form.ToVocabularyTermName());
-      _form.Reset();
-      await OnAdded.InvokeAsync();
+      await VocabularyTermRepository.AddAsync(VocabularyId, Input.ToVocabularyTermName());
+      // redirect to this same page: the list reloads, and refreshing the browser won't post again
+      NavigationManager.NavigateTo(NavigationManager.Uri);
     }
     catch (NameAlreadyInUseException exception)
     {
-      _form.AddNameTakenError(exception.Name);
-    }
-    finally
-    {
-      _isSaving = false;
+      Input.AddNameTakenError(exception.Name);
     }
   }
 }
 
-<EditForm EditContext="_form.EditContext" OnValidSubmit="AddAsync" class="mb-6">
+<EditForm EditContext="Input.EditContext" FormName="add-vocabulary-term" OnValidSubmit="AddAsync" Enhance class="mb-6">
   <DataAnnotationsValidator />
 
-  <TextField Label="New term" @bind-Value="_form.Name" />
-  <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">Add term</ButtonBasic>
+  <TextField Label="New term" @bind-Value="Input.Name" />
+  <ButtonBasic type="submit" Class="bg-blue-400 text-white">Add term</ButtonBasic>
 </EditForm>

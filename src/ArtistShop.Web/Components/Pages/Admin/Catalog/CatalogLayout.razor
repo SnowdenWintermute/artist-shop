@@ -1,39 +1,37 @@
+@inherits LayoutComponentBase
+@layout MainLayout
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using BlazorBlueprint.Primitives.Services
 @inject VocabularyRepository VocabularyRepository
 
 @code {
-  [Parameter, EditorRequired]
-  public RenderFragment ChildContent { get; set; } = default!;
-
   private List<Vocabulary> _vocabularies = [];
 
-  protected override Task OnInitializedAsync() => ReloadAsync();
-
-  // pages call this after adding or renaming a vocabulary, so the tabs don't go stale
-  public async Task ReloadAsync()
+  protected override async Task OnInitializedAsync()
   {
     var vocabularies = await VocabularyRepository.GetAllAsync();
     _vocabularies = [.. vocabularies.OrderBy(vocabulary => vocabulary.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
-    StateHasChanged();
   }
 }
 
 <div class="mx-auto max-w-[800px] pt-10">
   <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
+    <NavLink href="/admin/catalog/vocabularies/new" ActiveClass="underline">+ New vocabulary</NavLink>
+    <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var vocabulary in _vocabularies)
     {
-      <NavLink href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}/edit")" ActiveClass="underline">
+      <SectionNavLink href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}/edit")"
+                      ActivePath="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}")" ActiveClass="underline">
         @vocabulary.Name.Value
-      </NavLink>
+      </SectionNavLink>
     }
-    <NavLink href="/admin/catalog/vocabularies/new" ActiveClass="underline">+ New vocabulary</NavLink>
   </nav>
 
   <div class="bg-white border p-4">
-    @ChildContent
+    @Body
   </div>
 </div>
 
-<BbPortalHost />
+@* dialogs portal into this, so it must be interactive; it also keeps the circuit open between catalog pages *@
+<BbPortalHost @rendermode="InteractiveServer" />
