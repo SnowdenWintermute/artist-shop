@@ -9,6 +9,9 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
 {
     private const string UniqueNameConstraint = "Unique_VocabularyTerms_VocabularyName";
 
+    // RenameVocabularyTerm THROWs this when the term was deleted while the page was open
+    private const int VocabularyTermNoLongerExists = 50003;
+
     public async Task<List<VocabularyTermWithUsage>> GetAllWithUsageAsync(VocabularyId vocabularyId)
     {
         await using var connection = connectionFactory.Create();
@@ -66,6 +69,11 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
             when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
+        }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, VocabularyTermNoLongerExists))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
         }
     }
 

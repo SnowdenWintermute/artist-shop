@@ -55,6 +55,13 @@
     {
       _form.AddNameTakenError(exception.Name);
     }
+    catch (CatalogChangedException)
+    {
+      // deleted in another tab; closing and reloading drops it from the table
+      _isSaving = false;
+      await TermChanged.InvokeAsync(null);
+      await OnRenamed.InvokeAsync();
+    }
     finally
     {
       _isSaving = false;

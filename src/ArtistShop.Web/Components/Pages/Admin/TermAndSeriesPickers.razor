@@ -23,14 +23,30 @@
   private readonly HashSet<int> _selectedTermIds = [];
   private readonly HashSet<int> _selectedSeriesIds = [];
 
-  // parameters only seed the lists; after that the island owns them, so a failed submit's re-render
-  // keeps what was checked and what was reloaded
-  protected override void OnInitialized()
+  private bool _seeded;
+
+  // The options come from the page every render, and the page reads them fresh on each request, so a
+  // failed submit brings current ones: anything deleted meanwhile disappears here. What's ticked stays
+  // the island's own, seeded once, so reloading options doesn't undo the artist's choices.
+  protected override void OnParametersSet()
   {
     _vocabularies = SortedByName(Vocabularies);
     _series = AllSeries;
-    _selectedTermIds.UnionWith(SelectedVocabularyTermIds);
-    _selectedSeriesIds.UnionWith(SelectedSeriesIds);
+
+    if (!_seeded)
+    {
+      _selectedTermIds.UnionWith(SelectedVocabularyTermIds);
+      _selectedSeriesIds.UnionWith(SelectedSeriesIds);
+      _seeded = true;
+    }
+
+    DropMissingSelections();
+  }
+
+  private void DropMissingSelections()
+  {
+    _selectedTermIds.IntersectWith(_vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value));
+    _selectedSeriesIds.IntersectWith(_series.Select(series => series.Id.Value));
   }
 
   private async Task ReloadOptionsAsync()
@@ -39,8 +55,7 @@
     _series = await SeriesRepository.GetAllAsync();
 
     // a checked term or series deleted in the other tab can't be posted
-    _selectedTermIds.IntersectWith(_vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value));
-    _selectedSeriesIds.IntersectWith(_series.Select(series => series.Id.Value));
+    DropMissingSelections();
   }
 
   private static List<VocabularyWithTerms> SortedByName(IEnumerable<VocabularyWithTerms> vocabularies) =>

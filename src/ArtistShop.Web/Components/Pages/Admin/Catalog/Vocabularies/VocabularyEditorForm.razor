@@ -64,6 +64,11 @@
     {
       _form.AddNameTakenError(exception.Name);
     }
+    catch (CatalogChangedException)
+    {
+      // deleted in another tab; the reloaded page says so
+      NavigationManager.Refresh();
+    }
     finally
     {
       _isSaving = false;

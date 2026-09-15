@@ -4,9 +4,14 @@ using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using Dapper;
+using Microsoft.Data.SqlClient;
 
 public class PaintingRepository(SqlConnectionFactory connectionFactory)
 {
+    // the numbers AddPainting THROWs for a choice that was deleted while the form was open
+    private const int VocabularyTermNoLongerExists = 50001;
+    private const int SeriesNoLongerExists = 50009;
+
     private static DataTable CreateImageDataTable(PaintingCatalogAddition paintingCatalogAddition)
     {
         var images = new DataTable();
@@ -50,27 +55,36 @@ public class PaintingRepository(SqlConnectionFactory connectionFactory)
 
         await using var connection = connectionFactory.Create();
 
-        var row = await connection.QuerySingleAsync<AddedPaintingRow>(
-            "dbo.AddPainting",
-            new
-            {
-                Name = paintingCatalogAddition.Name.Value,
-                CandidateSlug = paintingCatalogAddition.CandidateSlug.Value,
-                paintingCatalogAddition.Price,
-                paintingCatalogAddition.Stock,
-                DatePainted = paintingCatalogAddition.DatePainted?.Date,
-                DatePaintedPrecision = paintingCatalogAddition.DatePainted?.Precision,
-                paintingCatalogAddition.Description,
-                WidthCm = paintingCatalogAddition.Dimensions?.Width,
-                HeightCm = paintingCatalogAddition.Dimensions?.Height,
-                Images = images.AsTableValuedParameter("dbo.ShopItemImageList"),
-                SeriesIds = paintingSeriesIds,
-                VocabularyTermIds = vocabularyTermIds,
-            },
-            commandType: CommandType.StoredProcedure
-        );
+        try
+        {
+            var row = await connection.QuerySingleAsync<AddedPaintingRow>(
+                "dbo.AddPainting",
+                new
+                {
+                    Name = paintingCatalogAddition.Name.Value,
+                    CandidateSlug = paintingCatalogAddition.CandidateSlug.Value,
+                    paintingCatalogAddition.Price,
+                    paintingCatalogAddition.Stock,
+                    DatePainted = paintingCatalogAddition.DatePainted?.Date,
+                    DatePaintedPrecision = paintingCatalogAddition.DatePainted?.Precision,
+                    paintingCatalogAddition.Description,
+                    WidthCm = paintingCatalogAddition.Dimensions?.Width,
+                    HeightCm = paintingCatalogAddition.Dimensions?.Height,
+                    Images = images.AsTableValuedParameter("dbo.ShopItemImageList"),
+                    SeriesIds = paintingSeriesIds,
+                    VocabularyTermIds = vocabularyTermIds,
+                },
+                commandType: CommandType.StoredProcedure
+            );
 
-        return new ShopItemIdentifiers(new ShopItemId(row.Id), new ShopItemSlug(row.Slug));
+            return new ShopItemIdentifiers(new ShopItemId(row.Id), new ShopItemSlug(row.Slug));
+        }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, VocabularyTermNoLongerExists)
+                || SqlErrors.IsThrown(exception, SeriesNoLongerExists))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
     }
 
     public async Task<Painting?> GetBySlugAsync(string slug)

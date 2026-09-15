@@ -50,6 +50,26 @@ THROW 50001,
 'A chosen vocabulary term no longer exists.',
 1;
 
+-- the junction's foreign key would catch a deleted series too, but as error 547, which says
+-- nothing about which choice was stale
+IF EXISTS (
+    SELECT
+        1
+    FROM
+        @SeriesIds AS seriesIds
+    WHERE
+        NOT EXISTS (
+            SELECT
+                1
+            FROM
+                dbo.Series AS series
+            WHERE
+                series.Id = seriesIds.Id
+        )
+) THROW 50009,
+'A chosen series no longer exists.',
+1;
+
 DECLARE @Slug nvarchar(210) = dbo.ResolveShopItemSlug (@CandidateSlug);
 
 INSERT INTO

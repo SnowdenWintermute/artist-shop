@@ -86,4 +86,18 @@ public sealed class VocabularyTermRepositoryTests(TestDatabaseFixture database)
         Assert.NotNull(painting);
         Assert.Empty(painting.VocabularyTerms);
     }
+
+    [Fact]
+    public async Task RenameRejectsADeletedTerm()
+    {
+        var termId = await _terms.AddAsync(
+            await _catalog.AddPaintingVocabularyAsync(),
+            new VocabularyTermName("Oil")
+        );
+        await _terms.DeleteAsync(termId);
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+            _terms.RenameAsync(termId, new VocabularyTermName("Oil paint"))
+        );
+    }
 }

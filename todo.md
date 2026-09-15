@@ -281,8 +281,12 @@ uploads a folder of images, and each image's file name (without its extension) i
         are matched on the constraint name by `SqlErrors.IsUniqueConstraintViolation` and become
         `NameAlreadyInUseException`, then a field message. No `ShopItemType` C# enum was needed.
 
-      **Open.** If another tab deletes the vocabulary mid-save, `UpdateVocabulary`'s error 50002
-      shows as Blazor's unhandled-error bar. Nothing links to `/admin/catalog` from the dashboard.
+      **Stale rows, done 2026-09-15.** Deleted-elsewhere errors all become `CatalogChangedException`
+      now: 50002 (vocabulary, `UpdateVocabulary`) refreshes the editor page, which then says the
+      vocabulary doesn't exist; 50003 (term, `RenameVocabularyTerm`) closes the dialog and refreshes
+      the table. See the add-painting form for 50001/50009.
+
+      **Open.** Nothing links to `/admin/catalog` from the dashboard.
 
 - [ ] **Series admin — NEXT.** Series stays its own entity rather than a vocabulary: it will grow
       a description, has a public page, and orders its artworks. Same render model as the
@@ -393,8 +397,12 @@ uploads a folder of images, and each image's file name (without its extension) i
       `Input.VocabularyTermIds` / `Input.SeriesIds` values, and form binding reads those into
       `List<int>` (verified with a real POST); with nothing checked it sets the list to null, so the
       form's lists turn null into empty. `ShopItemTypeId.Painting` mirrors the
-      SQL `1`. Open: a term or series deleted while the form is open reaches `AddPainting` as error
-      50001 or a foreign key error, shown as an unhandled error.
+      SQL `1`. **Stale picks, done 2026-09-15:** `AddPainting` checks series ids too (50009, so a
+      deleted series isn't a foreign key error), the repository turns 50001/50009 into
+      `CatalogChangedException`, and the page keeps the form and its uploads while saying the choices
+      were updated. The pickers island adopts the options it's passed on every render (the page reads
+      them fresh each request), so a failed submit drops what no longer exists; ticks stay island state,
+      seeded once.
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series

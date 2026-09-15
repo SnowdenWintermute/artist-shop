@@ -137,6 +137,18 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task UpdateRejectsADeletedVocabulary()
+    {
+        var id = await _catalog.AddPaintingVocabularyAsync();
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
+        await _vocabularies.DeleteAsync(id);
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+            _vocabularies.UpdateAsync(id, UniqueName(), [paintingTypeId])
+        );
+    }
+
+    [Fact]
     public async Task PaintingTypeIdMatchesTheSeededRow()
     {
         Assert.Equal(await _catalog.GetPaintingTypeIdAsync(), ShopItemTypeId.Painting);
