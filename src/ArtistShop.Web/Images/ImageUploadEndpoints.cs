@@ -42,10 +42,10 @@ public static class ImageUploadEndpoints
         // client input must be run through GetFileName to sanitize
         // potentially malicious input
         var originalFileName = Path.GetFileName(file.FileName);
-        if (originalFileName.Length > CatalogLimits.ShopItemImageFileNameMaximumLength)
+        if (originalFileName.Length > CatalogLimits.ArtworkImageFileNameMaximumLength)
         {
             return TypedResults.BadRequest(
-                $"File names must be {CatalogLimits.ShopItemImageFileNameMaximumLength} characters or fewer."
+                $"File names must be {CatalogLimits.ArtworkImageFileNameMaximumLength} characters or fewer."
             );
         }
 

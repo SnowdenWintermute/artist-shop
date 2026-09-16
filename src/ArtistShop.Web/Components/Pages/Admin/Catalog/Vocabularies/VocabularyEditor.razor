@@ -8,19 +8,19 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = RoleNames.Admin)]
 @inject VocabularyRepository VocabularyRepository
-@inject ShopItemTypeRepository ShopItemTypeRepository
+@inject ArtworkTypeRepository ArtworkTypeRepository
 
 @code {
   [Parameter]
   public int? Id { get; set; }
 
-  private List<ShopItemType> _shopItemTypes = [];
+  private List<ArtworkType> _artworkTypes = [];
   // null when creating, or when the id doesn't exist
   private LoadedVocabulary? _loaded;
 
   protected override async Task OnInitializedAsync()
   {
-    _shopItemTypes = await ShopItemTypeRepository.GetAllAsync();
+    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
 
     if (Id is int id)
     {
@@ -52,5 +52,5 @@ else
   </div>
 
   @* @key: a different vocabulary gets a fresh island rather than inheriting this one's state *@
-  <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" ShopItemTypes="_shopItemTypes" Loaded="_loaded" />
+  <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" ArtworkTypes="_artworkTypes" Loaded="_loaded" />
 }

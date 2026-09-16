@@ -11,7 +11,7 @@
   [Parameter]
   public int Id { get; set; }
 
-  private SeriesWithShopItems? _series;
+  private SeriesWithArtworks? _series;
 
   protected override async Task OnInitializedAsync() =>
     _series = await SeriesRepository.GetAsync(new SeriesId(Id));
@@ -30,10 +30,10 @@ else
   <div class="mb-4 flex items-baseline justify-between">
     <h1 class="text-xl">@_series.Name.Value</h1>
     <SeriesActions @rendermode="InteractiveServer" @key="Id" SeriesId="_series.Id" SeriesName="_series.Name"
-                   ShopItemCount="_series.ShopItems.Count" />
+                   ArtworkCount="_series.Artworks.Count" />
   </div>
 
-  @* the whole record, not _series.ShopItems: an island parameter is rebuilt from its runtime type, and a
+  @* the whole record, not _series.Artworks: an island parameter is rebuilt from its runtime type, and a
      list made by a collection expression is a compiler-generated type JSON can't create *@
-  <SeriesShopItemList @rendermode="InteractiveServer" @key="Id" Series="_series" />
+  <SeriesArtworkList @rendermode="InteractiveServer" @key="Id" Series="_series" />
 }

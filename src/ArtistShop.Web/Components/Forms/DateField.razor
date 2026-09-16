@@ -1,4 +1,4 @@
-@* this component has a generic type. when called in Painting form, it is DateOnly *@
+@* this component has a generic type. when called in the artwork form, it is DateOnly *@
 @typeparam TValue
 
 @code {
@@ -16,13 +16,13 @@
 
   // Func<TValue?> would be a compiled function -- you could call it and get a
   // value, nothing more. Expression<Func<TValue?>> is the *code itself* kept as
-  // inspectable data: a little tree saying "read the property DatePainted off
+  // inspectable data: a little tree saying "read the property DateCreated off
   // this object". Blazor reads that tree to learn which model property this
   // input is bound to, which is how a validation error finds the right field,
-  // and how the name="Input.DatePainted" attribute gets generated for the POST.
+  // and how the name="Input.DateCreated" attribute gets generated for the POST.
   //
-  // The caller never writes this. @bind-Value="Input.DatePainted" expands into
-  // all three parameters at once, and the compiler supplies "() => Input.DatePainted"
+  // The caller never writes this. @bind-Value="Input.DateCreated" expands into
+  // all three parameters at once, and the compiler supplies "() => Input.DateCreated"
   // here automatically.
   [Parameter]
   public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;

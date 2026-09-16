@@ -6,11 +6,11 @@ SELECT
     vocabularyTerm.Id,
     vocabularyTerm.Name,
     -- not COUNT(*) because that would count null entries
-    COUNT(association.ShopItemId) AS ShopItemCount
+    COUNT(association.ArtworkId) AS ArtworkCount
 FROM
     dbo.VocabularyTerms AS vocabularyTerm
     -- We want to include terms with no associations
-    LEFT JOIN dbo.ShopItemAndVocabularyTermsJunction AS association ON association.TermId = vocabularyTerm.Id
+    LEFT JOIN dbo.ArtworkAndVocabularyTermsJunction AS association ON association.TermId = vocabularyTerm.Id
 WHERE
     vocabularyTerm.VocabularyId = @VocabularyId
 GROUP BY

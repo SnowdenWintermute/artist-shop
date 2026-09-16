@@ -1,0 +1,24 @@
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkType> ArtworkTypes { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlySet<ArtworkTypeId> Selected { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback<ArtworkTypeId> OnToggle { get; set; }
+}
+
+<fieldset class="mb-4">
+  <legend class="mb-1 text-sm">Applies to</legend>
+  @foreach (var artworkType in ArtworkTypes)
+  {
+    <label class="mr-4 inline-flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(artworkType.Id)"
+             @onchange="() => OnToggle.InvokeAsync(artworkType.Id)" />
+      @artworkType.Name.Value
+    </label>
+  }
+</fieldset>

@@ -1,5 +1,5 @@
 CREATE
-TYPE dbo.ShopItemImageList AS
+TYPE dbo.ArtworkImageList AS
 TABLE (
     RelativePath nvarchar(400) NOT NULL,
     OriginalFileName nvarchar(260),

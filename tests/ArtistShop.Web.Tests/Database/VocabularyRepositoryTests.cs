@@ -7,8 +7,8 @@ namespace ArtistShop.Web.Tests.Database;
 public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
 {
     private readonly VocabularyRepository _vocabularies = new(database.ConnectionFactory);
-    private readonly ShopItemTypeRepository _shopItemTypes = new(database.ConnectionFactory);
-    private readonly PaintingRepository _paintings = new(database.ConnectionFactory);
+    private readonly ArtworkTypeRepository _artworkTypes = new(database.ConnectionFactory);
+    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
 
     // test classes share the database in parallel, so names must not collide
@@ -17,9 +17,9 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task ListsTheSeededPaintingType()
     {
-        var shopItemTypes = await _shopItemTypes.GetAllAsync();
+        var artworkTypes = await _artworkTypes.GetAllAsync();
 
-        Assert.Contains(shopItemTypes, shopItemType => shopItemType.Name.Value == "Painting");
+        Assert.Contains(artworkTypes, artworkType => artworkType.Name.Value == "Painting");
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task GetReturnsVocabularNameAndAssociatedShopItemTypes()
+    public async Task GetReturnsVocabularNameAndAssociatedArtworkTypes()
     {
         var name = UniqueName();
         var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
@@ -52,7 +52,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
 
         Assert.NotNull(vocabulary);
         Assert.Equal(name, vocabulary.Name);
-        Assert.Equal(paintingTypeId, Assert.Single(vocabulary.ShopItemTypeIds));
+        Assert.Equal(paintingTypeId, Assert.Single(vocabulary.ArtworkTypeIds));
     }
 
     [Fact]
@@ -89,26 +89,26 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task UntickingShopItemTypeRemovesVocabularyTermsFromItsItemsButKeepsTerms()
+    public async Task UntickingArtworkTypeRemovesVocabularyTermsFromItsItemsButKeepsTerms()
     {
         var name = UniqueName();
         var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
         var id = await _vocabularies.AddAsync(name, [paintingTypeId]);
         await _catalog.AddPaintingWithTermAsync(await _catalog.AddTermAsync(id));
-        Assert.Equal(1, (await _vocabularies.CountUsageAsync(id)).ShopItemCountFor(paintingTypeId));
+        Assert.Equal(1, (await _vocabularies.CountUsageAsync(id)).ArtworkCountFor(paintingTypeId));
 
         await _vocabularies.UpdateAsync(id, name, []);
 
         var vocabulary = await _vocabularies.GetAsync(id);
         Assert.NotNull(vocabulary);
-        Assert.Empty(vocabulary.ShopItemTypeIds);
+        Assert.Empty(vocabulary.ArtworkTypeIds);
         var usage = await _vocabularies.CountUsageAsync(id);
-        Assert.Equal(0, usage.ShopItemCountFor(paintingTypeId));
+        Assert.Equal(0, usage.ArtworkCountFor(paintingTypeId));
         Assert.Equal(1, usage.VocabularyTermCount);
     }
 
     [Fact]
-    public async Task DeleteRemovesVocabularyAndKeepsShopItems()
+    public async Task DeleteRemovesVocabularyAndKeepsArtworks()
     {
         var id = await _vocabularies.AddAsync(
             UniqueName(),
@@ -119,18 +119,18 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
         await _vocabularies.DeleteAsync(id);
 
         Assert.Null(await _vocabularies.GetAsync(id));
-        var painting = await _paintings.GetBySlugAsync(slug.Value);
+        var painting = await _artworks.GetBySlugAsync(slug.Value);
         Assert.NotNull(painting);
         Assert.Empty(painting.VocabularyTerms);
     }
 
     [Fact]
-    public async Task ListsOnlyVocabulariesThatApplyToNoShopItemType()
+    public async Task ListsOnlyVocabulariesThatApplyToNoArtworkType()
     {
         var withoutTypesId = await _vocabularies.AddAsync(UniqueName(), []);
         var forPaintingsId = await _catalog.AddPaintingVocabularyAsync();
 
-        var vocabularies = await _vocabularies.GetAllWithoutShopItemTypesAsync();
+        var vocabularies = await _vocabularies.GetAllWithoutArtworkTypesAsync();
 
         Assert.Contains(vocabularies, vocabulary => vocabulary.Id == withoutTypesId);
         Assert.DoesNotContain(vocabularies, vocabulary => vocabulary.Id == forPaintingsId);
@@ -149,20 +149,16 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task PaintingTypeIdMatchesTheSeededRow()
-    {
-        Assert.Equal(await _catalog.GetPaintingTypeIdAsync(), ShopItemTypeId.Painting);
-    }
-
-    [Fact]
-    public async Task ListsVocabulariesForAShopItemTypeWithTheirTerms()
+    public async Task ListsVocabulariesForAArtworkTypeWithTheirTerms()
     {
         var withTermsId = await _catalog.AddPaintingVocabularyAsync();
         var termId = await _catalog.AddTermAsync(withTermsId);
         var withoutTermsId = await _catalog.AddPaintingVocabularyAsync();
         var notForPaintingsId = await _vocabularies.AddAsync(UniqueName(), []);
 
-        var vocabularies = await _vocabularies.GetAllWithTermsForShopItemTypeAsync(ShopItemTypeId.Painting);
+        var vocabularies = await _vocabularies.GetAllWithTermsForArtworkTypeAsync(
+            await _catalog.GetPaintingTypeIdAsync()
+        );
 
         Assert.Equal([termId], vocabularies.Single(vocabulary => vocabulary.Id == withTermsId).Terms.Select(term => term.Id));
         Assert.Empty(vocabularies.Single(vocabulary => vocabulary.Id == withoutTermsId).Terms);

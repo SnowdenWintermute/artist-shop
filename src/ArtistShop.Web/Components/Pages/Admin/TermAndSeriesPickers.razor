@@ -10,6 +10,8 @@
   // Lists, not IReadOnlyList: an island parameter is rebuilt from its runtime type, and a declared List
   // can't be a compiler-generated collection type that JSON can't create
   [Parameter, EditorRequired]
+  public ArtworkTypeId ArtworkTypeId { get; set; } = default!;
+  [Parameter, EditorRequired]
   public List<VocabularyWithTerms> Vocabularies { get; set; } = default!;
   [Parameter, EditorRequired]
   public List<Series> AllSeries { get; set; } = default!;
@@ -51,7 +53,7 @@
 
   private async Task ReloadOptionsAsync()
   {
-    _vocabularies = SortedByName(await VocabularyRepository.GetAllWithTermsForShopItemTypeAsync(ShopItemTypeId.Painting));
+    _vocabularies = SortedByName(await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkTypeId));
     _series = await SeriesRepository.GetAllAsync();
 
     // a checked term or series deleted in the other tab can't be posted
@@ -82,7 +84,7 @@
 
   @if (_vocabularies.Count == 0)
   {
-    <p class="mb-4 text-sm text-gray-500">No vocabularies for paintings yet.</p>
+    <p class="mb-4 text-sm text-gray-500">No vocabularies for this type yet.</p>
   }
 
   @foreach (var vocabulary in _vocabularies)

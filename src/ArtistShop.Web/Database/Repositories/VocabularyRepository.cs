@@ -31,12 +31,12 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         ];
     }
 
-    public async Task<List<Vocabulary>> GetAllWithoutShopItemTypesAsync()
+    public async Task<List<Vocabulary>> GetAllWithoutArtworkTypesAsync()
     {
         await using var connection = connectionFactory.Create();
 
         var rows = await connection.QueryAsync<VocabularyRow>(
-            "dbo.GetVocabulariesWithoutShopItemTypes",
+            "dbo.GetVocabulariesWithoutArtworkTypes",
             commandType: CommandType.StoredProcedure
         );
 
@@ -49,15 +49,15 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         ];
     }
 
-    public async Task<List<VocabularyWithTerms>> GetAllWithTermsForShopItemTypeAsync(
-        ShopItemTypeId shopItemTypeId
+    public async Task<List<VocabularyWithTerms>> GetAllWithTermsForArtworkTypeAsync(
+        ArtworkTypeId artworkTypeId
     )
     {
         await using var connection = connectionFactory.Create();
 
         var rows = await connection.QueryAsync<VocabularyWithTermRow>(
-            "dbo.GetVocabulariesWithTermsForShopItemType",
-            new { ShopItemTypeId = shopItemTypeId.Value },
+            "dbo.GetVocabulariesWithTermsForArtworkType",
+            new { ArtworkTypeId = artworkTypeId.Value },
             commandType: CommandType.StoredProcedure
         );
 
@@ -83,17 +83,17 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<VocabularyId> AddAsync(
         VocabularyName name,
-        IEnumerable<ShopItemTypeId> shopItemTypeIds
+        IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
-        var shopItemTypeIdList = IdListParameter.Create(shopItemTypeIds.Select(id => id.Value));
+        var artworkTypeIdList = IdListParameter.Create(artworkTypeIds.Select(id => id.Value));
 
         await using var connection = connectionFactory.Create();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
                 "dbo.AddVocabulary",
-                new { Name = name.Value, ShopItemTypeIds = shopItemTypeIdList },
+                new { Name = name.Value, ArtworkTypeIds = artworkTypeIdList },
                 commandType: CommandType.StoredProcedure
             );
 
@@ -106,7 +106,7 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         }
     }
 
-    public async Task<VocabularyWithShopItemTypes?> GetAsync(VocabularyId id)
+    public async Task<VocabularyWithArtworkTypes?> GetAsync(VocabularyId id)
     {
         await using var connection = connectionFactory.Create();
 
@@ -123,12 +123,12 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
             return null;
         }
 
-        var shopItemTypeIds = await results.ReadAsync<int>();
+        var artworkTypeIds = await results.ReadAsync<int>();
 
-        return new VocabularyWithShopItemTypes(
+        return new VocabularyWithArtworkTypes(
             new VocabularyId(row.Id),
             new VocabularyName(row.Name),
-            [.. shopItemTypeIds.Select(shopItemTypeId => new ShopItemTypeId(shopItemTypeId))]
+            [.. artworkTypeIds.Select(artworkTypeId => new ArtworkTypeId(artworkTypeId))]
         );
     }
 
@@ -143,14 +143,14 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         );
 
         var termCount = await results.ReadSingleAsync<int>();
-        var shopItemCounts = await results.ReadAsync<ShopItemCountRow>();
+        var artworkCounts = await results.ReadAsync<ArtworkCountRow>();
 
         return new VocabularyUsage(
             termCount,
             [
-                .. shopItemCounts.Select(row => new ShopItemTypeUsage(
-                    new ShopItemTypeId(row.ShopItemTypeId),
-                    row.ShopItemCount
+                .. artworkCounts.Select(row => new ArtworkTypeUsage(
+                    new ArtworkTypeId(row.ArtworkTypeId),
+                    row.ArtworkCount
                 )),
             ]
         );
@@ -159,11 +159,11 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
     public async Task UpdateAsync(
         VocabularyId id,
         VocabularyName name,
-        IEnumerable<ShopItemTypeId> shopItemTypeIds
+        IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
-        var shopItemTypeIdList = IdListParameter.Create(
-            shopItemTypeIds.Select(shopItemTypeId => shopItemTypeId.Value)
+        var artworkTypeIdList = IdListParameter.Create(
+            artworkTypeIds.Select(artworkTypeId => artworkTypeId.Value)
         );
 
         await using var connection = connectionFactory.Create();
@@ -176,7 +176,7 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
                 {
                     Id = id.Value,
                     Name = name.Value,
-                    ShopItemTypeIds = shopItemTypeIdList,
+                    ArtworkTypeIds = artworkTypeIdList,
                 },
                 commandType: CommandType.StoredProcedure
             );
@@ -204,11 +204,11 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         );
     }
 
-    // @QUESTION: Why is shop item count on vocabulary repo?
-    private sealed class ShopItemCountRow
+    // @QUESTION: Why is artwork count on vocabulary repo?
+    private sealed class ArtworkCountRow
     {
-        public required int ShopItemTypeId { get; init; }
-        public required int ShopItemCount { get; init; }
+        public required int ArtworkTypeId { get; init; }
+        public required int ArtworkCount { get; init; }
     }
 
     private sealed class VocabularyWithTermRow

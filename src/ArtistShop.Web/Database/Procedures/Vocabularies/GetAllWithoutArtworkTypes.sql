@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabulariesWithoutShopItemTypes AS BEGIN
+CREATE OR ALTER PROCEDURE dbo.GetVocabulariesWithoutArtworkTypes AS BEGIN
 SET
 NOCOUNT ON;
 
@@ -12,7 +12,7 @@ WHERE
         SELECT
             1
         FROM
-            dbo.VocabularyAndShopItemTypesJunction AS applies
+            dbo.VocabularyAndArtworkTypesJunction AS applies
         WHERE
             applies.VocabularyId = vocabulary.Id
     );

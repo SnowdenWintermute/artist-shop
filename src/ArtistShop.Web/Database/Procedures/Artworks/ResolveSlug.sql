@@ -1,4 +1,4 @@
-CREATE OR ALTER FUNCTION dbo.ResolveShopItemSlug (@CandidateSlug nvarchar(200)) RETURNS nvarchar(210)
+CREATE OR ALTER FUNCTION dbo.ResolveArtworkSlug (@CandidateSlug nvarchar(200)) RETURNS nvarchar(210)
 --
 AS BEGIN
 --
@@ -25,7 +25,7 @@ SELECT
         END
     )
 FROM
-    dbo.ShopItems
+    dbo.Artworks
 WITH
     (UPDLOCK)
 WHERE

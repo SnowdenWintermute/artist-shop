@@ -12,7 +12,7 @@
   public VocabularyName VocabularyName { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public IReadOnlyList<ShopItemType> UnselectedShopItemTypes { get; set; } = default!;
+  public IReadOnlyList<ArtworkType> UnselectedArtworkTypes { get; set; } = default!;
 
   [Parameter, EditorRequired]
   public VocabularyUsage Usage { get; set; } = default!;
@@ -24,8 +24,8 @@
   public bool IsWorking { get; set; }
 
   private string AffectedItems =>
-    string.Join(", ", UnselectedShopItemTypes.Select(shopItemType =>
-      $"{Usage.ShopItemCountFor(shopItemType.Id)} {shopItemType.Name.Value} items"));
+    string.Join(", ", UnselectedArtworkTypes.Select(artworkType =>
+      $"{Usage.ArtworkCountFor(artworkType.Id)} {artworkType.Name.Value} items"));
 }
 
 <ConfirmDialog Open="Open" OpenChanged="OpenChanged" Title="Remove terms from items?"

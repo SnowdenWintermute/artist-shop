@@ -3,7 +3,7 @@ namespace ArtistShop.Web.Database.Repositories;
 using System.Data;
 using Dapper;
 
-public class ShopItemImageRepository(SqlConnectionFactory connectionFactory)
+public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
 {
     // since we're using this to determine if an image exists, we
     // pick hash set
@@ -16,7 +16,7 @@ public class ShopItemImageRepository(SqlConnectionFactory connectionFactory)
         // had more columns we would create a class to
         // represent that row's data in C#
         var relativePaths = await connection.QueryAsync<string>(
-            "dbo.GetAllShopItemImageRelativePaths",
+            "dbo.GetAllArtworkImageRelativePaths",
             commandType: CommandType.StoredProcedure
         );
 

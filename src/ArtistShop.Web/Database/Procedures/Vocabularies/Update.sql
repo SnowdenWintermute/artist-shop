@@ -1,6 +1,6 @@
 CREATE OR ALTER PROCEDURE dbo.UpdateVocabulary @Id int,
 @Name nvarchar(100),
-@ShopItemTypeIds dbo.IdList READONLY AS BEGIN
+@ArtworkTypeIds dbo.IdList READONLY AS BEGIN
 SET
 NOCOUNT ON;
 
@@ -19,53 +19,53 @@ IF @@ROWCOUNT = 0 THROW 50002,
 'The vocabulary no longer exists.',
 1;
 
--- VocabularyTerms must be removed from ShopItems first; the foreign key refuses removing a vocabularyShopItemAssociation that's still in use
+-- VocabularyTerms must be removed from Artworks first; the foreign key refuses removing a vocabularyArtworkAssociation that's still in use
 -- @QUESTION can we make this a stored procedure and call it from here?
-DELETE vocabularyTermShopItemAssociation
+DELETE vocabularyTermArtworkAssociation
 FROM
-    dbo.ShopItemAndVocabularyTermsJunction AS vocabularyTermShopItemAssociation
+    dbo.ArtworkAndVocabularyTermsJunction AS vocabularyTermArtworkAssociation
 WHERE
-    vocabularyTermShopItemAssociation.VocabularyId = @Id
+    vocabularyTermArtworkAssociation.VocabularyId = @Id
     AND NOT EXISTS (
         -- @QUESTION can this be a CTE
         SELECT
             1
         FROM
-            @ShopItemTypeIds AS shopItemTypeIds
+            @ArtworkTypeIds AS artworkTypeIds
         WHERE
-            shopItemTypeIds.Id = vocabularyTermShopItemAssociation.ShopItemTypeId
+            artworkTypeIds.Id = vocabularyTermArtworkAssociation.ArtworkTypeId
     );
 
-DELETE vocabularyShopItemAssociation
+DELETE vocabularyArtworkAssociation
 FROM
-    dbo.VocabularyAndShopItemTypesJunction AS vocabularyShopItemAssociation
+    dbo.VocabularyAndArtworkTypesJunction AS vocabularyArtworkAssociation
 WHERE
-    vocabularyShopItemAssociation.VocabularyId = @Id
+    vocabularyArtworkAssociation.VocabularyId = @Id
     AND NOT EXISTS (
         SELECT
             1
         FROM
-            @ShopItemTypeIds AS shopItemTypeIds
+            @ArtworkTypeIds AS artworkTypeIds
         WHERE
-            shopItemTypeIds.Id = vocabularyShopItemAssociation.ShopItemTypeId
+            artworkTypeIds.Id = vocabularyArtworkAssociation.ArtworkTypeId
     );
 
 INSERT INTO
-    dbo.VocabularyAndShopItemTypesJunction (VocabularyId, ShopItemTypeId)
+    dbo.VocabularyAndArtworkTypesJunction (VocabularyId, ArtworkTypeId)
 SELECT
     @Id,
-    shopItemTypeIds.Id
+    artworkTypeIds.Id
 FROM
-    @ShopItemTypeIds AS shopItemTypeIds
+    @ArtworkTypeIds AS artworkTypeIds
 WHERE
     NOT EXISTS (
         SELECT
             1
         FROM
-            dbo.VocabularyAndShopItemTypesJunction AS existing
+            dbo.VocabularyAndArtworkTypesJunction AS existing
         WHERE
             existing.VocabularyId = @Id
-            AND existing.ShopItemTypeId = shopItemTypeIds.Id
+            AND existing.ArtworkTypeId = artworkTypeIds.Id
     );
 
 COMMIT TRANSACTION;

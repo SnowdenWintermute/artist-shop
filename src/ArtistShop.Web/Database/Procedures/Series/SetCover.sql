@@ -1,5 +1,5 @@
 CREATE OR ALTER PROCEDURE dbo.SetSeriesCover @SeriesId int,
-@ShopItemId int AS BEGIN
+@ArtworkId int AS BEGIN
 SET
 NOCOUNT ON;
 
@@ -7,30 +7,30 @@ IF NOT EXISTS (
     SELECT
         1
     FROM
-        dbo.ShopItemAndSeriesJunction
+        dbo.ArtworkAndSeriesJunction
     WHERE
         SeriesId = @SeriesId
-        AND ShopItemId = @ShopItemId
+        AND ArtworkId = @ArtworkId
 ) THROW 50006,
-'The shop item is no longer in the series.',
+'The artwork is no longer in the series.',
 1;
 
 IF NOT EXISTS (
     SELECT
         1
     FROM
-        dbo.ShopItemImages
+        dbo.ArtworkImages
     WHERE
-        ShopItemId = @ShopItemId
+        ArtworkId = @ArtworkId
         AND IsPrimary = 1
 ) THROW 50007,
-'The shop item has no image to use as the cover.',
+'The artwork has no image to use as the cover.',
 1;
 
 -- one statement moves the star, so the filtered unique index never sees two covers
-UPDATE dbo.ShopItemAndSeriesJunction
+UPDATE dbo.ArtworkAndSeriesJunction
 SET
-    IsCover = IIF(ShopItemId = @ShopItemId, 1, 0)
+    IsCover = IIF(ArtworkId = @ArtworkId, 1, 0)
 WHERE
     SeriesId = @SeriesId;
 

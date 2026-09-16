@@ -1,5 +1,5 @@
-CREATE OR ALTER PROCEDURE dbo.ReorderSeriesShopItems @SeriesId int,
-@ShopItemIds dbo.OrderedIdList READONLY AS BEGIN
+CREATE OR ALTER PROCEDURE dbo.ReorderSeriesArtworks @SeriesId int,
+@ArtworkIds dbo.OrderedIdList READONLY AS BEGIN
 SET
 NOCOUNT ON;
 
@@ -11,36 +11,36 @@ TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 BEGIN TRANSACTION;
 
--- the list must be exactly the series' shop items, or another tab changed them after this page
+-- the list must be exactly the series' artworks, or another tab changed them after this page
 -- loaded. Its primary key rules out duplicates, so equal counts plus every id being a member
 -- means the same set
 IF (
     SELECT
         COUNT(*)
     FROM
-        dbo.ShopItemAndSeriesJunction
+        dbo.ArtworkAndSeriesJunction
     WHERE
         SeriesId = @SeriesId
 ) <> (
     SELECT
         COUNT(*)
     FROM
-        @ShopItemIds
+        @ArtworkIds
 )
 OR EXISTS (
     SELECT
         1
     FROM
-        @ShopItemIds AS ordered
+        @ArtworkIds AS ordered
     WHERE
         NOT EXISTS (
             SELECT
                 1
             FROM
-                dbo.ShopItemAndSeriesJunction AS junction
+                dbo.ArtworkAndSeriesJunction AS junction
             WHERE
                 junction.SeriesId = @SeriesId
-                AND junction.ShopItemId = ordered.Id
+                AND junction.ArtworkId = ordered.Id
         )
 ) THROW 50005,
 'The series has changed since the page loaded.',
@@ -52,8 +52,8 @@ UPDATE junction
 SET
     junction.SortOrder = ordered.SortOrder
 FROM
-    dbo.ShopItemAndSeriesJunction AS junction
-    JOIN @ShopItemIds AS ordered ON ordered.Id = junction.ShopItemId
+    dbo.ArtworkAndSeriesJunction AS junction
+    JOIN @ArtworkIds AS ordered ON ordered.Id = junction.ArtworkId
 WHERE
     junction.SeriesId = @SeriesId;
 

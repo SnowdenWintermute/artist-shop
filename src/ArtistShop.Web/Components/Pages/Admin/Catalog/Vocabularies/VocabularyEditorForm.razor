@@ -8,7 +8,7 @@
 
 @code {
   [Parameter, EditorRequired]
-  public IReadOnlyList<ShopItemType> ShopItemTypes { get; set; } = default!;
+  public IReadOnlyList<ArtworkType> ArtworkTypes { get; set; } = default!;
 
   // null when creating
   [Parameter]
@@ -24,15 +24,15 @@
   protected override void OnParametersSet() =>
     _form = Loaded is null ? VocabularyForm.ForNew() : VocabularyForm.ForExisting(Loaded.Vocabulary);
 
-  private List<ShopItemType> UnselectedShopItemTypesInUse =>
+  private List<ArtworkType> UnselectedArtworkTypesInUse =>
     Loaded is null
       ? []
-      : [.. ShopItemTypes.Where(shopItemType =>
-          _form.WasUnselected(shopItemType.Id) && Loaded.Usage.ShopItemCountFor(shopItemType.Id) > 0)];
+      : [.. ArtworkTypes.Where(artworkType =>
+          _form.WasUnselected(artworkType.Id) && Loaded.Usage.ArtworkCountFor(artworkType.Id) > 0)];
 
   private async Task HandleValidSubmit()
   {
-    if (UnselectedShopItemTypesInUse.Count > 0)
+    if (UnselectedArtworkTypesInUse.Count > 0)
     {
       _unselectDialogOpen = true;
       return;
@@ -51,12 +51,12 @@
 
       if (Loaded is null)
       {
-        var id = await VocabularyRepository.AddAsync(name, _form.ShopItemTypeIds);
+        var id = await VocabularyRepository.AddAsync(name, _form.ArtworkTypeIds);
         NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}/edit");
         return;
       }
 
-      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.ShopItemTypeIds);
+      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.ArtworkTypeIds);
       _justSaved = true;
       NavigationManager.Refresh();
     }
@@ -97,8 +97,8 @@
     <DataAnnotationsValidator />
 
     <TextField Label="Name" @bind-Value="_form.Name" />
-    <ShopItemTypeCheckboxes ShopItemTypes="ShopItemTypes" Selected="_form.ShopItemTypeIds"
-                            OnToggle="_form.ToggleShopItemType" />
+    <ArtworkTypeCheckboxes ArtworkTypes="ArtworkTypes" Selected="_form.ArtworkTypeIds"
+                            OnToggle="_form.ToggleArtworkType" />
 
     @if (_justSaved && !_form.HasChanges)
     {
@@ -122,8 +122,8 @@
 
   @if (Loaded is { } loaded)
   {
-    <UnselectShopItemTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                                 UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
+    <UnselectArtworkTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+                                 UnselectedArtworkTypes="UnselectedArtworkTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
                                  IsWorking="_isSaving" />
 
     <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"

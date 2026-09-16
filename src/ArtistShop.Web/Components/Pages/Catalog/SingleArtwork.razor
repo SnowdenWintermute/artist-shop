@@ -1,32 +1,32 @@
-@page "/paintings/{slug}"
+@page "/artworks/{slug}"
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@inject PaintingRepository PaintingRepository
+@inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
 
 @code {
   [Parameter]
   public string Slug { get; set; } = default!;
 
-  private Painting? painting;
+  private Artwork? artwork;
 
   protected override async Task OnParametersSetAsync()
   {
-    painting = await PaintingRepository.GetBySlugAsync(Slug);
+    artwork = await ArtworkRepository.GetBySlugAsync(Slug);
 
-    if (painting is null)
+    if (artwork is null)
     {
       NavigationManager.NotFound();
     }
   }
 }
 
-@if (painting is not null)
+@if (artwork is not null)
 {
-  <PageTitle>@painting.Name.Value</PageTitle>
-  <h1>@painting.Name.Value</h1>
-  <h1>@painting.Description</h1>
-  @foreach (var image in painting.Images)
+  <PageTitle>@artwork.Name.Value</PageTitle>
+  <h1>@artwork.Name.Value</h1>
+  <h1>@artwork.Description</h1>
+  @foreach (var image in artwork.Images)
   {
 
     <img src="@image.BlurDataUri" />
@@ -34,5 +34,3 @@
     <div>@image.RelativePath </div>
   }
 }
-
-

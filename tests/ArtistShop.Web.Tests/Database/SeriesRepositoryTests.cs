@@ -7,13 +7,13 @@ namespace ArtistShop.Web.Tests.Database;
 public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 {
     private readonly SeriesRepository _series = new(database.ConnectionFactory);
-    private readonly PaintingRepository _paintings = new(database.ConnectionFactory);
+    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
 
     private Task<SeriesId> AddNamedSeriesAsync(string name) =>
         _series.AddAsync(new SeriesName(name), SeriesSlug.FromName(name));
 
-    private async Task<SeriesWithShopItems> GetExistingAsync(SeriesId id) =>
+    private async Task<SeriesWithArtworks> GetExistingAsync(SeriesId id) =>
         await _series.GetAsync(id) ?? throw new InvalidOperationException("The series is missing.");
 
     // different names can share a slug when they differ only in what the slug drops:
@@ -88,7 +88,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
         var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        Assert.Equal([firstId, secondId], (await GetExistingAsync(id)).ShopItems.Select(shopItem => shopItem.Id));
+        Assert.Equal([firstId, secondId], (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id));
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task ListsShopItemsInOrderWithTheirPrimaryImages()
+    public async Task ListsArtworksInOrderWithTheirPrimaryImages()
     {
         var id = await _catalog.AddSeriesAsync();
         var image = CatalogTestData.CreateTestImage();
@@ -136,15 +136,15 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 
         Assert.Equal(
             [withImageId, withoutImageId],
-            series.ShopItems.Select(shopItem => shopItem.Id)
+            series.Artworks.Select(artwork => artwork.Id)
         );
-        Assert.Equal(image, series.ShopItems[0].PrimaryImage);
-        Assert.Null(series.ShopItems[1].PrimaryImage);
-        Assert.Equal(new ShopItemTypeName("Painting"), series.ShopItems[0].ShopItemTypeName);
+        Assert.Equal(image, series.Artworks[0].PrimaryImage);
+        Assert.Null(series.Artworks[1].PrimaryImage);
+        Assert.Equal(new ArtworkTypeName("Painting"), series.Artworks[0].ArtworkTypeName);
     }
 
     [Fact]
-    public async Task CoverFallsBackToTheFirstShopItemWithAnImage()
+    public async Task CoverFallsBackToTheFirstArtworkWithAnImage()
     {
         var id = await _catalog.AddSeriesAsync();
         await _catalog.AddPaintingInSeriesAsync(id, []);
@@ -154,7 +154,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 
         var series = (await _series.GetAllWithCoversAsync()).Single(series => series.Id == id);
 
-        Assert.Equal(3, series.ShopItemCount);
+        Assert.Equal(3, series.ArtworkCount);
         Assert.Equal(image, series.Cover);
     }
 
@@ -168,12 +168,12 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var allSeries = await _series.GetAllWithCoversAsync();
 
         Assert.Null(allSeries.Single(series => series.Id == emptyId).Cover);
-        Assert.Equal(0, allSeries.Single(series => series.Id == emptyId).ShopItemCount);
+        Assert.Equal(0, allSeries.Single(series => series.Id == emptyId).ArtworkCount);
         Assert.Null(allSeries.Single(series => series.Id == imagelessId).Cover);
     }
 
     [Fact]
-    public async Task StarredShopItemIsTheCover()
+    public async Task StarredArtworkIsTheCover()
     {
         var id = await _catalog.AddSeriesAsync();
         await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
@@ -201,12 +201,12 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(secondImage, series.Cover);
         Assert.Equal(
             [false, true],
-            (await GetExistingAsync(id)).ShopItems.Select(shopItem => shopItem.IsCover)
+            (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.IsCover)
         );
     }
 
     [Fact]
-    public async Task ClearingTheStarFallsBackToTheFirstShopItemWithAnImage()
+    public async Task ClearingTheStarFallsBackToTheFirstArtworkWithAnImage()
     {
         var id = await _catalog.AddSeriesAsync();
         var firstImage = CatalogTestData.CreateTestImage();
@@ -218,31 +218,31 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 
         var series = (await _series.GetAllWithCoversAsync()).Single(series => series.Id == id);
         Assert.Equal(firstImage, series.Cover);
-        Assert.All((await GetExistingAsync(id)).ShopItems, shopItem => Assert.False(shopItem.IsCover));
+        Assert.All((await GetExistingAsync(id)).Artworks, artwork => Assert.False(artwork.IsCover));
     }
 
     [Fact]
     public async Task RejectsACoverWithNoImage()
     {
         var id = await _catalog.AddSeriesAsync();
-        var shopItemId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var artworkId = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() => _series.SetCoverAsync(id, shopItemId));
+        await Assert.ThrowsAsync<CatalogChangedException>(() => _series.SetCoverAsync(id, artworkId));
     }
 
     [Fact]
-    public async Task ReorderSwapsShopItems()
+    public async Task ReorderSwapsArtworks()
     {
         var id = await _catalog.AddSeriesAsync();
         var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
         var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
         var thirdId = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await _series.ReorderShopItemsAsync(id, [thirdId, secondId, firstId]);
+        await _series.ReorderArtworksAsync(id, [thirdId, secondId, firstId]);
 
         Assert.Equal(
             [thirdId, secondId, firstId],
-            (await GetExistingAsync(id)).ShopItems.Select(shopItem => shopItem.Id)
+            (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
         );
     }
 
@@ -254,7 +254,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         await _catalog.AddPaintingInSeriesAsync(id, []);
 
         await Assert.ThrowsAsync<CatalogChangedException>(() =>
-            _series.ReorderShopItemsAsync(id, [firstId])
+            _series.ReorderArtworksAsync(id, [firstId])
         );
     }
 
@@ -271,18 +271,18 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task RemovesOnlyTheChosenShopItems()
+    public async Task RemovesOnlyTheChosenArtworks()
     {
         var id = await _catalog.AddSeriesAsync();
         var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
         var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
         var thirdId = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await _series.RemoveShopItemsAsync(id, [secondId]);
+        await _series.RemoveArtworksAsync(id, [secondId]);
 
         Assert.Equal(
             [firstId, thirdId],
-            (await GetExistingAsync(id)).ShopItems.Select(shopItem => shopItem.Id)
+            (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
         );
     }
 
@@ -310,7 +310,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 
         await _series.DeleteAsync(id);
 
-        var keptPainting = await _paintings.GetBySlugAsync(painting.Slug.Value);
+        var keptPainting = await _artworks.GetBySlugAsync(painting.Slug.Value);
         Assert.NotNull(keptPainting);
         Assert.Empty(keptPainting.Series);
     }

@@ -61,10 +61,11 @@ builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<SchemaMigrator>();
 builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
-builder.Services.AddScoped<PaintingRepository>();
+builder.Services.AddScoped<ArtworkRepository>();
 builder.Services.AddScoped<SeriesRepository>();
-builder.Services.AddScoped<ShopItemImageRepository>();
-builder.Services.AddScoped<ShopItemTypeRepository>();
+builder.Services.AddScoped<ArtworkImageRepository>();
+builder.Services.AddScoped<ArtworkTypeRepository>();
+builder.Services.AddScoped<ProductKindRepository>();
 builder.Services.AddScoped<VocabularyRepository>();
 builder.Services.AddScoped<VocabularyTermRepository>();
 

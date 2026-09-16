@@ -6,7 +6,7 @@ public record OrphanedImageSweepSettings(TimeSpan GracePeriod, TimeSpan Interval
 
 public class OrphanedImageSweeper(
     ImageStorage imageStorage,
-    ShopItemImageRepository imageRepository,
+    ArtworkImageRepository imageRepository,
     OrphanedImageSweepSettings settings,
     TimeProvider timeProvider,
     // labels messages about this class with the class's

@@ -2,7 +2,6 @@ namespace ArtistShop.Web.Database.Repositories;
 
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
-using ArtistShop.Web.Domain.Commerce;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
@@ -13,9 +12,9 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     // the numbers THROWn by the series procedures
     private const int SeriesNoLongerExists = 50004;
-    private const int ShopItemsChangedSincePageLoad = 50005;
-    private const int ShopItemNoLongerInSeries = 50006;
-    private const int ShopItemHasNoImage = 50007;
+    private const int ArtworksChangedSincePageLoad = 50005;
+    private const int ArtworkNoLongerInSeries = 50006;
+    private const int ArtworkHasNoImage = 50007;
     private const int SeriesChangedSincePageLoad = 50008;
 
     // the same name also means the same slug, and which constraint SQL Server reports first isn't
@@ -58,9 +57,9 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 new SeriesId(row.Id),
                 new SeriesName(row.Name),
                 new SeriesSlug(row.Slug),
-                row.ShopItemCount,
+                row.ArtworkCount,
                 row is { CoverRelativePath: string relativePath, CoverWidth: int width, CoverHeight: int height }
-                    ? new ShopItemImage(
+                    ? new ArtworkImage(
                         relativePath,
                         row.CoverOriginalFileName,
                         width,
@@ -72,7 +71,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         ];
     }
 
-    public async Task<SeriesWithShopItems?> GetAsync(SeriesId id)
+    public async Task<SeriesWithArtworks?> GetAsync(SeriesId id)
     {
         await using var connection = connectionFactory.Create();
 
@@ -89,25 +88,25 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
             return null;
         }
 
-        var shopItems = await results.ReadAsync<SeriesShopItemRow>();
+        var artworks = await results.ReadAsync<SeriesArtworkRow>();
 
-        return new SeriesWithShopItems(
+        return new SeriesWithArtworks(
             new SeriesId(row.Id),
             new SeriesName(row.Name),
             new SeriesSlug(row.Slug),
             [
-                .. shopItems.Select(shopItem => new SeriesShopItem(
-                    new ShopItemId(shopItem.Id),
-                    new ShopItemName(shopItem.Name),
-                    new ShopItemTypeName(shopItem.ShopItemTypeName),
-                    shopItem.IsCover,
-                    shopItem is { RelativePath: string relativePath, Width: int width, Height: int height }
-                        ? new ShopItemImage(
+                .. artworks.Select(artwork => new SeriesArtwork(
+                    new ArtworkId(artwork.Id),
+                    new ArtworkName(artwork.Name),
+                    new ArtworkTypeName(artwork.ArtworkTypeName),
+                    artwork.IsCover,
+                    artwork is { RelativePath: string relativePath, Width: int width, Height: int height }
+                        ? new ArtworkImage(
                             relativePath,
-                            shopItem.OriginalFileName,
+                            artwork.OriginalFileName,
                             width,
                             height,
-                            shopItem.BlurDataUri
+                            artwork.BlurDataUri
                         )
                         : null
                 )),
@@ -193,32 +192,32 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         );
     }
 
-    public async Task ReorderShopItemsAsync(SeriesId id, IReadOnlyList<ShopItemId> shopItemIds)
+    public async Task ReorderArtworksAsync(SeriesId id, IReadOnlyList<ArtworkId> artworkIds)
     {
         await using var connection = connectionFactory.Create();
 
         try
         {
             await connection.ExecuteAsync(
-                "dbo.ReorderSeriesShopItems",
+                "dbo.ReorderSeriesArtworks",
                 new
                 {
                     SeriesId = id.Value,
-                    ShopItemIds = IdListParameter.CreateOrdered(
-                        [.. shopItemIds.Select(shopItemId => shopItemId.Value)]
+                    ArtworkIds = IdListParameter.CreateOrdered(
+                        [.. artworkIds.Select(artworkId => artworkId.Value)]
                     ),
                 },
                 commandType: CommandType.StoredProcedure
             );
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, ShopItemsChangedSincePageLoad))
+            when (SqlErrors.IsThrown(exception, ArtworksChangedSincePageLoad))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
     }
 
-    public async Task SetCoverAsync(SeriesId id, ShopItemId shopItemId)
+    public async Task SetCoverAsync(SeriesId id, ArtworkId artworkId)
     {
         await using var connection = connectionFactory.Create();
 
@@ -226,13 +225,13 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         {
             await connection.ExecuteAsync(
                 "dbo.SetSeriesCover",
-                new { SeriesId = id.Value, ShopItemId = shopItemId.Value },
+                new { SeriesId = id.Value, ArtworkId = artworkId.Value },
                 commandType: CommandType.StoredProcedure
             );
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, ShopItemNoLongerInSeries)
-                || SqlErrors.IsThrown(exception, ShopItemHasNoImage))
+            when (SqlErrors.IsThrown(exception, ArtworkNoLongerInSeries)
+                || SqlErrors.IsThrown(exception, ArtworkHasNoImage))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -249,16 +248,16 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         );
     }
 
-    public async Task RemoveShopItemsAsync(SeriesId id, IEnumerable<ShopItemId> shopItemIds)
+    public async Task RemoveArtworksAsync(SeriesId id, IEnumerable<ArtworkId> artworkIds)
     {
         await using var connection = connectionFactory.Create();
 
         await connection.ExecuteAsync(
-            "dbo.RemoveShopItemsFromSeries",
+            "dbo.RemoveArtworksFromSeries",
             new
             {
                 SeriesId = id.Value,
-                ShopItemIds = IdListParameter.Create(shopItemIds.Select(shopItemId => shopItemId.Value)),
+                ArtworkIds = IdListParameter.Create(artworkIds.Select(artworkId => artworkId.Value)),
             },
             commandType: CommandType.StoredProcedure
         );
@@ -276,7 +275,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         public required int Id { get; init; }
         public required string Name { get; init; }
         public required string Slug { get; init; }
-        public required int ShopItemCount { get; init; }
+        public required int ArtworkCount { get; init; }
         public string? CoverRelativePath { get; init; }
         public string? CoverOriginalFileName { get; init; }
         public int? CoverWidth { get; init; }
@@ -284,11 +283,11 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         public string? CoverBlurDataUri { get; init; }
     }
 
-    private sealed class SeriesShopItemRow
+    private sealed class SeriesArtworkRow
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
-        public required string ShopItemTypeName { get; init; }
+        public required string ArtworkTypeName { get; init; }
         public required bool IsCover { get; init; }
         public string? RelativePath { get; init; }
         public string? OriginalFileName { get; init; }

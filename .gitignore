@@ -483,5 +483,7 @@ $RECYCLE.BIN/
 
 # Tailwind standalone CLI
 /tailwindcss
+# Tailwind output, regenerated from Styles/app.css on every build
+/src/ArtistShop.Web/wwwroot/app.css
 # Uploaded images
 /content/

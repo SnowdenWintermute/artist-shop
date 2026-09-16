@@ -11,9 +11,9 @@ WHERE
     Id = @Id;
 
 SELECT
-    ShopItemTypeId
+    ArtworkTypeId
 FROM
-    dbo.VocabularyAndShopItemTypesJunction
+    dbo.VocabularyAndArtworkTypesJunction
 WHERE
     VocabularyId = @Id;
 

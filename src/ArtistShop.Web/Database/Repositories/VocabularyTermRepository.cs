@@ -27,7 +27,7 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
             .. rows.Select(row => new VocabularyTermWithUsage(
                 new VocabularyTermId(row.Id),
                 new VocabularyTermName(row.Name),
-                row.ShopItemCount
+                row.ArtworkCount
             )),
         ];
     }
@@ -92,6 +92,6 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
-        public required int ShopItemCount { get; init; }
+        public required int ArtworkCount { get; init; }
     }
 }

@@ -37,7 +37,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
         _sweeper = new OrphanedImageSweeper(
             _imageStorage,
-            new ShopItemImageRepository(database.ConnectionFactory),
+            new ArtworkImageRepository(database.ConnectionFactory),
             new OrphanedImageSweepSettings(GracePeriod, Interval: TimeSpan.FromDays(1)),
             _time,
             NullLogger<OrphanedImageSweeper>.Instance
@@ -109,26 +109,17 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         return stored.StorageKey;
     }
 
-    // goes through the real AddPainting procedure, so this test also proves the
+    // goes through the real AddArtwork procedure, so this test also proves the
     // procedure names and column mappings line up between C# and SQL
     private async Task AddPaintingReferencing(string storageKey)
     {
-        var repository = new PaintingRepository(_database.ConnectionFactory);
+        var catalog = new CatalogTestData(_database.ConnectionFactory);
 
-        await repository.AddAsync(
-            new PaintingCatalogAddition(
-                new ShopItemName("Sweeper test painting"),
-                ShopItemSlug.FromName("Sweeper test painting"),
-                Price: 100m,
-                Stock: 1,
-                DatePainted: new PartialDate(new DateOnly(2026, 1, 1), DatePrecision.Day),
-                Description: null,
-                Dimensions: null,
-                Images: [new ShopItemImage(storageKey, "test.jpg", 800, 600, BlurDataUri: null)],
-                MainImageIndex: 0,
-                SeriesIds: [],
-                VocabularyTermIds: []
-            )
+        await catalog.AddPaintingAsync(
+            "Sweeper test painting",
+            termIds: [],
+            seriesIds: [],
+            images: [new ArtworkImage(storageKey, "test.jpg", 800, 600, BlurDataUri: null)]
         );
     }
 }

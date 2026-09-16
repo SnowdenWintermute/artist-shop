@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabulariesWithTermsForShopItemType @ShopItemTypeId int AS BEGIN
+CREATE OR ALTER PROCEDURE dbo.GetVocabulariesWithTermsForArtworkType @ArtworkTypeId int AS BEGIN
 SET
 NOCOUNT ON;
 
@@ -10,9 +10,9 @@ SELECT
     term.Name AS TermName
 FROM
     dbo.Vocabularies AS vocabulary
-    JOIN dbo.VocabularyAndShopItemTypesJunction AS applies ON applies.VocabularyId = vocabulary.Id
+    JOIN dbo.VocabularyAndArtworkTypesJunction AS applies ON applies.VocabularyId = vocabulary.Id
     LEFT JOIN dbo.VocabularyTerms AS term ON term.VocabularyId = vocabulary.Id
 WHERE
-    applies.ShopItemTypeId = @ShopItemTypeId;
+    applies.ArtworkTypeId = @ArtworkTypeId;
 
 END;

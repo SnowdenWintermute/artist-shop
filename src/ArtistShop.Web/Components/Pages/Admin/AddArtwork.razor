@@ -1,0 +1,170 @@
+@page "/admin/catalog/artworks/add"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Forms.FileUpload.Images
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Images
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject ArtworkRepository ArtworkRepository
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject VocabularyRepository VocabularyRepository
+@inject SeriesRepository SeriesRepository
+@inject NavigationManager NavigationManager
+@inject ImageStorage ImageStorage
+
+@code {
+  [SupplyParameterFromForm]
+  private ArtworkCatalogAdditionForm Input { get; set; } = default!;
+  // the artist picks the type before opening this page, so the form only has to show that type's choices
+  [SupplyParameterFromQuery(Name = "type")]
+  private int? TypeIdValue { get; set; }
+  [SupplyParameterFromQuery(Name = "added")]
+  private string? AddedSlug { get; set; }
+
+  // the prefix keeps this from clashing with ImagesField's key: sibling keys must differ even
+  // between different components, and AddedSlug alone is what both would use
+  private string PickersKey => $"pickers-{AddedSlug}";
+
+  private bool _staleChoices;
+
+  private ArtworkType? _type;
+  private List<ArtworkField> _fields = [];
+  private List<VocabularyWithTerms> _vocabularies = [];
+  private List<Vocabulary> _vocabulariesWithoutArtworkTypes = [];
+  // in the artist's order
+  private List<Series> _series = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    Input ??= new();
+    _type = (await ArtworkTypeRepository.GetAllAsync()).SingleOrDefault(type => type.Id.Value == TypeIdValue);
+
+    if (_type is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    _fields = await ArtworkTypeRepository.GetFieldsAsync(_type.Id);
+    Input.ClearFieldsOutside(_fields);
+    _vocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
+    _vocabulariesWithoutArtworkTypes = await VocabularyRepository.GetAllWithoutArtworkTypesAsync();
+    _series = await SeriesRepository.GetAllAsync();
+  }
+
+  private async Task SubmitArtwork(EditContext editContext)
+  {
+    if (_type is null)
+    {
+      return;
+    }
+
+    // if the form sat open longer than the grace period, the sweep may have deleted uploads
+    var missingImages = Input.Images
+      .Where(image => !ImageStorage.OriginalExists(image.StorageKey))
+      .ToList();
+
+    if (missingImages.Count > 0)
+    {
+      // <ValidationMessage /> will show these
+      var validationMessages = new ValidationMessageStore(editContext);
+
+      foreach (var image in missingImages)
+      {
+        var staleImageMessage = $"{image.OriginalFileName ?? "An image"} is no longer on the server because the form was open too long. Remove it and upload it again.";
+        validationMessages.Add(() => Input.Images, staleImageMessage);
+      }
+
+      // tells the ValidationMessage components to re-render with the new messages
+      editContext.NotifyValidationStateChanged();
+      return;
+    }
+
+    ArtworkIdentifiers identifiers;
+
+    try
+    {
+      identifiers = await ArtworkRepository.AddAsync(Input.ToCatalogAddition(_type.Id));
+    }
+    catch (CatalogChangedException)
+    {
+      // nothing was saved, so the form and its uploads are still here; the pickers below have
+      // already dropped whatever no longer exists
+      _staleChoices = true;
+      return;
+    }
+
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["added"] = identifiers.Slug.Value }));
+  }
+}
+
+@if (_type is not null)
+{
+  var typeName = _type.Name.Value.ToLower();
+
+  <PageTitle>Add a @typeName</PageTitle>
+
+  <main class="pt-10">
+    <div class="border max-w-[600px] mx-auto p-4 bg-white">
+      <h1>Add a @typeName</h1>
+
+      @if (AddedSlug is not null)
+      {
+        <p class="text-green-600">
+          Added.
+          <a href="@($"/artworks/{AddedSlug}")">View it</a>
+        </p>
+      }
+
+      @* at the top, so the artist sets these up before filling in the form, not after *@
+      <CatalogSetupNotice ArtworkType="_type" TypeVocabularies="_vocabularies"
+                          VocabulariesWithoutArtworkTypes="_vocabulariesWithoutArtworkTypes" SeriesCount="_series.Count" />
+
+      <EditForm Model="Input" FormName="new-artwork" OnValidSubmit="SubmitArtwork" Enhance>
+        <DataAnnotationsValidator />
+
+        <TextField Label="Title" @bind-Value="Input.Name" />
+        @if (_fields.Contains(ArtworkField.DateCreated))
+        {
+          <PartialDateField Label="Date created" @bind-Year="Input.YearCreated" @bind-Month="Input.MonthCreated"
+                            @bind-Day="Input.DayCreated" />
+        }
+        <TextAreaField Label="Description" @bind-Value="Input.Description" />
+        @if (_fields.Contains(ArtworkField.HeightAndWidth))
+        {
+          <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
+          <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+        }
+        @if (_fields.Contains(ArtworkField.Depth))
+        {
+          <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
+        }
+
+        @* @key: a fresh island after each artwork is added, like ImagesField *@
+        <TermAndSeriesPickers @key="PickersKey" ArtworkTypeId="_type.Id" Vocabularies="_vocabularies" AllSeries="_series"
+                              SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedSeriesIds="Input.SeriesIds" />
+
+        <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+        <ImagesField @key="AddedSlug" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
+                     SuggestNameInto="Input.Name" />
+
+        @if (_staleChoices)
+        {
+          <p class="mb-4 text-red-400">
+            Something on this form was removed in another tab: a term, a series or a field. The form has
+            been updated to match. Check it and submit again.
+          </p>
+        }
+
+        <ButtonBasic type="submit" Class="bg-blue-400 text-white text-lg">
+          Add @typeName
+        </ButtonBasic>
+      </EditForm>
+    </div>
+  </main>
+}

@@ -7,11 +7,11 @@ namespace ArtistShop.Web.Tests.Database;
 public sealed class VocabularyTermRepositoryTests(TestDatabaseFixture database)
 {
     private readonly VocabularyTermRepository _terms = new(database.ConnectionFactory);
-    private readonly PaintingRepository _paintings = new(database.ConnectionFactory);
+    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
 
     [Fact]
-    public async Task ListsVocabularyTermsWithHowManyShopItemsUseThem()
+    public async Task ListsVocabularyTermsWithHowManyArtworksUseThem()
     {
         var vocabularyId = await _catalog.AddPaintingVocabularyAsync();
         var usedTermId = await _terms.AddAsync(vocabularyId, new VocabularyTermName("Oil"));
@@ -21,8 +21,8 @@ public sealed class VocabularyTermRepositoryTests(TestDatabaseFixture database)
         var terms = await _terms.GetAllWithUsageAsync(vocabularyId);
 
         Assert.Equal(2, terms.Count);
-        Assert.Equal(1, terms.Single(term => term.Id == usedTermId).ShopItemCount);
-        Assert.Equal(0, terms.Single(term => term.Id == unusedTermId).ShopItemCount);
+        Assert.Equal(1, terms.Single(term => term.Id == usedTermId).ArtworkCount);
+        Assert.Equal(0, terms.Single(term => term.Id == unusedTermId).ArtworkCount);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class VocabularyTermRepositoryTests(TestDatabaseFixture database)
         await _terms.DeleteAsync(termId);
 
         Assert.Empty(await _terms.GetAllWithUsageAsync(vocabularyId));
-        var painting = await _paintings.GetBySlugAsync(slug.Value);
+        var painting = await _artworks.GetBySlugAsync(slug.Value);
         Assert.NotNull(painting);
         Assert.Empty(painting.VocabularyTerms);
     }

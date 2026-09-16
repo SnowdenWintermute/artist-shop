@@ -38,6 +38,6 @@
 {
   <ConfirmDialog Open="true" OpenChanged="HandleOpenChanged" Title="@($"Delete {term.Name.Value}?")" ConfirmLabel="Delete"
                  OnConfirm="() => DeleteAsync(term)" IsWorking="_isDeleting">
-    This removes it from @term.ShopItemCount items (count as of page load).
+    This removes it from @term.ArtworkCount items (count as of page load).
   </ConfirmDialog>
 }

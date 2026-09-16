@@ -22,6 +22,7 @@
 // transaction because otherwise it could change after you read but before you wrote
 // BEGIN/END: the opening/closing of a sql block
 // IIF(condition, ifTrue, else): sql ternary expression
+// CROSS JOIN: produces every possible combination of rows from two tables
 //
 //
 //

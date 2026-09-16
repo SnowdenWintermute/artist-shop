@@ -8,14 +8,16 @@
 @code {
   // Lists, not IReadOnlyList: an island parameter is rebuilt from its runtime type
   [Parameter, EditorRequired]
-  public List<VocabularyWithTerms> PaintingVocabularies { get; set; } = default!;
+  public ArtworkType ArtworkType { get; set; } = default!;
   [Parameter, EditorRequired]
-  public List<Vocabulary> VocabulariesWithoutShopItemTypes { get; set; } = default!;
+  public List<VocabularyWithTerms> TypeVocabularies { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public List<Vocabulary> VocabulariesWithoutArtworkTypes { get; set; } = default!;
   [Parameter, EditorRequired]
   public int SeriesCount { get; set; }
 
-  private List<VocabularyWithTerms> _paintingVocabularies = [];
-  private List<Vocabulary> _vocabulariesWithoutShopItemTypes = [];
+  private List<VocabularyWithTerms> _typeVocabularies = [];
+  private List<Vocabulary> _vocabulariesWithoutArtworkTypes = [];
   private int _seriesCount;
 
   // OnParametersSet, not OnInitialized: a static page renders once before its data has loaded and
@@ -23,26 +25,26 @@
   // "nothing set up yet" until the circuit attached
   protected override void OnParametersSet()
   {
-    _paintingVocabularies = PaintingVocabularies;
-    _vocabulariesWithoutShopItemTypes = VocabulariesWithoutShopItemTypes;
+    _typeVocabularies = TypeVocabularies;
+    _vocabulariesWithoutArtworkTypes = VocabulariesWithoutArtworkTypes;
     _seriesCount = SeriesCount;
   }
 
   private async Task ReloadAsync()
   {
-    _paintingVocabularies = await VocabularyRepository.GetAllWithTermsForShopItemTypeAsync(ShopItemTypeId.Painting);
-    _vocabulariesWithoutShopItemTypes = await VocabularyRepository.GetAllWithoutShopItemTypesAsync();
+    _typeVocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkType.Id);
+    _vocabulariesWithoutArtworkTypes = await VocabularyRepository.GetAllWithoutArtworkTypesAsync();
     _seriesCount = (await SeriesRepository.GetAllAsync()).Count;
   }
 
   private IEnumerable<VocabularyWithTerms> VocabulariesWithoutTerms =>
-    _paintingVocabularies.Where(vocabulary => vocabulary.Terms.Count == 0);
+    _typeVocabularies.Where(vocabulary => vocabulary.Terms.Count == 0);
 
   // "create a vocabulary" only when there's none to fix instead
-  private bool NoVocabularyAtAll => _paintingVocabularies.Count == 0 && _vocabulariesWithoutShopItemTypes.Count == 0;
+  private bool NoVocabularyAtAll => _typeVocabularies.Count == 0 && _vocabulariesWithoutArtworkTypes.Count == 0;
 
   private bool NeedsSetup =>
-    NoVocabularyAtAll || _vocabulariesWithoutShopItemTypes.Count > 0 || VocabulariesWithoutTerms.Any() || _seriesCount == 0;
+    NoVocabularyAtAll || _vocabulariesWithoutArtworkTypes.Count > 0 || VocabulariesWithoutTerms.Any() || _seriesCount == 0;
 }
 
 <TabReturnWatcher OnTabReturn="ReloadAsync" />
@@ -55,11 +57,11 @@
       @if (NoVocabularyAtAll)
       {
         <li>
-          Nothing to describe paintings with yet. Vocabularies hold terms like a painting's medium or support.
+          Nothing to describe a @ArtworkType.Name.Value.ToLower() with yet. Vocabularies hold terms like a medium or support.
           <a href="/admin/catalog/vocabularies/new" target="_blank" class="underline">Create a vocabulary</a>
         </li>
       }
-      @foreach (var vocabulary in _vocabulariesWithoutShopItemTypes)
+      @foreach (var vocabulary in _vocabulariesWithoutArtworkTypes)
       {
         <li>
           @vocabulary.Name.Value doesn't apply to any kind of artwork yet.

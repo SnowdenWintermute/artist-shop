@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
-using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin;
@@ -16,28 +15,28 @@ public class ImageInput
     public string? BlurDataUri { get; set; }
 }
 
-public class PaintingCatalogAdditionForm : IValidatableObject
+public class ArtworkCatalogAdditionForm : IValidatableObject
 {
     [Required]
-    [StringLength(CatalogLimits.ShopItemNameMaximumLength)]
+    [StringLength(CatalogLimits.ArtworkNameMaximumLength)]
     public string? Name { get; set; }
 
-    [Range(typeof(decimal), CatalogLimits.MinimumPrice, CatalogLimits.MaximumPrice)]
-    public decimal? Price { get; set; }
+    public int? YearCreated { get; set; }
 
-    public int? YearPainted { get; set; }
+    public int? MonthCreated { get; set; }
 
-    public int? MonthPainted { get; set; }
-
-    public int? DayPainted { get; set; }
+    public int? DayCreated { get; set; }
 
     public string? Description { get; set; }
+
+    [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
+    public decimal? HeightCm { get; set; }
 
     [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
     public decimal? WidthCm { get; set; }
 
     [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
-    public decimal? HeightCm { get; set; }
+    public decimal? DepthCm { get; set; }
 
     [NonEmpty(ErrorMessage = "Add at least one image.")]
     public List<ImageInput> Images { get; set; } = [];
@@ -49,14 +48,36 @@ public class PaintingCatalogAdditionForm : IValidatableObject
 
     public List<int> SeriesIds { get; set => field = value ?? []; } = [];
 
-    public PaintingCatalogAddition ToCatalogAddition()
+    // a field switched off in another tab isn't rendered any more, but its posted value would still be sent
+    public void ClearFieldsOutside(IReadOnlyCollection<ArtworkField> fields)
+    {
+        if (!fields.Contains(ArtworkField.DateCreated))
+        {
+            YearCreated = null;
+            MonthCreated = null;
+            DayCreated = null;
+        }
+
+        if (!fields.Contains(ArtworkField.HeightAndWidth))
+        {
+            HeightCm = null;
+            WidthCm = null;
+        }
+
+        if (!fields.Contains(ArtworkField.Depth))
+        {
+            DepthCm = null;
+        }
+    }
+
+    public ArtworkCatalogAddition ToCatalogAddition(ArtworkTypeId typeId)
     {
         ArgumentNullException.ThrowIfNull(Name);
 
         var name = Unwrap.Value(Name);
 
         var images = Images
-            .Select(image => new ShopItemImage(
+            .Select(image => new ArtworkImage(
                 Unwrap.Value(image.StorageKey),
                 image.OriginalFileName,
                 image.Width,
@@ -70,22 +91,23 @@ public class PaintingCatalogAdditionForm : IValidatableObject
             0
         );
 
-        var datePainted = PartialDate.FromParts(YearPainted, MonthPainted, DayPainted);
+        var dateCreated = PartialDate.FromParts(YearCreated, MonthCreated, DayCreated);
 
-        return new PaintingCatalogAddition(
-            new ShopItemName(name),
-            ShopItemSlug.FromName(name),
-            Price,
-            1,
-            datePainted,
+        return new ArtworkCatalogAddition(
+            typeId,
+            new ArtworkName(name),
+            ArtworkSlug.FromName(name),
             Description,
-            WidthCm.HasValue && HeightCm.HasValue
-                ? new DimensionsCentimeters(new Dimensions(WidthCm.Value, HeightCm.Value))
+            dateCreated,
+            HeightCm.HasValue && WidthCm.HasValue
+                ? new DimensionsCentimeters(new Dimensions(HeightCm.Value, WidthCm.Value, DepthCm))
                 : null,
+            Duration: null,
             Images: images,
             MainImageIndex: mainImageIndex,
+            VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
             SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))],
-            VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))]
+            Products: []
         );
     }
 
@@ -93,9 +115,9 @@ public class PaintingCatalogAdditionForm : IValidatableObject
     {
         if (
             !PartialDate.TryFromParts(
-                YearPainted,
-                MonthPainted,
-                DayPainted,
+                YearCreated,
+                MonthCreated,
+                DayCreated,
                 out _,
                 out var dateError
             )
@@ -104,25 +126,34 @@ public class PaintingCatalogAdditionForm : IValidatableObject
             // translate "which part of the date" into "which property of this form"
             var memberName = dateError.Part switch
             {
-                DatePart.Year => nameof(YearPainted),
-                DatePart.Month => nameof(MonthPainted),
-                DatePart.Day => nameof(DayPainted),
+                DatePart.Year => nameof(YearCreated),
+                DatePart.Month => nameof(MonthCreated),
+                DatePart.Day => nameof(DayCreated),
                 _ => throw new UnreachableException(),
             };
 
             yield return new ValidationResult(dateError.Message, [memberName]);
         }
 
-        var dimensionsPartiallyFilled = WidthCm.HasValue != HeightCm.HasValue;
+        var dimensionsPartiallyFilled = HeightCm.HasValue != WidthCm.HasValue;
         if (dimensionsPartiallyFilled)
         {
             yield return new ValidationResult(
-                "Enter both width and height, or neither.",
-                [nameof(WidthCm), nameof(HeightCm)]
+                "Enter both height and width, or neither.",
+                [nameof(HeightCm), nameof(WidthCm)]
             );
         }
 
-        var noDerivableSlug = Name is not null && ShopItemSlug.FromName(Name).Value.Length is 0;
+        var depthWithoutHeightAndWidth = DepthCm.HasValue && !HeightCm.HasValue;
+        if (depthWithoutHeightAndWidth)
+        {
+            yield return new ValidationResult(
+                "Enter height and width to give a depth.",
+                [nameof(DepthCm)]
+            );
+        }
+
+        var noDerivableSlug = Name is not null && ArtworkSlug.FromName(Name).Value.Length is 0;
         if (noDerivableSlug)
         {
             yield return new ValidationResult(

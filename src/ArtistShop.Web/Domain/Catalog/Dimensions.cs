@@ -1,16 +1,24 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
+// height first, the order galleries list measurements in
 public record Dimensions
 {
-    public decimal Width { get; }
     public decimal Height { get; }
+    public decimal Width { get; }
+    public decimal? Depth { get; }
 
-    public Dimensions(decimal width, decimal height)
+    public Dimensions(decimal height, decimal width, decimal? depth)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
 
-        Width = width;
+        if (depth is decimal knownDepth)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(knownDepth);
+        }
+
         Height = height;
+        Width = width;
+        Depth = depth;
     }
 }

@@ -3,8 +3,8 @@ namespace ArtistShop.Web.Domain;
 // updates to these must be mirrored in sql
 public static class CatalogLimits
 {
-    public const int ShopItemImageFileNameMaximumLength = 260;
-    public const int ShopItemNameMaximumLength = 200;
+    public const int ArtworkImageFileNameMaximumLength = 260;
+    public const int ArtworkNameMaximumLength = 200;
     public const int SlugMaximumLength = 200;
     public const int BaseSlugMaximumLength = SlugMaximumLength - 10;
 

@@ -11,7 +11,7 @@
   [Parameter, EditorRequired]
   public SeriesName SeriesName { get; set; } = default!;
   [Parameter, EditorRequired]
-  public int ShopItemCount { get; set; }
+  public int ArtworkCount { get; set; }
 
   private bool _renameDialogOpen;
   private bool _deleteDialogOpen;
@@ -43,6 +43,6 @@
 
   <ConfirmDialog @bind-Open="_deleteDialogOpen" Title="@($"Delete {SeriesName.Value}?")" ConfirmLabel="Delete"
                  OnConfirm="DeleteAsync" IsWorking="_isDeleting">
-    Its @ShopItemCount artworks stay in the catalog (count as of page load).
+    Its @ArtworkCount artworks stay in the catalog (count as of page load).
   </ConfirmDialog>
 </DisabledUntilInteractive>

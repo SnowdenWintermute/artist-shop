@@ -5,7 +5,7 @@
   [Parameter, EditorRequired]
   public string Label { get; set; } = default!;
 
-  // @bind-Year="Input.YearPainted" on the caller fills in these three parameters.
+  // @bind-Year="Input.YearCreated" on the caller fills in these three parameters.
   // Blazor finds them by name: Year, YearChanged and YearExpression.
   [Parameter]
   public int? Year { get; set; }

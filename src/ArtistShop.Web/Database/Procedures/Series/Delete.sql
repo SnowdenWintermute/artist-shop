@@ -7,7 +7,7 @@ XACT_ABORT ON;
 
 BEGIN TRANSACTION;
 
-DELETE FROM dbo.ShopItemAndSeriesJunction
+DELETE FROM dbo.ArtworkAndSeriesJunction
 WHERE
     SeriesId = @Id;
 

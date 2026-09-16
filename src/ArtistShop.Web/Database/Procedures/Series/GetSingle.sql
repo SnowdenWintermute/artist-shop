@@ -12,9 +12,9 @@ WHERE
     Id = @Id;
 
 SELECT
-    shopItem.Id,
-    shopItem.Name,
-    shopItemType.Name AS ShopItemTypeName,
+    artwork.Id,
+    artwork.Name,
+    artworkType.Name AS ArtworkTypeName,
     junction.IsCover,
     primaryImage.RelativePath,
     primaryImage.OriginalFileName,
@@ -22,10 +22,10 @@ SELECT
     primaryImage.Height,
     primaryImage.BlurDataUri
 FROM
-    dbo.ShopItemAndSeriesJunction AS junction
-    JOIN dbo.ShopItems AS shopItem ON shopItem.Id = junction.ShopItemId
-    JOIN dbo.ShopItemTypes AS shopItemType ON shopItemType.Id = shopItem.ShopItemTypeId
-    LEFT JOIN dbo.ShopItemImages AS primaryImage ON primaryImage.ShopItemId = shopItem.Id
+    dbo.ArtworkAndSeriesJunction AS junction
+    JOIN dbo.Artworks AS artwork ON artwork.Id = junction.ArtworkId
+    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Id = artwork.ArtworkTypeId
+    LEFT JOIN dbo.ArtworkImages AS primaryImage ON primaryImage.ArtworkId = artwork.Id
     AND primaryImage.IsPrimary = 1
 WHERE
     junction.SeriesId = @Id

@@ -10,10 +10,10 @@ SELECT
         SELECT
             COUNT(*)
         FROM
-            dbo.ShopItemAndSeriesJunction AS junction
+            dbo.ArtworkAndSeriesJunction AS junction
         WHERE
             junction.SeriesId = series.Id
-    ) AS ShopItemCount,
+    ) AS ArtworkCount,
     cover.RelativePath AS CoverRelativePath,
     cover.OriginalFileName AS CoverOriginalFileName,
     cover.Width AS CoverWidth,
@@ -31,9 +31,9 @@ FROM
             primaryImage.Height,
             primaryImage.BlurDataUri
         FROM
-            dbo.ShopItemAndSeriesJunction AS junction
-            -- an inner join, so shop items with no images can't become the cover
-            JOIN dbo.ShopItemImages AS primaryImage ON primaryImage.ShopItemId = junction.ShopItemId
+            dbo.ArtworkAndSeriesJunction AS junction
+            -- an inner join, so artworks with no images can't become the cover
+            JOIN dbo.ArtworkImages AS primaryImage ON primaryImage.ArtworkId = junction.ArtworkId
             AND primaryImage.IsPrimary = 1
         WHERE
             junction.SeriesId = series.Id

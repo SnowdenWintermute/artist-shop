@@ -9,10 +9,15 @@ form talk through hidden inputs inside the existing `<EditForm>`.
 
 ## Where this stands — 2026-09-16
 
-**Next session starts at step 10, the artwork restructure** (planned 2026-09-16, nothing built). It
-comes before "Edit painting" in step 9, which is paused and becomes "Edit artwork". 74 tests pass.
-Everything through series admin is committed (`0981542`); `DisabledUntilInteractive` and the island
-changes around it are not committed yet, so commit them before starting step 10.
+**Next session starts at step 10's "Work type admin"** (the next unchecked box in its build order).
+`ShopItem` is now `Artwork` with artist-defined types, predefined per-type fields and products;
+schema, procedures and C# are done and 80 tests pass. Commits stop at `0981542` (series admin):
+the `DisabledUntilInteractive` work and all of step 10 are uncommitted. `wwwroot/app.css` is now
+gitignored and untracked, so the next commit shows it deleted.
+
+**Before running `dev.sh`:** drop the dev database, which still has the old schema:
+`source .env && docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "DROP DATABASE IF EXISTS ArtistShop;"`
+Running a schema script through `sqlcmd` by hand needs `-I`, or the filtered indexes fail.
 
 Done 2026-09-15, all in step 9:
 - **Series admin**, steps 1-5 of its build order: series hold any shop item type, the artist orders both
@@ -483,8 +488,15 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
   `ArtworkTypeAndArtworkFieldsJunction`. A `CHECK` can't read another table, so `AddArtwork` (and
   later `UpdateArtwork`) `THROW`s when a value is given for a field its type doesn't have; that
   error becomes `CatalogChangedException` like 50001-50009.
-- Starting field list, to prune: date created, description, dimensions (width and height, both or
-  neither), depth, duration. Decide whether description is a field or always on.
+- Fields (decided 2026-09-16): 1 Date created, 2 Height and width, 3 Depth, 4 Duration. Description
+  is always on. Height and width are one switch because neither is any use alone. Depth requires
+  height and width: `ArtworkFields.RequiresArtworkFieldId` (a field with no requirement names
+  itself), copied into the junction under a foreign key, plus a foreign key from the junction to
+  its own (type, required field) row. The database refuses depth without height and width, and
+  refuses removing height and width while depth is on (547). The column is `NOT NULL` on purpose:
+  a foreign key with a NULL column isn't checked, which let a NULL copy skip the rule. The type
+  admin should show Depth nested under Height and width. Measurements are ordered height x width x
+  depth everywhere, as galleries list them.
 
 **Decided 2026-09-16, selling and navigation:**
 - **`Price`/`Stock` leave `Artworks`.** `ProductKinds` and `Products` (see the section below) are
@@ -494,13 +506,21 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
   kind, label, price and stock. Most of the time the artist adds the original and its price
   together with the artwork, so products aren't a separate form; the edit page is where the rest
   get set up.
-- **Sold originals.** A one-of-a-kind product with stock 0 shows as "Sold" on the public page, and
-  must stay 0 when the edit form is saved. In the products island, a one-of-a-kind row's stock is
-  limited to 0 or 1 (for sale or sold) instead of a free number. The CSV import and the add form
-  can mark an original as sold, which creates the original product with stock 0.
-- **The Original kind is built in** (decided 2026-09-16): seeded, renamable, not deletable, marked
-  by a flag with a filtered unique index so only one kind has it. The import's "sold" column and
-  the add form's sold choice create a product of this kind.
+- **Sold originals.** An edition-size-1 product with stock 0 must stay 0 when the edit form is
+  saved. In the products island, a row with edition size 1 shows stock as for sale / sold instead
+  of a number; otherwise stock is a number no higher than the edition size.
+- **Edition size replaces one-of-a-kind** (decided 2026-09-16, replacing an `IsOneOfAKind` flag on
+  the kind and an earlier "built-in Original"). `Products.EditionSize` is how many were ever made:
+  `NULL` = open, restock freely (postcards, open prints); `N` = limited, never more than N (casts,
+  limited prints); `1` = one of a kind. Kinds are plain names, seeded Original, Print and Postcard,
+  and an unused kind can be deleted. The public page shows "Sold" for edition size 1 at stock 0,
+  "Sold out" for others at 0, and "Edition of 10, 3 left". The CSV import page asks which kind
+  "sold" rows become; they get edition size 1 and stock 0.
+- **Dropped: at most one original per artwork.** Nothing marks a product as "the original" now,
+  and `WHERE EditionSize = 1` would forbid a painting plus a one-off monoprint.
+- **Refilling stock is allowed** (decided 2026-09-16). The only rule is `Stock <= EditionSize`.
+  The artist edits stock by hand for private and gallery sales, and could always add a new
+  product with full stock anyway, so nothing checks stock against past sales.
 - **A sold product may have no price** (decided 2026-09-16):
   `CHECK (Price IS NOT NULL OR Stock = 0)`. Putting it back up for sale then requires a price.
 - **Ways to the edit page:** an "Edit" link on the public page for logged-in admins, and "Edit it"
@@ -516,17 +536,31 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
   term, name, has images, for sale?), sorting, and paging.
 
 **Build order.**
-- [ ] Schema: rewrite `0001`/`0002` as above plus `ProductKinds` and `Products`, drop the database
-- [ ] Procedures: rename and rewrite (`AddArtwork`, `ResolveArtworkSlug`, the series and vocabulary
-      procedures' columns). `GetArtworkBySlug` looks up the id and `EXEC`s a new `GetArtworkById`,
-      whose result sets pass straight through, so the SELECTs are written once
-- [ ] C#: `ShopItem*` records → `Artwork*`; `Painting` is removed and `Artwork` is concrete;
-      repositories, `CatalogLimits`, tests. `CatalogTestData` seeds a type instead of assuming id 1
+- [x] Schema (2026-09-16): `0001` rewritten, `0002` renamed to `ArtworkImageList`, new `0004`
+      `ProductList`. Checked on a scratch database. **Databases not dropped yet**; drop them once the
+      C# compiles. Fields seeded: 1 date created, 2 dimensions (depth optional inside it),
+      3 duration; description is always on. Painting, Photograph and Sculpture start with 1 and 2
+- [x] Procedures (2026-09-16): `ShopItems/` → `Artworks/`, everything renamed, checked on a
+      scratch database. `AddArtwork` takes `@ArtworkTypeId`, the new columns and `@Products`, and
+      throws 50010 (type gone), 50011 (a field switched off), 50012 (product kind gone).
+      `GetArtworkBySlug` `EXEC`s `GetArtworkById`, which returns artwork (with type id and name),
+      images, series, terms, products. `UpdateArtwork` and the work type admin procedures come
+      with their own steps
+- [x] C# (2026-09-16): `ShopItem*` → `Artwork*` everywhere; `Painting` removed, `Artwork` is concrete
+      with its type and products; `ArtworkRepository` (`AddAsync`, `GetByIdAsync`, `GetBySlugAsync`)
+      maps 50001/50009-50012 to `CatalogChangedException`; `ProductKindRepository` + `GetProductKinds`;
+      `ArtworkField` enum; `Product`/`ProductAddition` in `Domain/Commerce`. 77 tests pass.
+      Interim state until the later steps:
+      - `/admin/catalog/artworks/add?type={id}` (dashboard links one per type) renders only the
+        type's fields (`GetArtworkTypeFields`) and clears posted values for fields switched off
+        meanwhile. It has no duration input yet and sends no products, so there is no price entry
+        until the products island. 80 tests pass
+      - public page is `/artworks/{slug}`; the public nav's "Paintings" page is still the placeholder
 - [ ] Work type admin under `/admin/catalog/types`: add, rename, delete when unused, and tick the
       type's fields. Vocabularies keep ticking their types on the vocabulary page
-- [ ] Products island: rows with kind, label, price and stock; for one-of-a-kind kinds, stock is
-      for sale (1) or sold (0).
-      The page passes the kinds (with their flag) as a record-wrapped list, per the island parameter rule
+- [ ] Products island: rows with kind, label, price, edition size and stock; with edition size 1,
+      stock is for sale (1) or sold (0).
+      The page passes the kinds as a record-wrapped list, per the island parameter rule
 - [ ] Add artwork: the artist picks the type first, then `/admin/catalog/artworks/add?type={id}`.
       The static page renders only that type's fields and vocabularies, so no island has to react
       to a type dropdown. `TermAndSeriesPickers` takes the type id instead of assuming paintings.
@@ -557,17 +591,10 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
 
 Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
 - **`Products`**: `Id`, `ArtworkId` → `Artworks`, `ProductKindId`, `Label` ("A4", "A3"), `Price`,
-  `Stock`. Cart lines reference `ProductId`. An artwork with no products can be viewed but not
-  bought. Rejected: a cart line pointing at "an artwork, print or postcard" by kind + id, because
-  that id can't have a foreign key.
-- **Product kinds**: artist-defined, seeded with Original, Print and Postcard, like work types.
-  Behaviour differences are flags on the kind that we define, for example `IsOneOfAKind` (and
-  maybe `IsDigital` later). The flag is copied into `Products` under a composite foreign key
-  `(ProductKindId, IsOneOfAKind)`, so `CHECK (IsOneOfAKind = 0 OR Stock <= 1)` and a unique index
-  filtered on `IsOneOfAKind = 1` over `ArtworkId` can enforce "one original, at most one in stock".
-  A kind's flag can't change once products use it.
-- **Editions** (bronze casts, original prints, limited photographs) are real multiple originals, so
-  they're their own kind with stock = edition size. Tracking which number sold (3/8) comes later.
+  `EditionSize`, `Stock`. Cart lines reference `ProductId`. An artwork with no products can be
+  viewed but not bought. Rejected: a cart line pointing at "an artwork, print or postcard" by kind
+  + id, because that id can't have a foreign key. Edition size rules are in "Decided" above.
+- Tracking which number of an edition sold (3/10) comes later.
 - **Order lines are snapshots**: artwork name, kind name, label, unit price and quantity are
   copied, plus a nullable `ProductId` with `ON DELETE SET NULL`. Renames, price changes and
   deletions then can't rewrite history. The order copies the shipping address and totals too.

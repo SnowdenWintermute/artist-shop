@@ -7,7 +7,7 @@ XACT_ABORT ON;
 
 BEGIN TRANSACTION;
 
-DELETE FROM dbo.ShopItemAndVocabularyTermsJunction
+DELETE FROM dbo.ArtworkAndVocabularyTermsJunction
 WHERE
     VocabularyId = @Id;
 
@@ -15,7 +15,7 @@ DELETE FROM dbo.VocabularyTerms
 WHERE
     VocabularyId = @Id;
 
-DELETE FROM dbo.VocabularyAndShopItemTypesJunction
+DELETE FROM dbo.VocabularyAndArtworkTypesJunction
 WHERE
     VocabularyId = @Id;
 

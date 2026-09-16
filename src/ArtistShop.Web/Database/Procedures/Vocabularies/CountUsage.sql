@@ -10,13 +10,13 @@ WHERE
     VocabularyId = @Id;
 
 SELECT
-    ShopItemTypeId,
-    COUNT(DISTINCT ShopItemId) AS ShopItemCount
+    ArtworkTypeId,
+    COUNT(DISTINCT ArtworkId) AS ArtworkCount
 FROM
-    dbo.ShopItemAndVocabularyTermsJunction AS junction
+    dbo.ArtworkAndVocabularyTermsJunction AS junction
 WHERE
     junction.VocabularyId = @Id
 GROUP BY
-    junction.ShopItemTypeId;
+    junction.ArtworkTypeId;
 
 END;

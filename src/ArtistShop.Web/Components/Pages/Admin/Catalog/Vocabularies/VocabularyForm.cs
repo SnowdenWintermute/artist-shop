@@ -8,20 +8,20 @@ namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Vocabularies;
 
 public class VocabularyForm
 {
-    private readonly HashSet<ShopItemTypeId> _shopItemTypeIds;
+    private readonly HashSet<ArtworkTypeId> _artworkTypeIds;
     private readonly string? _savedName;
-    private readonly HashSet<ShopItemTypeId> _savedShopItemTypeIds;
+    private readonly HashSet<ArtworkTypeId> _savedArtworkTypeIds;
 
     // for errors only the database can find, like a duplicate name
     private readonly ValidationMessageStore _serverMessages;
 
     // @QUESTION what is this? look like anonymous field of the same type as the parent class? or this is the constructor declared below some fields?
-    private VocabularyForm(string? name, IEnumerable<ShopItemTypeId> shopItemTypeIds)
+    private VocabularyForm(string? name, IEnumerable<ArtworkTypeId> artworkTypeIds)
     {
         Name = name;
         _savedName = name;
-        _shopItemTypeIds = [.. shopItemTypeIds];
-        _savedShopItemTypeIds = [.. shopItemTypeIds];
+        _artworkTypeIds = [.. artworkTypeIds];
+        _savedArtworkTypeIds = [.. artworkTypeIds];
 
         EditContext = new EditContext(this);
         _serverMessages = new ValidationMessageStore(EditContext);
@@ -32,8 +32,8 @@ public class VocabularyForm
 
     public static VocabularyForm ForNew() => new(null, []);
 
-    public static VocabularyForm ForExisting(VocabularyWithShopItemTypes vocabulary) =>
-        new(vocabulary.Name.Value, vocabulary.ShopItemTypeIds);
+    public static VocabularyForm ForExisting(VocabularyWithArtworkTypes vocabulary) =>
+        new(vocabulary.Name.Value, vocabulary.ArtworkTypeIds);
 
     public EditContext EditContext { get; }
 
@@ -41,22 +41,22 @@ public class VocabularyForm
     [StringLength(CatalogLimits.VocabularyNameMaximumLength)]
     public string? Name { get; set; }
 
-    public IReadOnlySet<ShopItemTypeId> ShopItemTypeIds => _shopItemTypeIds;
+    public IReadOnlySet<ArtworkTypeId> ArtworkTypeIds => _artworkTypeIds;
 
     public bool HasChanges =>
-        Name != _savedName || !_shopItemTypeIds.SetEquals(_savedShopItemTypeIds);
+        Name != _savedName || !_artworkTypeIds.SetEquals(_savedArtworkTypeIds);
 
-    public void ToggleShopItemType(ShopItemTypeId shopItemTypeId)
+    public void ToggleArtworkType(ArtworkTypeId artworkTypeId)
     {
-        if (!_shopItemTypeIds.Remove(shopItemTypeId))
+        if (!_artworkTypeIds.Remove(artworkTypeId))
         {
-            _shopItemTypeIds.Add(shopItemTypeId);
+            _artworkTypeIds.Add(artworkTypeId);
         }
     }
 
-    public bool WasUnselected(ShopItemTypeId shopItemTypeId) =>
-        _savedShopItemTypeIds.Contains(shopItemTypeId)
-        && !_shopItemTypeIds.Contains(shopItemTypeId);
+    public bool WasUnselected(ArtworkTypeId artworkTypeId) =>
+        _savedArtworkTypeIds.Contains(artworkTypeId)
+        && !_artworkTypeIds.Contains(artworkTypeId);
 
     public void AddNameTakenError(string name)
     {

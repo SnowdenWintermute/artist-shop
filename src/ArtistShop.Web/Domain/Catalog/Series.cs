@@ -1,4 +1,3 @@
-using ArtistShop.Web.Domain.Commerce;
 
 namespace ArtistShop.Web.Domain.Catalog;
 
@@ -13,26 +12,26 @@ public record SeriesSlug(string Value)
 
 public record Series(SeriesId Id, SeriesName Name, SeriesSlug Slug);
 
-// Cover is null when no shop item in the series has an image
+// Cover is null when no artwork in the series has an image
 public record SeriesWithCover(
     SeriesId Id,
     SeriesName Name,
     SeriesSlug Slug,
-    int ShopItemCount,
-    ShopItemImage? Cover
+    int ArtworkCount,
+    ArtworkImage? Cover
 );
 
-public record SeriesShopItem(
-    ShopItemId Id,
-    ShopItemName Name,
-    ShopItemTypeName ShopItemTypeName,
+public record SeriesArtwork(
+    ArtworkId Id,
+    ArtworkName Name,
+    ArtworkTypeName ArtworkTypeName,
     bool IsCover,
-    ShopItemImage? PrimaryImage
+    ArtworkImage? PrimaryImage
 );
 
-public record SeriesWithShopItems(
+public record SeriesWithArtworks(
     SeriesId Id,
     SeriesName Name,
     SeriesSlug Slug,
-    IReadOnlyList<SeriesShopItem> ShopItems
+    IReadOnlyList<SeriesArtwork> Artworks
 );

@@ -1,8 +1,21 @@
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Identity
 @using Microsoft.AspNetCore.Authorization
 @page "/admin"
+@inject ArtworkTypeRepository ArtworkTypeRepository
 
 @attribute [Authorize(Roles = RoleNames.Admin)]
+
+@code {
+  private List<ArtworkType> _artworkTypes = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+  }
+}
+
 <div>admins allowed</div>
 
 <nav class="flex flex-col">
@@ -14,8 +27,11 @@
            ActiveClass="underline">
     Series
   </NavLink>
-  <NavLink class="font-sans text-xl text-theme-base hover:text-theme-hovered" href="/admin/catalog/paintings/add-single"
-           ActiveClass="underline">
-    Paintings
-  </NavLink>
+  @foreach (var artworkType in _artworkTypes)
+  {
+    <NavLink class="font-sans text-xl text-theme-base hover:text-theme-hovered"
+             href="@($"/admin/catalog/artworks/add?type={artworkType.Id.Value}")">
+      Add a @artworkType.Name.Value.ToLower()
+    </NavLink>
+  }
 </nav>
