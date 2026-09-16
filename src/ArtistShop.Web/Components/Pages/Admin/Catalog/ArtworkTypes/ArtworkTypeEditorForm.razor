@@ -1,0 +1,151 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkFieldDefinition> FieldDefinitions { get; set; } = default!;
+
+  // null when creating
+  [Parameter]
+  public LoadedArtworkType? Loaded { get; set; }
+
+  private ArtworkTypeForm _form = ArtworkTypeForm.ForNew();
+  private bool _isSaving;
+  private bool _justSaved;
+  private bool _switchOffDialogOpen;
+  private bool _deleteDialogOpen;
+
+  // after a save, Refresh re-renders the page, which passes the saved values back in here
+  protected override void OnParametersSet() =>
+    _form = Loaded is null ? ArtworkTypeForm.ForNew() : ArtworkTypeForm.ForExisting(Loaded.ArtworkType);
+
+  private List<ArtworkFieldDefinition> SwitchedOffFieldsInUse =>
+    Loaded is null
+      ? []
+      : [.. FieldDefinitions.Where(definition =>
+          _form.WasSwitchedOff(definition.Field) && Loaded.ArtworkCounts.WithValueIn(definition.Field) > 0)];
+
+  private void ToggleField(ArtworkFieldDefinition definition) => _form.ToggleField(definition, FieldDefinitions);
+
+  private async Task HandleValidSubmit()
+  {
+    if (SwitchedOffFieldsInUse.Count > 0)
+    {
+      _switchOffDialogOpen = true;
+      return;
+    }
+
+    await SaveAsync();
+  }
+
+  private async Task SaveAsync()
+  {
+    _isSaving = true;
+
+    try
+    {
+      var name = _form.ToArtworkTypeName();
+
+      if (Loaded is null)
+      {
+        var id = await ArtworkTypeRepository.AddAsync(name, _form.Fields);
+        NavigationManager.NavigateTo($"/admin/catalog/types/{id.Value}/edit");
+        return;
+      }
+
+      await ArtworkTypeRepository.UpdateAsync(Loaded.ArtworkType.Id, name, _form.Fields);
+      _justSaved = true;
+      NavigationManager.Refresh();
+    }
+    catch (NameAlreadyInUseException exception)
+    {
+      _form.AddNameTakenError(exception.Name);
+    }
+    catch (CatalogChangedException)
+    {
+      // deleted in another tab; the reloaded page says so
+      NavigationManager.Refresh();
+    }
+    finally
+    {
+      _isSaving = false;
+      _switchOffDialogOpen = false;
+    }
+  }
+
+  private async Task DeleteAsync(LoadedArtworkType loaded)
+  {
+    _isSaving = true;
+
+    try
+    {
+      await ArtworkTypeRepository.DeleteAsync(loaded.ArtworkType.Id);
+      NavigationManager.NavigateTo("/admin/catalog/types/new");
+    }
+    catch (CatalogChangedException)
+    {
+      // artworks were added in another tab; the reloaded page shows the count
+      NavigationManager.Refresh();
+    }
+    finally
+    {
+      _isSaving = false;
+      _deleteDialogOpen = false;
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+
+    <TextField Label="Name" @bind-Value="_form.Name" />
+    <ArtworkFieldCheckboxes FieldDefinitions="FieldDefinitions" Selected="_form.Fields" OnToggle="ToggleField" />
+
+    @if (_justSaved && !_form.HasChanges)
+    {
+      <p class="mb-4 text-green-600">Saved.</p>
+    }
+
+    <div class="flex items-baseline justify-between">
+      <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">
+        @(Loaded is null ? "Create artwork type" : "Save")
+      </ButtonBasic>
+
+      @if (Loaded is { } loaded)
+      {
+        if (loaded.ArtworkCounts.Total > 0)
+        {
+          <p class="text-sm text-gray-500">
+            Used by @loaded.ArtworkCounts.Total artworks, so it can't be deleted.
+          </p>
+        }
+        else
+        {
+          <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@_isSaving"
+                       @onclick="() => _deleteDialogOpen = true">
+            Delete artwork type
+          </ButtonBasic>
+        }
+      }
+    </div>
+  </EditForm>
+
+  @if (Loaded is { } loadedType)
+  {
+    <SwitchOffArtworkFieldsDialog @bind-Open="_switchOffDialogOpen" SwitchedOffFields="SwitchedOffFieldsInUse"
+                                  ArtworkCounts="loadedType.ArtworkCounts" OnConfirm="SaveAsync"
+                                  IsWorking="_isSaving" />
+
+    <ConfirmDialog @bind-Open="_deleteDialogOpen" Title="@($"Delete {loadedType.ArtworkType.Name.Value}?")"
+                   ConfirmLabel="Delete" OnConfirm="() => DeleteAsync(loadedType)" IsWorking="_isSaving">
+      Vocabularies that apply to it stop applying to it.
+    </ConfirmDialog>
+  }
+</DisabledUntilInteractive>

@@ -61,15 +61,15 @@ WHERE
 
 SELECT
     product.Id,
-    product.ProductKindId,
-    productKind.Name AS ProductKindName,
+    product.ProductTypeId,
+    productType.Name AS ProductTypeName,
     product.Label,
     product.Price,
     product.EditionSize,
     product.Stock
 FROM
     dbo.Products AS product
-    JOIN dbo.ProductKinds AS productKind ON productKind.Id = product.ProductKindId
+    JOIN dbo.ProductTypes AS productType ON productType.Id = product.ProductTypeId
 WHERE
     product.ArtworkId = @Id
 ORDER BY

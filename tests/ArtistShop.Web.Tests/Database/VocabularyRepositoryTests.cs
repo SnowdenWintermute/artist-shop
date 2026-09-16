@@ -164,4 +164,23 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
         Assert.Empty(vocabularies.Single(vocabulary => vocabulary.Id == withoutTermsId).Terms);
         Assert.DoesNotContain(vocabularies, vocabulary => vocabulary.Id == notForPaintingsId);
     }
+
+    // the type was deleted in another tab while the vocabulary form was open
+    [Fact]
+    public async Task AddAndUpdateSkipADeletedArtworkType()
+    {
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
+        var deletedTypeId = await _artworkTypes.AddAsync(
+            new ArtworkTypeName($"Type {Guid.NewGuid():n}"),
+            []
+        );
+        await _artworkTypes.DeleteAsync(deletedTypeId);
+
+        var id = await _vocabularies.AddAsync(UniqueName(), [paintingTypeId, deletedTypeId]);
+        await _vocabularies.UpdateAsync(id, UniqueName(), [paintingTypeId, deletedTypeId]);
+
+        var vocabulary = await _vocabularies.GetAsync(id);
+        Assert.NotNull(vocabulary);
+        Assert.Equal([paintingTypeId], vocabulary.ArtworkTypeIds);
+    }
 }

@@ -2,16 +2,16 @@ namespace ArtistShop.Web.Domain.Commerce;
 
 public record ProductId(int Value);
 
-public record ProductKindId(int Value);
+public record ProductTypeId(int Value);
 
-public record ProductKindName(string Value);
+public record ProductTypeName(string Value);
 
-public record ProductKind(ProductKindId Id, ProductKindName Name);
+public record ProductType(ProductTypeId Id, ProductTypeName Name);
 
 // EditionSize is how many were ever made: null means it can always be restocked, 1 means one of a kind
 public record Product(
     ProductId Id,
-    ProductKind Kind,
+    ProductType Type,
     string? Label,
     decimal? Price,
     int? EditionSize,
@@ -19,7 +19,7 @@ public record Product(
 );
 
 public record ProductAddition(
-    ProductKindId KindId,
+    ProductTypeId TypeId,
     string? Label,
     decimal? Price,
     int? EditionSize,

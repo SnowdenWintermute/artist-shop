@@ -7,7 +7,6 @@ XACT_ABORT ON;
 
 BEGIN TRANSACTION;
 
--- @QUESTION can we use this procedure in delete vocabulary?
 DELETE FROM dbo.ArtworkAndVocabularyTermsJunction
 WHERE
     TermId = @Id;

@@ -11,7 +11,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     private readonly SeriesRepository _series = new(database.ConnectionFactory);
     private readonly VocabularyTermRepository _terms = new(database.ConnectionFactory);
     private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
-    private readonly ProductKindRepository _productKinds = new(database.ConnectionFactory);
+    private readonly ProductTypeRepository _productTypes = new(database.ConnectionFactory);
 
     [Fact]
     public async Task NumbersTheSlugWhenItIsTaken()
@@ -60,17 +60,17 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task RejectsADeletedProductKind()
+    public async Task RejectsADeletedProductType()
     {
-        var missingKind = new ProductKindId(int.MaxValue);
+        var missingType = new ProductTypeId(int.MaxValue);
 
         await Assert.ThrowsAsync<CatalogChangedException>(() =>
             _catalog.AddPaintingAsync(
-                $"Stale kind {Guid.NewGuid():n}",
+                $"Stale product type {Guid.NewGuid():n}",
                 termIds: [],
                 seriesIds: [],
                 images: [],
-                products: [new ProductAddition(missingKind, Label: null, 10m, EditionSize: null, 5)],
+                products: [new ProductAddition(missingType, Label: null, 10m, EditionSize: null, 5)],
                 duration: null
             )
         );
@@ -95,9 +95,9 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task ReadsBackTheTypeAndProducts()
     {
-        var kinds = await _productKinds.GetAllAsync();
-        var original = kinds.Single(kind => kind.Name.Value == "Original");
-        var print = kinds.Single(kind => kind.Name.Value == "Print");
+        var productTypes = await _productTypes.GetAllAsync();
+        var original = productTypes.Single(productType => productType.Name.Value == "Original");
+        var print = productTypes.Single(productType => productType.Name.Value == "Print");
 
         var identifiers = await _catalog.AddPaintingAsync(
             $"With products {Guid.NewGuid():n}",
@@ -120,14 +120,14 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
             artwork.Products,
             sold =>
             {
-                Assert.Equal(original, sold.Kind);
+                Assert.Equal(original, sold.Type);
                 Assert.Null(sold.Price);
                 Assert.Equal(1, sold.EditionSize);
                 Assert.Equal(0, sold.Stock);
             },
             openPrint =>
             {
-                Assert.Equal(print, openPrint.Kind);
+                Assert.Equal(print, openPrint.Type);
                 Assert.Equal("A4", openPrint.Label);
                 Assert.Equal(40m, openPrint.Price);
                 Assert.Null(openPrint.EditionSize);
@@ -175,5 +175,43 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
 
         Assert.NotNull(artwork);
         Assert.Equal(dimensions, artwork.Dimensions);
+    }
+
+    private async Task<ArtworkCatalogAddition> PaintingAdditionAsync(string name, IReadOnlyList<SeriesId> seriesIds) =>
+        CatalogTestData.CreatePaintingAddition(
+            await _catalog.GetPaintingTypeIdAsync(),
+            name,
+            termIds: [],
+            seriesIds,
+            images: [],
+            products: [],
+            duration: null
+        );
+
+    [Fact]
+    public async Task AddManyAddsEveryArtwork()
+    {
+        var first = await PaintingAdditionAsync($"Many first {Guid.NewGuid():n}", seriesIds: []);
+        var second = await PaintingAdditionAsync($"Many second {Guid.NewGuid():n}", seriesIds: []);
+
+        var identifiers = await _artworks.AddManyAsync([first, second]);
+
+        Assert.Equal(
+            [first.Name, second.Name],
+            await Task.WhenAll(identifiers.Select(async added => (await _artworks.GetByIdAsync(added.Id))?.Name))
+        );
+    }
+
+    [Fact]
+    public async Task AddManyRollsBackEarlierArtworksWhenALaterOneFails()
+    {
+        var deletedSeriesId = await _catalog.AddSeriesAsync();
+        await _series.DeleteAsync(deletedSeriesId);
+        var first = await PaintingAdditionAsync($"Rolled back {Guid.NewGuid():n}", seriesIds: []);
+        var stale = await PaintingAdditionAsync($"Stale {Guid.NewGuid():n}", seriesIds: [deletedSeriesId]);
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() => _artworks.AddManyAsync([first, stale]));
+
+        Assert.Null(await _artworks.GetBySlugAsync(first.CandidateSlug.Value));
     }
 }

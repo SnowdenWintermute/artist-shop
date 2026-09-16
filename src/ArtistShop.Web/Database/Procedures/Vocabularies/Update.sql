@@ -20,14 +20,12 @@ IF @@ROWCOUNT = 0 THROW 50002,
 1;
 
 -- VocabularyTerms must be removed from Artworks first; the foreign key refuses removing a vocabularyArtworkAssociation that's still in use
--- @QUESTION can we make this a stored procedure and call it from here?
 DELETE vocabularyTermArtworkAssociation
 FROM
     dbo.ArtworkAndVocabularyTermsJunction AS vocabularyTermArtworkAssociation
 WHERE
     vocabularyTermArtworkAssociation.VocabularyId = @Id
     AND NOT EXISTS (
-        -- @QUESTION can this be a CTE
         SELECT
             1
         FROM
@@ -50,13 +48,15 @@ WHERE
             artworkTypeIds.Id = vocabularyArtworkAssociation.ArtworkTypeId
     );
 
+-- the join drops a type deleted in another tab, as in AddVocabulary
 INSERT INTO
     dbo.VocabularyAndArtworkTypesJunction (VocabularyId, ArtworkTypeId)
 SELECT
     @Id,
-    artworkTypeIds.Id
+    artworkType.Id
 FROM
     @ArtworkTypeIds AS artworkTypeIds
+    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Id = artworkTypeIds.Id
 WHERE
     NOT EXISTS (
         SELECT

@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using BlazorBlueprint.Primitives.Services
+@inject ArtworkTypeRepository ArtworkTypeRepository
+
+@code {
+  private List<ArtworkType> _artworkTypes = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+    _artworkTypes = [.. artworkTypes.OrderBy(artworkType => artworkType.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+  }
+}
+
+<div class="mx-auto max-w-[800px] pt-10">
+  <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
+    <NavLink href="/admin/catalog/types/new" ActiveClass="underline">+ New artwork type</NavLink>
+    <div aria-hidden="true" class="pointer-events-none">|</div>
+    @foreach (var artworkType in _artworkTypes)
+    {
+      <SectionNavLink href="@($"/admin/catalog/types/{artworkType.Id.Value}/edit")"
+                      ActivePath="@($"/admin/catalog/types/{artworkType.Id.Value}")" ActiveClass="underline">
+        @artworkType.Name.Value
+      </SectionNavLink>
+    }
+  </nav>
+
+  <div class="bg-white border p-4">
+    @Body
+  </div>
+</div>
+
+@* dialogs portal into this, so it must be interactive; it also keeps the circuit open between artwork type pages *@
+<BbPortalHost @rendermode="InteractiveServer" />

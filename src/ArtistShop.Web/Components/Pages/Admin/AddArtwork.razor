@@ -32,7 +32,7 @@
   private bool _staleChoices;
 
   private ArtworkType? _type;
-  private List<ArtworkField> _fields = [];
+  private IReadOnlyList<ArtworkField> _fields = [];
   private List<VocabularyWithTerms> _vocabularies = [];
   private List<Vocabulary> _vocabulariesWithoutArtworkTypes = [];
   // in the artist's order
@@ -41,15 +41,16 @@
   protected override async Task OnInitializedAsync()
   {
     Input ??= new();
-    _type = (await ArtworkTypeRepository.GetAllAsync()).SingleOrDefault(type => type.Id.Value == TypeIdValue);
+    var typeWithFields = TypeIdValue is int typeId ? await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(typeId)) : null;
 
-    if (_type is null)
+    if (typeWithFields is null)
     {
       NavigationManager.NotFound();
       return;
     }
 
-    _fields = await ArtworkTypeRepository.GetFieldsAsync(_type.Id);
+    _type = new ArtworkType(typeWithFields.Id, typeWithFields.Name);
+    _fields = typeWithFields.Fields;
     Input.ClearFieldsOutside(_fields);
     _vocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
     _vocabulariesWithoutArtworkTypes = await VocabularyRepository.GetAllWithoutArtworkTypesAsync();

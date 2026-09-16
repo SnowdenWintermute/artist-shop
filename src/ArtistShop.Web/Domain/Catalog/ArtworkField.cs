@@ -8,3 +8,9 @@ public enum ArtworkField
     Depth = 3,
     Duration = 4,
 }
+
+// RequiredField is the field itself when it needs no other
+public record ArtworkFieldDefinition(ArtworkField Field, string Name, ArtworkField RequiredField)
+{
+    public bool HasRequirement => RequiredField != Field;
+}

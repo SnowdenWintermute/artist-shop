@@ -64,8 +64,9 @@ SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 builder.Services.AddScoped<ArtworkRepository>();
 builder.Services.AddScoped<SeriesRepository>();
 builder.Services.AddScoped<ArtworkImageRepository>();
+builder.Services.AddScoped<ArtworkFieldRepository>();
 builder.Services.AddScoped<ArtworkTypeRepository>();
-builder.Services.AddScoped<ProductKindRepository>();
+builder.Services.AddScoped<ProductTypeRepository>();
 builder.Services.AddScoped<VocabularyRepository>();
 builder.Services.AddScoped<VocabularyTermRepository>();
 

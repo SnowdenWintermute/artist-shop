@@ -204,7 +204,6 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         );
     }
 
-    // @QUESTION: Why is artwork count on vocabulary repo?
     private sealed class ArtworkCountRow
     {
         public required int ArtworkTypeId { get; init; }

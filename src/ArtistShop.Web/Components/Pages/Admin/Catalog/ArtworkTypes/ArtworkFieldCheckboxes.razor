@@ -1,0 +1,41 @@
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkFieldDefinition> FieldDefinitions { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlySet<ArtworkField> Selected { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback<ArtworkFieldDefinition> OnToggle { get; set; }
+
+  private IEnumerable<ArtworkFieldDefinition> Requiring(ArtworkField field) =>
+    FieldDefinitions.Where(definition => definition.HasRequirement && definition.RequiredField == field);
+
+  // a method returning markup: lets both levels share the checkbox without a separate component
+  private RenderFragment Checkbox(ArtworkFieldDefinition definition, bool isEnabled) =>
+    @<label class="inline-flex items-center gap-2 @(isEnabled ? "cursor-pointer" : "text-gray-400")">
+      <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(definition.Field)"
+             disabled="@(!isEnabled)" @onchange="() => OnToggle.InvokeAsync(definition)" />
+      @definition.Name
+    </label>;
+}
+
+<fieldset class="mb-4">
+  <legend class="mb-1 text-sm">Fields</legend>
+  <p class="mb-2 text-sm text-gray-500">Every artwork has a description.</p>
+  @foreach (var definition in FieldDefinitions.Where(candidate => !candidate.HasRequirement))
+  {
+    <div>
+      @Checkbox(definition, isEnabled: true)
+      @foreach (var dependent in Requiring(definition.Field))
+      {
+        <div class="ml-6">
+          @Checkbox(dependent, isEnabled: Selected.Contains(definition.Field))
+        </div>
+      }
+    </div>
+  }
+</fieldset>
+

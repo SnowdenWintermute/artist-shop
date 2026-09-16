@@ -19,5 +19,7 @@ public static class CatalogLimits
     public const int VocabularyNameMaximumLength = 100;
     public const int VocabularyTermNameMaximumLength = 100;
 
+    public const int ArtworkTypeNameMaximumLength = 50;
+
     public const int SeriesNameMaximumLength = 256;
 }

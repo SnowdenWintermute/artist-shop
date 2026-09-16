@@ -1,0 +1,53 @@
+@page "/admin/catalog/types/new"
+@page "/admin/catalog/types/{Id:int}/edit"
+@layout ArtworkTypeLayout
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject ArtworkFieldRepository ArtworkFieldRepository
+
+@code {
+  [Parameter]
+  public int? Id { get; set; }
+
+  private List<ArtworkFieldDefinition> _fieldDefinitions = [];
+  // null when creating, or when the id doesn't exist
+  private LoadedArtworkType? _loaded;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _fieldDefinitions = await ArtworkFieldRepository.GetAllAsync();
+
+    if (Id is int id)
+    {
+      var artworkTypeId = new ArtworkTypeId(id);
+      var artworkType = await ArtworkTypeRepository.GetAsync(artworkTypeId);
+
+      if (artworkType is not null)
+      {
+        _loaded = new LoadedArtworkType(artworkType, await ArtworkTypeRepository.CountArtworksAsync(artworkTypeId));
+      }
+    }
+  }
+}
+
+<PageTitle>@(_loaded is null ? "New artwork type" : _loaded.ArtworkType.Name.Value)</PageTitle>
+
+@if (Id is not null && _loaded is null)
+{
+  <p>This artwork type doesn't exist. It may have been deleted.</p>
+}
+else
+{
+  <h1 class="mb-4 text-xl">@(_loaded is null ? "New artwork type" : $"Edit {_loaded.ArtworkType.Name.Value}")</h1>
+  <p class="mb-4 text-sm text-gray-500">
+    Choose which <a class="underline" href="/admin/catalog/vocabularies/new">vocabularies</a> apply to a type on each
+    vocabulary's page.
+  </p>
+
+  @* @key: a different type gets a fresh island rather than inheriting this one's state *@
+  <ArtworkTypeEditorForm @rendermode="InteractiveServer" @key="Id" FieldDefinitions="_fieldDefinitions" Loaded="_loaded" />
+}

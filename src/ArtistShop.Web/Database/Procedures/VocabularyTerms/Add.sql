@@ -4,9 +4,7 @@ SET
 NOCOUNT ON;
 
 INSERT INTO
-    dbo.VocabularyTerms (VocabularyId, Name)
-    -- @QUESTION is INSERTED a keyword that means "Give back a table of the ids"
-    OUTPUT INSERTED.Id
+    dbo.VocabularyTerms (VocabularyId, Name) OUTPUT INSERTED.Id
 VALUES
     (@VocabularyId, @Name);
 

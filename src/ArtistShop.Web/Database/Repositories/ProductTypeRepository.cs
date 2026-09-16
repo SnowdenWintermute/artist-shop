@@ -4,26 +4,26 @@ using System.Data;
 using ArtistShop.Web.Domain.Commerce;
 using Dapper;
 
-public class ProductKindRepository(SqlConnectionFactory connectionFactory)
+public class ProductTypeRepository(SqlConnectionFactory connectionFactory)
 {
-    public async Task<List<ProductKind>> GetAllAsync()
+    public async Task<List<ProductType>> GetAllAsync()
     {
         await using var connection = connectionFactory.Create();
 
-        var rows = await connection.QueryAsync<ProductKindRow>(
-            "dbo.GetProductKinds",
+        var rows = await connection.QueryAsync<ProductTypeRow>(
+            "dbo.GetProductTypes",
             commandType: CommandType.StoredProcedure
         );
         return
         [
-            .. rows.Select(row => new ProductKind(
-                new ProductKindId(row.Id),
-                new ProductKindName(row.Name)
+            .. rows.Select(row => new ProductType(
+                new ProductTypeId(row.Id),
+                new ProductTypeName(row.Name)
             )),
         ];
     }
 
-    private sealed class ProductKindRow
+    private sealed class ProductTypeRow
     {
         public required int Id { get; init; }
         public required string Name { get; init; }

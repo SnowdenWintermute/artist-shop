@@ -162,12 +162,12 @@ IF EXISTS (
             SELECT
                 1
             FROM
-                dbo.ProductKinds AS productKind
+                dbo.ProductTypes AS productType
             WHERE
-                productKind.Id = product.ProductKindId
+                productType.Id = product.ProductTypeId
         )
 ) THROW 50012,
-'A chosen product kind no longer exists.',
+'A chosen product type no longer exists.',
 1;
 
 DECLARE @Slug nvarchar(210) = dbo.ResolveArtworkSlug (@CandidateSlug);
@@ -267,10 +267,10 @@ FROM
     @SeriesIds AS seriesIds;
 
 INSERT INTO
-    dbo.Products (ArtworkId, ProductKindId, Label, Price, EditionSize, Stock)
+    dbo.Products (ArtworkId, ProductTypeId, Label, Price, EditionSize, Stock)
 SELECT
     @Id,
-    ProductKindId,
+    ProductTypeId,
     Label,
     Price,
     EditionSize,

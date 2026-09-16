@@ -101,23 +101,40 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
         TimeSpan? duration
     )
     {
-        var identifiers = await _artworks.AddAsync(
-            new ArtworkCatalogAddition(
+        return await _artworks.AddAsync(
+            CreatePaintingAddition(
                 await GetPaintingTypeIdAsync(),
-                new ArtworkName(name),
-                ArtworkSlug.FromName(name),
-                Description: null,
-                DateCreated: null,
-                Dimensions: null,
-                Duration: duration,
-                Images: images,
-                MainImageIndex: 0,
-                VocabularyTermIds: termIds,
-                SeriesIds: seriesIds,
-                Products: products
+                name,
+                termIds,
+                seriesIds,
+                images,
+                products,
+                duration
             )
         );
-
-        return identifiers;
     }
+
+    public static ArtworkCatalogAddition CreatePaintingAddition(
+        ArtworkTypeId paintingTypeId,
+        string name,
+        IReadOnlyList<VocabularyTermId> termIds,
+        IReadOnlyList<SeriesId> seriesIds,
+        IReadOnlyList<ArtworkImage> images,
+        IReadOnlyList<ProductAddition> products,
+        TimeSpan? duration
+    ) =>
+        new(
+            paintingTypeId,
+            new ArtworkName(name),
+            ArtworkSlug.FromName(name),
+            Description: null,
+            DateCreated: null,
+            Dimensions: null,
+            Duration: duration,
+            Images: images,
+            MainImageIndex: 0,
+            VocabularyTermIds: termIds,
+            SeriesIds: seriesIds,
+            Products: products
+        );
 }

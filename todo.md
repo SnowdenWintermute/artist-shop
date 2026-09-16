@@ -7,17 +7,34 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-16
+## Where this stands — 2026-09-16, end of session
 
-**Next session starts at step 10's "Work type admin"** (the next unchecked box in its build order).
-`ShopItem` is now `Artwork` with artist-defined types, predefined per-type fields and products;
-schema, procedures and C# are done and 80 tests pass. Commits stop at `0981542` (series admin):
-the `DisabledUntilInteractive` work and all of step 10 are uncommitted. `wwwroot/app.css` is now
-gitignored and untracked, so the next commit shows it deleted.
+**Next session starts at step 9's CSV import build order**: the drop zone split, then the import page.
+Everything below is uncommitted on top of `b89c3c8`; 132 tests pass; nothing from this session has
+been checked in a browser.
 
-**Before running `dev.sh`:** drop the dev database, which still has the old schema:
+**Before running `dev.sh`:** drop the dev database. `0001` changed (`ProductKinds` became
+`ProductTypes`), and DbUp won't rerun a script it already recorded:
 `source .env && docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "DROP DATABASE IF EXISTS ArtistShop;"`
 Running a schema script through `sqlcmd` by hand needs `-I`, or the filtered indexes fail.
+
+Done 2026-09-16:
+- **Work type admin** (step 10): `/admin/catalog/types/new` and `/{id}/edit` in
+  `Catalog/ArtworkTypes/`, like the vocabulary editor. Field checkboxes come from `ArtworkFields`
+  (`ArtworkFieldRepository`), Depth nested under Height and width. Switching a field off clears its
+  values on the type's artworks after a confirm dialog. Delete only when unused (50014); a type
+  deleted before a save is 50013. `DeleteArtworkType` locks the type row first, the same order as
+  `AddArtwork`. Dashboard link "Artwork types".
+- **Vocabularies skip a deleted type** instead of failing the foreign key (a join in
+  `AddVocabulary`/`UpdateVocabulary`).
+- **Review cleanups:** `Components/Forms/ServerValidatedForm` is the base of the four form classes
+  that show database errors; `CatalogLayout` renamed `VocabularyLayout`; `AddArtwork.razor` loads its
+  type with `ArtworkTypeRepository.GetAsync` (the `GetArtworkTypeFields` procedure is gone).
+- **`ProductKind` renamed `ProductType`** everywhere (tables, procedures, C#).
+- **CSV import started** (step 9): the decisions of 2026-09-16, `Imports/CsvTable` over Sylvan,
+  the planner, and `ArtworkRepository.AddManyAsync` (one transaction; tested rollback).
+- Not done, noted: "Used by N artworks" on the type page should link to the future admin artworks
+  list (step 10's last item).
 
 Done 2026-09-15, all in step 9:
 - **Series admin**, steps 1-5 of its build order: series hold any shop item type, the artist orders both
@@ -258,6 +275,63 @@ uploads a folder of images, and each image's file name (without its extension) i
       - Blank rows skipped, every cell trimmed, file read as UTF-8
       - Photographs and sculptures are their own item types, so their rows leave `paintings.csv`
       - `catalogueNumber` is unused
+
+      **Decided 2026-09-16, after profiling `paintings.csv`:**
+      - **One row per artwork, never merged.** The export is an old shape: one row per series
+        membership (39 titles appear twice, differing only in series). The artist puts all series in
+        one `;`-separated cell. Two rows with the same title in one file are both skipped and listed,
+        like a title already in the catalog.
+      - **Sample files:** `paintings.csv` stays as it is, as the invalid sample (old shape,
+        `catalogueNumber`, sculpture rows). Mike makes a valid copy, and sculptures go in their own
+        spreadsheet.
+      - **Products: the page asks for a product type and a "one of a kind" checkbox.** The switch is on
+        edition size, not on the type, the same rule the products island uses:
+        - ticked: edition size 1, and `sold` decides stock (0 sold, 1 not); `editionSize`/`stock`
+          columns are errors
+        - unticked: `editionSize` (blank = open) and `stock` required; `sold` is an error
+        - no price and not sold: no product, so viewable but not buyable. A sold row may have no price
+          (sold long ago, price unknown)
+      - **No auto-created terms or series.** Typos would make near-duplicate terms, and guessing which
+        columns are vocabularies would be guessing. Unknown names are errors with row numbers; name
+        comparison already ignores capitals.
+      - **Check, then confirm.** The upload shows a review (rows to add, skipped rows, errors and
+        warnings) and changes nothing. The review page carries the CSV text in a hidden field;
+        confirming posts it back and the server checks it again before importing, so an edited field
+        is harmless and nothing is stored or swept. If the result differs from the review, show the
+        new review instead. Needs a file size limit. The whole import is one transaction.
+      - **Deferred: what happened to an artwork** (lost, not for sale, gifted, in a collection). That's
+        an artwork status, not a product, and is additive later; artworks with no products are the ones
+        to review then. Decide at that point whether "sold" moves there too, or the product's stock 0
+        and the status would both say it.
+      - **Parser: Sylvan.Data.Csv, chosen 2026-09-16 and hidden behind `Imports/CsvTable`** (the only
+        file that references it; `CsvTableTests` pin the behaviour a replacement must keep: spreadsheet
+        row numbers, quoted commas and line breaks, blank rows skipped, short rows padded, comma-only
+        delimiter, `MalformedCsvException` with a row number). Headers are dynamic (vocabulary names), so
+        class mapping doesn't help. Sylvan.Data.Csv: MIT, 1.4.4 April 2026, `DbDataReader` API.
+
+      **Build order (started 2026-09-16):**
+      - [x] `Imports/CsvTable` over Sylvan
+      - [x] Planner (2026-09-16, never touches the database): `ArtworkImportPlanner.Plan(csvText, settings,
+            snapshot)` returns an `ArtworkImportPlan` (additions with row numbers, skipped rows, errors,
+            `Fingerprint()`). `ArtworkImportColumns` matches the header row, `ArtworkImportRowReader`
+            reads cells, `ArtworkImportCatalogSnapshot.LoadAsync` reads the catalog (new
+            `GetArtworkNames`). Header names are in `ArtworkImportHeaders`: title, description,
+            dateCreated, height, width, depth, duration (h:mm:ss or m:ss), series, price, sold,
+            editionSize, stock; anything else must be a vocabulary for the type. Header problems stop
+            the plan before rows are read. Inches allow 2 decimal places, centimetres 4, prices 2;
+            `sold` is TRUE/FALSE/blank. Skipped rows aren't checked. `RejectsTheOldPaintingsExport`
+            reads `paintings.csv`
+      - [x] `ArtworkRepository.AddManyAsync` (2026-09-16): one connection and transaction, `AddArtwork`
+            per addition (its own BEGIN/COMMIT nest); a stale choice in a later row rolls back the
+            earlier ones (tested). Shares `ExecuteAddAsync` with `AddAsync`
+      - [ ] Split the drop zone's look from its behaviour, for a static file input
+      - [ ] Import page under `/admin/catalog/artworks/import?type={id}`: file, unit, product type, one of a
+            kind, list separator; the review (counts, skipped rows, errors by row and column) carries the
+            CSV text and the plan's fingerprint in hidden fields; confirm re-plans with a fresh snapshot
+            and shows the new review if the fingerprint differs. File size limit. Dashboard link per type CsvHelper is the most
+        used but has had no commit since June 2025. Sep (MIT, active) is pre-1.0, span-based, and
+        leaves quotes in values unless `Unescape = true`. Either way we decode the bytes (BOM) and
+        trim cells ourselves.
 - [x] Schema edits (2026-09-13): nullable `Price`, `DatePainted` + `DatePaintedPrecision` with
       `PartialDate` owning date validation, `decimal(8, 4)` dimensions, and a Year/Month/Day
       `PartialDateField` whose script disables impossible days
@@ -455,7 +529,7 @@ uploads a folder of images, and each image's file name (without its extension) i
       `webkitGetAsEntry()` on the drop zone (currently `.files`, which flattens folders)
 - [ ] Concurrency cap in the upload driver — hundreds of files means queueing 3-4 at a time
 
-## 10. Artwork restructure — NEXT (planned 2026-09-16, nothing built)
+## 10. Artwork restructure — in progress (CSV import in step 9 was taken first, 2026-09-16)
 
 **Why.** A painting is barely different from a sculpture or a photograph: the only real difference
 is which vocabularies apply. The `Paintings` subtype table and the `ShopItem` → `Painting`
@@ -499,22 +573,24 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
   depth everywhere, as galleries list them.
 
 **Decided 2026-09-16, selling and navigation:**
-- **`Price`/`Stock` leave `Artworks`.** `ProductKinds` and `Products` (see the section below) are
+- **Product types, not kinds** (renamed 2026-09-16): `ProductTypes` matches `ArtworkTypes`, and "product
+  type" is the usual shop term; the `Product`/`Artwork` prefix already tells the two apart.
+- **`Price`/`Stock` leave `Artworks`.** `ProductTypes` and `Products` (see the section below) are
   built in this step, not with the cart, so the add form doesn't lose its price.
 - **The add and edit forms have a products section with any number of rows**: an island, like
   `ImagesField`, posting through hidden inputs. A plus button adds a row; each row has a product
-  kind, label, price and stock. Most of the time the artist adds the original and its price
+  type, label, price and stock. Most of the time the artist adds the original and its price
   together with the artwork, so products aren't a separate form; the edit page is where the rest
   get set up.
 - **Sold originals.** An edition-size-1 product with stock 0 must stay 0 when the edit form is
   saved. In the products island, a row with edition size 1 shows stock as for sale / sold instead
   of a number; otherwise stock is a number no higher than the edition size.
 - **Edition size replaces one-of-a-kind** (decided 2026-09-16, replacing an `IsOneOfAKind` flag on
-  the kind and an earlier "built-in Original"). `Products.EditionSize` is how many were ever made:
+  the product type and an earlier "built-in Original"). `Products.EditionSize` is how many were ever made:
   `NULL` = open, restock freely (postcards, open prints); `N` = limited, never more than N (casts,
-  limited prints); `1` = one of a kind. Kinds are plain names, seeded Original, Print and Postcard,
-  and an unused kind can be deleted. The public page shows "Sold" for edition size 1 at stock 0,
-  "Sold out" for others at 0, and "Edition of 10, 3 left". The CSV import page asks which kind
+  limited prints); `1` = one of a kind. Product types are plain names, seeded Original, Print and
+  Postcard, and an unused one can be deleted. The public page shows "Sold" for edition size 1 at stock 0,
+  "Sold out" for others at 0, and "Edition of 10, 3 left". The CSV import page asks which product type
   "sold" rows become; they get edition size 1 and stock 0.
 - **Dropped: at most one original per artwork.** Nothing marks a product as "the original" now,
   and `WHERE EditionSize = 1` would forbid a painting plus a one-off monoprint.
@@ -542,13 +618,13 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       3 duration; description is always on. Painting, Photograph and Sculpture start with 1 and 2
 - [x] Procedures (2026-09-16): `ShopItems/` → `Artworks/`, everything renamed, checked on a
       scratch database. `AddArtwork` takes `@ArtworkTypeId`, the new columns and `@Products`, and
-      throws 50010 (type gone), 50011 (a field switched off), 50012 (product kind gone).
+      throws 50010 (type gone), 50011 (a field switched off), 50012 (product type gone).
       `GetArtworkBySlug` `EXEC`s `GetArtworkById`, which returns artwork (with type id and name),
       images, series, terms, products. `UpdateArtwork` and the work type admin procedures come
       with their own steps
 - [x] C# (2026-09-16): `ShopItem*` → `Artwork*` everywhere; `Painting` removed, `Artwork` is concrete
       with its type and products; `ArtworkRepository` (`AddAsync`, `GetByIdAsync`, `GetBySlugAsync`)
-      maps 50001/50009-50012 to `CatalogChangedException`; `ProductKindRepository` + `GetProductKinds`;
+      maps 50001/50009-50012 to `CatalogChangedException`; `ProductTypeRepository` + `GetProductTypes`;
       `ArtworkField` enum; `Product`/`ProductAddition` in `Domain/Commerce`. 77 tests pass.
       Interim state until the later steps:
       - `/admin/catalog/artworks/add?type={id}` (dashboard links one per type) renders only the
@@ -556,11 +632,11 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
         meanwhile. It has no duration input yet and sends no products, so there is no price entry
         until the products island. 80 tests pass
       - public page is `/artworks/{slug}`; the public nav's "Paintings" page is still the placeholder
-- [ ] Work type admin under `/admin/catalog/types`: add, rename, delete when unused, and tick the
-      type's fields. Vocabularies keep ticking their types on the vocabulary page
-- [ ] Products island: rows with kind, label, price, edition size and stock; with edition size 1,
+- [x] Work type admin under `/admin/catalog/types` (2026-09-16): add, rename, delete when unused, and
+      tick the type's fields. Vocabularies keep ticking their types on the vocabulary page
+- [ ] Products island: rows with product type, label, price, edition size and stock; with edition size 1,
       stock is for sale (1) or sold (0).
-      The page passes the kinds as a record-wrapped list, per the island parameter rule
+      The page passes the product types as a record-wrapped list, per the island parameter rule
 - [ ] Add artwork: the artist picks the type first, then `/admin/catalog/artworks/add?type={id}`.
       The static page renders only that type's fields and vocabularies, so no island has to react
       to a type dropdown. `TermAndSeriesPickers` takes the type id instead of assuming paintings.
@@ -585,16 +661,18 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       - Phase two, separately: editing images
 - [ ] CSV import (step 9) is per work type: the artist picks the type on the import page, and the
       known headers are that type's fields and vocabularies, plus series, price and sold
-- [ ] Later: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page
+- [ ] Later: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page.
+      Once it exists, the artwork type page's "Used by N artworks, so it can't be deleted" should link
+      to it filtered by that type (`ArtworkTypeEditorForm.razor`)
 
 ### Products and orders — tables built in this step; cart and orders come later
 
 Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
-- **`Products`**: `Id`, `ArtworkId` → `Artworks`, `ProductKindId`, `Label` ("A4", "A3"), `Price`,
+- **`Products`**: `Id`, `ArtworkId` → `Artworks`, `ProductTypeId`, `Label` ("A4", "A3"), `Price`,
   `EditionSize`, `Stock`. Cart lines reference `ProductId`. An artwork with no products can be
-  viewed but not bought. Rejected: a cart line pointing at "an artwork, print or postcard" by kind
+  viewed but not bought. Rejected: a cart line pointing at "an artwork, print or postcard" by product type
   + id, because that id can't have a foreign key. Edition size rules are in "Decided" above.
 - Tracking which number of an edition sold (3/10) comes later.
-- **Order lines are snapshots**: artwork name, kind name, label, unit price and quantity are
+- **Order lines are snapshots**: artwork name, product type name, label, unit price and quantity are
   copied, plus a nullable `ProductId` with `ON DELETE SET NULL`. Renames, price changes and
   deletions then can't rewrite history. The order copies the shipping address and totals too.

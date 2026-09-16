@@ -1,0 +1,10 @@
+CREATE OR ALTER PROCEDURE dbo.GetArtworkNames AS BEGIN
+SET
+NOCOUNT ON;
+
+SELECT
+    Name
+FROM
+    dbo.Artworks;
+
+END;

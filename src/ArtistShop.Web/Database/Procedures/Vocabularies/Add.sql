@@ -15,14 +15,16 @@ VALUES
 
 DECLARE @Id int = SCOPE_IDENTITY();
 
--- an unknown type id hits the foreign key and fails with error 547
+-- the join drops a type deleted in another tab while the form was open: nothing is lost,
+-- because no artwork can have that type any more
 INSERT INTO
     dbo.VocabularyAndArtworkTypesJunction (VocabularyId, ArtworkTypeId)
 SELECT
     @Id,
-    artworkTypeIds.Id
+    artworkType.Id
 FROM
-    @ArtworkTypeIds AS artworkTypeIds;
+    @ArtworkTypeIds AS artworkTypeIds
+    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Id = artworkTypeIds.Id;
 
 COMMIT TRANSACTION;
 

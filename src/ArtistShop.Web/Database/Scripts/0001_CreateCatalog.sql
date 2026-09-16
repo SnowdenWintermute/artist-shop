@@ -231,15 +231,15 @@ CREATE UNIQUE INDEX UniqueIndex_ArtworkAndSeriesJunction_Cover ON dbo.ArtworkAnd
 WHERE
     IsCover = 1;
 
-CREATE TABLE dbo.ProductKinds (
+CREATE TABLE dbo.ProductTypes (
     Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_ProductKinds PRIMARY KEY (Id),
+    CONSTRAINT PrimaryKey_ProductTypes PRIMARY KEY (Id),
     Name nvarchar(50) NOT NULL,
-    CONSTRAINT Unique_ProductKinds_Name UNIQUE (Name)
+    CONSTRAINT Unique_ProductTypes_Name UNIQUE (Name)
 );
 
 INSERT INTO
-    dbo.ProductKinds (Name)
+    dbo.ProductTypes (Name)
 VALUES
     (N'Original'),
     (N'Print'),
@@ -250,12 +250,12 @@ CREATE TABLE dbo.Products (
     CONSTRAINT PrimaryKey_Products PRIMARY KEY (Id),
     ArtworkId int NOT NULL,
     CONSTRAINT ForeignKey_Products_Artworks FOREIGN KEY (ArtworkId) REFERENCES dbo.Artworks (Id) ON DELETE CASCADE,
-    ProductKindId int NOT NULL,
-    CONSTRAINT ForeignKey_Products_ProductKinds FOREIGN KEY (ProductKindId) REFERENCES dbo.ProductKinds (Id),
-    -- tells two products of the same kind apart, like "A4" and "A3"
+    ProductTypeId int NOT NULL,
+    CONSTRAINT ForeignKey_Products_ProductTypes FOREIGN KEY (ProductTypeId) REFERENCES dbo.ProductTypes (Id),
+    -- tells two products of the same type apart, like "A4" and "A3"
     Label nvarchar(100),
     -- UNIQUE treats NULLs as equal in SQL Server, so two unlabelled prints of one artwork clash too
-    CONSTRAINT Unique_Products_ArtworkKindLabel UNIQUE (ArtworkId, ProductKindId, Label),
+    CONSTRAINT Unique_Products_ArtworkProductTypeLabel UNIQUE (ArtworkId, ProductTypeId, Label),
     Price decimal(10, 2),
     CONSTRAINT Check_Products_Price CHECK (Price >= 0),
     -- how many were ever made; NULL means it can always be restocked

@@ -13,7 +13,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     private const int SeriesNoLongerExists = 50009;
     private const int ArtworkTypeNoLongerExists = 50010;
     private const int ArtworkFieldSwitchedOff = 50011;
-    private const int ProductKindNoLongerExists = 50012;
+    private const int ProductTypeNoLongerExists = 50012;
 
     private static readonly int[] CatalogChangedErrors =
     [
@@ -21,7 +21,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         SeriesNoLongerExists,
         ArtworkTypeNoLongerExists,
         ArtworkFieldSwitchedOff,
-        ProductKindNoLongerExists,
+        ProductTypeNoLongerExists,
     ];
 
     private static DataTable CreateImageDataTable(ArtworkCatalogAddition artworkCatalogAddition)
@@ -58,7 +58,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     {
         var table = new DataTable();
         // must match dbo.ProductList, in the same order
-        table.Columns.Add("ProductKindId", typeof(int));
+        table.Columns.Add("ProductTypeId", typeof(int));
         table.Columns.Add("Label", typeof(string));
         table.Columns.Add("Price", typeof(decimal));
         table.Columns.Add("EditionSize", typeof(int));
@@ -68,7 +68,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         {
             // a DataTable stores a missing value as DBNull, not null
             table.Rows.Add(
-                product.KindId.Value,
+                product.TypeId.Value,
                 (object?)product.Label ?? DBNull.Value,
                 (object?)product.Price ?? DBNull.Value,
                 (object?)product.EditionSize ?? DBNull.Value,
@@ -81,6 +81,56 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<ArtworkIdentifiers> AddAsync(ArtworkCatalogAddition artworkCatalogAddition)
     {
+        await using var connection = connectionFactory.Create();
+
+        try
+        {
+            return await ExecuteAddAsync(connection, transaction: null, artworkCatalogAddition);
+        }
+        catch (SqlException exception)
+            when (CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number)))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
+    }
+
+    // all or nothing: a failure on any artwork rolls back the ones before it
+    public async Task<List<ArtworkIdentifiers>> AddManyAsync(
+        IReadOnlyList<ArtworkCatalogAddition> artworkCatalogAdditions
+    )
+    {
+        await using var connection = connectionFactory.Create();
+        // Dapper opens a closed connection by itself, but a transaction needs it open first
+        await connection.OpenAsync();
+        await using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            var identifiers = new List<ArtworkIdentifiers>();
+
+            // AddArtwork's own BEGIN and COMMIT nest inside this transaction, so its COMMIT only
+            // counts down; nothing is saved until the CommitAsync below
+            foreach (var artworkCatalogAddition in artworkCatalogAdditions)
+            {
+                identifiers.Add(await ExecuteAddAsync(connection, transaction, artworkCatalogAddition));
+            }
+
+            await transaction.CommitAsync();
+            return identifiers;
+        }
+        catch (SqlException exception)
+            when (CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number)))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
+    }
+
+    private static async Task<ArtworkIdentifiers> ExecuteAddAsync(
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        ArtworkCatalogAddition artworkCatalogAddition
+    )
+    {
         var images = CreateImageDataTable(artworkCatalogAddition);
         var products = CreateProductDataTable(artworkCatalogAddition.Products);
         var seriesIds = IdListParameter.Create(
@@ -91,39 +141,41 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
             artworkCatalogAddition.VocabularyTermIds.Select(id => id.Value)
         );
 
+        var row = await connection.QuerySingleAsync<AddedArtworkRow>(
+            "dbo.AddArtwork",
+            new
+            {
+                ArtworkTypeId = artworkCatalogAddition.TypeId.Value,
+                Name = artworkCatalogAddition.Name.Value,
+                CandidateSlug = artworkCatalogAddition.CandidateSlug.Value,
+                artworkCatalogAddition.Description,
+                DateCreated = artworkCatalogAddition.DateCreated?.Date,
+                DateCreatedPrecision = artworkCatalogAddition.DateCreated?.Precision,
+                HeightCm = artworkCatalogAddition.Dimensions?.Height,
+                WidthCm = artworkCatalogAddition.Dimensions?.Width,
+                DepthCm = artworkCatalogAddition.Dimensions?.Depth,
+                DurationSeconds = (int?)artworkCatalogAddition.Duration?.TotalSeconds,
+                Images = images.AsTableValuedParameter("dbo.ArtworkImageList"),
+                SeriesIds = seriesIds,
+                VocabularyTermIds = vocabularyTermIds,
+                Products = products.AsTableValuedParameter("dbo.ProductList"),
+            },
+            transaction,
+            commandType: CommandType.StoredProcedure
+        );
+
+        return new ArtworkIdentifiers(new ArtworkId(row.Id), new ArtworkSlug(row.Slug));
+    }
+
+    public async Task<List<string>> GetAllNamesAsync()
+    {
         await using var connection = connectionFactory.Create();
 
-        try
-        {
-            var row = await connection.QuerySingleAsync<AddedArtworkRow>(
-                "dbo.AddArtwork",
-                new
-                {
-                    ArtworkTypeId = artworkCatalogAddition.TypeId.Value,
-                    Name = artworkCatalogAddition.Name.Value,
-                    CandidateSlug = artworkCatalogAddition.CandidateSlug.Value,
-                    artworkCatalogAddition.Description,
-                    DateCreated = artworkCatalogAddition.DateCreated?.Date,
-                    DateCreatedPrecision = artworkCatalogAddition.DateCreated?.Precision,
-                    HeightCm = artworkCatalogAddition.Dimensions?.Height,
-                    WidthCm = artworkCatalogAddition.Dimensions?.Width,
-                    DepthCm = artworkCatalogAddition.Dimensions?.Depth,
-                    DurationSeconds = (int?)artworkCatalogAddition.Duration?.TotalSeconds,
-                    Images = images.AsTableValuedParameter("dbo.ArtworkImageList"),
-                    SeriesIds = seriesIds,
-                    VocabularyTermIds = vocabularyTermIds,
-                    Products = products.AsTableValuedParameter("dbo.ProductList"),
-                },
-                commandType: CommandType.StoredProcedure
-            );
-
-            return new ArtworkIdentifiers(new ArtworkId(row.Id), new ArtworkSlug(row.Slug));
-        }
-        catch (SqlException exception)
-            when (CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number)))
-        {
-            throw new CatalogChangedException(exception.Message, exception);
-        }
+        var names = await connection.QueryAsync<string>(
+            "dbo.GetArtworkNames",
+            commandType: CommandType.StoredProcedure
+        );
+        return [.. names];
     }
 
     public Task<Artwork?> GetByIdAsync(ArtworkId id) =>
@@ -173,9 +225,9 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         var products = (await results.ReadAsync<ProductRow>())
             .Select(product => new Product(
                 new ProductId(product.Id),
-                new ProductKind(
-                    new ProductKindId(product.ProductKindId),
-                    new ProductKindName(product.ProductKindName)
+                new ProductType(
+                    new ProductTypeId(product.ProductTypeId),
+                    new ProductTypeName(product.ProductTypeName)
                 ),
                 product.Label,
                 product.Price,
@@ -275,8 +327,8 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     private sealed class ProductRow
     {
         public required int Id { get; init; }
-        public required int ProductKindId { get; init; }
-        public required string ProductKindName { get; init; }
+        public required int ProductTypeId { get; init; }
+        public required string ProductTypeName { get; init; }
         public string? Label { get; init; }
         public decimal? Price { get; init; }
         public int? EditionSize { get; init; }
