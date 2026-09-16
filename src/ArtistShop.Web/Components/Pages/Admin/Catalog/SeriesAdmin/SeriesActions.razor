@@ -33,14 +33,16 @@
   }
 }
 
-<div class="flex gap-2">
-  <ButtonBasic type="button" @onclick="() => _renameDialogOpen = true">Rename</ButtonBasic>
-  <ButtonBasic type="button" Class="text-red-600" @onclick="() => _deleteDialogOpen = true">Delete series</ButtonBasic>
-</div>
+<DisabledUntilInteractive>
+  <div class="flex gap-2">
+    <ButtonBasic type="button" @onclick="() => _renameDialogOpen = true">Rename</ButtonBasic>
+    <ButtonBasic type="button" Class="text-red-600" @onclick="() => _deleteDialogOpen = true">Delete series</ButtonBasic>
+  </div>
 
-<RenameSeriesDialog @bind-Open="_renameDialogOpen" SeriesId="SeriesId" SeriesName="SeriesName" />
+  <RenameSeriesDialog @bind-Open="_renameDialogOpen" SeriesId="SeriesId" SeriesName="SeriesName" />
 
-<ConfirmDialog @bind-Open="_deleteDialogOpen" Title="@($"Delete {SeriesName.Value}?")" ConfirmLabel="Delete"
-               OnConfirm="DeleteAsync" IsWorking="_isDeleting">
-  Its @ShopItemCount artworks stay in the catalog (count as of page load).
-</ConfirmDialog>
+  <ConfirmDialog @bind-Open="_deleteDialogOpen" Title="@($"Delete {SeriesName.Value}?")" ConfirmLabel="Delete"
+                 OnConfirm="DeleteAsync" IsWorking="_isDeleting">
+    Its @ShopItemCount artworks stay in the catalog (count as of page load).
+  </ConfirmDialog>
+</DisabledUntilInteractive>

@@ -9,6 +9,9 @@
   <base href="/" />
   <ResourcePreloader />
   <link rel="stylesheet" href="@AppCssHref" />
+  @* every .razor.css compiles into this one bundle; without it scoped styles are silently ignored.
+     Its fingerprint only moves on a build, which is also the only thing that regenerates it *@
+  <link rel="stylesheet" href="@Assets["ArtistShop.Web.styles.css"]" />
   <ImportMap />
   <link rel="icon" type="image/png" href="favicon.png" />
   <HeadOutlet />

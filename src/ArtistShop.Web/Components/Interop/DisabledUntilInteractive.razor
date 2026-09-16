@@ -1,0 +1,15 @@
+@* Wraps an island's controls so they're disabled until its circuit attaches, instead of looking ready
+   and doing nothing when clicked. A disabled fieldset disables every control inside it, and
+   "display: contents" keeps it out of the layout. RendererInfo.IsInteractive is false while
+   prerendering and true once the circuit is connected. *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+@* aria-busy takes the words "true"/"false", not a bare attribute *@
+<fieldset class="contents" disabled="@(!RendererInfo.IsInteractive)"
+          aria-busy="@(RendererInfo.IsInteractive ? "false" : "true")">
+  @ChildContent
+</fieldset>

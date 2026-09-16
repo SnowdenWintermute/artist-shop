@@ -77,23 +77,25 @@
   }
 }
 
-<TabReturnWatcher OnTabReturn="ReloadOptionsAsync" />
+<DisabledUntilInteractive>
+  <TabReturnWatcher OnTabReturn="ReloadOptionsAsync" />
 
-@if (_vocabularies.Count == 0)
-{
-  <p class="mb-4 text-sm text-gray-500">No vocabularies for paintings yet.</p>
-}
+  @if (_vocabularies.Count == 0)
+  {
+    <p class="mb-4 text-sm text-gray-500">No vocabularies for paintings yet.</p>
+  }
 
-@foreach (var vocabulary in _vocabularies)
-{
-  <CheckboxGroupField @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="Input.VocabularyTermIds"
-                      Options="TermOptions(vocabulary)" SelectedValues="_selectedTermIds"
-                      OnToggle="value => Toggle(_selectedTermIds, value)">
-    <EmptyContent>No terms yet.</EmptyContent>
+  @foreach (var vocabulary in _vocabularies)
+  {
+    <CheckboxGroupField @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="Input.VocabularyTermIds"
+                        Options="TermOptions(vocabulary)" SelectedValues="_selectedTermIds"
+                        OnToggle="value => Toggle(_selectedTermIds, value)">
+      <EmptyContent>No terms yet.</EmptyContent>
+    </CheckboxGroupField>
+  }
+
+  <CheckboxGroupField Legend="Series" Name="Input.SeriesIds" Options="SeriesOptions" SelectedValues="_selectedSeriesIds"
+                      OnToggle="value => Toggle(_selectedSeriesIds, value)">
+    <EmptyContent>No series yet.</EmptyContent>
   </CheckboxGroupField>
-}
-
-<CheckboxGroupField Legend="Series" Name="Input.SeriesIds" Options="SeriesOptions" SelectedValues="_selectedSeriesIds"
-                    OnToggle="value => Toggle(_selectedSeriesIds, value)">
-  <EmptyContent>No series yet.</EmptyContent>
-</CheckboxGroupField>
+</DisabledUntilInteractive>

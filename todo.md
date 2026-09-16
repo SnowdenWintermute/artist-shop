@@ -7,13 +7,28 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-15
+## Where this stands — 2026-09-16
 
-**Next session starts at "Series admin" in step 9**, whose design was settled 2026-09-15. Vocabulary
-and term admin are built, working in the browser and committed (`b58a84d`). The tests haven't been
-re-run since the static pages + prerendered islands rework.
+**Next session starts at step 10, the artwork restructure** (planned 2026-09-16, nothing built). It
+comes before "Edit painting" in step 9, which is paused and becomes "Edit artwork". 74 tests pass.
+Everything through series admin is committed (`0981542`); `DisabledUntilInteractive` and the island
+changes around it are not committed yet, so commit them before starting step 10.
 
-Done 2026-09-14/15 (details under "Catalog vocabulary admin" in step 9):
+Done 2026-09-15, all in step 9:
+- **Series admin**, steps 1-5 of its build order: series hold any shop item type, the artist orders both
+  the series and the artworks inside one, the cover is a starred artwork's primary image, and the
+  add-painting form has term and series pickers with a setup notice that refreshes on tab return.
+- **`SortableList` + `StarredSortableList`** in `Components/Lists`, shared with the image list, dragged
+  by a grip handle.
+- **Deadlock fix:** concurrent `AddPainting` calls deadlocked under `SERIALIZABLE`; `ResolveShopItemSlug`
+  now reads once over one prefix range `WITH (UPDLOCK)`.
+- **Every "deleted somewhere else" error** (50001-50009) becomes `CatalogChangedException` and shows a
+  message instead of Blazor's error bar.
+- **Islands prerender disabled** via `DisabledUntilInteractive`.
+- Not yet checked in a browser: a series page's artwork list (reorder, star, remove) and the stale-pick
+  message on the add-painting form.
+
+Done 2026-09-14/15:
 - Vocabulary and term procedures, `VocabularyRepository`, `VocabularyTermRepository`,
   `ShopItemTypeRepository`, `SqlErrors`, and repository tests using a shared `CatalogTestData`.
 - `ShopItemTypeId` is `int` everywhere, not `tinyint`.
@@ -32,8 +47,7 @@ Done before that, 2026-09-13/14:
   terms, in that order.
 - **`PartialDate`** and the Year/Month/Day `PartialDateField` with its day-limiting script.
 
-Nothing creates series yet, and the add-painting form has no term or series pickers, so those
-paths of `AddPainting` have only run in tests.
+Nothing can edit a painting yet, and no public page shows a series.
 
 ### Image upload, as of 2026-09-13
 
@@ -262,8 +276,12 @@ uploads a folder of images, and each image's file name (without its extension) i
         That host island also keeps the circuit open between catalog pages.
       - Rejected: interactive routing for all of `/admin`. `AddSinglePainting` would have to opt
         out, and moving between static and interactive routing is a full page load.
-      - Known and accepted: on a full page load, clicks on island buttons do nothing until the
-        circuit attaches, and field ids change once when an island attaches.
+      - Fixed 2026-09-15: island controls used to look ready and do nothing until the circuit attached.
+        `Components/Interop/DisabledUntilInteractive` wraps each island's controls in a
+        `<fieldset class="contents" disabled>` while `RendererInfo.IsInteractive` is false (verified in
+        the prerendered HTML). `ImagesField` wraps only its controls, never its hidden inputs: a
+        disabled input posts nothing.
+      - Known and accepted: field ids change once when an island attaches.
 
       **What exists.**
       - `/admin/catalog/vocabularies/new` and `/{id}/edit`: `VocabularyEditor` (static) plus the
@@ -406,8 +424,23 @@ uploads a folder of images, and each image's file name (without its extension) i
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series
-- [ ] Edit painting flow. None exists, so a painting can't be renamed yet; decide whether its
-      slug follows the name like a series does
+- [ ] **Edit painting — PAUSED 2026-09-16 for step 10, where it becomes "Edit artwork".** Decisions
+      from 2026-09-15 below; step 10 revises the slug rule and the form class.
+      - **The slug follows the name**, like a series. Mike: leaving the old name in the web address is
+        weird, and editing usually happens a few times early in a painting's life and then never. Warn
+        in the form that old links will stop working, in case any were shared. `ResolveShopItemSlug`
+        needs the painting's own id left out, or renaming "Sunset" to "Sunset!" numbers it `sunset-2`
+        (the function reads `dbo.ShopItems` itself, so pass an id to exclude, `NULL` when adding).
+      - **Split in two.** First: name, price, date, description, dimensions, terms and series, reusing
+        the add form's fields and the `TermAndSeriesPickers` island, plus an `UpdatePainting` procedure
+        (replace the term junction rows; for series, delete the rows that went and append new ones with
+        `MAX + 1` so existing order survives). Second, separately: editing images, which means teaching
+        `ImagesField` about images the painting already has (show, reorder, restar, remove, add more) —
+        today it only knows files being uploaded right now. "Remove" keeps unlinking only; the sweep
+        deletes files later.
+      - Form reuse: `PaintingCatalogAdditionForm` becomes the shared form class, seeded from an existing
+        painting for edit. Watch the sibling `@key` rule and that a `[SupplyParameterFromForm]` model
+        needs exactly one public constructor.
 - [ ] Split the drop zone's look from its behaviour so the static CSV form reuses it
 - [ ] Bulk image upload matched to existing items by file name = item name, per the questions
       above
@@ -416,3 +449,125 @@ uploads a folder of images, and each image's file name (without its extension) i
 - [ ] Directory upload: `webkitdirectory` on the picker, `dataTransfer.items` +
       `webkitGetAsEntry()` on the drop zone (currently `.files`, which flattens folders)
 - [ ] Concurrency cap in the upload driver — hundreds of files means queueing 3-4 at a time
+
+## 10. Artwork restructure — NEXT (planned 2026-09-16, nothing built)
+
+**Why.** A painting is barely different from a sculpture or a photograph: the only real difference
+is which vocabularies apply. The `Paintings` subtype table and the `ShopItem` → `Painting`
+inheritance don't pay for themselves, and the artist needs types we can't foresee (fibre arts, a
+dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row the artist manages.
+"Work type" is the cataloguing standards' name for this (CCO, VRA Core); the table is `ArtworkTypes`.
+
+**Decided:**
+- Work types are artist-defined, seeded with Painting, Photograph and Sculpture. No code refers to a
+  particular type: `ShopItemTypeId.Painting` and the computed `Paintings.ShopItemTypeId AS 1` go away.
+- An artwork's type can't change after creation. The artist deletes it and adds it again.
+- A type that artworks still use can't be deleted.
+- Public address is `/artworks/{slug}`. Browse pages will filter and sort by type.
+- **Fields per type work like vocabularies per type.** We predefine the fields, trying to cover
+  every kind of artwork up front; a client who needs another asks us. The artist switches fields on
+  per type. A field switched off in another tab while a form is open is handled the same way as
+  un-ticking a vocabulary's type.
+- Pre-release: edit `0001`/`0002` and drop the database, no migration.
+
+**Schema.**
+- Renames: `ShopItems` → `Artworks`, `ShopItemTypes` → `ArtworkTypes`, `ShopItemImages` →
+  `ArtworkImages`, `ShopItemImageList` → `ArtworkImageList`, and the junctions and constraint names
+  to match (`ArtworkAndVocabularyTermsJunction`, `VocabularyAndArtworkTypesJunction`,
+  `ArtworkAndSeriesJunction`). `ArtworkTypes.Id` becomes `IDENTITY`.
+- `Paintings` is dropped. Its columns move onto `Artworks`, renamed for any type: `DateCreated` +
+  `DateCreatedPrecision`, `Description`, `WidthCm`, `HeightCm`, and a new `DepthCm`.
+- The composite foreign keys that check a term's vocabulary applies to the artwork's type stay as
+  they are, with the columns renamed.
+- `ArtworkFields` (seeded by us, mirrored by a C# enum with explicit values) and
+  `ArtworkTypeAndArtworkFieldsJunction`. A `CHECK` can't read another table, so `AddArtwork` (and
+  later `UpdateArtwork`) `THROW`s when a value is given for a field its type doesn't have; that
+  error becomes `CatalogChangedException` like 50001-50009.
+- Starting field list, to prune: date created, description, dimensions (width and height, both or
+  neither), depth, duration. Decide whether description is a field or always on.
+
+**Decided 2026-09-16, selling and navigation:**
+- **`Price`/`Stock` leave `Artworks`.** `ProductKinds` and `Products` (see the section below) are
+  built in this step, not with the cart, so the add form doesn't lose its price.
+- **The add and edit forms have a products section with any number of rows**: an island, like
+  `ImagesField`, posting through hidden inputs. A plus button adds a row; each row has a product
+  kind, label, price and stock. Most of the time the artist adds the original and its price
+  together with the artwork, so products aren't a separate form; the edit page is where the rest
+  get set up.
+- **Sold originals.** A one-of-a-kind product with stock 0 shows as "Sold" on the public page, and
+  must stay 0 when the edit form is saved. In the products island, a one-of-a-kind row's stock is
+  limited to 0 or 1 (for sale or sold) instead of a free number. The CSV import and the add form
+  can mark an original as sold, which creates the original product with stock 0.
+- **The Original kind is built in** (decided 2026-09-16): seeded, renamable, not deletable, marked
+  by a flag with a filtered unique index so only one kind has it. The import's "sold" column and
+  the add form's sold choice create a product of this kind.
+- **A sold product may have no price** (decided 2026-09-16):
+  `CHECK (Price IS NOT NULL OR Stock = 0)`. Putting it back up for sale then requires a price.
+- **Ways to the edit page:** an "Edit" link on the public page for logged-in admins, and "Edit it"
+  next to "View it" after adding. An admin list of all artworks with filters comes later.
+
+**Open:**
+- **A product with no artwork** (a postcard of the artist in the studio). Deferred. Mike's idea: a
+  product links to either an artwork or a non-artwork record (say `Merchandise`: name, slug,
+  description, its own images), never both. Two nullable foreign keys plus a `CHECK` that exactly
+  one is set keeps real foreign keys. Adding it later is additive. Watch that a unique index treats
+  NULLs as equal in SQL Server, so the one-original index must also filter `ArtworkId IS NOT NULL`.
+- **The admin artworks list** is deferred. Before building it, decide which filters (type, series,
+  term, name, has images, for sale?), sorting, and paging.
+
+**Build order.**
+- [ ] Schema: rewrite `0001`/`0002` as above plus `ProductKinds` and `Products`, drop the database
+- [ ] Procedures: rename and rewrite (`AddArtwork`, `ResolveArtworkSlug`, the series and vocabulary
+      procedures' columns). `GetArtworkBySlug` looks up the id and `EXEC`s a new `GetArtworkById`,
+      whose result sets pass straight through, so the SELECTs are written once
+- [ ] C#: `ShopItem*` records → `Artwork*`; `Painting` is removed and `Artwork` is concrete;
+      repositories, `CatalogLimits`, tests. `CatalogTestData` seeds a type instead of assuming id 1
+- [ ] Work type admin under `/admin/catalog/types`: add, rename, delete when unused, and tick the
+      type's fields. Vocabularies keep ticking their types on the vocabulary page
+- [ ] Products island: rows with kind, label, price and stock; for one-of-a-kind kinds, stock is
+      for sale (1) or sold (0).
+      The page passes the kinds (with their flag) as a record-wrapped list, per the island parameter rule
+- [ ] Add artwork: the artist picks the type first, then `/admin/catalog/artworks/add?type={id}`.
+      The static page renders only that type's fields and vocabularies, so no island has to react
+      to a type dropdown. `TermAndSeriesPickers` takes the type id instead of assuming paintings.
+      The products island's rows are inserted into `Products` in the same transaction. After adding,
+      the message links to both the public page and the edit page
+- [ ] Public page `/artworks/{slug}` replaces `/paintings/{slug}`, with an "Edit" link for admins;
+      dashboard nav updated
+- [ ] Edit artwork (step 9's plan, revised):
+      - Route by id, `/admin/catalog/artworks/{id:int}/edit`, since the slug changes on rename
+      - Slug rule: keep the current slug if it equals the new name's slug or that slug plus
+        `-<number>`; otherwise call `ResolveArtworkSlug`. This keeps an unchanged save from moving
+        `sunset-2` to `sunset-4`, and the function needs no id to exclude
+      - `UpdateArtwork`: stale-choice checks as in `AddArtwork`, a new error for an artwork deleted
+        while the form was open; replace all term rows; for series, delete the unchecked rows and
+        append new ones at `MAX + 1`. Removing an artwork from a series whose cover it was removes
+        the cover too, since `IsCover` lives on that junction row
+      - Form class: a base form with the fields, terms and series; the add form inherits it and
+        adds `Images`/`PrimaryImageKey` (the edit form has no images in phase one). Seed it with a
+        static `FromArtwork(Artwork)`, since a `[SupplyParameterFromForm]` model needs exactly one
+        public constructor. Keep the property named `Input`: the pickers hardcode
+        `Input.VocabularyTermIds` and `Input.SeriesIds`
+      - Phase two, separately: editing images
+- [ ] CSV import (step 9) is per work type: the artist picks the type on the import page, and the
+      known headers are that type's fields and vocabularies, plus series, price and sold
+- [ ] Later: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page
+
+### Products and orders — tables built in this step; cart and orders come later
+
+Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
+- **`Products`**: `Id`, `ArtworkId` → `Artworks`, `ProductKindId`, `Label` ("A4", "A3"), `Price`,
+  `Stock`. Cart lines reference `ProductId`. An artwork with no products can be viewed but not
+  bought. Rejected: a cart line pointing at "an artwork, print or postcard" by kind + id, because
+  that id can't have a foreign key.
+- **Product kinds**: artist-defined, seeded with Original, Print and Postcard, like work types.
+  Behaviour differences are flags on the kind that we define, for example `IsOneOfAKind` (and
+  maybe `IsDigital` later). The flag is copied into `Products` under a composite foreign key
+  `(ProductKindId, IsOneOfAKind)`, so `CHECK (IsOneOfAKind = 0 OR Stock <= 1)` and a unique index
+  filtered on `IsOneOfAKind = 1` over `ArtworkId` can enforce "one original, at most one in stock".
+  A kind's flag can't change once products use it.
+- **Editions** (bronze casts, original prints, limited photographs) are real multiple originals, so
+  they're their own kind with stock = edition size. Tracking which number sold (3/8) comes later.
+- **Order lines are snapshots**: artwork name, kind name, label, unit price and quantity are
+  copied, plus a nullable `ProductId` with `ON DELETE SET NULL`. Renames, price changes and
+  deletions then can't rewrite history. The order copies the shipping address and totals too.

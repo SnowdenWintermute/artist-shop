@@ -18,7 +18,10 @@
   private List<Vocabulary> _vocabulariesWithoutShopItemTypes = [];
   private int _seriesCount;
 
-  protected override void OnInitialized()
+  // OnParametersSet, not OnInitialized: a static page renders once before its data has loaded and
+  // again after, and only the second pass carries real values. Caching the first pass here showed
+  // "nothing set up yet" until the circuit attached
+  protected override void OnParametersSet()
   {
     _paintingVocabularies = PaintingVocabularies;
     _vocabulariesWithoutShopItemTypes = VocabulariesWithoutShopItemTypes;

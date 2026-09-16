@@ -92,39 +92,41 @@
   }
 }
 
-<EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
-  <DataAnnotationsValidator />
+<DisabledUntilInteractive>
+  <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
 
-  <TextField Label="Name" @bind-Value="_form.Name" />
-  <ShopItemTypeCheckboxes ShopItemTypes="ShopItemTypes" Selected="_form.ShopItemTypeIds"
-                          OnToggle="_form.ToggleShopItemType" />
+    <TextField Label="Name" @bind-Value="_form.Name" />
+    <ShopItemTypeCheckboxes ShopItemTypes="ShopItemTypes" Selected="_form.ShopItemTypeIds"
+                            OnToggle="_form.ToggleShopItemType" />
 
-  @if (_justSaved && !_form.HasChanges)
-  {
-    <p class="mb-4 text-green-600">Saved.</p>
-  }
-
-  <div class="flex justify-between">
-    <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">
-      @(Loaded is null ? "Create vocabulary" : "Save")
-    </ButtonBasic>
-
-    @if (Loaded is not null)
+    @if (_justSaved && !_form.HasChanges)
     {
-      <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@_isSaving"
-                   @onclick="() => _deleteDialogOpen = true">
-        Delete vocabulary
-      </ButtonBasic>
+      <p class="mb-4 text-green-600">Saved.</p>
     }
-  </div>
-</EditForm>
 
-@if (Loaded is { } loaded)
-{
-  <UnselectShopItemTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                               UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
-                               IsWorking="_isSaving" />
+    <div class="flex justify-between">
+      <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">
+        @(Loaded is null ? "Create vocabulary" : "Save")
+      </ButtonBasic>
 
-  <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
-                          OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
-}
+      @if (Loaded is not null)
+      {
+        <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@_isSaving"
+                     @onclick="() => _deleteDialogOpen = true">
+          Delete vocabulary
+        </ButtonBasic>
+      }
+    </div>
+  </EditForm>
+
+  @if (Loaded is { } loaded)
+  {
+    <UnselectShopItemTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+                                 UnselectedShopItemTypes="UnselectedShopItemTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
+                                 IsWorking="_isSaving" />
+
+    <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
+                            OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />
+  }
+</DisabledUntilInteractive>

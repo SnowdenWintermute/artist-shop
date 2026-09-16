@@ -51,37 +51,39 @@
   }
 }
 
-@if (_changedElsewhere)
-{
-  <p class="mb-2 text-red-600">A series was added or deleted somewhere else, so the list has been reloaded.</p>
-}
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-red-600">A series was added or deleted somewhere else, so the list has been reloaded.</p>
+  }
 
-@if (_series.Count == 0)
-{
-  <p>No series yet.</p>
-}
-else
-{
-  <p class="mb-2 text-sm text-gray-500">Drag to set the order visitors see.</p>
+  @if (_series.Count == 0)
+  {
+    <p>No series yet.</p>
+  }
+  else
+  {
+    <p class="mb-2 text-sm text-gray-500">Drag to set the order visitors see.</p>
 
-  <SortableList TItem="SeriesWithCover" Items="_series" AriaLabel="Series order" OnMove="MoveAsync">
-    <RowContent Context="series">
-      <a href="@($"/admin/catalog/series/{series.Id.Value}")" class="flex grow items-center gap-4">
-        @if (series.Cover is { } cover)
-        {
-          <img src="@($"/media/{cover.RelativePath}/400.avif")" alt="" class="size-16 object-cover" />
-        }
-        else
-        {
-          <span class="flex p-1 size-16 items-center justify-center bg-gray-100 text-center text-xs text-gray-500">
-            No images yet
-          </span>
-        }
+    <SortableList TItem="SeriesWithCover" Items="_series" AriaLabel="Series order" OnMove="MoveAsync">
+      <RowContent Context="series">
+        <a href="@($"/admin/catalog/series/{series.Id.Value}")" class="flex grow items-center gap-4">
+          @if (series.Cover is { } cover)
+          {
+            <img src="@($"/media/{cover.RelativePath}/400.avif")" alt="" class="size-16 object-cover" />
+          }
+          else
+          {
+            <span class="flex p-1 size-16 items-center justify-center bg-gray-100 text-center text-xs text-gray-500">
+              No images yet
+            </span>
+          }
 
-        <span class="grow">@series.Name.Value</span>
-        <span>@series.ShopItemCount artworks</span>
-      </a>
-    </RowContent>
-    <RowActions Context="series" />
-  </SortableList>
-}
+          <span class="grow">@series.Name.Value</span>
+          <span>@series.ShopItemCount artworks</span>
+        </a>
+      </RowContent>
+      <RowActions Context="series" />
+    </SortableList>
+  }
+</DisabledUntilInteractive>

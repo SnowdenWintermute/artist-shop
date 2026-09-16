@@ -13,35 +13,37 @@
   private void RefreshPage() => NavigationManager.Refresh();
 }
 
-@if (Terms.Count == 0)
-{
-  <p>No terms yet.</p>
-}
-else
-{
-  <table class="w-full">
-    <thead>
-      <tr class="text-left text-sm">
-        <th class="pb-2">Term</th>
-        <th class="pb-2">Used on</th>
-        <th class="pb-2"></th>
-      </tr>
-    </thead>
-    <tbody>
-      @foreach (var term in Terms)
-      {
-        <tr class="border-t">
-          <td class="py-2">@term.Name.Value</td>
-          <td class="py-2">@term.ShopItemCount items</td>
-          <td class="py-2 text-right">
-            <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
-            <ButtonBasic type="button" Class="text-red-600" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
-          </td>
+<DisabledUntilInteractive>
+  @if (Terms.Count == 0)
+  {
+    <p>No terms yet.</p>
+  }
+  else
+  {
+    <table class="w-full">
+      <thead>
+        <tr class="text-left text-sm">
+          <th class="pb-2">Term</th>
+          <th class="pb-2">Used on</th>
+          <th class="pb-2"></th>
         </tr>
-      }
-    </tbody>
-  </table>
-}
+      </thead>
+      <tbody>
+        @foreach (var term in Terms)
+        {
+          <tr class="border-t">
+            <td class="py-2">@term.Name.Value</td>
+            <td class="py-2">@term.ShopItemCount items</td>
+            <td class="py-2 text-right">
+              <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
+              <ButtonBasic type="button" Class="text-red-600" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 
-<RenameVocabularyTermDialog @bind-Term="_termToRename" OnRenamed="RefreshPage" />
-<DeleteVocabularyTermDialog @bind-Term="_termToDelete" OnDeleted="RefreshPage" />
+  <RenameVocabularyTermDialog @bind-Term="_termToRename" OnRenamed="RefreshPage" />
+  <DeleteVocabularyTermDialog @bind-Term="_termToDelete" OnDeleted="RefreshPage" />
+</DisabledUntilInteractive>

@@ -95,54 +95,56 @@
   }
 }
 
-@if (_changedElsewhere)
-{
-  <p class="mb-2 text-red-600">This series was changed somewhere else, so the list has been reloaded.</p>
-}
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-red-600">This series was changed somewhere else, so the list has been reloaded.</p>
+  }
 
-@if (_shopItems.Count == 0)
-{
-  <p>No artworks in this series yet.</p>
-}
-else
-{
-  <div class="mb-2 flex items-center justify-between text-sm">
-    <span>@_shopItems.Count artworks</span>
-    <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@(_selected.Count == 0 || _isSaving)"
-                 @onclick="() => _removeDialogOpen = true">
-      Remove selected (@_selected.Count)
-    </ButtonBasic>
-  </div>
+  @if (_shopItems.Count == 0)
+  {
+    <p>No artworks in this series yet.</p>
+  }
+  else
+  {
+    <div class="mb-2 flex items-center justify-between text-sm">
+      <span>@_shopItems.Count artworks</span>
+      <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@(_selected.Count == 0 || _isSaving)"
+                   @onclick="() => _removeDialogOpen = true">
+        Remove selected (@_selected.Count)
+      </ButtonBasic>
+    </div>
 
-  <StarredSortableList TItem="SeriesShopItem" Items="_shopItems" AriaLabel="Artwork order" StarName="series-cover"
-                       StarTitle="Use as the series cover" StarValueOf="StarValueOf" StarredValue="@StarredValue"
-                       OnStar="StarAsync" ChosenStarMessage="Cover chosen by hand"
-                       ClearStarLabel="Use the first artwork instead" OnClearStar="ClearStarAsync" OnMove="MoveAsync">
-    <RowContent Context="shopItem">
-      @if (shopItem.PrimaryImage is { } image)
-      {
-        <img src="@($"/media/{image.RelativePath}/400.avif")" alt="" class="size-10 object-cover" />
-      }
-      else
-      {
-        <span class="flex size-10 items-center justify-center bg-gray-100 text-center text-[10px] text-gray-500">
-          No image
-        </span>
-      }
+    <StarredSortableList TItem="SeriesShopItem" Items="_shopItems" AriaLabel="Artwork order" StarName="series-cover"
+                         StarTitle="Use as the series cover" StarValueOf="StarValueOf" StarredValue="@StarredValue"
+                         OnStar="StarAsync" ChosenStarMessage="Cover chosen by hand"
+                         ClearStarLabel="Use the first artwork instead" OnClearStar="ClearStarAsync" OnMove="MoveAsync">
+      <RowContent Context="shopItem">
+        @if (shopItem.PrimaryImage is { } image)
+        {
+          <img src="@($"/media/{image.RelativePath}/400.avif")" alt="" class="size-10 object-cover" />
+        }
+        else
+        {
+          <span class="flex size-10 items-center justify-center bg-gray-100 text-center text-[10px] text-gray-500">
+            No image
+          </span>
+        }
 
-      <div class="grow">
-        <div>@shopItem.Name.Value</div>
-        <div class="text-xs text-gray-500">@shopItem.ShopItemTypeName.Value</div>
-      </div>
-    </RowContent>
-    <RowActions Context="shopItem">
-      <input type="checkbox" class="mx-1 cursor-pointer" aria-label="@($"Select {shopItem.Name.Value}")"
-             checked="@_selected.Contains(shopItem.Id)" @onchange="() => ToggleSelected(shopItem.Id)" />
-    </RowActions>
-  </StarredSortableList>
-}
+        <div class="grow">
+          <div>@shopItem.Name.Value</div>
+          <div class="text-xs text-gray-500">@shopItem.ShopItemTypeName.Value</div>
+        </div>
+      </RowContent>
+      <RowActions Context="shopItem">
+        <input type="checkbox" class="mx-1 cursor-pointer" aria-label="@($"Select {shopItem.Name.Value}")"
+               checked="@_selected.Contains(shopItem.Id)" @onchange="() => ToggleSelected(shopItem.Id)" />
+      </RowActions>
+    </StarredSortableList>
+  }
 
-<ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {_selected.Count} artworks from {Series.Name.Value}?")"
-               ConfirmLabel="Remove" OnConfirm="RemoveSelectedAsync" IsWorking="_isSaving">
-  They stay in the catalog.
-</ConfirmDialog>
+  <ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {_selected.Count} artworks from {Series.Name.Value}?")"
+                 ConfirmLabel="Remove" OnConfirm="RemoveSelectedAsync" IsWorking="_isSaving">
+    They stay in the catalog.
+  </ConfirmDialog>
+</DisabledUntilInteractive>
