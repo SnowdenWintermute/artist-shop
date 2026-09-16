@@ -1,0 +1,29 @@
+@using Microsoft.AspNetCore.Http
+
+@* For static forms: the file posts with the form, which needs enctype="multipart/form-data".
+   InputFile only works in an interactive component, so this is a plain input *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public Expression<Func<IFormFile?>> ValueExpression { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Prompt { get; set; } = default!;
+  [Parameter]
+  public string? Accept { get; set; }
+  // a file the server already has from an earlier post, used when no new one is chosen
+  [Parameter]
+  public string? KeptFileName { get; set; }
+}
+
+<FieldLayout Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+  <FileDropZoneFrame Prompt="@Prompt" ButtonLabel="Choose file">
+    <input id="@elementId" type="file" name="@Name" accept="@Accept" class="hidden" />
+    @* the frame's script replaces this when a file is chosen; empty:hidden hides the line and its padding
+       while it's empty. No whitespace inside the tag, or :empty won't match *@
+    <p class="pt-2 text-sm empty:hidden" data-part="file-names">@(KeptFileName is null ? null : $"{KeptFileName} (already uploaded)")</p>
+  </FileDropZoneFrame>
+</FieldLayout>

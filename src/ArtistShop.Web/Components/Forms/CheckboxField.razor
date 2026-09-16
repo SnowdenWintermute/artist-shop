@@ -1,0 +1,30 @@
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  // shown under the checkbox, in smaller text
+  [Parameter]
+  public string? Hint { get; set; }
+
+  [Parameter]
+  public bool Value { get; set; }
+
+  [Parameter]
+  public EventCallback<bool> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<bool>> ValueExpression { get; set; } = default!;
+}
+
+@* the label wraps the checkbox, so it needs no id *@
+<div class="mb-4">
+  <label class="inline-flex cursor-pointer items-center gap-2">
+    <InputCheckbox class="cursor-pointer" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression" />
+    @Label
+  </label>
+  @if (Hint is not null)
+  {
+    <p class="text-sm text-gray-500">@Hint</p>
+  }
+  <ValidationMessage class="text-red-400" For="ValueExpression" />
+</div>

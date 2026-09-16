@@ -269,6 +269,29 @@ public sealed class ArtworkImportPlannerTests
         AssertError(plan, 2, "duration");
     }
 
+    [Theory]
+    [InlineData("999999999:00:00")]
+    [InlineData("99999999:00")]
+    [InlineData("0:00")]
+    public void RejectsADurationTheDatabaseCantHold(string duration)
+    {
+        var plan = ArtworkImportPlanner.Plan(
+            $"title,duration\nSong,{duration}\n",
+            OneOfAKindInInches,
+            Snapshot([ArtworkField.Duration])
+        );
+
+        AssertError(plan, 2, "duration");
+    }
+
+    [Fact]
+    public void ReportsABlankTitleOnce()
+    {
+        var plan = PlanPaintings("title,height,width\n,8,10\n");
+
+        Assert.Single(plan.Errors, error => error.RowNumber == 2 && error.Column == "title");
+    }
+
     [Fact]
     public void PlansEditionsFromTheirColumns()
     {

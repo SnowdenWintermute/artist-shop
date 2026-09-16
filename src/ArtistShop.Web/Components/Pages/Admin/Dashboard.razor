@@ -37,5 +37,9 @@
              href="@($"/admin/catalog/artworks/add?type={artworkType.Id.Value}")">
       Add a @artworkType.Name.Value.ToLower()
     </NavLink>
+    <NavLink class="font-sans text-xl text-theme-base hover:text-theme-hovered"
+             href="@($"/admin/catalog/artworks/import?type={artworkType.Id.Value}")">
+      Import @artworkType.Name.Value.ToLower() artworks
+    </NavLink>
   }
 </nav>

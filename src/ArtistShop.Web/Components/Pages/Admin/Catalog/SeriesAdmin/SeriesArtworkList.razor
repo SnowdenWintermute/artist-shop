@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
 
@@ -107,7 +108,7 @@
   else
   {
     <div class="mb-2 flex items-center justify-between text-sm">
-      <span>@_artworks.Count artworks</span>
+      <span>@CountText.Of(_artworks.Count, "artwork")</span>
       <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@(_selected.Count == 0 || _isSaving)"
                    @onclick="() => _removeDialogOpen = true">
         Remove selected (@_selected.Count)
@@ -142,7 +143,7 @@
     </StarredSortableList>
   }
 
-  <ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {_selected.Count} artworks from {Series.Name.Value}?")"
+  <ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {CountText.Of(_selected.Count, "artwork")} from {Series.Name.Value}?")"
                  ConfirmLabel="Remove" OnConfirm="RemoveSelectedAsync" IsWorking="_isSaving">
     They stay in the catalog.
   </ConfirmDialog>

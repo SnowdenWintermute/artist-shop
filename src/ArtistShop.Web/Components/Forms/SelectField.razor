@@ -1,0 +1,26 @@
+@typeparam TValue
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  [Parameter]
+  public TValue? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<TValue?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;
+
+  // the <option>s
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<FieldLayout TValue="TValue" Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+  <InputSelect class="artist-shop-field-input" TValue="TValue" id="@elementId" Value="Value" ValueChanged="ValueChanged"
+               ValueExpression="ValueExpression">
+    @ChildContent
+  </InputSelect>
+</FieldLayout>

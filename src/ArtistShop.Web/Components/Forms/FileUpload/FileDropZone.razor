@@ -1,14 +1,13 @@
 @typeparam TResult
 @using System.Text.Json
-@using ArtistShop.Web.Components.Atoms
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
 @code {
   [Parameter, EditorRequired]
   public string UploadUrl { get; set; } = default!;
-  [Parameter]
-  public string Prompt { get; set; } = "Drop files here";
+  [Parameter, EditorRequired]
+  public string Prompt { get; set; } = default!;
   [Parameter]
   public string? Accept { get; set; }
   [Parameter]
@@ -22,9 +21,7 @@
   [Parameter]
   public EventCallback<(string Id, string Message)> OnFailed { get; set; }
 
-  // these are populated by the @ref after the first render
-  // and can be passed to JS as the real DOM element
-  private ElementReference _dropZone;
+  // populated by the @ref after the first render, and can be passed to JS as the real DOM element
   private ElementReference _fileInput;
 
   private IJSObjectReference? _module;
@@ -49,7 +46,7 @@
     _selfReference = DotNetObjectReference.Create(this);
 
     _uploader = await _module.InvokeAsync<IJSObjectReference>(
-      "createUploader", _dropZone, _fileInput, _selfReference, UploadUrl);
+      "createUploader", _fileInput, _selfReference, UploadUrl);
   }
 
   public async Task UploadAsync(string id)
@@ -65,14 +62,6 @@
     if (_uploader is not null)
     {
       await _uploader.InvokeVoidAsync("forget", id);
-    }
-  }
-
-  private async Task OpenFilePicker()
-  {
-    if (_uploader is not null)
-    {
-      await _uploader.InvokeVoidAsync("open");
     }
   }
 
@@ -121,12 +110,7 @@
   }
 }
 
-<div @ref="_dropZone" class="mb-2 border border-dashed p-6 text-center">
-  <p class="mb-2 text-sm">@Prompt</p>
-
-  <ButtonBasic type="button" Class="border" @onclick="OpenFilePicker">
-    Choose files
-  </ButtonBasic>
-
+@* the frame opens the picker and turns a drop into the input's "change" event, which the uploader listens to *@
+<FileDropZoneFrame Prompt="@Prompt" ButtonLabel="@(Multiple ? "Choose files" : "Choose file")">
   <input @ref="_fileInput" type="file" multiple="@Multiple" accept="@Accept" class="hidden" />
-</div>
+</FileDropZoneFrame>

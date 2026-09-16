@@ -70,7 +70,8 @@ public class ArtworkImportRowReader(CsvRow row)
 
         if (centimeters < MinimumDimensionCm || centimeters > MaximumDimensionCm)
         {
-            AddError(header, $"{Text(column)} is outside {MinimumDimensionCm} to {MaximumDimensionCm} cm.");
+            var value = unit is LengthUnit.Inches ? $"{Text(column)} inches ({centimeters} cm)" : $"{Text(column)} cm";
+            AddError(header, $"{value} is outside {MinimumDimensionCm} to {MaximumDimensionCm} cm.");
             return null;
         }
 
@@ -140,20 +141,23 @@ public class ArtworkImportRowReader(CsvRow row)
             .Select(part => int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : (int?)null)
             .ToList();
 
-        var duration = numbers switch
+        // long, because a large enough hour count overflows an int, and even a TimeSpan
+        long? totalSeconds = numbers switch
         {
-            [int minutes, int seconds] when seconds < 60 => new TimeSpan(0, minutes, seconds),
-            [int hours, int minutes, int seconds] when minutes < 60 && seconds < 60 => new TimeSpan(hours, minutes, seconds),
-            _ => (TimeSpan?)null,
+            [int minutes, int seconds] when seconds < 60 => minutes * 60L + seconds,
+            [int hours, int minutes, int seconds] when minutes < 60 && seconds < 60 =>
+                hours * 3600L + minutes * 60L + seconds,
+            _ => null,
         };
 
-        if (duration is null || duration <= TimeSpan.Zero)
+        // the database stores whole seconds in an int
+        if (totalSeconds is not long knownSeconds || knownSeconds <= 0 || knownSeconds > int.MaxValue)
         {
             AddError(header, $"\"{text}\" isn't a duration. Use h:mm:ss or m:ss.");
             return null;
         }
 
-        return duration;
+        return TimeSpan.FromSeconds(knownSeconds);
     }
 
     private decimal? Decimal(int? column, string header, int maximumDecimalPlaces)

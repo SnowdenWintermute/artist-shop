@@ -1,0 +1,25 @@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public string Prompt { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string ButtonLabel { get; set; } = default!;
+
+  // must contain one <input type="file">; the frame's script hands it the picked or dropped files
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+@* <file-drop-zone> is defined in FileDropZoneFrame.razor.js, loaded on every page, so it works on static
+   pages as well as in islands. Custom elements display inline by default, so "block" makes it lay out like a div *@
+<file-drop-zone class="mb-2 block border border-dashed p-6 text-center">
+  <p class="mb-2 text-sm">@Prompt</p>
+
+  @* data-part is how the script finds the button *@
+  <ButtonBasic type="button" Class="border" data-part="choose">
+    @ButtonLabel
+  </ButtonBasic>
+
+  @ChildContent
+</file-drop-zone>

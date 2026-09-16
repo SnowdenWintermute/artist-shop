@@ -87,8 +87,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         {
             return await ExecuteAddAsync(connection, transaction: null, artworkCatalogAddition);
         }
-        catch (SqlException exception)
-            when (CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number)))
+        catch (SqlException exception) when (IsCatalogChanged(exception))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -118,12 +117,14 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
             await transaction.CommitAsync();
             return identifiers;
         }
-        catch (SqlException exception)
-            when (CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number)))
+        catch (SqlException exception) when (IsCatalogChanged(exception))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
     }
+
+    private static bool IsCatalogChanged(SqlException exception) =>
+        CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number));
 
     private static async Task<ArtworkIdentifiers> ExecuteAddAsync(
         SqlConnection connection,

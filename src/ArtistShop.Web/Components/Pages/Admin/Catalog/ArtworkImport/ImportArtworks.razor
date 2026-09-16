@@ -1,0 +1,295 @@
+@page "/admin/catalog/artworks/import"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Commerce
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject VocabularyRepository VocabularyRepository
+@inject SeriesRepository SeriesRepository
+@inject ProductTypeRepository ProductTypeRepository
+@inject ArtworkRepository ArtworkRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  private const string CheckFormName = "check-artwork-import";
+  private const string ConfirmFormName = "confirm-artwork-import";
+
+  // two forms on one page: FormName decides which property a post fills in
+  [SupplyParameterFromForm(FormName = CheckFormName)]
+  private ArtworkImportCheckForm Check { get; set; } = default!;
+  [SupplyParameterFromForm(FormName = ConfirmFormName)]
+  private ArtworkImportConfirmForm Confirm { get; set; } = default!;
+  [SupplyParameterFromQuery(Name = "type")]
+  private int? TypeIdValue { get; set; }
+  [SupplyParameterFromQuery(Name = "imported")]
+  private int? ImportedCount { get; set; }
+
+  private ArtworkTypeWithFields? _type;
+  private List<VocabularyWithTerms> _typeVocabularies = [];
+  private List<ProductType> _productTypes = [];
+
+  // set once a file has been checked
+  private ArtworkImportPlan? _plan;
+  private bool _catalogChangedSinceReview;
+  private bool _reviewLost;
+
+  private static string CheckFieldName(string property) => $"{nameof(Check)}.{property}";
+  private static string ConfirmFieldName(string property) => $"{nameof(Confirm)}.{property}";
+
+  // both forms post here rather than to the current address, which may still say what was last imported
+  private string ImportUrl => $"/admin/catalog/artworks/import?type={TypeIdValue}";
+
+  protected override async Task OnInitializedAsync()
+  {
+    Check ??= new();
+    Confirm ??= new();
+    _type = TypeIdValue is int typeId ? await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(typeId)) : null;
+
+    if (_type is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    _typeVocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
+    _productTypes = await ProductTypeRepository.GetAllAsync();
+  }
+
+  private bool AsksForLengthUnit => _type?.Fields.Contains(ArtworkField.HeightAndWidth) ?? false;
+
+  // OnSubmit rather than OnValidSubmit, so the checks only this handler can make show up alongside the
+  // form's own validation messages instead of after them
+  private async Task CheckAsync()
+  {
+    var isValid = Check.EditContext.Validate();
+
+    // after Validate, which clears the messages added here last time
+    if (AsksForLengthUnit && Check.LengthUnit is null)
+    {
+      Check.AddLengthUnitRequiredError();
+      isValid = false;
+    }
+
+    var csvText = await ReadCheckedFileAsync();
+
+    if (isValid && csvText is not null)
+    {
+      await ReviewAsync(csvText, Check);
+    }
+  }
+
+  // the newly chosen file, or else the one kept from an earlier check; null once an error is added
+  private async Task<string?> ReadCheckedFileAsync()
+  {
+    if (Check.ChosenFile is not { } file)
+    {
+      if (Check.KeptCsvText is null)
+      {
+        Check.AddFileError("Choose a CSV file.");
+      }
+
+      return Check.KeptCsvText;
+    }
+
+    // a new file replaces the kept one even when it can't be read
+    Check.ForgetKeptFile();
+
+    if (file.Length > ArtworkImportLimits.FileMaximumBytes)
+    {
+      Check.AddFileError($"The file is over {ArtworkImportLimits.FileMaximumBytes / 1_000_000} MB. Split it into smaller files.");
+      return null;
+    }
+
+    string? csvText;
+
+    await using (var stream = file.OpenReadStream())
+    {
+      csvText = await Utf8Text.TryReadAsync(stream);
+    }
+
+    if (csvText is null)
+    {
+      Check.AddFileError("The file isn't UTF-8 text. In your spreadsheet, save it as \"CSV UTF-8\".");
+      return null;
+    }
+
+    Check.KeepFile(file.FileName, csvText);
+    return csvText;
+  }
+
+  private async Task ConfirmAsync()
+  {
+    // the check form wasn't posted this time, so it would otherwise show its defaults above the review
+    Check.CopySettingsFrom(Confirm);
+
+    var csvText = Unwrap.Value(Confirm.CsvText);
+    var plan = await ReviewAsync(csvText, Confirm);
+
+    if (plan is null)
+    {
+      return;
+    }
+
+    if (plan.Fingerprint() != Confirm.Fingerprint || !plan.CanImport)
+    {
+      _catalogChangedSinceReview = true;
+      return;
+    }
+
+    List<ArtworkIdentifiers> added;
+
+    try
+    {
+      added = await ArtworkRepository.AddManyAsync([.. plan.Additions.Select(addition => addition.Addition)]);
+    }
+    catch (CatalogChangedException)
+    {
+      // nothing was saved; checking again shows what changed
+      _catalogChangedSinceReview = true;
+      await ReviewAsync(csvText, Confirm);
+      return;
+    }
+
+    // a redirect, so refreshing the page can't import the file twice
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["imported"] = added.Count }));
+  }
+
+  // plans against the catalog as it is now, and sets up the confirm form to carry this plan back.
+  // Null when the artwork type was deleted, and the page then shows "not found"
+  private async Task<ArtworkImportPlan?> ReviewAsync(string csvText, ArtworkImportSettingsForm settings)
+  {
+    var snapshot = await ArtworkImportCatalogSnapshot.LoadAsync(
+      Unwrap.Value(_type).Id,
+      ArtworkTypeRepository,
+      VocabularyRepository,
+      SeriesRepository,
+      ProductTypeRepository,
+      ArtworkRepository
+    );
+
+    if (snapshot is null)
+    {
+      NavigationManager.NotFound();
+      return null;
+    }
+
+    _plan = ArtworkImportPlanner.Plan(csvText, settings.ToSettings(), snapshot);
+    Confirm = ArtworkImportConfirmForm.ForReview(settings, csvText, _plan.Fingerprint());
+    return _plan;
+  }
+}
+
+@if (_type is not null)
+{
+  <PageTitle>Import @_type.Name.Value.ToLower() artworks</PageTitle>
+
+  <main class="pt-10">
+    <div class="mx-auto max-w-[800px] border bg-white p-4">
+      <h1 class="mb-4 text-xl">Import @_type.Name.Value.ToLower() artworks from a spreadsheet</h1>
+
+      @if (ImportedCount is int importedCount && _plan is null)
+      {
+        <p class="mb-4 text-green-600">Imported @CountText.Of(importedCount, "artwork").</p>
+      }
+
+      <ArtworkImportColumnsHelp ArtworkType="_type" TypeVocabularies="_typeVocabularies" />
+
+      @* multipart: the file needs it, and the form's size limit then applies to the text as sent.
+         No Enhance on either form: the review dialog only opens on a full page load *@
+      <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
+                enctype="multipart/form-data" class="mb-6">
+        <DataAnnotationsValidator />
+
+        <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))"
+                       ValueExpression="() => Check.File" Prompt="Drop a CSV file here" Accept=".csv,text/csv"
+                       KeptFileName="@Check.KeptFileName" />
+
+        @if (Check.KeptCsvText is not null)
+        {
+          <input type="hidden" name="@CheckFieldName(nameof(Check.KeptCsvText))" value="@Check.KeptCsvText" />
+          <input type="hidden" name="@CheckFieldName(nameof(Check.KeptFileName))" value="@Check.KeptFileName" />
+        }
+
+        @if (AsksForLengthUnit)
+        {
+          <SelectField Label="Measurements are in" @bind-Value="Check.LengthUnit">
+            <option value="">Choose a unit</option>
+            <option value="@LengthUnit.Centimeters">Centimetres</option>
+            <option value="@LengthUnit.Inches">Inches</option>
+          </SelectField>
+        }
+
+        <SelectField Label="Each row's product" @bind-Value="Check.ProductTypeId">
+          <option value="">Choose a product type</option>
+          @foreach (var productType in _productTypes)
+          {
+            <option value="@productType.Id.Value">@productType.Name.Value</option>
+          }
+        </SelectField>
+
+        <CheckboxField Label="One of a kind" @bind-Value="Check.IsOneOfAKind"
+                       Hint="Ticked: each product is a single piece, and a sold column marks the ones already sold. Unticked: the file gives editionSize and stock columns." />
+
+        <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
+
+        <ButtonBasic type="submit" Class="bg-blue-400 text-white">Check file</ButtonBasic>
+      </EditForm>
+
+      @if (_reviewLost)
+      {
+        <p class="mb-4 text-red-400">The review didn't come back complete. Check the file again.</p>
+      }
+
+      @* rendered on every request, even with nothing to confirm: a post is matched to its form by
+         rendering the page before the handler runs, when there is no review yet. The dialog's Import
+         button submits it through form="" *@
+      <EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
+                OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data"
+                id="@ConfirmFormName">
+        <DataAnnotationsValidator />
+
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.LengthUnit))" value="@Confirm.LengthUnit" />
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ProductTypeId))" value="@Confirm.ProductTypeId" />
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))" value="@Confirm.IsOneOfAKind.ToString()" />
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
+      </EditForm>
+
+      @if (_plan is not null)
+      {
+        <StaticModalDialog Title="Review" ReopenLabel="Show the review">
+          <ChildContent>
+            @if (_catalogChangedSinceReview)
+            {
+              <p class="mb-4 shrink-0 text-red-400">
+                The catalog changed since the last review, so nothing was imported. This is the review as things
+                are now.
+              </p>
+            }
+
+            <ArtworkImportReview Plan="_plan" />
+          </ChildContent>
+          <Actions>
+            @if (_plan.CanImport)
+            {
+              <ButtonBasic type="submit" form="@ConfirmFormName" Class="bg-blue-400 text-white">
+                Import @CountText.Of(_plan.Additions.Count, "artwork")
+              </ButtonBasic>
+            }
+          </Actions>
+        </StaticModalDialog>
+      }
+    </div>
+  </main>
+}

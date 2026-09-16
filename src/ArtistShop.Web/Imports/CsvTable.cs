@@ -17,8 +17,12 @@ public class CsvTable
     // blank rows are left out; every row has exactly one cell per header
     public IReadOnlyList<CsvRow> Rows { get; }
 
+    // line breaks inside cells come back as \n whatever the file used. A browser posting the text back
+    // in a form turns them into \r\n, so without this the same file would read differently twice
     public static CsvTable Parse(string text)
     {
+        text = text.ReplaceLineEndings("\n");
+
         // Sylvan throws on a file with no header row
         if (string.IsNullOrWhiteSpace(text))
         {

@@ -86,7 +86,7 @@ public static class ArtworkImportPlanner
         {
             reader.AddError(ArtworkImportHeaders.Title, $"Titles can be at most {CatalogLimits.ArtworkNameMaximumLength} characters.");
         }
-        else if (ArtworkSlug.FromName(title).Value.Length == 0)
+        else if (title.Length > 0 && ArtworkSlug.FromName(title).Value.Length == 0)
         {
             reader.AddError(ArtworkImportHeaders.Title, "This title has no letters or numbers to build a web address from.");
         }

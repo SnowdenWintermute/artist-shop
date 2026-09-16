@@ -17,6 +17,12 @@ public record ArtworkImportSettings(
     char ListSeparator
 );
 
+public static class ArtworkImportLimits
+{
+    // the review posts the text back in a form field, and ASP.NET Core refuses a field over 4 MB
+    public const int FileMaximumBytes = 1_000_000;
+}
+
 // the header names a file uses; any other header must be a vocabulary's name
 public static class ArtworkImportHeaders
 {

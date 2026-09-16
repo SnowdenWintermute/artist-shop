@@ -227,7 +227,7 @@ variant arrives fast enough that a client-side preview earns nothing.
 - [x] `Xmp` dropped from variants: XMP can carry its own copy of the GPS fields. Variants keep
       `Icc` only. To verify on a real photo, `grep -c GPSLatitude` on a variant should print 0
 
-## 9. Next — bulk import (not started)
+## 9. Bulk import — in progress (CSV import started 2026-09-16)
 
 **How matching works (decided 2026-09-13).** The CSV creates the shop items. The artist then
 uploads a folder of images, and each image's file name (without its extension) is compared to
@@ -307,7 +307,9 @@ uploads a folder of images, and each image's file name (without its extension) i
         file that references it; `CsvTableTests` pin the behaviour a replacement must keep: spreadsheet
         row numbers, quoted commas and line breaks, blank rows skipped, short rows padded, comma-only
         delimiter, `MalformedCsvException` with a row number). Headers are dynamic (vocabulary names), so
-        class mapping doesn't help. Sylvan.Data.Csv: MIT, 1.4.4 April 2026, `DbDataReader` API.
+        class mapping doesn't help. Sylvan.Data.Csv: MIT, 1.4.4 April 2026, `DbDataReader` API. Rejected:
+        CsvHelper, the most used, but no commit since June 2025; Sep (MIT, active), pre-1.0, span-based,
+        and leaves quotes in values unless `Unescape = true`.
 
       **Build order (started 2026-09-16):**
       - [x] `Imports/CsvTable` over Sylvan
@@ -324,14 +326,27 @@ uploads a folder of images, and each image's file name (without its extension) i
       - [x] `ArtworkRepository.AddManyAsync` (2026-09-16): one connection and transaction, `AddArtwork`
             per addition (its own BEGIN/COMMIT nest); a stale choice in a later row rolls back the
             earlier ones (tested). Shares `ExecuteAddAsync` with `AddAsync`
-      - [ ] Split the drop zone's look from its behaviour, for a static file input
-      - [ ] Import page under `/admin/catalog/artworks/import?type={id}`: file, unit, product type, one of a
+      - [x] Split the drop zone's look from its behaviour (2026-09-16, not checked in a browser):
+            `FileDropZoneFrame` is the look, and its `<file-drop-zone>` custom element (loaded in `App.razor`,
+            like `<partial-date-field>`) opens the picker, highlights on drag, and turns a drop into the
+            input's `change` event. `FileDropZone` keeps only the uploading and listens to `change`.
+            `FileDropField` is the static version: a named file input inside the frame (the form needs
+            `enctype="multipart/form-data"`), with the chosen file's name shown under the button
+      - [x] Import page under `/admin/catalog/artworks/import?type={id}` (BUILT 2026-09-16, builds, not checked in a
+            browser; `Pages/Admin/Catalog/ArtworkImport/`, dashboard link per type). Notes: both forms are multipart,
+            so the 4 MB form value limit applies to the unencoded text rather than URL-encoded text; `CsvTable.Parse`
+            turns every line break into `\n`, because a browser posts hidden fields back with `\r\n` and the
+            fingerprint would never match; `Utf8Text` decodes strictly and the page says "save as CSV UTF-8";
+            both forms post to `?type=` alone so a stale `imported=` doesn't show; the unit is only asked for
+            when the type has height and width. The review opens in `Components/Dialogs/StaticModalDialog`, a
+            native `<dialog>` opened by a `<static-modal-dialog>` custom element, not a BbDialog island: island
+            parameters reach the server in one SignalR message (32KB limit) and the review carries the whole CSV.
+            So both import forms post without Enhance. Original spec:: file, unit, product type, one of a
             kind, list separator; the review (counts, skipped rows, errors by row and column) carries the
             CSV text and the plan's fingerprint in hidden fields; confirm re-plans with a fresh snapshot
-            and shows the new review if the fingerprint differs. File size limit. Dashboard link per type CsvHelper is the most
-        used but has had no commit since June 2025. Sep (MIT, active) is pre-1.0, span-based, and
-        leaves quotes in values unless `Unescape = true`. Either way we decode the bytes (BOM) and
-        trim cells ourselves.
+            and shows the new review if the fingerprint differs. File size limit. Dashboard link per type.
+            Decode the upload with a `StreamReader`, which drops the byte order mark (`Trim()` doesn't, so
+            the first header wouldn't match). Reject `"` and whitespace as the list separator
 - [x] Schema edits (2026-09-13): nullable `Price`, `DatePainted` + `DatePaintedPrecision` with
       `PartialDate` owning date validation, `decimal(8, 4)` dimensions, and a Year/Month/Day
       `PartialDateField` whose script disables impossible days
@@ -385,7 +400,7 @@ uploads a folder of images, and each image's file name (without its extension) i
 
       **Open.** Nothing links to `/admin/catalog` from the dashboard.
 
-- [ ] **Series admin — NEXT.** Series stays its own entity rather than a vocabulary: it will grow
+- [x] **Series admin — BUILT 2026-09-15.** Series stays its own entity rather than a vocabulary: it will grow
       a description, has a public page, and orders its artworks. Same render model as the
       vocabulary pages; add a Series tab to `CatalogLayout` (`SectionNavLink` with
       `ActivePath="/admin/catalog/series"`).
@@ -520,7 +535,7 @@ uploads a folder of images, and each image's file name (without its extension) i
       - Form reuse: `PaintingCatalogAdditionForm` becomes the shared form class, seeded from an existing
         painting for edit. Watch the sibling `@key` rule and that a `[SupplyParameterFromForm]` model
         needs exactly one public constructor.
-- [ ] Split the drop zone's look from its behaviour so the static CSV form reuses it
+- [x] Split the drop zone's look from its behaviour so the static CSV form reuses it (see the CSV build order)
 - [ ] Bulk image upload matched to existing items by file name = item name, per the questions
       above
 - [ ] Attach-images must be its own operation, not only reachable through `AddPainting`

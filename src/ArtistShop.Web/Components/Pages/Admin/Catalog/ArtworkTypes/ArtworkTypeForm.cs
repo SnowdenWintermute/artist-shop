@@ -43,8 +43,11 @@ public class ArtworkTypeForm : ServerValidatedForm
             return;
         }
 
-        // a field requires itself, so this switches it off along with the fields that need it
-        foreach (var definition in fieldDefinitions.Where(definition => definition.RequiredField == toggled.Field))
+        _fields.Remove(toggled.Field);
+
+        // fields that need this one can't stay on without it
+        foreach (var definition in fieldDefinitions.Where(definition =>
+            definition.HasRequirement && definition.RequiredField == toggled.Field))
         {
             _fields.Remove(definition.Field);
         }

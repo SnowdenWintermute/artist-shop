@@ -27,6 +27,16 @@ public sealed class CsvTableTests
         );
     }
 
+    [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    public void ReadsEveryLineBreakAsNewline(string lineBreak)
+    {
+        var table = CsvTable.Parse($"title,description{lineBreak}Dawn,\"two{lineBreak}lines\"{lineBreak}");
+
+        Assert.Equal(["Dawn", "two\nlines"], Assert.Single(table.Rows).Cells);
+    }
+
     // a spreadsheet shows a cell with a line break as one row, and a blank line as a blank row
     [Fact]
     public void NumbersRowsAsASpreadsheetDoes()

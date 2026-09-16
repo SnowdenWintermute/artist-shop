@@ -1,14 +1,12 @@
-const DRAG_OVER_CLASS = "bg-blue-50";
 const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
 
 /**
- * @param {HTMLElement} dropZone
+ * FileDropZoneFrame's script opens the picker and handles drops, so both arrive here as "change"
  * @param {HTMLInputElement} fileInput
  * @param {{ invokeMethodAsync: (method: string, ...args: unknown[]) => Promise<unknown> }} dotNetReference
  * @param {string} uploadUrl
  */
 export function createUploader(
-  dropZone,
   fileInput,
   dotNetReference,
   uploadUrl
@@ -31,28 +29,6 @@ export function createUploader(
         .invokeMethodAsync("OnFileSelected", id, file.name, file.size)
         .catch((error) => console.error("OnFileSelected failed", error));
     }
-  }
-
-  /** @param {DragEvent} event */
-  function onDragOver(event) {
-    event.preventDefault();
-    dropZone.classList.add(DRAG_OVER_CLASS);
-  }
-
-  function onDragLeave() {
-    dropZone.classList.remove(DRAG_OVER_CLASS);
-  }
-
-  /** @param {DragEvent} event */
-  function onDrop(event) {
-    event.preventDefault();
-    dropZone.classList.remove(DRAG_OVER_CLASS);
-
-    if (!event.dataTransfer) {
-      return;
-    }
-
-    announce(event.dataTransfer.files);
   }
 
   function onChange() {
@@ -148,15 +124,9 @@ export function createUploader(
       : `Upload failed (${request.status}).`;
   }
 
-  dropZone.addEventListener("dragover", onDragOver);
-  dropZone.addEventListener("dragleave", onDragLeave);
-  dropZone.addEventListener("drop", onDrop);
   fileInput.addEventListener("change", onChange);
 
   return {
-    open() {
-      fileInput.click();
-    },
     /** @param {string} id */
     upload(id) {
       upload(id);
@@ -172,9 +142,6 @@ export function createUploader(
       for (const id of [...inFlightRequests.keys()]) {
         abort(id);
       }
-      dropZone.removeEventListener("dragover", onDragOver);
-      dropZone.removeEventListener("dragleave", onDragLeave);
-      dropZone.removeEventListener("drop", onDrop);
       fileInput.removeEventListener("change", onChange);
       pendingFiles.clear();
     },

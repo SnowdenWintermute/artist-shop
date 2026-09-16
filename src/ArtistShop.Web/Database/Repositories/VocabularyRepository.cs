@@ -22,13 +22,7 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
             commandType: CommandType.StoredProcedure
         );
 
-        return
-        [
-            .. rows.Select(row => new Vocabulary(
-                new VocabularyId(row.Id),
-                new VocabularyName(row.Name)
-            )),
-        ];
+        return [.. rows.Select(ToVocabulary)];
     }
 
     public async Task<List<Vocabulary>> GetAllWithoutArtworkTypesAsync()
@@ -40,13 +34,7 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
             commandType: CommandType.StoredProcedure
         );
 
-        return
-        [
-            .. rows.Select(row => new Vocabulary(
-                new VocabularyId(row.Id),
-                new VocabularyName(row.Name)
-            )),
-        ];
+        return [.. rows.Select(ToVocabulary)];
     }
 
     public async Task<List<VocabularyWithTerms>> GetAllWithTermsForArtworkTypeAsync(
@@ -203,6 +191,9 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
             commandType: CommandType.StoredProcedure
         );
     }
+
+    private static Vocabulary ToVocabulary(VocabularyRow row) =>
+        new(new VocabularyId(row.Id), new VocabularyName(row.Name));
 
     private sealed class ArtworkCountRow
     {

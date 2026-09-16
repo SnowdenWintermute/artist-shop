@@ -1,0 +1,73 @@
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Imports
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkTypeWithFields ArtworkType { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<VocabularyWithTerms> TypeVocabularies { get; set; } = default!;
+
+  private bool Has(ArtworkField field) => ArtworkType.Fields.Contains(field);
+}
+
+@* <details> opens and closes without any script *@
+<details class="mb-4 text-sm">
+  <summary class="cursor-pointer">Columns the file can have</summary>
+
+  <p class="mb-2">
+    The first row names the columns, in any order and with any capitals. Only a title column is needed.
+  </p>
+
+  <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
+    <dt class="font-mono">@ArtworkImportHeaders.Title</dt>
+    <dd>Every row needs one. A title already in the catalog, or on two rows of the file, is skipped.</dd>
+
+    <dt class="font-mono">@ArtworkImportHeaders.Description</dt>
+    <dd>Any text.</dd>
+
+    @if (Has(ArtworkField.DateCreated))
+    {
+      <dt class="font-mono">@ArtworkImportHeaders.DateCreated</dt>
+      <dd>yyyy, yyyy-MM or yyyy-MM-dd. Blank or 0 when unknown.</dd>
+    }
+
+    @if (Has(ArtworkField.HeightAndWidth))
+    {
+      <dt class="font-mono">@ArtworkImportHeaders.Height, @ArtworkImportHeaders.Width</dt>
+      <dd>Both or neither, in the unit chosen below.</dd>
+    }
+
+    @if (Has(ArtworkField.Depth))
+    {
+      <dt class="font-mono">@ArtworkImportHeaders.Depth</dt>
+      <dd>Only with a height and width.</dd>
+    }
+
+    @if (Has(ArtworkField.Duration))
+    {
+      <dt class="font-mono">@ArtworkImportHeaders.Duration</dt>
+      <dd>h:mm:ss or m:ss.</dd>
+    }
+
+    <dt class="font-mono">@ArtworkImportHeaders.Series</dt>
+    <dd>Names of existing series, separated by the list separator.</dd>
+
+    <dt class="font-mono">@ArtworkImportHeaders.Price</dt>
+    <dd>Digits and a decimal point, no currency sign. A row with no price isn't for sale.</dd>
+
+    <dt class="font-mono">@ArtworkImportHeaders.Sold</dt>
+    <dd>One of a kind only: TRUE, FALSE or blank. A sold row may have no price.</dd>
+
+    <dt class="font-mono">@ArtworkImportHeaders.EditionSize</dt>
+    <dd>Not one of a kind: how many were made. Blank for an edition that can always be restocked.</dd>
+
+    <dt class="font-mono">@ArtworkImportHeaders.Stock</dt>
+    <dd>Not one of a kind: how many are left, no more than the edition size.</dd>
+
+    @foreach (var vocabulary in TypeVocabularies)
+    {
+      <dt class="font-mono">@vocabulary.Name.Value</dt>
+      <dd>Names of existing terms, separated by the list separator.</dd>
+    }
+  </dl>
+</details>

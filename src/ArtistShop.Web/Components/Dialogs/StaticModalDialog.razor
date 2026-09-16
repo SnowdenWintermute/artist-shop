@@ -1,0 +1,48 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* A modal for static pages: it opens as soon as the page shows it, so render it only when it should
+   appear. Needs no circuit. The page must load it with a full page load (a form without Enhance):
+   enhanced navigation updates the element in place, which neither reopens it nor keeps it open *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = default!;
+  // a button left on the page, for opening it again after closing it
+  [Parameter, EditorRequired]
+  public string ReopenLabel { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+  // beside the Close button. A submit button here can belong to a form outside the dialog through its
+  // form="" attribute
+  [Parameter, EditorRequired]
+  public RenderFragment Actions { get; set; } = default!;
+
+  private readonly string _titleId = $"modal-title-{Guid.NewGuid():n}";
+}
+
+@* <static-modal-dialog> is defined in StaticModalDialog.razor.js, loaded on every page *@
+<static-modal-dialog class="mb-4 block">
+  <ButtonBasic type="button" Class="border" data-part="open">@ReopenLabel</ButtonBasic>
+
+  @* m-auto: the modal is centred by margin, which tailwind's reset sets to 0.
+     open:flex rather than flex, which would override the browser hiding a closed dialog.
+     backdrop: styles the ::backdrop the browser puts behind a modal *@
+  <dialog aria-labelledby="@_titleId"
+          class="m-auto max-h-[85vh] w-[calc(100%-2rem)] max-w-3xl flex-col bg-white p-6 open:flex backdrop:bg-black/40">
+    <h2 id="@_titleId" class="mb-4 shrink-0 text-lg">@Title</h2>
+
+    @* the title and buttons always show; content that should scroll uses min-h-0 and overflow-y-auto
+       inside this column, and parts that shouldn't use shrink-0 *@
+    <div class="flex min-h-0 flex-col">
+      @ChildContent
+    </div>
+
+    <div class="flex shrink-0 justify-end gap-2">
+      @* method="dialog" closes the dialog it's in instead of sending anything *@
+      <form method="dialog">
+        <ButtonBasic type="submit" Class="border">Close</ButtonBasic>
+      </form>
+      @Actions
+    </div>
+  </dialog>
+</static-modal-dialog>
