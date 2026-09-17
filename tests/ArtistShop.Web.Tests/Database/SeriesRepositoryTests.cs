@@ -82,7 +82,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task PaintingAddedToASeriesJoinsItLast()
+    public async Task ArtworkAddedToASeriesJoinsItLast()
     {
         var id = await _catalog.AddSeriesAsync();
         var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
@@ -298,7 +298,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task DeleteKeepsTheSeriesPaintings()
+    public async Task DeleteKeepsTheSeriesArtworks()
     {
         var id = await _catalog.AddSeriesAsync();
         var painting = await _catalog.AddPaintingAsync(

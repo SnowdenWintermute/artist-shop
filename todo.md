@@ -246,8 +246,8 @@ sculpture and a painting may share a title without being ambiguous.
    `sunset.png`): none of them is attached; reported with a pointer to that artwork's edit page.
 7. **Unmatched files are reported.**
 8. **The report is built in the page** as files finish. Lost if the tab closes.
-9. **Two tabs racing for one artwork:** the filtered unique index on `IsPrimary` rejects the second
-   insert (2601); report it as skipped.
+9. **Two uploads racing for one artwork:** `AttachPrimaryImageToImagelessArtworkByName` takes `UPDLOCK` on the
+   matched artworks, so the second waits and then reports "already has images". No 2601 from it.
 
 **Folders (2026-09-17).** The artist drops (or picks) one top-level folder. Files directly inside it
 and inside its immediate subfolders (their series folders) count; anything deeper (thumbnails) is
@@ -601,11 +601,21 @@ more than the whole budget (which throws).
         needs exactly one public constructor.
 - [x] Split the drop zone's look from its behaviour so the static CSV form reuses it (see the CSV build order)
 - [ ] Bulk image matching, build order (design above, 2026-09-17):
-      1. `NetVips.NetVips.BlockUntrusted = true;` in `Program.cs` (full name: `NetVips` alone is the
-         namespace). Then upload a JPEG, PNG, WebP, AVIF and TIFF to confirm they still work
-      2. Attach procedure + repository method + tests: one match, ambiguous, already has an image,
-         no match, a same-named artwork of another type, the 2601 race
-      3. Pre-check procedure (type + a table of names → outcome per name) + repository method + tests
+      1. DONE 2026-09-17: `NetVips.NetVips.BlockUntrusted = true;` in `Program.cs`. Not yet checked:
+         upload a JPEG, PNG, WebP, AVIF and TIFF to confirm they still work
+      2. DONE 2026-09-17: `dbo.AttachPrimaryImageToImagelessArtworkByName` (`Procedures/Artworks/AttachPrimaryImageToImagelessByName.sql`),
+         `ArtworkImageRepository.AttachPrimaryToImagelessArtworkByNameAsync` returning the match (type +
+         every matching artwork id), 50010 → `CatalogChangedException`. `0001` gained
+         `Index_Artworks_TypeAndName` so the `UPDLOCK` lookup doesn't lock the whole table; the dev
+         database must be dropped. 7 tests in `ArtworkImageRepositoryTests`, 148 pass.
+         Collation pinned the same day: `DatabaseInitializer.Collation` (`Latin1_General_100_CI_AS_SC`) on
+         `CREATE DATABASE`, and `VerifyCollationAsync` at startup (shop database only) and in the test fixture
+      3. DONE 2026-09-17: `dbo.GetArtworkNameMatches` (`Procedures/Artworks/GetNameMatches.sql`) over a new
+         `dbo.ArtworkNameList` (`0005`, primary key on Name, so case-only duplicates are an error: the
+         page reports those before calling). `ArtworkImageRepository.GetArtworkNameMatchesAsync` returns a
+         dictionary keyed by the names as sent. Both procedures now return the shared
+         `ArtworkNameMatchType` in an `ArtworkNameMatch` (type + artwork ids); from the attach procedure,
+         `OneImagelessArtwork` means attached. 151 tests pass
       4. Shared upload validation; processing limiter, header read, megapixel cap and host sizing
          inside `ImageUploadStore`; 503 with `Retry-After`
       5. Bulk endpoint (upload, process, attach, delete on skip, outcome in a 200); per-user token bucket

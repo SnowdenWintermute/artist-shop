@@ -43,6 +43,19 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
         );
     }
 
+    public Task<ArtworkIdentifiers> AddArtworkAsync(ArtworkTypeId typeId, string name) =>
+        _artworks.AddAsync(
+            CreateArtworkAddition(
+                typeId,
+                name,
+                termIds: [],
+                seriesIds: [],
+                images: [],
+                products: [],
+                duration: null
+            )
+        );
+
     public async Task<VocabularyId> AddPaintingVocabularyAsync() =>
         await _vocabularies.AddAsync(
             new VocabularyName($"Medium {Guid.NewGuid():n}"),
@@ -102,7 +115,7 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
     )
     {
         return await _artworks.AddAsync(
-            CreatePaintingAddition(
+            CreateArtworkAddition(
                 await GetPaintingTypeIdAsync(),
                 name,
                 termIds,
@@ -114,8 +127,8 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
         );
     }
 
-    public static ArtworkCatalogAddition CreatePaintingAddition(
-        ArtworkTypeId paintingTypeId,
+    public static ArtworkCatalogAddition CreateArtworkAddition(
+        ArtworkTypeId typeId,
         string name,
         IReadOnlyList<VocabularyTermId> termIds,
         IReadOnlyList<SeriesId> seriesIds,
@@ -124,7 +137,7 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
         TimeSpan? duration
     ) =>
         new(
-            paintingTypeId,
+            typeId,
             new ArtworkName(name),
             ArtworkSlug.FromName(name),
             Description: null,

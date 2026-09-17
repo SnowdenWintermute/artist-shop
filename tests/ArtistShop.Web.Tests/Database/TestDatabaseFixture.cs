@@ -39,7 +39,9 @@ public class TestDatabaseFixture : IAsyncLifetime
     {
         // fresh every run, so edits to already-journaled scripts like 0001 take effect
         await DropDatabaseIfExistsAsync();
-        await new DatabaseInitializer().EnsureDatabaseExistsAsync(ConnectionString);
+        var databaseInitializer = new DatabaseInitializer();
+        await databaseInitializer.EnsureDatabaseExistsAsync(ConnectionString);
+        await databaseInitializer.VerifyCollationAsync(ConnectionString);
         new SchemaMigrator().Upgrade(ConnectionString);
 
         // Program.cs does this for the app. It's a global Dapper setting, and the tests

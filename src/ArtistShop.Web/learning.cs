@@ -19,10 +19,14 @@
 // is: means x matches shape of y even if y contains additional stuff
 // delegate: keyword - a type declaration for a function
 // UPDLOCK: sql for when inside a transaction you read something you indend to write later in the
+//  - when a lookup has UPDLOCK it scans every row in the table and holds a lock so making an INDEX
+//    can help in situations where you only need a certain combination of values in the UPDLOCK'd lookup
+//    to avoid unnessecary blocking
 // transaction because otherwise it could change after you read but before you wrote
 // BEGIN/END: the opening/closing of a sql block
 // IIF(condition, ifTrue, else): sql ternary expression
 // CROSS JOIN: produces every possible combination of rows from two tables
+//
 //
 //
 //

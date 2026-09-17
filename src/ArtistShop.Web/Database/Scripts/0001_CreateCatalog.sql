@@ -138,6 +138,10 @@ CREATE TABLE dbo.Artworks (
     CreatedAt datetime2 NOT NULL CONSTRAINT Default_Artworks_CreatedAt DEFAULT SYSUTCDATETIME()
 );
 
+-- bulk image matching looks artworks up by type and name. Without this index, a lookup
+-- WITH (UPDLOCK) scans the table and holds a lock on every row it read
+CREATE INDEX Index_Artworks_TypeAndName ON dbo.Artworks (ArtworkTypeId, Name);
+
 CREATE TABLE dbo.Vocabularies (
     Id int IDENTITY(1, 1),
     CONSTRAINT PrimaryKey_Vocabularies PRIMARY KEY (Id),

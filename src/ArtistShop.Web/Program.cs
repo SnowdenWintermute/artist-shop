@@ -39,6 +39,11 @@ var imageStorageRootPath = Path.GetFullPath(
 );
 
 builder.Services.AddSingleton(new ImageStorage(imageStorageRootPath));
+
+// refuse libvips file readers that aren't built to handle hostile files
+// full name needed: "NetVips" alone means the namespace, and the setting lives on the NetVips class inside it
+NetVips.NetVips.BlockUntrusted = true;
+
 builder.Services.AddSingleton<ImageProcessor>();
 builder.Services.AddSingleton<ImageUploadStore>();
 
@@ -112,6 +117,9 @@ var app = builder.Build();
 var databaseInitializer = app.Services.GetRequiredService<DatabaseInitializer>();
 await databaseInitializer.EnsureDatabaseExistsAsync(shopConnectionString);
 await databaseInitializer.EnsureDatabaseExistsAsync(identityConnectionString);
+// not the identity database: `dotnet ef database update` can create that one with the server's
+// default, and identity compares its uppercased Normalized columns, so collation doesn't matter there
+await databaseInitializer.VerifyCollationAsync(shopConnectionString);
 
 var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
 schemaMigrator.Upgrade(shopConnectionString);

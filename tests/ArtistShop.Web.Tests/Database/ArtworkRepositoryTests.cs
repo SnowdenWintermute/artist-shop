@@ -178,7 +178,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     }
 
     private async Task<ArtworkCatalogAddition> PaintingAdditionAsync(string name, IReadOnlyList<SeriesId> seriesIds) =>
-        CatalogTestData.CreatePaintingAddition(
+        CatalogTestData.CreateArtworkAddition(
             await _catalog.GetPaintingTypeIdAsync(),
             name,
             termIds: [],
