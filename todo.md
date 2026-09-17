@@ -229,33 +229,92 @@ variant arrives fast enough that a client-side preview earns nothing.
 
 ## 9. Bulk import — in progress (CSV import started 2026-09-16)
 
-**How matching works (decided 2026-09-13).** The CSV creates the shop items. The artist then
-uploads a folder of images, and each image's file name (without its extension) is compared to
-`ShopItems.Name`. This works for any shop item type, not only paintings:
-- **Exactly one item has that name:** create a `ShopItemImage` linked to it.
-- **Several items share the name** (two "Sunset" paintings): attach nothing, and list it for the
-  artist to assign by hand.
-- **At the end, a report:** how many matched, which items already had images (so the artist can
-  go and look), and which were ambiguous.
+**Bulk image matching — decided 2026-09-13, revised 2026-09-17.** The CSV creates the artworks
+(and their series). The artist then uploads a folder of images for **one artwork type**, and each
+image's file name (without its extension) is compared to `Artworks.Name` **within that type**. A
+sculpture and a painting may share a title without being ambiguous.
 
-**Decided (2026-09-13):**
-1. **One image per item.** More images are added on that item type's edit page, which doesn't
-   exist yet.
-2. **Names compare case-insensitively**, not as slugs. A title with a character file names
-   can't hold (`/`) can never match, so it ends up in the unmatched list.
-3. **Items that already have any image are skipped and flagged.** Re-uploading the same folder
-   therefore changes nothing.
-4. **Primary.** Always primary, since bulk upload only attaches to items with no images.
-5. **Images matching nothing are flagged** in the report. The sweep removes their files.
-6. **Attach as each file arrives**, no preview. There will be hundreds of matches.
-7. **The report is built in the page** from each file's response. Lost if the tab closes.
+**Matching rules:**
+1. **One image per artwork.** More images go through the edit artwork page (step 10).
+2. **Names compare case-insensitively**, not as slugs. A title with a character file names can't
+   hold (`/`) never matches and is reported as unmatched.
+3. **Artworks that already have any image are skipped and reported.** Re-uploading the same folder
+   changes nothing.
+4. **Always primary**, since only artworks with no image get one.
+5. **Several artworks of the type share the name:** nothing is attached; reported as ambiguous.
+6. **The same name appears more than once in the upload** (two series folders, or `Sunset.jpg` and
+   `sunset.png`): none of them is attached; reported with a pointer to that artwork's edit page.
+7. **Unmatched files are reported.**
+8. **The report is built in the page** as files finish. Lost if the tab closes.
+9. **Two tabs racing for one artwork:** the filtered unique index on `IsPrimary` rejects the second
+   insert (2601); report it as skipped.
 
-**Consequences to handle:**
-- Two files can match the same item (`Sunset.jpg` and `sunset.png`) and upload concurrently,
-  so both could pass an "item has no images" check. Since a bulk attach is always primary, the
-  filtered unique index on `IsPrimary` rejects the second insert (error 2601). Report that as
-  skipped rather than letting it fail.
-- Order is CSV import first, then image matching.
+**Folders (2026-09-17).** The artist drops (or picks) one top-level folder. Files directly inside it
+and inside its immediate subfolders (their series folders) count; anything deeper (thumbnails) is
+ignored. Series are **not** read from folder names, because the CSV already assigned them.
+
+**Flow, per step:**
+1. **Drop.** The drop handler calls `webkitGetAsEntry()` on every `dataTransfer.items` entry before it
+   returns (the list is emptied afterwards). Pickers: one for files, one with `webkitdirectory` for a
+   folder (a directory picker can't pick single files); those `File`s carry `webkitRelativePath`.
+2. **Walk.** Call `readEntries()` until it returns an empty batch (Chrome stops at 100 per call);
+   `entry.file()` gives the `File`, `entry.fullPath` the path. Asynchronous, so the page doesn't
+   freeze. `File`s stay in the JS `Map`.
+3. **Metadata to the server** (path, size) as an `IJSStreamReference`: .NET calls a JS function
+   returning `DotNet.createJSStreamReference(bytes of the JSON)` and reads it with
+   `OpenReadStreamAsync(maxAllowedSize: …)`. The default is 512 KB (about 3,000 files), so set it.
+   Not a single interop call: SignalR caps browser-to-server messages at 32 KB (about 200 files).
+4. **The island (server) filters and pre-checks.** Depth rule, duplicate names, then one database
+   call for the type and all names, returning each name's outcome. **Only files that will attach
+   get uploaded**; everything else goes straight into the report. A huge folder of mostly old work
+   uploads almost nothing.
+5. **Driver** uploads 3–4 at a time and starts the next when a response arrives. Courtesy only;
+   the server doesn't trust it.
+6. **Kestrel** limits (30 MB body, minimum data rate) apply as they already do.
+7. **Per-user rate limit:** `AddRateLimiter` with a token bucket per user
+   (`RateLimitPartition.GetTokenBucketLimiter`, keyed by the `NameIdentifier` claim; e.g. burst 100,
+   10 per second), `UseRateLimiter()` after `UseAuthorization()`, `RequireRateLimiting` on the
+   endpoints. Rejects with 429.
+8. **The form is read.** One file per request. ASP.NET Core keeps files over 64 KB in a temp file
+   (`ASPNETCORE_TEMP` or the system temp folder) and deletes it when the request ends.
+9. **Validation** (name length, empty, size, content type), shared with `/admin/uploads`.
+10. **Header only.** NetVips reads width, height and bands without decoding. Over a megapixel cap:
+    400. Otherwise estimate MB = width × height × bands × a safety factor. libvips picks the decoder
+    from the bytes, so a lying header can't make the decode bigger than the estimate.
+11. **Processing limiter**, inside `ImageUploadStore.SaveAsync` so both endpoints get it: one
+    app-wide `System.Threading.RateLimiting.ConcurrencyLimiter` wrapping only the NetVips work (not
+    the whole request, so slow connections don't hold slots). Memory-weighted:
+    `AcquireAsync(estimatedMegabytes, cancellationToken)`. `PermitLimit` is an MB budget and
+    `QueueLimit` is also in MB; `OldestFirst`. Queue full: 503 with `Retry-After`. A closed tab
+    cancels its wait. **Global, not per tenant**: the point is keeping the machine up.
+12. **Process.** `NetVips.Concurrency` ≈ cores ÷ jobs expected at once. Check whether AVIF encoding
+    obeys it.
+13. **Lease released** by `using`, even when processing throws.
+14. **The bulk endpoint attaches** (artwork type id posted as a form field) through the attach
+    procedure. If nothing was attached, it **deletes the stored original and variants right away**
+    instead of leaving them to the sweep. It returns 200 with an outcome value for skips (not 400).
+15. **Browser:** 200 feeds the report through the island. 429/503/504: exponential backoff with
+    jitter, honouring `Retry-After`, capped, then reported as failed. 400: show the message.
+16. **Report** fills in as files finish: attached, already had an image, ambiguous, duplicate
+    names, unmatched, failed.
+
+**Progress.** One bar for the whole run, not a row per file. A file counts in full once its response
+arrives; files in flight count by bytes sent. Once every byte is sent and responses are pending,
+show a "Processing…" spinner. `BbProgress` is fine, but JS **throttles** updates to the island
+(e.g. 4 per second, one overall number). Today `FileDropZone.razor.js` sends every progress event.
+
+**Host sizing, computed once at startup:** CPU from `Environment.ProcessorCount`, memory budget from
+`GC.GetGCMemoryInfo().TotalAvailableMemoryBytes` (both respect container limits). Queue limit ≈
+budget × (proxy timeout ÷ seconds per image). Measure the safety factor once with the largest real
+photo; overestimate. Rejecting an image over the megapixel cap also keeps any job from asking for
+more than the whole budget (which throws).
+
+**Open:**
+- Page route and where it's linked from (next to the CSV import, per type, seems natural).
+- The megapixel cap, the safety factor, the proxy timeout and seconds per image: measure first.
+- Whether `/admin/uploads` gets the per-user token bucket too (probably yes).
+- Multi-tenancy shape (one process or many). With one process, the in-process limiter is the
+  machine's cap; with many, each needs a share. The app is single-tenant today.
 
 - [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
       one CSV per item type; fixed header names the artist must use (no column mapping); a header
@@ -541,13 +600,18 @@ uploads a folder of images, and each image's file name (without its extension) i
         painting for edit. Watch the sibling `@key` rule and that a `[SupplyParameterFromForm]` model
         needs exactly one public constructor.
 - [x] Split the drop zone's look from its behaviour so the static CSV form reuses it (see the CSV build order)
-- [ ] Bulk image upload matched to existing items by file name = item name, per the questions
-      above
-- [ ] Attach-images must be its own operation, not only reachable through `AddPainting`
-- [ ] Edit page per shop item type, the only way to add a second image
-- [ ] Directory upload: `webkitdirectory` on the picker, `dataTransfer.items` +
-      `webkitGetAsEntry()` on the drop zone (currently `.files`, which flattens folders)
-- [ ] Concurrency cap in the upload driver — hundreds of files means queueing 3-4 at a time
+- [ ] Bulk image matching, build order (design above, 2026-09-17):
+      1. `NetVips.NetVips.BlockUntrusted = true;` in `Program.cs` (full name: `NetVips` alone is the
+         namespace). Then upload a JPEG, PNG, WebP, AVIF and TIFF to confirm they still work
+      2. Attach procedure + repository method + tests: one match, ambiguous, already has an image,
+         no match, a same-named artwork of another type, the 2601 race
+      3. Pre-check procedure (type + a table of names → outcome per name) + repository method + tests
+      4. Shared upload validation; processing limiter, header read, megapixel cap and host sizing
+         inside `ImageUploadStore`; 503 with `Retry-After`
+      5. Bulk endpoint (upload, process, attach, delete on skip, outcome in a 200); per-user token bucket
+      6. JS: folder walk, both pickers, metadata stream, 3–4 upload cap, backoff, throttled progress
+      7. The page: island, depth rule, duplicate names, pre-check, bar + spinner, report
+- [ ] Edit artwork page (step 10), the only way to add a second image
 
 ## 10. Artwork restructure — in progress (CSV import in step 9 was taken first, 2026-09-16)
 

@@ -10,11 +10,12 @@
   protected override async Task OnInitializedAsync()
   {
     var artworkTypes = await ArtworkTypeRepository.GetAllAsync();
-    _artworkTypes = [.. artworkTypes.OrderBy(artworkType => artworkType.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+    _artworkTypes = [.. artworkTypes.OrderBy(artworkType => artworkType.Name.Value,
+StringComparer.CurrentCultureIgnoreCase)];
   }
 }
 
-<div class="mx-auto max-w-[800px] pt-10">
+<div class="mx-auto max-w-[800px] ">
   <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
     <NavLink href="/admin/catalog/types/new" ActiveClass="underline">+ New artwork type</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>

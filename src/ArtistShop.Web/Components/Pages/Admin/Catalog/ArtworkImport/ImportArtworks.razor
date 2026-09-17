@@ -193,7 +193,7 @@
 {
   <PageTitle>Import @_type.Name.Value.ToLower() artworks</PageTitle>
 
-  <main class="pt-10">
+  <main class="">
     <div class="mx-auto max-w-[800px] border bg-white p-4">
       <h1 class="mb-4 text-xl">Import @_type.Name.Value.ToLower() artworks from a spreadsheet</h1>
 
@@ -210,9 +210,8 @@
                 enctype="multipart/form-data" class="mb-6">
         <DataAnnotationsValidator />
 
-        <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))"
-                       ValueExpression="() => Check.File" Prompt="Drop a CSV file here" Accept=".csv,text/csv"
-                       KeptFileName="@Check.KeptFileName" />
+        <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))" ValueExpression="() => Check.File"
+                       Prompt="Drop a CSV file here" Accept=".csv,text/csv" KeptFileName="@Check.KeptFileName" />
 
         @if (Check.KeptCsvText is not null)
         {
@@ -262,7 +261,8 @@
         <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
         <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.LengthUnit))" value="@Confirm.LengthUnit" />
         <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ProductTypeId))" value="@Confirm.ProductTypeId" />
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))" value="@Confirm.IsOneOfAKind.ToString()" />
+        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))"
+               value="@Confirm.IsOneOfAKind.ToString()" />
         <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
       </EditForm>
 
