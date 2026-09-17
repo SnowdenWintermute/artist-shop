@@ -1,12 +1,8 @@
 @inherits LayoutComponentBase
 @layout MainLayout
-@using BlazorBlueprint.Primitives.Services
 
 <div class="mx-auto max-w-[800px] pt-10">
   <div class="bg-white border p-4">
     @Body
   </div>
 </div>
-
-@* dialogs portal into this, so it must be interactive; it also keeps the circuit open between series pages *@
-<BbPortalHost @rendermode="InteractiveServer" />

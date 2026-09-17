@@ -27,21 +27,9 @@
 }
 
 #components-reconnect-modal {
-  /* a dialog opened with showModal() is positioned against the viewport, so auto margins centre it */
-  margin: auto;
-  width: 22rem;
-  max-width: calc(100% - 2rem);
-  padding: 2rem;
-  border: 1px solid var(--theme-base, black);
-  border-radius: 0;
-  background-color: white;
-  color: var(--theme-base, black);
+  /* the shared look is the artist-shop-modal class in the markup; these extras are this modal's own */
   font-family: inherit;
   animation: components-reconnect-modal-fade-in 0.2s ease-out both;
-}
-
-#components-reconnect-modal::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
 }
 
 @keyframes components-reconnect-modal-fade-in {

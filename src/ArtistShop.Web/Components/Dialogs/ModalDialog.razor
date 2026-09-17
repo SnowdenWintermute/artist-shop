@@ -1,0 +1,66 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* The one modal for every page. It opens as soon as it's rendered, so render it only while it should
+   show: inside @if (open) in an island, or when there's something to show on a static page.
+   On a static page it must arrive with a full page load (a form without Enhance): enhanced navigation
+   updates an element already on the page in place, which neither reopens the dialog nor keeps it open *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public ModalDialogWidth Width { get; set; }
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // islands only, as a static page has no code to run: the browser closed the dialog (Escape, or a
+  // ModalCloseButton), so the island should stop rendering it
+  [Parameter]
+  public EventCallback OnClose { get; set; }
+  // islands only: Escape does nothing while this is true, e.g. while saving
+  [Parameter]
+  public bool KeepOpen { get; set; }
+  // static pages only: a button left on the page that opens the dialog again after it's closed
+  [Parameter]
+  public string? ReopenLabel { get; set; }
+  // extra panel classes, like a border. Not padding or display: .artist-shop-modal isn't in a
+  // tailwind layer, so it wins over utility classes that set the same thing
+  [Parameter]
+  public string? Class { get; set; }
+  // go on the <dialog>, e.g. role="alertdialog"
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+  private readonly string _titleId = $"modal-title-{Guid.NewGuid():n}";
+
+  private string WidthClass =>
+    Width switch
+    {
+      ModalDialogWidth.Narrow => "max-w-md",
+      ModalDialogWidth.Wide => "max-w-3xl",
+      _ => throw new ArgumentOutOfRangeException(nameof(Width), Width, null),
+    };
+}
+
+@* <modal-dialog> is defined in ModalDialog.razor.js, loaded on every page. Without a reopen button it
+   has nothing to lay out ("contents"), since an open modal sits above the page *@
+<modal-dialog class="@(ReopenLabel is null ? "contents" : "mb-4 block")">
+  @if (ReopenLabel is not null)
+  {
+    <ButtonBasic type="button" Class="border" data-modal-dialog="open">@ReopenLabel</ButtonBasic>
+  }
+
+  @* close fires however the dialog closed. data-keep-open: a bool attribute is only rendered while
+     true, and the script then cancels Escape. Not @oncancel:preventDefault, which the compiler emitted
+     as a literal attribute name that the browser rejects *@
+  <dialog @attributes="AdditionalAttributes" aria-labelledby="@_titleId"
+          class="artist-shop-modal @WidthClass @Class" data-keep-open="@KeepOpen" @onclose="OnClose">
+    <h2 id="@_titleId" class="mb-4 shrink-0 text-lg">@Title</h2>
+
+    @* the title always shows; content that should scroll uses min-h-0 and overflow-y-auto inside this
+       column, and parts that shouldn't, like ModalDialogActions, use shrink-0 *@
+    <div class="flex min-h-0 flex-col">
+      @ChildContent
+    </div>
+  </dialog>
+</modal-dialog>

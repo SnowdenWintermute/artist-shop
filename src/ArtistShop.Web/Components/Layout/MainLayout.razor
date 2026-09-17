@@ -1,19 +1,23 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="h-dvh ">
+<div class="h-dvh flex flex-col">
   <div class="">
     <NavMenu />
   </div>
 
-  <main>
-    <section class="h-full w-full bg-theme-recessed">
+  <div class="w-full bg-theme-recessed flex flex-1 flex-col">
+    <main class="flex-1">
       @Body
-    </section>
-  </main>
-  <div id="blazor-error-ui" class="absolute z-10 text-cyan-600" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    </main>
+  </div>
+
+  <div id="blazor-error-ui" class="fixed top-1/2 left-1/2 z-50 hidden -translate-x-1/2 -translate-y-1/2 border-2
+    border-red-600 bg-theme-recessed p-6" data-nosnippet>
+    <div class="flex items-center">
+      An unhandled error has occurred.
+      <a href="." class="reload mx-2 underline">Reload</a>
+      <button type="button" class="dismiss h-6 w-6 cursor-pointer border text-xl leading-0"
+              aria-label="Dismiss">🗙</button>
+    </div>
   </div>
 </div>
-

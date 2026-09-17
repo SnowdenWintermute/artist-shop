@@ -90,6 +90,14 @@
     "JosefinSlab", ui-serif, Georgia, Cambria, "Times New Roman", serif;
 }
 
+/* the look every modal dialog shares; ModalDialog adds the width.
+   m-auto: a modal is centred by margin, which tailwind's reset sets to 0.
+   open:flex rather than flex, which would override the browser hiding a closed dialog.
+   backdrop: styles the ::backdrop the browser puts behind a modal */
+.artist-shop-modal {
+  @apply m-auto max-h-[85vh] w-[calc(100%-2rem)] flex-col bg-white p-6 open:flex backdrop:bg-black/40;
+}
+
 .artist-shop-field-input {
   @apply border border-theme-base px-2 h-10;
 }

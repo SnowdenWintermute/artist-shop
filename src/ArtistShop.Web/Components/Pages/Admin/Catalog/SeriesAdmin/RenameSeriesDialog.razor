@@ -3,7 +3,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@using BlazorBlueprint.Primitives.Dialog
+@using ArtistShop.Web.Components.Dialogs
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
 
@@ -32,8 +32,7 @@
     _wasOpen = Open;
   }
 
-  private Task HandleOpenChanged(bool open) =>
-    open || _isSaving ? Task.CompletedTask : OpenChanged.InvokeAsync(false);
+  private Task CloseAsync() => _isSaving ? Task.CompletedTask : OpenChanged.InvokeAsync(false);
 
   private async Task RenameAsync()
   {
@@ -64,28 +63,19 @@
 
 @if (Open)
 {
-  <BbDialog Open="true" OpenChanged="HandleOpenChanged">
-    <BbDialogPortal>
-      <BbDialogOverlay class="fixed inset-0 z-40 bg-black/40" />
-      <BbDialogContent
-        class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white p-6">
-        <BbDialogTitle class="mb-4 text-lg">Rename @SeriesName.Value</BbDialogTitle>
+  <ModalDialog Title="@($"Rename {SeriesName.Value}")" Width="ModalDialogWidth.Narrow" OnClose="CloseAsync"
+               KeepOpen="_isSaving">
+    <EditForm EditContext="_form.EditContext" OnValidSubmit="RenameAsync">
+      <DataAnnotationsValidator />
 
-        <EditForm EditContext="_form.EditContext" OnValidSubmit="RenameAsync">
-          <DataAnnotationsValidator />
-
-          <TextField Label="Name" @bind-Value="_form.Name" />
-          <p class="mb-4 text-sm text-gray-500">Renaming changes the series' web address, so old links stop working.</p>
-          <div class="flex justify-end gap-2">
-            <ButtonBasic type="button" Class="border" disabled="@_isSaving" @onclick="() => HandleOpenChanged(false)">
-              Cancel
-            </ButtonBasic>
-            <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
-              @(_isSaving ? "Saving..." : "Rename")
-            </ButtonBasic>
-          </div>
-        </EditForm>
-      </BbDialogContent>
-    </BbDialogPortal>
-  </BbDialog>
+      <TextField Label="Name" @bind-Value="_form.Name" />
+      <p class="mb-4 text-sm text-gray-500">Renaming changes the series' web address, so old links stop working.</p>
+      <ModalDialogActions>
+        <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
+        <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
+          @(_isSaving ? "Saving..." : "Rename")
+        </ButtonBasic>
+      </ModalDialogActions>
+    </EditForm>
+  </ModalDialog>
 }

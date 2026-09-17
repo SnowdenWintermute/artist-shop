@@ -1,5 +1,4 @@
 @using ArtistShop.Web.Components.Atoms
-@using BlazorBlueprint.Primitives.AlertDialog
 
 @code {
   [Parameter]
@@ -16,23 +15,22 @@
   public bool IsWorking { get; set; }
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
+
+  private readonly string _descriptionId = $"confirm-description-{Guid.NewGuid():n}";
 }
 
-<BbAlertDialog Open="Open" OpenChanged="OpenChanged">
-  <BbAlertDialogPortal>
-    <BbAlertDialogOverlay class="fixed inset-0 z-40 bg-black/40" />
-    <BbAlertDialogContent
-      class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white p-6">
-      <BbAlertDialogTitle class="mb-2 text-lg">@Title</BbAlertDialogTitle>
-      <BbAlertDialogDescription class="mb-6">@ChildContent</BbAlertDialogDescription>
-      <div class="flex justify-end gap-2">
-        <ButtonBasic type="button" Class="border" disabled="@IsWorking" @onclick="() => OpenChanged.InvokeAsync(false)">
-          Cancel
-        </ButtonBasic>
-        <ButtonBasic type="button" Class="bg-red-600 text-white" disabled="@IsWorking" @onclick="OnConfirm">
-          @ConfirmLabel
-        </ButtonBasic>
-      </div>
-    </BbAlertDialogContent>
-  </BbAlertDialogPortal>
-</BbAlertDialog>
+@if (Open)
+{
+  @* alertdialog tells screen readers this needs an answer; aria-describedby reads the question out *@
+  <ModalDialog Title="@Title" Width="ModalDialogWidth.Narrow" OnClose="() => OpenChanged.InvokeAsync(false)"
+               KeepOpen="IsWorking" role="alertdialog" aria-describedby="@_descriptionId">
+    <div id="@_descriptionId" class="mb-6">@ChildContent</div>
+
+    <ModalDialogActions>
+      <ModalCloseButton Label="Cancel" Disabled="IsWorking" />
+      <ButtonBasic type="button" Class="bg-red-600 text-white" disabled="@IsWorking" @onclick="OnConfirm">
+        @ConfirmLabel
+      </ButtonBasic>
+    </ModalDialogActions>
+  </ModalDialog>
+}

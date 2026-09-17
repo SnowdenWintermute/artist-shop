@@ -1,0 +1,10 @@
+@* the button row at the bottom of a ModalDialog; it never scrolls away *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<div class="flex shrink-0 justify-end gap-2">
+  @ChildContent
+</div>

@@ -3,7 +3,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@using BlazorBlueprint.Primitives.Dialog
+@using ArtistShop.Web.Components.Dialogs
 @inject VocabularyTermRepository VocabularyTermRepository
 
 @code {
@@ -37,8 +37,7 @@
     }
   }
 
-  private Task HandleOpenChanged(bool open) =>
-    open || _isSaving ? Task.CompletedTask : TermChanged.InvokeAsync(null);
+  private Task CloseAsync() => _isSaving ? Task.CompletedTask : TermChanged.InvokeAsync(null);
 
   private async Task RenameAsync(VocabularyTermWithUsage term)
   {
@@ -71,34 +70,18 @@
 
 @if (Term is { } term)
 {
-  <BbDialog Open="true" OpenChanged="HandleOpenChanged">
-    <BbDialogPortal>
-      <BbDialogOverlay class="fixed inset-0 z-40 bg-black/40" />
-      <BbDialogContent
-        class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white p-6">
-        <BbDialogTitle class="mb-4 text-lg">Rename @term.Name.Value</BbDialogTitle>
+  <ModalDialog Title="@($"Rename {term.Name.Value}")" Width="ModalDialogWidth.Narrow" OnClose="CloseAsync"
+               KeepOpen="_isSaving">
+    <EditForm EditContext="_form.EditContext" OnValidSubmit="() => RenameAsync(term)">
+      <DataAnnotationsValidator />
 
-        <EditForm EditContext="_form.EditContext" OnValidSubmit="() => RenameAsync(term)">
-          <DataAnnotationsValidator />
-
-          <TextField Label="Name" @bind-Value="_form.Name" />
-          <div class="flex justify-end gap-2">
-            <ButtonBasic type="button" Class="border" disabled="@_isSaving" @onclick="() => HandleOpenChanged(false)">
-              Cancel
-            </ButtonBasic>
-            <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
-              @if (_isSaving)
-              {
-                <span>Saving...</span>
-              }
-              else
-              {
-                <span>Rename</span>
-              }
-            </ButtonBasic>
-          </div>
-        </EditForm>
-      </BbDialogContent>
-    </BbDialogPortal>
-  </BbDialog>
+      <TextField Label="Name" @bind-Value="_form.Name" />
+      <ModalDialogActions>
+        <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
+        <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
+          @(_isSaving ? "Saving..." : "Rename")
+        </ButtonBasic>
+      </ModalDialogActions>
+    </EditForm>
+  </ModalDialog>
 }

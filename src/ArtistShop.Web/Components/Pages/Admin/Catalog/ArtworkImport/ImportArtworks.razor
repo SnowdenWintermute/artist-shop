@@ -268,27 +268,27 @@
 
       @if (_plan is not null)
       {
-        <StaticModalDialog Title="Review" ReopenLabel="Show the review">
-          <ChildContent>
-            @if (_catalogChangedSinceReview)
-            {
-              <p class="mb-4 shrink-0 text-red-400">
-                The catalog changed since the last review, so nothing was imported. This is the review as things
-                are now.
-              </p>
-            }
+        <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" ReopenLabel="Show the review">
+          @if (_catalogChangedSinceReview)
+          {
+            <p class="mb-4 shrink-0 text-red-400">
+              The catalog changed since the last review, so nothing was imported. This is the review as things
+              are now.
+            </p>
+          }
 
-            <ArtworkImportReview Plan="_plan" />
-          </ChildContent>
-          <Actions>
+          <ArtworkImportReview Plan="_plan" />
+
+          <ModalDialogActions>
+            <ModalCloseButton Label="Close" />
             @if (_plan.CanImport)
             {
               <ButtonBasic type="submit" form="@ConfirmFormName" Class="bg-blue-400 text-white">
                 Import @CountText.Of(_plan.Additions.Count, "artwork")
               </ButtonBasic>
             }
-          </Actions>
-        </StaticModalDialog>
+          </ModalDialogActions>
+        </ModalDialog>
       }
     </div>
   </main>

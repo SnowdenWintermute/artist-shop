@@ -326,14 +326,13 @@ uploads a folder of images, and each image's file name (without its extension) i
       - [x] `ArtworkRepository.AddManyAsync` (2026-09-16): one connection and transaction, `AddArtwork`
             per addition (its own BEGIN/COMMIT nest); a stale choice in a later row rolls back the
             earlier ones (tested). Shares `ExecuteAddAsync` with `AddAsync`
-      - [x] Split the drop zone's look from its behaviour (2026-09-16, not checked in a browser):
+      - [x] Split the drop zone's look from its behaviour (2026-09-16, image upload checked in the browser):
             `FileDropZoneFrame` is the look, and its `<file-drop-zone>` custom element (loaded in `App.razor`,
             like `<partial-date-field>`) opens the picker, highlights on drag, and turns a drop into the
             input's `change` event. `FileDropZone` keeps only the uploading and listens to `change`.
             `FileDropField` is the static version: a named file input inside the frame (the form needs
             `enctype="multipart/form-data"`), with the chosen file's name shown under the button
-      - [x] Import page under `/admin/catalog/artworks/import?type={id}` (BUILT 2026-09-16, builds, not checked in a
-            browser; `Pages/Admin/Catalog/ArtworkImport/`, dashboard link per type). Notes: both forms are multipart,
+      - [x] Import page under `/admin/catalog/artworks/import?type={id}` (BUILT 2026-09-16, working in the browser; `Pages/Admin/Catalog/ArtworkImport/`, dashboard link per type). Notes: both forms are multipart,
             so the 4 MB form value limit applies to the unencoded text rather than URL-encoded text; `CsvTable.Parse`
             turns every line break into `\n`, because a browser posts hidden fields back with `\r\n` and the
             fingerprint would never match; `Utf8Text` decodes strictly and the page says "save as CSV UTF-8";
@@ -341,7 +340,13 @@ uploads a folder of images, and each image's file name (without its extension) i
             when the type has height and width. The review opens in `Components/Dialogs/StaticModalDialog`, a
             native `<dialog>` opened by a `<static-modal-dialog>` custom element, not a BbDialog island: island
             parameters reach the server in one SignalR message (32KB limit) and the review carries the whole CSV.
-            So both import forms post without Enhance. Original spec:: file, unit, product type, one of a
+            So both import forms post without Enhance. Later the same day every dialog moved onto one
+            `Components/Dialogs/ModalDialog` (native `<dialog>`, `<modal-dialog>` custom element, look in
+            `.artist-shop-modal`); Blueprint's dialogs and the three `BbPortalHost` islands are gone, and the
+            reconnect modal uses the same class. Checked in the browser: rename and confirm dialogs, Escape
+            blocked while saving (tested with a temporary delay), and no greying out between catalog pages
+            without the portal hosts. `@oncancel:preventDefault` compiled to a literal attribute name and broke
+            the circuit, so `ModalDialog` renders `data-keep-open` and its script cancels Escape. Original spec:: file, unit, product type, one of a
             kind, list separator; the review (counts, skipped rows, errors by row and column) carries the
             CSV text and the plan's fingerprint in hidden fields; confirm re-plans with a fresh snapshot
             and shows the new review if the fingerprint differs. File size limit. Dashboard link per type.
