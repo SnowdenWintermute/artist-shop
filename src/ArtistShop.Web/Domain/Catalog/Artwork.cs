@@ -7,7 +7,7 @@ public record ArtworkId(int Value);
 public record ArtworkName(string Value);
 
 public record ArtworkImage(
-    string RelativePath,
+    string StorageKey,
     string? OriginalFileName,
     int Width,
     int Height,

@@ -7,11 +7,9 @@ using Microsoft.Data.SqlClient;
 
 public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
 {
-    private const int ArtworkTypeNoLongerExists = 50010;
-
     // since we're using this to determine if an image exists, we
     // pick hash set
-    public async Task<HashSet<string>> GetAllRelativePathsAsync()
+    public async Task<HashSet<string>> GetAllStorageKeysAsync()
     {
         await using var connection = connectionFactory.Create();
 
@@ -19,15 +17,15 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
         // QueryAsync maps each row to a string, if it
         // had more columns we would create a class to
         // represent that row's data in C#
-        var relativePaths = await connection.QueryAsync<string>(
-            "dbo.GetAllArtworkImageRelativePaths",
+        var storageKeys = await connection.QueryAsync<string>(
+            "dbo.GetAllArtworkImageStorageKeys",
             commandType: CommandType.StoredProcedure
         );
 
-        return [.. relativePaths];
+        return [.. storageKeys];
     }
 
-    public async Task<ArtworkNameMatch> AttachPrimaryToImagelessArtworkByNameAsync(
+    public async Task<ImageAttachResult> AttachPrimaryImageToImagelessArtworkByNameAsync(
         ArtworkTypeId typeId,
         ArtworkName artworkName,
         ArtworkImage image
@@ -43,7 +41,7 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
                 {
                     ArtworkTypeId = typeId.Value,
                     ArtworkName = artworkName.Value,
-                    image.RelativePath,
+                    image.StorageKey,
                     image.OriginalFileName,
                     image.Width,
                     image.Height,
@@ -55,9 +53,9 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
             var matchType = await results.ReadSingleAsync<ArtworkNameMatchType>();
             var artworkIds = await results.ReadAsync<int>();
 
-            return new ArtworkNameMatch(matchType, [.. artworkIds.Select(id => new ArtworkId(id))]);
+            return new ImageAttachResult(matchType, [.. artworkIds.Select(id => new ArtworkId(id))]);
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, ArtworkTypeNoLongerExists))
+        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -105,7 +103,7 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
                 row => new ArtworkNameMatch(row.MatchType, [.. artworkIdsByName[row.Name]])
             );
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, ArtworkTypeNoLongerExists))
+        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }

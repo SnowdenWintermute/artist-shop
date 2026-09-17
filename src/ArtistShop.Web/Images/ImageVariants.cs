@@ -15,6 +15,9 @@ public static class ImageVariants
 
     public static int SmallestWidth => Widths[0];
 
+    // the small preview the admin lists and the upload rows show
+    public const int AdminThumbnailWidth = 400;
+
     public static string FileName(int width, ImageVariantFormat format) =>
         format switch
         {

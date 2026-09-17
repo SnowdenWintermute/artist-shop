@@ -31,7 +31,7 @@
   {
 
     <img src="@image.BlurDataUri" />
-    <img src="@ImageUrls.Variant(image.RelativePath, image.Width, 800, ImageVariantFormat.Webp)" />
-    <div>@image.RelativePath </div>
+    <img src="@ImageUrls.Variant(image.StorageKey, image.Width, 800, ImageVariantFormat.Webp)" />
+    <div>@image.StorageKey </div>
   }
 }

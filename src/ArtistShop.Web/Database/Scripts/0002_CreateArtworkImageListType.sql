@@ -1,7 +1,7 @@
 CREATE
 TYPE dbo.ArtworkImageList AS
 TABLE (
-    RelativePath nvarchar(400) NOT NULL,
+    StorageKey char(32) NOT NULL,
     OriginalFileName nvarchar(260),
     SortOrder int NOT NULL,
     IsPrimary bit NOT NULL,

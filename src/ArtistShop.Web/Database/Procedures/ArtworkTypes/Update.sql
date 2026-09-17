@@ -25,7 +25,7 @@ SET
 WHERE
     Id = @Id;
 
-IF @@ROWCOUNT = 0 THROW 50013,
+IF @@ROWCOUNT = 0 THROW 50010,
 'The artwork type no longer exists.',
 1;
 

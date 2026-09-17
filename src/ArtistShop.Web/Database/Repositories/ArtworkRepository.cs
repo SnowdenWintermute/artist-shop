@@ -8,26 +8,20 @@ using Microsoft.Data.SqlClient;
 
 public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 {
-    // the numbers AddArtwork THROWs for a choice that changed while the form was open
-    private const int VocabularyTermNoLongerExists = 50001;
-    private const int SeriesNoLongerExists = 50009;
-    private const int ArtworkTypeNoLongerExists = 50010;
-    private const int ArtworkFieldSwitchedOff = 50011;
-    private const int ProductTypeNoLongerExists = 50012;
-
+    // what AddArtwork THROWs when a choice changed while the form was open
     private static readonly int[] CatalogChangedErrors =
     [
-        VocabularyTermNoLongerExists,
-        SeriesNoLongerExists,
-        ArtworkTypeNoLongerExists,
-        ArtworkFieldSwitchedOff,
-        ProductTypeNoLongerExists,
+        SqlErrorNumbers.VocabularyTermNoLongerExists,
+        SqlErrorNumbers.SeriesNoLongerExists,
+        SqlErrorNumbers.ArtworkTypeNoLongerExists,
+        SqlErrorNumbers.ArtworkFieldSwitchedOff,
+        SqlErrorNumbers.ProductTypeNoLongerExists,
     ];
 
     private static DataTable CreateImageDataTable(ArtworkCatalogAddition artworkCatalogAddition)
     {
         var images = new DataTable();
-        images.Columns.Add("RelativePath", typeof(string));
+        images.Columns.Add("StorageKey", typeof(string));
         images.Columns.Add("OriginalFileName", typeof(string));
         images.Columns.Add("SortOrder", typeof(int));
         images.Columns.Add("IsPrimary", typeof(bool));
@@ -41,7 +35,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
             // must match the Table Value Property dbo.ArtworkImageList
             // parameter order
             images.Rows.Add(
-                image.RelativePath,
+                image.StorageKey,
                 image.OriginalFileName,
                 i,
                 i == artworkCatalogAddition.MainImageIndex,
@@ -261,7 +255,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
             dimensions,
             duration,
             images.Select(image => new ArtworkImage(
-                image.RelativePath,
+                image.StorageKey,
                 image.OriginalFileName,
                 image.Width,
                 image.Height,
@@ -302,7 +296,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 
     private sealed class ImageRow
     {
-        public required string RelativePath { get; init; }
+        public required string StorageKey { get; init; }
         public string? OriginalFileName { get; init; }
         public required bool IsPrimary { get; init; }
         public required int Width { get; init; }

@@ -1,80 +1,103 @@
-# Todo: interactive image upload on the add-painting form
+# Todo: interactive image upload on the add-artwork form
 
-Goal: drop or pick multiple images on `/admin/paintings/add-single`, watch each one upload,
-reorder them by dragging, star one as primary, and have them saved with the painting.
+Goal: drop or pick multiple images on `/admin/catalog/artworks/add`, watch each one upload,
+reorder them by dragging, star one as primary, and have them saved with the artwork.
 
 Approach: the page stays static SSR. One `InteractiveServer` island owns the image list.
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-16, end of session
+## Where this stands — 2026-09-17, end of session
 
-**Next session starts at step 9's CSV import build order**: the drop zone split, then the import page.
-Everything below is uncommitted on top of `b89c3c8`; 132 tests pass; nothing from this session has
-been checked in a browser.
+**Next session starts at step 5 of the bulk image matching build order** (step 9, near the end of
+that step): the bulk endpoint. Steps 1–3 are committed in `e5b43e3`, step 4 in `c74db86`; the review
+fixes below that one are uncommitted. 175 tests passed before those fixes and the 5 new
+`ImageProcessingCapacityTests` have not been run yet, so `dotnet test` is the first thing to do. The
+design is in step 9 ("Bulk image matching — decided 2026-09-13, revised 2026-09-17", the flow,
+progress, host sizing), and the sections at the end of this file: Multi-tenancy notes, Deployment,
+Image URLs.
 
-**Before running `dev.sh`:** drop the dev database. `0001` changed (`ProductKinds` became
-`ProductTypes`), and DbUp won't rerun a script it already recorded:
-`source .env && docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "DROP DATABASE IF EXISTS ArtistShop;"`
-Running a schema script through `sqlcmd` by hand needs `-I`, or the filtered indexes fail.
+**Before running `dev.sh`:**
+1. Drop the dev database. The collation is pinned, `0001` gained an index, `ArtworkImages.RelativePath`
+   became `StorageKey char(32)`, and `GetAllArtworkImageRelativePaths` was renamed — a DbUp script
+   already recorded never runs again, and the old procedure would linger.
+   `source .env && docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "DROP DATABASE IF EXISTS ArtistShop;"`
+   Running a schema script through `sqlcmd` by hand needs `-I`, or the filtered indexes fail.
+2. `docker compose up -d` so the SQL container gets its new 2 GB memory limit.
+3. Restart `dev.sh` so the app sees `MALLOC_ARENA_MAX=2` from `env.sh`.
 
-Done 2026-09-16:
-- **Work type admin** (step 10): `/admin/catalog/types/new` and `/{id}/edit` in
-  `Catalog/ArtworkTypes/`, like the vocabulary editor. Field checkboxes come from `ArtworkFields`
-  (`ArtworkFieldRepository`), Depth nested under Height and width. Switching a field off clears its
-  values on the type's artworks after a confirm dialog. Delete only when unused (50014); a type
-  deleted before a save is 50013. `DeleteArtworkType` locks the type row first, the same order as
-  `AddArtwork`. Dashboard link "Artwork types".
-- **Vocabularies skip a deleted type** instead of failing the foreign key (a join in
-  `AddVocabulary`/`UpdateVocabulary`).
-- **Review cleanups:** `Components/Forms/ServerValidatedForm` is the base of the four form classes
-  that show database errors; `CatalogLayout` renamed `VocabularyLayout`; `AddArtwork.razor` loads its
-  type with `ArtworkTypeRepository.GetAsync` (the `GetArtworkTypeFields` procedure is gone).
-- **`ProductKind` renamed `ProductType`** everywhere (tables, procedures, C#).
-- **CSV import started** (step 9): the decisions of 2026-09-16, `Imports/CsvTable` over Sylvan,
-  the planner, and `ArtworkRepository.AddManyAsync` (one transaction; tested rollback).
-- Not done, noted: "Used by N artworks" on the type page should link to the future admin artworks
-  list (step 10's last item).
+**What step 5 has to build on** (all of it exists and is tested):
+- `ImageUploadStore.SaveAsync(stream, cancellationToken)` — saves the original, reads the header,
+  checks the megapixel cap and the budget, takes a limiter lease, processes, and deletes the original
+  on any failure. The bulk endpoint calls this, not `ImageProcessor` directly.
+- `ImageUploadValidation.FindProblem(file)` — the same name, size and content-type checks as
+  `/admin/uploads`, and `MaximumRequestBytes` for the endpoint's own size limit.
+- `ArtworkImageRepository.GetArtworkNameMatchesAsync(typeId, names)` for the pre-check the island runs
+  before anything uploads, and `AttachPrimaryImageToImagelessArtworkByNameAsync(typeId, name, image)`
+  for the attach, whose `ImageAttachResult.Attached` says whether the image was taken.
+- `ImageProcessingBusyException` → 503 with `Retry-After`, as `/admin/uploads` already answers.
+- Flow steps 14 and 16: a skip returns 200 with an outcome, not 400, and the endpoint deletes the
+  stored original and variants itself rather than leaving them to the sweep.
 
-Done 2026-09-15, all in step 9:
-- **Series admin**, steps 1-5 of its build order: series hold any shop item type, the artist orders both
-  the series and the artworks inside one, the cover is a starred artwork's primary image, and the
-  add-painting form has term and series pickers with a setup notice that refreshes on tab return.
-- **`SortableList` + `StarredSortableList`** in `Components/Lists`, shared with the image list, dragged
-  by a grip handle.
-- **Deadlock fix:** concurrent `AddPainting` calls deadlocked under `SERIALIZABLE`; `ResolveShopItemSlug`
-  now reads once over one prefix range `WITH (UPDLOCK)`.
-- **Every "deleted somewhere else" error** (50001-50009) becomes `CatalogChangedException` and shows a
-  message instead of Blazor's error bar.
-- **Islands prerender disabled** via `DisabledUntilInteractive`.
-- Not yet checked in a browser: a series page's artwork list (reorder, star, remove) and the stale-pick
-  message on the add-painting form.
+**Open before step 5 is written:** where the bulk page lives (step 7 — next to the CSV import, per
+work type, seems natural), and how C# decides two file names are duplicates. The database compares
+with `Latin1_General_100_CI_AS_SC`, which ignores case *and* trailing spaces, so a plain
+`OrdinalIgnoreCase` check would pass names the `ArtworkNameList` primary key then rejects. Proposed:
+`Normalize()` (macOS file names can spell an accent as two characters) plus `TrimEnd()`, compared
+with a culture-aware case-insensitive comparer, and a test that sends "Sunset" and "Sunset ".
 
-Done 2026-09-14/15:
-- Vocabulary and term procedures, `VocabularyRepository`, `VocabularyTermRepository`,
-  `ShopItemTypeRepository`, `SqlErrors`, and repository tests using a shared `CatalogTestData`.
-- `ShopItemTypeId` is `int` everywhere, not `tinyint`.
-- The test database is dropped and recreated on every run (an xUnit assembly fixture).
-- Admin pages at `/admin/catalog/vocabularies/...`: static pages, a static `CatalogLayout`,
-  and prerendered interactive islands for the dialogs.
-- Field ids get a per-instance suffix, so two fields bound to `Name` can share a page.
+**Done 2026-09-17:**
+- Step 4: `ImageUploadValidation` (validation out of the endpoint; per-endpoint request size limit),
+  `ImageProcessor.ReadHeader`, `ImageProcessingLimiter` (processor slots, then megabytes; 503 with
+  `Retry-After` when the slot queue is full), `ImageUploadStore` deleting the original on any failure.
+- Limits in `appsettings.json` `ImageProcessing`: 100 MP cap, `MemoryBudgetMegabytes` 1000, multiplier 2
+  and 10 s per image (both measured, table in step 9), `NetVips.Concurrency = 1`, `NetVips.Cache.Max = 0`.
+- HEIC is not supported (no HEVC decoder in NetVips.Native; Mike decided against the system libvips):
+  rejected by content type and by header with an "export as JPEG" message. The image picker's
+  `accept` lists the permitted types (`ImageUploadValidation.FileInputAccept`).
+- `Utilities/Units`, `Utilities/ValidatedSettings.Read<T>` (config binding + `[Range]`; the sweep
+  settings moved to their own `OrphanedImageSweep` section).
+- `Images/ImageVariants` + `Images/ImageUrls`: every variant URL goes through one place.
+- Work-in-progress `Dockerfile`, `.dockerignore`, `docker-compose.production.yml` (tried locally),
+  and `tools/measure-image-memory/measure.cs`.
 
-Done before that, 2026-09-13/14:
-- **Schema:** nullable `Price`; `DatePainted` plus `DatePaintedPrecision`; `decimal(8, 4)`
-  dimensions; `SortOrder` on the series junction.
-- **Vocabularies replace `Mediums`/`Supports`:** `ShopItemTypes`, `Vocabularies`,
-  `VocabularyAndShopItemTypesJunction`, `VocabularyTerms` and `ShopItemAndVocabularyTermsJunction`,
-  enforced with composite foreign keys. `Paintings.ShopItemTypeId` is a persisted computed `1`.
-  `AddPainting` takes `@VocabularyTermIds`; `GetPaintingBySlug` returns painting, images, series,
-  terms, in that order.
-- **`PartialDate`** and the Year/Month/Day `PartialDateField` with its day-limiting script.
+**Review fixes, same day (by Claude, at Mike's request).** The build is clean; nothing re-run in a
+browser or against the database.
+- `ArtworkImages.RelativePath` is now **`StorageKey`**, everywhere: the column, the
+  `Unique_ArtworkImages_StorageKey` constraint, `dbo.ArtworkImageList`, the procedures (including
+  `dbo.GetAllArtworkImageStorageKeys`, renamed from `…RelativePaths`), `ArtworkImage`, the
+  repositories and the pages. It never held a path.
+- **One number per error meaning**, listed in `Database/SqlErrorNumbers.cs`; the repositories no
+  longer keep private copies. Three numbers were second names for a meaning that already had one:
+  50003 → 50001, 50009 → 50004, 50013 → 50010, and the three old numbers are retired.
+- The attach method is `AttachPrimaryImageToImagelessArtworkByNameAsync` (matching the procedure)
+  and returns `ImageAttachResult`, whose `Attached` says what `OneImagelessArtwork` means there.
+- `DetailedErrors` only in Development; libvips's own message is logged and the artist sees one
+  sentence; `ImageProcessingLimiter` throws if the memory queue ever turns a request away;
+  `ImageProcessor` disposes its source image; `ImageVariants.AdminThumbnailWidth` replaces the
+  hardcoded 400s.
+- `StorageKey` is `char(32)` (column, `ArtworkImageList`, the attach parameter), which is what
+  `ImageStorage.OriginalExists` already demands of it. Dapper sends strings as nvarchar, so a future
+  lookup *by* that column needs a `DbString` with `IsAnsi` or SQL Server converts the column instead
+  of seeking the index.
+- **The .NET heap is pinned in production** (`DOTNET_GCHeapHardLimitPercent=0x1E`, 30% of `mem_limit`):
+  600 MB of heap, 1,000 MB of libvips memory and about 400 MB spare inside 2 GB. Left alone the heap
+  takes 75%, which next to the image budget adds up past the container. `ImageProcessingCapacity` is
+  now `For(settings, processorCount, heapMemoryMegabytes)` with `FromHost` reading the two host
+  numbers, and 5 tests cover the slots, the queue size and the refusal.
+- Still open from that review: the 503 the add-artwork form can now get is shown as "Upload failed
+  (503)." — parked until the bulk page's retry (flow step 15) exists, so both can share it.
 
-Nothing can edit a painting yet, and no public page shows a series.
+**Not checked in a browser:** uploads of each format (and HEIC being turned away), the thumbnails on
+the series pages and upload rows through `ImageUrls`, the upload size limit.
+
+**Open decision for step 7:** where the bulk image page lives (next to the CSV import, per work type,
+seems natural).
 
 ### Image upload, as of 2026-09-13
 
 Steps 0-7 are done and verified against the database. You can drop or pick multiple images on
-`/admin/paintings/add-single`, watch each upload with a real progress bar, reorder by dragging,
+`/admin/catalog/artworks/add`, watch each upload with a real progress bar, reorder by dragging,
 star one as primary, and it all persists in order with the right primary.
 
 Step 8 is done:
@@ -82,7 +105,7 @@ Step 8 is done:
   `OrphanedImageSweeper` at startup and then every interval. It deletes unreferenced originals
   older than the grace period. The settings are `OrphanedImageSweep:GracePeriod` and
   `Interval`: 7 days / 1 day, and 5 minutes / 1 minute in Development.
-- **Submit check:** the add-painting submit rejects images whose original the sweep already deleted.
+- **Submit check:** the add-artwork submit rejects images whose original the sweep already deleted.
 - **Storage split:** `ImageStorage` owns the file layout (paths, save original, delete variants
   then original). `ImageUploadStore` is the upload itself, shared by the endpoint and the tests,
   and is what bulk import should call.
@@ -110,7 +133,7 @@ invisible by default:
 
 ## Decided: shop items don't share storage keys
 
-`Unique_ShopItemImages_RelativePath` makes a second row for the same file a loud error. It came up
+`Unique_ArtworkImages_StorageKey` makes a second row for the same file a loud error. It came up
 because paintings 6 and 7 once shared keys by accident (the form didn't reset after a save, fixed
 with `@key="AddedSlug"`). If postcards later need to reuse a painting's photo, dropping the
 constraint and adding reference counting is a deliberate schema change.
@@ -248,6 +271,10 @@ sculpture and a painting may share a title without being ambiguous.
 8. **The report is built in the page** as files finish. Lost if the tab closes.
 9. **Two uploads racing for one artwork:** `AttachPrimaryImageToImagelessArtworkByName` takes `UPDLOCK` on the
    matched artworks, so the second waits and then reports "already has images". No 2601 from it.
+   That holds only while this procedure is the one path adding a primary image. When the edit page
+   (step 10) can add one, it takes the same lock **and** the attach repository catches 2601 and
+   reports the file as skipped (Mike, 2026-09-17: do both — the lock keeps it from happening, the
+   catch keeps it from being a 500 if some later path forgets the lock).
 
 **Folders (2026-09-17).** The artist drops (or picks) one top-level folder. Files directly inside it
 and inside its immediate subfolders (their series folders) count; anything deeper (thumbnails) is
@@ -478,7 +505,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       **Stale rows, done 2026-09-15.** Deleted-elsewhere errors all become `CatalogChangedException`
       now: 50002 (vocabulary, `UpdateVocabulary`) refreshes the editor page, which then says the
       vocabulary doesn't exist; 50003 (term, `RenameVocabularyTerm`) closes the dialog and refreshes
-      the table. See the add-painting form for 50001/50009.
+      the table. See the add-artwork form for 50001/50004.
 
       **Open.** Nothing links to `/admin/catalog` from the dashboard.
 
@@ -531,7 +558,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       `Series` record, series list moved up to `ShopItem`). Errors 50004 (renamed series gone),
       50005 (reorder list no longer matches the series), 50006/50007 (cover not in series / has no
       image) reach the caller as raw `SqlException`s; the island decides what to show in step 5.
-      The plain `GetAllSeries` (no covers) waits for the add-painting series picker. **Changed
+      The plain `GetAllSeries` (no covers) waits for the add-artwork series picker. **Changed
       2026-09-15:** series slugs are not numbered. A name whose slug another series has is
       rejected (`Unique_Series_Slug`), on add and rename, as `NameAlreadyInUseException`; the page
       must explain it in words the artist knows (see the wording under step 5); 4) extract the sortable list with
@@ -548,9 +575,9 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       `SeriesShopItemList` (order, star, clear star, select and remove). The repository turns the
       "page is stale" errors 50004-50007 into `CatalogChangedException`; the list island shows
       "changed somewhere else" and refreshes. Nothing in the UI adds artworks to a series yet. Name-taken wording, following
-      the painting form's "web address": "Another series already has this name, or one that only
+      the artwork form's "web address": "Another series already has this name, or one that only
       differs in punctuation, accents or capital letters." A name with no letters or digits needs
-      the painting form's "no letters or numbers to build a web address from" check.
+      the artwork form's "no letters or numbers to build a web address from" check.
 
       **Pages:**
       - `/admin/catalog/series` lists series (with cover and artwork counts), linking to
@@ -579,7 +606,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
           exclusively, mostly, or at least one. No schema change: count the junction rows per
           `ShopItems.ShopItemTypeId`. The open questions are what "mostly" means (a share? the most
           common type?) and whether the artist can override it. Deferred.
-- [ ] Term and series pickers on the add-painting form — BUILT 2026-09-15. A `CheckboxGroupField` per
+- [ ] Term and series pickers on the add-artwork form — BUILT 2026-09-15. A `CheckboxGroupField` per
       vocabulary that applies to paintings, and one for series (in the artist's order); existing terms
       and series only. The groups are the `TermAndSeriesPickers` island, which reloads its options when
       the tab becomes visible again, so a term or series created in another tab appears without losing
@@ -605,13 +632,13 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       - **The slug follows the name**, like a series. Mike: leaving the old name in the web address is
         weird, and editing usually happens a few times early in a painting's life and then never. Warn
         in the form that old links will stop working, in case any were shared. `ResolveShopItemSlug`
-        needs the painting's own id left out, or renaming "Sunset" to "Sunset!" numbers it `sunset-2`
+        needs the artwork's own id left out, or renaming "Sunset" to "Sunset!" numbers it `sunset-2`
         (the function reads `dbo.ShopItems` itself, so pass an id to exclude, `NULL` when adding).
       - **Split in two.** First: name, price, date, description, dimensions, terms and series, reusing
         the add form's fields and the `TermAndSeriesPickers` island, plus an `UpdatePainting` procedure
         (replace the term junction rows; for series, delete the rows that went and append new ones with
         `MAX + 1` so existing order survives). Second, separately: editing images, which means teaching
-        `ImagesField` about images the painting already has (show, reorder, restar, remove, add more) —
+        `ImagesField` about images the artwork already has (show, reorder, restar, remove, add more) —
         today it only knows files being uploaded right now. "Remove" keeps unlinking only; the sweep
         deletes files later.
       - Form reuse: `PaintingCatalogAdditionForm` becomes the shared form class, seeded from an existing
@@ -812,10 +839,23 @@ The app is single-tenant today; the goal is many artists' sites (say 250) on one
   100–200 MB). Not chosen.
 - **Image processing limits:** `ImageProcessingLimiter` is per process. With one process it is the
   machine's cap; with several, each needs its share, or the cap has to be shared between them.
-- **Memory budget:** it's a fraction of `TotalAvailableMemoryBytes`, which inside a container is the
-  container's memory limit. Plan: the app in its own container with a memory limit (`mem_limit` in
-  compose), SQL Server in another, so SQL's memory is outside the app's total. In dev the app runs on
-  the host, so its budget is a share of the whole machine.
+- **Leaning (Mike, 2026-09-17, not final):** one process, a database per shop. A forgotten
+  `WHERE TenantId = …` then can't leak one artist's catalog into another's, which is the risk a
+  shared-table design never fully loses. What it would cost: `SqlConnectionFactory` resolved per
+  request instead of a singleton (and a `Max Pool Size` cap, since ADO.NET pools per connection
+  string), DbUp run per tenant at startup or on first use, one small shared database holding the
+  host-name-to-shop registry, and identity staying single with a tenant claim. Express's 50 GB cap
+  is per database, which helps; its ~1.4 GB buffer pool is per instance, which doesn't.
+- **Image storage must move behind an abstraction first.** `ImageStorage` writes straight to local
+  folders and `OrphanedImageSweeper` deletes every file in `originals/` the database doesn't
+  reference — so pointing the sweep at one shop's database while the folder holds every shop's
+  files would delete the others' originals, silently and for good. The seam wanted is a storage
+  interface (save, open, delete, list) whose local implementation prefixes a tenant, so an offsite
+  image service can take its place later. Decide it before a second database exists.
+- **Memory budget:** `ImageProcessing:MemoryBudgetMegabytes`, set per deployment, with the .NET heap
+  pinned by `DOTNET_GCHeapHardLimitPercent` so the two fit inside the container. Plan: the app in its
+  own container with a memory limit (`mem_limit` in compose), SQL Server in another, so SQL's memory
+  is outside the app's. In dev the app runs on the host and shares the whole machine.
 - **Future:** move image processing into its own worker container (as imgproxy, Thumbor and
   Mastodon's Sidekiq do), so a memory spike or a crash in libvips can't take the website down.
   Needs `MALLOC_ARENA_MAX=2` in that container too.

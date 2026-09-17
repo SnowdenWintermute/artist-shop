@@ -72,7 +72,7 @@
         <a href="@($"/admin/catalog/series/{series.Id.Value}")" class="flex grow items-center gap-4">
           @if (series.Cover is { } cover)
           {
-            <img src="@ImageUrls.Variant(cover.RelativePath, cover.Width, 400, ImageVariantFormat.Avif)" alt=""
+            <img src="@ImageUrls.Variant(cover.StorageKey, cover.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)" alt=""
                  class="size-16 object-cover" />
           }
           else

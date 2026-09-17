@@ -7,7 +7,7 @@ namespace ArtistShop.Web.Images;
 
 public record ImageUploadResult(
     string StorageKey,
-    string? OriginalFileName,
+    string OriginalFileName,
     int Width,
     int Height,
     string BlurDataUri
@@ -15,6 +15,11 @@ public record ImageUploadResult(
 
 public static class ImageUploadEndpoints
 {
+    // libvips says which decoder failed and names the file on disk; that belongs in the server log,
+    // not in front of the artist
+    private const string UnreadableImageMessage =
+        "We couldn't read this file as an image. It may be damaged, or in a format we don't support.";
+
     public static void MapImageUploadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints
@@ -30,6 +35,7 @@ public static class ImageUploadEndpoints
         IFormFile file, // binds the form field named "file", the names must match
         ImageUploadStore imageUploadStore,
         HttpResponse response,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken
     )
     {
@@ -53,6 +59,14 @@ public static class ImageUploadEndpoints
                 )
             );
         }
+        catch (VipsException exception)
+        {
+            loggerFactory
+                .CreateLogger(typeof(ImageUploadEndpoints))
+                .LogWarning(exception, "libvips could not read an uploaded image.");
+
+            return TypedResults.BadRequest(UnreadableImageMessage);
+        }
         catch (Exception exception) when (IsRejectedImage(exception))
         {
             return TypedResults.BadRequest(exception.Message);
@@ -63,12 +77,9 @@ public static class ImageUploadEndpoints
         }
     }
 
+    // these carry a message written for the artist; libvips's own messages are caught above
     private static bool IsRejectedImage(Exception exception) =>
-        exception
-            is VipsException
-                or ImageTooSmallException
-                or ImageTooLargeException
-                or UnsupportedImageFormatException;
+        exception is ImageTooSmallException or ImageTooLargeException or UnsupportedImageFormatException;
 
     // 503 tells the client the server is overloaded rather than that the request was wrong, and
     // Retry-After says how many seconds to wait before sending the file again

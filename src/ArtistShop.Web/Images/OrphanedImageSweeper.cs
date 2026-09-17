@@ -34,7 +34,7 @@ public class OrphanedImageSweeper(
             return;
         }
 
-        var referencedKeys = await imageRepository.GetAllRelativePathsAsync();
+        var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
 
         var deletedCount = 0;
         foreach (var storageKey in candidateKeys)

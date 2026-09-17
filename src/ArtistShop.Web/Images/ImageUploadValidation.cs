@@ -38,7 +38,7 @@ public static class ImageUploadValidation
 
         if (file.Length is 0)
         {
-            return "Attempted to upload an empty file";
+            return "This file is empty.";
         }
 
         if (file.Length > MaximumFileSizeBytes)

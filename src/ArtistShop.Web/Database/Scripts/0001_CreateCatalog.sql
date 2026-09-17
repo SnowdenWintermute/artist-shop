@@ -168,9 +168,9 @@ CREATE TABLE dbo.VocabularyTerms (
     Name nvarchar(100) NOT NULL,
     -- "Paper" can be both a "Support" and a "Medium", but not a support twice
     -- UNIQUE rejects duplicates but does not define what a duplicate is -- the column's
-    -- collation does. The default here is SQL_Latin1_General_CP1_CI_AS: CI = case-insensitive,
-    -- AS = accent-sensitive. So 'Oil' collides with 'oil', but 'cafe' and 'cafe' with an
-    -- accent do not. Postgres compares bytes and would allow both spellings of Oil.
+    -- collation does. DatabaseInitializer pins the database to Latin1_General_100_CI_AS_SC:
+    -- CI = case-insensitive, AS = accent-sensitive. So 'Oil' collides with 'oil', but 'cafe' and
+    -- 'cafe' with an accent do not. Postgres compares bytes and would allow both spellings of Oil.
     CONSTRAINT Unique_VocabularyTerms_VocabularyName UNIQUE (VocabularyId, Name),
     CONSTRAINT Unique_VocabularyTerms_IdVocabulary UNIQUE (Id, VocabularyId)
 );
@@ -191,8 +191,11 @@ CREATE TABLE dbo.ArtworkImages (
     CONSTRAINT PrimaryKey_ArtworkImages PRIMARY KEY (Id),
     ArtworkId int NOT NULL,
     CONSTRAINT ForeignKey_ArtworkImages_Artworks FOREIGN KEY (ArtworkId) REFERENCES dbo.Artworks (Id) ON DELETE CASCADE,
-    RelativePath nvarchar(400) NOT NULL,
-    CONSTRAINT Unique_ArtworkImages_RelativePath UNIQUE (RelativePath),
+    -- always the 32 hexadecimal characters of a version 7 GUID, so a fixed-length ASCII column.
+    -- Dapper sends a string as nvarchar, so a future lookup by this column needs a DbString with
+    -- IsAnsi, or SQL Server converts the column instead of seeking the index
+    StorageKey char(32) NOT NULL,
+    CONSTRAINT Unique_ArtworkImages_StorageKey UNIQUE (StorageKey),
     OriginalFileName nvarchar(260),
     SortOrder int NOT NULL,
     -- DEFAULT can't be put in a standalone constraint

@@ -9,12 +9,6 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
 {
     private const string UniqueNameConstraint = "Unique_ArtworkTypes_Name";
 
-    // UpdateArtworkType THROWs this when the type was deleted while the page was open
-    private const int ArtworkTypeNoLongerExists = 50013;
-
-    // DeleteArtworkType THROWs this when artworks were added while the page was open
-    private const int ArtworkTypeInUse = 50014;
-
     public async Task<List<ArtworkType>> GetAllAsync()
     {
         await using var connection = connectionFactory.Create();
@@ -117,7 +111,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
             throw new NameAlreadyInUseException(name.Value);
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, ArtworkTypeNoLongerExists))
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -134,7 +128,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, ArtworkTypeInUse))
+        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeInUse))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }

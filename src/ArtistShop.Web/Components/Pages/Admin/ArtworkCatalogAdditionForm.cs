@@ -87,7 +87,7 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
             .ToList();
 
         var mainImageIndex = Math.Max(
-            images.FindIndex(image => image.RelativePath == PrimaryImageKey),
+            images.FindIndex(image => image.StorageKey == PrimaryImageKey),
             0
         );
 

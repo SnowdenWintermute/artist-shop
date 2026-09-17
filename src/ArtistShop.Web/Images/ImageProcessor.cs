@@ -18,6 +18,10 @@ public class ImageProcessor(ImageStorage imageStorage)
 {
     private const int BlurWidth = 20;
 
+    // ForeignKeep is a set of flags (a "bitfield"), so Icc on its own means "keep only the colour
+    // profile": no Exif, no Xmp, no Iptc, so no camera gps coordinates on a publicly served variant
+    private const Enums.ForeignKeep VariantMetadata = Enums.ForeignKeep.Icc;
+
     public const string UnsupportedHeicMessage =
         "HEIC photos (the iPhone default) aren't supported. Export them as JPEG or another compatible format first.";
 
@@ -53,7 +57,7 @@ public class ImageProcessor(ImageStorage imageStorage)
     public ProcessedImage Process(string storageKey)
     {
         var originalPath = imageStorage.OriginalPath(storageKey);
-        var source = Image.NewFromFile(originalPath).Autorot();
+        using var source = Image.NewFromFile(originalPath).Autorot();
         var fittingWidths = ImageVariants.WidthsFor(source.Width);
 
         if (fittingWidths.Length is 0)
@@ -66,23 +70,16 @@ public class ImageProcessor(ImageStorage imageStorage)
 
         foreach (var width in fittingWidths)
         {
-            // keeping International Color Consortium metadata but
-            // stripping everything else to protect against people
-            // reading gps coords metadata from uploaded images
-            // blur uri strips all metadata
             using var variant = Image
                 .Thumbnail(originalPath, width, height: source.Height)
                 .CopyMemory();
-            // ForeignKeep is a set of flags (a "bitfield"), so Icc on its own means
-            // "keep only the colour profile": no Exif, no Xmp, no Iptc
-            var exifMetadataDesired = Enums.ForeignKeep.Icc;
             variant.WriteToFile(
                 Path.Combine(variantDirectory, ImageVariants.FileName(width, ImageVariantFormat.Avif)),
-                new VOption { { "Q", 50 }, { "keep", exifMetadataDesired } }
+                new VOption { { "Q", 50 }, { "keep", VariantMetadata } }
             );
             variant.WriteToFile(
                 Path.Combine(variantDirectory, ImageVariants.FileName(width, ImageVariantFormat.Webp)),
-                new VOption { { "Q", 75 }, { "keep", exifMetadataDesired } }
+                new VOption { { "Q", 75 }, { "keep", VariantMetadata } }
             );
         }
 

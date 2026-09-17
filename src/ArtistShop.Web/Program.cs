@@ -19,8 +19,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 // Add services to the container.
 builder
     .Services.AddRazorComponents()
-    .AddInteractiveServerComponents()
-    .AddInteractiveServerComponents(options => options.DetailedErrors = true);
+    // detailed errors send the exception and its stack trace to the browser, so they stay in development
+    .AddInteractiveServerComponents(options =>
+        options.DetailedErrors = builder.Environment.IsDevelopment()
+    );
 builder.Services.AddBlazorBlueprintPrimitives();
 
 var shopConnectionString =

@@ -14,7 +14,7 @@ SELECT
         WHERE
             junction.SeriesId = series.Id
     ) AS ArtworkCount,
-    cover.RelativePath AS CoverRelativePath,
+    cover.StorageKey AS CoverStorageKey,
     cover.OriginalFileName AS CoverOriginalFileName,
     cover.Width AS CoverWidth,
     cover.Height AS CoverHeight,
@@ -25,7 +25,7 @@ FROM
     -- match, but unlike a join the subquery can use TOP and ORDER BY
     OUTER APPLY (
         SELECT
-            TOP (1) primaryImage.RelativePath,
+            TOP (1) primaryImage.StorageKey,
             primaryImage.OriginalFileName,
             primaryImage.Width,
             primaryImage.Height,

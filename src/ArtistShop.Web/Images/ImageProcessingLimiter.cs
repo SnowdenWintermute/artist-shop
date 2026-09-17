@@ -30,20 +30,31 @@ public sealed record ImageProcessingSettings
 
 public record ImageProcessingCapacity(int ProcessorSlots, int MemoryBudgetMegabytes, int QueuedImageLimit)
 {
-    public static ImageProcessingCapacity FromHost(ImageProcessingSettings settings)
+    public static ImageProcessingCapacity FromHost(ImageProcessingSettings settings) =>
+        For(
+            settings,
+            Environment.ProcessorCount,
+            // what .NET may put on its own heap: the machine's memory, or inside a container the
+            // share of its limit that DOTNET_GCHeapHardLimitPercent sets (75% when nothing does)
+            GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / Units.BytesPerMebibyte
+        );
+
+    public static ImageProcessingCapacity For(
+        ImageProcessingSettings settings,
+        int processorCount,
+        long heapMemoryMegabytes
+    )
     {
         // one core stays free for serving pages; a one-core machine still gets one slot
-        var processorSlots = Math.Max(1, Environment.ProcessorCount - 1);
+        var processorSlots = Math.Max(1, processorCount - 1);
 
-        // the machine's memory, or inside a memory-limited container 75% of that limit (the GC's
-        // own heap limit). A budget above it can only be a configuration mistake
-        var totalMemoryMegabytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / Units.BytesPerMebibyte;
-
-        if (settings.MemoryBudgetMegabytes >= totalMemoryMegabytes)
+        // libvips allocates outside the managed heap, so this only catches a budget larger than the
+        // whole heap allowance. Holding both is the container limit's job, not this check's
+        if (settings.MemoryBudgetMegabytes >= heapMemoryMegabytes)
         {
             throw new InvalidOperationException(
-                $"ImageProcessing:MemoryBudgetMegabytes is {settings.MemoryBudgetMegabytes}, but .NET reports only "
-                    + $"{totalMemoryMegabytes} MB of memory in total."
+                $"ImageProcessing:MemoryBudgetMegabytes is {settings.MemoryBudgetMegabytes}, but .NET may use only "
+                    + $"{heapMemoryMegabytes} MB of memory in total."
             );
         }
 
@@ -116,6 +127,19 @@ public sealed class ImageProcessingLimiter
         try
         {
             var memoryLease = await _memoryLimiter.AcquireAsync(megabytes, cancellationToken);
+
+            if (!memoryLease.IsAcquired)
+            {
+                // only reachable if the memory queue is smaller than the slots allow, which the
+                // constructor sizes so it can't be. Processing without a memory permit would
+                // defeat the budget silently, so it stops here instead
+                memoryLease.Dispose();
+                throw new InvalidOperationException(
+                    $"The memory queue turned away a request for {megabytes} MB, so its limit is too small "
+                        + "for the number of processor slots."
+                );
+            }
+
             return new Lease(processorLease, memoryLease);
         }
         catch

@@ -10,5 +10,11 @@ public enum ArtworkNameMatchType : byte
     ArtworkWithImages = 4,
 }
 
-// from the attach procedure, OneImagelessArtwork means the image was attached to it
 public record ArtworkNameMatch(ArtworkNameMatchType Type, IReadOnlyList<ArtworkId> ArtworkIds);
+
+// what the attach procedure did with one file. It classifies the name the same way the pre-check
+// does, and the one-imageless-artwork case is the one where the image was attached
+public record ImageAttachResult(ArtworkNameMatchType MatchType, IReadOnlyList<ArtworkId> ArtworkIds)
+{
+    public bool Attached => MatchType is ArtworkNameMatchType.OneImagelessArtwork;
+}

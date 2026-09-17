@@ -10,9 +10,6 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
 {
     private const string UniqueNameConstraint = "Unique_Vocabularies_Name";
 
-    // UpdateVocabulary THROWs this when the vocabulary was deleted while the page was open
-    private const int VocabularyNoLongerExists = 50002;
-
     public async Task<List<Vocabulary>> GetAllAsync()
     {
         await using var connection = connectionFactory.Create();
@@ -175,7 +172,7 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
             throw new NameAlreadyInUseException(name.Value);
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, VocabularyNoLongerExists))
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.VocabularyNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }

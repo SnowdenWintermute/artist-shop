@@ -22,7 +22,7 @@ WHERE
     artwork.Id = @Id;
 
 SELECT
-    RelativePath,
+    StorageKey,
     OriginalFileName,
     IsPrimary,
     Width,

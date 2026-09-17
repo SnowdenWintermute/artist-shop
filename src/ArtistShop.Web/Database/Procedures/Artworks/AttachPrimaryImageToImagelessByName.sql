@@ -1,6 +1,6 @@
 CREATE OR ALTER PROCEDURE dbo.AttachPrimaryImageToImagelessArtworkByName @ArtworkTypeId int,
 @ArtworkName nvarchar(200),
-@RelativePath nvarchar(400),
+@StorageKey char(32),
 @OriginalFileName nvarchar(260),
 @Width int,
 @Height int,
@@ -82,7 +82,7 @@ ELSE BEGIN
 INSERT INTO
     dbo.ArtworkImages (
         ArtworkId,
-        RelativePath,
+        StorageKey,
         OriginalFileName,
         SortOrder,
         IsPrimary,
@@ -92,7 +92,7 @@ INSERT INTO
     )
 SELECT
     Id,
-    @RelativePath,
+    @StorageKey,
     @OriginalFileName,
     0,
     1,

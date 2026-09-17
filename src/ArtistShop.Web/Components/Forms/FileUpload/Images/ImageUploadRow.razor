@@ -13,7 +13,7 @@
 
 @if (SelectedImage.Result is not null)
 {
-  <img src="@ImageUrls.Variant(SelectedImage.Result.StorageKey, SelectedImage.Result.Width, 400, ImageVariantFormat.Avif)"
+  <img src="@ImageUrls.Variant(SelectedImage.Result.StorageKey, SelectedImage.Result.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)"
        alt="" class="size-10 object-cover" />
 }
 

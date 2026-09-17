@@ -123,7 +123,7 @@
       <RowContent Context="artwork">
         @if (artwork.PrimaryImage is { } image)
         {
-          <img src="@ImageUrls.Variant(image.RelativePath, image.Width, 400, ImageVariantFormat.Avif)" alt=""
+          <img src="@ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)" alt=""
                class="size-10 object-cover" />
         }
         else

@@ -148,7 +148,7 @@ IF EXISTS (
             WHERE
                 series.Id = seriesIds.Id
         )
-) THROW 50009,
+) THROW 50004,
 'A chosen series no longer exists.',
 1;
 
@@ -207,7 +207,7 @@ DECLARE @Id int = SCOPE_IDENTITY();
 INSERT INTO
     dbo.ArtworkImages (
         ArtworkId,
-        RelativePath,
+        StorageKey,
         OriginalFileName,
         SortOrder,
         IsPrimary,
@@ -217,7 +217,7 @@ INSERT INTO
     )
 SELECT
     @Id,
-    RelativePath,
+    StorageKey,
     OriginalFileName,
     SortOrder,
     IsPrimary,

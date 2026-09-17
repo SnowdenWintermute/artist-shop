@@ -29,10 +29,15 @@ services:
       # compose reads MSSQL_SA_PASSWORD from the --env-file; the server name is the other service
       - ConnectionStrings__ArtistShop=Server=artist-shop-mssql,1433;Database=ArtistShop;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
       - ConnectionStrings__ArtistShopIdentity=Server=artist-shop-mssql,1433;Database=ArtistShopIdentity;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      # How much of mem_limit .NET may put on its own heap. Left alone it takes 75%, which next to
+      # the image budget (libvips allocates outside the heap) adds up past the container. 30% of
+      # 2 GB is 600 MB of heap, 1000 MB of images and about 400 MB spare. Read as hexadecimal:
+      # 0x1E is 30
+      - DOTNET_GCHeapHardLimitPercent=0x1E
     ports:
       - 8080:8080
-    # ImageProcessing:MemoryBudgetMegabytes (1000) plus room for the app itself. Startup refuses a
-    # budget above what .NET reports, which inside a container is 75% of this limit
+    # holds the .NET heap (DOTNET_GCHeapHardLimitPercent above), ImageProcessing:MemoryBudgetMegabytes
+    # (1000, allocated by libvips outside that heap) and the runtime itself
     mem_limit: 2g
     volumes:
       - artist-shop-images:/data/images

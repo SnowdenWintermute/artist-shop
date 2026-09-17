@@ -16,7 +16,7 @@ SELECT
     artwork.Name,
     artworkType.Name AS ArtworkTypeName,
     junction.IsCover,
-    primaryImage.RelativePath,
+    primaryImage.StorageKey,
     primaryImage.OriginalFileName,
     primaryImage.Width,
     primaryImage.Height,

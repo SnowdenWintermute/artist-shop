@@ -10,13 +10,6 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
     private const string UniqueNameConstraint = "Unique_Series_Name";
     private const string UniqueSlugConstraint = "Unique_Series_Slug";
 
-    // the numbers THROWn by the series procedures
-    private const int SeriesNoLongerExists = 50004;
-    private const int ArtworksChangedSincePageLoad = 50005;
-    private const int ArtworkNoLongerInSeries = 50006;
-    private const int ArtworkHasNoImage = 50007;
-    private const int SeriesChangedSincePageLoad = 50008;
-
     // the same name also means the same slug, and which constraint SQL Server reports first isn't
     // defined, so both mean "name taken"
     private static bool IsNameTaken(SqlException exception) =>
@@ -58,9 +51,9 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 new SeriesName(row.Name),
                 new SeriesSlug(row.Slug),
                 row.ArtworkCount,
-                row is { CoverRelativePath: string relativePath, CoverWidth: int width, CoverHeight: int height }
+                row is { CoverStorageKey: string storageKey, CoverWidth: int width, CoverHeight: int height }
                     ? new ArtworkImage(
-                        relativePath,
+                        storageKey,
                         row.CoverOriginalFileName,
                         width,
                         height,
@@ -100,9 +93,9 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                     new ArtworkName(artwork.Name),
                     new ArtworkTypeName(artwork.ArtworkTypeName),
                     artwork.IsCover,
-                    artwork is { RelativePath: string relativePath, Width: int width, Height: int height }
+                    artwork is { StorageKey: string storageKey, Width: int width, Height: int height }
                         ? new ArtworkImage(
-                            relativePath,
+                            storageKey,
                             artwork.OriginalFileName,
                             width,
                             height,
@@ -156,7 +149,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
             throw new NameAlreadyInUseException(name.Value);
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SeriesNoLongerExists))
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.SeriesNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -175,7 +168,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
             );
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SeriesChangedSincePageLoad))
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.SeriesChangedSincePageLoad))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -211,7 +204,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
             );
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, ArtworksChangedSincePageLoad))
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworksChangedSincePageLoad))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -230,8 +223,8 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
             );
         }
         catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, ArtworkNoLongerInSeries)
-                || SqlErrors.IsThrown(exception, ArtworkHasNoImage))
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkNoLongerInSeries)
+                || SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkHasNoImage))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -276,7 +269,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         public required string Name { get; init; }
         public required string Slug { get; init; }
         public required int ArtworkCount { get; init; }
-        public string? CoverRelativePath { get; init; }
+        public string? CoverStorageKey { get; init; }
         public string? CoverOriginalFileName { get; init; }
         public int? CoverWidth { get; init; }
         public int? CoverHeight { get; init; }
@@ -289,7 +282,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         public required string Name { get; init; }
         public required string ArtworkTypeName { get; init; }
         public required bool IsCover { get; init; }
-        public string? RelativePath { get; init; }
+        public string? StorageKey { get; init; }
         public string? OriginalFileName { get; init; }
         public int? Width { get; init; }
         public int? Height { get; init; }

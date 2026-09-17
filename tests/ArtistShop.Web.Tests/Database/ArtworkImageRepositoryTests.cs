@@ -24,13 +24,13 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var painting = await _catalog.AddArtworkAsync(paintingTypeId, name);
         var image = CatalogTestData.CreateTestImage();
 
-        var attachment = await _images.AttachPrimaryToImagelessArtworkByNameAsync(
+        var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             paintingTypeId,
             new ArtworkName(name.ToUpperInvariant()),
             image
         );
 
-        Assert.Equal(ArtworkNameMatchType.OneImagelessArtwork, attachment.Type);
+        Assert.Equal(ArtworkNameMatchType.OneImagelessArtwork, attachment.MatchType);
         Assert.Equal([painting.Id], attachment.ArtworkIds);
 
         var artwork = await GetExistingAsync(painting.Id);
@@ -41,13 +41,13 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task ReportsANameNoArtworkHas()
     {
-        var attachment = await _images.AttachPrimaryToImagelessArtworkByNameAsync(
+        var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             await _catalog.GetPaintingTypeIdAsync(),
             new ArtworkName(UniqueName("Nothing")),
             CatalogTestData.CreateTestImage()
         );
 
-        Assert.Equal(ArtworkNameMatchType.NoArtwork, attachment.Type);
+        Assert.Equal(ArtworkNameMatchType.NoArtwork, attachment.MatchType);
         Assert.Empty(attachment.ArtworkIds);
     }
 
@@ -59,13 +59,13 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var first = await _catalog.AddArtworkAsync(paintingTypeId, name);
         var second = await _catalog.AddArtworkAsync(paintingTypeId, name);
 
-        var attachment = await _images.AttachPrimaryToImagelessArtworkByNameAsync(
+        var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             paintingTypeId,
             new ArtworkName(name),
             CatalogTestData.CreateTestImage()
         );
 
-        Assert.Equal(ArtworkNameMatchType.SeveralArtworks, attachment.Type);
+        Assert.Equal(ArtworkNameMatchType.SeveralArtworks, attachment.MatchType);
         Assert.Equivalent(new[] { first.Id, second.Id }, attachment.ArtworkIds);
         Assert.Empty((await GetExistingAsync(first.Id)).Images);
         Assert.Empty((await GetExistingAsync(second.Id)).Images);
@@ -83,13 +83,13 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
             images: [existingImage]
         );
 
-        var attachment = await _images.AttachPrimaryToImagelessArtworkByNameAsync(
+        var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             await _catalog.GetPaintingTypeIdAsync(),
             new ArtworkName(name),
             CatalogTestData.CreateTestImage()
         );
 
-        Assert.Equal(ArtworkNameMatchType.ArtworkWithImages, attachment.Type);
+        Assert.Equal(ArtworkNameMatchType.ArtworkWithImages, attachment.MatchType);
         Assert.Equal([painting.Id], attachment.ArtworkIds);
         Assert.Equal([existingImage], (await GetExistingAsync(painting.Id)).Images);
     }
@@ -102,13 +102,13 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var painting = await _catalog.AddArtworkAsync(paintingTypeId, name);
         var sculpture = await _catalog.AddArtworkAsync(await _catalog.GetTypeIdAsync("Sculpture"), name);
 
-        var attachment = await _images.AttachPrimaryToImagelessArtworkByNameAsync(
+        var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             paintingTypeId,
             new ArtworkName(name),
             CatalogTestData.CreateTestImage()
         );
 
-        Assert.Equal(ArtworkNameMatchType.OneImagelessArtwork, attachment.Type);
+        Assert.Equal(ArtworkNameMatchType.OneImagelessArtwork, attachment.MatchType);
         Assert.Equal([painting.Id], attachment.ArtworkIds);
         Assert.Empty((await GetExistingAsync(sculpture.Id)).Images);
     }
@@ -125,7 +125,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
             Enumerable
                 .Range(0, 8)
                 .Select(_ =>
-                    _images.AttachPrimaryToImagelessArtworkByNameAsync(
+                    _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
                         paintingTypeId,
                         new ArtworkName(name),
                         CatalogTestData.CreateTestImage()
@@ -133,11 +133,11 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
                 )
         );
 
-        Assert.Single(attachments, attachment => attachment.Type == ArtworkNameMatchType.OneImagelessArtwork);
+        Assert.Single(attachments, attachment => attachment.MatchType == ArtworkNameMatchType.OneImagelessArtwork);
         Assert.Equal(
             7,
             attachments.Count(attachment =>
-                attachment.Type == ArtworkNameMatchType.ArtworkWithImages
+                attachment.MatchType == ArtworkNameMatchType.ArtworkWithImages
             )
         );
         Assert.Single((await GetExistingAsync(painting.Id)).Images);
@@ -147,7 +147,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
     public async Task RejectsADeletedArtworkType()
     {
         await Assert.ThrowsAsync<CatalogChangedException>(() =>
-            _images.AttachPrimaryToImagelessArtworkByNameAsync(
+            _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
                 new ArtworkTypeId(int.MaxValue),
                 new ArtworkName(UniqueName("Orphan")),
                 CatalogTestData.CreateTestImage()
