@@ -23,6 +23,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- sample files the tests read from their output folder -->
+    <None Update="Images/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- a project-wide `using Xunit;`, so [Fact] and Assert work in every file -->
     <Using Include="Xunit" />
   </ItemGroup>

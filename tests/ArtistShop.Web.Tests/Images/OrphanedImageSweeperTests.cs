@@ -28,7 +28,12 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
         _storageRoot = Directory.CreateTempSubdirectory("artist-shop-tests-");
         _imageStorage = new ImageStorage(_storageRoot.FullName);
-        _uploadStore = new ImageUploadStore(_imageStorage, new ImageProcessor(_imageStorage));
+        _uploadStore = new ImageUploadStore(
+            _imageStorage,
+            new ImageProcessor(_imageStorage),
+            TestImageProcessing.CreateAmpleLimiter(),
+            TestImageProcessing.Settings
+        );
         Directory.CreateDirectory(_imageStorage.Originals);
         Directory.CreateDirectory(_imageStorage.Variants);
 
@@ -38,7 +43,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _sweeper = new OrphanedImageSweeper(
             _imageStorage,
             new ArtworkImageRepository(database.ConnectionFactory),
-            new OrphanedImageSweepSettings(GracePeriod, Interval: TimeSpan.FromDays(1)),
+            new OrphanedImageSweepSettings { GracePeriod = GracePeriod, Interval = TimeSpan.FromDays(1) },
             _time,
             NullLogger<OrphanedImageSweeper>.Instance
         );

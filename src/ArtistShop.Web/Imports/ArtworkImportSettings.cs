@@ -1,4 +1,5 @@
 using ArtistShop.Web.Domain.Commerce;
+using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Imports;
 
@@ -20,7 +21,7 @@ public record ArtworkImportSettings(
 public static class ArtworkImportLimits
 {
     // the review posts the text back in a form field, and ASP.NET Core refuses a field over 4 MB
-    public const int FileMaximumBytes = 1_000_000;
+    public const int FileMaximumBytes = 1 * Units.BytesPerMebibyte;
 }
 
 // the header names a file uses; any other header must be a vocabulary's name

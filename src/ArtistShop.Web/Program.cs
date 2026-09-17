@@ -4,6 +4,7 @@ using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -44,16 +45,27 @@ builder.Services.AddSingleton(new ImageStorage(imageStorageRootPath));
 // full name needed: "NetVips" alone means the namespace, and the setting lives on the NetVips class inside it
 NetVips.NetVips.BlockUntrusted = true;
 
+// one thread per image; ImageProcessingLimiter decides how many images run at once
+NetVips.NetVips.Concurrency = 1;
+
+// libvips caches recent operations to reuse them, but each upload is processed once, so the cache
+// would only hold memory the limiter's estimates don't count
+NetVips.Cache.Max = 0;
+
+var imageProcessingSettings = ValidatedSettings.Read<ImageProcessingSettings>(builder.Configuration, "ImageProcessing");
+var imageProcessingCapacity = ImageProcessingCapacity.FromHost(imageProcessingSettings);
+builder.Services.AddSingleton(imageProcessingSettings);
+builder.Services.AddSingleton(
+    new ImageProcessingLimiter(imageProcessingCapacity, imageProcessingSettings.BusyRetryAfter)
+);
+
 builder.Services.AddSingleton<ImageProcessor>();
 builder.Services.AddSingleton<ImageUploadStore>();
 
-// Configuration.GetValue reads from appsettings.json or ENV
-// or any other "configuration store"
-var orphanedImageSweepSettings = new OrphanedImageSweepSettings(
-    GracePeriod: builder.Configuration.GetValue<TimeSpan?>("ImageStorage:OrphanGracePeriod")
-        ?? throw new InvalidOperationException("ImageStorage:OrphanGracePeriod is not set."),
-    Interval: builder.Configuration.GetValue<TimeSpan?>("ImageStorage:OrphanSweepInterval")
-        ?? throw new InvalidOperationException("ImageStorage:OrphanSweepInterval is not set.")
+// reads from appsettings.json, environment variables or any other configuration source
+var orphanedImageSweepSettings = ValidatedSettings.Read<OrphanedImageSweepSettings>(
+    builder.Configuration,
+    "OrphanedImageSweep"
 );
 builder.Services.AddSingleton(orphanedImageSweepSettings);
 builder.Services.AddScoped<OrphanedImageSweeper>();
@@ -135,6 +147,7 @@ if (app.Environment.IsDevelopment())
 }
 
 Console.WriteLine("Database initialization completed.");
+Console.WriteLine($"Image processing capacity: {imageProcessingCapacity}");
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -150,7 +163,7 @@ app.UseStaticFiles(
     new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(imageStorage.Variants),
-        RequestPath = "/media",
+        RequestPath = ImageUrls.VariantsRequestPath,
     }
 );
 

@@ -16,4 +16,8 @@ set -a
 set +a
 
 export ConnectionStrings__ArtistShop="Server=localhost,1433;Database=ArtistShop;User Id=sa;Password=$MSSQL_SA_PASSWORD;TrustServerCertificate=True"
+# glibc's allocator gives each thread its own memory pool, and libvips's threads fragment them until
+# memory looks leaked. Two pools is what imgproxy, sharp and Mastodon recommend; production needs it too
+export MALLOC_ARENA_MAX=2
+
 export ConnectionStrings__ArtistShopIdentity="Server=localhost,1433;Database=ArtistShopIdentity;User Id=sa;Password=$MSSQL_SA_PASSWORD;TrustServerCertificate=True"

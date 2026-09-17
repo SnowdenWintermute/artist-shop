@@ -1,6 +1,7 @@
 @page "/artworks/{slug}"
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
 @inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
 
@@ -30,7 +31,7 @@
   {
 
     <img src="@image.BlurDataUri" />
-    <img src="@($"/media/{image.RelativePath}/800.webp")" />
+    <img src="@ImageUrls.Variant(image.RelativePath, image.Width, 800, ImageVariantFormat.Webp)" />
     <div>@image.RelativePath </div>
   }
 }

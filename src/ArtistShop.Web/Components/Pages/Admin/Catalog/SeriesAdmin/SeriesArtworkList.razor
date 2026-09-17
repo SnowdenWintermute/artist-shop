@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
 @using ArtistShop.Web.Utilities
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
@@ -122,7 +123,8 @@
       <RowContent Context="artwork">
         @if (artwork.PrimaryImage is { } image)
         {
-          <img src="@($"/media/{image.RelativePath}/400.avif")" alt="" class="size-10 object-cover" />
+          <img src="@ImageUrls.Variant(image.RelativePath, image.Width, 400, ImageVariantFormat.Avif)" alt=""
+               class="size-10 object-cover" />
         }
         else
         {

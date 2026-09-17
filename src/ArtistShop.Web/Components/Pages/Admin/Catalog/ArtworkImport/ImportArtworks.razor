@@ -105,7 +105,7 @@
 
     if (file.Length > ArtworkImportLimits.FileMaximumBytes)
     {
-      Check.AddFileError($"The file is over {ArtworkImportLimits.FileMaximumBytes / 1_000_000} MB. Split it into smaller files.");
+      Check.AddFileError($"The file is over {ArtworkImportLimits.FileMaximumBytes / Units.BytesPerMebibyte} MB. Split it into smaller files.");
       return null;
     }
 

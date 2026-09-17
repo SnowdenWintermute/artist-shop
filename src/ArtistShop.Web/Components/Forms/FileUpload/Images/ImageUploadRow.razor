@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Images
 @using BlazorBlueprint.Primitives.Progress
 @code {
   [Parameter, EditorRequired]
@@ -12,7 +13,8 @@
 
 @if (SelectedImage.Result is not null)
 {
-  <img src="/media/@SelectedImage.Result.StorageKey/400.avif" alt="" class="size-10 object-cover" />
+  <img src="@ImageUrls.Variant(SelectedImage.Result.StorageKey, SelectedImage.Result.Width, 400, ImageVariantFormat.Avif)"
+       alt="" class="size-10 object-cover" />
 }
 
 <div class="grow">

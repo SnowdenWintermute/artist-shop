@@ -80,8 +80,8 @@ star one as primary, and it all persists in order with the right primary.
 Step 8 is done:
 - **Orphan sweep:** `OrphanedImageSweepService` (a `BackgroundService` on a `PeriodicTimer`) runs
   `OrphanedImageSweeper` at startup and then every interval. It deletes unreferenced originals
-  older than the grace period. The settings are `ImageStorage:OrphanGracePeriod` and
-  `OrphanSweepInterval`: 7 days / 1 day, and 5 minutes / 1 minute in Development.
+  older than the grace period. The settings are `OrphanedImageSweep:GracePeriod` and
+  `Interval`: 7 days / 1 day, and 5 minutes / 1 minute in Development.
 - **Submit check:** the add-painting submit rejects images whose original the sweep already deleted.
 - **Storage split:** `ImageStorage` owns the file layout (paths, save original, delete variants
   then original). `ImageUploadStore` is the upload itself, shared by the endpoint and the tests,
@@ -281,14 +281,16 @@ ignored. Series are **not** read from folder names, because the CSV already assi
 10. **Header only.** NetVips reads width, height and bands without decoding. Over a megapixel cap:
     400. Otherwise estimate MB = width × height × bands × a safety factor. libvips picks the decoder
     from the bytes, so a lying header can't make the decode bigger than the estimate.
-11. **Processing limiter**, inside `ImageUploadStore.SaveAsync` so both endpoints get it: one
-    app-wide `System.Threading.RateLimiting.ConcurrencyLimiter` wrapping only the NetVips work (not
-    the whole request, so slow connections don't hold slots). Memory-weighted:
-    `AcquireAsync(estimatedMegabytes, cancellationToken)`. `PermitLimit` is an MB budget and
-    `QueueLimit` is also in MB; `OldestFirst`. Queue full: 503 with `Retry-After`. A closed tab
-    cancels its wait. **Global, not per tenant**: the point is keeping the machine up.
-12. **Process.** `NetVips.Concurrency` ≈ cores ÷ jobs expected at once. Check whether AVIF encoding
-    obeys it.
+11. **Processing limiter** (`Images/ImageProcessingLimiter.cs`), called from `ImageUploadStore.SaveAsync`
+    so both endpoints get it, around only the NetVips work (not the whole request, so slow
+    connections don't hold anything). Two `System.Threading.RateLimiting.ConcurrencyLimiter`s: a
+    processor slot per image (the only queue with a limit, counted in images, `OldestFirst`), then
+    megabytes of estimated memory. An image holds its slot while waiting for memory, so at most
+    `ProcessorSlots` images wait there. Queue full: `ImageProcessingBusyException` → 503 with
+    `Retry-After`. A closed tab cancels its wait and hands back its slot. **Global, not per tenant**:
+    the point is keeping the machine up.
+12. **Process.** `NetVips.Concurrency = 1` (one thread per image; the slots set how many run).
+    Check whether AVIF encoding obeys it.
 13. **Lease released** by `using`, even when processing throws.
 14. **The bulk endpoint attaches** (artwork type id posted as a form field) through the attach
     procedure. If nothing was attached, it **deletes the stored original and variants right away**
@@ -303,18 +305,34 @@ arrives; files in flight count by bytes sent. Once every byte is sent and respon
 show a "Processing…" spinner. `BbProgress` is fine, but JS **throttles** updates to the island
 (e.g. 4 per second, one overall number). Today `FileDropZone.razor.js` sends every progress event.
 
-**Host sizing, computed once at startup:** CPU from `Environment.ProcessorCount`, memory budget from
-`GC.GetGCMemoryInfo().TotalAvailableMemoryBytes` (both respect container limits). Queue limit ≈
-budget × (proxy timeout ÷ seconds per image). Measure the safety factor once with the largest real
-photo; overestimate. Rejecting an image over the megapixel cap also keeps any job from asking for
-more than the whole budget (which throws).
+**Host sizing, computed once at startup** (`ImageProcessingCapacity.FromHost`, printed in the startup
+log): slots = cores − 1 (at least 1), leaving a core for pages; memory budget =
+`MemoryBudgetMegabytes`, set per deployment (Mike, 2026-09-17, replacing a fraction of
+`GC.GetGCMemoryInfo().TotalAvailableMemoryBytes`); startup refuses a budget at or above that total;
+queued images = slots × (proxy timeout ÷ time per
+image). Estimate = width × height × bands × bytes per sample (from the header's band format) ×
+`MemoryEstimateMultiplier`. The megapixel check runs first, and an image whose estimate exceeds the
+whole budget is also rejected as too large. All numbers live in `appsettings.json` `ImageProcessing`
+and are **placeholders until measured**: 100 megapixels (Mike, 2026-09-17), a 1,000 MB budget, 60 s proxy
+timeout, retry after 10 s. **Measured 2026-09-17** (our `ImageProcessor`, production libvips settings,
+peak memory above baseline ÷ decoded size, on a fast desktop):
+
+| Image | Multiplier | Time |
+|---|---|---|
+| 48 MP JPEG / WebP / PNG / 8-bit TIFF | 0.77–0.89 | 5–7 s |
+| 100 MP JPEG | 0.64–0.66 | 7 s |
+| 48 MP JPEG with an EXIF rotation tag (every portrait phone photo) | **1.39–1.44** | 9 s |
+| 48 MP 16-bit TIFF | 0.37–0.49 | 8 s |
+
+So the multiplier is 2 (margin over 1.44) and the time per image 10 s (a VPS core is slower than
+the desktop). Re-measure on the VPS with `tools/measure-image-memory/measure.cs` (its header shows how, with or
+without the SDK installed); a later run of the rotated photo gave 1.58, still under 2.
 
 **Open:**
 - Page route and where it's linked from (next to the CSV import, per type, seems natural).
 - The megapixel cap, the safety factor, the proxy timeout and seconds per image: measure first.
 - Whether `/admin/uploads` gets the per-user token bucket too (probably yes).
-- Multi-tenancy shape (one process or many). With one process, the in-process limiter is the
-  machine's cap; with many, each needs a share. The app is single-tenant today.
+- Multi-tenancy: see "Multi-tenancy notes" at the end of this file.
 
 - [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
       one CSV per item type; fixed header names the artist must use (no column mapping); a header
@@ -616,8 +634,23 @@ more than the whole budget (which throws).
          dictionary keyed by the names as sent. Both procedures now return the shared
          `ArtworkNameMatchType` in an `ArtworkNameMatch` (type + artwork ids); from the attach procedure,
          `OneImagelessArtwork` means attached. 151 tests pass
-      4. Shared upload validation; processing limiter, header read, megapixel cap and host sizing
-         inside `ImageUploadStore`; 503 with `Retry-After`
+      4. DONE 2026-09-17: `Images/ImageUploadValidation` (validation moved out of the endpoint),
+         `ImageProcessor.ReadHeader`, `ImageTooLargeException`, `ImageProcessingLimiter` + settings +
+         capacity, and `ImageUploadStore` deleting the original on **any** failure (including busy
+         and cancelled). `/admin/uploads` returns 503 + `Retry-After` when busy. 11 new tests
+         (`ImageProcessingLimiterTests`, `ImageUploadStoreTests`), 162 pass. Not checked in a browser.
+         Follow-ups the same day: `Utilities/Units` (`BytesPerMebibyte`, `PixelsPerMegapixel`; the CSV
+         limit is now 1 MiB), `Utilities/ValidatedSettings.Read<T>` (bind a section by property name,
+         `[Range]` attributes catch missing values, misspelled keys are errors) for both
+         `ImageProcessingSettings` and `OrphanedImageSweepSettings` (now its own `OrphanedImageSweep`
+         section), and a per-endpoint `RequestSizeLimitAttribute` on `/admin/uploads` (file limit + 1 MiB;
+         not exercised by a test). 167 pass.
+         **HEIC is not supported (Mike, 2026-09-17):** NetVips.Native's libheif has no HEVC decoder
+         (patent-encumbered), and switching to the system libvips wasn't worth it. `ReadHeader` rejects
+         `heif-compression = hevc` with `UnsupportedImageFormatException` (AVIF reports `av1`), and
+         validation rejects `image/heic`/`image/heif` with the same "export as JPEG" message. Test fixture
+         `tests/.../Images/Fixtures/sample.heic` (made with ImageMagick). 168 pass. The image picker's `accept` is now
+         `ImageUploadValidation.FileInputAccept`, joined from the same set the server checks (not tried on an iPhone)
       5. Bulk endpoint (upload, process, attach, delete on skip, outcome in a 200); per-user token bucket
       6. JS: folder walk, both pickers, metadata stream, 3–4 upload cap, backoff, throttled progress
       7. The page: island, depth rule, duplicate names, pre-check, bar + spinner, report
@@ -770,3 +803,44 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
 - **Order lines are snapshots**: artwork name, product type name, label, unit price and quantity are
   copied, plus a nullable `ProductId` with `ON DELETE SET NULL`. Renames, price changes and
   deletions then can't rewrite history. The order copies the shipping address and totals too.
+
+## Multi-tenancy notes (undecided, 2026-09-17)
+
+The app is single-tenant today; the goal is many artists' sites (say 250) on one small VPS.
+- **Shape:** one process with a `TenantId` column, one process with a database per tenant, or a
+  process per tenant (simplest code, most memory: a Blazor Server process idles at roughly
+  100–200 MB). Not chosen.
+- **Image processing limits:** `ImageProcessingLimiter` is per process. With one process it is the
+  machine's cap; with several, each needs its share, or the cap has to be shared between them.
+- **Memory budget:** it's a fraction of `TotalAvailableMemoryBytes`, which inside a container is the
+  container's memory limit. Plan: the app in its own container with a memory limit (`mem_limit` in
+  compose), SQL Server in another, so SQL's memory is outside the app's total. In dev the app runs on
+  the host, so its budget is a share of the whole machine.
+- **Future:** move image processing into its own worker container (as imgproxy, Thumbor and
+  Mastodon's Sidekiq do), so a memory spike or a crash in libvips can't take the website down.
+  Needs `MALLOC_ARENA_MAX=2` in that container too.
+
+## Deployment (work in progress, 2026-09-17)
+
+`Dockerfile`, `.dockerignore` and `docker-compose.production.yml` are the plan for shipping; the open
+items are listed at the top of the compose file. Checked locally the same day: the image builds
+(Tailwind is downloaded in the build), the stack starts, migrations run, libvips loads, and the home
+page returns 200. The app used about 56 MB idle and SQL Server about 680 MB, each under a 2 GB limit.
+- **Inside a container .NET reports 75% of the memory limit** as `TotalAvailableMemoryBytes` (its GC
+  heap limit): 2 GB gave 1,536 MB, so the image budget came out at 384 MB. At the current settings
+  that rejected a 48 MP phone photo (about 412 MB estimated). Fixed the same day by replacing the
+  fraction with an explicit `MemoryBudgetMegabytes`.
+- **No CPU limit yet**, so the container saw all 20 host cores (19 slots). Add `cpus:` in compose;
+  `Environment.ProcessorCount` follows it.
+- `Failed to determine the https port for redirect` is expected until the reverse proxy exists.
+- Trying it leaves the `artist-shop-production_*` volumes behind; `down -v` removes them.
+
+## Image URLs (2026-09-17)
+
+`Images/ImageVariants` owns the widths, formats, file names and "largest variant that exists up to
+the wanted width"; `Images/ImageUrls.Variant(key, imageWidth, wantedWidth, format)` is the only place
+that knows variants are served from `/media`, so a CDN or image service changes one file. The four
+hand-built URLs (upload row, public artwork page, both series lists) use it, which also fixed the
+public page asking for `800.webp` on images narrower than 800. Not yet used: `srcset`/`sizes` and a
+`<picture>` with AVIF and WebP sources, for the gallery pages.
+

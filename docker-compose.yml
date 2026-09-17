@@ -9,6 +9,9 @@ services:
       - MSSQL_PID=Express
     ports:
       - 1433:1433
+    # SQL Server 2025 needs at least 2 GB. The limit keeps it to the share planned for it in
+    # production, where the app's own container has a separate limit (see docker-compose.production.yml)
+    mem_limit: 2g
     volumes:
       # Named volume, not a bind mount: the image runs as uid 10001 and cannot write to a
       # host directory owned by us.

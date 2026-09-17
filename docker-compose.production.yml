@@ -1,0 +1,66 @@
+# WORK IN PROGRESS (2026-09-17): the plan for production, not yet used for a real deployment.
+# Try it locally with:
+#   docker compose -f docker-compose.production.yml --env-file .env up --build
+#
+# Still open before this can serve real traffic:
+# - HTTPS: a reverse proxy (Caddy or nginx) in front, plus ForwardedHeaders in Program.cs so the app
+#   sees the original scheme and client address; its timeout should match
+#   ImageProcessing:ProxyTimeout
+# - Identity schema: nothing runs the EF migrations here yet (dev runs `dotnet ef database update`
+#   by hand). Options: an EF migrations bundle run before the app starts, or migrating at startup
+# - The first admin account: IdentitySeeder only runs in Development
+# - Backups of the SQL Server volume and the images volume
+# - Memory limits are first guesses; measure under load. The app's image budget is
+#   ImageProcessing:MemoryBudgetMegabytes, inside its own limit (see "Multi-tenancy notes" in todo.md)
+
+# its own project name, so trying this file locally gets its own containers and volumes instead of
+# taking over the dev ones in docker-compose.yml (same folder, so same default name)
+name: artist-shop-production
+
+services:
+  artist-shop-web:
+    build: .
+    container_name: artist-shop-production-web
+    depends_on:
+      artist-shop-mssql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # compose reads MSSQL_SA_PASSWORD from the --env-file; the server name is the other service
+      - ConnectionStrings__ArtistShop=Server=artist-shop-mssql,1433;Database=ArtistShop;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      - ConnectionStrings__ArtistShopIdentity=Server=artist-shop-mssql,1433;Database=ArtistShopIdentity;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+    ports:
+      - 8080:8080
+    # ImageProcessing:MemoryBudgetMegabytes (1000) plus room for the app itself. Startup refuses a
+    # budget above what .NET reports, which inside a container is 75% of this limit
+    mem_limit: 2g
+    volumes:
+      - artist-shop-images:/data/images
+      - artist-shop-data-protection-keys:/home/app/.aspnet/DataProtection-Keys
+
+  artist-shop-mssql:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    container_name: artist-shop-production-mssql
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Express
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    # not published to the host: only the app talks to it, over the compose network
+    mem_limit: 2g
+    volumes:
+      - artist-shop-mssql_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q ''SELECT 1'' || exit 1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  artist-shop-images:
+  artist-shop-data-protection-keys:
+  artist-shop-mssql_data:

@@ -1,0 +1,12 @@
+# Only src/ is needed to build the image. Everything below would otherwise be sent to Docker on
+# every build: the 111 MB Tailwind binary, uploaded images, secrets and build output.
+**/bin/
+**/obj/
+.git/
+.env
+content/
+tailwindcss
+tests/
+TestResults/
+src/ArtistShop.Web/wwwroot/app.css
+*.csv

@@ -1,8 +1,17 @@
+using System.ComponentModel.DataAnnotations;
 using ArtistShop.Web.Database.Repositories;
 
 namespace ArtistShop.Web.Images;
 
-public record OrphanedImageSweepSettings(TimeSpan GracePeriod, TimeSpan Interval);
+// read from appsettings.json by ValidatedSettings; the ranges also catch a missing value
+public sealed record OrphanedImageSweepSettings
+{
+    [Range(typeof(TimeSpan), "00:01:00", "365.00:00:00")]
+    public TimeSpan GracePeriod { get; init; }
+
+    [Range(typeof(TimeSpan), "00:00:01", "30.00:00:00")]
+    public TimeSpan Interval { get; init; }
+}
 
 public class OrphanedImageSweeper(
     ImageStorage imageStorage,
