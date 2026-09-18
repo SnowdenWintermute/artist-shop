@@ -42,6 +42,102 @@ public sealed class ArtworkImportPlannerTests
     }
 
     [Fact]
+    public void CreatesASeriesThatDoesNotExistYet()
+    {
+        var plan = PlanPaintings(
+            """
+            title,series
+            Dawn,Nocturnes
+            Dusk,nocturnes;Gardens
+            """
+        );
+
+        Assert.Empty(plan.Errors);
+        Assert.True(plan.CanImport);
+
+        // the same name spelled two ways is one series, counted twice
+        var newSeries = Assert.Single(plan.NewSeries);
+        Assert.Equal("Nocturnes", newSeries.Name);
+        Assert.Equal(2, newSeries.RowCount);
+
+        Assert.Equal([new SeriesName("Nocturnes")], plan.Additions[0].Addition.NewSeriesNames);
+        Assert.Equal([Gardens.Id], plan.Additions[1].Addition.SeriesIds);
+    }
+
+    [Fact]
+    public void ASkippedRowCreatesNoSeries()
+    {
+        var plan = PlanPaintings(
+            """
+            title,series
+            Existing Painting,Nocturnes
+            """
+        );
+
+        Assert.Empty(plan.NewSeries);
+    }
+
+    [Fact]
+    public void TwoNewSeriesWithOneWebAddressAreAnError()
+    {
+        var plan = PlanPaintings(
+            """
+            title,series
+            Dawn,Nocturnes
+            Dusk,"Nocturnes!"
+            """
+        );
+
+        AssertError(plan, 3, "series");
+    }
+
+    [Fact]
+    public void ANewSeriesMatchingAnExistingWebAddressIsAnError()
+    {
+        var plan = PlanPaintings(
+            """
+            title,series
+            Dawn,Sunrise Sunset
+            """
+        );
+
+        AssertError(plan, 2, "series");
+    }
+
+    [Fact]
+    public void ANearlyIdenticalNameIsAWarningAndStillImports()
+    {
+        var plan = PlanPaintings(
+            """
+            title,series
+            Dawn,Nocturnes
+            Dusk,Nocturnse
+            """
+        );
+
+        Assert.Empty(plan.Errors);
+        Assert.True(plan.CanImport);
+        Assert.Equal(2, plan.NewSeries.Count);
+
+        var warning = Assert.Single(plan.SeriesNameWarnings);
+        Assert.Equal("Nocturnse", warning.Name);
+        Assert.Equal("Nocturnes", warning.MatchedName);
+    }
+
+    [Fact]
+    public void ASeriesNameWithNoLettersOrNumbersIsAnError()
+    {
+        var plan = PlanPaintings(
+            """
+            title,series
+            Dawn,???
+            """
+        );
+
+        AssertError(plan, 2, "series");
+    }
+
+    [Fact]
     public void PlansAFullRow()
     {
         var plan = PlanPaintings(
@@ -199,7 +295,7 @@ public sealed class ArtworkImportPlannerTests
             """
             title,dateCreated,height,width,medium,series,price,sold
             ,,,,,,,
-            Dawn,5/1/2019,8.125,10,Tempera,Nocturnes,$400,maybe
+            Dawn,5/1/2019,8.125,10,Tempera,???,$400,maybe
             Dusk,,8,,,,,
             !!!,,,,,,,
             """

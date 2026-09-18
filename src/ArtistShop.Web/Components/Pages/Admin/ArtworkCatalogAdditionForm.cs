@@ -107,6 +107,7 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
             MainImageIndex: mainImageIndex,
             VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
             SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))],
+            NewSeriesNames: [],
             Products: []
         );
     }

@@ -4,6 +4,7 @@ using ArtistShop.Web.Imports;
 
 namespace ArtistShop.Web.Tests.Database;
 
+[Collection(DatabaseCollection.Name)]
 public sealed class ArtworkImportCatalogSnapshotTests(TestDatabaseFixture database)
 {
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);

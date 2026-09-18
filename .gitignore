@@ -487,3 +487,5 @@ $RECYCLE.BIN/
 /src/ArtistShop.Web/wwwroot/app.css
 # Uploaded images
 /content/
+# generated test files
+/test-upload-files/

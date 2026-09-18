@@ -6,6 +6,11 @@
   [Parameter, EditorRequired]
   public string ButtonLabel { get; set; } = default!;
 
+  // set this to also offer a folder picker. A webkitdirectory input's dialog can only choose
+  // folders, so picking loose files and picking a folder need separate inputs and separate buttons
+  [Parameter]
+  public string? DirectoryButtonLabel { get; set; }
+
   // must contain one <input type="file">; the frame's script hands it the picked or dropped files
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
@@ -20,6 +25,13 @@
   <ButtonBasic type="button" Class="border" data-part="choose">
     @ButtonLabel
   </ButtonBasic>
+
+  @if (DirectoryButtonLabel is not null)
+  {
+    <ButtonBasic type="button" Class="ml-2 border" data-part="choose-directory">
+      @DirectoryButtonLabel
+    </ButtonBasic>
+  }
 
   @ChildContent
 </file-drop-zone>

@@ -5,6 +5,7 @@ using Microsoft.Data.SqlClient;
 
 namespace ArtistShop.Web.Tests.Database;
 
+[Collection(DatabaseCollection.Name)]
 public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
 {
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);

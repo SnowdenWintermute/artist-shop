@@ -73,19 +73,9 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         return table;
     }
 
-    public async Task<ArtworkIdentifiers> AddAsync(ArtworkCatalogAddition artworkCatalogAddition)
-    {
-        await using var connection = connectionFactory.Create();
-
-        try
-        {
-            return await ExecuteAddAsync(connection, transaction: null, artworkCatalogAddition);
-        }
-        catch (SqlException exception) when (IsCatalogChanged(exception))
-        {
-            throw new CatalogChangedException(exception.Message, exception);
-        }
-    }
+    // one addition takes the same path as many, so it can name a series that doesn't exist yet
+    public async Task<ArtworkIdentifiers> AddAsync(ArtworkCatalogAddition artworkCatalogAddition) =>
+        (await AddManyAsync([artworkCatalogAddition]))[0];
 
     // all or nothing: a failure on any artwork rolls back the ones before it
     public async Task<List<ArtworkIdentifiers>> AddManyAsync(
@@ -100,12 +90,21 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         try
         {
             var identifiers = new List<ArtworkIdentifiers>();
+            var newSeriesIds = await SeriesRepository.AddManyAsync(
+                connection,
+                transaction,
+                [.. artworkCatalogAdditions.SelectMany(artworkCatalogAddition => artworkCatalogAddition.NewSeriesNames)]
+            );
 
             // AddArtwork's own BEGIN and COMMIT nest inside this transaction, so its COMMIT only
             // counts down; nothing is saved until the CommitAsync below
             foreach (var artworkCatalogAddition in artworkCatalogAdditions)
             {
-                identifiers.Add(await ExecuteAddAsync(connection, transaction, artworkCatalogAddition));
+                var seriesIds = artworkCatalogAddition
+                    .SeriesIds.Concat(artworkCatalogAddition.NewSeriesNames.Select(name => newSeriesIds[name.Value]))
+                    .ToList();
+
+                identifiers.Add(await ExecuteAddAsync(connection, transaction, artworkCatalogAddition, seriesIds));
             }
 
             await transaction.CommitAsync();
@@ -120,17 +119,18 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     private static bool IsCatalogChanged(SqlException exception) =>
         CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number));
 
+
     private static async Task<ArtworkIdentifiers> ExecuteAddAsync(
         SqlConnection connection,
         SqlTransaction? transaction,
-        ArtworkCatalogAddition artworkCatalogAddition
+        ArtworkCatalogAddition artworkCatalogAddition,
+        // the addition's own series plus the ones just created for it
+        IReadOnlyList<SeriesId> resolvedSeriesIds
     )
     {
         var images = CreateImageDataTable(artworkCatalogAddition);
         var products = CreateProductDataTable(artworkCatalogAddition.Products);
-        var seriesIds = IdListParameter.Create(
-            artworkCatalogAddition.SeriesIds.Select(id => id.Value)
-        );
+        var seriesIds = IdListParameter.Create(resolvedSeriesIds.Select(id => id.Value));
 
         var vocabularyTermIds = IdListParameter.Create(
             artworkCatalogAddition.VocabularyTermIds.Select(id => id.Value)
@@ -277,6 +277,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         public required int Id { get; init; }
         public required string Slug { get; init; }
     }
+
 
     private sealed class ArtworkRow
     {

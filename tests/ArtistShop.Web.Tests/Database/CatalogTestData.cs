@@ -38,6 +38,7 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
                 MainImageIndex: 0,
                 VocabularyTermIds: [],
                 SeriesIds: [],
+                NewSeriesNames: [],
                 Products: []
             )
         );
@@ -149,6 +150,7 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
             MainImageIndex: 0,
             VocabularyTermIds: termIds,
             SeriesIds: seriesIds,
+            NewSeriesNames: [],
             Products: products
         );
 }

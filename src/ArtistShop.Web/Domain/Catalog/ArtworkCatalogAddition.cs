@@ -14,5 +14,7 @@ public record ArtworkCatalogAddition(
     int MainImageIndex,
     IReadOnlyList<VocabularyTermId> VocabularyTermIds,
     IReadOnlyList<SeriesId> SeriesIds,
+    // series the artwork joins that don't exist yet, created as it is added
+    IReadOnlyList<SeriesName> NewSeriesNames,
     IReadOnlyList<ProductAddition> Products
 );

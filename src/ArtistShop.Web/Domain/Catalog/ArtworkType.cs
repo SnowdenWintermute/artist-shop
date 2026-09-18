@@ -28,6 +28,5 @@ public record ArtworkTypeArtworkCounts(
             ArtworkField.HeightAndWidth => WithHeightAndWidth,
             ArtworkField.Depth => WithDepth,
             ArtworkField.Duration => WithDuration,
-            _ => throw new ArgumentOutOfRangeException(nameof(field), field, null),
         };
 }

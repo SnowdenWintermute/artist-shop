@@ -24,6 +24,10 @@ public static class ImageUploadValidation
     // iPhone photo picker convert HEIC photos to JPEG before handing them over
     public static readonly string FileInputAccept = string.Join(",", PermittedContentTypes);
 
+    // the bulk image page checks a file the browser found before it uploads anything
+    public static bool IsPermittedContentType(string contentType) =>
+        PermittedContentTypes.Contains(contentType);
+
     // client input must be run through GetFileName to sanitize
     // potentially malicious input
     public static string OriginalFileName(IFormFile file) => Path.GetFileName(file.FileName);

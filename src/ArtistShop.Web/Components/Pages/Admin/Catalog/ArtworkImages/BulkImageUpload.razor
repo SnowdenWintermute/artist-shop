@@ -1,0 +1,348 @@
+@rendermode InteractiveServer
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
+@using BlazorBlueprint.Primitives.Progress
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject ArtworkImageRepository ArtworkImageRepository
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@code {
+  [Parameter]
+  public int? InitialArtworkTypeId { get; set; }
+
+  // the dropped folder and one level of folders inside it. Deeper than that is someone's thumbnails
+  private const int MaximumDirectoryDepth = 2;
+
+  // one drop at a time. Well past any artwork folder, and it keeps the name pre-check's
+  // table-valued parameter and the report to a size worth rendering
+  private const int MaximumFiles = 5_000;
+
+  // a backstop only: the count above is the real limit, and 400 bytes is generous for an entry
+  // of an id, a path, a size and a content type
+  private const long MaximumMetadataBytes = MaximumFiles * 400L;
+
+  private ElementReference _zone;
+  private IJSObjectReference? _module;
+  private IJSObjectReference? _uploader;
+  private DotNetObjectReference<BulkImageUpload>? _selfReference;
+
+  private List<ArtworkType> _artworkTypes = [];
+  private int? _artworkTypeId;
+
+  // the images found, before they are matched to artworks
+  private List<CollectedFile> _candidates = [];
+  private int _notImageCount;
+  private int _tooDeepCount;
+  private bool _tooManyFiles;
+
+  private List<BulkImageFile> _files = [];
+  private bool _isUploading;
+  private int _percentComplete;
+
+  private int WillAttachCount => _files.Count(file => file.Outcome is BulkImageOutcome.WillAttach);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _artworkTypeId = InitialArtworkTypeId;
+    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    _module = await JS.InvokeAsync<IJSObjectReference>(
+      "import",
+      "./Components/Pages/Admin/Catalog/ArtworkImages/BulkImageUpload.razor.js"
+    );
+
+    _selfReference = DotNetObjectReference.Create(this);
+
+    _uploader = await _module.InvokeAsync<IJSObjectReference>(
+      "createBulkUploader", _zone, _selfReference, MaximumFiles);
+  }
+
+  [JSInvokable]
+  public async Task OnFilesCollected()
+  {
+    var collected = await ReadCollectedFilesAsync();
+
+    _tooManyFiles = false;
+    _notImageCount = 0;
+    _tooDeepCount = 0;
+    _candidates = [];
+
+    foreach (var file in collected)
+    {
+      if (!ImageUploadValidation.IsPermittedContentType(file.Type))
+      {
+        _notImageCount++;
+      }
+      else if (DirectoryDepthOf(file.Path) > MaximumDirectoryDepth)
+      {
+        _tooDeepCount++;
+      }
+      else
+      {
+        _candidates.Add(file);
+      }
+    }
+
+    await MatchToArtworksAsync();
+
+    // a method JS called doesn't re-render on its own; InvokeAsync puts it back on the renderer
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnTooManyFiles()
+  {
+    _tooManyFiles = true;
+    _notImageCount = 0;
+    _tooDeepCount = 0;
+    _candidates = [];
+    _files = [];
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // one database call for every name at once, so the artist sees the whole outcome before a byte
+  // is uploaded and only the files that will be used are sent
+  private async Task MatchToArtworksAsync()
+  {
+    if (_artworkTypeId is not int typeId)
+    {
+      _files = [];
+      return;
+    }
+
+    var files = _candidates
+      .Select(file => new BulkImageFile(file.Id, file.Path, ArtworkName.FromFileName(file.Path).Value))
+      .ToList();
+
+    // the database compares names its own way, and dbo.ArtworkNameList's primary key would refuse
+    // a pair this comparer calls equal
+    var nameCounts = files
+      .CountBy(file => file.ArtworkName, DatabaseCollationComparer.Instance)
+      .ToDictionary(DatabaseCollationComparer.Instance);
+
+    var matches = await ArtworkImageRepository.GetArtworkNameMatchesAsync(
+      new ArtworkTypeId(typeId),
+      [.. files.Where(file => nameCounts[file.ArtworkName] is 1).Select(file => new ArtworkName(file.ArtworkName))]
+    );
+
+    foreach (var file in files)
+    {
+      file.Outcome = nameCounts[file.ArtworkName] > 1
+        ? BulkImageOutcome.DuplicateNameInUpload
+        : OutcomeOf(matches[new ArtworkName(file.ArtworkName)].Type);
+    }
+
+    _files = files;
+  }
+
+  private async Task OnArtworkTypeChangedAsync()
+  {
+    await MatchToArtworksAsync();
+  }
+
+  private async Task StartUploadAsync()
+  {
+    if (_uploader is null || _artworkTypeId is not int typeId)
+    {
+      return;
+    }
+
+    _isUploading = true;
+    _percentComplete = 0;
+
+    await _uploader.InvokeVoidAsync(
+      "upload",
+      _files.Where(file => file.Outcome is BulkImageOutcome.WillAttach).Select(file => file.Id),
+      typeId
+    );
+  }
+
+  private async Task StopUploadAsync()
+  {
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeVoidAsync("stop");
+    }
+  }
+
+  [JSInvokable]
+  public async Task OnUploadProgress(int percentComplete)
+  {
+    _percentComplete = percentComplete;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnFileFinished(string id, ArtworkImageMatchResult result)
+  {
+    if (FindFile(id) is { } file)
+    {
+      // the server's answer, not the pre-check's: another upload may have taken the artwork since
+      file.Outcome = result.Outcome is ArtworkNameMatchType.OneImagelessArtwork
+        ? BulkImageOutcome.Attached
+        : OutcomeOf(result.Outcome);
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnFileFailed(string id, string message)
+  {
+    if (FindFile(id) is { } file)
+    {
+      file.Outcome = BulkImageOutcome.Failed;
+      file.Error = message;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnUploadFinished()
+  {
+    _isUploading = false;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private BulkImageFile? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
+
+  private static BulkImageOutcome OutcomeOf(ArtworkNameMatchType matchType) =>
+    matchType switch
+    {
+      ArtworkNameMatchType.OneImagelessArtwork => BulkImageOutcome.WillAttach,
+      ArtworkNameMatchType.NoArtwork => BulkImageOutcome.NoArtwork,
+      ArtworkNameMatchType.SeveralArtworks => BulkImageOutcome.SeveralArtworks,
+      ArtworkNameMatchType.ArtworkWithImages => BulkImageOutcome.ArtworkHasImages,
+    };
+
+  private async Task<List<CollectedFile>> ReadCollectedFilesAsync()
+  {
+    if (_uploader is null)
+    {
+      return [];
+    }
+
+    await using var metadata = await _uploader.InvokeAsync<IJSStreamReference>("metadata");
+    await using var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes);
+
+    return await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
+  }
+
+  // "/Seascapes/1990s/sunset.jpg" is two folders deep; a loose file is none
+  private static int DirectoryDepthOf(string path) => path.Trim('/').Split('/').Length - 1;
+
+  public async ValueTask DisposeAsync()
+  {
+    try
+    {
+      if (_uploader is not null)
+      {
+        await _uploader.InvokeVoidAsync("dispose");
+        await _uploader.DisposeAsync();
+      }
+
+      if (_module is not null)
+      {
+        await _module.DisposeAsync();
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+
+    _selfReference?.Dispose();
+  }
+}
+
+<DisabledUntilInteractive>
+  <div class="mb-4">
+    @* SelectField builds on InputSelect, which needs an EditContext, and there is no form here *@
+    <label class="mb-1 block text-sm" for="artwork-type">Artwork type</label>
+    <select id="artwork-type" class="artist-shop-field-input" disabled="@_isUploading" @bind="_artworkTypeId"
+            @bind:after="OnArtworkTypeChangedAsync">
+      <option value="">Choose a type</option>
+      @foreach (var artworkType in _artworkTypes)
+      {
+        <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
+      }
+    </select>
+  </div>
+
+  @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
+  <div @ref="_zone">
+    <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"
+                       DirectoryButtonLabel="Choose a folder">
+      <input type="file" multiple accept="@ImageUploadValidation.FileInputAccept" class="hidden" />
+      <input type="file" webkitdirectory class="hidden" />
+    </FileDropZoneFrame>
+  </div>
+</DisabledUntilInteractive>
+
+@if (_tooManyFiles)
+{
+  <p class="mb-4 text-red-400">
+    That's more than @MaximumFiles files. Upload one folder at a time.
+  </p>
+}
+
+@if (_candidates.Count > 0 || _notImageCount > 0 || _tooDeepCount > 0)
+{
+  <ul class="mb-4 text-sm">
+    <li>@CountText.Of(_candidates.Count, "image") found</li>
+    @if (_notImageCount > 0)
+    {
+      <li>@CountText.Of(_notImageCount, "file") skipped: not an image format we accept</li>
+    }
+    @if (_tooDeepCount > 0)
+    {
+      <li>@CountText.Of(_tooDeepCount, "file") skipped: images in deeply nested folders</li>
+    }
+  </ul>
+}
+
+@if (_candidates.Count > 0 && _artworkTypeId is null)
+{
+  <p class="mb-4 text-red-400">Choose an artwork type to match these against.</p>
+}
+
+@if (_isUploading)
+{
+  <div class="mb-4">
+    <BbProgress Value="_percentComplete" Max="100" class="mb-2 block h-1 bg-gray-200">
+      <BbProgressIndicator class="block h-1 bg-blue-500" style="@($"width: {_percentComplete}%")" />
+    </BbProgress>
+
+    <p class="mb-2 text-sm">
+      @(_percentComplete == 100 ? "Processing the last images…" : $"Uploading… {_percentComplete}%")
+    </p>
+
+    <ButtonBasic type="button" Class="border" @onclick="StopUploadAsync">Stop</ButtonBasic>
+  </div>
+}
+else if (WillAttachCount > 0)
+{
+  <div class="mb-4">
+    <ButtonBasic type="button" Class="bg-blue-400 text-white" @onclick="StartUploadAsync">
+      Upload @CountText.Of(WillAttachCount, "image")
+    </ButtonBasic>
+  </div>
+}
+
+<BulkImageReport Files="_files" />

@@ -3,6 +3,7 @@ using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Tests.Database;
 
+[Collection(DatabaseCollection.Name)]
 public sealed class ArtworkFieldRepositoryTests(TestDatabaseFixture database)
 {
     private readonly ArtworkFieldRepository _artworkFields = new(database.ConnectionFactory);

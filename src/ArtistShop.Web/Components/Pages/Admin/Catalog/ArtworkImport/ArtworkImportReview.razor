@@ -10,14 +10,13 @@
     {
       ArtworkImportSkipReason.AlreadyInCatalog => "Already in the catalog",
       ArtworkImportSkipReason.TitleRepeatedInFile => "The title is on more than one row",
-      _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
     };
 }
 
 @* shrink-0 keeps the summary whole; the tables below take what height is left and scroll *@
 <p class="mb-4 shrink-0">
-  @CountText.Of(Plan.Additions.Count, "artwork") to add, @CountText.Of(Plan.SkippedRows.Count, "row") skipped,
-  @CountText.Of(Plan.Errors.Count, "problem").
+  @CountText.Of(Plan.Additions.Count, "artwork") to add, @Plan.NewSeries.Count new series,
+  @CountText.Of(Plan.SkippedRows.Count, "row") skipped, @CountText.Of(Plan.Errors.Count, "problem").
 </p>
 
 @* min-h-0: a flex item won't shrink below its content's height without it, so it would never scroll *@
@@ -42,6 +41,45 @@
               <td class="pr-4">@error.RowNumber</td>
               <td class="pr-4 font-mono">@error.Column</td>
               <td>@error.Message</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (Plan.NewSeries.Count > 0)
+  {
+    <div class="mb-6">
+      <h3 class="mb-1">New series</h3>
+      <p class="mb-2 text-sm">
+        These aren't series yet, so importing creates them. A name only one row uses, next to a
+        similar one that many rows use, is usually a typo in the spreadsheet.
+      </p>
+
+      @if (Plan.SeriesNameWarnings.Count > 0)
+      {
+        <ul class="mb-2 text-sm text-amber-600">
+          @foreach (var warning in Plan.SeriesNameWarnings)
+          {
+            <li>"@warning.Name" is nearly "@warning.MatchedName". Check the spelling of both.</li>
+          }
+        </ul>
+      }
+
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b">
+            <th class="sticky top-0 bg-white pr-4">Name</th>
+            <th class="sticky top-0 bg-white">Rows</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var series in Plan.NewSeries)
+          {
+            <tr class="border-b">
+              <td class="pr-4">@series.Name</td>
+              <td>@series.RowCount</td>
             </tr>
           }
         </tbody>

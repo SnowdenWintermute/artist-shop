@@ -4,6 +4,7 @@ using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Tests.Database;
 
+[Collection(DatabaseCollection.Name)]
 public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
 {
     private readonly VocabularyRepository _vocabularies = new(database.ConnectionFactory);

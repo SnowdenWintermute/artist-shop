@@ -71,7 +71,56 @@ public static class ArtworkImportPlanner
             }
         }
 
-        return new ArtworkImportPlan(additions, skippedRows, errors);
+        var newSeriesRows = CollectNewSeriesRows(additions);
+        var newSeries = newSeriesRows
+            .OrderBy(entry => entry.Key, ArtworkImportNames.Comparer)
+            .Select(entry => new ArtworkImportNewSeries(entry.Key, entry.Value.Count))
+            .ToList();
+
+        var checks = SeriesNameSimilarity.Check(
+            [.. newSeries.Select(series => series.Name)],
+            [.. snapshot.AllSeries.Select(series => series.Name.Value)]
+        );
+
+        foreach (var collision in checks.SlugCollisions)
+        {
+            errors.Add(
+                new ArtworkImportError(
+                    // the row is where the name first appears, so there is somewhere to go and fix it
+                    newSeriesRows[collision.Name][0],
+                    ArtworkImportHeaders.Series,
+                    $"\"{collision.Name}\" and \"{collision.MatchedName}\" would have the same web address. Rename one of them."
+                )
+            );
+        }
+
+        return new ArtworkImportPlan(additions, skippedRows, errors, newSeries, checks.NearDuplicates);
+    }
+
+    // which rows would join each series the file creates. Only rows that will be imported count:
+    // a skipped or broken row creates nothing
+    private static Dictionary<string, List<int>> CollectNewSeriesRows(
+        IReadOnlyList<ArtworkImportAddition> additions
+    )
+    {
+        var rowNumbers = new Dictionary<string, List<int>>(ArtworkImportNames.Comparer);
+
+        foreach (var addition in additions)
+        {
+            foreach (var name in addition.Addition.NewSeriesNames)
+            {
+                // the first spelling of a name is the one the series gets
+                if (!rowNumbers.TryGetValue(name.Value, out var rows))
+                {
+                    rows = [];
+                    rowNumbers[name.Value] = rows;
+                }
+
+                rows.Add(addition.RowNumber);
+            }
+        }
+
+        return rowNumbers;
     }
 
     private static ArtworkCatalogAddition? ReadAddition(
@@ -95,7 +144,7 @@ public static class ArtworkImportPlanner
         var dimensions = ReadDimensions(reader, columns, settings.LengthUnit);
         var duration = reader.Duration(columns.Duration, ArtworkImportHeaders.Duration);
         var termIds = ReadTermIds(reader, columns, settings.ListSeparator);
-        var seriesIds = ReadSeriesIds(reader, columns, settings.ListSeparator, snapshot.AllSeries);
+        var series = ReadSeries(reader, columns, settings.ListSeparator, snapshot.AllSeries);
         var product = settings.IsOneOfAKind
             ? ReadOneOfAKindProduct(reader, columns, settings.ProductTypeId)
             : ReadEditionProduct(reader, columns, settings.ProductTypeId);
@@ -116,7 +165,8 @@ public static class ArtworkImportPlanner
             Images: [],
             MainImageIndex: 0,
             VocabularyTermIds: termIds,
-            SeriesIds: seriesIds,
+            SeriesIds: series.ExistingIds,
+            NewSeriesNames: series.NewNames,
             Products: product is null ? [] : [product]
         );
     }
@@ -177,30 +227,43 @@ public static class ArtworkImportPlanner
         return termIds;
     }
 
-    private static List<SeriesId> ReadSeriesIds(
+    private record RowSeries(List<SeriesId> ExistingIds, List<SeriesName> NewNames);
+
+    // a name that isn't a series yet is one the import creates; the review lists them with how many
+    // rows use each, so a typo stands out before it becomes a series of one
+    private static RowSeries ReadSeries(
         ArtworkImportRowReader reader,
         ArtworkImportColumns columns,
         char separator,
         IReadOnlyList<Series> allSeries
     )
     {
-        var seriesIds = new List<SeriesId>();
+        var existingIds = new List<SeriesId>();
+        var newNames = new List<SeriesName>();
 
         foreach (var name in reader.List(columns.Series, separator))
         {
             var series = allSeries.FirstOrDefault(series => ArtworkImportNames.Comparer.Equals(series.Name.Value, name));
 
-            if (series is null)
+            if (series is not null)
             {
-                reader.AddError(ArtworkImportHeaders.Series, $"\"{name}\" isn't a series.");
+                existingIds.Add(series.Id);
+            }
+            else if (name.Length > CatalogLimits.SeriesNameMaximumLength)
+            {
+                reader.AddError(ArtworkImportHeaders.Series, $"Series names can be at most {CatalogLimits.SeriesNameMaximumLength} characters.");
+            }
+            else if (SeriesSlug.FromName(name).Value.Length == 0)
+            {
+                reader.AddError(ArtworkImportHeaders.Series, $"\"{name}\" has no letters or numbers to build a web address from.");
             }
             else
             {
-                seriesIds.Add(series.Id);
+                newNames.Add(new SeriesName(name));
             }
         }
 
-        return seriesIds;
+        return new RowSeries(existingIds, newNames);
     }
 
     // edition size 1; sold means none left. A sold row may have no price

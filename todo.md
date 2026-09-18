@@ -7,126 +7,131 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-17, end of session
+## Where this stands — 2026-09-18, end of session
 
-**Next session starts at step 6 of the bulk image matching build order** (step 9, near the end of
-that step): the browser side — folder walk, both pickers, metadata stream, the 3–4 upload cap,
-backoff, throttled progress. Steps 1–3 are committed in `e5b43e3`, step 4 in `c74db86`; the review
-fixes below that one and step 5 are uncommitted. **187 tests pass.** The design is in step 9
-("Bulk image matching — decided 2026-09-13, revised 2026-09-17", the flow, progress, host sizing),
-and the sections at the end of this file: Multi-tenancy notes, Deployment, Image URLs.
+**Bulk image matching is built and works in a browser.** Steps 1 to 7 of the build order below are
+done. Dropping a folder on `/admin/catalog/artworks/images` walks it, pre-checks every name in one
+database call, shows what will happen, and uploading moves each file into the report as its answer
+arrives. Stop and resume were both tried. 210 tests pass.
 
-**Before running `dev.sh`:**
-1. Drop the dev database. The collation is pinned, `0001` gained an index, `ArtworkImages.RelativePath`
-   became `StorageKey char(32)`, and `GetAllArtworkImageRelativePaths` was renamed — a DbUp script
-   already recorded never runs again, and the old procedure would linger.
-   `source .env && docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "DROP DATABASE IF EXISTS ArtistShop;"`
-   Running a schema script through `sqlcmd` by hand needs `-I`, or the filtered indexes fail.
-2. `docker compose up -d` so the SQL container gets its new 2 GB memory limit.
-3. Restart `dev.sh` so the app sees `MALLOC_ARENA_MAX=2` from `env.sh`.
+**Next: browsing artworks.** There is still no page that lists them, so the only way to see what the
+CSV import and the image upload produced is the database. That is the next piece of work.
 
-**What steps 5 to 7 build on** (all of it exists and is tested; step 5 is now done and uses the
-first two and the attach):
-- `ImageUploadStore.SaveAsync(stream, cancellationToken)` — saves the original, reads the header,
-  checks the megapixel cap and the budget, takes a limiter lease, processes, and deletes the original
-  on any failure. The bulk endpoint calls this, not `ImageProcessor` directly.
-- `ImageUploadValidation.FindProblem(file)` — the same name, size and content-type checks as
-  `/admin/uploads`, and `MaximumRequestBytes` for the endpoint's own size limit.
-- `ArtworkImageRepository.GetArtworkNameMatchesAsync(typeId, names)` for the pre-check the island runs
-  before anything uploads, and `AttachPrimaryImageToImagelessArtworkByNameAsync(typeId, name, image)`
-  for the attach, whose `ImageAttachResult.Attached` says whether the image was taken.
-- `ImageProcessingBusyException` → 503 with `Retry-After`, as `/admin/uploads` already answers.
-- Flow steps 14 and 16: a skip returns 200 with an outcome, not 400, and the endpoint deletes the
-  stored original and variants itself rather than leaving them to the sweep.
+### What was built on 2026-09-18
 
-**Decided 2026-09-17, both were open before step 5:**
+*Steps 6 and 7 — the browser side and the page.*
+- `FileDropZoneFrame` takes an optional `DirectoryButtonLabel` and renders a second button. **One
+  drop zone handles both folders and loose files**: `webkitGetAsEntry()` returns either kind, so a
+  drop needs no toggle. Two buttons exist only because a `webkitdirectory` input's dialog cannot
+  pick loose files. The element decides which drop path to use by looking for a folder input among
+  its own children — a zone that can pick a folder can take one from a drop — and dispatches a
+  bubbling `entriesdropped` carrying the entries it grabbed before the handler returned.
+- `Components/Pages/Admin/Catalog/ArtworkImages/`: `UploadArtworkImages.razor` (the page, `?type=`
+  preselects), `BulkImageUpload.razor` (the island), `BulkImageUpload.razor.js` (walk, metadata
+  stream, upload driver), `CollectedFile`, `BulkImageFile`, `BulkImageOutcome`, `BulkImageReport`.
+  The dashboard links to it per work type.
+- The page has no form, so it renders `<AntiforgeryToken />` for the uploader script to find.
+- The artwork type is a plain `<select>` in the island, not `SelectField`, which needs an
+  `EditContext`. Changing it re-runs the pre-check against what was already dropped.
+- Cap of **5,000 files**, passed to JS from the island so it is written once; the stream's byte
+  allowance is derived from it and is only a backstop. Over the cap, nothing is sent and the page
+  says so.
+- Driver: four at a time, one bar for the whole run (bytes for files in flight, whole file once its
+  answer arrives), progress throttled to four updates a second, "Processing the last images…" at
+  100% with answers pending. 429/503/504 back off up to four attempts honouring `Retry-After` with
+  jitter; anything else fails the file, showing the server's message only when it is short
+  `text/plain`. Stop aborts and empties the queue, leaving the remaining files as "will be added" so
+  Upload picks up where it left off.
 
-*The bulk image page is its own page, not part of the CSV import page* (Mike). The two are separate
-operations: you can import a CSV, be interrupted, and come back in a later session to do the images,
-and images also arrive for artworks that were never imported by CSV at all. The CSV import page
-links to it from its success state ("now upload images for these artworks"); a link, not a shared
-page.
+**Gotcha that cost real time:** `DotNet.createJSStreamReference` is for JS **calling into** .NET and
+passing a stream as an argument. When .NET calls JS and asks for an `IJSStreamReference`, it wraps
+the returned value itself, so the JS function must **return the Blob directly**. Wrapping it first
+fails with "Supplied value is not a typed array or blob", surfacing as a `JSException` inside the
+`[JSInvokable]` and appearing only in the browser console.
 
-*Two file names are duplicates when the database would call them duplicates.* The database compares
-with the pinned `Latin1_General_100_CI_AS_SC`, and SQL Server also ignores trailing spaces in an
-equality comparison, so a plain `OrdinalIgnoreCase` check would pass names the `ArtworkNameList`
-primary key then rejects. `Database/DatabaseCollationComparer` (next to `DatabaseInitializer.Collation`,
-which is what it mirrors) is an `IEqualityComparer<string>`: `TrimEnd()` — trailing spaces only,
-leading ones are significant to SQL Server — compared with `StringComparison.InvariantCultureIgnoreCase`.
+### Not built on the bulk image page
 
-"Culture-aware" (linguistic) comparison goes through ICU's collation tables, the same kind of
-machinery SQL Server uses, and knows ignorable characters and case folding past the simple
-mappings that `OrdinalIgnoreCase` does. `Invariant` rather than `CurrentCulture` because the
-database's collation is fixed and the server's locale isn't. It is a close mirror, not an exact one:
-SQL Server ships its own weight tables, so where they disagree the primary key still throws and the
-page needs a sensible message on that path rather than a 500.
+- **The browser's backoff is verified, by faking the 503.** A real one needs the limiter's slot queue
+  full, and on a 20-core box that is `ProcessorCount - 1` = 19 in flight plus
+  `slots × (ProxyTimeout / EstimatedTimePerImage)` = 114 waiting, while the page sends four at a
+  time — unreachable. So on 2026-09-18 `UploadAndAttachByNameAsync` temporarily answered 503 with
+  `Retry-After: 2` to every third upload, and 150 files were run through it. **That code is removed.**
+  One file ended in "Didn't upload (503)", which only happens after four attempts, so the wait, the
+  retry and the attempt cap all ran; the rest retried invisibly and were added. The bar stayed smooth
+  because a retry only drops that one file's bytes, under a percent of the run.
+- The add-artwork form still shows a bare "Upload failed (503)." (parked since 2026-09-17). The bulk
+  page now has retry and backoff worth sharing with it.
+- A second image per artwork still needs the edit artwork page (step 10).
 
-`Normalize()` is a *separate* concern and is not in the comparer. SQL Server does no Unicode
-normalization at all — a precomposed `é` and `e` + combining acute are simply different characters
-to it — so normalizing is not about mirroring the collation. It is about macOS, which writes file
-names decomposed while the artist typed the title composed: without it the name matches nothing.
-It lives in `ArtworkName.FromFileName` (alongside `ArtworkSlug.FromName`), which drops the extension
-and composes, and it runs before the names go anywhere, so the comparer and the database both see
-the same form.
+### Test data (2026-09-18)
 
-**Done 2026-09-17:**
-- Step 5 (by Claude, from printed code Mike reviewed): `POST /admin/uploads/artwork-image-by-name`
-  in `ImageUploadEndpoints` — validate, store through `ImageUploadStore`, attach by name, delete the
-  stored image when nothing took it, and answer 200 with an `ArtworkImageMatchResult` (the name, the
-  `ArtworkNameMatchType` outcome, every matching artwork id). A deleted work type mid-run is the one
-  new 400 (`CatalogChangedException`); the file's other failures answer exactly as `/admin/uploads`
-  does. `ArtworkName.FromFileName` (extension off, `Normalize`) and `DatabaseCollationComparer`
-  landed with it, plus `ImageUploadRateLimiting`: a token bucket per user (`NameIdentifier` claim,
-  address as the fallback), burst 100 and 10 per second, `RequireRateLimiting` on both upload
-  endpoints, 429 carrying `Retry-After`. 7 tests, 187 pass. **Nothing tried in a browser**, and there
-  is no test of the endpoint itself (the suite has no `WebApplicationFactory` host).
-  A name longer than `CatalogLimits.ArtworkNameMaximumLength` is answered `NoArtwork` without a
-  round trip: both the parameter and `ArtworkNameList` are `nvarchar(200)`, and SQL Server truncates
-  a longer value silently rather than refusing it, which could otherwise match the wrong artwork.
-- Step 4: `ImageUploadValidation` (validation out of the endpoint; per-endpoint request size limit),
-  `ImageProcessor.ReadHeader`, `ImageProcessingLimiter` (processor slots, then megabytes; 503 with
-  `Retry-After` when the slot queue is full), `ImageUploadStore` deleting the original on any failure.
-- Limits in `appsettings.json` `ImageProcessing`: 100 MP cap, `MemoryBudgetMegabytes` 1000, multiplier 2
-  and 10 s per image (both measured, table in step 9), `NetVips.Concurrency = 1`, `NetVips.Cache.Max = 0`.
-- HEIC is not supported (no HEVC decoder in NetVips.Native; Mike decided against the system libvips):
-  rejected by content type and by header with an "export as JPEG" message. The image picker's
-  `accept` lists the permitted types (`ImageUploadValidation.FileInputAccept`).
-- `Utilities/Units`, `Utilities/ValidatedSettings.Read<T>` (config binding + `[Range]`; the sweep
-  settings moved to their own `OrphanedImageSweep` section).
-- `Images/ImageVariants` + `Images/ImageUrls`: every variant URL goes through one place.
-- Work-in-progress `Dockerfile`, `.dockerignore`, `docker-compose.production.yml` (tried locally),
-  and `tools/measure-image-memory/measure.cs`.
+`tools/generate-test-artworks/generate.sh` builds a folder of ImageMagick images and a CSV that
+matches them, salted with the cases the upload page reports: a name in two series folders, a
+`thumbnails` folder one level too deep, a `notes.txt`, an image with no CSV row, a series name with a
+comma and one with an apostrophe. It prints the counts the page should then show, and `--clean`
+removes what it made. It writes to `test-upload-files/` at the repo root, which `.gitignore` covers,
+and clears that folder first. `--size 8000x6000 --format jpg` makes 48-megapixel files, to give NetVips real
+work; PNG at that size is well past the 25 MB upload limit.
 
-**Review fixes, same day (by Claude, at Mike's request).** The build is clean and the tests pass;
-nothing re-checked in a browser.
-- `ArtworkImages.RelativePath` is now **`StorageKey`**, everywhere: the column, the
-  `Unique_ArtworkImages_StorageKey` constraint, `dbo.ArtworkImageList`, the procedures (including
-  `dbo.GetAllArtworkImageStorageKeys`, renamed from `…RelativePaths`), `ArtworkImage`, the
-  repositories and the pages. It never held a path.
-- **One number per error meaning**, listed in `Database/SqlErrorNumbers.cs`; the repositories no
-  longer keep private copies. Three numbers were second names for a meaning that already had one:
-  50003 → 50001, 50009 → 50004, 50013 → 50010, and the three old numbers are retired.
-- The attach method is `AttachPrimaryImageToImagelessArtworkByNameAsync` (matching the procedure)
-  and returns `ImageAttachResult`, whose `Attached` says what `OneImagelessArtwork` means there.
-- `DetailedErrors` only in Development; libvips's own message is logged and the artist sees one
-  sentence; `ImageProcessingLimiter` throws if the memory queue ever turns a request away;
-  `ImageProcessor` disposes its source image; `ImageVariants.AdminThumbnailWidth` replaces the
-  hardcoded 400s.
-- `StorageKey` is `char(32)` (column, `ArtworkImageList`, the attach parameter), which is what
-  `ImageStorage.OriginalExists` already demands of it. Dapper sends strings as nvarchar, so a future
-  lookup *by* that column needs a `DbString` with `IsAnsi` or SQL Server converts the column instead
-  of seeking the index.
-- **The .NET heap is pinned in production** (`DOTNET_GCHeapHardLimitPercent=0x1E`, 30% of `mem_limit`):
-  600 MB of heap, 1,000 MB of libvips memory and about 400 MB spare inside 2 GB. Left alone the heap
-  takes 75%, which next to the image budget adds up past the container. `ImageProcessingCapacity` is
-  now `For(settings, processorCount, heapMemoryMegabytes)` with `FromHost` reading the two host
-  numbers, and 5 tests cover the slots, the queue size and the refusal.
-- Still open from that review: the 503 the add-artwork form can now get is shown as "Upload failed
-  (503)." — parked until the bulk page's retry (flow step 15) exists, so both can share it.
+### Enum switches are exhaustive by the compiler (2026-09-18)
 
-**Not checked in a browser:** uploads of each format (and HEIC being turned away), the thumbnails on
-the series pages and upload rows through `ImageUrls`, the upload size limit.
+`_ => throw new ArgumentOutOfRangeException(...)` was removed from all seven enum switch expressions.
+It only existed to silence **CS8524**, which complains that integers with no name in the enum aren't
+handled — an arm for those is dead code. Silencing it that way also silences **CS8509**, which names
+an enum member no arm handles, and that one is worth having. The csproj now sets `NoWarn` for CS8524
+and `WarningsAsErrors` for CS8509, so a forgotten case fails the build naming the member. Verified by
+deleting a case. A value that genuinely can't occur still throws, now as `SwitchExpressionException`.
 
+### Database tests run in sequence (2026-09-18)
+
+`SeriesRepositoryTests.GetAllListsSeriesInTheArtistsOrder` failed about one run in four. It reads
+every series, reverses the list and reorders it, and `dbo.ReorderSeries` throws 50008 when the list
+isn't exactly the series that exist — so a sibling class inserting a series in between broke it. The
+three new series inserts in `ArtworkRepositoryTests` made a pre-existing race likely enough to see.
+
+**This is not the production concern it looks like.** In the app the stale list comes from an artist
+pausing between loading the page and dragging, which is human time and can't be held under a lock —
+that is exactly what 50008 is for, and `SeriesOrderList.razor` already catches it, sets
+`_changedElsewhere` and refreshes. The guard works; only the test's assumption was wrong.
+
+Fixed with `Database/DatabaseCollection.cs` and `[Collection(DatabaseCollection.Name)]` on the nine
+classes that take `TestDatabaseFixture`, so they run in sequence with each other while the tests that
+touch no database stay parallel. Six consecutive green runs; 210 tests, ~2.3s.
+
+### Series are created by the CSV import (2026-09-18)
+
+Requiring the artist to create every series by hand before importing was too harsh, so **an unknown
+series name in the CSV is now created rather than rejecting the file**. The typo defence moved into
+the review:
+
+- **Row counts per new series.** A typo has one row where the real series has twelve. This is the
+  signal that actually catches it; a flat list of names does not get read.
+- **A shared slug is an error.** `ArtistShopSlug.FromName` lowercases and strips everything that is
+  not a letter or digit, so "Seascapes, 1990s" and "Seascapes 1990s" both become `seascapes-1990s`.
+  `Unique_Series_Slug` would refuse the second, and `SeriesRepository.AddAsync` already treats a
+  slug clash as "name already in use", so the import agrees with it. This doubles as the
+  near-duplicate check and is not a heuristic: it is the rule the database enforces.
+- **A small edit distance is a warning** and does not block the import. `Imports/SeriesNameSimilarity`
+  holds both checks plus a two-row Levenshtein written by hand rather than taking a dependency — the
+  distance is twenty lines and the part that needs tuning is the threshold, which is ours either way.
+  Currently distance 1 or 2 with the longer name at least 8 characters ("Blue" and "Blur" are two
+  words, not one misspelt).
+- A name matching an existing series is not new at all. Two rows spelling one name with different
+  capitals are one series, first spelling wins. A name with no letters or digits is an error.
+- `ArtworkCatalogAddition` gained `NewSeriesNames`; `ArtworkRepository.AddAsync` now delegates to
+  `AddManyAsync`, so one path handles both and a duplicated try/catch went away.
+- `SeriesRepository.AddManyAsync(connection, transaction, names)` is static and runs on the caller's
+  transaction, so the series and the artworks are saved together or not at all. Procedure
+  `dbo.AddManySeries` over `dbo.SeriesNameAndSlugList` (script `0006`, applied automatically on the
+  next start). **`SortOrder` is `UNIQUE` with no gap filling**, so a batch cannot have every row read
+  the same `MAX` and ask for `MAX + 1`: it uses `MAX(SortOrder) + ROW_NUMBER()` under the same
+  `UPDLOCK, HOLDLOCK` that `AddSeries` uses. A name taken between review and confirm comes back as
+  `CatalogChangedException`, which the page already answers by re-reviewing.
+
+**A concern I raised here that turned out to be unfounded:** a row listing the same series twice
+(`Mines; Mines`) is fine. `ArtworkImportRowReader.List` already ends with
+`.Distinct(ArtworkImportNames.Comparer)`, so duplicates never reach the planner. Same for
+vocabulary terms.
 
 ### Image upload, as of 2026-09-13
 
@@ -398,7 +403,8 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
 - [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
       one CSV per item type; fixed header names the artist must use (no column mapping); a header
       must be a known field (`title`, `price`, …), `series`, or the name of an existing vocabulary
-      that applies to the item type; unknown term or series names reject the file; any bad cell
+      that applies to the item type; an unknown term name rejects the file, while an unknown
+      **series** name is created (revised 2026-09-18, see the top of this file); any bad cell
       rejects the whole file with row numbers. A title already in `ShopItems` is skipped and listed, not rejected, so a CSV can
       be re-imported to add only its new rows; same-named items are added by hand. Sample
       export is `paintings.csv` at the repo root.
@@ -716,10 +722,13 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
          and the per-user token bucket, both described in "Done 2026-09-17" above. The JavaScript in
          step 6 posts `file` and a form field named exactly `artworkTypeId`, and the antiforgery
          token the way `FileDropZone.razor.js` already does
-      6. JS: folder walk, both pickers, metadata stream, 3–4 upload cap, backoff, throttled progress
-      7. The page: its own page at `/admin/catalog/artworks/images` (decided 2026-09-17: not part of
-         the CSV import page, which links to it from its success state) — island, depth rule,
-         duplicate names through `DatabaseCollationComparer`, pre-check, bar + spinner, report
+      6. DONE 2026-09-18: JS folder walk, both pickers, metadata stream, 4-at-a-time driver,
+         backoff, throttled progress — see "What was built on 2026-09-18" at the top of this file
+      7. DONE 2026-09-18: the page at `/admin/catalog/artworks/images`, island, depth rule,
+         duplicate names through `DatabaseCollationComparer`, pre-check, bar + spinner, report.
+         Still to do: the CSV import page's success state should link to it
+- [ ] **Browse artworks — next.** Nothing lists them yet, so the only way to see what the CSV import
+      and the image upload produced is the database
 - [ ] Edit artwork page (step 10), the only way to add a second image
 
 ## 10. Artwork restructure — in progress (CSV import in step 9 was taken first, 2026-09-16)

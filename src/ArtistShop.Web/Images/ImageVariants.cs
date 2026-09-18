@@ -23,7 +23,6 @@ public static class ImageVariants
         {
             ImageVariantFormat.Avif => $"{width}.avif",
             ImageVariantFormat.Webp => $"{width}.webp",
-            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
         };
 
     // variants are never upscaled, so an image only has the widths up to its own

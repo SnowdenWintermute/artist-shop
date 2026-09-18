@@ -25,14 +25,26 @@ customElements.define(
     }
 
     #fileInput() {
-      const input = this.querySelector('input[type="file"]');
+      // ":not([webkitdirectory])" so a zone with both pickers doesn't hand a dropped file to the folder input
+      const input = this.querySelector('input[type="file"]:not([webkitdirectory])');
+      return input instanceof HTMLInputElement ? input : null;
+    }
+
+    #directoryInput() {
+      const input = this.querySelector('input[type="file"][webkitdirectory]');
       return input instanceof HTMLInputElement ? input : null;
     }
 
     /** @param {MouseEvent} event */
     #onClick(event) {
-      if (event.target instanceof Element && event.target.closest('[data-part="choose"]')) {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      if (event.target.closest('[data-part="choose"]')) {
         this.#fileInput()?.click();
+      } else if (event.target.closest('[data-part="choose-directory"]')) {
+        this.#directoryInput()?.click();
       }
     }
 
@@ -54,6 +66,13 @@ customElements.define(
         return;
       }
 
+      // a zone that can pick a folder can take one from a drop. dataTransfer.files never describes
+      // a folder's contents, so this kind of zone gets entries and reads them itself
+      if (this.#directoryInput()) {
+        this.#dispatchEntries(event.dataTransfer);
+        return;
+      }
+
       const dropped = [...event.dataTransfer.files];
       if (dropped.length === 0) {
         return;
@@ -69,6 +88,22 @@ customElements.define(
 
       // setting files from script fires no event, so send the one picking a file would
       input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    /** @param {DataTransfer} dataTransfer */
+    #dispatchEntries(dataTransfer) {
+      // the items list is emptied as soon as this handler returns, so every entry is taken now
+      // and read afterwards
+      const entries = [...dataTransfer.items]
+        .map((item) => item.webkitGetAsEntry())
+        .filter((entry) => entry !== null);
+
+      if (entries.length === 0) {
+        return;
+      }
+
+      // bubbles, so a listener on a wrapping element hears it alongside "change"
+      this.dispatchEvent(new CustomEvent("entriesdropped", { detail: entries, bubbles: true }));
     }
 
     #showFileNames() {

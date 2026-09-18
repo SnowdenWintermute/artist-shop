@@ -5,6 +5,7 @@ using ArtistShop.Web.Domain.Commerce;
 
 namespace ArtistShop.Web.Tests.Database;
 
+[Collection(DatabaseCollection.Name)]
 public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
 {
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
@@ -200,6 +201,49 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
             [first.Name, second.Name],
             await Task.WhenAll(identifiers.Select(async added => (await _artworks.GetByIdAsync(added.Id))?.Name))
         );
+    }
+
+    // two series in one insert is the case that would collide on Unique_Series_SortOrder if they
+    // each asked for MAX + 1
+    [Fact]
+    public async Task AddManyCreatesTheSeriesTheArtworksName()
+    {
+        var shared = new SeriesName($"Nocturnes {Guid.NewGuid():n}");
+        var second = new SeriesName($"Gardens {Guid.NewGuid():n}");
+
+        var first = (await PaintingAdditionAsync($"New series first {Guid.NewGuid():n}", seriesIds: [])) with
+        {
+            NewSeriesNames = [shared, second],
+        };
+        var later = (await PaintingAdditionAsync($"New series later {Guid.NewGuid():n}", seriesIds: [])) with
+        {
+            NewSeriesNames = [shared],
+        };
+
+        await _artworks.AddManyAsync([first, later]);
+
+        var allSeries = await _series.GetAllAsync();
+        var createdShared = Assert.Single(allSeries, series => series.Name == shared);
+        Assert.Single(allSeries, series => series.Name == second);
+
+        var withArtworks = await _series.GetAsync(createdShared.Id);
+        Assert.NotNull(withArtworks);
+        Assert.Equal([first.Name, later.Name], [.. withArtworks.Artworks.Select(artwork => artwork.Name)]);
+    }
+
+    [Fact]
+    public async Task AddManyRefusesASeriesNameAnotherSeriesTookSinceTheReview()
+    {
+        var name = new SeriesName($"Taken {Guid.NewGuid():n}");
+        await _series.AddAsync(name, SeriesSlug.FromName(name.Value));
+
+        var addition = (await PaintingAdditionAsync($"Taken name {Guid.NewGuid():n}", seriesIds: [])) with
+        {
+            NewSeriesNames = [name],
+        };
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() => _artworks.AddManyAsync([addition]));
+        Assert.Null(await _artworks.GetBySlugAsync(addition.CandidateSlug.Value));
     }
 
     [Fact]

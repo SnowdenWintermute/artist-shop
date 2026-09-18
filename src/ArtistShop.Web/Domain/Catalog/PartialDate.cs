@@ -55,7 +55,6 @@ public record PartialDate
             DatePrecision.Year => date.Month != 1 || date.Day != 1,
             DatePrecision.Month => date.Day != 1,
             DatePrecision.Day => false,
-            _ => throw new ArgumentOutOfRangeException(nameof(precision)),
         };
 
         if (unknownPartsAreSet)

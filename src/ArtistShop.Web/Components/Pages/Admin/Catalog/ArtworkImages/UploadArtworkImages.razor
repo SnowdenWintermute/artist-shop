@@ -1,0 +1,29 @@
+@page "/admin/catalog/artworks/images"
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+
+@code {
+  [SupplyParameterFromQuery(Name = "type")]
+  private int? TypeIdValue { get; set; }
+}
+
+<PageTitle>Upload artwork images</PageTitle>
+
+<main>
+  <div class="mx-auto max-w-[800px] border bg-white p-4">
+    <h1 class="mb-4 text-xl">Upload images for artworks you have already added</h1>
+
+    <p class="mb-4 text-sm">
+      Each image is matched to an artwork of the chosen type by its file name without the extension,
+      so <code>Sunset over the bay.jpg</code> goes to the artwork called Sunset over the bay. Drop the
+      folder your images are in; its series folders are read too, but nothing deeper.
+    </p>
+
+    @* the island posts each image to an endpoint that checks the antiforgery token, and there is
+       no form on this page to carry one *@
+    <AntiforgeryToken />
+
+    <BulkImageUpload InitialArtworkTypeId="TypeIdValue" />
+  </div>
+</main>

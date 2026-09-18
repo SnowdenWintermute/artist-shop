@@ -13,6 +13,15 @@
       manifest, so it silently stops pushing static asset updates to the browser and
     regenerated tailwind css only lands on a reload. -->
     <BaseIntermediateOutputPath>obj/</BaseIntermediateOutputPath>
+
+    <!-- A switch expression over an enum raises two different warnings. CS8509 names a member of
+      the enum that no arm handles, which is the one worth having: it turns a forgotten case into a
+      build failure. CS8524 complains that integers with no name in the enum, like (DatePrecision)7,
+      aren't handled either; an arm for those is only ever dead code, and adding "_ => throw" to
+      silence it takes CS8509 away with it. So CS8524 is off and CS8509 is an error. A value that
+      genuinely can't happen still throws, now as SwitchExpressionException. -->
+    <NoWarn>$(NoWarn);CS8524</NoWarn>
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

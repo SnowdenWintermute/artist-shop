@@ -1,0 +1,54 @@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<BulkImageFile> Files { get; set; } = default!;
+
+  // what the artist most needs to see first: what worked, then what needs them to do something
+  private static readonly BulkImageOutcome[] Order =
+  [
+    BulkImageOutcome.Attached,
+    BulkImageOutcome.WillAttach,
+    BulkImageOutcome.Failed,
+    BulkImageOutcome.DuplicateNameInUpload,
+    BulkImageOutcome.SeveralArtworks,
+    BulkImageOutcome.ArtworkHasImages,
+    BulkImageOutcome.NoArtwork,
+  ];
+
+  private static string Describe(BulkImageOutcome outcome) =>
+    outcome switch
+    {
+      BulkImageOutcome.Attached => "Added",
+      BulkImageOutcome.WillAttach => "Will be added",
+      BulkImageOutcome.Failed => "Didn't upload",
+      BulkImageOutcome.DuplicateNameInUpload => "Named twice in this upload, so neither was used",
+      BulkImageOutcome.SeveralArtworks => "More than one artwork has this name",
+      BulkImageOutcome.ArtworkHasImages => "That artwork already has an image",
+      BulkImageOutcome.NoArtwork => "No artwork of this type has this name",
+    };
+}
+
+@foreach (var outcome in Order)
+{
+  var files = Files.Where(file => file.Outcome == outcome).ToList();
+
+  @if (files.Count > 0)
+  {
+    <div class="mb-4">
+      <h3 class="mb-1">@Describe(outcome): @files.Count</h3>
+      <ul class="text-sm">
+        @foreach (var file in files)
+        {
+          <li>
+            @file.ArtworkName
+            @if (file.Error is not null)
+            {
+              <span class="text-red-400"> — @file.Error</span>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+}

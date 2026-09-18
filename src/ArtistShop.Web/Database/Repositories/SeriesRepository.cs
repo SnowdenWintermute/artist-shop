@@ -107,6 +107,57 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         );
     }
 
+    // runs on the caller's transaction, so the series and whatever needed them are saved together
+    // or not at all. Returns each new series' id by the name it was asked for.
+    // A name another series already has arrives here as CatalogChangedException: the caller checked
+    // the names it had, and another admin adding one since is a change it should look at again
+    public static async Task<Dictionary<string, SeriesId>> AddManyAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        IReadOnlyList<SeriesName> names
+    )
+    {
+        var distinctNames = names
+            .Select(name => name.Value)
+            .Distinct(DatabaseCollationComparer.Instance)
+            .ToList();
+
+        if (distinctNames.Count == 0)
+        {
+            return new Dictionary<string, SeriesId>(DatabaseCollationComparer.Instance);
+        }
+
+        var series = new DataTable();
+        // must match dbo.SeriesNameAndSlugList
+        series.Columns.Add("Name", typeof(string));
+        series.Columns.Add("Slug", typeof(string));
+
+        foreach (var name in distinctNames)
+        {
+            series.Rows.Add(name, SeriesSlug.FromName(name).Value);
+        }
+
+        try
+        {
+            var rows = await connection.QueryAsync<AddedSeriesRow>(
+                "dbo.AddManySeries",
+                new { Series = series.AsTableValuedParameter("dbo.SeriesNameAndSlugList") },
+                transaction,
+                commandType: CommandType.StoredProcedure
+            );
+
+            return rows.ToDictionary(
+                row => row.Name,
+                row => new SeriesId(row.Id),
+                DatabaseCollationComparer.Instance
+            );
+        }
+        catch (SqlException exception) when (IsNameTaken(exception))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
+    }
+
     public async Task<SeriesId> AddAsync(SeriesName name, SeriesSlug slug)
     {
         await using var connection = connectionFactory.Create();
@@ -254,6 +305,12 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
             },
             commandType: CommandType.StoredProcedure
         );
+    }
+
+    private sealed class AddedSeriesRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
     }
 
     private sealed class SeriesRow

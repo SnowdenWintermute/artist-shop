@@ -4,6 +4,7 @@ using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Tests.Database;
 
+[Collection(DatabaseCollection.Name)]
 public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 {
     private readonly SeriesRepository _series = new(database.ConnectionFactory);
@@ -56,8 +57,8 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(id, (await _series.GetAllWithCoversAsync()).Last().Id);
     }
 
-    // reordering takes every series, so these rely on no other test class adding series:
-    // xUnit runs the tests inside one class one at a time
+    // reordering takes every series, so these rely on nothing else adding one while they run.
+    // Within a class xUnit runs one test at a time; across classes that is what DatabaseCollection is for
     [Fact]
     public async Task ReorderSetsTheOrderOfAllSeries()
     {

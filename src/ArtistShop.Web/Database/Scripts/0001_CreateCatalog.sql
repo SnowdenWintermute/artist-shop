@@ -11,6 +11,7 @@ VALUES
     -- N turns the string into unicode
     (N'Painting'),
     (N'Photograph'),
+    (N'Screenshot'),
     (N'Sculpture');
 
 -- defined by us; the ids must match the ArtworkField enum in C#
@@ -64,6 +65,7 @@ FROM
             (N'Painting', 2),
             (N'Photograph', 1),
             (N'Photograph', 2),
+            (N'Screenshot', 1),
             (N'Sculpture', 1),
             (N'Sculpture', 2),
             (N'Sculpture', 3)
