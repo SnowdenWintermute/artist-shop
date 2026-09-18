@@ -9,13 +9,12 @@ form talk through hidden inputs inside the existing `<EditForm>`.
 
 ## Where this stands — 2026-09-17, end of session
 
-**Next session starts at step 5 of the bulk image matching build order** (step 9, near the end of
-that step): the bulk endpoint. Steps 1–3 are committed in `e5b43e3`, step 4 in `c74db86`; the review
-fixes below that one are uncommitted. 175 tests passed before those fixes and the 5 new
-`ImageProcessingCapacityTests` have not been run yet, so `dotnet test` is the first thing to do. The
-design is in step 9 ("Bulk image matching — decided 2026-09-13, revised 2026-09-17", the flow,
-progress, host sizing), and the sections at the end of this file: Multi-tenancy notes, Deployment,
-Image URLs.
+**Next session starts at step 6 of the bulk image matching build order** (step 9, near the end of
+that step): the browser side — folder walk, both pickers, metadata stream, the 3–4 upload cap,
+backoff, throttled progress. Steps 1–3 are committed in `e5b43e3`, step 4 in `c74db86`; the review
+fixes below that one and step 5 are uncommitted. **187 tests pass.** The design is in step 9
+("Bulk image matching — decided 2026-09-13, revised 2026-09-17", the flow, progress, host sizing),
+and the sections at the end of this file: Multi-tenancy notes, Deployment, Image URLs.
 
 **Before running `dev.sh`:**
 1. Drop the dev database. The collation is pinned, `0001` gained an index, `ArtworkImages.RelativePath`
@@ -26,7 +25,8 @@ Image URLs.
 2. `docker compose up -d` so the SQL container gets its new 2 GB memory limit.
 3. Restart `dev.sh` so the app sees `MALLOC_ARENA_MAX=2` from `env.sh`.
 
-**What step 5 has to build on** (all of it exists and is tested):
+**What steps 5 to 7 build on** (all of it exists and is tested; step 5 is now done and uses the
+first two and the attach):
 - `ImageUploadStore.SaveAsync(stream, cancellationToken)` — saves the original, reads the header,
   checks the megapixel cap and the budget, takes a limiter lease, processes, and deletes the original
   on any failure. The bulk endpoint calls this, not `ImageProcessor` directly.
@@ -39,14 +39,50 @@ Image URLs.
 - Flow steps 14 and 16: a skip returns 200 with an outcome, not 400, and the endpoint deletes the
   stored original and variants itself rather than leaving them to the sweep.
 
-**Open before step 5 is written:** where the bulk page lives (step 7 — next to the CSV import, per
-work type, seems natural), and how C# decides two file names are duplicates. The database compares
-with `Latin1_General_100_CI_AS_SC`, which ignores case *and* trailing spaces, so a plain
-`OrdinalIgnoreCase` check would pass names the `ArtworkNameList` primary key then rejects. Proposed:
-`Normalize()` (macOS file names can spell an accent as two characters) plus `TrimEnd()`, compared
-with a culture-aware case-insensitive comparer, and a test that sends "Sunset" and "Sunset ".
+**Decided 2026-09-17, both were open before step 5:**
+
+*The bulk image page is its own page, not part of the CSV import page* (Mike). The two are separate
+operations: you can import a CSV, be interrupted, and come back in a later session to do the images,
+and images also arrive for artworks that were never imported by CSV at all. The CSV import page
+links to it from its success state ("now upload images for these artworks"); a link, not a shared
+page.
+
+*Two file names are duplicates when the database would call them duplicates.* The database compares
+with the pinned `Latin1_General_100_CI_AS_SC`, and SQL Server also ignores trailing spaces in an
+equality comparison, so a plain `OrdinalIgnoreCase` check would pass names the `ArtworkNameList`
+primary key then rejects. `Database/DatabaseCollationComparer` (next to `DatabaseInitializer.Collation`,
+which is what it mirrors) is an `IEqualityComparer<string>`: `TrimEnd()` — trailing spaces only,
+leading ones are significant to SQL Server — compared with `StringComparison.InvariantCultureIgnoreCase`.
+
+"Culture-aware" (linguistic) comparison goes through ICU's collation tables, the same kind of
+machinery SQL Server uses, and knows ignorable characters and case folding past the simple
+mappings that `OrdinalIgnoreCase` does. `Invariant` rather than `CurrentCulture` because the
+database's collation is fixed and the server's locale isn't. It is a close mirror, not an exact one:
+SQL Server ships its own weight tables, so where they disagree the primary key still throws and the
+page needs a sensible message on that path rather than a 500.
+
+`Normalize()` is a *separate* concern and is not in the comparer. SQL Server does no Unicode
+normalization at all — a precomposed `é` and `e` + combining acute are simply different characters
+to it — so normalizing is not about mirroring the collation. It is about macOS, which writes file
+names decomposed while the artist typed the title composed: without it the name matches nothing.
+It lives in `ArtworkName.FromFileName` (alongside `ArtworkSlug.FromName`), which drops the extension
+and composes, and it runs before the names go anywhere, so the comparer and the database both see
+the same form.
 
 **Done 2026-09-17:**
+- Step 5 (by Claude, from printed code Mike reviewed): `POST /admin/uploads/artwork-image-by-name`
+  in `ImageUploadEndpoints` — validate, store through `ImageUploadStore`, attach by name, delete the
+  stored image when nothing took it, and answer 200 with an `ArtworkImageMatchResult` (the name, the
+  `ArtworkNameMatchType` outcome, every matching artwork id). A deleted work type mid-run is the one
+  new 400 (`CatalogChangedException`); the file's other failures answer exactly as `/admin/uploads`
+  does. `ArtworkName.FromFileName` (extension off, `Normalize`) and `DatabaseCollationComparer`
+  landed with it, plus `ImageUploadRateLimiting`: a token bucket per user (`NameIdentifier` claim,
+  address as the fallback), burst 100 and 10 per second, `RequireRateLimiting` on both upload
+  endpoints, 429 carrying `Retry-After`. 7 tests, 187 pass. **Nothing tried in a browser**, and there
+  is no test of the endpoint itself (the suite has no `WebApplicationFactory` host).
+  A name longer than `CatalogLimits.ArtworkNameMaximumLength` is answered `NoArtwork` without a
+  round trip: both the parameter and `ArtworkNameList` are `nvarchar(200)`, and SQL Server truncates
+  a longer value silently rather than refusing it, which could otherwise match the wrong artwork.
 - Step 4: `ImageUploadValidation` (validation out of the endpoint; per-endpoint request size limit),
   `ImageProcessor.ReadHeader`, `ImageProcessingLimiter` (processor slots, then megabytes; 503 with
   `Retry-After` when the slot queue is full), `ImageUploadStore` deleting the original on any failure.
@@ -61,8 +97,8 @@ with a culture-aware case-insensitive comparer, and a test that sends "Sunset" a
 - Work-in-progress `Dockerfile`, `.dockerignore`, `docker-compose.production.yml` (tried locally),
   and `tools/measure-image-memory/measure.cs`.
 
-**Review fixes, same day (by Claude, at Mike's request).** The build is clean; nothing re-run in a
-browser or against the database.
+**Review fixes, same day (by Claude, at Mike's request).** The build is clean and the tests pass;
+nothing re-checked in a browser.
 - `ArtworkImages.RelativePath` is now **`StorageKey`**, everywhere: the column, the
   `Unique_ArtworkImages_StorageKey` constraint, `dbo.ArtworkImageList`, the procedures (including
   `dbo.GetAllArtworkImageStorageKeys`, renamed from `…RelativePaths`), `ArtworkImage`, the
@@ -91,8 +127,6 @@ browser or against the database.
 **Not checked in a browser:** uploads of each format (and HEIC being turned away), the thumbnails on
 the series pages and upload rows through `ImageUrls`, the upload size limit.
 
-**Open decision for step 7:** where the bulk image page lives (next to the CSV import, per work type,
-seems natural).
 
 ### Image upload, as of 2026-09-13
 
@@ -291,7 +325,8 @@ ignored. Series are **not** read from folder names, because the CSV already assi
    returning `DotNet.createJSStreamReference(bytes of the JSON)` and reads it with
    `OpenReadStreamAsync(maxAllowedSize: …)`. The default is 512 KB (about 3,000 files), so set it.
    Not a single interop call: SignalR caps browser-to-server messages at 32 KB (about 200 files).
-4. **The island (server) filters and pre-checks.** Depth rule, duplicate names, then one database
+4. **The island (server) filters and pre-checks.** Depth rule, duplicate names (by
+   `DatabaseCollationComparer`, over names from `ArtworkName.FromFileName`), then one database
    call for the type and all names, returning each name's outcome. **Only files that will attach
    get uploaded**; everything else goes straight into the report. A huge folder of mostly old work
    uploads almost nothing.
@@ -356,7 +391,6 @@ the desktop). Re-measure on the VPS with `tools/measure-image-memory/measure.cs`
 without the SDK installed); a later run of the rotated photo gave 1.58, still under 2.
 
 **Open:**
-- Page route and where it's linked from (next to the CSV import, per type, seems natural).
 - The megapixel cap, the safety factor, the proxy timeout and seconds per image: measure first.
 - Whether `/admin/uploads` gets the per-user token bucket too (probably yes).
 - Multi-tenancy: see "Multi-tenancy notes" at the end of this file.
@@ -678,9 +712,14 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
          validation rejects `image/heic`/`image/heif` with the same "export as JPEG" message. Test fixture
          `tests/.../Images/Fixtures/sample.heic` (made with ImageMagick). 168 pass. The image picker's `accept` is now
          `ImageUploadValidation.FileInputAccept`, joined from the same set the server checks (not tried on an iPhone)
-      5. Bulk endpoint (upload, process, attach, delete on skip, outcome in a 200); per-user token bucket
+      5. DONE 2026-09-17: bulk endpoint (upload, process, attach, delete on skip, outcome in a 200)
+         and the per-user token bucket, both described in "Done 2026-09-17" above. The JavaScript in
+         step 6 posts `file` and a form field named exactly `artworkTypeId`, and the antiforgery
+         token the way `FileDropZone.razor.js` already does
       6. JS: folder walk, both pickers, metadata stream, 3–4 upload cap, backoff, throttled progress
-      7. The page: island, depth rule, duplicate names, pre-check, bar + spinner, report
+      7. The page: its own page at `/admin/catalog/artworks/images` (decided 2026-09-17: not part of
+         the CSV import page, which links to it from its success state) — island, depth rule,
+         duplicate names through `DatabaseCollationComparer`, pre-check, bar + spinner, report
 - [ ] Edit artwork page (step 10), the only way to add a second image
 
 ## 10. Artwork restructure — in progress (CSV import in step 9 was taken first, 2026-09-16)

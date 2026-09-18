@@ -1,3 +1,7 @@
+using ArtistShop.Web.Database;
+using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +17,14 @@ public record ImageUploadResult(
     string BlurDataUri
 );
 
+// what the bulk page's report shows for one file. Outcome is the same classification the
+// pre-check uses; OneImagelessArtwork means the image was attached
+public record ArtworkImageMatchResult(
+    string ArtworkName,
+    ArtworkNameMatchType Outcome,
+    IReadOnlyList<int> ArtworkIds
+);
+
 public static class ImageUploadEndpoints
 {
     // libvips says which decoder failed and names the file on disk; that belongs in the server log,
@@ -26,7 +38,14 @@ public static class ImageUploadEndpoints
             .MapPost("/admin/uploads", UploadAsync)
             // replaces Kestrel's default 30 MB limit for this endpoint only
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
-            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin));
+            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
+            .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
+
+        endpoints
+            .MapPost("/admin/uploads/artwork-image-by-name", UploadAndAttachByNameAsync)
+            .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
+            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
+            .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
     }
 
     private static async Task<
@@ -76,6 +95,102 @@ public static class ImageUploadEndpoints
             return Busy(response, exception);
         }
     }
+
+    private static async Task<
+        Results<Ok<ArtworkImageMatchResult>, BadRequest<string>, StatusCodeHttpResult>
+    > UploadAndAttachByNameAsync(
+        IFormFile file,
+        // a form field rather than a route value, so it travels in the same multipart body as the file
+        [FromForm] int artworkTypeId,
+        ImageUploadStore imageUploadStore,
+        ImageStorage imageStorage,
+        ArtworkImageRepository artworkImageRepository,
+        HttpResponse response,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken
+    )
+    {
+        if (ImageUploadValidation.FindProblem(file) is string problem)
+        {
+            return TypedResults.BadRequest(problem);
+        }
+
+        var originalFileName = ImageUploadValidation.OriginalFileName(file);
+        var artworkName = ArtworkName.FromFileName(originalFileName);
+
+        // the Name column and the procedure's parameter are both nvarchar(200), and SQL Server
+        // truncates a longer value silently on the way in rather than refusing it, which could
+        // match the wrong artwork. No artwork name can be this long, so nothing can match
+        if (artworkName.Value.Length > CatalogLimits.ArtworkNameMaximumLength)
+        {
+            return TypedResults.Ok(NoMatch(artworkName));
+        }
+
+        try
+        {
+            await using var content = file.OpenReadStream();
+            var stored = await imageUploadStore.SaveAsync(content, cancellationToken);
+
+            try
+            {
+                var attached = await artworkImageRepository.AttachPrimaryImageToImagelessArtworkByNameAsync(
+                    new ArtworkTypeId(artworkTypeId),
+                    artworkName,
+                    new ArtworkImage(
+                        stored.StorageKey,
+                        originalFileName,
+                        stored.Processed.Width,
+                        stored.Processed.Height,
+                        stored.Processed.BlurDataUri
+                    )
+                );
+
+                if (!attached.Attached)
+                {
+                    // nothing references it, and the artist may re-run the folder straight away,
+                    // so it goes now rather than waiting days for the sweep
+                    imageStorage.Delete(stored.StorageKey);
+                }
+
+                return TypedResults.Ok(
+                    new ArtworkImageMatchResult(
+                        artworkName.Value,
+                        attached.MatchType,
+                        [.. attached.ArtworkIds.Select(artworkId => artworkId.Value)]
+                    )
+                );
+            }
+            catch
+            {
+                imageStorage.Delete(stored.StorageKey);
+                throw;
+            }
+        }
+        // the artist deleted the work type while the run was going: every remaining file is doomed
+        catch (CatalogChangedException exception)
+        {
+            return TypedResults.BadRequest(exception.Message);
+        }
+        catch (VipsException exception)
+        {
+            loggerFactory
+                .CreateLogger(typeof(ImageUploadEndpoints))
+                .LogWarning(exception, "libvips could not read an uploaded image.");
+
+            return TypedResults.BadRequest(UnreadableImageMessage);
+        }
+        catch (Exception exception) when (IsRejectedImage(exception))
+        {
+            return TypedResults.BadRequest(exception.Message);
+        }
+        catch (ImageProcessingBusyException exception)
+        {
+            return Busy(response, exception);
+        }
+    }
+
+    private static ArtworkImageMatchResult NoMatch(ArtworkName artworkName) =>
+        new(artworkName.Value, ArtworkNameMatchType.NoArtwork, []);
 
     // these carry a message written for the artist; libvips's own messages are caught above
     private static bool IsRejectedImage(Exception exception) =>

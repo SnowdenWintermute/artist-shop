@@ -71,9 +71,10 @@ public class CatalogTestData(SqlConnectionFactory connectionFactory)
         return _series.AddAsync(new SeriesName(name), SeriesSlug.FromName(name));
     }
 
-    // the path only has to be unique: nothing reads the file
+    // nothing reads the file, but the key has to be shaped like a real one: 32 hexadecimal
+    // characters, which is what the char(32) column holds
     public static ArtworkImage CreateTestImage() =>
-        new($"test/{Guid.NewGuid():n}", OriginalFileName: null, 800, 600, BlurDataUri: null);
+        new($"{Guid.NewGuid():n}", OriginalFileName: null, 800, 600, BlurDataUri: null);
 
     public async Task<ArtworkSlug> AddPaintingWithTermAsync(VocabularyTermId termId) =>
         (

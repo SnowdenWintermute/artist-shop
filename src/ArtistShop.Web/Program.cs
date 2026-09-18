@@ -63,6 +63,7 @@ builder.Services.AddSingleton(
 
 builder.Services.AddSingleton<ImageProcessor>();
 builder.Services.AddSingleton<ImageUploadStore>();
+builder.Services.AddImageUploadRateLimiter();
 
 // reads from appsettings.json, environment variables or any other configuration source
 var orphanedImageSweepSettings = ValidatedSettings.Read<OrphanedImageSweepSettings>(
@@ -170,6 +171,8 @@ app.UseStaticFiles(
 );
 
 app.UseAntiforgery();
+
+app.UseRateLimiter();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();

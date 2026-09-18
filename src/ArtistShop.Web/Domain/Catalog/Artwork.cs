@@ -4,7 +4,14 @@ namespace ArtistShop.Web.Domain.Catalog;
 
 public record ArtworkId(int Value);
 
-public record ArtworkName(string Value);
+public record ArtworkName(string Value)
+{
+    // macOS writes an accented letter as the plain letter followed by a combining mark, while
+    // Windows and the database hold the single composed character. Normalize composes it, so the
+    // same title matches whichever way the file name spells it
+    public static ArtworkName FromFileName(string fileName) =>
+        new(Path.GetFileNameWithoutExtension(fileName).Normalize());
+}
 
 public record ArtworkImage(
     string StorageKey,
