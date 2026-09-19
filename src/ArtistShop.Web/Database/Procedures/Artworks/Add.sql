@@ -90,29 +90,8 @@ VALUES
 -- in the current scope (batch, procedure, function or trigger)
 DECLARE @Id int = SCOPE_IDENTITY();
 
--- inserts all the rows in the table returned from the select
-INSERT INTO
-    dbo.ArtworkImages (
-        ArtworkId,
-        StorageKey,
-        OriginalFileName,
-        SortOrder,
-        IsPrimary,
-        Width,
-        Height,
-        BlurDataUri
-    )
-SELECT
-    @Id,
-    StorageKey,
-    OriginalFileName,
-    SortOrder,
-    IsPrimary,
-    Width,
-    Height,
-    BlurDataUri
-FROM
-    @Images;
+EXEC dbo.SetArtworkImages @ArtworkId = @Id,
+@Images = @Images;
 
 EXEC dbo.SetArtworkVocabularyTerms @ArtworkId = @Id,
 @ArtworkTypeId = @ArtworkTypeId,

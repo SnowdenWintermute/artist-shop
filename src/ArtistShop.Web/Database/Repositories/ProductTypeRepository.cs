@@ -18,7 +18,8 @@ public class ProductTypeRepository(SqlConnectionFactory connectionFactory)
         [
             .. rows.Select(row => new ProductType(
                 new ProductTypeId(row.Id),
-                new ProductTypeName(row.Name)
+                new ProductTypeName(row.Name),
+                row.IsDefault
             )),
         ];
     }
@@ -27,5 +28,6 @@ public class ProductTypeRepository(SqlConnectionFactory connectionFactory)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
+        public required bool IsDefault { get; init; }
     }
 }

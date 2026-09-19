@@ -244,15 +244,23 @@ CREATE TABLE dbo.ProductTypes (
     Id int IDENTITY(1, 1),
     CONSTRAINT PrimaryKey_ProductTypes PRIMARY KEY (Id),
     Name nvarchar(50) NOT NULL,
-    CONSTRAINT Unique_ProductTypes_Name UNIQUE (Name)
+    CONSTRAINT Unique_ProductTypes_Name UNIQUE (Name),
+    -- the one a form offers before the artist chooses. An id can't be written into the code, since
+    -- these are rows the artist will manage, so the row says so itself
+    IsDefault bit NOT NULL CONSTRAINT Default_ProductTypes_IsDefault DEFAULT 0
 );
 
+-- filtered, so it only forbids a second default rather than a second of anything
+CREATE UNIQUE INDEX UniqueIndex_ProductTypes_Default ON dbo.ProductTypes (IsDefault)
+WHERE
+    IsDefault = 1;
+
 INSERT INTO
-    dbo.ProductTypes (Name)
+    dbo.ProductTypes (Name, IsDefault)
 VALUES
-    (N'Original'),
-    (N'Print'),
-    (N'Postcard');
+    (N'Original', 1),
+    (N'Print', 0),
+    (N'Postcard', 0);
 
 CREATE TABLE dbo.Products (
     Id int IDENTITY(1, 1),

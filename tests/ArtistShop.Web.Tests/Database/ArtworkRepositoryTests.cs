@@ -274,6 +274,8 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
             DateCreated: null,
             Dimensions: null,
             Duration: null,
+            Images: [],
+            MainImageIndex: 0,
             VocabularyTermIds: termIds,
             SeriesIds: seriesIds
         );
@@ -392,5 +394,61 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         var withArtworks = await _series.GetAsync(seriesId);
         Assert.NotNull(withArtworks);
         Assert.Empty(withArtworks.Artworks);
+    }
+
+    // the form posts the whole list, so a save is where an image is added, moved or taken away
+    [Fact]
+    public async Task ReplacesTheImagesWithWhatWasPosted()
+    {
+        var kept = CatalogTestData.CreateTestImage();
+        var removed = CatalogTestData.CreateTestImage();
+        var name = $"Reimaged {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(
+            name,
+            termIds: [],
+            seriesIds: [],
+            images: [kept, removed]
+        );
+
+        var added = CatalogTestData.CreateTestImage();
+        var update = UpdateOf(identifiers.Id, name, termIds: [], seriesIds: []) with
+        {
+            Images = [added, kept],
+            MainImageIndex = 1,
+        };
+
+        await _artworks.UpdateAsync(update);
+
+        var artwork = await _artworks.GetByIdAsync(identifiers.Id);
+
+        Assert.NotNull(artwork);
+        Assert.Equal(
+            [added.StorageKey, kept.StorageKey],
+            [.. artwork.Images.Select(image => image.StorageKey)]
+        );
+        Assert.Equal(1, artwork.MainImageIndex);
+        Assert.DoesNotContain(removed.StorageKey, await _images.GetAllStorageKeysAsync());
+    }
+
+    // an artwork with no images is a normal state: that is what the CSV import produces
+    [Fact]
+    public async Task TakesEveryImageAwayWhenNoneWerePosted()
+    {
+        var image = CatalogTestData.CreateTestImage();
+        var name = $"Unimaged {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(
+            name,
+            termIds: [],
+            seriesIds: [],
+            images: [image]
+        );
+
+        await _artworks.UpdateAsync(UpdateOf(identifiers.Id, name, termIds: [], seriesIds: []));
+
+        var artwork = await _artworks.GetByIdAsync(identifiers.Id);
+
+        Assert.NotNull(artwork);
+        Assert.Empty(artwork.Images);
+        Assert.DoesNotContain(image.StorageKey, await _images.GetAllStorageKeysAsync());
     }
 }

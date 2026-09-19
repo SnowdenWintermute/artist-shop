@@ -16,11 +16,12 @@ imageless was `Lantern Path`, the title that sits in two series folders — the 
 refusing both files, end to end against the database. 210 tests pass with
 `source env.sh && dotnet test`.
 
-**The artwork edit page is built** (2026-09-19, phase one), at
-`/admin/catalog/artworks/{Id:int}/edit`, so `BulkImageReport`'s links are live. It edits the title,
-the type's fields, the description, terms and series, shows the current images read-only, and
-deletes the artwork. 230 tests pass with `source env.sh && dotnet test`. Not yet exercised in the
-browser.
+**The artwork edit page is built** (2026-09-19), at `/admin/catalog/artworks/{Id:int}/edit`, so
+`BulkImageReport`'s links are live. It edits the title, the type's fields, the description, terms,
+series and images, and deletes the artwork. Only products are still missing, and they wait on the
+products island. 234 tests pass with `source env.sh && dotnet test`. **The schema changed**
+(`ProductTypes.IsDefault`), so a dev database from before 2026-09-19 needs dropping. Mike has
+clicked around the fields half of the page; the image half hasn't been through a browser yet.
 
 **Next: the admin artwork browser** at `/admin/catalog/artworks` — nothing lists artworks, so the
 database is still the only way to see what the import and the upload produced. Decide the filters
@@ -57,6 +58,40 @@ To test the upload again, the catalog needs artworks with no images — Mike dro
   CSV import already used. Without it, saving the edit form would have wiped an imported duration.
 - The add page, the pickers and the setup notice moved into
   `Components/Pages/Admin/Catalog/Artworks/`, next to the edit page, matching every other admin area.
+
+**Images on the edit page, same day.** `dbo.SetArtworkImages` joins the other three shared
+procedures: the form posts the whole list in the artist's order, so it replaces every row rather
+than working out which moved. Nothing refers to an `ArtworkImages` row by its `Id`, so a kept image
+taking a new one costs nothing, and a removed image's file is left with no row pointing at it, which
+is exactly what `OrphanedImageSweeper` collects.
+
+- `ImagesField` takes `SelectedImages` and `SelectedPrimaryImageKey` and seeds its list from them
+  once. `SelectedImage.Result` is now an `ArtworkImage` rather than the endpoint's
+  `ImageUploadResult`, whose `OriginalFileName` and `BlurDataUri` are non-nullable strings while
+  both columns are nullable; a fresh upload is converted to one as it completes, and from then on a
+  saved image and a new one are the same thing to that component.
+- **This also fixed the add page**: an add that came back with an error (a term deleted in another
+  tab, say) used to redraw the island empty and lose the uploaded images, since the island renders
+  the hidden inputs that carry them. Both pages now hand it `Input.ToArtworkImages()`, which is the
+  artwork's images on a fresh edit page and the posted ones after a failed submit.
+- `ArtworkForm.FromArtwork` sets `PrimaryImageKey` only when the main image isn't the first one, so
+  the list doesn't claim the artist hand-picked an image they never touched.
+- **No minimum on the edit page.** Taking every image off an artwork is allowed, because an artwork
+  with no images is a normal state — the CSV import makes them that way, and the bulk uploader
+  attaches to exactly those.
+- The artwork names in the series page's list link to their edit pages.
+
+**`ProductTypes.IsDefault` (2026-09-19).** A form can't name a product type: the ids are IDENTITY
+values, and an unused type will be deletable once the product-type admin exists, so
+`WHERE Name = 'Original'` would be a rule the database is free to break — the same reasoning that
+took `ShopItemTypeId.Painting` out of the artwork types. So the row says whether it is the usual
+one, `UniqueIndex_ProductTypes_Default` (filtered, `WHERE IsDefault = 1`) allows only one, and the
+seed sets Original. The CSV import page now preselects it, and the products island's first row will
+use the same flag. When the product-type admin is built it needs to own this: a radio per type, and
+deleting the default either refused or the flag moved first.
+
+`GetProductTypes` returns rows in no defined order, so the import page sorts them by name itself,
+the way a repository's caller decides display order everywhere else here.
 
 ### What was reviewed and fixed on 2026-09-19
 
@@ -137,7 +172,7 @@ fails with "Supplied value is not a typed array or blob", surfacing as a `JSExce
   because a retry only drops that one file's bytes, under a percent of the run.
 - The add-artwork form still shows a bare "Upload failed (503)." (parked since 2026-09-17). The bulk
   page now has retry and backoff worth sharing with it.
-- A second image per artwork still needs the edit artwork page (step 10).
+- A second image per artwork goes on through the edit artwork page (built 2026-09-19).
 
 ### Test data (2026-09-18)
 
@@ -939,6 +974,10 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
 - [ ] Products island: rows with product type, label, price, edition size and stock; with edition size 1,
       stock is for sale (1) or sold (0).
       The page passes the product types as a record-wrapped list, per the island parameter rule.
+      **The add form starts with one row of the default product type** (decided 2026-09-19), since
+      adding an artwork by hand usually means adding its original too; the artist can remove the row.
+      Nothing creates a product today except the CSV import, so an artwork added by hand can be
+      viewed and not bought.
       **(From Claude, 2026-09-19)** When it lands, move `AddArtwork`'s product-type check (50012)
       into `dbo.CheckArtworkChoicesAreCurrent` and give `UpdateArtwork` a `@Products` parameter, so
       the two forms can't drift on which stale choices they refuse. It sits in `AddArtwork` today
@@ -950,8 +989,8 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       the message links to both the public page and the edit page
 - [ ] Public page `/artworks/{slug}` replaces `/paintings/{slug}`, with an "Edit" link for admins;
       dashboard nav updated
-- [x] Edit artwork (2026-09-19, phase one: fields, terms, series and delete; images and products
-      still to come). Built as described below, with one addition: a duration input, because the
+- [x] Edit artwork (2026-09-19: fields, terms, series, images and delete; products wait on the
+      products island). Built as described below, with one addition: a duration input, because the
       CSV import can set a duration and a form that didn't carry it would erase it on save:
       - Route by id, `/admin/catalog/artworks/{id:int}/edit`, since the slug changes on rename
       - Slug rule: keep the current slug if it equals the new name's slug or that slug plus
@@ -966,7 +1005,7 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
         static `FromArtwork(Artwork)`, since a `[SupplyParameterFromForm]` model needs exactly one
         public constructor. Keep the property named `Input`: the pickers hardcode
         `Input.VocabularyTermIds` and `Input.SeriesIds`
-      - Phase two, separately: editing images
+      - Editing images: done in the same session, see below
 - [ ] CSV import (step 9) is per work type: the artist picks the type on the import page, and the
       known headers are that type's fields and vocabularies, plus series, price and sold
 - [ ] Later: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page.

@@ -78,16 +78,13 @@
     }
 
     // if the form sat open longer than the grace period, the sweep may have deleted uploads
-    var missingImages = Input.Images
-      .Where(image => !ImageStorage.OriginalExists(image.StorageKey))
-      .ToList();
+    var missingImages = Input.ImagesMissingFrom(ImageStorage);
 
     if (missingImages.Count > 0)
     {
       foreach (var image in missingImages)
       {
-        var staleImageMessage = $"{image.OriginalFileName ?? "An image"} is no longer on the server because the form was open too long. Remove it and upload it again.";
-        validationMessages.Add(() => Input.Images, staleImageMessage);
+        validationMessages.Add(() => Input.Images, ArtworkForm.MissingImageMessage(image));
       }
 
       editContext.NotifyValidationStateChanged();
@@ -164,7 +161,10 @@
                               SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedSeriesIds="Input.SeriesIds" />
 
         <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+        @* SelectedImages: a submit that came back with an error has already posted these, and the
+           island renders the hidden inputs that carry them *@
         <ImagesField @key="AddedSlug" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
+                     SelectedImages="Input.ToArtworkImages()" SelectedPrimaryImageKey="Input.PrimaryImageKey"
                      SuggestNameInto="Input.Name" />
 
         @if (_staleChoices)

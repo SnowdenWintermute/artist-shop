@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Images;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks;
@@ -39,6 +40,22 @@ public class ArtworkForm : IValidatableObject
             Duration = artwork.Duration is TimeSpan duration
                 ? ArtworkDuration.ToText(duration)
                 : null,
+            Images =
+            [
+                .. artwork.Images.Select(image => new ImageInput
+                {
+                    StorageKey = image.StorageKey,
+                    OriginalFileName = image.OriginalFileName,
+                    Width = image.Width,
+                    Height = image.Height,
+                    BlurDataUri = image.BlurDataUri,
+                }),
+            ],
+            // the first image is the main one unless another was picked, so only a real choice is
+            // carried over: seeding it always would claim the artist chose an image they never touched
+            PrimaryImageKey = artwork.MainImageIndex is 0
+                ? null
+                : artwork.Images[artwork.MainImageIndex].StorageKey,
             VocabularyTermIds = [.. artwork.VocabularyTerms.Select(term => term.Id.Value)],
             SeriesIds = [.. artwork.Series.Select(series => series.Id.Value)],
         };
@@ -67,12 +84,12 @@ public class ArtworkForm : IValidatableObject
     // text rather than parts, because h:mm:ss is how a duration is written and read
     public string? Duration { get; set; }
 
-    // only the add page posts these; the edit page leaves an artwork's images alone for now
-    public List<ImageInput> Images { get; set; } = [];
+    // Form binding sets a list to null when the form posted nothing for it -- no box checked, or
+    // every image removed -- and "field" is the property's own backing field.
+    public List<ImageInput> Images { get; set => field = value ?? []; } = [];
 
     public string? PrimaryImageKey { get; set; }
 
-    // form binding sets a list to null when no box was checked; "field" is the property's own backing field
     public List<int> VocabularyTermIds { get; set => field = value ?? []; } = [];
 
     public List<int> SeriesIds { get; set => field = value ?? []; } = [];
@@ -104,24 +121,33 @@ public class ArtworkForm : IValidatableObject
         }
     }
 
-    public ArtworkCatalogAddition ToCatalogAddition(ArtworkTypeId typeId)
-    {
-        var name = Unwrap.Value(Name);
-
-        var images = Images
-            .Select(image => new ArtworkImage(
+    // a List, because it is passed to the images island as a parameter
+    public List<ArtworkImage> ToArtworkImages() =>
+        [
+            .. Images.Select(image => new ArtworkImage(
                 Unwrap.Value(image.StorageKey),
                 image.OriginalFileName,
                 image.Width,
                 image.Height,
                 image.BlurDataUri
-            ))
-            .ToList();
+            )),
+        ];
 
-        var mainImageIndex = Math.Max(
-            images.FindIndex(image => image.StorageKey == PrimaryImageKey),
-            0
-        );
+    // the images whose uploads the sweep removed while this form sat open
+    public IReadOnlyList<ImageInput> ImagesMissingFrom(ImageStorage imageStorage) =>
+        [.. Images.Where(image => !imageStorage.OriginalExists(image.StorageKey))];
+
+    public static string MissingImageMessage(ImageInput image) =>
+        $"{image.OriginalFileName ?? "An image"} is no longer on the server because the form was open too long. Remove it and upload it again.";
+
+    // no choice means the first image, which is also what the database means by no primary row
+    private int MainImageIndex(List<ArtworkImage> images) =>
+        Math.Max(images.FindIndex(image => image.StorageKey == PrimaryImageKey), 0);
+
+    public ArtworkCatalogAddition ToCatalogAddition(ArtworkTypeId typeId)
+    {
+        var name = Unwrap.Value(Name);
+        var images = ToArtworkImages();
 
         return new ArtworkCatalogAddition(
             typeId,
@@ -132,7 +158,7 @@ public class ArtworkForm : IValidatableObject
             ToDimensions(),
             ToDuration(),
             Images: images,
-            MainImageIndex: mainImageIndex,
+            MainImageIndex: MainImageIndex(images),
             VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
             SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))],
             NewSeriesNames: [],
@@ -143,6 +169,7 @@ public class ArtworkForm : IValidatableObject
     public ArtworkCatalogUpdate ToCatalogUpdate(ArtworkId id)
     {
         var name = Unwrap.Value(Name);
+        var images = ToArtworkImages();
 
         return new ArtworkCatalogUpdate(
             id,
@@ -153,6 +180,8 @@ public class ArtworkForm : IValidatableObject
             ToDateCreated(),
             ToDimensions(),
             ToDuration(),
+            Images: images,
+            MainImageIndex: MainImageIndex(images),
             VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
             SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))]
         );

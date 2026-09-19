@@ -134,7 +134,9 @@
         }
 
         <div class="grow">
-          <div>@artwork.Name.Value</div>
+          <div>
+            <a href="@($"/admin/catalog/artworks/{artwork.Id.Value}/edit")" class="underline">@artwork.Name.Value</a>
+          </div>
           <div class="text-xs text-gray-500">@artwork.ArtworkTypeName.Value</div>
         </div>
       </RowContent>

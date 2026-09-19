@@ -8,6 +8,7 @@ CREATE OR ALTER PROCEDURE dbo.UpdateArtwork @Id int,
 @WidthCm decimal(8, 4),
 @DepthCm decimal(8, 4),
 @DurationSeconds int,
+@Images dbo.ArtworkImageList READONLY,
 @VocabularyTermIds dbo.IdList READONLY,
 @SeriesIds dbo.IdList READONLY AS BEGIN
 SET
@@ -81,6 +82,9 @@ SET
     DurationSeconds = @DurationSeconds
 WHERE
     Id = @Id;
+
+EXEC dbo.SetArtworkImages @ArtworkId = @Id,
+@Images = @Images;
 
 EXEC dbo.SetArtworkVocabularyTerms @ArtworkId = @Id,
 @ArtworkTypeId = @ArtworkTypeId,

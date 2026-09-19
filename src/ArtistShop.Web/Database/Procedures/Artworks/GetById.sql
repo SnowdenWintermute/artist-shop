@@ -63,6 +63,7 @@ SELECT
     product.Id,
     product.ProductTypeId,
     productType.Name AS ProductTypeName,
+    productType.IsDefault AS ProductTypeIsDefault,
     product.Label,
     product.Price,
     product.EditionSize,

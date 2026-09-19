@@ -13,8 +13,8 @@ public sealed class ArtworkImportPlannerTests
     private static readonly Vocabulary Glaze = new(new VocabularyId(2), new VocabularyName("Glaze"));
     private static readonly Series SunriseSunset = new(new SeriesId(21), new SeriesName("Sunrise, Sunset"), new SeriesSlug("sunrise-sunset"));
     private static readonly Series Gardens = new(new SeriesId(22), new SeriesName("Gardens"), new SeriesSlug("gardens"));
-    private static readonly ProductType Original = new(new ProductTypeId(31), new ProductTypeName("Original"));
-    private static readonly ProductType Print = new(new ProductTypeId(32), new ProductTypeName("Print"));
+    private static readonly ProductType Original = new(new ProductTypeId(31), new ProductTypeName("Original"), IsDefault: true);
+    private static readonly ProductType Print = new(new ProductTypeId(32), new ProductTypeName("Print"), IsDefault: false);
 
     private static readonly ArtworkField[] PaintingFields = [ArtworkField.DateCreated, ArtworkField.HeightAndWidth];
 

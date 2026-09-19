@@ -50,6 +50,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    // a post already has the artist's answers in it; only a fresh page needs the defaults below
+    var isFreshPage = Check is null;
     Check ??= new();
     Confirm ??= new();
     _type = TypeIdValue is int typeId ? await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(typeId)) : null;
@@ -61,7 +63,15 @@
     }
 
     _typeVocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
-    _productTypes = await ProductTypeRepository.GetAllAsync();
+    // the repository returns them unordered, and the artist reads this as a list of names
+    _productTypes =
+      [.. (await ProductTypeRepository.GetAllAsync()).OrderBy(productType => productType.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+
+    if (isFreshPage)
+    {
+      // most imports are of the artist's usual product, so the choice is already made for them
+      Check.ProductTypeId = _productTypes.FirstOrDefault(productType => productType.IsDefault)?.Id.Value;
+    }
   }
 
   private bool AsksForLengthUnit => _type?.Fields.Contains(ArtworkField.HeightAndWidth) ?? false;

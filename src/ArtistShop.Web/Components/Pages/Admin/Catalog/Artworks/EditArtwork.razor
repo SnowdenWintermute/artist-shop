@@ -1,6 +1,7 @@
 @page "/admin/catalog/artworks/{Id:int}/edit"
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Forms.FileUpload.Images
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -14,6 +15,7 @@
 @inject VocabularyRepository VocabularyRepository
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
+@inject ImageStorage ImageStorage
 
 @code {
   // by id, not slug: a rename changes the slug, and this page is what renames it
@@ -33,6 +35,13 @@
 
   private bool _staleChoices;
   private bool _deletedElsewhere;
+
+  // Keyed by the artwork, so enhanced navigation to another artwork's edit page can't patch one
+  // island's state onto the next. The prefixes matter: sibling keys must differ even between
+  // different components, and the id alone is what all three would use.
+  private string PickersKey => $"pickers-{Id}";
+  private string ImagesKey => $"images-{Id}";
+  private string DeleteKey => $"delete-{Id}";
 
   protected override async Task OnInitializedAsync()
   {
@@ -55,10 +64,29 @@
     _series = await SeriesRepository.GetAllAsync();
   }
 
-  private async Task SaveArtwork()
+  private async Task SaveArtwork(EditContext editContext)
   {
     if (_artwork is null)
     {
+      return;
+    }
+
+    // an artwork may have no images at all — the CSV import makes them that way — so the only image
+    // rule here is that what's posted still exists on disk
+    var missingImages = Input.ImagesMissingFrom(ImageStorage);
+
+    if (missingImages.Count > 0)
+    {
+      // <ValidationMessage /> will show these
+      var validationMessages = new ValidationMessageStore(editContext);
+
+      foreach (var image in missingImages)
+      {
+        validationMessages.Add(() => Input.Images, ArtworkForm.MissingImageMessage(image));
+      }
+
+      // tells the ValidationMessage components to re-render with the new messages
+      editContext.NotifyValidationStateChanged();
       return;
     }
 
@@ -138,31 +166,14 @@
           <TextField Label="@($"Duration ({ArtworkDuration.ExpectedFormat})")" @bind-Value="Input.Duration" />
         }
 
-        <TermAndSeriesPickers @key="Id" ArtworkTypeId="_artwork.Type.Id" Vocabularies="_vocabularies" AllSeries="_series"
+        <TermAndSeriesPickers @key="PickersKey" ArtworkTypeId="_artwork.Type.Id" Vocabularies="_vocabularies" AllSeries="_series"
                               SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedSeriesIds="Input.SeriesIds" />
 
-        @* read-only for now: changing images is the next phase of this page *@
-        <fieldset class="mb-4">
-          <legend class="mb-1">Images</legend>
-          @if (_artwork.Images.Count == 0)
-          {
-            <p class="text-sm text-gray-500">
-              No images yet. Add one through
-              <a class="underline" href="@($"/admin/catalog/artworks/images?type={_artwork.Type.Id.Value}")">image upload</a>.
-            </p>
-          }
-          else
-          {
-            <div class="mb-1 flex flex-wrap gap-2">
-              @foreach (var image in _artwork.Images)
-              {
-                <img src="@ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)"
-                     alt="@image.OriginalFileName" class="size-16 object-cover" />
-              }
-            </div>
-            <p class="text-sm text-gray-500">Images can't be changed here yet.</p>
-          }
-        </fieldset>
+        <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+        @* the island starts from the images the form holds: the artwork's own on a fresh page, and
+           whatever was posted when a submit comes back with an error *@
+        <ImagesField @key="ImagesKey" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
+                     SelectedImages="Input.ToArtworkImages()" SelectedPrimaryImageKey="Input.PrimaryImageKey" />
 
         @if (_staleChoices)
         {
@@ -178,7 +189,7 @@
       </EditForm>
 
       <div class="border-t pt-4">
-        <DeleteArtworkButton @rendermode="InteractiveServer" @key="Id" ArtworkId="_artwork.Id"
+        <DeleteArtworkButton @rendermode="InteractiveServer" @key="DeleteKey" ArtworkId="_artwork.Id"
                              ArtworkName="_artwork.Name" ImageCount="_artwork.Images.Count" />
       </div>
     </div>

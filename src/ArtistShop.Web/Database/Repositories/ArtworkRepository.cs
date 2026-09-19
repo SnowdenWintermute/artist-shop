@@ -18,7 +18,10 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         SqlErrorNumbers.ProductTypeNoLongerExists,
     ];
 
-    private static DataTable CreateImageDataTable(ArtworkCatalogAddition artworkCatalogAddition)
+    private static DataTable CreateImageDataTable(
+        IReadOnlyList<ArtworkImage> artworkImages,
+        int mainImageIndex
+    )
     {
         var images = new DataTable();
         images.Columns.Add("StorageKey", typeof(string));
@@ -29,16 +32,16 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         images.Columns.Add("Height", typeof(int));
         images.Columns.Add("BlurDataUri", typeof(string));
 
-        for (var i = 0; i < artworkCatalogAddition.Images.Count; i += 1)
+        for (var i = 0; i < artworkImages.Count; i += 1)
         {
-            var image = artworkCatalogAddition.Images[i];
+            var image = artworkImages[i];
             // must match the Table Value Property dbo.ArtworkImageList
             // parameter order
             images.Rows.Add(
                 image.StorageKey,
                 image.OriginalFileName,
                 i,
-                i == artworkCatalogAddition.MainImageIndex,
+                i == mainImageIndex,
                 image.Width,
                 image.Height,
                 image.BlurDataUri
@@ -128,7 +131,10 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         IReadOnlyList<SeriesId> resolvedSeriesIds
     )
     {
-        var images = CreateImageDataTable(artworkCatalogAddition);
+        var images = CreateImageDataTable(
+            artworkCatalogAddition.Images,
+            artworkCatalogAddition.MainImageIndex
+        );
         var products = CreateProductDataTable(artworkCatalogAddition.Products);
         var seriesIds = IdListParameter.Create(resolvedSeriesIds.Select(id => id.Value));
 
@@ -184,6 +190,11 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     {
         await using var connection = connectionFactory.Create();
 
+        var images = CreateImageDataTable(
+            artworkCatalogUpdate.Images,
+            artworkCatalogUpdate.MainImageIndex
+        );
+
         var vocabularyTermIds = IdListParameter.Create(
             artworkCatalogUpdate.VocabularyTermIds.Select(id => id.Value)
         );
@@ -208,6 +219,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
                     WidthCm = artworkCatalogUpdate.Dimensions?.Width,
                     DepthCm = artworkCatalogUpdate.Dimensions?.Depth,
                     DurationSeconds = (int?)artworkCatalogUpdate.Duration?.TotalSeconds,
+                    Images = images.AsTableValuedParameter("dbo.ArtworkImageList"),
                     VocabularyTermIds = vocabularyTermIds,
                     SeriesIds = seriesIds,
                 },
@@ -283,7 +295,8 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
                 new ProductId(product.Id),
                 new ProductType(
                     new ProductTypeId(product.ProductTypeId),
-                    new ProductTypeName(product.ProductTypeName)
+                    new ProductTypeName(product.ProductTypeName),
+                    product.ProductTypeIsDefault
                 ),
                 product.Label,
                 product.Price,
@@ -385,6 +398,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         public required int Id { get; init; }
         public required int ProductTypeId { get; init; }
         public required string ProductTypeName { get; init; }
+        public required bool ProductTypeIsDefault { get; init; }
         public string? Label { get; init; }
         public decimal? Price { get; init; }
         public int? EditionSize { get; init; }

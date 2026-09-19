@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Utilities
 @using ArtistShop.Web.Components.Lists
@@ -12,8 +13,25 @@
   [Parameter, EditorRequired]
   public string PrimaryFieldName { get; set; } = default!;
 
+  // what the form already holds: an artwork's saved images on the edit page, and on either page
+  // whatever was posted by a submit that came back with an error. A List, not IReadOnlyList: an
+  // island parameter is rebuilt from its runtime type, and a collection expression's type is one
+  // the compiler made, which JSON can't create
+  [Parameter]
+  public List<ArtworkImage> SelectedImages { get; set; } = [];
+  [Parameter]
+  public string? SelectedPrimaryImageKey { get; set; }
+
   private readonly List<SelectedImage> _files = [];
   private string? _primaryStorageKey;
+
+  // seeded once: reloading the page is what brings a different artwork's images, and that makes a
+  // new island anyway
+  protected override void OnInitialized()
+  {
+    _files.AddRange(SelectedImages.Select(SelectedImage.ForSavedImage));
+    _primaryStorageKey = SelectedPrimaryImageKey;
+  }
 
   private FileDropZone<ImageUploadResult>? _dropZone;
 
@@ -44,8 +62,16 @@
     var file = FindFile(completion.Id);
     if (file is not null)
     {
+      var uploaded = completion.Result;
       file.UploadPercentComplete = 100;
-      file.Result = completion.Result;
+      // from here on a fresh upload and a saved image are the same thing to this component
+      file.Result = new ArtworkImage(
+        uploaded.StorageKey,
+        uploaded.OriginalFileName,
+        uploaded.Width,
+        uploaded.Height,
+        uploaded.BlurDataUri
+      );
     }
   }
 
@@ -118,8 +144,9 @@
     }
   }
 
-  private IReadOnlyList<ImageUploadResult> UploadedImages =>
-    [.. _files.Select(file => file.Result).OfType<ImageUploadResult>()];
+  // an image still uploading has nothing to post yet
+  private IReadOnlyList<ArtworkImage> AttachedImages =>
+    [.. _files.Select(file => file.Result).OfType<ArtworkImage>()];
 }
 
 <div class="mb-4">
@@ -153,12 +180,12 @@
 
   @{
     // why do we declare this here
-    var uploadedImages = UploadedImages;
+    var attachedImages = AttachedImages;
   }
 
-  @for (var index = 0; index < uploadedImages.Count; index++)
+  @for (var index = 0; index < attachedImages.Count; index++)
   {
-    var image = uploadedImages[index];
+    var image = attachedImages[index];
 
     <input type="hidden" name="@($"{FieldName}[{index}].StorageKey")" value="@image.StorageKey" />
     <input type="hidden" name="@($"{FieldName}[{index}].OriginalFileName")" value="@image.OriginalFileName" />
