@@ -60,15 +60,18 @@ customElements.define(
       event.preventDefault();
       this.classList.remove(DRAG_OVER_CLASS);
 
-      const input = this.#fileInput();
+      // a zone that can pick a folder can take one from a drop, so that input is the one whose
+      // disabled state decides. dataTransfer.files never describes a folder's contents, so this
+      // kind of zone gets entries and reads them itself
+      const directoryInput = this.#directoryInput();
+      const input = directoryInput ?? this.#fileInput();
+
       // ":disabled" also matches an input inside a disabled fieldset, as in an island not yet attached
       if (!input || input.matches(":disabled") || !event.dataTransfer) {
         return;
       }
 
-      // a zone that can pick a folder can take one from a drop. dataTransfer.files never describes
-      // a folder's contents, so this kind of zone gets entries and reads them itself
-      if (this.#directoryInput()) {
+      if (directoryInput) {
         this.#dispatchEntries(event.dataTransfer);
         return;
       }

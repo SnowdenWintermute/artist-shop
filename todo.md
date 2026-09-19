@@ -7,17 +7,65 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-18, end of session
+## Where this stands — 2026-09-19, end of session
 
-**Bulk image matching is built and works in a browser.** Steps 1 to 7 of the build order below are
-done. Dropping a folder on `/admin/catalog/artworks/images` walks it, pre-checks every name in one
-database call, shows what will happen, and uploading moves each file into the report as its answer
-arrives. Stop and resume were both tried. 210 tests pass.
+**Bulk image matching is built, reviewed and exercised against a real run.** A folder of 153 images,
+30 of them 48 megapixels: the first run attached 18 before Stop, and resuming uploaded the remaining
+132 (27 of them big) in **1 minute 25 seconds**, ending at 150 of 151 artworks imaged. The one left
+imageless was `Lantern Path`, the title that sits in two series folders — the duplicate rule
+refusing both files, end to end against the database. 210 tests pass with
+`source env.sh && dotnet test`.
 
-**Next: browsing artworks.** There is still no page that lists them, so the only way to see what the
-CSV import and the image upload produced is the database. That is the next piece of work.
+**Next: the artwork edit page**, which is step 10 and the last thing the upload work is waiting on
+(a second image per artwork, and the report's links below). Then, if that goes quickly, an admin
+artwork browser — there is still no page listing artworks, so the database is the only way to see
+what the CSV import and the image upload produced. Mike's sketch, 2026-09-19: the series edit page
+should show that same artwork list scoped to the series, with checkboxes to unlink artworks from it.
+Agree the page inventory and the navigation between these three before writing route files.
+
+**`BulkImageReport` already links each file to `/admin/catalog/artworks/{id}/edit`, which 404s until
+that page exists.** Building step 10 at that route makes the links live with no change here; putting
+it anywhere else means fixing the `href`. The route shape follows `ArtworkTypeEditor`
+(`/admin/catalog/types/{Id:int}/edit`) and `VocabularyEditor`.
+
+To test the upload again, the catalog needs artworks with no images — Mike drops the database.
+
+### What was reviewed and fixed on 2026-09-19
+
+The 2026-09-18 work was read back and these came out of it.
+
+- **The upload run no longer rides on one interop call.** `StartUploadAsync` awaited
+  `_uploader.InvokeVoidAsync("upload", …)`, and the JS did not resolve until every file was done.
+  `CircuitOptions.JSInteropDefaultCallTimeout` defaults to **one minute** and `Program.cs` does not
+  change it, so a long run faulted an `@onclick` handler, which tears the circuit down. `upload` now
+  launches `run` and returns; the island hears the end through `OnUploadFinished` as before. Runs of
+  1:05 and 1:25 have both been measured since, so this was not hypothetical.
+- **A throw in a worker no longer strands the page.** `runWorker` and `upload` had no try/catch, so
+  a non-JSON 200 body would reject `Promise.all` and skip `OnUploadFinished` — leaving the island
+  "uploading" for good, with no way back but a reload. `run` ends in a `finally`.
+- **A dropped folder during a run is refused.** The pickers and the drop zone now sit in a
+  `<fieldset disabled="@_isUploading">`; `FileDropZoneFrame` already declines a drop onto a disabled
+  input. `remember()` also bails, since clearing the JS file map under the workers was the real
+  damage.
+- **The name pre-check applies the same length rule as the endpoint.** `ArtworkName.CanMatchAnArtwork`
+  holds it once. `dbo.ArtworkNameList` is `nvarchar(200)` and SQL Server truncates rather than
+  refusing, so a long file name could have matched the wrong artwork, and two long names sharing
+  their first 200 characters would have violated the type's primary key — an unhandled `SqlException`
+  inside a `[JSInvokable]`, so a dead circuit.
+- **The report shows the file's path, not just the derived name**, and links each matched artwork.
+  Duplicate names are now included in the pre-check query, grouped by `DatabaseCollationComparer`
+  rather than filtered out, because the duplicate case is exactly the one rule 6 wants a link for.
+- `FileDropZoneFrame` drop handler checked the loose-file input's disabled state and then took the
+  directory path; it now picks the input first and guards that one.
+- HEIC files get `ImageProcessor.UnsupportedHeicMessage` in the pre-check rather than being lumped
+  into "not an image format we accept". `ImageUploadValidation.IsHeic` is shared with `FindProblem`.
+- `ExecuteAddAsync`'s `SqlTransaction` is no longer nullable: since `AddAsync` delegates to
+  `AddManyAsync`, every caller passes one.
+- `CollectedFile.Path`'s comment said the path was relative to the dropped folder. It includes that
+  folder's own name, which is what makes `MaximumDirectoryDepth = 2` correct.
 
 ### What was built on 2026-09-18
+
 
 *Steps 6 and 7 — the browser side and the page.*
 - `FileDropZoneFrame` takes an optional `DirectoryButtonLabel` and renders a second button. **One
@@ -72,6 +120,30 @@ comma and one with an apostrophe. It prints the counts the page should then show
 removes what it made. It writes to `test-upload-files/` at the repo root, which `.gitignore` covers,
 and clears that folder first. `--size 8000x6000 --format jpg` makes 48-megapixel files, to give NetVips real
 work; PNG at that size is well past the 25 MB upload limit.
+
+**(From Claude, 2026-09-19)** `--size` applies to every image, which makes generating the folder
+slow. `--big N` instead leaves the run quick and gives N of the artworks a `--big-size`
+(8000x6000 by default) JPEG, always JPEG whatever `--format` says. They are spread across
+different series folders on purpose: the upload walks folder by folder, so big images bunched in
+one folder would all arrive together instead of stretching the run out.
+
+The existing `test-upload-files/` was not regenerated — the catalog imported from it is still
+valid — so **30 of its 151 artworks, five per series, had their PNG replaced in place with a
+48-megapixel JPEG** (~14 MB each). The folder is now 681 MB. `Lantern Path` was left alone so the
+two-series-folder duplicate stays a small file, and the counts the page should show are unchanged:
+153 images found, 3 too deep, 1 not an image.
+
+Megapixels are what the server pays for, not file count: `ImageProcessor` decodes and then writes
+three widths in two formats plus the blur. So raising `--big` is what lengthens a run; raising
+`--count` adds 1200x900 files that finish almost immediately. 12000x8000 (96 megapixels) was tried
+and dropped: it is inside the 100-megapixel cap, but generating two of them did not finish within
+400 seconds, so building the test data costs more than the test is worth.
+
+### Don't pass `--nologo` to `dotnet test` (From Claude, 2026-09-19)
+
+It is forwarded to the test app, which in Microsoft Testing Platform mode then runs **zero tests**
+and exits 5 without a word on stdout or stderr. It looks exactly like a broken test project.
+`-v q` and `--no-build` are fine; it is `--nologo` alone.
 
 ### Enum switches are exhaustive by the compiler (2026-09-18)
 

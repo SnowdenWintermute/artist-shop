@@ -34,6 +34,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
   let totalBytes = 0;
   let artworkTypeId = 0;
   let isStopped = false;
+  let isRunning = false;
   let progressReportedAt = 0;
 
   /** @param {string} method */
@@ -111,6 +112,12 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
 
   /** @param {{ path: string, file: File }[]} found */
   function remember(found) {
+    // the zone is disabled during a run, so this is a backstop: clearing the map under the workers
+    // would strand every file they haven't started
+    if (isRunning) {
+      return;
+    }
+
     collectedFiles.clear();
     collectedMetadata = [];
 
@@ -292,6 +299,36 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     }
   }
 
+  /**
+   * Started but not awaited: an InvokeAsync from .NET gives up after
+   * CircuitOptions.JSInteropDefaultCallTimeout, one minute by default, and a real run passes that.
+   * The island hears the end through OnUploadFinished instead
+   * @param {string[]} ids
+   * @param {number} typeId
+   */
+  async function run(ids, typeId) {
+    isStopped = false;
+    isRunning = true;
+    artworkTypeId = typeId;
+    queue = [...ids];
+    finishedBytes = 0;
+    totalBytes = ids.reduce((sum, id) => sum + (collectedFiles.get(id)?.size ?? 0), 0);
+    loadedByFile.clear();
+
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENT_UPLOADS, queue.length) }, runWorker)
+      );
+    } catch (error) {
+      console.error("The upload run stopped early", error);
+    } finally {
+      // without this the island stays "uploading" for good when a worker throws
+      isRunning = false;
+      reportProgress(true);
+      notify("OnUploadFinished");
+    }
+  }
+
   function stop() {
     isStopped = true;
     queue = [];
@@ -316,19 +353,9 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
      * @param {string[]} ids
      * @param {number} typeId
      */
-    async upload(ids, typeId) {
-      isStopped = false;
-      artworkTypeId = typeId;
-      queue = [...ids];
-      finishedBytes = 0;
-      totalBytes = ids.reduce((sum, id) => sum + (collectedFiles.get(id)?.size ?? 0), 0);
-      loadedByFile.clear();
-
-      const workers = Array.from({ length: Math.min(CONCURRENT_UPLOADS, queue.length) }, runWorker);
-      await Promise.all(workers);
-
-      reportProgress(true);
-      notify("OnUploadFinished");
+    upload(ids, typeId) {
+      // "void" says the promise is deliberately not awaited
+      void run(ids, typeId);
     },
     stop,
     dispose() {

@@ -237,7 +237,7 @@
         </SelectField>
 
         <CheckboxField Label="One of a kind" @bind-Value="Check.IsOneOfAKind"
-                       Hint="Ticked: each product is a single piece, and a sold column marks the ones already sold. Unticked: the file gives editionSize and stock columns." />
+                       Hint="When checked: CSV must provide a &quot;sold&quot; column otherwise it must provide an &quot;editionSize&quot; and &quot;stock&quot; columns." />
 
         <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
 

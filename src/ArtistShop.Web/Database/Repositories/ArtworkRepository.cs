@@ -119,11 +119,11 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     private static bool IsCatalogChanged(SqlException exception) =>
         CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number));
 
-
     private static async Task<ArtworkIdentifiers> ExecuteAddAsync(
         SqlConnection connection,
-        SqlTransaction? transaction,
+        SqlTransaction transaction,
         ArtworkCatalogAddition artworkCatalogAddition,
+
         // the addition's own series plus the ones just created for it
         IReadOnlyList<SeriesId> resolvedSeriesIds
     )
@@ -277,7 +277,6 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         public required int Id { get; init; }
         public required string Slug { get; init; }
     }
-
 
     private sealed class ArtworkRow
     {

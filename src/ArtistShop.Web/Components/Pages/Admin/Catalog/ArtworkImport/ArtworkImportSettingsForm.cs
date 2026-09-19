@@ -15,12 +15,15 @@ public abstract class ArtworkImportSettingsForm : ServerValidatedForm
     [Required(ErrorMessage = "Choose a product type.")]
     public int? ProductTypeId { get; set; }
 
-    public bool IsOneOfAKind { get; set; }
+    public bool IsOneOfAKind { get; set; } = true;
 
     // an attribute rather than IValidatableObject.Validate, which only runs once every attribute passes,
     // so its message would wait for the other fields to be fixed first
     [Required(ErrorMessage = "Choose a list separator.")]
-    [RegularExpression("""^[^\s"]$""", ErrorMessage = "Use a single character other than a quote or a space.")]
+    [RegularExpression(
+        """^[^\s"]$""",
+        ErrorMessage = "Use a single character other than a quote or a space."
+    )]
     public string? ListSeparator { get; set; } = ";";
 
     public void CopySettingsFrom(ArtworkImportSettingsForm other)

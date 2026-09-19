@@ -41,7 +41,11 @@
         @foreach (var file in files)
         {
           <li>
-            @file.ArtworkName
+            @file.Path
+            @foreach (var artworkId in file.ArtworkIds)
+            {
+              <a class="ml-2 underline" href="@($"/admin/catalog/artworks/{artworkId}/edit")">Edit artwork @artworkId</a>
+            }
             @if (file.Error is not null)
             {
               <span class="text-red-400"> — @file.Error</span>

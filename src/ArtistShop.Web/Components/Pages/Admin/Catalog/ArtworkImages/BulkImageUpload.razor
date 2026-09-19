@@ -39,6 +39,7 @@
   // the images found, before they are matched to artworks
   private List<CollectedFile> _candidates = [];
   private int _notImageCount;
+  private int _heicCount;
   private int _tooDeepCount;
   private bool _tooManyFiles;
 
@@ -79,12 +80,17 @@
 
     _tooManyFiles = false;
     _notImageCount = 0;
+    _heicCount = 0;
     _tooDeepCount = 0;
     _candidates = [];
 
     foreach (var file in collected)
     {
-      if (!ImageUploadValidation.IsPermittedContentType(file.Type))
+      if (ImageUploadValidation.IsHeic(file.Type))
+      {
+        _heicCount++;
+      }
+      else if (!ImageUploadValidation.IsPermittedContentType(file.Type))
       {
         _notImageCount++;
       }
@@ -109,6 +115,7 @@
   {
     _tooManyFiles = true;
     _notImageCount = 0;
+    _heicCount = 0;
     _tooDeepCount = 0;
     _candidates = [];
     _files = [];
@@ -127,28 +134,43 @@
     }
 
     var files = _candidates
-      .Select(file => new BulkImageFile(file.Id, file.Path, ArtworkName.FromFileName(file.Path).Value))
+      .Select(file => new BulkImageFile(file.Id, file.Path, ArtworkName.FromFileName(file.Path)))
       .ToList();
 
-    // the database compares names its own way, and dbo.ArtworkNameList's primary key would refuse
-    // a pair this comparer calls equal
-    var nameCounts = files
-      .CountBy(file => file.ArtworkName, DatabaseCollationComparer.Instance)
-      .ToDictionary(DatabaseCollationComparer.Instance);
+    foreach (var file in files.Where(file => !file.ArtworkName.CanMatchAnArtwork))
+    {
+      file.Outcome = BulkImageOutcome.NoArtwork;
+    }
+
+    // one group per name as the database compares them, which is also what dbo.ArtworkNameList's
+    // primary key allows: "Sunset.jpg" and "sunset.png" are one name and neither is attached
+    var byName = files
+      .Where(file => file.ArtworkName.CanMatchAnArtwork)
+      .GroupBy(file => file.ArtworkName.Value, DatabaseCollationComparer.Instance)
+      .ToList();
 
     var matches = await ArtworkImageRepository.GetArtworkNameMatchesAsync(
       new ArtworkTypeId(typeId),
-      [.. files.Where(file => nameCounts[file.ArtworkName] is 1).Select(file => new ArtworkName(file.ArtworkName))]
+      [.. byName.Select(sameName => new ArtworkName(sameName.Key))]
     );
 
-    foreach (var file in files)
+    foreach (var sameName in byName)
     {
-      file.Outcome = nameCounts[file.ArtworkName] > 1
+      var match = matches[new ArtworkName(sameName.Key)];
+      var artworkIds = match.ArtworkIds.Select(artworkId => artworkId.Value).ToList();
+      var outcome = sameName.Count() > 1
         ? BulkImageOutcome.DuplicateNameInUpload
-        : OutcomeOf(matches[new ArtworkName(file.ArtworkName)].Type);
+        : OutcomeOf(match.Type);
+
+      foreach (var file in sameName)
+      {
+        file.Outcome = outcome;
+        file.ArtworkIds = artworkIds;
+      }
     }
 
     _files = files;
+
   }
 
   private async Task OnArtworkTypeChangedAsync()
@@ -197,7 +219,9 @@
       file.Outcome = result.Outcome is ArtworkNameMatchType.OneImagelessArtwork
         ? BulkImageOutcome.Attached
         : OutcomeOf(result.Outcome);
+      file.ArtworkIds = result.ArtworkIds;
     }
+
 
     await InvokeAsync(StateHasChanged);
   }
@@ -272,28 +296,33 @@
 }
 
 <DisabledUntilInteractive>
-  <div class="mb-4">
-    @* SelectField builds on InputSelect, which needs an EditContext, and there is no form here *@
-    <label class="mb-1 block text-sm" for="artwork-type">Artwork type</label>
-    <select id="artwork-type" class="artist-shop-field-input" disabled="@_isUploading" @bind="_artworkTypeId"
-            @bind:after="OnArtworkTypeChangedAsync">
-      <option value="">Choose a type</option>
-      @foreach (var artworkType in _artworkTypes)
-      {
-        <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
-      }
-    </select>
-  </div>
+  @* a run holds the files it hasn't started yet, so nothing new may be collected until it ends.
+     FileDropZoneFrame already refuses a drop onto an input inside a disabled fieldset *@
+  <fieldset class="contents" disabled="@_isUploading">
+    <div class="mb-4">
+      @* SelectField builds on InputSelect, which needs an EditContext, and there is no form here *@
+      <label class="mb-1 block text-sm" for="artwork-type">Artwork type</label>
+      <select id="artwork-type" class="artist-shop-field-input" @bind="_artworkTypeId"
+              @bind:after="OnArtworkTypeChangedAsync">
+        <option value="">Choose a type</option>
+        @foreach (var artworkType in _artworkTypes)
+        {
+          <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
+        }
+      </select>
+    </div>
 
-  @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
-  <div @ref="_zone">
-    <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"
-                       DirectoryButtonLabel="Choose a folder">
-      <input type="file" multiple accept="@ImageUploadValidation.FileInputAccept" class="hidden" />
-      <input type="file" webkitdirectory class="hidden" />
-    </FileDropZoneFrame>
-  </div>
+    @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
+    <div @ref="_zone">
+      <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"
+                         DirectoryButtonLabel="Choose a folder">
+        <input type="file" multiple accept="@ImageUploadValidation.FileInputAccept" class="hidden" />
+        <input type="file" webkitdirectory class="hidden" />
+      </FileDropZoneFrame>
+    </div>
+  </fieldset>
 </DisabledUntilInteractive>
+
 
 @if (_tooManyFiles)
 {
@@ -302,11 +331,16 @@
   </p>
 }
 
-@if (_candidates.Count > 0 || _notImageCount > 0 || _tooDeepCount > 0)
+@if (_candidates.Count > 0 || _notImageCount > 0 || _heicCount > 0 || _tooDeepCount > 0)
 {
   <ul class="mb-4 text-sm">
     <li>@CountText.Of(_candidates.Count, "image") found</li>
+    @if (_heicCount > 0)
+    {
+      <li>@CountText.Of(_heicCount, "file") skipped. @ImageProcessor.UnsupportedHeicMessage</li>
+    }
     @if (_notImageCount > 0)
+
     {
       <li>@CountText.Of(_notImageCount, "file") skipped: not an image format we accept</li>
     }

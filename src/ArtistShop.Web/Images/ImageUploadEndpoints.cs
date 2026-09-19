@@ -118,10 +118,7 @@ public static class ImageUploadEndpoints
         var originalFileName = ImageUploadValidation.OriginalFileName(file);
         var artworkName = ArtworkName.FromFileName(originalFileName);
 
-        // the Name column and the procedure's parameter are both nvarchar(200), and SQL Server
-        // truncates a longer value silently on the way in rather than refusing it, which could
-        // match the wrong artwork. No artwork name can be this long, so nothing can match
-        if (artworkName.Value.Length > CatalogLimits.ArtworkNameMaximumLength)
+        if (!artworkName.CanMatchAnArtwork)
         {
             return TypedResults.Ok(NoMatch(artworkName));
         }

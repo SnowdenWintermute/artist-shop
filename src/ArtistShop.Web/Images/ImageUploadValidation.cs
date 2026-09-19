@@ -28,6 +28,9 @@ public static class ImageUploadValidation
     public static bool IsPermittedContentType(string contentType) =>
         PermittedContentTypes.Contains(contentType);
 
+    // the browser names these from the extension; our libvips build has no HEIC decoder
+    public static bool IsHeic(string contentType) => contentType is "image/heic" or "image/heif";
+
     // client input must be run through GetFileName to sanitize
     // potentially malicious input
     public static string OriginalFileName(IFormFile file) => Path.GetFileName(file.FileName);
@@ -50,7 +53,7 @@ public static class ImageUploadValidation
             return $"Images must be {MaximumFileSizeBytes / Units.BytesPerMebibyte}MB or smaller.";
         }
 
-        if (file.ContentType is "image/heic" or "image/heif")
+        if (IsHeic(file.ContentType))
         {
             return ImageProcessor.UnsupportedHeicMessage;
         }
