@@ -128,7 +128,6 @@ public class ArtworkImportRowReader(CsvRow row)
         return false;
     }
 
-    // h:mm:ss or m:ss
     public TimeSpan? Duration(int? column, string header)
     {
         if (Text(column) is not string text)
@@ -136,28 +135,13 @@ public class ArtworkImportRowReader(CsvRow row)
             return null;
         }
 
-        var parts = text.Split(':');
-        var numbers = parts
-            .Select(part => int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : (int?)null)
-            .ToList();
-
-        // long, because a large enough hour count overflows an int, and even a TimeSpan
-        long? totalSeconds = numbers switch
+        if (ArtworkDuration.TryParse(text) is not TimeSpan duration)
         {
-            [int minutes, int seconds] when seconds < 60 => minutes * 60L + seconds,
-            [int hours, int minutes, int seconds] when minutes < 60 && seconds < 60 =>
-                hours * 3600L + minutes * 60L + seconds,
-            _ => null,
-        };
-
-        // the database stores whole seconds in an int
-        if (totalSeconds is not long knownSeconds || knownSeconds <= 0 || knownSeconds > int.MaxValue)
-        {
-            AddError(header, $"\"{text}\" isn't a duration. Use h:mm:ss or m:ss.");
+            AddError(header, $"\"{text}\" isn't a duration. Use {ArtworkDuration.ExpectedFormat}.");
             return null;
         }
 
-        return TimeSpan.FromSeconds(knownSeconds);
+        return duration;
     }
 
     private decimal? Decimal(int? column, string header, int maximumDecimalPlaces)

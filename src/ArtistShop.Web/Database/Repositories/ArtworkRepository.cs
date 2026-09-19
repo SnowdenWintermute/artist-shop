@@ -8,7 +8,7 @@ using Microsoft.Data.SqlClient;
 
 public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 {
-    // what AddArtwork THROWs when a choice changed while the form was open
+    // what our artwork procedures THROW when a choice changed while the form was open
     private static readonly int[] CatalogChangedErrors =
     [
         SqlErrorNumbers.VocabularyTermNoLongerExists,
@@ -178,6 +178,67 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 
     public Task<Artwork?> GetBySlugAsync(string slug) =>
         GetAsync("dbo.GetArtworkBySlug", new { Slug = slug });
+
+    // the slug comes back because the procedure decides it: a rename can land on a numbered one
+    public async Task<ArtworkSlug> UpdateAsync(ArtworkCatalogUpdate artworkCatalogUpdate)
+    {
+        await using var connection = connectionFactory.Create();
+
+        var vocabularyTermIds = IdListParameter.Create(
+            artworkCatalogUpdate.VocabularyTermIds.Select(id => id.Value)
+        );
+
+        var seriesIds = IdListParameter.Create(
+            artworkCatalogUpdate.SeriesIds.Select(id => id.Value)
+        );
+
+        try
+        {
+            var slug = await connection.QuerySingleAsync<string>(
+                "dbo.UpdateArtwork",
+                new
+                {
+                    Id = artworkCatalogUpdate.Id.Value,
+                    Name = artworkCatalogUpdate.Name.Value,
+                    CandidateSlug = artworkCatalogUpdate.CandidateSlug.Value,
+                    artworkCatalogUpdate.Description,
+                    DateCreated = artworkCatalogUpdate.DateCreated?.Date,
+                    DateCreatedPrecision = artworkCatalogUpdate.DateCreated?.Precision,
+                    HeightCm = artworkCatalogUpdate.Dimensions?.Height,
+                    WidthCm = artworkCatalogUpdate.Dimensions?.Width,
+                    DepthCm = artworkCatalogUpdate.Dimensions?.Depth,
+                    DurationSeconds = (int?)artworkCatalogUpdate.Duration?.TotalSeconds,
+                    VocabularyTermIds = vocabularyTermIds,
+                    SeriesIds = seriesIds,
+                },
+                commandType: CommandType.StoredProcedure
+            );
+
+            return new ArtworkSlug(slug);
+        }
+        catch (SqlException exception)
+            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkNoLongerExists))
+        {
+            throw new ArtworkDeletedException(exception.Message, exception);
+        }
+        catch (SqlException exception) when (IsCatalogChanged(exception))
+        {
+            throw new CatalogChangedException(exception.Message, exception);
+        }
+    }
+
+    // the images, series rows, term rows and products go with it, through the foreign keys'
+    // ON DELETE CASCADE. The image files wait for OrphanedImageSweeper
+    public async Task DeleteAsync(ArtworkId id)
+    {
+        await using var connection = connectionFactory.Create();
+
+        await connection.ExecuteAsync(
+            "dbo.DeleteArtwork",
+            new { Id = id.Value },
+            commandType: CommandType.StoredProcedure
+        );
+    }
 
     // both procedures return the same result sets, since GetArtworkBySlug runs GetArtworkById
     private async Task<Artwork?> GetAsync(string procedure, object parameters)

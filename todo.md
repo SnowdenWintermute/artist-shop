@@ -16,19 +16,47 @@ imageless was `Lantern Path`, the title that sits in two series folders — the 
 refusing both files, end to end against the database. 210 tests pass with
 `source env.sh && dotnet test`.
 
-**Next: the artwork edit page**, which is step 10 and the last thing the upload work is waiting on
-(a second image per artwork, and the report's links below). Then, if that goes quickly, an admin
-artwork browser — there is still no page listing artworks, so the database is the only way to see
-what the CSV import and the image upload produced. Mike's sketch, 2026-09-19: the series edit page
-should show that same artwork list scoped to the series, with checkboxes to unlink artworks from it.
-Agree the page inventory and the navigation between these three before writing route files.
+**The artwork edit page is built** (2026-09-19, phase one), at
+`/admin/catalog/artworks/{Id:int}/edit`, so `BulkImageReport`'s links are live. It edits the title,
+the type's fields, the description, terms and series, shows the current images read-only, and
+deletes the artwork. 230 tests pass with `source env.sh && dotnet test`. Not yet exercised in the
+browser.
 
-**`BulkImageReport` already links each file to `/admin/catalog/artworks/{id}/edit`, which 404s until
-that page exists.** Building step 10 at that route makes the links live with no change here; putting
-it anywhere else means fixing the `href`. The route shape follows `ArtworkTypeEditor`
-(`/admin/catalog/types/{Id:int}/edit`) and `VocabularyEditor`.
+**Next: the admin artwork browser** at `/admin/catalog/artworks` — nothing lists artworks, so the
+database is still the only way to see what the import and the upload produced. Decide the filters
+(type, series, term, name, has images, for sale), the sorting and the paging first. When it exists:
+the edit page's "← Admin" link and the delete island's redirect should point at it instead of
+`/admin`, and the artwork type page's "Used by N artworks" should link to it filtered by that type.
+The series edit page already shows the same list scoped to a series, with checkboxes that unlink.
 
 To test the upload again, the catalog needs artworks with no images — Mike drops the database.
+
+### The edit page, as built on 2026-09-19
+
+- **Shared SQL, so add and edit can't drift.** `dbo.CheckArtworkChoicesAreCurrent` (type exists, no
+  value for a switched-off field, terms and series still exist), `dbo.SetArtworkVocabularyTerms`
+  (replace every row) and `dbo.SetArtworkSeries` (drop unticked, append newly ticked at `MAX + 1`).
+  Both setters work unchanged on a brand-new artwork, where the `DELETE`s find nothing, so
+  `AddArtwork` lost about 85 lines of checks and both junction writes to them. A table-valued
+  parameter can be passed straight on to a nested procedure as `READONLY`, and deferred name
+  resolution means DbUp's file order in the procedures pass doesn't matter.
+- **The type is not a parameter to `UpdateArtwork`**: it can't change, so the procedure reads it off
+  the row it locks with `UPDLOCK`, and a missing row is error 50003.
+- **Slug rule**: keep the current slug when it equals the new name's slug or that slug plus a whole
+  number, so an unchanged save doesn't walk `sunset-2` along; otherwise `ResolveArtworkSlug`.
+- **`DeleteArtwork` is one `DELETE`.** Every table referencing an artwork cascades, and the image
+  files are left for `OrphanedImageSweeper`, the same path an abandoned upload takes.
+- **Error numbers are reused, lowest first, until release** — see the comment in
+  `SqlErrorNumbers.cs`. This took the freed 50003.
+- **One form class, `ArtworkForm`** (was `ArtworkCatalogAdditionForm`), with `FromArtwork` to seed it
+  and `ToCatalogAddition`/`ToCatalogUpdate`. `[NonEmpty]` on `Images` couldn't survive that: it would
+  fail every edit save. The rule is add-only anyway — the CSV import and the bulk uploader exist to
+  catalogue first and photograph later — so it moved into `AddArtwork`'s submit handler beside the
+  stale-upload check. `NonEmptyAttribute` had no other user and was deleted.
+- **A duration input on both forms**, and `ArtworkDuration` holds the h:mm:ss / m:ss rule that the
+  CSV import already used. Without it, saving the edit form would have wiped an imported duration.
+- The add page, the pickers and the setup notice moved into
+  `Components/Pages/Admin/Catalog/Artworks/`, next to the edit page, matching every other admin area.
 
 ### What was reviewed and fixed on 2026-09-19
 
@@ -910,7 +938,11 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       tick the type's fields. Vocabularies keep ticking their types on the vocabulary page
 - [ ] Products island: rows with product type, label, price, edition size and stock; with edition size 1,
       stock is for sale (1) or sold (0).
-      The page passes the product types as a record-wrapped list, per the island parameter rule
+      The page passes the product types as a record-wrapped list, per the island parameter rule.
+      **(From Claude, 2026-09-19)** When it lands, move `AddArtwork`'s product-type check (50012)
+      into `dbo.CheckArtworkChoicesAreCurrent` and give `UpdateArtwork` a `@Products` parameter, so
+      the two forms can't drift on which stale choices they refuse. It sits in `AddArtwork` today
+      only because the CSV import is the one caller that sends products
 - [ ] Add artwork: the artist picks the type first, then `/admin/catalog/artworks/add?type={id}`.
       The static page renders only that type's fields and vocabularies, so no island has to react
       to a type dropdown. `TermAndSeriesPickers` takes the type id instead of assuming paintings.
@@ -918,7 +950,9 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       the message links to both the public page and the edit page
 - [ ] Public page `/artworks/{slug}` replaces `/paintings/{slug}`, with an "Edit" link for admins;
       dashboard nav updated
-- [ ] Edit artwork (step 9's plan, revised):
+- [x] Edit artwork (2026-09-19, phase one: fields, terms, series and delete; images and products
+      still to come). Built as described below, with one addition: a duration input, because the
+      CSV import can set a duration and a form that didn't carry it would erase it on save:
       - Route by id, `/admin/catalog/artworks/{id:int}/edit`, since the slug changes on rename
       - Slug rule: keep the current slug if it equals the new name's slug or that slug plus
         `-<number>`; otherwise call `ResolveArtworkSlug`. This keeps an unchanged save from moving

@@ -1,0 +1,46 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+@inject ArtworkRepository ArtworkRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkId ArtworkId { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public ArtworkName ArtworkName { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public int ImageCount { get; set; }
+
+  private bool _dialogOpen;
+  private bool _isDeleting;
+
+  private async Task DeleteAsync()
+  {
+    _isDeleting = true;
+
+    try
+    {
+      await ArtworkRepository.DeleteAsync(ArtworkId);
+      NavigationManager.NavigateTo("/admin");
+    }
+    finally
+    {
+      _isDeleting = false;
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  <ButtonBasic type="button" Class="border border-red-600 text-red-600" @onclick="() => _dialogOpen = true">
+    Delete artwork
+  </ButtonBasic>
+
+  <ConfirmDialog @bind-Open="_dialogOpen" Title="@($"Delete {ArtworkName.Value}?")" ConfirmLabel="Delete"
+                 OnConfirm="DeleteAsync" IsWorking="_isDeleting">
+    This removes it from the catalog for good, along with @CountText.Of(ImageCount, "image"), its place in
+    any series and anything listed for sale from it.
+  </ConfirmDialog>
+</DisabledUntilInteractive>

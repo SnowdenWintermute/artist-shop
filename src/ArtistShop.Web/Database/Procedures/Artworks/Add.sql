@@ -21,137 +21,24 @@ NOCOUNT ON;
 SET
 XACT_ABORT ON;
 
+-- a session setting, so it holds for the nested procedures too: the rows they read stay locked
+-- until this transaction commits
 SET
 TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 BEGIN TRANSACTION;
 
--- must match the ArtworkField enum in C#
-DECLARE @DateCreatedFieldId int = 1;
+EXEC dbo.CheckArtworkChoicesAreCurrent @ArtworkTypeId = @ArtworkTypeId,
+@DateCreated = @DateCreated,
+@HeightCm = @HeightCm,
+@WidthCm = @WidthCm,
+@DepthCm = @DepthCm,
+@DurationSeconds = @DurationSeconds,
+@VocabularyTermIds = @VocabularyTermIds,
+@SeriesIds = @SeriesIds;
 
-DECLARE @HeightAndWidthFieldId int = 2;
-
-DECLARE @DepthFieldId int = 3;
-
-DECLARE @DurationFieldId int = 4;
-
-IF NOT EXISTS (
-    SELECT
-        1
-    FROM
-        dbo.ArtworkTypes
-    WHERE
-        Id = @ArtworkTypeId
-) THROW 50010,
-'The artwork type no longer exists.',
-1;
-
--- a table variable: a temporary table that lives until the procedure ends
-DECLARE @EnabledFieldIds TABLE (Id int PRIMARY KEY);
-
--- under SERIALIZABLE, the rows read here stay locked until COMMIT, so another tab can't switch a
--- field off between this check and the insert
-INSERT INTO
-    @EnabledFieldIds (Id)
-SELECT
-    ArtworkFieldId
-FROM
-    dbo.ArtworkTypeAndArtworkFieldsJunction
-WHERE
-    ArtworkTypeId = @ArtworkTypeId;
-
--- a value for a field the type doesn't have means it was switched off while the form was open
-IF (
-    @DateCreated IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @DateCreatedFieldId
-    )
-)
-OR (
-    COALESCE(@HeightCm, @WidthCm) IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @HeightAndWidthFieldId
-    )
-)
-OR (
-    @DepthCm IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @DepthFieldId
-    )
-)
-OR (
-    @DurationSeconds IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @DurationFieldId
-    )
-) THROW 50011,
-'A field was switched off for this artwork type.',
-1;
-
--- A join below would silently skip a term id that no longer exists (say it was deleted in
--- another tab while this form was open). Checking first turns that into a loud error.
--- THROW needs the statement before it to end with a semicolon.
-IF EXISTS (
-    SELECT
-        1
-    FROM
-        @VocabularyTermIds AS vocabularyTermIds
-    WHERE
-        NOT EXISTS (
-            SELECT
-                1
-            FROM
-                dbo.VocabularyTerms AS vocabularyTerm
-            WHERE
-                vocabularyTerm.Id = vocabularyTermIds.Id
-        )
-)
--- 50000 and above are free for our own errors. With XACT_ABORT ON, THROW also
--- rolls the transaction back.
-THROW 50001,
-'A chosen vocabulary term no longer exists.',
-1;
-
--- the junction's foreign key would catch a deleted series too, but as error 547, which says
--- nothing about which choice was stale
-IF EXISTS (
-    SELECT
-        1
-    FROM
-        @SeriesIds AS seriesIds
-    WHERE
-        NOT EXISTS (
-            SELECT
-                1
-            FROM
-                dbo.Series AS series
-            WHERE
-                series.Id = seriesIds.Id
-        )
-) THROW 50004,
-'A chosen series no longer exists.',
-1;
-
+-- Not in the shared check, because only this procedure takes products: the CSV import is the one
+-- caller that sends any today. It moves there once the add and edit forms post them as well.
 IF EXISTS (
     SELECT
         1
@@ -227,44 +114,12 @@ SELECT
 FROM
     @Images;
 
--- VocabularyId is looked up from each term rather than passed in, and ArtworkTypeId is
--- copied in, so the three foreign keys on the junction can check the row. If a term's
--- vocabulary isn't ticked for this type, the insert fails with error 547.
-INSERT INTO
-    dbo.ArtworkAndVocabularyTermsJunction (ArtworkId, ArtworkTypeId, TermId, VocabularyId)
-SELECT
-    @Id,
-    @ArtworkTypeId,
-    term.Id,
-    term.VocabularyId
-FROM
-    @VocabularyTermIds AS termIds
-    JOIN dbo.VocabularyTerms AS term ON term.Id = termIds.Id;
+EXEC dbo.SetArtworkVocabularyTerms @ArtworkId = @Id,
+@ArtworkTypeId = @ArtworkTypeId,
+@VocabularyTermIds = @VocabularyTermIds;
 
--- the column is SeriesId but the source column is just Id
-INSERT INTO
-    dbo.ArtworkAndSeriesJunction (ArtworkId, SeriesId, SortOrder)
-SELECT
-    @Id,
-    seriesIds.Id,
-    -- a correlated subquery: it runs once per row of @SeriesIds, with seriesIds.Id
-    -- filled in from the outer row. MAX over no rows is NULL, so COALESCE turns
-    -- "empty series" into -1, which the + 1 makes 0
-    COALESCE(
-        (
-            SELECT
-                MAX(existing.SortOrder)
-            FROM
-                dbo.ArtworkAndSeriesJunction AS existing
-            WITH
-                (UPDLOCK)
-            WHERE
-                existing.SeriesId = seriesIds.Id
-        ),
-        -1
-    ) + 1
-FROM
-    @SeriesIds AS seriesIds;
+EXEC dbo.SetArtworkSeries @ArtworkId = @Id,
+@SeriesIds = @SeriesIds;
 
 INSERT INTO
     dbo.Products (ArtworkId, ProductTypeId, Label, Price, EditionSize, Stock)

@@ -18,7 +18,7 @@
 
 @code {
   [SupplyParameterFromForm]
-  private ArtworkCatalogAdditionForm Input { get; set; } = default!;
+  private ArtworkForm Input { get; set; } = default!;
   // the artist picks the type before opening this page, so the form only has to show that type's choices
   [SupplyParameterFromQuery(Name = "type")]
   private int? TypeIdValue { get; set; }
@@ -64,6 +64,19 @@
       return;
     }
 
+    // <ValidationMessage /> will show whatever goes in here
+    var validationMessages = new ValidationMessageStore(editContext);
+
+    // adding an artwork one at a time without an image is more likely a slip than a plan. The CSV
+    // import and the bulk uploader are the way to catalogue first and photograph later
+    if (Input.Images.Count is 0)
+    {
+      validationMessages.Add(() => Input.Images, "Add at least one image.");
+      // tells the ValidationMessage components to re-render with the new messages
+      editContext.NotifyValidationStateChanged();
+      return;
+    }
+
     // if the form sat open longer than the grace period, the sweep may have deleted uploads
     var missingImages = Input.Images
       .Where(image => !ImageStorage.OriginalExists(image.StorageKey))
@@ -71,16 +84,12 @@
 
     if (missingImages.Count > 0)
     {
-      // <ValidationMessage /> will show these
-      var validationMessages = new ValidationMessageStore(editContext);
-
       foreach (var image in missingImages)
       {
         var staleImageMessage = $"{image.OriginalFileName ?? "An image"} is no longer on the server because the form was open too long. Remove it and upload it again.";
         validationMessages.Add(() => Input.Images, staleImageMessage);
       }
 
-      // tells the ValidationMessage components to re-render with the new messages
       editContext.NotifyValidationStateChanged();
       return;
     }
@@ -144,6 +153,10 @@
         @if (_fields.Contains(ArtworkField.Depth))
         {
           <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
+        }
+        @if (_fields.Contains(ArtworkField.Duration))
+        {
+          <TextField Label="@($"Duration ({ArtworkDuration.ExpectedFormat})")" @bind-Value="Input.Duration" />
         }
 
         @* @key: a fresh island after each artwork is added, like ImagesField *@

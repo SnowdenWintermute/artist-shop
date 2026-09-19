@@ -1,0 +1,186 @@
+@page "/admin/catalog/artworks/{Id:int}/edit"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject ArtworkRepository ArtworkRepository
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject VocabularyRepository VocabularyRepository
+@inject SeriesRepository SeriesRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  // by id, not slug: a rename changes the slug, and this page is what renames it
+  [Parameter]
+  public int Id { get; set; }
+
+  [SupplyParameterFromForm]
+  private ArtworkForm Input { get; set; } = default!;
+  [SupplyParameterFromQuery(Name = "saved")]
+  private bool Saved { get; set; }
+
+  private Artwork? _artwork;
+  private IReadOnlyList<ArtworkField> _fields = [];
+  private List<VocabularyWithTerms> _vocabularies = [];
+  // in the artist's order
+  private List<Series> _series = [];
+
+  private bool _staleChoices;
+  private bool _deletedElsewhere;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _artwork = await ArtworkRepository.GetByIdAsync(new ArtworkId(Id));
+
+    if (_artwork is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    // on a post the binder has already filled this in, so only a fresh page seeds it from the artwork
+    Input ??= ArtworkForm.FromArtwork(_artwork);
+
+    // an artwork type can't be deleted while any artwork still has it, so this one is here
+    var typeWithFields = Unwrap.Value(await ArtworkTypeRepository.GetAsync(_artwork.Type.Id));
+    _fields = typeWithFields.Fields;
+    Input.ClearFieldsOutside(_fields);
+    _vocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_artwork.Type.Id);
+    _series = await SeriesRepository.GetAllAsync();
+  }
+
+  private async Task SaveArtwork()
+  {
+    if (_artwork is null)
+    {
+      return;
+    }
+
+    try
+    {
+      await ArtworkRepository.UpdateAsync(Input.ToCatalogUpdate(_artwork.Id));
+    }
+    catch (ArtworkDeletedException)
+    {
+      _deletedElsewhere = true;
+      return;
+    }
+    catch (CatalogChangedException)
+    {
+      // nothing was saved, so the form still holds the artist's edits; the pickers below have
+      // already dropped whatever no longer exists
+      _staleChoices = true;
+      return;
+    }
+
+    // reloading is what shows the saved values, including a slug the procedure may have numbered
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["saved"] = true }));
+  }
+}
+
+@if (_artwork is not null)
+{
+  <PageTitle>Edit @_artwork.Name.Value</PageTitle>
+
+  <main class="">
+    <div class="border max-w-[600px] mx-auto p-4 bg-white">
+      <a href="/admin" class="mb-4 inline-block">← Admin</a>
+
+      <div class="mb-4 flex items-baseline justify-between">
+        <h1>Edit @_artwork.Name.Value</h1>
+        <span class="text-sm text-gray-500">@_artwork.Type.Name.Value</span>
+      </div>
+
+      @if (Saved)
+      {
+        <p class="text-green-600">
+          Saved.
+          <a href="@($"/artworks/{_artwork.Slug.Value}")">View it</a>
+        </p>
+      }
+
+      @if (_deletedElsewhere)
+      {
+        <p class="mb-4 text-red-400">
+          This artwork was deleted somewhere else, so nothing was saved. Your edits are still on this
+          page, but they can't be saved to an artwork that no longer exists.
+        </p>
+      }
+
+      <EditForm Model="Input" FormName="edit-artwork" OnValidSubmit="SaveArtwork" Enhance class="mb-8">
+        <DataAnnotationsValidator />
+
+        <TextField Label="Title" @bind-Value="Input.Name" />
+        @if (_fields.Contains(ArtworkField.DateCreated))
+        {
+          <PartialDateField Label="Date created" @bind-Year="Input.YearCreated" @bind-Month="Input.MonthCreated"
+                            @bind-Day="Input.DayCreated" />
+        }
+        <TextAreaField Label="Description" @bind-Value="Input.Description" />
+        @if (_fields.Contains(ArtworkField.HeightAndWidth))
+        {
+          <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
+          <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+        }
+        @if (_fields.Contains(ArtworkField.Depth))
+        {
+          <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
+        }
+        @if (_fields.Contains(ArtworkField.Duration))
+        {
+          <TextField Label="@($"Duration ({ArtworkDuration.ExpectedFormat})")" @bind-Value="Input.Duration" />
+        }
+
+        <TermAndSeriesPickers @key="Id" ArtworkTypeId="_artwork.Type.Id" Vocabularies="_vocabularies" AllSeries="_series"
+                              SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedSeriesIds="Input.SeriesIds" />
+
+        @* read-only for now: changing images is the next phase of this page *@
+        <fieldset class="mb-4">
+          <legend class="mb-1">Images</legend>
+          @if (_artwork.Images.Count == 0)
+          {
+            <p class="text-sm text-gray-500">
+              No images yet. Add one through
+              <a class="underline" href="@($"/admin/catalog/artworks/images?type={_artwork.Type.Id.Value}")">image upload</a>.
+            </p>
+          }
+          else
+          {
+            <div class="mb-1 flex flex-wrap gap-2">
+              @foreach (var image in _artwork.Images)
+              {
+                <img src="@ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)"
+                     alt="@image.OriginalFileName" class="size-16 object-cover" />
+              }
+            </div>
+            <p class="text-sm text-gray-500">Images can't be changed here yet.</p>
+          }
+        </fieldset>
+
+        @if (_staleChoices)
+        {
+          <p class="mb-4 text-red-400">
+            Something on this form was removed in another tab: a term, a series or a field. The form has
+            been updated to match. Check it and save again.
+          </p>
+        }
+
+        <ButtonBasic type="submit" Class="bg-blue-400 text-white text-lg">
+          Save changes
+        </ButtonBasic>
+      </EditForm>
+
+      <div class="border-t pt-4">
+        <DeleteArtworkButton @rendermode="InteractiveServer" @key="Id" ArtworkId="_artwork.Id"
+                             ArtworkName="_artwork.Name" ImageCount="_artwork.Images.Count" />
+      </div>
+    </div>
+  </main>
+}

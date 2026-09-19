@@ -13,6 +13,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     private readonly VocabularyTermRepository _terms = new(database.ConnectionFactory);
     private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
     private readonly ProductTypeRepository _productTypes = new(database.ConnectionFactory);
+    private readonly ArtworkImageRepository _images = new(database.ConnectionFactory);
 
     [Fact]
     public async Task NumbersTheSlugWhenItIsTaken()
@@ -257,5 +258,139 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         await Assert.ThrowsAsync<CatalogChangedException>(() => _artworks.AddManyAsync([first, stale]));
 
         Assert.Null(await _artworks.GetBySlugAsync(first.CandidateSlug.Value));
+    }
+
+    private static ArtworkCatalogUpdate UpdateOf(
+        ArtworkId id,
+        string name,
+        IReadOnlyList<VocabularyTermId> termIds,
+        IReadOnlyList<SeriesId> seriesIds
+    ) =>
+        new(
+            id,
+            new ArtworkName(name),
+            ArtworkSlug.FromName(name),
+            Description: null,
+            DateCreated: null,
+            Dimensions: null,
+            Duration: null,
+            VocabularyTermIds: termIds,
+            SeriesIds: seriesIds
+        );
+
+    // saving a form that nobody renamed must not walk sunset-2 along to sunset-3
+    [Fact]
+    public async Task KeepsANumberedSlugWhenTheNameIsUnchanged()
+    {
+        var name = $"Sunset {Guid.NewGuid():n}";
+        await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [], images: []);
+        var numbered = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [], images: []);
+
+        var slug = await _artworks.UpdateAsync(UpdateOf(numbered.Id, name, termIds: [], seriesIds: []));
+
+        Assert.Equal(numbered.Slug, slug);
+    }
+
+    [Fact]
+    public async Task NumbersTheSlugWhenARenameLandsOnATakenOne()
+    {
+        var takenName = $"Harbour {Guid.NewGuid():n}";
+        var taken = await _catalog.AddPaintingAsync(takenName, termIds: [], seriesIds: [], images: []);
+        var renamed = await _catalog.AddPaintingAsync($"Moon {Guid.NewGuid():n}", termIds: [], seriesIds: [], images: []);
+
+        var slug = await _artworks.UpdateAsync(UpdateOf(renamed.Id, takenName, termIds: [], seriesIds: []));
+
+        Assert.Equal($"{taken.Slug.Value}-2", slug.Value);
+    }
+
+    [Fact]
+    public async Task ReplacesTermsAndSeries()
+    {
+        var vocabularyId = await _catalog.AddPaintingVocabularyAsync();
+        var oldTermId = await _catalog.AddTermAsync(vocabularyId);
+        var newTermId = await _catalog.AddTermAsync(vocabularyId);
+        var oldSeriesId = await _catalog.AddSeriesAsync();
+        var newSeriesId = await _catalog.AddSeriesAsync();
+
+        var name = $"Rechosen {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(name, [oldTermId], [oldSeriesId], images: []);
+
+        await _artworks.UpdateAsync(UpdateOf(identifiers.Id, name, [newTermId], [newSeriesId]));
+
+        var artwork = await _artworks.GetByIdAsync(identifiers.Id);
+
+        Assert.NotNull(artwork);
+        Assert.Equal([newTermId], [.. artwork.VocabularyTerms.Select(term => term.Id)]);
+        Assert.Equal([newSeriesId], [.. artwork.Series.Select(series => series.Id)]);
+    }
+
+    // the artist dragged this artwork to the front of the series; an unrelated save mustn't move it
+    [Fact]
+    public async Task LeavesAnArtworkWhereItIsInASeriesItStaysIn()
+    {
+        var seriesId = await _catalog.AddSeriesAsync();
+        var name = $"First in series {Guid.NewGuid():n}";
+        var staying = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [seriesId], images: []);
+        var after = await _catalog.AddPaintingAsync(
+            $"Second in series {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images: []
+        );
+
+        await _artworks.UpdateAsync(UpdateOf(staying.Id, name, termIds: [], seriesIds: [seriesId]));
+
+        var withArtworks = await _series.GetAsync(seriesId);
+
+        Assert.NotNull(withArtworks);
+        Assert.Equal([staying.Id, after.Id], [.. withArtworks.Artworks.Select(artwork => artwork.Id)]);
+    }
+
+    [Fact]
+    public async Task RejectsATermDeletedWhileTheEditFormWasOpen()
+    {
+        var termId = await _catalog.AddTermAsync(await _catalog.AddPaintingVocabularyAsync());
+        var name = $"Stale term on edit {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [], images: []);
+        await _terms.DeleteAsync(termId);
+
+        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+            _artworks.UpdateAsync(UpdateOf(identifiers.Id, name, [termId], seriesIds: []))
+        );
+    }
+
+    [Fact]
+    public async Task RefusesToUpdateAnArtworkThatWasDeleted()
+    {
+        var name = $"Gone {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [], images: []);
+        await _artworks.DeleteAsync(identifiers.Id);
+
+        await Assert.ThrowsAsync<ArtworkDeletedException>(() =>
+            _artworks.UpdateAsync(UpdateOf(identifiers.Id, name, termIds: [], seriesIds: []))
+        );
+    }
+
+    // the image rows go through ON DELETE CASCADE, which is what frees the files for the sweep
+    [Fact]
+    public async Task DeleteTakesTheArtworksImagesWithIt()
+    {
+        var image = CatalogTestData.CreateTestImage();
+        var seriesId = await _catalog.AddSeriesAsync();
+        var identifiers = await _catalog.AddPaintingAsync(
+            $"Deleted {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images: [image]
+        );
+
+        await _artworks.DeleteAsync(identifiers.Id);
+
+        Assert.Null(await _artworks.GetByIdAsync(identifiers.Id));
+        Assert.DoesNotContain(image.StorageKey, await _images.GetAllStorageKeysAsync());
+
+        var withArtworks = await _series.GetAsync(seriesId);
+        Assert.NotNull(withArtworks);
+        Assert.Empty(withArtworks.Artworks);
     }
 }

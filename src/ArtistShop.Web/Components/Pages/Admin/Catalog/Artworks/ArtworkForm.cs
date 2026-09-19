@@ -4,7 +4,7 @@ using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Utilities;
 
-namespace ArtistShop.Web.Components.Pages.Admin;
+namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks;
 
 public class ImageInput
 {
@@ -15,8 +15,34 @@ public class ImageInput
     public string? BlurDataUri { get; set; }
 }
 
-public class ArtworkCatalogAdditionForm : IValidatableObject
+// Behind both the add and the edit page. A [SupplyParameterFromForm] model is created by the
+// binder, which needs exactly one public constructor, so an artwork being edited is read into the
+// properties by FromArtwork rather than passed to a constructor.
+public class ArtworkForm : IValidatableObject
 {
+    public static ArtworkForm FromArtwork(Artwork artwork) =>
+        new()
+        {
+            Name = artwork.Name.Value,
+            // the precision says which parts were given: the rest are the first of their period
+            YearCreated = artwork.DateCreated?.Date.Year,
+            MonthCreated = artwork.DateCreated is { Precision: >= DatePrecision.Month } toMonth
+                ? toMonth.Date.Month
+                : null,
+            DayCreated = artwork.DateCreated is { Precision: DatePrecision.Day } toDay
+                ? toDay.Date.Day
+                : null,
+            Description = artwork.Description,
+            HeightCm = artwork.Dimensions?.Height,
+            WidthCm = artwork.Dimensions?.Width,
+            DepthCm = artwork.Dimensions?.Depth,
+            Duration = artwork.Duration is TimeSpan duration
+                ? ArtworkDuration.ToText(duration)
+                : null,
+            VocabularyTermIds = [.. artwork.VocabularyTerms.Select(term => term.Id.Value)],
+            SeriesIds = [.. artwork.Series.Select(series => series.Id.Value)],
+        };
+
     [Required]
     [StringLength(CatalogLimits.ArtworkNameMaximumLength)]
     public string? Name { get; set; }
@@ -38,7 +64,10 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
     [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
     public decimal? DepthCm { get; set; }
 
-    [NonEmpty(ErrorMessage = "Add at least one image.")]
+    // text rather than parts, because h:mm:ss is how a duration is written and read
+    public string? Duration { get; set; }
+
+    // only the add page posts these; the edit page leaves an artwork's images alone for now
     public List<ImageInput> Images { get; set; } = [];
 
     public string? PrimaryImageKey { get; set; }
@@ -68,12 +97,15 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
         {
             DepthCm = null;
         }
+
+        if (!fields.Contains(ArtworkField.Duration))
+        {
+            Duration = null;
+        }
     }
 
     public ArtworkCatalogAddition ToCatalogAddition(ArtworkTypeId typeId)
     {
-        ArgumentNullException.ThrowIfNull(Name);
-
         var name = Unwrap.Value(Name);
 
         var images = Images
@@ -91,18 +123,14 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
             0
         );
 
-        var dateCreated = PartialDate.FromParts(YearCreated, MonthCreated, DayCreated);
-
         return new ArtworkCatalogAddition(
             typeId,
             new ArtworkName(name),
             ArtworkSlug.FromName(name),
             Description,
-            dateCreated,
-            HeightCm.HasValue && WidthCm.HasValue
-                ? new DimensionsCentimeters(new Dimensions(HeightCm.Value, WidthCm.Value, DepthCm))
-                : null,
-            Duration: null,
+            ToDateCreated(),
+            ToDimensions(),
+            ToDuration(),
             Images: images,
             MainImageIndex: mainImageIndex,
             VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
@@ -111,6 +139,34 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
             Products: []
         );
     }
+
+    public ArtworkCatalogUpdate ToCatalogUpdate(ArtworkId id)
+    {
+        var name = Unwrap.Value(Name);
+
+        return new ArtworkCatalogUpdate(
+            id,
+            new ArtworkName(name),
+            // the procedure keeps the artwork's current slug when this one is the same name's
+            ArtworkSlug.FromName(name),
+            Description,
+            ToDateCreated(),
+            ToDimensions(),
+            ToDuration(),
+            VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
+            SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))]
+        );
+    }
+
+    private PartialDate? ToDateCreated() => PartialDate.FromParts(YearCreated, MonthCreated, DayCreated);
+
+    private DimensionsCentimeters? ToDimensions() =>
+        HeightCm.HasValue && WidthCm.HasValue
+            ? new DimensionsCentimeters(new Dimensions(HeightCm.Value, WidthCm.Value, DepthCm))
+            : null;
+
+    private TimeSpan? ToDuration() =>
+        string.IsNullOrWhiteSpace(Duration) ? null : ArtworkDuration.TryParse(Duration);
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
@@ -151,6 +207,15 @@ public class ArtworkCatalogAdditionForm : IValidatableObject
             yield return new ValidationResult(
                 "Enter height and width to give a depth.",
                 [nameof(DepthCm)]
+            );
+        }
+
+        var durationUnreadable = !string.IsNullOrWhiteSpace(Duration) && ToDuration() is null;
+        if (durationUnreadable)
+        {
+            yield return new ValidationResult(
+                $"\"{Duration}\" isn't a duration. Use {ArtworkDuration.ExpectedFormat}.",
+                [nameof(Duration)]
             );
         }
 
