@@ -140,7 +140,8 @@ public class ArtworkForm : IValidatableObject
     public static string MissingImageMessage(ImageInput image) =>
         $"{image.OriginalFileName ?? "An image"} is no longer on the server because the form was open too long. Remove it and upload it again.";
 
-    // no choice means the first image, which is also what the database means by no primary row
+    // no choice means the first image: the list and cover queries read the starred row only,
+    // so an artwork with images always stars exactly one
     private int MainImageIndex(List<ArtworkImage> images) =>
         Math.Max(images.FindIndex(image => image.StorageKey == PrimaryImageKey), 0);
 

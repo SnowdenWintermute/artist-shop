@@ -43,7 +43,7 @@
       HasImages: true,
       IsForSale: null,
       Sort: ArtworkListSort.SeriesOrder,
-      PageNumber: int.TryParse(PageValue, out var pageNumber) && pageNumber > 1 ? pageNumber : 1
+      PageNumber: ArtworkListQuery.ReadPage(PageValue)
     );
 }
 

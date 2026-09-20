@@ -15,19 +15,31 @@
 
   private bool IsOnLastPage => Page.PageNumber == Page.PageCount;
   private bool IsOnFirstPage => Page.PageNumber == 1;
-
-
-  private string NextButtonClass => IsOnLastPage ? "text-gray-400 pointer-events-none" : "";
-  private string PrevButtonClass => IsOnFirstPage ? "text-gray-400 pointer-events-none" : "";
 }
 
 @if (Page.PageCount > 1)
 {
+  @* a span where there is no page to go to: a grayed anchor is still reachable by keyboard,
+     and following it lands on an empty page past the end *@
   <nav class="flex items-center gap-4 text-sm" aria-label="Pages">
-    <a href="@UrlFor(Page.PageNumber - 1)" class="@PrevButtonClass">← Previous</a>
+    @if (IsOnFirstPage)
+    {
+      <span class="text-gray-400">← Previous</span>
+    }
+    else
+    {
+      <a href="@UrlFor(Page.PageNumber - 1)">← Previous</a>
+    }
 
     <span>Page @Page.PageNumber of @Page.PageCount</span>
 
-    <a href="@UrlFor(Page.PageNumber + 1)" class="@NextButtonClass">Next →</a>
+    @if (IsOnLastPage)
+    {
+      <span class="text-gray-400">Next →</span>
+    }
+    else
+    {
+      <a href="@UrlFor(Page.PageNumber + 1)">Next →</a>
+    }
   </nav>
 }

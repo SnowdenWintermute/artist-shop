@@ -112,11 +112,11 @@
   display: none;
 }
 
-[data-busy] > .artist-shop-button-spinner {
+button[data-busy] > .artist-shop-button-spinner {
   display: inline-block;
 }
 
-[data-busy] {
+button[data-busy] {
   @apply pointer-events-none opacity-60;
 }
 

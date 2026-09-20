@@ -1,4 +1,4 @@
-namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks;
+namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Domain.Catalog;
 

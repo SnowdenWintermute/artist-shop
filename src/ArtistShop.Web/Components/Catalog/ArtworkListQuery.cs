@@ -25,26 +25,38 @@ public static class ArtworkListQuery
         string? sale,
         string? sort,
         string? page
-    ) =>
-        new(
+    )
+    {
+        SeriesId? seriesId = int.TryParse(series, out var chosenSeries)
+            ? new SeriesId(chosenSeries)
+            : null;
+
+        return new(
             [.. (typeIds ?? []).Select(id => new ArtworkTypeId(id))],
             [.. (termIds ?? []).Select(id => new VocabularyTermId(id))],
-            int.TryParse(series, out var seriesId) ? new SeriesId(seriesId) : null,
+            seriesId,
             string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
             YesNoSelect.Read(images),
             YesNoSelect.Read(sale),
-            ReadSort(sort),
-            int.TryParse(page, out var pageNumber) && pageNumber > 1 ? pageNumber : 1
+            ReadSort(sort, seriesId),
+            ReadPage(page)
         );
+    }
 
-    private static ArtworkListSort ReadSort(string? value) =>
+    // anything below the first page is the first page, so a hand-edited link lands somewhere real
+    public static int ReadPage(string? value) =>
+        int.TryParse(value, out var pageNumber) && pageNumber > 1 ? pageNumber : 1;
+
+    private static ArtworkListSort ReadSort(string? value, SeriesId? seriesId) =>
         value switch
         {
             "title" => ArtworkListSort.TitleAscending,
             "title-desc" => ArtworkListSort.TitleDescending,
             "newest" => ArtworkListSort.DateCreatedNewest,
             "oldest" => ArtworkListSort.DateCreatedOldest,
-            "series" => ArtworkListSort.SeriesOrder,
+            // the filter bar only offers this with a series picked, and without one it sorts by
+            // nothing: a link carrying it alone would leave the control reading "Recently added"
+            "series" when seriesId is not null => ArtworkListSort.SeriesOrder,
             _ => ArtworkListSort.RecentlyAdded,
         };
 

@@ -7,63 +7,103 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-20, end of session
+## Where this stands — 2026-09-20, end of the second session that day
 
-**The admin artwork list is built and committed** (`a6bd30b`), at `/admin/catalog/artworks`:
-`Components/Pages/Admin/Catalog/Artworks/ArtworkList.razor` with `ArtworkListFilters`,
-`ArtworkListRows`, `ArtworkListPaging` and `ArtworkListQuery` beside it. 248 tests pass with
-`source env.sh && dotnet test`. The database no longer needs opening to see what the import and the
-uploader produced.
+**A visitor can now browse the catalog.** `/` is a grid of series cards (cover, name, count),
+`/series/{slug}` is that series' artworks in the order the artist dragged them, and both lead to
+`/artworks/{slug}`, which is still the old stub. Everything below the admin list in this file is
+history; this section and the next are what the next session needs.
 
-The query string is the page's whole state — every filtered view is a link, and `ArtworkListQuery`
-is the only place that reads or writes those values. `dbo.GetArtworkList` is the first query here
-that spans the catalog. Filters: work types and vocabulary terms, both multi-select (several terms
-from one vocabulary widen the results, a term from a second vocabulary narrows them), one series,
-has-images, for-sale (a product with stock >= 1), and a title search. Sorting is recently added
-(the default), title either way, or date created either way, always ending in the artwork id so a
-row can't move between pages. The page size is `CatalogLimits.ArtworkListPageSize`, now 25.
+**The public rules, decided by Mike:** a visitor sees an artwork only when it has an image, and
+sees it whether or not anything is for sale. A series with no cover — which is the same as a
+series none of whose artworks are photographed — is hidden, and a card's count follows the same
+rule, so it can't promise more than the page it opens. Artworks in no series stay unreachable
+until there is a public version of the artwork list to link to.
 
-The search sits behind `ArtworkSearch` (`Search/`), whose one implementation runs an
-accent-insensitive `LIKE` and returns ids the list query filters by. A full text index or a search
-service replaces that class and nothing else. It returns no ranking, so the sort stays in charge;
-whenever ranking arrives, the port returns ordered ids and the sort gains a "Best match".
+The artist still sees everything, so those rules are parameters, never baked in.
+`dbo.GetSeriesWithCovers` takes `@OnlyArtworksWithImages`, and `SeriesRepository` names the two
+audiences: `GetAllWithCoversAsync` for the artist, `GetVisibleWithCoversAsync` for a visitor. The
+series page calls `GetArtworkList` with `HasImages: true, IsForSale: null`, so the policy is one
+filter object on one line.
 
-Built or changed around it: `ImageVariants.Widths` gained **160** for the admin thumbnail (so
-`MinimumSourceWidth` is now the upload floor, separate from the narrowest variant — and existing
-images have no 160 file until they are uploaded again), `Components/Atoms/ArtworkThumbnail`,
-`Components/Forms/SubmitOnChange` (+ its script), `Components/Layout/LoadingIndicator` (+ its
-script), `wwwroot/js/app-consts.js` for the browser-side tunables, `PartialDate.Text`,
-`VocabularyRepository.GetAllWithTermsAsync`, and `dbo.GetVocabulariesWithTerms`. The edit page's
-back link, the delete redirect, the admin dashboard and the artwork type's "Used by N artworks"
-all point at the list now.
+`ArtworkListSort.SeriesOrder` was added for it: every other sort reads a column on `dbo.Artworks`,
+so without it the public page would have thrown away the artist's dragging and the starred cover.
+It reads `junction.SortOrder` for the chosen series through an `OUTER APPLY`, means nothing with
+no series chosen, and the admin filter bar offers it only when a series is picked.
+`ArtworkListItem` gained `Slug`, since public links need it, and `dbo.GetSeriesBySlug` is new.
 
-**Next: the customer's way in, which is series first.** A visitor landing on the site should see
-the categories and click one, not meet a filter bar. So: a simple list of series, each one a card
-with its cover and name, leading to a page of medium thumbnails of the artworks in it. The deep
-filtering already exists — the plan is a "search everything" link from there into a public version
-of the artwork list, not filters on the browse pages themselves.
+**Shared, in `Components/Catalog/`:** `TileImage` (the box, the blur behind it while it loads, a
+`srcset` over the variants the image actually has, AVIF), `TileGrid`, `LinkTile`, and
+`ArtworkListQuery` + `ArtworkListPaging`, which moved out of the admin folder when the series page
+became their second user. `SeriesGrid` is a section component, so the artist's name and anything
+else goes above it in `Home.razor` without touching the grid. A masonry mode is a second grid
+component and a different `BoxClass`; nothing else changes.
 
-Agree these before writing any route file:
+`ArtworkThumbnail` is now six lines over `TileImage` — once the blur went in, the admin thumbnail
+and a browse tile differed only in width. It keeps its name and its `Class` default, and stays the
+one place that names `AdminThumbnailWidth`.
 
-- Where it lives: the front page itself, or `/series` with the front page linking in.
-- What a series card carries: cover, name, and an artwork count or not. `GetSeriesWithCovers`
-  already returns all three, in the artist's order.
-- What the series page shows per artwork: thumbnail and title, and whether a price belongs there
-  yet (it would be a "from" price — the cheapest in-stock product — which needs the products
-  island first).
-- **The policy question:** what a visitor may see at all. An artwork with no image, or with nothing
-  for sale, is a normal state in this catalog and the admin list treats both as filters. The public
-  pages want them as fixed conditions, so `dbo.GetArtworkList` already takes them as parameters —
-  decide the answer, not the mechanism.
-- Artworks in no series: unreachable from a series-first design. Either an "everything" entry or
-  accept it.
-- Addresses: `/artworks/{slug}` exists and works. `/series/{slug}` is free.
+## Next: the artwork page at `/artworks/{slug}` (Mike, 2026-09-20)
 
-The admin list's own pieces that carry over are `ArtworkListFilter`, `ArtworkListQuery` and the
-query itself; what doesn't is the projection and the rendering, since a grid of tiles wants a
-primary image and a price rather than an edit link and an image count. `ArtworkListQuery` sits in
-the admin page's folder on purpose — move it somewhere shared when there is a second user for it,
-not before.
+The stub there today is two `<h1>`s and an unstyled blur image. What it should be:
+
+- **The image, large.** `ImageVariants.Widths` tops out at 1600, and the `@TODO` on that array —
+  measure the real element and derive the widths — is finally answerable once this page is laid out.
+- **A picker under it:** the artwork's other images as thumbnails, the size the admin sees.
+- **Clicking the main image fills the screen**, and left and right move through that artwork's
+  images. `ModalDialog` is the obvious start, but `.artist-shop-modal` is `max-h-[85vh]` with
+  padding, so a full-bleed variant is needed.
+- **Left and right on the page itself** go to the previous and next artwork **in the series**. An
+  artwork can be in several series, so the page has to be told which one it was reached through —
+  a query parameter from the series page is the obvious answer, with a fallback when someone
+  arrives at the address cold. Decide that before writing the page.
+- **A panel beside or under it** holding the title, the products and their prices, the date
+  created, the dimensions, the description, and every vocabulary term the artwork carries. Only
+  what the work type has switched on: a photograph with no depth shouldn't show an empty row.
+  Worth deciding at the same time: the work type itself, which series it belongs to (linked), the
+  duration for time-based work, and what a product row says when it is sold out or has no price.
+
+Arrow keys mean a script, since the page is static SSR — a custom element in the house style, the
+way `<modal-dialog>` and `<submit-on-change>` work.
+
+### Also done 2026-09-20, after the admin list
+
+**A review pass over the admin list**, all of it applied: the primary image is read the one way
+(`IsPrimary = 1`, as the series procedures do) rather than by a second rule; the image count and
+the for-sale test are worked out once in a `CROSS APPLY` instead of twice each; the sort numbers
+are named constants like `GetArtworkNameMatches` does; `dbo.GetVocabulariesWithTerms` absorbed the
+per-type copy through a nullable `@ArtworkTypeId`; vocabulary **terms** are sorted by name on the
+filter bar, which they weren't, through the shared `VocabularyOrder`; `CheckboxGroup` and
+`YesNoSelect` in `Components/Forms/` took about 70 lines of repeated markup out of
+`ArtworkListFilters`; `.artist-shop-field-label` is one owner for the label styling.
+`ArtworkListQuery.Read` is called with named arguments — six of its eight parameters are strings.
+
+**Back after a CSV import no longer says "Document Expired".** Both import forms now post with
+`Enhance`. Blazor's enhanced submit keeps a multipart body (`body = FormData`, so the file still
+arrives) and pushes a history entry only for GET, so the review stops being a posted document that
+the antiforgery headers forbid the browser to redisplay. The dialog still opens because
+`<modal-dialog>` runs `showModal()` from `connectedCallback` and the review is rendered only when
+there is a plan, so the enhanced patch *inserts* the element. That is what the comment on
+`ModalDialog` now says: it opens when it arrives as a new element, however the page got there.
+
+**The import's "already in the catalog" is per work type now.** It loaded every name in the
+catalog, which the database never required (only `Slug` is unique) and which the bulk image
+uploader never did either — it matches within a type. So a photograph and a screenshot can share a
+title, while a repeat inside one type is still skipped, which is what keeps the uploader
+unambiguous. `dbo.GetArtworkNames` takes `@ArtworkTypeId`, the snapshot field is `TypeArtworkNames`
+beside `TypeVocabularies`, and the review says "Already in the catalog (Photograph)". Note that
+slugs stay globally unique, so the second `Harbour` gets `/artworks/harbour-2` silently; if
+cross-type repeats become normal, the public address is the next thing to think about.
+
+**A clicked button goes busy where the artist is looking.** `ButtonBasic` carries a hidden spinner
+that `ButtonBasic.razor.js` reveals by setting `data-busy` on `event.submitter` when an enhanced
+form is submitted, cleared on `enhancedload`; CSS grays it and blocks further clicks. Immediate, no
+delay. It covers every enhanced form at once (both import forms, add and edit artwork, add series,
+add term). Not islands — their forms go over the circuit, never raise `enhancedload`, and would
+spin for good; those want `IsWorking`, as `ConfirmDialog` has. Nothing was clicked when the filter
+bar submits itself, so nothing spins there, and the artwork list keeps its own fade and indicator.
+**Mike, 2026-09-20: no page-level loading indicator.** I put one in `MainLayout` and it was wrong —
+indications belong on the button, in the table, where people expect to find them.
 
 ### The edit page, as built on 2026-09-19
 

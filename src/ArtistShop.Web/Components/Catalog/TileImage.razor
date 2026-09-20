@@ -22,6 +22,11 @@
   [Parameter]
   public int MaximumWidth { get; set; } = ImageVariants.CardWidth;
 
+  // a tile in a grid is fetched only once it has been scrolled near, which is wrong for the one
+  // image a page is about: the browser would wait for layout before starting the download
+  [Parameter]
+  public bool IsEager { get; set; }
+
   // every variant this image actually has, each under its true width, so the browser is never
   // handed a narrower file than the number it is choosing by
   private string SourceSetFor(ArtworkImage image) =>
@@ -44,7 +49,7 @@
   @if (Image is { } image)
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
-         srcset="@SourceSetFor(image)" sizes="@Sizes" alt="@Alt" loading="lazy"
+         srcset="@SourceSetFor(image)" sizes="@Sizes" alt="@Alt" loading="@(IsEager ? "eager" : "lazy")"
          class="size-full object-cover" />
   }
   else
