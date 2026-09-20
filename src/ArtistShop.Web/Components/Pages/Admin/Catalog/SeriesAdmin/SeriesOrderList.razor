@@ -2,7 +2,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@using ArtistShop.Web.Images
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Utilities
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
@@ -70,17 +70,7 @@
     <SortableList TItem="SeriesWithCover" Items="_series" AriaLabel="Series order" OnMove="MoveAsync">
       <RowContent Context="series">
         <a href="@($"/admin/catalog/series/{series.Id.Value}")" class="flex grow items-center gap-4">
-          @if (series.Cover is { } cover)
-          {
-            <img src="@ImageUrls.Variant(cover.StorageKey, cover.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)" alt=""
-                 class="size-16 object-cover" />
-          }
-          else
-          {
-            <span class="flex p-1 size-16 items-center justify-center bg-gray-100 text-center text-xs text-gray-500">
-              No images yet
-            </span>
-          }
+          <ArtworkThumbnail Image="series.Cover" Class="size-16" />
 
           <span class="grow">@series.Name.Value</span>
           <span>@CountText.Of(series.ArtworkCount, "artwork")</span>

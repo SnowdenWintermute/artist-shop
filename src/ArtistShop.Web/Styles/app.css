@@ -102,6 +102,10 @@
   @apply border border-theme-base px-2 h-10;
 }
 
+.artist-shop-field-label {
+  @apply mb-1 block text-sm;
+}
+
 /* the rows it is replacing go faint, so the indicator isn't the only sign anything is happening */
 html[data-loading] .artist-shop-fades-while-loading {
   opacity: 0.4;

@@ -1,0 +1,37 @@
+@code {
+  public const string Yes = "yes";
+  public const string No = "no";
+
+  // an empty or hand-edited value is the filter switched off, so a link can't hide rows
+  // while the control claims otherwise
+  public static bool? Read(string? value) =>
+    value switch
+    {
+      Yes => true,
+      No => false,
+      _ => null,
+    };
+
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+  [Parameter]
+  public bool? Value { get; set; }
+  [Parameter, EditorRequired]
+  public string EitherLabel { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string YesLabel { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string NoLabel { get; set; } = default!;
+}
+
+<label>
+  <span class="artist-shop-field-label">@Label</span>
+
+  <select name="@Name" class="artist-shop-field-input">
+    <option value="">@EitherLabel</option>
+    <option value="@Yes" selected="@(Value is true)">@YesLabel</option>
+    <option value="@No" selected="@(Value is false)">@NoLabel</option>
+  </select>
+</label>

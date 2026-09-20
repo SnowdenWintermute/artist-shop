@@ -34,27 +34,20 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         return [.. rows.Select(ToVocabulary)];
     }
 
-    public async Task<List<VocabularyWithTerms>> GetAllWithTermsAsync()
+    public Task<List<VocabularyWithTerms>> GetAllWithTermsAsync() =>
+        GetAllWithTermsAsync(artworkTypeId: null);
+
+    public Task<List<VocabularyWithTerms>> GetAllWithTermsForArtworkTypeAsync(
+        ArtworkTypeId artworkTypeId
+    ) => GetAllWithTermsAsync(artworkTypeId.Value);
+
+    private async Task<List<VocabularyWithTerms>> GetAllWithTermsAsync(int? artworkTypeId)
     {
         await using var connection = connectionFactory.Create();
 
         var rows = await connection.QueryAsync<VocabularyWithTermRow>(
             "dbo.GetVocabulariesWithTerms",
-            commandType: CommandType.StoredProcedure
-        );
-
-        return GroupIntoVocabularies(rows);
-    }
-
-    public async Task<List<VocabularyWithTerms>> GetAllWithTermsForArtworkTypeAsync(
-        ArtworkTypeId artworkTypeId
-    )
-    {
-        await using var connection = connectionFactory.Create();
-
-        var rows = await connection.QueryAsync<VocabularyWithTermRow>(
-            "dbo.GetVocabulariesWithTermsForArtworkType",
-            new { ArtworkTypeId = artworkTypeId.Value },
+            new { ArtworkTypeId = artworkTypeId },
             commandType: CommandType.StoredProcedure
         );
 

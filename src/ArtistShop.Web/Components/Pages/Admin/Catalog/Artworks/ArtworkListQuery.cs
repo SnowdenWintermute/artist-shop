@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks;
 
+using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Domain.Catalog;
 
 // The query string holds the page's whole state, so every filtered view is a link that can be
@@ -14,9 +15,6 @@ public static class ArtworkListQuery
     public const string SaleKey = "sale";
     public const string SortKey = "sort";
     public const string PageKey = "page";
-
-    public const string Yes = "yes";
-    public const string No = "no";
 
     public static ArtworkListFilter Read(
         int[]? typeIds,
@@ -33,29 +31,11 @@ public static class ArtworkListQuery
             [.. (termIds ?? []).Select(id => new VocabularyTermId(id))],
             int.TryParse(series, out var seriesId) ? new SeriesId(seriesId) : null,
             string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
-            ReadFlag(images),
-            ReadFlag(sale),
+            YesNoSelect.Read(images),
+            YesNoSelect.Read(sale),
             ReadSort(sort),
             int.TryParse(page, out var pageNumber) && pageNumber > 1 ? pageNumber : 1
         );
-
-    // a value the page doesn't know filters nothing, so a hand-edited link can't hide rows
-    // while the controls claim otherwise
-    private static bool? ReadFlag(string? value) =>
-        value switch
-        {
-            Yes => true,
-            No => false,
-            _ => null,
-        };
-
-    public static string Value(bool? flag) =>
-        flag switch
-        {
-            true => Yes,
-            false => No,
-            null => "",
-        };
 
     private static ArtworkListSort ReadSort(string? value) =>
         value switch

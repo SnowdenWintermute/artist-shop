@@ -13,9 +13,17 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<Series> Series { get; set; } = default!;
 
-  private const string LabelClass = "mb-1 block text-sm";
-
   private string ClearFiltersClass => Filter.HasAnyFilter ? "" : "invisible";
+
+  private List<(int Value, string Label)> TypeOptions =>
+    [.. Types.Select(type => (type.Id.Value, type.Name.Value))];
+
+  private HashSet<int> SelectedTypeIds => [.. Filter.ArtworkTypeIds.Select(id => id.Value)];
+
+  private static List<(int Value, string Label)> TermOptions(VocabularyWithTerms vocabulary) =>
+    [.. vocabulary.Terms.Select(term => (term.Id.Value, term.Name.Value))];
+
+  private HashSet<int> SelectedTermIds => [.. Filter.VocabularyTermIds.Select(id => id.Value)];
 }
 
 @* a GET form, so submitting it writes the filters into the address bar. It carries no page
@@ -26,13 +34,13 @@
   <SubmitOnChange>
     <div class="mb-3 flex flex-wrap items-end gap-4">
       <label>
-        <span class="@LabelClass">Search titles</span>
+        <span class="artist-shop-field-label">Search titles</span>
         <input type="search" name="@ArtworkListQuery.SearchKey" value="@Filter.SearchText"
                class="artist-shop-field-input" />
       </label>
 
       <label>
-        <span class="@LabelClass">Series</span>
+        <span class="artist-shop-field-label">Series</span>
         <select name="@ArtworkListQuery.SeriesKey" class="artist-shop-field-input">
           <option value="">Any series</option>
           @foreach (var series in Series)
@@ -42,26 +50,14 @@
         </select>
       </label>
 
-      <label>
-        <span class="@LabelClass">Images</span>
-        <select name="@ArtworkListQuery.ImagesKey" class="artist-shop-field-input">
-          <option value="">With or without</option>
-          <option value="@ArtworkListQuery.Yes" selected="@(Filter.HasImages is true)">With images</option>
-          <option value="@ArtworkListQuery.No" selected="@(Filter.HasImages is false)">Without images</option>
-        </select>
-      </label>
+      <YesNoSelect Label="Images" Name="@ArtworkListQuery.ImagesKey" Value="Filter.HasImages"
+                   EitherLabel="With or without" YesLabel="With images" NoLabel="Without images" />
+
+      <YesNoSelect Label="For sale" Name="@ArtworkListQuery.SaleKey" Value="Filter.IsForSale"
+                   EitherLabel="For sale or not" YesLabel="For sale" NoLabel="Not for sale" />
 
       <label>
-        <span class="@LabelClass">For sale</span>
-        <select name="@ArtworkListQuery.SaleKey" class="artist-shop-field-input">
-          <option value="">For sale or not</option>
-          <option value="@ArtworkListQuery.Yes" selected="@(Filter.IsForSale is true)">For sale</option>
-          <option value="@ArtworkListQuery.No" selected="@(Filter.IsForSale is false)">Not for sale</option>
-        </select>
-      </label>
-
-      <label>
-        <span class="@LabelClass">Sort by</span>
+        <span class="artist-shop-field-label">Sort by</span>
         <select name="@ArtworkListQuery.SortKey" class="artist-shop-field-input">
           @foreach (var sort in Enum.GetValues<ArtworkListSort>())
           {
@@ -75,38 +71,16 @@
 
     @if (Types.Count > 1)
     {
-      <fieldset class="mb-3">
-        <legend class="@LabelClass">Work type</legend>
-        <div class="flex flex-wrap gap-x-4 gap-y-1">
-          @foreach (var type in Types)
-          {
-            <label class="flex items-center gap-1">
-              <input type="checkbox" name="@ArtworkListQuery.TypeKey" value="@type.Id.Value"
-                     checked="@Filter.ArtworkTypeIds.Contains(type.Id)" class="cursor-pointer" />
-              @type.Name.Value
-            </label>
-          }
-        </div>
-      </fieldset>
+      <CheckboxGroup Legend="Work type" Name="@ArtworkListQuery.TypeKey" Options="TypeOptions"
+                     SelectedValues="SelectedTypeIds" />
     }
 
     @* several terms from one vocabulary widen the search, while a term from a second
        vocabulary narrows it: an artwork has to match one term in each *@
     @foreach (var vocabulary in Vocabularies.Where(vocabulary => vocabulary.Terms.Count > 0))
     {
-      <fieldset class="mb-3">
-        <legend class="@LabelClass">@vocabulary.Name.Value</legend>
-        <div class="flex flex-wrap gap-x-4 gap-y-1">
-          @foreach (var term in vocabulary.Terms)
-          {
-            <label class="flex items-center gap-1">
-              <input type="checkbox" name="@ArtworkListQuery.TermKey" value="@term.Id.Value"
-                     checked="@Filter.VocabularyTermIds.Contains(term.Id)" class="cursor-pointer" />
-              @term.Name.Value
-            </label>
-          }
-        </div>
-      </fieldset>
+      <CheckboxGroup @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="@ArtworkListQuery.TermKey"
+                     Options="TermOptions(vocabulary)" SelectedValues="SelectedTermIds" />
     }
 
     <div class="flex items-center gap-4">

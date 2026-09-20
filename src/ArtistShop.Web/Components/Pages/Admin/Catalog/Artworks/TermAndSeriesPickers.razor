@@ -32,7 +32,7 @@
   // the island's own, seeded once, so reloading options doesn't undo the artist's choices.
   protected override void OnParametersSet()
   {
-    _vocabularies = SortedByName(Vocabularies);
+    _vocabularies = VocabularyOrder.SortedByName(Vocabularies);
     _series = AllSeries;
 
     if (!_seeded)
@@ -53,20 +53,15 @@
 
   private async Task ReloadOptionsAsync()
   {
-    _vocabularies = SortedByName(await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkTypeId));
+    _vocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkTypeId));
     _series = await SeriesRepository.GetAllAsync();
 
     // a checked term or series deleted in the other tab can't be posted
     DropMissingSelections();
   }
 
-  private static List<VocabularyWithTerms> SortedByName(IEnumerable<VocabularyWithTerms> vocabularies) =>
-    [.. vocabularies.OrderBy(vocabulary => vocabulary.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
-
   private static List<(int Value, string Label)> TermOptions(VocabularyWithTerms vocabulary) =>
-    [.. vocabulary.Terms
-      .OrderBy(term => term.Name.Value, StringComparer.CurrentCultureIgnoreCase)
-      .Select(term => (term.Id.Value, term.Name.Value))];
+    [.. vocabulary.Terms.Select(term => (term.Id.Value, term.Name.Value))];
 
   private List<(int Value, string Label)> SeriesOptions => [.. _series.Select(series => (series.Id.Value, series.Name.Value))];
 

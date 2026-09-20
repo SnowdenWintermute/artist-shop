@@ -1,4 +1,4 @@
-@using ArtistShop.Web.Images
+@using ArtistShop.Web.Components.Atoms
 @using BlazorBlueprint.Primitives.Progress
 @code {
   [Parameter, EditorRequired]
@@ -11,11 +11,9 @@
   : $"{SelectedImage.UploadPercentComplete}%";
 }
 
-@if (SelectedImage.Result is not null)
-{
-  <img src="@ImageUrls.Variant(SelectedImage.Result.StorageKey, SelectedImage.Result.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)"
-       alt="" class="size-10 object-cover" />
-}
+@* the placeholder holds the box while the upload runs, so the row doesn't jump when the
+   image lands *@
+<ArtworkThumbnail Image="SelectedImage.Result" />
 
 <div class="grow">
   <div class="mb-1 flex justify-between">

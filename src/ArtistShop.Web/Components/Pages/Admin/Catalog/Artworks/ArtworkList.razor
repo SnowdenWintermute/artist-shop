@@ -39,14 +39,14 @@
   protected override async Task OnParametersSetAsync()
   {
     var filter = ArtworkListQuery.Read(
-      TypeIds,
-      TermIds,
-      SeriesValue,
-      SearchValue,
-      ImagesValue,
-      SaleValue,
-      SortValue,
-      PageValue
+      typeIds: TypeIds,
+      termIds: TermIds,
+      series: SeriesValue,
+      search: SearchValue,
+      images: ImagesValue,
+      sale: SaleValue,
+      sort: SortValue,
+      page: PageValue
     );
 
     // null means nothing was searched for, which is not the same as a search that found nothing
@@ -71,12 +71,7 @@
       filter,
       artworks,
       [.. types.OrderBy(type => type.Name.Value, StringComparer.CurrentCultureIgnoreCase)],
-      [
-        .. vocabularies.OrderBy(
-          vocabulary => vocabulary.Name.Value,
-          StringComparer.CurrentCultureIgnoreCase
-        ),
-      ],
+      VocabularyOrder.SortedByName(vocabularies),
       await SeriesRepository.GetAllAsync()
     );
   }

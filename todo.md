@@ -7,33 +7,63 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-19, end of session
+## Where this stands — 2026-09-20, end of session
 
-**Bulk image matching is built, reviewed and exercised against a real run.** A folder of 153 images,
-30 of them 48 megapixels: the first run attached 18 before Stop, and resuming uploaded the remaining
-132 (27 of them big) in **1 minute 25 seconds**, ending at 150 of 151 artworks imaged. The one left
-imageless was `Lantern Path`, the title that sits in two series folders — the duplicate rule
-refusing both files, end to end against the database. 210 tests pass with
-`source env.sh && dotnet test`.
+**The admin artwork list is built and committed** (`a6bd30b`), at `/admin/catalog/artworks`:
+`Components/Pages/Admin/Catalog/Artworks/ArtworkList.razor` with `ArtworkListFilters`,
+`ArtworkListRows`, `ArtworkListPaging` and `ArtworkListQuery` beside it. 248 tests pass with
+`source env.sh && dotnet test`. The database no longer needs opening to see what the import and the
+uploader produced.
 
-**The artwork edit page is built** (2026-09-19), at `/admin/catalog/artworks/{Id:int}/edit`, so
-`BulkImageReport`'s links are live. It edits the title, the type's fields, the description, terms,
-series and images, and deletes the artwork. Only products are still missing, and they wait on the
-products island. 234 tests pass with `source env.sh && dotnet test`. **The schema changed**
-(`ProductTypes.IsDefault`), so a dev database from before 2026-09-19 needs dropping. Mike has
-clicked around the fields half of the page; the image half hasn't been through a browser yet.
+The query string is the page's whole state — every filtered view is a link, and `ArtworkListQuery`
+is the only place that reads or writes those values. `dbo.GetArtworkList` is the first query here
+that spans the catalog. Filters: work types and vocabulary terms, both multi-select (several terms
+from one vocabulary widen the results, a term from a second vocabulary narrows them), one series,
+has-images, for-sale (a product with stock >= 1), and a title search. Sorting is recently added
+(the default), title either way, or date created either way, always ending in the artwork id so a
+row can't move between pages. The page size is `CatalogLimits.ArtworkListPageSize`, now 25.
 
-**Next: the admin artworks list** at `/admin/catalog/artworks` — `ArtworkList`, matching
-`SeriesList` and `VocabularyTermList`; "browser" reads as the thing a page is displayed in. Nothing
-lists artworks, so the database is still the only way to see what the import and the upload
-produced. Decide the filters (type, series, term, name, has images, for sale), the sorting and the
-paging first. It also needs the first query that spans the catalog: everything today reads one
-artwork (`GetArtworkById`/`BySlug`) or one series' worth. When it exists: the edit page's
-"← Admin" link and the delete island's redirect should point at it instead of `/admin`, and the
-artwork type page's "Used by N artworks" should link to it filtered by that type. The series edit
-page already shows the same list scoped to a series, with checkboxes that unlink.
+The search sits behind `ArtworkSearch` (`Search/`), whose one implementation runs an
+accent-insensitive `LIKE` and returns ids the list query filters by. A full text index or a search
+service replaces that class and nothing else. It returns no ranking, so the sort stays in charge;
+whenever ranking arrives, the port returns ordered ids and the sort gains a "Best match".
 
-To test the upload again, the catalog needs artworks with no images — Mike drops the database.
+Built or changed around it: `ImageVariants.Widths` gained **160** for the admin thumbnail (so
+`MinimumSourceWidth` is now the upload floor, separate from the narrowest variant — and existing
+images have no 160 file until they are uploaded again), `Components/Atoms/ArtworkThumbnail`,
+`Components/Forms/SubmitOnChange` (+ its script), `Components/Layout/LoadingIndicator` (+ its
+script), `wwwroot/js/app-consts.js` for the browser-side tunables, `PartialDate.Text`,
+`VocabularyRepository.GetAllWithTermsAsync`, and `dbo.GetVocabulariesWithTerms`. The edit page's
+back link, the delete redirect, the admin dashboard and the artwork type's "Used by N artworks"
+all point at the list now.
+
+**Next: the customer's way in, which is series first.** A visitor landing on the site should see
+the categories and click one, not meet a filter bar. So: a simple list of series, each one a card
+with its cover and name, leading to a page of medium thumbnails of the artworks in it. The deep
+filtering already exists — the plan is a "search everything" link from there into a public version
+of the artwork list, not filters on the browse pages themselves.
+
+Agree these before writing any route file:
+
+- Where it lives: the front page itself, or `/series` with the front page linking in.
+- What a series card carries: cover, name, and an artwork count or not. `GetSeriesWithCovers`
+  already returns all three, in the artist's order.
+- What the series page shows per artwork: thumbnail and title, and whether a price belongs there
+  yet (it would be a "from" price — the cheapest in-stock product — which needs the products
+  island first).
+- **The policy question:** what a visitor may see at all. An artwork with no image, or with nothing
+  for sale, is a normal state in this catalog and the admin list treats both as filters. The public
+  pages want them as fixed conditions, so `dbo.GetArtworkList` already takes them as parameters —
+  decide the answer, not the mechanism.
+- Artworks in no series: unreachable from a series-first design. Either an "everything" entry or
+  accept it.
+- Addresses: `/artworks/{slug}` exists and works. `/series/{slug}` is free.
+
+The admin list's own pieces that carry over are `ArtworkListFilter`, `ArtworkListQuery` and the
+query itself; what doesn't is the projection and the rendering, since a grid of tiles wants a
+primary image and a price rather than an edit link and an image count. `ArtworkListQuery` sits in
+the admin page's folder on purpose — move it somewhere shared when there is a second user for it,
+not before.
 
 ### The edit page, as built on 2026-09-19
 
