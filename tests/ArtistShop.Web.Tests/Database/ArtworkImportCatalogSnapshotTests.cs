@@ -27,8 +27,22 @@ public sealed class ArtworkImportCatalogSnapshotTests(TestDatabaseFixture databa
 
         Assert.NotNull(snapshot);
         Assert.Equal("Painting", snapshot.ArtworkType.Name.Value);
-        Assert.Contains(name, snapshot.ArtworkNames);
+        Assert.Contains(name, snapshot.TypeArtworkNames);
         Assert.Contains(snapshot.ProductTypes, productType => productType.Name.Value == "Original");
+    }
+
+    // a screenshot and a photograph can be called the same thing; only a title this type
+    // already has is a repeat
+    [Fact]
+    public async Task LeavesOutTheTitlesOfOtherTypes()
+    {
+        var name = $"Snapshot test {Guid.NewGuid():n}";
+        await _catalog.AddArtworkAsync(await _catalog.GetTypeIdAsync("Photograph"), name);
+
+        var snapshot = await LoadAsync(await _catalog.GetPaintingTypeIdAsync());
+
+        Assert.NotNull(snapshot);
+        Assert.DoesNotContain(name, snapshot.TypeArtworkNames);
     }
 
     [Fact]

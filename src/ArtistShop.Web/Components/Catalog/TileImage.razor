@@ -11,8 +11,9 @@
   [Parameter]
   public string Alt { get; set; } = "";
 
+  // the box the picture fills
   [Parameter]
-  public string RatioClass { get; set; } = "aspect-[4/3]";
+  public string BoxClass { get; set; } = "w-full aspect-[4/3]";
 
   // what the picture will be asked to fill, so the browser can pick a width before layout
   [Parameter]
@@ -38,7 +39,8 @@
     Image?.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri})" : "";
 }
 
-<div class="@($"{RatioClass} w-full overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle">
+@* shrink-0: the admin lists put this in a flex row, which would otherwise squeeze it *@
+<div class="@($"{BoxClass} shrink-0 overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle">
   @if (Image is { } image)
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
@@ -47,7 +49,7 @@
   }
   else
   {
-    <span class="flex size-full items-center justify-center text-center text-sm text-gray-500">
+    <span class="flex size-full items-center justify-center text-center text-[10px] text-gray-500">
       No image
     </span>
   }

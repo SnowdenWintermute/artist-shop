@@ -215,9 +215,12 @@
       <ArtworkImportColumnsHelp ArtworkType="_type" TypeVocabularies="_typeVocabularies" />
 
       @* multipart: the file needs it, and the form's size limit then applies to the text as sent.
-         No Enhance on either form: the review dialog only opens on a full page load *@
+         Enhance: an enhanced post keeps the multipart body, so the file still arrives, and it leaves
+         no history entry of its own. Without it the review was a posted document, which the browser
+         refuses to redisplay on Back ("Document Expired") because the antiforgery headers forbid
+         storing it. The review dialog arrives with the patch that inserts it, so it still opens *@
       <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
-                enctype="multipart/form-data" class="mb-6">
+                enctype="multipart/form-data" Enhance class="mb-6">
         <DataAnnotationsValidator />
 
         <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))" ValueExpression="() => Check.File"
@@ -264,7 +267,7 @@
          button submits it through form="" *@
       <EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
                 OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data"
-                id="@ConfirmFormName">
+                Enhance id="@ConfirmFormName">
         <DataAnnotationsValidator />
 
         <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
@@ -287,7 +290,7 @@
             </p>
           }
 
-          <ArtworkImportReview Plan="_plan" />
+          <ArtworkImportReview Plan="_plan" ArtworkTypeName="_type.Name" />
 
           <ModalDialogActions>
             <ModalCloseButton Label="Close" />

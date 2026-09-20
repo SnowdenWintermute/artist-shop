@@ -2,8 +2,10 @@
 
 @* The one modal for every page. It opens as soon as it's rendered, so render it only while it should
    show: inside @if (open) in an island, or when there's something to show on a static page.
-   On a static page it must arrive with a full page load (a form without Enhance): enhanced navigation
-   updates an element already on the page in place, which neither reopens the dialog nor keeps it open *@
+   On a static page it has to arrive as a new <modal-dialog> element, which is what runs the script that
+   opens it: rendering it only when there's something to show gives that for free, whether the page was
+   loaded whole or patched in by an enhanced post. An element already on the page is updated in place
+   and never reopens, which is what ReopenLabel is for *@
 
 @code {
   [Parameter, EditorRequired]

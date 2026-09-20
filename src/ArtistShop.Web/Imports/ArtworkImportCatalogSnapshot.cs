@@ -11,7 +11,8 @@ public record ArtworkImportCatalogSnapshot(
     IReadOnlyList<Vocabulary> AllVocabularies,
     IReadOnlyList<Series> AllSeries,
     IReadOnlyList<ProductType> ProductTypes,
-    IReadOnlyList<string> ArtworkNames
+    // this work type's titles only, the way TypeVocabularies is this type's vocabularies
+    IReadOnlyList<string> TypeArtworkNames
 )
 {
     // null when the artwork type doesn't exist
@@ -37,7 +38,7 @@ public record ArtworkImportCatalogSnapshot(
             await vocabularyRepository.GetAllAsync(),
             await seriesRepository.GetAllAsync(),
             await productTypeRepository.GetAllAsync(),
-            await artworkRepository.GetAllNamesAsync()
+            await artworkRepository.GetNamesOfTypeAsync(artworkTypeId)
         );
     }
 }

@@ -15,4 +15,8 @@
 
 }
 
-<button @attributes="AdditionalAttributes" class="@CssClass">@ChildContent</button>
+@* the spinner is always here and hidden; app.css shows it while the button carries data-busy,
+   which ButtonBasic.razor.js sets on the button that submitted an enhanced form *@
+<button @attributes="AdditionalAttributes" class="@CssClass"><span
+    class="artist-shop-button-spinner mr-2 size-4 animate-spin rounded-full border-2 border-current border-t-transparent align-middle"
+    aria-hidden="true"></span>@ChildContent</button>

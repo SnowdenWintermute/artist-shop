@@ -11,12 +11,12 @@
   [Parameter]
   public string? Caption { get; set; }
   [Parameter]
-  public string RatioClass { get; set; } = "aspect-[4/3]";
+  public string BoxClass { get; set; } = "w-full aspect-[4/3]";
 }
 
 <a href="@Href" class="block">
   <span class="mb-2 block">
-    <TileImage Image="Image" RatioClass="@RatioClass" />
+    <TileImage Image="Image" BoxClass="@BoxClass" />
   </span>
 
   <span class="block">@Title</span>

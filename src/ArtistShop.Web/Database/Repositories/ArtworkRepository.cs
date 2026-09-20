@@ -169,12 +169,13 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         return new ArtworkIdentifiers(new ArtworkId(row.Id), new ArtworkSlug(row.Slug));
     }
 
-    public async Task<List<string>> GetAllNamesAsync()
+    public async Task<List<string>> GetNamesOfTypeAsync(ArtworkTypeId artworkTypeId)
     {
         await using var connection = connectionFactory.Create();
 
         var names = await connection.QueryAsync<string>(
             "dbo.GetArtworkNames",
+            new { ArtworkTypeId = artworkTypeId.Value },
             commandType: CommandType.StoredProcedure
         );
         return [.. names];

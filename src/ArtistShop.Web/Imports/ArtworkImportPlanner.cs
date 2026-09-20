@@ -31,7 +31,7 @@ public static class ArtworkImportPlanner
             return ArtworkImportPlan.WithErrors(errors);
         }
 
-        var existingNames = new HashSet<string>(snapshot.ArtworkNames, ArtworkImportNames.Comparer);
+        var existingNames = new HashSet<string>(snapshot.TypeArtworkNames, ArtworkImportNames.Comparer);
         var titleCounts = table.Rows
             .Select(row => row.Cells[columns.Title])
             .Where(title => title.Length > 0)

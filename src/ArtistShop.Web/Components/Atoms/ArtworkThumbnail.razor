@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
 
@@ -12,14 +13,5 @@
   public string Class { get; set; } = "size-10";
 }
 
-@if (Image is { } image)
-{
-  <img src="@ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)"
-       alt="" class="@($"{Class} object-cover")" />
-}
-else
-{
-  <span class="@($"{Class} flex items-center justify-center bg-gray-100 text-center text-[10px] text-gray-500")">
-    No image
-  </span>
-}
+@* the admin's own size, so the lists and the upload rows don't each name a width *@
+<TileImage Image="Image" BoxClass="@Class" MaximumWidth="ImageVariants.AdminThumbnailWidth" />
