@@ -15,6 +15,25 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     // test classes share the database in parallel, so names must not collide
     private static VocabularyName UniqueName() => new($"Medium {Guid.NewGuid():n}");
 
+    // the artwork list filters across every work type at once, so this one is not scoped to one
+    [Fact]
+    public async Task ListsEveryVocabularyWithItsTerms()
+    {
+        var withTerms = await _catalog.AddPaintingVocabularyAsync();
+        var firstTerm = await _catalog.AddTermAsync(withTerms);
+        var secondTerm = await _catalog.AddTermAsync(withTerms);
+        var withoutTerms = await _catalog.AddPaintingVocabularyAsync();
+
+        var vocabularies = await _vocabularies.GetAllWithTermsAsync();
+
+        var listed = vocabularies.Single(vocabulary => vocabulary.Id == withTerms);
+        Assert.Equal(
+            [firstTerm, secondTerm],
+            [.. listed.Terms.Select(term => term.Id).OrderBy(id => id.Value)]
+        );
+        Assert.Empty(vocabularies.Single(vocabulary => vocabulary.Id == withoutTerms).Terms);
+    }
+
     [Fact]
     public async Task ListsTheSeededPaintingType()
     {

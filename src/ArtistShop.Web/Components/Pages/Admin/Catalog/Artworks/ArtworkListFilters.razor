@@ -1,0 +1,120 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkListFilter Filter { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkType> Types { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<VocabularyWithTerms> Vocabularies { get; set; } = default!;
+  // in the artist's order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Series> Series { get; set; } = default!;
+
+  private const string LabelClass = "mb-1 block text-sm";
+
+  private string ClearFiltersClass => Filter.HasAnyFilter ? "" : "invisible";
+}
+
+@* a GET form, so submitting it writes the filters into the address bar. It carries no page
+   number, which is what sends a changed filter back to the first page.
+   data-enhance: blazor builds the address from the fields and patches the page in, instead of
+   the browser reloading it, which is what put the address in the tab's title mid-submit *@
+<form method="get" data-enhance class="mb-4 border p-4">
+  <SubmitOnChange>
+    <div class="mb-3 flex flex-wrap items-end gap-4">
+      <label>
+        <span class="@LabelClass">Search titles</span>
+        <input type="search" name="@ArtworkListQuery.SearchKey" value="@Filter.SearchText"
+               class="artist-shop-field-input" />
+      </label>
+
+      <label>
+        <span class="@LabelClass">Series</span>
+        <select name="@ArtworkListQuery.SeriesKey" class="artist-shop-field-input">
+          <option value="">Any series</option>
+          @foreach (var series in Series)
+          {
+            <option value="@series.Id.Value" selected="@(Filter.SeriesId == series.Id)">@series.Name.Value</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span class="@LabelClass">Images</span>
+        <select name="@ArtworkListQuery.ImagesKey" class="artist-shop-field-input">
+          <option value="">With or without</option>
+          <option value="@ArtworkListQuery.Yes" selected="@(Filter.HasImages is true)">With images</option>
+          <option value="@ArtworkListQuery.No" selected="@(Filter.HasImages is false)">Without images</option>
+        </select>
+      </label>
+
+      <label>
+        <span class="@LabelClass">For sale</span>
+        <select name="@ArtworkListQuery.SaleKey" class="artist-shop-field-input">
+          <option value="">For sale or not</option>
+          <option value="@ArtworkListQuery.Yes" selected="@(Filter.IsForSale is true)">For sale</option>
+          <option value="@ArtworkListQuery.No" selected="@(Filter.IsForSale is false)">Not for sale</option>
+        </select>
+      </label>
+
+      <label>
+        <span class="@LabelClass">Sort by</span>
+        <select name="@ArtworkListQuery.SortKey" class="artist-shop-field-input">
+          @foreach (var sort in Enum.GetValues<ArtworkListSort>())
+          {
+            <option value="@ArtworkListQuery.Value(sort)" selected="@(Filter.Sort == sort)">
+              @ArtworkListQuery.Label(sort)
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (Types.Count > 1)
+    {
+      <fieldset class="mb-3">
+        <legend class="@LabelClass">Work type</legend>
+        <div class="flex flex-wrap gap-x-4 gap-y-1">
+          @foreach (var type in Types)
+          {
+            <label class="flex items-center gap-1">
+              <input type="checkbox" name="@ArtworkListQuery.TypeKey" value="@type.Id.Value"
+                     checked="@Filter.ArtworkTypeIds.Contains(type.Id)" class="cursor-pointer" />
+              @type.Name.Value
+            </label>
+          }
+        </div>
+      </fieldset>
+    }
+
+    @* several terms from one vocabulary widen the search, while a term from a second
+       vocabulary narrows it: an artwork has to match one term in each *@
+    @foreach (var vocabulary in Vocabularies.Where(vocabulary => vocabulary.Terms.Count > 0))
+    {
+      <fieldset class="mb-3">
+        <legend class="@LabelClass">@vocabulary.Name.Value</legend>
+        <div class="flex flex-wrap gap-x-4 gap-y-1">
+          @foreach (var term in vocabulary.Terms)
+          {
+            <label class="flex items-center gap-1">
+              <input type="checkbox" name="@ArtworkListQuery.TermKey" value="@term.Id.Value"
+                     checked="@Filter.VocabularyTermIds.Contains(term.Id)" class="cursor-pointer" />
+              @term.Name.Value
+            </label>
+          }
+        </div>
+      </fieldset>
+    }
+
+    <div class="flex items-center gap-4">
+      @* app.css hides this unless the browser runs no scripts, which is the only case that
+         can't submit the filter bar by itself *@
+      <ButtonBasic type="submit" Class="border" data-part="apply">Apply filters</ButtonBasic>
+
+      <a href="/admin/catalog/artworks" class="@ClearFiltersClass">Clear filters</a>
+    </div>
+  </SubmitOnChange>
+</form>

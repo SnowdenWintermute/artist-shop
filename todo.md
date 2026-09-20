@@ -23,12 +23,15 @@ products island. 234 tests pass with `source env.sh && dotnet test`. **The schem
 (`ProductTypes.IsDefault`), so a dev database from before 2026-09-19 needs dropping. Mike has
 clicked around the fields half of the page; the image half hasn't been through a browser yet.
 
-**Next: the admin artwork browser** at `/admin/catalog/artworks` — nothing lists artworks, so the
-database is still the only way to see what the import and the upload produced. Decide the filters
-(type, series, term, name, has images, for sale), the sorting and the paging first. When it exists:
-the edit page's "← Admin" link and the delete island's redirect should point at it instead of
-`/admin`, and the artwork type page's "Used by N artworks" should link to it filtered by that type.
-The series edit page already shows the same list scoped to a series, with checkboxes that unlink.
+**Next: the admin artworks list** at `/admin/catalog/artworks` — `ArtworkList`, matching
+`SeriesList` and `VocabularyTermList`; "browser" reads as the thing a page is displayed in. Nothing
+lists artworks, so the database is still the only way to see what the import and the upload
+produced. Decide the filters (type, series, term, name, has images, for sale), the sorting and the
+paging first. It also needs the first query that spans the catalog: everything today reads one
+artwork (`GetArtworkById`/`BySlug`) or one series' worth. When it exists: the edit page's
+"← Admin" link and the delete island's redirect should point at it instead of `/admin`, and the
+artwork type page's "Used by N artworks" should link to it filtered by that type. The series edit
+page already shows the same list scoped to a series, with checkboxes that unlink.
 
 To test the upload again, the catalog needs artworks with no images — Mike drops the database.
 
@@ -1008,7 +1011,7 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       - Editing images: done in the same session, see below
 - [ ] CSV import (step 9) is per work type: the artist picks the type on the import page, and the
       known headers are that type's fields and vocabularies, plus series, price and sold
-- [ ] Later: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page.
+- [ ] Next: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page.
       Once it exists, the artwork type page's "Used by N artworks, so it can't be deleted" should link
       to it filtered by that type (`ArtworkTypeEditorForm.razor`)
 

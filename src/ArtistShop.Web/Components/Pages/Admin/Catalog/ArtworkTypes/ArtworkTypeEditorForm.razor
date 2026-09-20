@@ -124,7 +124,9 @@
         if (loaded.ArtworkCounts.Total > 0)
         {
           <p class="text-sm text-gray-500">
-            Used by @CountText.Of(loaded.ArtworkCounts.Total, "artwork"), so it can't be deleted.
+            Used by
+            <a href="@($"/admin/catalog/artworks?type={loaded.ArtworkType.Id.Value}")" class="underline">
+              @CountText.Of(loaded.ArtworkCounts.Total, "artwork")</a>, so it can't be deleted.
           </p>
         }
         else

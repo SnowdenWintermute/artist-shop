@@ -1,0 +1,12 @@
+@code {
+  // must contain the form controls and, for a browser that never runs the script,
+  // a submit button marked data-part="apply"
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+@* <submit-on-change> is defined in SubmitOnChange.razor.js, loaded on every page, so it works on
+   static pages. Custom elements display inline by default, so "block" lays it out like a div *@
+<submit-on-change class="block">
+  @ChildContent
+</submit-on-change>

@@ -68,6 +68,13 @@ public record PartialDate
         Precision = precision;
     }
 
+    // the same spelling Parse accepts, so a date on screen is one the form would take back
+    public string Text =>
+        Date.ToString(
+            AcceptedFormats.First(accepted => accepted.Precision == Precision).Format,
+            CultureInfo.InvariantCulture
+        );
+
     public static PartialDate Parse(string text) =>
         TryParse(text, out var partialDate)
             ? partialDate

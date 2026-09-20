@@ -1,0 +1,25 @@
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+
+@code {
+  // an artwork with no image yet is a normal state: the import catalogues first and the
+  // bulk uploader attaches to exactly those
+  [Parameter]
+  public ArtworkImage? Image { get; set; }
+
+  // the box the thumbnail fills
+  [Parameter]
+  public string Class { get; set; } = "size-10";
+}
+
+@if (Image is { } image)
+{
+  <img src="@ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)"
+       alt="" class="@($"{Class} object-cover")" />
+}
+else
+{
+  <span class="@($"{Class} flex items-center justify-center bg-gray-100 text-center text-[10px] text-gray-500")">
+    No image
+  </span>
+}

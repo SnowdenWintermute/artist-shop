@@ -1,0 +1,33 @@
+@using ArtistShop.Web.Domain.Catalog
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkListPage Page { get; set; } = default!;
+
+  // every other filter stays in the address as it is; the first page drops the parameter
+  // instead of spelling out page=1
+  private string UrlFor(int pageNumber) =>
+    NavigationManager.GetUriWithQueryParameter(
+      ArtworkListQuery.PageKey,
+      pageNumber <= 1 ? null : (int?)pageNumber
+    );
+
+  private bool IsOnLastPage => Page.PageNumber == Page.PageCount;
+  private bool IsOnFirstPage => Page.PageNumber == 1;
+
+
+  private string NextButtonClass => IsOnLastPage ? "text-gray-400 pointer-events-none" : "";
+  private string PrevButtonClass => IsOnFirstPage ? "text-gray-400 pointer-events-none" : "";
+}
+
+@if (Page.PageCount > 1)
+{
+  <nav class="flex items-center gap-4 text-sm" aria-label="Pages">
+    <a href="@UrlFor(Page.PageNumber - 1)" class="@PrevButtonClass">← Previous</a>
+
+    <span>Page @Page.PageNumber of @Page.PageCount</span>
+
+    <a href="@UrlFor(Page.PageNumber + 1)" class="@NextButtonClass">Next →</a>
+  </nav>
+}

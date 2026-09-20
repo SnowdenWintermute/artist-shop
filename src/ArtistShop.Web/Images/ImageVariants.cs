@@ -11,12 +11,14 @@ public static class ImageVariants
 {
     // @TODO once frontend gallery grid exists, measure the size of the elements
     // and derive these values from it
-    public static readonly int[] Widths = [400, 800, 1600];
+    public static readonly int[] Widths = [160, 400, 800, 1600];
 
-    public static int SmallestWidth => Widths[0];
+    // the narrowest image worth keeping, not the narrowest variant: the admin thumbnail is
+    // small enough that Widths[0] would let in images too small for the gallery
+    public const int MinimumSourceWidth = 400;
 
-    // the small preview the admin lists and the upload rows show
-    public const int AdminThumbnailWidth = 400;
+    // the small preview the admin lists and the upload rows show, at twice its 80 pixel box
+    public const int AdminThumbnailWidth = 160;
 
     public static string FileName(int width, ImageVariantFormat format) =>
         format switch

@@ -22,4 +22,6 @@ public static class CatalogLimits
     public const int ArtworkTypeNameMaximumLength = 50;
 
     public const int SeriesNameMaximumLength = 256;
+
+    public const int ArtworkListPageSize = 25;
 }

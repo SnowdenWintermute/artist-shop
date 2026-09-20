@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Database.Repositories;
 
 using System.Data;
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using Dapper;
@@ -184,6 +185,63 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 
     public Task<Artwork?> GetBySlugAsync(string slug) =>
         GetAsync("dbo.GetArtworkBySlug", new { Slug = slug });
+
+    // the search runs elsewhere and hands its matches in; null means nothing was searched for
+    public async Task<ArtworkListPage> GetListAsync(
+        ArtworkListFilter filter,
+        IReadOnlyList<ArtworkId>? searchMatches
+    )
+    {
+        await using var connection = connectionFactory.Create();
+
+        var pageSize = CatalogLimits.ArtworkListPageSize;
+
+        var rows = (
+            await connection.QueryAsync<ArtworkListRow>(
+                "dbo.GetArtworkList",
+                new
+                {
+                    ArtworkTypeIds = IdListParameter.Create(
+                        filter.ArtworkTypeIds.Select(id => id.Value)
+                    ),
+                    VocabularyTermIds = IdListParameter.Create(
+                        filter.VocabularyTermIds.Select(id => id.Value)
+                    ),
+                    MatchingArtworkIds = IdListParameter.Create(
+                        searchMatches?.Select(id => id.Value) ?? []
+                    ),
+                    IsSearching = searchMatches is not null,
+                    SeriesId = filter.SeriesId?.Value,
+                    filter.HasImages,
+                    filter.IsForSale,
+                    Sort = (byte)filter.Sort,
+                    Offset = (filter.PageNumber - 1) * pageSize,
+                    PageSize = pageSize,
+                },
+                commandType: CommandType.StoredProcedure
+            )
+        ).ToList();
+
+        var items = rows.Select(row => new ArtworkListItem(
+                new ArtworkId(row.Id),
+                new ArtworkName(row.Name),
+                new ArtworkTypeName(row.ArtworkTypeName),
+                row is { DateCreated: DateOnly date, DateCreatedPrecision: DatePrecision precision }
+                    ? new PartialDate(date, precision)
+                    : null,
+                row.SeriesNames,
+                row.ImageCount,
+                row.IsForSale,
+                row.PrimaryImage
+            ))
+            .ToList();
+
+        // the count rides on the rows, so an empty page carries none; the page component
+        // sends a page number past the end back to the first page
+        var totalCount = rows.Count is 0 ? 0 : rows[0].TotalCount;
+
+        return new ArtworkListPage(items, totalCount, filter.PageNumber, pageSize);
+    }
 
     // the slug comes back because the procedure decides it: a rename can land on a numbered one
     public async Task<ArtworkSlug> UpdateAsync(ArtworkCatalogUpdate artworkCatalogUpdate)
@@ -403,5 +461,34 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         public decimal? Price { get; init; }
         public int? EditionSize { get; init; }
         public required int Stock { get; init; }
+    }
+
+    private sealed class ArtworkListRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
+        public required string ArtworkTypeName { get; init; }
+        public required DateOnly? DateCreated { get; init; }
+        public required DatePrecision? DateCreatedPrecision { get; init; }
+        public required int ImageCount { get; init; }
+        public required bool IsForSale { get; init; }
+        public string? SeriesNames { get; init; }
+        public string? PrimaryImageStorageKey { get; init; }
+        public int? PrimaryImageWidth { get; init; }
+        public int? PrimaryImageHeight { get; init; }
+        public string? PrimaryImageBlurDataUri { get; init; }
+        public required int TotalCount { get; init; }
+
+        // an artwork with no image leaves all four image columns null, and matching all three
+        // of the non-null ones together is what lets the width and height be read as plain ints
+        public ArtworkImage? PrimaryImage =>
+            this is
+            {
+                PrimaryImageStorageKey: string storageKey,
+                PrimaryImageWidth: int width,
+                PrimaryImageHeight: int height,
+            }
+                ? new ArtworkImage(storageKey, null, width, height, PrimaryImageBlurDataUri)
+                : null;
     }
 }

@@ -102,6 +102,34 @@
   @apply border border-theme-base px-2 h-10;
 }
 
+/* the rows it is replacing go faint, so the indicator isn't the only sign anything is happening */
+html[data-loading] .artist-shop-fades-while-loading {
+  opacity: 0.4;
+}
+
+/* only while a navigation is under way, and never on a page that never renders it */
+.artist-shop-loading {
+  display: none;
+}
+
+html[data-loading] .artist-shop-loading {
+  display: flex;
+}
+
+/* The apply button is for a browser that runs no scripts: <submit-on-change> submits the form
+   by itself everywhere else. Hiding it by default means it is never painted and then taken
+   away, and the media query asks the question <noscript> would, without putting the answer in
+   the page where blazor's enhanced navigation can copy it in from a parsed document */
+submit-on-change [data-part="apply"] {
+  display: none;
+}
+
+@media (scripting: none) {
+  submit-on-change [data-part="apply"] {
+    display: revert;
+  }
+}
+
 /* SortableJS adds .sortable-fallback to the row copy it moves while dragging (ForceFallback mode, where the
    browser's native drag isn't controlling the cursor), so keep the closed hand wherever the pointer goes */
 body:has(.sortable-fallback),

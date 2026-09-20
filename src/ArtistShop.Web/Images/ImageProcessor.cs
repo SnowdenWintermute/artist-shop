@@ -58,12 +58,12 @@ public class ImageProcessor(ImageStorage imageStorage)
     {
         var originalPath = imageStorage.OriginalPath(storageKey);
         using var source = Image.NewFromFile(originalPath).Autorot();
-        var fittingWidths = ImageVariants.WidthsFor(source.Width);
-
-        if (fittingWidths.Length is 0)
+        if (source.Width < ImageVariants.MinimumSourceWidth)
         {
-            throw new ImageTooSmallException(ImageVariants.SmallestWidth);
+            throw new ImageTooSmallException(ImageVariants.MinimumSourceWidth);
         }
+
+        var fittingWidths = ImageVariants.WidthsFor(source.Width);
 
         var variantDirectory = imageStorage.VariantDirectory(storageKey);
         Directory.CreateDirectory(variantDirectory);

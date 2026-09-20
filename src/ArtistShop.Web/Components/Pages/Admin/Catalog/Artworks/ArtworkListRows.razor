@@ -1,0 +1,65 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkListItem> Items { get; set; } = default!;
+}
+
+@if (Items.Count == 0)
+{
+  <div>
+    <p>No artworks match these filters.</p>
+    <LoadingIndicator />
+  </div>
+}
+else
+{
+  @* a table, so every row's cells take their width from the same column: a grid per row
+     sized each one to its own contents, which left the headings sitting over nothing *@
+  @* the indicator is positioned against this wrapper: a div inside the table itself is
+     foster-parented out by the html parser, which leaves it with nothing to sit against *@
+  <div class="relative">
+    <table class="artist-shop-fades-while-loading w-full">
+      <thead>
+        <tr class="text-left text-sm text-gray-500">
+          <th class="pb-2"></th>
+          <th class="pb-2">Title</th>
+          <th class="pb-2">Type</th>
+          <th class="pb-2">Series</th>
+          <th class="pb-2">Images</th>
+          <th class="pb-2">For sale</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var item in Items)
+        {
+          <tr class="border-t hover:bg-gray-50">
+            <td class="py-2">
+              <ArtworkThumbnail Image="item.PrimaryImage" Class="size-20" />
+            </td>
+
+            <td class="py-2">
+              <a href="@($"/admin/catalog/artworks/{item.Id.Value}/edit")" class="underline">@item.Name.Value</a>
+
+              @if (item.DateCreated is { } dateCreated)
+              {
+                <span class="block text-xs text-gray-500">@dateCreated.Text</span>
+              }
+            </td>
+
+            <td class="py-2 text-sm">@item.ArtworkTypeName.Value</td>
+
+            <td class="py-2 text-sm text-gray-600">@item.SeriesNames</td>
+
+            <td class="py-2 text-sm text-gray-600">@item.ImageCount</td>
+
+            <td class="py-2 text-sm text-gray-600">@(item.IsForSale ? "Yes" : "No")</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <LoadingIndicator />
+  </div>
+}

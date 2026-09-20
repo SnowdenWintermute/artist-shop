@@ -4,6 +4,7 @@ using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Search;
 using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
@@ -89,6 +90,7 @@ builder.Services.AddScoped<ArtworkTypeRepository>();
 builder.Services.AddScoped<ProductTypeRepository>();
 builder.Services.AddScoped<VocabularyRepository>();
 builder.Services.AddScoped<VocabularyTermRepository>();
+builder.Services.AddScoped<ArtworkSearch, SqlArtworkTitleSearch>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

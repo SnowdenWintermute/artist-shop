@@ -121,17 +121,7 @@
                          OnStar="StarAsync" ChosenStarMessage="Cover chosen by hand"
                          ClearStarLabel="Use the first artwork instead" OnClearStar="ClearStarAsync" OnMove="MoveAsync">
       <RowContent Context="artwork">
-        @if (artwork.PrimaryImage is { } image)
-        {
-          <img src="@ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.AdminThumbnailWidth, ImageVariantFormat.Avif)" alt=""
-               class="size-10 object-cover" />
-        }
-        else
-        {
-          <span class="flex size-10 items-center justify-center bg-gray-100 text-center text-[10px] text-gray-500">
-            No image
-          </span>
-        }
+        <ArtworkThumbnail Image="artwork.PrimaryImage" />
 
         <div class="grow">
           <div>
@@ -149,6 +139,6 @@
 
   <ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {CountText.Of(_selected.Count, "artwork")} from {Series.Name.Value}?")"
                  ConfirmLabel="Remove" OnConfirm="RemoveSelectedAsync" IsWorking="_isSaving">
-    They stay in the catalog.
+    The artwork(s) stay in the catalog.
   </ConfirmDialog>
 </DisabledUntilInteractive>

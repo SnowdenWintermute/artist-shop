@@ -34,6 +34,18 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
         return [.. rows.Select(ToVocabulary)];
     }
 
+    public async Task<List<VocabularyWithTerms>> GetAllWithTermsAsync()
+    {
+        await using var connection = connectionFactory.Create();
+
+        var rows = await connection.QueryAsync<VocabularyWithTermRow>(
+            "dbo.GetVocabulariesWithTerms",
+            commandType: CommandType.StoredProcedure
+        );
+
+        return GroupIntoVocabularies(rows);
+    }
+
     public async Task<List<VocabularyWithTerms>> GetAllWithTermsForArtworkTypeAsync(
         ArtworkTypeId artworkTypeId
     )
@@ -46,7 +58,13 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
             commandType: CommandType.StoredProcedure
         );
 
-        return
+        return GroupIntoVocabularies(rows);
+    }
+
+    // the rows arrive one per term, with the vocabulary's columns repeated on each
+    private static List<VocabularyWithTerms> GroupIntoVocabularies(
+        IEnumerable<VocabularyWithTermRow> rows
+    ) =>
         [
             .. rows.GroupBy(row => (row.Id, row.Name))
                 .Select(group => new VocabularyWithTerms(
@@ -64,7 +82,6 @@ public class VocabularyRepository(SqlConnectionFactory connectionFactory)
                     ]
                 )),
         ];
-    }
 
     public async Task<VocabularyId> AddAsync(
         VocabularyName name,
