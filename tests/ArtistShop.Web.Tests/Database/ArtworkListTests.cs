@@ -13,6 +13,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
     private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
     private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
     private readonly ProductTypeRepository _productTypes = new(database.ConnectionFactory);
+    private readonly SeriesRepository _series = new(database.ConnectionFactory);
 
     private static ArtworkListFilter FilterFor(
         SeriesId seriesId,
@@ -94,6 +95,48 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
         var page = await ListAsync(FilterFor(seriesId, termIds: [oil, paper]));
 
         Assert.Equal(both.Id, Assert.Single(page.Items).Id);
+    }
+
+    // the order the artist dragged the artworks into, which is what the public series page
+    // shows. It is the only sort that reads a column outside dbo.Artworks
+    [Fact]
+    public async Task SortsByThePlaceTheArtistGaveEachArtworkInTheSeries()
+    {
+        var seriesId = await _catalog.AddSeriesAsync();
+        var first = await _catalog.AddPaintingAsync(
+            $"First {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images: []
+        );
+        var second = await _catalog.AddPaintingAsync(
+            $"Second {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images: []
+        );
+
+        await _series.ReorderArtworksAsync(seriesId, [second.Id, first.Id]);
+        var page = await ListAsync(FilterFor(seriesId, sort: ArtworkListSort.SeriesOrder));
+
+        Assert.Equal([second.Id, first.Id], page.Items.Select(item => item.Id));
+    }
+
+    // the public pages link by slug, so the list has to carry it
+    [Fact]
+    public async Task ReadsBackTheSlug()
+    {
+        var seriesId = await _catalog.AddSeriesAsync();
+        var added = await _catalog.AddPaintingAsync(
+            $"Harbour {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images: []
+        );
+
+        var page = await ListAsync(FilterFor(seriesId));
+
+        Assert.Equal(added.Slug, Assert.Single(page.Items).Slug);
     }
 
     [Fact]

@@ -1,0 +1,28 @@
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public string Href { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = default!;
+  [Parameter]
+  public ArtworkImage? Image { get; set; }
+  // a second line under the title, such as how many artworks a series holds
+  [Parameter]
+  public string? Caption { get; set; }
+  [Parameter]
+  public string RatioClass { get; set; } = "aspect-[4/3]";
+}
+
+<a href="@Href" class="block">
+  <span class="mb-2 block">
+    <TileImage Image="Image" RatioClass="@RatioClass" />
+  </span>
+
+  <span class="block">@Title</span>
+
+  @if (Caption is { } caption)
+  {
+    <span class="block text-sm text-gray-500">@caption</span>
+  }
+</a>

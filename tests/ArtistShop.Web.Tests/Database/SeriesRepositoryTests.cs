@@ -173,6 +173,49 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         Assert.Null(allSeries.Single(series => series.Id == imagelessId).Cover);
     }
 
+    // what a visitor may see: a series whose artworks have no photographs yet has nothing
+    // to show, and the count has to mean the same thing as the page the card opens
+    [Fact]
+    public async Task VisibleSeriesLeaveOutTheOnesWithNothingToLookAt()
+    {
+        var emptyId = await _catalog.AddSeriesAsync();
+        var imagelessId = await _catalog.AddSeriesAsync();
+        await _catalog.AddPaintingInSeriesAsync(imagelessId, []);
+        var photographedId = await _catalog.AddSeriesAsync();
+        await _catalog.AddPaintingInSeriesAsync(photographedId, [CatalogTestData.CreateTestImage()]);
+        await _catalog.AddPaintingInSeriesAsync(photographedId, []);
+
+        var visible = await _series.GetVisibleWithCoversAsync();
+
+        Assert.DoesNotContain(visible, series => series.Id == emptyId);
+        Assert.DoesNotContain(visible, series => series.Id == imagelessId);
+        Assert.Equal(1, visible.Single(series => series.Id == photographedId).ArtworkCount);
+    }
+
+    // the artist still has to see the series they have yet to photograph
+    [Fact]
+    public async Task TheArtistsOwnListKeepsThem()
+    {
+        var imagelessId = await _catalog.AddSeriesAsync();
+        await _catalog.AddPaintingInSeriesAsync(imagelessId, []);
+
+        var all = await _series.GetAllWithCoversAsync();
+
+        Assert.Equal(1, all.Single(series => series.Id == imagelessId).ArtworkCount);
+    }
+
+    [Fact]
+    public async Task FindsASeriesByItsSlug()
+    {
+        var name = $"Harbour {Guid.NewGuid():n}";
+        var id = await AddNamedSeriesAsync(name);
+
+        var found = await _series.GetBySlugAsync(SeriesSlug.FromName(name).Value);
+
+        Assert.Equal(id, found?.Id);
+        Assert.Null(await _series.GetBySlugAsync($"missing-{Guid.NewGuid():n}"));
+    }
+
     [Fact]
     public async Task StarredArtworkIsTheCover()
     {

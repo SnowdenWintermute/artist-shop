@@ -8,6 +8,9 @@ public enum ArtworkListSort : byte
     TitleDescending = 3,
     DateCreatedNewest = 4,
     DateCreatedOldest = 5,
+
+    // only means anything with a series chosen: it is the artist's order inside that series
+    SeriesOrder = 6,
 }
 
 // a null for a three-state filter means the filter is off: HasImages null keeps both
@@ -35,6 +38,7 @@ public record ArtworkListFilter(
 public record ArtworkListItem(
     ArtworkId Id,
     ArtworkName Name,
+    ArtworkSlug Slug,
     ArtworkTypeName ArtworkTypeName,
     PartialDate? DateCreated,
     string? SeriesNames,

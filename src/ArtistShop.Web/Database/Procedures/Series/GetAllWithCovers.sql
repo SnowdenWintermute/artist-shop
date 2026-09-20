@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE dbo.GetSeriesWithCovers AS BEGIN
+CREATE OR ALTER PROCEDURE dbo.GetSeriesWithCovers @OnlyArtworksWithImages bit AS BEGIN
 SET
 NOCOUNT ON;
 
@@ -13,6 +13,17 @@ SELECT
             dbo.ArtworkAndSeriesJunction AS junction
         WHERE
             junction.SeriesId = series.Id
+            AND (
+                @OnlyArtworksWithImages = 0
+                OR EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        dbo.ArtworkImages AS image
+                    WHERE
+                        image.ArtworkId = junction.ArtworkId
+                )
+            )
     ) AS ArtworkCount,
     cover.StorageKey AS CoverStorageKey,
     cover.OriginalFileName AS CoverOriginalFileName,
@@ -41,6 +52,10 @@ FROM
             junction.IsCover DESC,
             junction.SortOrder
     ) AS cover
+WHERE
+    -- a series whose artworks have no photographs yet has nothing a visitor could look at
+    @OnlyArtworksWithImages = 0
+    OR cover.StorageKey IS NOT NULL
 ORDER BY
     series.SortOrder;
 

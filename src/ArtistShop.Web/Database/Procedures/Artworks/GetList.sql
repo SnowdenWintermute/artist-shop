@@ -25,6 +25,8 @@ DECLARE @DateCreatedNewest tinyint = 4;
 
 DECLARE @DateCreatedOldest tinyint = 5;
 
+DECLARE @SeriesOrder tinyint = 6;
+
 -- how many vocabularies the chosen terms come from. An artwork has to match a term from every
 -- one of them, so ticking Oil and Pastel widens the search while ticking Paper as well narrows it
 DECLARE @ChosenVocabularyCount int = (
@@ -38,6 +40,7 @@ DECLARE @ChosenVocabularyCount int = (
 SELECT
     artwork.Id,
     artwork.Name,
+    artwork.Slug,
     artworkType.Name AS ArtworkTypeName,
     artwork.DateCreated,
     artwork.DateCreatedPrecision,
@@ -95,6 +98,17 @@ FROM
                 END AS bit
             ) AS IsForSale
     ) AS summary
+    -- where the artist dragged this artwork inside the series being looked at. NULL under
+    -- every other filter, which is why @SeriesOrder only means anything with a series chosen
+    OUTER APPLY (
+        SELECT
+            junction.SortOrder
+        FROM
+            dbo.ArtworkAndSeriesJunction AS junction
+        WHERE
+            junction.ArtworkId = artwork.Id
+            AND junction.SeriesId = @SeriesId
+    ) AS seriesPlace
 WHERE
     (
         NOT EXISTS (
@@ -185,6 +199,9 @@ ORDER BY
     END DESC,
     CASE
         WHEN @Sort = @DateCreatedOldest THEN artwork.DateCreated
+    END,
+    CASE
+        WHEN @Sort = @SeriesOrder THEN seriesPlace.SortOrder
     END,
     -- the tie-break that stops a row moving between pages
     artwork.Id OFFSET @Offset ROWS

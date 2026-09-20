@@ -20,6 +20,10 @@ public static class ImageVariants
     // the small preview the admin lists and the upload rows show, at twice its 80 pixel box
     public const int AdminThumbnailWidth = 160;
 
+    // the cap on what a browse tile asks for; the browser picks from the srcset by how wide
+    // the tile actually came out
+    public const int CardWidth = 800;
+
     public static string FileName(int width, ImageVariantFormat format) =>
         format switch
         {

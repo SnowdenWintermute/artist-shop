@@ -1,0 +1,54 @@
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+
+@code {
+  // an artwork with no photograph never reaches a visitor, but the artist's own pages
+  // show one, so the empty state stays
+  [Parameter]
+  public ArtworkImage? Image { get; set; }
+
+  // decorative by default: the tile writes the name beside it
+  [Parameter]
+  public string Alt { get; set; } = "";
+
+  [Parameter]
+  public string RatioClass { get; set; } = "aspect-[4/3]";
+
+  // what the picture will be asked to fill, so the browser can pick a width before layout
+  [Parameter]
+  public string Sizes { get; set; } = "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw";
+
+  [Parameter]
+  public int MaximumWidth { get; set; } = ImageVariants.CardWidth;
+
+  // every variant this image actually has, each under its true width, so the browser is never
+  // handed a narrower file than the number it is choosing by
+  private string SourceSetFor(ArtworkImage image) =>
+    string.Join(
+      ", ",
+      ImageVariants.WidthsFor(image.Width)
+        .Where(width => width <= MaximumWidth)
+        .Select(width =>
+          $"{ImageUrls.Variant(image.StorageKey, image.Width, width, ImageVariantFormat.Avif)} {width}w")
+    );
+
+  // the tiny blurred copy saved with the image, held behind the picture so the tile has
+  // something to show while it loads
+  private string BlurStyle =>
+    Image?.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri})" : "";
+}
+
+<div class="@($"{RatioClass} w-full overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle">
+  @if (Image is { } image)
+  {
+    <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
+         srcset="@SourceSetFor(image)" sizes="@Sizes" alt="@Alt" loading="lazy"
+         class="size-full object-cover" />
+  }
+  else
+  {
+    <span class="flex size-full items-center justify-center text-center text-sm text-gray-500">
+      No image
+    </span>
+  }
+</div>

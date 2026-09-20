@@ -35,12 +35,37 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
         ];
     }
 
-    public async Task<List<SeriesWithCover>> GetAllWithCoversAsync()
+    // the artist sees every series, empty ones included, so they can fill them
+    public Task<List<SeriesWithCover>> GetAllWithCoversAsync() =>
+        GetWithCoversAsync(onlyArtworksWithImages: false);
+
+    // a visitor sees only what there is something to look at in, and the counts follow the
+    // same rule, so a card can't promise more than the series page shows
+    public Task<List<SeriesWithCover>> GetVisibleWithCoversAsync() =>
+        GetWithCoversAsync(onlyArtworksWithImages: true);
+
+    public async Task<Series?> GetBySlugAsync(string slug)
+    {
+        await using var connection = connectionFactory.Create();
+
+        var row = await connection.QuerySingleOrDefaultAsync<SeriesRow>(
+            "dbo.GetSeriesBySlug",
+            new { Slug = slug },
+            commandType: CommandType.StoredProcedure
+        );
+
+        return row is null
+            ? null
+            : new Series(new SeriesId(row.Id), new SeriesName(row.Name), new SeriesSlug(row.Slug));
+    }
+
+    private async Task<List<SeriesWithCover>> GetWithCoversAsync(bool onlyArtworksWithImages)
     {
         await using var connection = connectionFactory.Create();
 
         var rows = await connection.QueryAsync<SeriesWithCoverRow>(
             "dbo.GetSeriesWithCovers",
+            new { OnlyArtworksWithImages = onlyArtworksWithImages },
             commandType: CommandType.StoredProcedure
         );
 

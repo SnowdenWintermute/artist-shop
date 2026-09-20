@@ -1,0 +1,24 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+
+@code {
+  // in the artist's order, and already narrowed to the ones a visitor may see
+  [Parameter, EditorRequired]
+  public IReadOnlyList<SeriesWithCover> Series { get; set; } = default!;
+}
+
+@if (Series.Count == 0)
+{
+  <p>Nothing here yet.</p>
+}
+else
+{
+  <TileGrid>
+    @foreach (var series in Series)
+    {
+      <LinkTile @key="series.Id" Href="@($"/series/{series.Slug.Value}")" Title="@series.Name.Value"
+                Image="series.Cover" Caption="@CountText.Of(series.ArtworkCount, "artwork")" />
+    }
+  </TileGrid>
+}

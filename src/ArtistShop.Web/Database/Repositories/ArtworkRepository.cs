@@ -225,6 +225,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         var items = rows.Select(row => new ArtworkListItem(
                 new ArtworkId(row.Id),
                 new ArtworkName(row.Name),
+                new ArtworkSlug(row.Slug),
                 new ArtworkTypeName(row.ArtworkTypeName),
                 row is { DateCreated: DateOnly date, DateCreatedPrecision: DatePrecision precision }
                     ? new PartialDate(date, precision)
@@ -467,6 +468,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
+        public required string Slug { get; init; }
         public required string ArtworkTypeName { get; init; }
         public required DateOnly? DateCreated { get; init; }
         public required DatePrecision? DateCreatedPrecision { get; init; }

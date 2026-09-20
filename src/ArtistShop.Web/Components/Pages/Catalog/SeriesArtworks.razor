@@ -1,0 +1,80 @@
+@page "/series/{slug}"
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+@inject SeriesRepository SeriesRepository
+@inject ArtworkRepository ArtworkRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public string Slug { get; set; } = default!;
+
+  [SupplyParameterFromQuery(Name = ArtworkListQuery.PageKey)]
+  private string? PageValue { get; set; }
+
+  private LoadedSeries? _loaded;
+
+  // not OnInitializedAsync: turning a page is the same page with a new query parameter
+  protected override async Task OnParametersSetAsync()
+  {
+    var series = await SeriesRepository.GetBySlugAsync(Slug);
+
+    if (series is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    var artworks = await ArtworkRepository.GetListAsync(FilterFor(series.Id), searchMatches: null);
+
+    _loaded = new LoadedSeries(series, artworks);
+  }
+
+  // what a visitor may see: an artwork with no photograph has nothing to show, while one with
+  // nothing for sale is still the artist's work. The artist's own order inside this series
+  private ArtworkListFilter FilterFor(SeriesId seriesId) =>
+    new(
+      ArtworkTypeIds: [],
+      VocabularyTermIds: [],
+      SeriesId: seriesId,
+      SearchText: null,
+      HasImages: true,
+      IsForSale: null,
+      Sort: ArtworkListSort.SeriesOrder,
+      PageNumber: int.TryParse(PageValue, out var pageNumber) && pageNumber > 1 ? pageNumber : 1
+    );
+}
+
+@if (_loaded is { } loaded)
+{
+  <PageTitle>@loaded.Series.Name.Value</PageTitle>
+
+  <main class="mx-auto max-w-[1200px] p-4">
+    <a href="/" class="mb-4 inline-block">← All series</a>
+
+    <h1 class="mb-4">@loaded.Series.Name.Value</h1>
+
+    @if (loaded.Artworks.Items.Count == 0)
+    {
+      <p>Nothing here yet.</p>
+    }
+    else
+    {
+      <div class="mb-4">
+        <TileGrid>
+          @foreach (var artwork in loaded.Artworks.Items)
+          {
+            <LinkTile @key="artwork.Id" Href="@($"/artworks/{artwork.Slug.Value}")"
+                      Title="@artwork.Name.Value" Image="artwork.PrimaryImage" />
+          }
+        </TileGrid>
+      </div>
+
+      <div class="flex justify-end">
+        <ArtworkListPaging Page="loaded.Artworks" />
+      </div>
+    }
+  </main>
+}

@@ -1,4 +1,4 @@
-namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks;
+namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Domain.Catalog;
@@ -44,6 +44,7 @@ public static class ArtworkListQuery
             "title-desc" => ArtworkListSort.TitleDescending,
             "newest" => ArtworkListSort.DateCreatedNewest,
             "oldest" => ArtworkListSort.DateCreatedOldest,
+            "series" => ArtworkListSort.SeriesOrder,
             _ => ArtworkListSort.RecentlyAdded,
         };
 
@@ -54,6 +55,7 @@ public static class ArtworkListQuery
             ArtworkListSort.TitleDescending => "title-desc",
             ArtworkListSort.DateCreatedNewest => "newest",
             ArtworkListSort.DateCreatedOldest => "oldest",
+            ArtworkListSort.SeriesOrder => "series",
             ArtworkListSort.RecentlyAdded => "added",
         };
 
@@ -64,6 +66,7 @@ public static class ArtworkListQuery
             ArtworkListSort.TitleDescending => "Title Z to A",
             ArtworkListSort.DateCreatedNewest => "Newest work",
             ArtworkListSort.DateCreatedOldest => "Oldest work",
+            ArtworkListSort.SeriesOrder => "The order in this series",
             ArtworkListSort.RecentlyAdded => "Recently added",
         };
 }
