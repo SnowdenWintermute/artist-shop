@@ -1,8 +1,8 @@
 @using ArtistShop.Web.Components.Atoms
 
 @* Wraps whatever opens the full-screen view, usually a picture, and puts the button on it. The
-   button isn't there until a lightbox is on the page to answer it: app.css hides it until
-   ImageLightbox.razor.js marks the document *@
+   button isn't there until a lightbox is on the page to answer it: app.css hides it unless the
+   document holds an <image-lightbox> that has been upgraded *@
 
 @code {
   [Parameter, EditorRequired]

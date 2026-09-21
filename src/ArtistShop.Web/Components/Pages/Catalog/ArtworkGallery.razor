@@ -12,11 +12,12 @@
   public int CurrentImageIndex { get; set; }
   [Parameter, EditorRequired]
   public string Slug { get; set; } = default!;
+  // the series the visitor is walking through, kept on the picker's links so following one
+  // without the script doesn't lose it
+  [Parameter]
+  public string? SeriesSlug { get; set; }
   [Parameter, EditorRequired]
   public string Alt { get; set; } = default!;
-
-  // the page reads this back out of the address
-  public const string ImageKey = "image";
 
   // how much of the screen the work may take, so the whole of it is visible without scrolling
   private const int StageMaximumScreenHeightPercent = 80;
@@ -36,9 +37,9 @@
     + $" max-width: calc({StageMaximumScreenHeightPercent}vh * {stage.Width} / {stage.Height})";
 
   // the picker's links only ever load when the script hasn't: a click with it in place is caught
-  // and swapped where it stands, so the address never gains the parameter. Counting from one here
-  // and from zero everywhere else, because this is the number a person reads
-  private string ThumbnailUrl(int index) => $"/artworks/{Slug}?{ImageKey}={index + 1}";
+  // and swapped where it stands, so the address never gains the parameter
+  private string ThumbnailUrl(int index) =>
+    ArtworkPageQuery.Url(Slug, SeriesSlug, index + 1);
 
   private IEnumerable<(ArtworkImage Image, int Index)> NumberedImages =>
     Images.Select((image, index) => (image, index));

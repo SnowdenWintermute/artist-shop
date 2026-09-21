@@ -15,15 +15,10 @@ customElements.define(
 
       this.addEventListener("click", (event) => this.#onClick(event), { signal });
       this.addEventListener("keydown", (event) => this.#onKeyDown(event), { signal });
-
-      // what app.css shows the triggers by: a button that opens this shouldn't be on a page
-      // where nothing can answer it
-      document.documentElement.setAttribute("data-lightbox-ready", "");
     }
 
     disconnectedCallback() {
       this.#listeners?.abort();
-      document.documentElement.removeAttribute("data-lightbox-ready");
     }
 
     /**

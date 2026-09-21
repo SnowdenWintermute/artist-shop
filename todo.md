@@ -7,6 +7,68 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
+## Where this stands — 2026-09-21
+
+**The artwork page is built.** `/artworks/{slug}` is the big image, a thumbnail picker, a
+full-screen view, and the panel of everything the work carries. It was done in four slices, each
+one working before the next began, and everything below this section is history.
+
+**The panel** (`ArtworkDetails`) shows the title, the work type, the products and their prices,
+then date, size, duration, the vocabulary terms grouped under their vocabulary, and the series it
+belongs to, linked. Only rows with a value appear — a field the work type has switched off is null
+on the artwork anyway, so "show what is filled in" needs no knowledge of the type's fields.
+Prices read `$1,200` through `Utilities/PriceText`. **Mike, 2026-09-21: a price is an amount in a
+currency, the way a dimension is centimetres, and ought to be shown in the visitor's own. That is
+its own session.** `PriceText` is the one place it is spelled, so that work has a single owner.
+Products can still only be created by the CSV import — neither artwork form posts them and there
+is no products admin, which is the next real gap on the commerce side.
+
+**The images.** The stage keeps the shape of the artwork's *tallest* image, worked out on the
+server, so clicking through the picker can never move the page; each picture sits in the middle of
+it at its own shape, with its blur behind it, and the bars either side belong to the frame.
+`TileImage` grew `IsEager` and `IsUncropped` for it. Every image is rendered into the stage hidden,
+so the browser fetches one the first time it is shown and a repeat view is a repaint.
+
+**The addresses.** `ArtworkPageQuery` owns the page's whole query string — `series` and `image` —
+and builds every link to it: the series tiles, the picker, and the neighbour links. Images count
+from one in the address and from zero everywhere else, converted at exactly two points. A thumbnail
+is a link to *this page showing that image*, never to the image file: with the script it is caught
+and swapped in place, and `history.replaceState` keeps the address accurate without stacking
+history entries, so it can still be copied and sent.
+
+**The full-screen view** is `Components/Dialogs/ImageLightbox`, not `ModalDialog` — that one opens
+as soon as it is rendered and carries a title bar and padding a picture has no use for. It knows
+nothing about artworks: it is handed an array of `<img>` and an index, and reports where it moved
+with a bubbling `lightboxchange` event, so the gallery and the page follow it. Its picture copies
+the `srcset` off the page's image rather than building one, so nothing downloads twice.
+`LightboxTrigger` wraps whatever should open it. The trigger button only exists where a lightbox is
+present to answer it: `image-lightbox` marks the document on upgrade and app.css hides the button
+until then — the `:defined` idea, moved to a document attribute so a trigger works anywhere.
+
+**Who owns left and right.** The lightbox owns them while it is open; the page owns them otherwise,
+through `wwwroot/js/arrow-key-links.js`, which follows whichever links carry
+`data-arrow-key-link`. It ignores held modifiers, anything typed in a field, and any moment a
+`dialog[open]` exists. It clicks the link rather than setting the location, so enhanced navigation
+patches the page as for any internal link.
+
+**Moving through a series.** `dbo.GetArtworkNeighboursInSeries` anchors on the artwork's own
+junction row and takes the nearest row either side with two `OUTER APPLY`s. `UNIQUE (SeriesId,
+SortOrder)` is what makes strict `<` and `>` safe. `@OnlyArtworksWithImages` keeps the visitor rule
+a parameter, as `GetSeriesWithCovers` does. The page falls back to the artwork's first series by
+name when it was reached cold, so the arrows work from a shared link.
+`tests/.../ArtworkNeighboursTests.cs` covers it, including a reordered series — **not yet run.**
+
+### Worth doing next
+
+- **A products admin**, so prices exist for work that wasn't imported.
+- **The public artwork list**, the "search everything" way in. The admin list's query already takes
+  every filter as a parameter; what's missing is a public page and a decision about search.
+- The `@TODO` on `ImageVariants.Widths` is now answerable: the stage asks for
+  `(min-width: 1200px) 760px, (min-width: 1024px) 63vw, 100vw`, so 1600 is the widest that earns
+  its place until the layout changes.
+- Small: no blur behind the lightbox picture, so a first look at an unseen image is blank against
+  black; long titles in the neighbour links want truncating.
+
 ## Where this stands — 2026-09-20, end of the second session that day
 
 **A visitor can now browse the catalog.** `/` is a grid of series cards (cover, name, count),

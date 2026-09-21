@@ -169,6 +169,37 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         return new ArtworkIdentifiers(new ArtworkId(row.Id), new ArtworkSlug(row.Slug));
     }
 
+    // the artworks either side of this one in the series the visitor is walking through
+    public async Task<ArtworkNeighbours> GetNeighboursInSeriesAsync(
+        SeriesId seriesId,
+        ArtworkId artworkId,
+        bool onlyArtworksWithImages
+    )
+    {
+        await using var connection = connectionFactory.Create();
+
+        var row = await connection.QuerySingleOrDefaultAsync<ArtworkNeighboursRow>(
+            "dbo.GetArtworkNeighboursInSeries",
+            new
+            {
+                SeriesId = seriesId.Value,
+                ArtworkId = artworkId.Value,
+                OnlyArtworksWithImages = onlyArtworksWithImages,
+            },
+            commandType: CommandType.StoredProcedure
+        );
+
+        return new ArtworkNeighbours(
+            ToLink(row?.PreviousName, row?.PreviousSlug),
+            ToLink(row?.NextName, row?.NextSlug)
+        );
+    }
+
+    private static ArtworkLink? ToLink(string? name, string? slug) =>
+        name is not null && slug is not null
+            ? new ArtworkLink(new ArtworkName(name), new ArtworkSlug(slug))
+            : null;
+
     public async Task<List<string>> GetNamesOfTypeAsync(ArtworkTypeId artworkTypeId)
     {
         await using var connection = connectionFactory.Create();
@@ -404,6 +435,15 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         };
 
         return artwork;
+    }
+
+    // every column is nullable: an artwork at either end of the series has no row to read there
+    private sealed class ArtworkNeighboursRow
+    {
+        public string? PreviousName { get; init; }
+        public string? PreviousSlug { get; init; }
+        public string? NextName { get; init; }
+        public string? NextSlug { get; init; }
     }
 
     private sealed class AddedArtworkRow

@@ -8,10 +8,13 @@
   [Parameter]
   public string Slug { get; set; } = default!;
 
-  [SupplyParameterFromQuery(Name = ArtworkGallery.ImageKey)]
+  [SupplyParameterFromQuery(Name = ArtworkPageQuery.SeriesKey)]
+  private string? SeriesValue { get; set; }
+
+  [SupplyParameterFromQuery(Name = ArtworkPageQuery.ImageKey)]
   private string? ImageValue { get; set; }
 
-  private Artwork? _artwork;
+  private LoadedArtwork? _loaded;
 
   // the address counts from one, the way a person reads "image 2", and everything inside counts
   // from zero. A number that is missing, isn't one, or names an image the artwork no longer has
@@ -21,30 +24,59 @@
       ? number - 1
       : artwork.MainImageIndex;
 
+  // the series the visitor is walking through, when the artwork really is in it. Arriving cold, or
+  // on a link to a series it has since left, still gets arrows: the first of its own, by name
+  private Series? SeriesFor(Artwork artwork) =>
+    artwork.Series.FirstOrDefault(series => series.Slug.Value == SeriesValue)
+    ?? artwork.Series
+      .OrderBy(series => series.Name.Value, StringComparer.CurrentCultureIgnoreCase)
+      .FirstOrDefault();
+
   protected override async Task OnParametersSetAsync()
   {
-    _artwork = await ArtworkRepository.GetBySlugAsync(Slug);
+    var artwork = await ArtworkRepository.GetBySlugAsync(Slug);
 
-    if (_artwork is null)
+    if (artwork is null)
     {
       NavigationManager.NotFound();
+      return;
     }
+
+    var series = SeriesFor(artwork);
+
+    // a visitor is only sent on to work there is something to look at, which is the rule the
+    // series page and the home page count by
+    var neighbours = series is null
+      ? new ArtworkNeighbours(null, null)
+      : await ArtworkRepository.GetNeighboursInSeriesAsync(
+          series.Id,
+          artwork.Id,
+          onlyArtworksWithImages: true
+        );
+
+    _loaded = new LoadedArtwork(artwork, series, neighbours);
   }
 }
 
-@if (_artwork is { } artwork)
+@if (_loaded is { } loaded)
 {
-  <PageTitle>@artwork.Name.Value</PageTitle>
+  <PageTitle>@loaded.Artwork.Name.Value</PageTitle>
 
   <main class="mx-auto max-w-[1200px] p-4">
+    @if (loaded.Series is { } series)
+    {
+      <ArtworkSeriesNav Series="series" Neighbours="loaded.Neighbours" />
+    }
+
     @* one column on a phone, the panel beside the work once there is room. minmax(0,…) rather
        than a bare 2fr: a grid track's smallest size is its content by default, which a wide
        image would stretch past the page *@
     <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <ArtworkGallery Images="artwork.Images" CurrentImageIndex="CurrentImageIndex(artwork)" Slug="@artwork.Slug.Value"
-                      Alt="@artwork.Name.Value" />
+      <ArtworkGallery Images="loaded.Artwork.Images" CurrentImageIndex="CurrentImageIndex(loaded.Artwork)"
+                      Slug="@loaded.Artwork.Slug.Value" SeriesSlug="@loaded.Series?.Slug.Value"
+                      Alt="@loaded.Artwork.Name.Value" />
 
-      <ArtworkDetails Artwork="artwork" />
+      <ArtworkDetails Artwork="loaded.Artwork" />
     </div>
   </main>
 }

@@ -1,0 +1,37 @@
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public Series Series { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public ArtworkNeighbours Neighbours { get; set; } = default!;
+
+  private string UrlFor(ArtworkLink artwork) =>
+    ArtworkPageQuery.Url(artwork.Slug.Value, Series.Slug.Value, imageNumber: null);
+}
+
+@* left and right are a shortcut for these links, handled by js/arrow-key-links.js. A span where
+   there is nowhere to go, since a grayed anchor is still reachable by keyboard *@
+<nav class="mb-4 flex items-center justify-between gap-4 text-sm" aria-label="@Series.Name.Value">
+  <a href="@($"/series/{Series.Slug.Value}")">← @Series.Name.Value</a>
+
+  <div class="flex gap-4">
+    @if (Neighbours.Previous is { } previous)
+    {
+      <a href="@UrlFor(previous)" data-arrow-key-link="previous" rel="prev">← Previous</a>
+    }
+    else
+    {
+      <span class="text-gray-400 pointer-events-none select-none">← Previous</span>
+    }
+
+    @if (Neighbours.Next is { } next)
+    {
+      <a href="@UrlFor(next)" data-arrow-key-link="next" rel="next">Next →</a>
+    }
+    else
+    {
+      <span class="text-gray-400 pointer-events-none select-none">Next →</span>
+    }
+  </div>
+</nav>
