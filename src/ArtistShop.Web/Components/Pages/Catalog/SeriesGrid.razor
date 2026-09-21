@@ -17,7 +17,7 @@ else
   <TileGrid>
     @foreach (var series in Series)
     {
-      <LinkTile @key="series.Id" Href="@($"/series/{series.Slug.Value}")" Title="@series.Name.Value"
+      <LinkTile @key="series.Id" Href="@PageUrls.Series(series.Slug)" Title="@series.Name.Value"
                 Image="series.Cover" Caption="@CountText.Of(series.ArtworkCount, "artwork")" />
     }
   </TileGrid>

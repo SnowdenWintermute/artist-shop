@@ -127,13 +127,10 @@ button[data-busy] {
   @apply backdrop:bg-black/95;
 }
 
-/* a trigger is only offered where a lightbox is on the page to answer it. Asked of the document
-   rather than tracked: an enhanced navigation connects the incoming lightbox and disconnects the
-   outgoing one, and a flag those two lifecycles share is wiped by whichever runs last */
-html:not(:has(image-lightbox:defined)) [data-lightbox-button] {
-  display: none;
-}
-
+/* a trigger only promises to zoom where a lightbox is on the page to answer it. Asked of the
+   document rather than tracked: an enhanced navigation connects the incoming lightbox and
+   disconnects the outgoing one, and a flag those two lifecycles share is wiped by whichever runs
+   last */
 html:has(image-lightbox:defined) [data-lightbox-open] {
   @apply cursor-zoom-in;
 }

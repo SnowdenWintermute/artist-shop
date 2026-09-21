@@ -1,5 +1,6 @@
 @page "/admin/catalog/artworks/{Id:int}/edit"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Pages.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Forms.FileUpload.Images
 @using ArtistShop.Web.Database
@@ -130,7 +131,7 @@
       {
         <p class="text-green-600">
           Saved.
-          <a href="@($"/artworks/{_artwork.Slug.Value}")">View it</a>
+          <a href="@ArtworkPageQuery.Url(_artwork.Slug.Value, seriesSlug: null, imageNumber: null)">View it</a>
         </p>
       }
 

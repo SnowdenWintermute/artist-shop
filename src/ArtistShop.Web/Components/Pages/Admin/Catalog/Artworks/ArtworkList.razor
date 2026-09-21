@@ -71,7 +71,7 @@
     _loaded = new LoadedArtworkList(
       filter,
       artworks,
-      [.. types.OrderBy(type => type.Name.Value, StringComparer.CurrentCultureIgnoreCase)],
+      ArtworkTypeOrder.SortedByName(types),
       VocabularyOrder.SortedByName(vocabularies),
       await SeriesRepository.GetAllAsync()
     );

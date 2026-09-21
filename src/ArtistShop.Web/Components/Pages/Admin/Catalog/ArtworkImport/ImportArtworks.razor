@@ -1,5 +1,6 @@
 @page "/admin/catalog/artworks/import"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Forms.FileUpload
@@ -64,8 +65,7 @@
 
     _typeVocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
     // the repository returns them unordered, and the artist reads this as a list of names
-    _productTypes =
-      [.. (await ProductTypeRepository.GetAllAsync()).OrderBy(productType => productType.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+    _productTypes = ProductTypeOrder.SortedByName(await ProductTypeRepository.GetAllAsync());
 
     if (isFreshPage)
     {

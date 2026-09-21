@@ -1,4 +1,5 @@
 @page "/artworks/{slug}"
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject ArtworkRepository ArtworkRepository
@@ -28,9 +29,7 @@
   // on a link to a series it has since left, still gets arrows: the first of its own, by name
   private Series? SeriesFor(Artwork artwork) =>
     artwork.Series.FirstOrDefault(series => series.Slug.Value == SeriesValue)
-    ?? artwork.Series
-      .OrderBy(series => series.Name.Value, StringComparer.CurrentCultureIgnoreCase)
-      .FirstOrDefault();
+    ?? SeriesOrder.SortedByName(artwork.Series).FirstOrDefault();
 
   protected override async Task OnParametersSetAsync()
   {

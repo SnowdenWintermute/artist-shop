@@ -13,7 +13,7 @@
 @* left and right are a shortcut for these links, handled by js/arrow-key-links.js. A span where
    there is nowhere to go, since a grayed anchor is still reachable by keyboard *@
 <nav class="mb-4 flex items-center justify-between gap-4 text-sm" aria-label="@Series.Name.Value">
-  <a href="@($"/series/{Series.Slug.Value}")">← @Series.Name.Value</a>
+  <a href="@PageUrls.Series(Series.Slug)">← @Series.Name.Value</a>
 
   <div class="flex gap-4">
     @if (Neighbours.Previous is { } previous)

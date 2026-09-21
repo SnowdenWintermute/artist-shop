@@ -1,5 +1,6 @@
 @page "/admin/catalog/artworks/add"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Pages.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Forms.FileUpload.Images
 @using ArtistShop.Web.Database
@@ -124,7 +125,7 @@
       {
         <p class="text-green-600">
           Added.
-          <a href="@($"/artworks/{AddedSlug}")">View it</a>
+          <a href="@ArtworkPageQuery.Url(AddedSlug, seriesSlug: null, imageNumber: null)">View it</a>
         </p>
       }
 

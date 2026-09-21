@@ -43,7 +43,8 @@
     IsUncropped && Image is { } shaped ? $"aspect-ratio: {shaped.Width} / {shaped.Height};" : "";
 }
 
-<div class="@($"{BoxClass} overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle @AspectStyle">
+@* a span made block rather than a div, so it can sit inside a button or a link *@
+<span class="@($"{BoxClass} block overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle @AspectStyle">
   @if (Image is { } image)
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
@@ -57,4 +58,4 @@
       No image
     </span>
   }
-</div>
+</span>

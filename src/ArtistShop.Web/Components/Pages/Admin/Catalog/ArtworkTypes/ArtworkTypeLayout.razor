@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @layout MainLayout
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject ArtworkTypeRepository ArtworkTypeRepository
@@ -9,9 +10,7 @@
 
   protected override async Task OnInitializedAsync()
   {
-    var artworkTypes = await ArtworkTypeRepository.GetAllAsync();
-    _artworkTypes = [.. artworkTypes.OrderBy(artworkType => artworkType.Name.Value,
-StringComparer.CurrentCultureIgnoreCase)];
+    _artworkTypes = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
   }
 }
 

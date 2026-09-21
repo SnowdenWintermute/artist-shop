@@ -7,14 +7,10 @@ customElements.define(
   class extends HTMLElement {
     /** @type {AbortController | null} */
     #listeners = null;
-    #current = 0;
 
     connectedCallback() {
       this.#listeners = new AbortController();
       const { signal } = this.#listeners;
-
-      const shown = this.querySelector("[data-artwork-image]:not([hidden])");
-      this.#current = Number(shown instanceof HTMLElement ? shown.dataset.artworkImage : 0);
 
       this.addEventListener("click", (event) => this.#onClick(event), { signal });
       this.addEventListener(
@@ -59,13 +55,20 @@ customElements.define(
       if (lightbox instanceof HTMLElement && "open" in lightbox) {
         const pictures = [...this.#images()].map((box) => box.querySelector("img"));
 
-        lightbox.open(pictures, this.#current);
+        lightbox.open(pictures, this.#currentIndex());
       }
+    }
+
+    // read off the page each time rather than kept: an enhanced navigation to another artwork
+    // patches this element in place without connecting it again, and the server's hidden
+    // attributes are the only thing that stays true across that
+    #currentIndex() {
+      const shown = this.querySelector("[data-artwork-image]:not([hidden])");
+      return shown instanceof HTMLElement ? Number(shown.dataset.artworkImage) : 0;
     }
 
     /** @param {number} index */
     #show(index) {
-      this.#current = index;
       const wanted = String(index);
 
       for (const image of this.#images()) {

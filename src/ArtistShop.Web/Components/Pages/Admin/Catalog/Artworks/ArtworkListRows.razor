@@ -40,7 +40,7 @@ else
             </td>
 
             <td class="py-2">
-              <a href="@($"/admin/catalog/artworks/{item.Id.Value}/edit")" class="underline">@item.Name.Value</a>
+              <a href="@PageUrls.EditArtwork(item.Id)" class="underline">@item.Name.Value</a>
 
               @if (item.DateCreated is { } dateCreated)
               {

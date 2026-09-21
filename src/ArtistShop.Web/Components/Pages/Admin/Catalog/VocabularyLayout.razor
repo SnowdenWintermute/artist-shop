@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @layout MainLayout
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject VocabularyRepository VocabularyRepository
@@ -9,8 +10,7 @@
 
   protected override async Task OnInitializedAsync()
   {
-    var vocabularies = await VocabularyRepository.GetAllAsync();
-    _vocabularies = [.. vocabularies.OrderBy(vocabulary => vocabulary.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+    _vocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllAsync());
   }
 }
 

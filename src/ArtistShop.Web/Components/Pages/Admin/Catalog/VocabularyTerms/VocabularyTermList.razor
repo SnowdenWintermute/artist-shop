@@ -1,6 +1,7 @@
 @page "/admin/catalog/vocabularies/{Id:int}"
 @layout VocabularyLayout
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Identity
@@ -21,8 +22,7 @@
   protected override async Task OnInitializedAsync()
   {
     _vocabulary = await VocabularyRepository.GetAsync(VocabularyId);
-    var terms = await VocabularyTermRepository.GetAllWithUsageAsync(VocabularyId);
-    _terms = [.. terms.OrderBy(term => term.Name.Value, StringComparer.CurrentCultureIgnoreCase)];
+    _terms = VocabularyOrder.SortedByName(await VocabularyTermRepository.GetAllWithUsageAsync(VocabularyId));
   }
 }
 

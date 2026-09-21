@@ -1,19 +1,16 @@
-@using ArtistShop.Web.Components.Atoms
-
-@* Wraps whatever opens the full-screen view, usually a picture, and puts the button on it. The
-   button isn't there until a lightbox is on the page to answer it: app.css hides it unless the
-   document holds an <image-lightbox> that has been upgraded *@
+@* Makes whatever opens the full-screen view, usually a picture, into the button that does. The
+   click itself is handled by whoever holds the lightbox, which finds it by data-lightbox-open *@
 
 @code {
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 
-  // the words on the button
+  // what a screen reader announces in place of the picture's own alt
   [Parameter]
-  public string Label { get; set; } = "Full screen";
+  public string Label { get; set; } = "View full screen";
 }
 
-<div data-lightbox-open class="relative">
+<button type="button" data-lightbox-open aria-label="@Label"
+        class="relative block w-full focus-visible:outline-2 focus-visible:outline-offset-2">
   @ChildContent
-
-</div>
+</button>

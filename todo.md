@@ -41,9 +41,13 @@ as soon as it is rendered and carries a title bar and padding a picture has no u
 nothing about artworks: it is handed an array of `<img>` and an index, and reports where it moved
 with a bubbling `lightboxchange` event, so the gallery and the page follow it. Its picture copies
 the `srcset` off the page's image rather than building one, so nothing downloads twice.
-`LightboxTrigger` wraps whatever should open it. The trigger button only exists where a lightbox is
-present to answer it: `image-lightbox` marks the document on upgrade and app.css hides the button
-until then — the `:defined` idea, moved to a document attribute so a trigger works anywhere.
+`LightboxTrigger` makes whatever should open it into a `<button>` — the picture's frame itself,
+not a separate control — so the keyboard reaches it too. app.css gives it the zoom cursor only when
+`html:has(image-lightbox:defined)`, asked of the document rather than tracked in a flag, because an
+enhanced navigation connects the incoming lightbox and disconnects the outgoing one in whichever
+order it likes. The gallery reads which image is showing off the page when it opens the lightbox,
+never from a field: enhanced navigation patches `<artwork-gallery>` in place without connecting it
+again, so a stored index survived into the next artwork (found and fixed 2026-09-21).
 
 **Who owns left and right.** The lightbox owns them while it is open; the page owns them otherwise,
 through `wwwroot/js/arrow-key-links.js`, which follows whichever links carry
@@ -51,12 +55,31 @@ through `wwwroot/js/arrow-key-links.js`, which follows whichever links carry
 `dialog[open]` exists. It clicks the link rather than setting the location, so enhanced navigation
 patches the page as for any internal link.
 
-**Moving through a series.** `dbo.GetArtworkNeighboursInSeries` anchors on the artwork's own
-junction row and takes the nearest row either side with two `OUTER APPLY`s. `UNIQUE (SeriesId,
+**Moving through a series.** `dbo.GetArtworkNeighboursInSeries` filters the series to the places
+a visitor may be sent once, in a CTE, then anchors on the artwork's own junction row and takes the
+nearest of them either side with two `OUTER APPLY`s. `UNIQUE (SeriesId,
 SortOrder)` is what makes strict `<` and `>` safe. `@OnlyArtworksWithImages` keeps the visitor rule
 a parameter, as `GetSeriesWithCovers` does. The page falls back to the artwork's first series by
-name when it was reached cold, so the arrows work from a shared link.
+name (through `SeriesOrder`) when it was reached cold, so the arrows work from a shared link. An
+artwork with no image still renders for anyone with its address, deliberately: an artist who lands
+there sees an incomplete work to fix rather than a 404 for something that exists.
+
+**Addresses have one spelling each.** `ArtworkPageQuery.Url` for the public artwork page and
+`Components/PageUrls` for the series page and the artwork edit page; nothing else writes those
+strings but the pages' own `@page` lines.
 `tests/.../ArtworkNeighboursTests.cs` covers it, including a reordered series — **not yet run.**
+
+### Next session: a first deployment (Mike, 2026-09-21)
+
+The app in docker compose on the VPS, the database on **Azure SQL's free tier** (account set up
+already), and the images on the VPS filesystem, reached from inside the container. The VPS has
+2 GB of RAM and SQL Server in a container is what eats it, so renting the database out is what
+makes the rest fit. See `deployment-notes.md`, and the notes on auto-pause, collation at creation
+time, the firewall and the bind mount before starting.
+
+If the free tier's shape doesn't suit the app, Mike's fallback is moving off T-SQL altogether — so
+the first question is only whether it deploys at all, and it isn't worth sinking time into
+Azure-specific tuning before that is answered.
 
 ### Worth doing next
 

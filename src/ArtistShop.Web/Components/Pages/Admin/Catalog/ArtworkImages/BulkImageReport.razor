@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Utilities
 
 @code {
@@ -44,7 +45,7 @@
             @file.Path
             @foreach (var artworkId in file.ArtworkIds)
             {
-              <a class="ml-2 underline" href="@($"/admin/catalog/artworks/{artworkId}/edit")">Edit artwork @artworkId</a>
+              <a class="ml-2 underline" href="@PageUrls.EditArtwork(new ArtworkId(artworkId))">Edit artwork @artworkId</a>
             }
             @if (file.Error is not null)
             {
