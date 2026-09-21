@@ -5,8 +5,8 @@ DROP FUNCTION IF EXISTS set_artwork_series;
 -- row takes is_cover with it, which is what removing a series' cover artwork from that series means.
 CREATE FUNCTION set_artwork_series (p_artwork_id int, p_series_ids int[]) RETURNS void LANGUAGE sql AS $$
 -- Appending reads MAX(sort_order), and Postgres won't lock rows under an aggregate, so each chosen
--- series row is the lock for its own artworks' order: a second append (or a reorder) waits here
--- rather than reading the same MAX. NO KEY UPDATE lets foreign key checks through, and id order
+-- series row is the lock for its own artworks' order: a second append waits here rather than reading
+-- the same MAX, and reorder_series_artworks takes the same lock. NO KEY UPDATE lets foreign key checks through, and id order
 -- means two callers can't each hold a series the other wants
 SELECT
 FROM

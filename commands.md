@@ -4,6 +4,10 @@
 rm -rf src/ArtistShop.Web/Identity/Migrations
 dotnet ef migrations add CreateIdentity --project src/ArtistShop.Web --output-dir Identity/Migrations
 
+-- wipe only the domain database (keeps the login; the app rebuilds it at startup) --
+docker exec artist-shop-postgres psql -U postgres \
+-c "DROP DATABASE IF EXISTS artist_shop WITH (FORCE);"
+
 -- wipe the domain, identity and test databases --
 docker exec artist-shop-postgres psql -U postgres \
 -c "DROP DATABASE IF EXISTS artist_shop WITH (FORCE);" \

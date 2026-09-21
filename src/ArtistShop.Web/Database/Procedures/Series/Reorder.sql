@@ -3,8 +3,16 @@ DROP FUNCTION IF EXISTS reorder_series_artworks;
 -- p_artwork_ids is every artwork in the series, in the new order
 CREATE FUNCTION reorder_series_artworks (p_series_id int, p_artwork_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    -- in place of SERIALIZABLE, as in reorder_series
-    LOCK TABLE artwork_and_series_junction IN SHARE ROW EXCLUSIVE MODE;
+    -- in place of SERIALIZABLE. The series row is the lock for its artworks' order, as in
+    -- set_artwork_series, so an append to this series waits for the reorder and the reverse; other
+    -- series carry on. A removal takes no lock, but one landing between the check and the UPDATE only
+    -- leaves a gap in sort_order, which remove_artworks_from_series leaves anyway
+    PERFORM
+    FROM
+        series
+    WHERE
+        series.id = p_series_id
+    FOR NO KEY UPDATE;
 
     -- the list must be exactly the series' artworks, or another tab changed them after this page
     -- loaded. The second count is of distinct members matched, which also rules out a repeated id

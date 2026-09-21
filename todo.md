@@ -7,104 +7,101 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-21, later: porting to Postgres
+## Where this stands — 2026-09-21, end of day: porting to Postgres
 
 **SQL Server is being replaced by Postgres 18, on the `postgresPort` branch.** `main` keeps the
 SQL Server version. The reason: the VPS has 2 GB of RAM, and SQL Server on Linux won't start in
-less than that. Azure SQL's free serverless tier was the plan until the numbers came out. It allows
-about 110 awake minutes a day, which public crawler traffic would use up, and each wake-up makes a
-visitor wait about a minute. The full phased plan is at
+less than that. Azure SQL's free serverless tier allows about 110 awake minutes a day, and each
+wake-up makes a visitor wait about a minute. The phased plan is at
 `~/.claude/plans/refactored-percolating-backus.md`. **Read it before starting.** Claude writes the
 port and Mike reviews it, with every place Postgres behaves differently called out. Names are
 snake_case.
 
-**Phase 1 is done (uncommitted on `postgresPort`), and the solution builds with no warnings.** It
-has never run against Postgres:
-- Npgsql, dbup-postgresql and the Npgsql EF provider replace the SQL Server packages.
-- `NpgsqlDataSource` replaces `SqlConnectionFactory`, which is deleted.
-- `DatabaseInitializer` is deleted. DbUp's `EnsureDatabase` creates the domain database, and EF's
-  `MigrateAsync()` at startup creates and migrates the identity database, so the manual
-  `dotnet ef database update` step is gone. The identity migration was regenerated for Npgsql.
-- `SqlErrorNumbers` became `SqlStates`, holding SQLSTATE codes `SH001`–`SH014`. The SQL standard
-  reserves the classes starting A–H, so ours is `SH`. `SqlErrors` matches on `SqlState` and
-  `ConstraintName`, never on the message text.
-- `DefaultTypeMap.MatchNamesWithUnderscores = true`.
-- The test fixture uses `artist_shop_tests` and `DROP DATABASE … WITH (FORCE)`.
+**Status: phases 1–4 are done. Only Phase 5 (deploy to the VPS) is left.**
+- Phase 1 is committed ("phase 1"). Phases 2–4 are **uncommitted** on `postgresPort`.
+- All 259 tests pass on Postgres.
+- The app boots on an empty Postgres, creating both databases and the admin.
+- Mike's browser pass found nothing broken, though he didn't try every action.
+- Review fixes (2026-09-21, uncommitted): `update_artwork` locks the type before the artwork, the
+  order `update_artwork_type` uses, so the two can't deadlock. `reorder_series_artworks` locks the
+  series row instead of the whole junction table. `set_series_cover` raises SH006 after its last
+  UPDATE, not before. New indexes on `artwork_images (artwork_id)` and the term junction's
+  `term_id`, added to 0001, so the dev database needs recreating to get them.
+
+**Things to know before touching it:**
+- **Run `. ./env.sh` in every terminal before `dotnet test` or `dev.sh`.** A terminal from before the
+  switch still holds the SQL Server connection string. Npgsql then logs in as `sa`, and reads
+  `localhost,1433` as two hosts, one of them 0.0.5.153. Every test fails, because the database
+  fixture belongs to the whole assembly.
+- Dev images are throwaway test data (the real files are kept outside the app), so the orphan
+  sweeper clearing `content/images` in dev is fine.
 - Dev Postgres is `artist-shop-postgres` on host port **5434** (5432 and 5433 are speed-dungeon's
-  and snowauth's). `POSTGRES_PASSWORD` is in `.env`. `env.sh`, `dev.sh`, `commands.md` and the
-  formatter dialect are updated. If `artist-shop-mssql` is still running, stop it
-  (`docker stop artist-shop-mssql`); its volume is kept for `main`.
+  and snowauth's). `POSTGRES_PASSWORD` is in `.env`. `artist-shop-mssql` can stay stopped; its
+  volume is kept for `main`.
+- Tests: `. ./env.sh`, then `dotnet test` (not `--nologo`, which runs none), or run the built
+  binary `tests/ArtistShop.Web.Tests/bin/Debug/net10.0/ArtistShop.Web.Tests` (`-class` to pick one).
 
-**The app won't boot yet**, and that's expected. The schema scripts and the 50 procedures are still
-T-SQL, and every repository still calls them with `CommandType.StoredProcedure`.
+**How the port works**, for review and for anyone changing SQL from here on:
+- **Schema** (`Database/Scripts/0001`, `0002`):
+  - Two ICU collations, applied per column. `case_insensitive` (`und-u-ks-level2`) is on every
+    unique name, on artwork names, and on product labels. `case_and_accent_insensitive`
+    (`und-u-ks-level1`) is only for the title search's `LIKE`, which needs Postgres 18.
+  - The `sort_order` UNIQUEs are `DEFERRABLE`. Postgres checks a plain UNIQUE after each row, so a
+    one-statement swap would fail without it.
+  - Products use `UNIQUE NULLS NOT DISTINCT`.
+  - `created_at` defaults to `clock_timestamp()`, not `now()`, so artworks from one CSV import get
+    different times.
+  - Constraint names are cut to fit Postgres's 63-byte limit.
+  - The table types became three composite types, mapped to C# records in `Database/InputTypes.cs`
+    by `ShopDataSource.Create`. The app and the tests both build their data source with it.
+- **Functions** (`Database/Procedures/`, one function per old procedure, same file names):
+  - Every procedure became a function, because a Postgres procedure can't return rows.
+  - Repositories call them as text: `SELECT * FROM f(@A)` for a table result, `SELECT f(@A)` for a
+    single value or none. Npgsql turns `CommandType.StoredProcedure` into `CALL`, which only works
+    for procedures.
+  - An old multi-result procedure is several functions, run as several `SELECT`s in one command.
+  - Errors are `RAISE … USING ERRCODE = 'SH0nn'`, from `SqlStates`. Unique violations are matched on
+    `ConstraintName`.
+- **Locks.** A function can't set its own isolation level, so each `SERIALIZABLE`/`UPDLOCK` became a
+  specific lock:
+  - `FOR SHARE` on the artwork type row.
+  - `FOR KEY SHARE` on the chosen terms, series and product types.
+  - An advisory lock for choosing a slug.
+  - Series rows `FOR NO KEY UPDATE`, in id order, before appending to or reordering a series.
+  - `LOCK TABLE series` for the `MAX(sort_order)` of a new series.
+  - `set_series_cover` is two UPDATEs, because a partial unique index can't be deferred.
+- **Traps:**
+  - A plpgsql `RETURN QUERY` must return exactly the declared types, and its `RETURNS TABLE`
+    columns are variables, so every column in its queries names its table.
+  - A `LANGUAGE sql` function checks its body when it's created, so it may only call functions
+    from files that sort before it.
+  - `strpos`, `replace` and regular expressions refuse a non-deterministic collation.
+  - NULLs sort last ascending and first descending, the reverse of SQL Server.
+  - Npgsql 10 reads `date` as `DateOnly`. `DateOnlyTypeHandler` only exists because Dapper won't
+    accept the type without one.
+- **Identity:**
+  - EF migrates at startup, which also creates the database, so there's no manual
+    `dotnet ef database update`.
+  - `IdentitySeeder` runs in every environment. It makes the `Admin:Email` account an admin, and
+    reads `Admin:Password` only when it has to create that account. Dev sets both in `env.sh`.
+  - The old SQL Server filter on the unique email index is gone, since Postgres lets NULLs through
+    a UNIQUE anyway.
 
-**Phase 2 (the schema) is done, uncommitted.** `Database/Scripts/` is now `0001_CreateCatalog.sql`
-and `0002_CreateInputTypes.sql`. It was applied to a throwaway `postgres:18` and each behaviour below
-was checked there:
-- Two ICU collations: `case_insensitive` (`und-u-ks-level2`) on every name column with a UNIQUE, on
-  artwork names, and on product labels (SQL Server's CI made `A4`/`a4` clash, so the label keeps
-  that). `case_and_accent_insensitive` (`und-u-ks-level1`) is for the title search's `LIKE` only.
-- `unique_series_sort_order` and the junction's `(series_id, sort_order)` are **`DEFERRABLE`**.
-  Postgres checks a plain UNIQUE after each row, so the one-statement swap in `ReorderSeries` and
-  `ReorderSeriesArtworks` would fail without it.
-- `UNIQUE NULLS NOT DISTINCT` on products. Filtered indexes became partial indexes.
-- `created_at` defaults to `clock_timestamp()`, not `now()`. `now()` is the start of the transaction,
-  so every artwork one CSV import adds would share a time.
-- Junction foreign keys have shorter names (`foreign_key_artwork_terms_…`), because Postgres cuts
-  names at 63 bytes.
-- The table types became composite types `artwork_image_input`, `product_input` and
-  `series_name_and_slug`. The id and name lists become `int[]` and `text[]` with no type of their
-  own. A composite type can't hold NOT NULL or a key.
-- `DatabaseCollationComparer` no longer trims, since Postgres counts trailing spaces.
+**Next: commit phases 2–4, then Phase 5**, the VPS deploy. The plan's Phase 5 section has the steps:
+1. Measure on the VPS (`free -m`, `docker stats --no-stream`, `ss -ltn`).
+2. Write `build-and-push.sh`, then rewrite `docker-compose.production.yml`, which is still SQL
+   Server.
+3. Add a Postgres container and the web container on `127.0.0.1:8089`, with the image bind mount.
+4. Set memory limits from the step 1 numbers.
+5. Add the nginx block (with the websocket headers), then run certbot.
+6. Seed the first admin through `Admin__Email` / `Admin__Password`, then remove the password line.
 
-**Phase 3 (procedures → functions) is done, uncommitted. All 259 tests pass on Postgres.**
-Every procedure is a function in the same file under `Database/Procedures/`. Repositories call them
-as text (`SELECT * FROM f(@A, @B)`), and each old multi-result procedure is several functions run in
-one command. What to know when reviewing:
-- **Arrays** replace every table type. `ShopDataSource.Create` builds the data source for the app
-  and the tests, and maps the three composite types to the records in `Database/InputTypes.cs`.
-  `IdListParameter` is deleted. An ordered list is an `int[]`, with the position coming from
-  `unnest(...) WITH ORDINALITY`. An array has no primary key, so the reorders count *distinct*
-  matches, and `get_artwork_name_match_types` rejects names differing only in case itself.
-- **Locks.** A function can't set its own isolation level, so each `SERIALIZABLE`/`UPDLOCK` became
-  a specific lock:
-  - `FOR SHARE` on the artwork type row in `check_artwork_choices_are_current`.
-  - `FOR KEY SHARE` on the chosen terms, series and product types: it blocks a delete but not a
-    rename.
-  - An advisory lock in `resolve_artwork_slug`. It's one name for all candidates, because slug
-    families overlap.
-  - `FOR NO KEY UPDATE` on series rows, in id order, before appending (`set_artwork_series`) or
-    reordering a series' artworks.
-  - `LOCK TABLE series IN SHARE ROW EXCLUSIVE MODE` for `add_series`, `add_many_series` and
-    `reorder_series`. Postgres won't lock rows under `MAX`.
-- **`set_series_cover` is two UPDATEs**, clearing the old star first. A partial unique index is
-  checked per row and can't be DEFERRABLE.
-- `attach_primary_image_to_imageless_artwork_by_name` returns one row (`match_type`,
-  `artwork_ids int[]`) instead of two result sets. `GetBySlugAsync` looks the id up first
-  (`get_artwork_id_by_slug`), then reads by id.
-- `DateOnlyTypeHandler` just hands `DateOnly` through. Npgsql 10 reads `date` as `DateOnly`, not
-  `DateTime`, but Dapper still needs a handler to accept the type at all.
-- plpgsql functions that `RETURN QUERY` must return *exactly* the declared types (hence the
-  `::text` casts in `get_artwork_list`). Their `RETURNS TABLE` columns are variables, so every
-  column in their queries names its table.
-- Functions are created in alphabetical file order. A `LANGUAGE sql` function checks its body when
-  it's created, so one may only call functions from files that sort before it. plpgsql checks at
-  call time and doesn't care.
-
-**Phase 4 (identity) is done, uncommitted.** `IdentitySeeder` runs in every environment. It
-makes the `Admin:Email` account an admin, and reads `Admin:Password` only to create that account.
-Dev sets both in `env.sh`. The identity migration was regenerated: `ApplicationDbContext` had a
-SQL Server filter (`[NormalizedEmail] IS NOT NULL`) on the unique email index, which crashed the
-first boot. Postgres lets NULLs past a UNIQUE anyway, so the filter is gone. The app now boots on
-an empty Postgres, creating both databases and the admin, and the tests still pass (259).
-
-**Before running `dev.sh` on this branch, move `content/images` aside**, e.g.
-`mv content/images content/images-sqlserver`. Those 860 files belong to the SQL Server database
-on `main`. The new database has no image rows, and `OrphanedImageSweeper` runs at startup with a
-5-minute grace period in dev, so it would delete every one of them.
-
-**Next:** Mike's browser pass from the plan's Verification section, then Phase 5 (deploy). Logging
-in could not be checked with curl (Blazor rejected the hand-made form post with a 400).
+The domain is still undecided. Two follow-ups:
+- `docker-compose.production.yml`'s header comment says the seeder only runs in Development. That's
+  no longer true; fix it as part of Phase 5.
+- In production, a database restored without its images, or pointed at the wrong image folder,
+  would have its files swept as orphans. Decide at deploy time whether the sweeper should refuse
+  to run when the database has no image rows but the folder has files.
 
 ## Where this stands — 2026-09-21, earlier
 

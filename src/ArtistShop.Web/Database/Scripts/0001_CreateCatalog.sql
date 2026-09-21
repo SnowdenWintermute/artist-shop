@@ -201,6 +201,10 @@ CREATE TABLE artwork_and_vocabulary_terms_junction (
     CONSTRAINT foreign_key_artwork_terms_vocabulary_artwork_types FOREIGN KEY (vocabulary_id, artwork_type_id) REFERENCES vocabulary_and_artwork_types_junction (vocabulary_id, artwork_type_id)
 );
 
+-- the primary key leads with artwork_id, so it can't find a term's rows: this serves term usage
+-- counts, deleting a term, and the foreign key check when one is deleted
+CREATE INDEX index_artwork_and_vocabulary_terms_junction_term ON artwork_and_vocabulary_terms_junction (term_id);
+
 CREATE TABLE artwork_images (
     id int GENERATED ALWAYS AS IDENTITY,
     CONSTRAINT primary_key_artwork_images PRIMARY KEY (id),
@@ -216,6 +220,10 @@ CREATE TABLE artwork_images (
     height int NOT NULL,
     blur_data_uri varchar(1000)
 );
+
+-- Postgres indexes the referenced side of a foreign key but not the referencing side, so without
+-- this every image lookup, image count and cascade from a deleted artwork reads the whole table
+CREATE INDEX index_artwork_images_artwork ON artwork_images (artwork_id);
 
 -- a partial index: only the rows matching the WHERE are in it, so it forbids a second primary
 -- image rather than a second of anything

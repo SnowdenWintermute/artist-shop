@@ -8,7 +8,8 @@ DECLARE
     depth_field_id CONSTANT int := 3;
     duration_field_id CONSTANT int := 4;
 BEGIN
-    -- first, so this locks the type row before anything else, in the same order as add_artwork
+    -- first, so this locks the type row before any artwork row, in the same order as add_artwork
+    -- and update_artwork
     UPDATE artwork_types
     SET
         name = p_name

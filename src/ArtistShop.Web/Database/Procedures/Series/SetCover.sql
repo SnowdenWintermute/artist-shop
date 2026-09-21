@@ -5,17 +5,6 @@ BEGIN
     IF NOT EXISTS (
         SELECT
         FROM
-            artwork_and_series_junction
-        WHERE
-            series_id = p_series_id
-            AND artwork_id = p_artwork_id
-    ) THEN
-        RAISE EXCEPTION 'The artwork is no longer in the series.' USING ERRCODE = 'SH006';
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT
-        FROM
             artwork_images
         WHERE
             artwork_id = p_artwork_id
@@ -39,5 +28,12 @@ BEGIN
     WHERE
         series_id = p_series_id
         AND artwork_id = p_artwork_id;
+
+    -- Checked here rather than before the first UPDATE, so an artwork taken out of the series in
+    -- between can't leave the series with no star and no error. The RAISE rolls back the UPDATE
+    -- above as well: an error undoes the whole call
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The artwork is no longer in the series.' USING ERRCODE = 'SH006';
+    END IF;
 END;
 $$;

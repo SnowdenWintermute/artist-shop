@@ -22,25 +22,23 @@ DECLARE
     new_slug text;
 BEGIN
     -- An artwork's type never changes, so it isn't a parameter: it's read from the row, which the
-    -- vocabulary junction copies and which decides the allowed fields. FOR UPDATE holds the row
-    -- until the transaction ends, so a delete in another tab waits rather than landing between
-    -- this read and the UPDATE
+    -- vocabulary junction copies and which decides the allowed fields. Read without a lock, since
+    -- the value can't change underneath us
     SELECT
-        artwork.artwork_type_id,
-        artwork.slug
+        artwork.artwork_type_id
     INTO
-        current_artwork_type_id,
-        current_slug
+        current_artwork_type_id
     FROM
         artworks AS artwork
     WHERE
-        artwork.id = p_id
-    FOR UPDATE;
+        artwork.id = p_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'The artwork no longer exists.' USING ERRCODE = 'SH003';
     END IF;
 
+    -- locks the type row before the artwork row below, the order update_artwork_type takes them in.
+    -- The other way round, each could hold the row the other is waiting for
     PERFORM check_artwork_choices_are_current(
         current_artwork_type_id,
         p_date_created,
@@ -51,6 +49,23 @@ BEGIN
         p_vocabulary_term_ids,
         p_series_ids
     );
+
+    -- NO KEY UPDATE holds the row until the transaction ends, so a delete in another tab waits
+    -- rather than landing between here and the UPDATE. It's the lock the UPDATE takes anyway, and
+    -- unlike FOR UPDATE it lets other rows' foreign key checks against this artwork through
+    SELECT
+        artwork.slug
+    INTO
+        current_slug
+    FROM
+        artworks AS artwork
+    WHERE
+        artwork.id = p_id
+    FOR NO KEY UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The artwork no longer exists.' USING ERRCODE = 'SH003';
+    END IF;
 
     -- Keep the slug when it already belongs to this name's family, so saving an unchanged form
     -- doesn't move sunset-2 to sunset-4. Otherwise the current slug is outside the family, so this
