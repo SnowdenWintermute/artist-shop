@@ -1,16 +1,16 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace ArtistShop.Web.Tests.Database;
 
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly ArtworkImageRepository _images = new(database.ConnectionFactory);
-    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
-    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
+    private readonly ArtworkImageRepository _images = new(database.DataSource);
+    private readonly ArtworkRepository _artworks = new(database.DataSource);
+    private readonly CatalogTestData _catalog = new(database.DataSource);
 
     private async Task<Artwork> GetExistingAsync(ArtworkId id) =>
         await _artworks.GetByIdAsync(id) ?? throw new InvalidOperationException("The artwork is missing.");
@@ -219,7 +219,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
     {
         var name = UniqueName("Echo");
 
-        await Assert.ThrowsAsync<SqlException>(async () =>
+        await Assert.ThrowsAsync<PostgresException>(async () =>
             await _images.GetArtworkNameMatchesAsync(
                 await _catalog.GetPaintingTypeIdAsync(),
                 [new ArtworkName(name), new ArtworkName(name.ToUpperInvariant())]

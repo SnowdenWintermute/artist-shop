@@ -1,12 +1,12 @@
 namespace ArtistShop.Web.Search;
 
 using System.Data;
-using ArtistShop.Web.Database;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
+using Npgsql;
 
-public class SqlArtworkTitleSearch(SqlConnectionFactory connectionFactory) : ArtworkSearch
+public class SqlArtworkTitleSearch(NpgsqlDataSource dataSource) : ArtworkSearch
 {
     public override async Task<IReadOnlyList<ArtworkId>> FindAsync(string searchText)
     {
@@ -17,7 +17,7 @@ public class SqlArtworkTitleSearch(SqlConnectionFactory connectionFactory) : Art
             return [];
         }
 
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var ids = await connection.QueryAsync<int>(
             "dbo.FindArtworkIdsByName",

@@ -1,17 +1,17 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace ArtistShop.Web.Tests.Database;
 
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
-    private readonly ArtworkTypeRepository _artworkTypes = new(database.ConnectionFactory);
-    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
-    private readonly VocabularyRepository _vocabularies = new(database.ConnectionFactory);
+    private readonly CatalogTestData _catalog = new(database.DataSource);
+    private readonly ArtworkTypeRepository _artworkTypes = new(database.DataSource);
+    private readonly ArtworkRepository _artworks = new(database.DataSource);
+    private readonly VocabularyRepository _vocabularies = new(database.DataSource);
 
     // test classes share the database in parallel, so names must not collide
     private static ArtworkTypeName UniqueName() => new($"Type {Guid.NewGuid():n}");
@@ -66,7 +66,7 @@ public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task RefusesDepthWithoutHeightAndWidth()
     {
-        await Assert.ThrowsAsync<SqlException>(() =>
+        await Assert.ThrowsAsync<PostgresException>(() =>
             _artworkTypes.AddAsync(UniqueName(), [ArtworkField.Depth])
         );
     }

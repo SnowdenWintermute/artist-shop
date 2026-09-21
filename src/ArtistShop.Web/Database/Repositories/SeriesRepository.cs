@@ -3,22 +3,22 @@ namespace ArtistShop.Web.Database.Repositories;
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
-public class SeriesRepository(SqlConnectionFactory connectionFactory)
+public class SeriesRepository(NpgsqlDataSource dataSource)
 {
     private const string UniqueNameConstraint = "Unique_Series_Name";
     private const string UniqueSlugConstraint = "Unique_Series_Slug";
 
     // the same name also means the same slug, and which constraint SQL Server reports first isn't
     // defined, so both mean "name taken"
-    private static bool IsNameTaken(SqlException exception) =>
+    private static bool IsNameTaken(PostgresException exception) =>
         SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint)
         || SqlErrors.IsUniqueConstraintViolation(exception, UniqueSlugConstraint);
 
     public async Task<List<Series>> GetAllAsync()
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<SeriesRow>(
             "dbo.GetAllSeries",
@@ -46,7 +46,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<Series?> GetBySlugAsync(string slug)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var row = await connection.QuerySingleOrDefaultAsync<SeriesRow>(
             "dbo.GetSeriesBySlug",
@@ -61,7 +61,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     private async Task<List<SeriesWithCover>> GetWithCoversAsync(bool onlyArtworksWithImages)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<SeriesWithCoverRow>(
             "dbo.GetSeriesWithCovers",
@@ -91,7 +91,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<SeriesWithArtworks?> GetAsync(SeriesId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
             "dbo.GetSeries",
@@ -137,8 +137,8 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
     // A name another series already has arrives here as CatalogChangedException: the caller checked
     // the names it had, and another admin adding one since is a change it should look at again
     public static async Task<Dictionary<string, SeriesId>> AddManyAsync(
-        SqlConnection connection,
-        SqlTransaction transaction,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
         IReadOnlyList<SeriesName> names
     )
     {
@@ -177,7 +177,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 DatabaseCollationComparer.Instance
             );
         }
-        catch (SqlException exception) when (IsNameTaken(exception))
+        catch (PostgresException exception) when (IsNameTaken(exception))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -185,7 +185,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<SeriesId> AddAsync(SeriesName name, SeriesSlug slug)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -197,7 +197,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
             return new SeriesId(id);
         }
-        catch (SqlException exception) when (IsNameTaken(exception))
+        catch (PostgresException exception) when (IsNameTaken(exception))
         {
             throw new NameAlreadyInUseException(name.Value);
         }
@@ -205,7 +205,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task RenameAsync(SeriesId id, SeriesName name, SeriesSlug slug)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -220,12 +220,12 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception) when (IsNameTaken(exception))
+        catch (PostgresException exception) when (IsNameTaken(exception))
         {
             throw new NameAlreadyInUseException(name.Value);
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.SeriesNoLongerExists))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.SeriesNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -233,7 +233,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task ReorderAsync(IReadOnlyList<SeriesId> ids)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -243,8 +243,8 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.SeriesChangedSincePageLoad))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.SeriesChangedSincePageLoad))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -252,7 +252,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task DeleteAsync(SeriesId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
             "dbo.DeleteSeries",
@@ -263,7 +263,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task ReorderArtworksAsync(SeriesId id, IReadOnlyList<ArtworkId> artworkIds)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -279,8 +279,8 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworksChangedSincePageLoad))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworksChangedSincePageLoad))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -288,7 +288,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task SetCoverAsync(SeriesId id, ArtworkId artworkId)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -298,9 +298,9 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkNoLongerInSeries)
-                || SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkHasNoImage))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerInSeries)
+                || SqlErrors.IsThrown(exception, SqlStates.ArtworkHasNoImage))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -308,7 +308,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task ClearCoverAsync(SeriesId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
             "dbo.ClearSeriesCover",
@@ -319,7 +319,7 @@ public class SeriesRepository(SqlConnectionFactory connectionFactory)
 
     public async Task RemoveArtworksAsync(SeriesId id, IEnumerable<ArtworkId> artworkIds)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
             "dbo.RemoveArtworksFromSeries",

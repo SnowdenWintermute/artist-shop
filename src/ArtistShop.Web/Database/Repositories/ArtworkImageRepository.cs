@@ -3,15 +3,15 @@ namespace ArtistShop.Web.Database.Repositories;
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
-public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
+public class ArtworkImageRepository(NpgsqlDataSource dataSource)
 {
     // since we're using this to determine if an image exists, we
     // pick hash set
     public async Task<HashSet<string>> GetAllStorageKeysAsync()
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         // when a result set has exactly one column,
         // QueryAsync maps each row to a string, if it
@@ -31,7 +31,7 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
         ArtworkImage image
     )
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -55,7 +55,7 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
 
             return new ImageAttachResult(matchType, [.. artworkIds.Select(id => new ArtworkId(id))]);
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -76,7 +76,7 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
             names.Rows.Add(artworkName.Value);
         }
 
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -103,7 +103,7 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
                 row => new ArtworkNameMatch(row.MatchType, [.. artworkIdsByName[row.Name]])
             );
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }

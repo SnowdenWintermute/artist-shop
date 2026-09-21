@@ -8,10 +8,12 @@ using ArtistShop.Web.Search;
 using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
+using DbUp;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,10 +80,13 @@ builder.Services.AddScoped<OrphanedImageSweeper>();
 builder.Services.AddHostedService<OrphanedImageSweepService>();
 
 // domain database
-builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<SchemaMigrator>();
-builder.Services.AddSingleton(new SqlConnectionFactory(shopConnectionString));
+// a factory rather than an instance, so the container disposes the data source, and the pool of
+// connections it holds, when the app shuts down
+builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(shopConnectionString));
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+// the database's artwork_type_id fills the ArtworkTypeId property
+DefaultTypeMap.MatchNamesWithUnderscores = true;
 builder.Services.AddScoped<ArtworkRepository>();
 builder.Services.AddScoped<SeriesRepository>();
 builder.Services.AddScoped<ArtworkImageRepository>();
@@ -94,7 +99,7 @@ builder.Services.AddScoped<ArtworkSearch, SqlArtworkTitleSearch>();
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(identityConnectionString)
+    options.UseNpgsql(identityConnectionString)
 );
 
 builder.Services.AddCascadingAuthenticationState();
@@ -131,12 +136,7 @@ var app = builder.Build();
 
 /////////////////////////////
 
-var databaseInitializer = app.Services.GetRequiredService<DatabaseInitializer>();
-await databaseInitializer.EnsureDatabaseExistsAsync(shopConnectionString);
-await databaseInitializer.EnsureDatabaseExistsAsync(identityConnectionString);
-// not the identity database: `dotnet ef database update` can create that one with the server's
-// default, and identity compares its uppercased Normalized columns, so collation doesn't matter there
-await databaseInitializer.VerifyCollationAsync(shopConnectionString);
+EnsureDatabase.For.PostgresqlDatabase(shopConnectionString);
 
 var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
 schemaMigrator.Upgrade(shopConnectionString);
@@ -145,10 +145,15 @@ var imageStorage = app.Services.GetRequiredService<ImageStorage>();
 Directory.CreateDirectory(imageStorage.Originals);
 Directory.CreateDirectory(imageStorage.Variants);
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+    // creates the identity database too, if it isn't there yet
+    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+
+    if (app.Environment.IsDevelopment())
+    {
+        await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+    }
 }
 
 Console.WriteLine("Database initialization completed.");

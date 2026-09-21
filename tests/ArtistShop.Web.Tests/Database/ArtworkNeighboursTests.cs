@@ -6,9 +6,9 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkNeighboursTests(TestDatabaseFixture database)
 {
-    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
-    private readonly SeriesRepository _series = new(database.ConnectionFactory);
-    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
+    private readonly ArtworkRepository _artworks = new(database.DataSource);
+    private readonly SeriesRepository _series = new(database.DataSource);
+    private readonly CatalogTestData _catalog = new(database.DataSource);
 
     private Task<ArtworkIdentifiers> AddPhotographedAsync(SeriesId seriesId, string name) =>
         _catalog.AddPaintingAsync(

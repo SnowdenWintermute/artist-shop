@@ -3,12 +3,13 @@ namespace ArtistShop.Web.Database.Repositories;
 using System.Data;
 using ArtistShop.Web.Domain.Commerce;
 using Dapper;
+using Npgsql;
 
-public class ProductTypeRepository(SqlConnectionFactory connectionFactory)
+public class ProductTypeRepository(NpgsqlDataSource dataSource)
 {
     public async Task<List<ProductType>> GetAllAsync()
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<ProductTypeRow>(
             "dbo.GetProductTypes",

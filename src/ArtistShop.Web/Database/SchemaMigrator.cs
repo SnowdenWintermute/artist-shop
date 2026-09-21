@@ -9,7 +9,7 @@ public class SchemaMigrator
     public void Upgrade(string connectionString)
     {
         var migrations = DeployChanges
-            .To.SqlDatabase(connectionString)
+            .To.PostgresqlDatabase(connectionString)
             .WithScriptsEmbeddedInAssembly(typeof(SchemaMigrator).Assembly, IsMigration)
             .WithTransactionPerScript()
             .LogToConsole()
@@ -18,7 +18,7 @@ public class SchemaMigrator
         Run(migrations);
 
         var procedures = DeployChanges
-            .To.SqlDatabase(connectionString)
+            .To.PostgresqlDatabase(connectionString)
             .WithScriptsEmbeddedInAssembly(typeof(SchemaMigrator).Assembly, IsProcedure)
             .WithTransactionPerScript()
             .JournalTo(new NullJournal())

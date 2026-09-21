@@ -7,7 +7,7 @@
 # read them in production too -- only the thing setting the variables differs.
 
 if [[ ! -f .env ]]; then
-  echo "error: .env not found. Copy .env.example and set MSSQL_SA_PASSWORD." >&2
+  echo "error: .env not found. Copy .env.example and set POSTGRES_PASSWORD." >&2
   return 1
 fi
 
@@ -15,9 +15,9 @@ set -a
 . ./.env
 set +a
 
-export ConnectionStrings__ArtistShop="Server=localhost,1433;Database=ArtistShop;User Id=sa;Password=$MSSQL_SA_PASSWORD;TrustServerCertificate=True"
+export ConnectionStrings__ArtistShop="Host=localhost;Port=5434;Database=artist_shop;Username=postgres;Password=$POSTGRES_PASSWORD"
 # glibc's allocator gives each thread its own memory pool, and libvips's threads fragment them until
 # memory looks leaked. Two pools is what imgproxy, sharp and Mastodon recommend; production needs it too
 export MALLOC_ARENA_MAX=2
 
-export ConnectionStrings__ArtistShopIdentity="Server=localhost,1433;Database=ArtistShopIdentity;User Id=sa;Password=$MSSQL_SA_PASSWORD;TrustServerCertificate=True"
+export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=artist_shop_identity;Username=postgres;Password=$POSTGRES_PASSWORD"

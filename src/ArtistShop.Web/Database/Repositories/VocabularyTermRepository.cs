@@ -3,15 +3,15 @@ namespace ArtistShop.Web.Database.Repositories;
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
-public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
+public class VocabularyTermRepository(NpgsqlDataSource dataSource)
 {
     private const string UniqueNameConstraint = "Unique_VocabularyTerms_VocabularyName";
 
     public async Task<List<VocabularyTermWithUsage>> GetAllWithUsageAsync(VocabularyId vocabularyId)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<VocabularyTermWithUsageRow>(
             "dbo.GetVocabularyTermsWithUsage",
@@ -31,7 +31,7 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<VocabularyTermId> AddAsync(VocabularyId vocabularyId, VocabularyTermName name)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -43,7 +43,7 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
 
             return new VocabularyTermId(id);
         }
-        catch (SqlException exception)
+        catch (PostgresException exception)
             when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
@@ -52,7 +52,7 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
 
     public async Task RenameAsync(VocabularyTermId id, VocabularyTermName name)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
@@ -62,13 +62,13 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception)
+        catch (PostgresException exception)
             when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.VocabularyTermNoLongerExists))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.VocabularyTermNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -76,7 +76,7 @@ public class VocabularyTermRepository(SqlConnectionFactory connectionFactory)
 
     public async Task DeleteAsync(VocabularyTermId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
             "dbo.DeleteVocabularyTerm",

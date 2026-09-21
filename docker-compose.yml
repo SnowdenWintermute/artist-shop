@@ -1,33 +1,24 @@
 services:
-  artist-shop-mssql:
-    image: mcr.microsoft.com/mssql/server:2025-latest
-    container_name: artist-shop-mssql
-    env_file:
-      - .env
+  artist-shop-postgres:
+    image: postgres:18
+    container_name: artist-shop-postgres
     environment:
-      - ACCEPT_EULA=Y
-      - MSSQL_PID=Express
+      # compose reads POSTGRES_PASSWORD from .env for this substitution
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
-      - 1433:1433
-    # SQL Server 2025 needs at least 2 GB. The limit keeps it to the share planned for it in
-    # production, where the app's own container has a separate limit (see docker-compose.production.yml)
-    mem_limit: 2g
+      # 5432 and 5433 on this machine belong to speed-dungeon's and snowauth's Postgres
+      - 5434:5432
     volumes:
-      # Named volume, not a bind mount: the image runs as uid 10001 and cannot write to a
-      # host directory owned by us.
-      - artist-shop-mssql_data:/var/opt/mssql
+      # The postgres:18 image keeps its data in a versioned folder under /var/lib/postgresql, and
+      # mounting the parent is what lets a later major-version upgrade sit alongside the old data
+      - artist-shop-postgres_data:/var/lib/postgresql
     healthcheck:
-      # sqlcmd is in the image but not on PATH. -C trusts the self-signed cert the container
-      # generates for itself. The port opens well before the engine answers queries, so this
-      # is what dev.sh waits on rather than the port.
-      test:
-        [
-          "CMD-SHELL",
-          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q ''SELECT 1'' || exit 1',
-        ]
-      interval: 5s
+      # -h 127.0.0.1 asks over TCP on purpose: while the image initialises a new volume it runs a
+      # temporary server that only answers on the local socket, and a socket check would call
+      # that healthy
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+      interval: 2s
       timeout: 5s
-      retries: 20
-      start_period: 20s
+      retries: 30
 volumes:
-  artist-shop-mssql_data:
+  artist-shop-postgres_data:

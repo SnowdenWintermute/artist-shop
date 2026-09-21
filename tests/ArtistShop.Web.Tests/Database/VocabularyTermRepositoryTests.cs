@@ -7,9 +7,9 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class VocabularyTermRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly VocabularyTermRepository _terms = new(database.ConnectionFactory);
-    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
-    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
+    private readonly VocabularyTermRepository _terms = new(database.DataSource);
+    private readonly ArtworkRepository _artworks = new(database.DataSource);
+    private readonly CatalogTestData _catalog = new(database.DataSource);
 
     [Fact]
     public async Task ListsVocabularyTermsWithHowManyArtworksUseThem()

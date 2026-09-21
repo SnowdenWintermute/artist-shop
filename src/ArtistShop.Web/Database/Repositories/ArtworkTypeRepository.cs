@@ -3,15 +3,15 @@ namespace ArtistShop.Web.Database.Repositories;
 using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
-public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
+public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
 {
     private const string UniqueNameConstraint = "Unique_ArtworkTypes_Name";
 
     public async Task<List<ArtworkType>> GetAllAsync()
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<ArtworkTypeRow>(
             "dbo.GetArtworkTypes",
@@ -28,7 +28,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<ArtworkTypeWithFields?> GetAsync(ArtworkTypeId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
             "dbo.GetArtworkType",
@@ -55,7 +55,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<ArtworkTypeArtworkCounts> CountArtworksAsync(ArtworkTypeId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         // Dapper matches the columns to the record's constructor parameters by name
         return await connection.QuerySingleAsync<ArtworkTypeArtworkCounts>(
@@ -67,7 +67,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<ArtworkTypeId> AddAsync(ArtworkTypeName name, IEnumerable<ArtworkField> fields)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
@@ -78,7 +78,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
 
             return new ArtworkTypeId(id);
         }
-        catch (SqlException exception)
+        catch (PostgresException exception)
             when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
@@ -91,7 +91,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
         IEnumerable<ArtworkField> fields
     )
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
         try
         {
             await connection.ExecuteAsync(
@@ -105,13 +105,13 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception)
+        catch (PostgresException exception)
             when (SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint))
         {
             throw new NameAlreadyInUseException(name.Value);
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -119,7 +119,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
 
     public async Task DeleteAsync(ArtworkTypeId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
         try
         {
             await connection.ExecuteAsync(
@@ -128,7 +128,7 @@ public class ArtworkTypeRepository(SqlConnectionFactory connectionFactory)
                 commandType: CommandType.StoredProcedure
             );
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeInUse))
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeInUse))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }

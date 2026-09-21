@@ -7,7 +7,49 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-21
+## Where this stands — 2026-09-21, later: porting to Postgres
+
+**SQL Server is being replaced by Postgres 18, on the `postgresPort` branch.** `main` keeps the
+SQL Server version. The reason: the VPS has 2 GB of RAM, and SQL Server on Linux won't start in
+less than that. Azure SQL's free serverless tier was the plan until the numbers came out. It allows
+about 110 awake minutes a day, which public crawler traffic would use up, and each wake-up makes a
+visitor wait about a minute. The full phased plan is at
+`~/.claude/plans/refactored-percolating-backus.md`. **Read it before starting.** Claude writes the
+port and Mike reviews it, with every place Postgres behaves differently called out. Names are
+snake_case.
+
+**Phase 1 is done (uncommitted on `postgresPort`), and the solution builds with no warnings.** It
+has never run against Postgres:
+- Npgsql, dbup-postgresql and the Npgsql EF provider replace the SQL Server packages.
+- `NpgsqlDataSource` replaces `SqlConnectionFactory`, which is deleted.
+- `DatabaseInitializer` is deleted. DbUp's `EnsureDatabase` creates the domain database, and EF's
+  `MigrateAsync()` at startup creates and migrates the identity database, so the manual
+  `dotnet ef database update` step is gone. The identity migration was regenerated for Npgsql.
+- `SqlErrorNumbers` became `SqlStates`, holding SQLSTATE codes `SH001`–`SH014`. The SQL standard
+  reserves the classes starting A–H, so ours is `SH`. `SqlErrors` matches on `SqlState` and
+  `ConstraintName`, never on the message text.
+- `DefaultTypeMap.MatchNamesWithUnderscores = true`.
+- The test fixture uses `artist_shop_tests` and `DROP DATABASE … WITH (FORCE)`.
+- Dev Postgres is `artist-shop-postgres` on host port **5434** (5432 and 5433 are speed-dungeon's
+  and snowauth's). `POSTGRES_PASSWORD` is in `.env`. `env.sh`, `dev.sh`, `commands.md` and the
+  formatter dialect are updated. If `artist-shop-mssql` is still running, stop it
+  (`docker stop artist-shop-mssql`); its volume is kept for `main`.
+
+**The app won't boot yet**, and that's expected. The schema scripts and the 50 procedures are still
+T-SQL, and every repository still calls them with `CommandType.StoredProcedure`.
+
+**Next: Phase 2, the schema.** Rewrite `Database/Scripts/` as a fresh Postgres set, since nothing
+is released and nothing needs migrating. The T-SQL table types in 0002–0006 disappear. The two
+parts to get right:
+- The ICU collations, applied per column: `und-u-ks-level2` for case-insensitive names,
+  `und-u-ks-level1` for the accent-insensitive search.
+- `UNIQUE NULLS NOT DISTINCT` on Products.
+
+Then Phase 3, one area at a time with its database tests green, **ProductTypes + ArtworkFields
+first**. The unique-constraint names in the repositories (`UniqueNameConstraint` and the others)
+change to the new snake_case names as each area is ported. Ask Mike before running tests.
+
+## Where this stands — 2026-09-21, earlier
 
 **The artwork page is built.** `/artworks/{slug}` is the big image, a thumbnail picker, a
 full-screen view, and the panel of everything the work carries. It was done in four slices, each

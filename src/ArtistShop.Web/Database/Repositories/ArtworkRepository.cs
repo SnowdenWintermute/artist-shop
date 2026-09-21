@@ -5,18 +5,18 @@ using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using Dapper;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
-public class ArtworkRepository(SqlConnectionFactory connectionFactory)
+public class ArtworkRepository(NpgsqlDataSource dataSource)
 {
     // what our artwork procedures THROW when a choice changed while the form was open
-    private static readonly int[] CatalogChangedErrors =
+    private static readonly string[] CatalogChangedErrors =
     [
-        SqlErrorNumbers.VocabularyTermNoLongerExists,
-        SqlErrorNumbers.SeriesNoLongerExists,
-        SqlErrorNumbers.ArtworkTypeNoLongerExists,
-        SqlErrorNumbers.ArtworkFieldSwitchedOff,
-        SqlErrorNumbers.ProductTypeNoLongerExists,
+        SqlStates.VocabularyTermNoLongerExists,
+        SqlStates.SeriesNoLongerExists,
+        SqlStates.ArtworkTypeNoLongerExists,
+        SqlStates.ArtworkFieldSwitchedOff,
+        SqlStates.ProductTypeNoLongerExists,
     ];
 
     private static DataTable CreateImageDataTable(
@@ -86,7 +86,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         IReadOnlyList<ArtworkCatalogAddition> artworkCatalogAdditions
     )
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
         // Dapper opens a closed connection by itself, but a transaction needs it open first
         await connection.OpenAsync();
         await using var transaction = connection.BeginTransaction();
@@ -114,18 +114,18 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
             await transaction.CommitAsync();
             return identifiers;
         }
-        catch (SqlException exception) when (IsCatalogChanged(exception))
+        catch (PostgresException exception) when (IsCatalogChanged(exception))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
     }
 
-    private static bool IsCatalogChanged(SqlException exception) =>
-        CatalogChangedErrors.Any(number => SqlErrors.IsThrown(exception, number));
+    private static bool IsCatalogChanged(PostgresException exception) =>
+        CatalogChangedErrors.Any(sqlState => SqlErrors.IsThrown(exception, sqlState));
 
     private static async Task<ArtworkIdentifiers> ExecuteAddAsync(
-        SqlConnection connection,
-        SqlTransaction transaction,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
         ArtworkCatalogAddition artworkCatalogAddition,
 
         // the addition's own series plus the ones just created for it
@@ -176,7 +176,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         bool onlyArtworksWithImages
     )
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var row = await connection.QuerySingleOrDefaultAsync<ArtworkNeighboursRow>(
             "dbo.GetArtworkNeighboursInSeries",
@@ -202,7 +202,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 
     public async Task<List<string>> GetNamesOfTypeAsync(ArtworkTypeId artworkTypeId)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var names = await connection.QueryAsync<string>(
             "dbo.GetArtworkNames",
@@ -224,7 +224,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
         IReadOnlyList<ArtworkId>? searchMatches
     )
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var pageSize = CatalogLimits.ArtworkListPageSize;
 
@@ -279,7 +279,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     // the slug comes back because the procedure decides it: a rename can land on a numbered one
     public async Task<ArtworkSlug> UpdateAsync(ArtworkCatalogUpdate artworkCatalogUpdate)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var images = CreateImageDataTable(
             artworkCatalogUpdate.Images,
@@ -319,12 +319,12 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
 
             return new ArtworkSlug(slug);
         }
-        catch (SqlException exception)
-            when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkNoLongerExists))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerExists))
         {
             throw new ArtworkDeletedException(exception.Message, exception);
         }
-        catch (SqlException exception) when (IsCatalogChanged(exception))
+        catch (PostgresException exception) when (IsCatalogChanged(exception))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -334,7 +334,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     // ON DELETE CASCADE. The image files wait for OrphanedImageSweeper
     public async Task DeleteAsync(ArtworkId id)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
             "dbo.DeleteArtwork",
@@ -346,7 +346,7 @@ public class ArtworkRepository(SqlConnectionFactory connectionFactory)
     // both procedures return the same result sets, since GetArtworkBySlug runs GetArtworkById
     private async Task<Artwork?> GetAsync(string procedure, object parameters)
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
             procedure,
