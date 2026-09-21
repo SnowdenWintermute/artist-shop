@@ -24,6 +24,10 @@ public static class ImageVariants
     // the tile actually came out
     public const int CardWidth = 800;
 
+    // the image an artwork page is built around may ask for anything there is. [^1] is the
+    // last item of the array
+    public static readonly int MainImageWidth = Widths[^1];
+
     public static string FileName(int width, ImageVariantFormat format) =>
         format switch
         {

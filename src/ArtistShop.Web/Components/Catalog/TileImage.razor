@@ -11,7 +11,7 @@
   [Parameter]
   public string Alt { get; set; } = "";
 
-  // the box the picture fills
+  // the box the picture fills, and the caller's hook for how that box sits in its own layout
   [Parameter]
   public string BoxClass { get; set; } = "w-full aspect-[4/3]";
 
@@ -27,30 +27,24 @@
   [Parameter]
   public bool IsEager { get; set; }
 
-  // every variant this image actually has, each under its true width, so the browser is never
-  // handed a narrower file than the number it is choosing by
-  private string SourceSetFor(ArtworkImage image) =>
-    string.Join(
-      ", ",
-      ImageVariants.WidthsFor(image.Width)
-        .Where(width => width <= MaximumWidth)
-        .Select(width =>
-          $"{ImageUrls.Variant(image.StorageKey, image.Width, width, ImageVariantFormat.Avif)} {width}w")
-    );
+  // a tile fills its box and is cropped to fit; a work is shown whole, inside whatever shape
+  // the caller gave the box
+  [Parameter]
+  public bool IsUncropped { get; set; }
 
-  // the tiny blurred copy saved with the image, held behind the picture so the tile has
+  // the tiny blurred copy saved with the image, held behind the picture so the box has
   // something to show while it loads
   private string BlurStyle =>
     Image?.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri})" : "";
 }
 
-@* shrink-0: the admin lists put this in a flex row, which would otherwise squeeze it *@
-<div class="@($"{BoxClass} shrink-0 overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle">
+<div class="@($"{BoxClass} overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle">
   @if (Image is { } image)
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
-         srcset="@SourceSetFor(image)" sizes="@Sizes" alt="@Alt" loading="@(IsEager ? "eager" : "lazy")"
-         class="size-full object-cover" />
+         srcset="@ImageUrls.SourceSet(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
+         sizes="@Sizes" alt="@Alt" loading="@(IsEager ? "eager" : "lazy")"
+         class="@($"size-full {(IsUncropped ? "object-contain" : "object-cover")}")" />
   }
   else
   {

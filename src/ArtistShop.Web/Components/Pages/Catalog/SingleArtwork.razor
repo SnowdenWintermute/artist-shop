@@ -1,7 +1,6 @@
 @page "/artworks/{slug}"
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@using ArtistShop.Web.Images
 @inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
 
@@ -9,29 +8,43 @@
   [Parameter]
   public string Slug { get; set; } = default!;
 
-  private Artwork? artwork;
+  [SupplyParameterFromQuery(Name = ArtworkGallery.ImageKey)]
+  private string? ImageValue { get; set; }
+
+  private Artwork? _artwork;
+
+  // the address counts from one, the way a person reads "image 2", and everything inside counts
+  // from zero. A number that is missing, isn't one, or names an image the artwork no longer has
+  // falls back to the starred image, so a stale link still shows the work
+  private int CurrentImageIndex(Artwork artwork) =>
+    int.TryParse(ImageValue, out var number) && number >= 1 && number <= artwork.Images.Count
+      ? number - 1
+      : artwork.MainImageIndex;
 
   protected override async Task OnParametersSetAsync()
   {
-    artwork = await ArtworkRepository.GetBySlugAsync(Slug);
+    _artwork = await ArtworkRepository.GetBySlugAsync(Slug);
 
-    if (artwork is null)
+    if (_artwork is null)
     {
       NavigationManager.NotFound();
     }
   }
 }
 
-@if (artwork is not null)
+@if (_artwork is { } artwork)
 {
   <PageTitle>@artwork.Name.Value</PageTitle>
-  <h1>@artwork.Name.Value</h1>
-  <h1>@artwork.Description</h1>
-  @foreach (var image in artwork.Images)
-  {
 
-    <img src="@image.BlurDataUri" />
-    <img src="@ImageUrls.Variant(image.StorageKey, image.Width, 800, ImageVariantFormat.Webp)" />
-    <div>@image.StorageKey </div>
-  }
+  <main class="mx-auto max-w-[1200px] p-4">
+    @* one column on a phone, the panel beside the work once there is room. minmax(0,…) rather
+       than a bare 2fr: a grid track's smallest size is its content by default, which a wide
+       image would stretch past the page *@
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <ArtworkGallery Images="artwork.Images" CurrentImageIndex="CurrentImageIndex(artwork)" Slug="@artwork.Slug.Value"
+                      Alt="@artwork.Name.Value" />
+
+      <ArtworkDetails Artwork="artwork" />
+    </div>
+  </main>
 }

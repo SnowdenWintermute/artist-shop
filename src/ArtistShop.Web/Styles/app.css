@@ -120,6 +120,12 @@ button[data-busy] {
   @apply pointer-events-none opacity-60;
 }
 
+/* the thumbnail whose image is showing. The gallery script moves the marker and the look
+   follows it, so the script names no class of its own */
+artwork-gallery a[aria-current="true"] {
+  @apply outline outline-2;
+}
+
 /* the rows it is replacing go faint, so the indicator isn't the only sign anything is happening */
 html[data-loading] .artist-shop-fades-while-loading {
   opacity: 0.4;

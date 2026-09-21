@@ -1,0 +1,113 @@
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Commerce
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public Artwork Artwork { get; set; } = default!;
+
+  // nothing is for sale on the site yet, so a price is a label. Sold work keeps its row
+  // without its price
+  private static string PriceLine(Product product) =>
+    product.Stock < 1 ? "Sold"
+    : product.Price is { } price ? PriceText.Of(price)
+    : "Price on request";
+
+  // grouped under the vocabulary each term came from, so the panel reads "Medium: Oil, Pastel".
+  // The repository returns them unsorted, so the order is settled here
+  private IEnumerable<IGrouping<string, VocabularyTerm>> TermsByVocabulary =>
+    Artwork.VocabularyTerms
+      .GroupBy(term => term.VocabularyName.Value)
+      .OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase);
+
+  private IEnumerable<Series> SeriesByName =>
+    Artwork.Series.OrderBy(series => series.Name.Value, StringComparer.CurrentCultureIgnoreCase);
+
+  private static string TermNames(IEnumerable<VocabularyTerm> terms) =>
+    string.Join(", ", terms.Select(term => term.Name.Value).Order(StringComparer.CurrentCultureIgnoreCase));
+}
+
+<div>
+  <h1 class="mb-1 text-2xl flex justify-between items-center"><span>@Artwork.Name.Value</span>
+    <AuthorizeView>
+      <Authorized>
+        <a class="cursor-pointer text-base underline" href="@($"/admin/catalog/artworks/{Artwork.Id.Value}/edit")">
+          Edit
+        </a>
+      </Authorized>
+    </AuthorizeView>
+  </h1>
+  <p class="mb-6 text-gray-500">@Artwork.Type.Name.Value</p>
+
+  @if (Artwork.Products.Count > 0)
+  {
+    <ul class="mb-6">
+      @foreach (var product in Artwork.Products)
+      {
+        <li @key="product.Id" class="flex justify-between gap-4 border-b py-2">
+          <span>
+            @product.Type.Name.Value
+
+            @if (product.Label is { } label)
+            {
+              <span class="text-sm text-gray-500">@label</span>
+            }
+
+            @if (product.EditionSize is > 1)
+            {
+              <span class="text-sm text-gray-500">Edition of @product.EditionSize</span>
+            }
+          </span>
+
+          <span>@PriceLine(product)</span>
+        </li>
+      }
+    </ul>
+  }
+
+  @* a field the work type has switched off has no value on the artwork, so showing only what is
+     filled in leaves the empty rows out on its own *@
+  <dl class="mb-6 text-sm">
+    @if (Artwork.DateCreated is { } dateCreated)
+    {
+      <dt class="text-gray-500">Date</dt>
+      <dd class="mb-2">@dateCreated.Text</dd>
+    }
+
+    @if (Artwork.Dimensions is { } dimensions)
+    {
+      <dt class="text-gray-500">Size</dt>
+      <dd class="mb-2">@dimensions.Text</dd>
+    }
+
+    @if (Artwork.Duration is { } duration)
+    {
+      <dt class="text-gray-500">Duration</dt>
+      <dd class="mb-2">@ArtworkDuration.ToText(duration)</dd>
+    }
+
+    @foreach (var vocabulary in TermsByVocabulary)
+    {
+      <dt @key="vocabulary.Key" class="text-gray-500">@vocabulary.Key</dt>
+      <dd class="mb-2">@TermNames(vocabulary)</dd>
+    }
+
+    @if (Artwork.Series.Count > 0)
+    {
+      <dt class="text-gray-500">Series</dt>
+      <dd class="mb-2">
+        @foreach (var (series, index) in SeriesByName.Select((series, index) => (series, index)))
+        {
+          @(index > 0 ? ", " : "")
+          <a href="@($"/series/{series.Slug.Value}")">@series.Name.Value</a>
+        }
+      </dd>
+    }
+  </dl>
+
+  @if (Artwork.Description is { } description)
+  {
+    @* whitespace-pre-line keeps the artist's own line breaks without letting a long line overflow *@
+    <p class="whitespace-pre-line">@description</p>
+  }
+</div>

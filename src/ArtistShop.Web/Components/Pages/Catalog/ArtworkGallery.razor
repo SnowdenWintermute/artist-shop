@@ -1,0 +1,85 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkImage> Images { get; set; } = default!;
+  // which image is showing, which is the artist's starred one unless the address asked for another
+  [Parameter, EditorRequired]
+  public int CurrentImageIndex { get; set; }
+  [Parameter, EditorRequired]
+  public string Slug { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Alt { get; set; } = default!;
+
+  // the page reads this back out of the address
+  public const string ImageKey = "image";
+
+  // how much of the screen the work may take, so the whole of it is visible without scrolling
+  private const int StageMaximumScreenHeightPercent = 80;
+
+  // what the image will be asked to fill: the wide column of the page, the whole width below it
+  private const string MainImageSizes = "(min-width: 1200px) 760px, (min-width: 1024px) 63vw, 100vw";
+
+  // every image is shown in one box, the shape of the tallest of them, so clicking through the
+  // picker never moves the page. A wider image gets space above and below
+  private ArtworkImage? StageImage =>
+    Images.OrderBy(image => (double)image.Width / image.Height).FirstOrDefault();
+
+  // width rather than height: a box with an aspect ratio takes its height from its width, so a
+  // max-height would leave the width alone and only letterbox the picture inside it
+  private static string StageStyle(ArtworkImage stage) =>
+    $"aspect-ratio: {stage.Width} / {stage.Height};"
+    + $" max-width: calc({StageMaximumScreenHeightPercent}vh * {stage.Width} / {stage.Height})";
+
+  // the picker's links only ever load when the script hasn't: a click with it in place is caught
+  // and swapped where it stands, so the address never gains the parameter. Counting from one here
+  // and from zero everywhere else, because this is the number a person reads
+  private string ThumbnailUrl(int index) => $"/artworks/{Slug}?{ImageKey}={index + 1}";
+
+  private IEnumerable<(ArtworkImage Image, int Index)> NumberedImages =>
+    Images.Select((image, index) => (image, index));
+}
+
+@* <artwork-gallery> is defined in ArtworkGallery.razor.js: it moves which image is shown, and
+   nothing else. Without it every thumbnail is still a link to this page showing that image, so
+   the picker works by page load instead *@
+<artwork-gallery class="block">
+  @if (StageImage is { } stage)
+  {
+    <div class="mx-auto mb-4" style="@StageStyle(stage)">
+      @foreach (var (image, index) in NumberedImages)
+      {
+        @* hidden until asked for, which is also what keeps the browser from fetching it: a lazy
+           image that is never displayed is never loaded *@
+        <div @key="image.StorageKey" data-artwork-image="@index" hidden="@(index != CurrentImageIndex)" class="size-full">
+          <TileImage Image="image" Alt="@Alt" IsUncropped IsEager="@(index == CurrentImageIndex)" BoxClass="size-full"
+                     MaximumWidth="ImageVariants.MainImageWidth" Sizes="@MainImageSizes" />
+        </div>
+      }
+    </div>
+  }
+  else
+  {
+    <TileImage BoxClass="mb-4 w-full aspect-[4/3]" />
+  }
+
+  @if (Images.Count > 1)
+  {
+    @* a link back to this page showing that image, so a thumbnail works before any script runs and
+       a middle click or a held modifier opens the work in a new tab rather than a bare file *@
+    <ul class="flex flex-wrap gap-2">
+      @foreach (var (image, index) in NumberedImages)
+      {
+        <li @key="image.StorageKey">
+          <a href="@ThumbnailUrl(index)" data-artwork-thumbnail="@index" class="block"
+             aria-current="@(index == CurrentImageIndex ? "true" : null)">
+            <ArtworkThumbnail Image="image" Class="size-16" />
+          </a>
+        </li>
+      }
+    </ul>
+  }
+</artwork-gallery>
