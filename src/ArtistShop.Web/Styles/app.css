@@ -120,6 +120,23 @@ button[data-busy] {
   @apply pointer-events-none opacity-60;
 }
 
+/* the full-screen view of a work: no padding and no panel, because the picture is the whole
+   point, and the dialog is its own frame. The cursor says what a click does, which is close */
+.artist-shop-lightbox {
+  @apply relative m-0 h-full max-h-none w-full max-w-none cursor-zoom-out bg-black/95 p-0;
+  @apply backdrop:bg-black/95;
+}
+
+/* a trigger is only offered where a lightbox is on the page to answer it, which
+   ImageLightbox.razor.js says by marking the document once it has been upgraded */
+html:not([data-lightbox-ready]) [data-lightbox-button] {
+  display: none;
+}
+
+html[data-lightbox-ready] [data-lightbox-open] {
+  @apply cursor-zoom-in;
+}
+
 /* the thumbnail whose image is showing. The gallery script moves the marker and the look
    follows it, so the script names no class of its own */
 artwork-gallery a[aria-current="true"] {

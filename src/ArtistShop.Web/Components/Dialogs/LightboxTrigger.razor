@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* Wraps whatever opens the full-screen view, usually a picture, and puts the button on it. The
+   button isn't there until a lightbox is on the page to answer it: app.css hides it until
+   ImageLightbox.razor.js marks the document *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // the words on the button
+  [Parameter]
+  public string Label { get; set; } = "Full screen";
+}
+
+<div data-lightbox-open class="relative">
+  @ChildContent
+
+</div>

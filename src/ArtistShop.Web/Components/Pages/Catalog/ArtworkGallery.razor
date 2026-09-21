@@ -1,5 +1,6 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
 
@@ -49,14 +50,21 @@
 <artwork-gallery class="block">
   @if (StageImage is { } stage)
   {
-    <div class="mx-auto mb-4" style="@StageStyle(stage)">
+    @* the frame keeps the shape of the tallest image so the page never moves, and each picture
+       sits in the middle of it at its own shape. The bars either side belong to the frame, not to
+       the work, which is why the trigger wraps the picture rather than this *@
+    <div class="mx-auto mb-4 flex items-center justify-center" style="@StageStyle(stage)">
       @foreach (var (image, index) in NumberedImages)
       {
         @* hidden until asked for, which is also what keeps the browser from fetching it: a lazy
            image that is never displayed is never loaded *@
-        <div @key="image.StorageKey" data-artwork-image="@index" hidden="@(index != CurrentImageIndex)" class="size-full">
-          <TileImage Image="image" Alt="@Alt" IsUncropped IsEager="@(index == CurrentImageIndex)" BoxClass="size-full"
-                     MaximumWidth="ImageVariants.MainImageWidth" Sizes="@MainImageSizes" />
+        <div @key="image.StorageKey" data-artwork-image="@index" hidden="@(index != CurrentImageIndex)"
+             class="w-full">
+          <LightboxTrigger>
+            <TileImage Image="image" Alt="@Alt" IsUncropped IsEager="@(index == CurrentImageIndex)"
+                       BoxClass="w-full" MaximumWidth="ImageVariants.MainImageWidth"
+                       Sizes="@MainImageSizes" />
+          </LightboxTrigger>
         </div>
       }
     </div>
@@ -82,4 +90,6 @@
       }
     </ul>
   }
+
+  <ImageLightbox />
 </artwork-gallery>

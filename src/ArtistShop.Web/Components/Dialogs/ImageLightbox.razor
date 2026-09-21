@@ -1,0 +1,27 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* <image-lightbox> is defined in ImageLightbox.razor.js. It starts closed and is opened by script,
+   which is why it isn't ModalDialog: that one opens as soon as it is rendered, and carries a title
+   bar and padding a picture has no use for. What it shows is handed to it, so it knows nothing
+   about artworks *@
+
+<image-lightbox class="contents">
+  <dialog data-lightbox-dialog class="artist-shop-lightbox" aria-label="Full screen image">
+    @* size-full is what makes object-contain mean anything: the element is the screen, and the
+       picture is fitted inside it. Given no box the image would simply take its own shape and
+       object-fit would do nothing *@
+    <img data-lightbox-picture alt="" sizes="100vw" class="size-full object-contain" />
+
+    <ButtonBasic type="button"
+                 Class="absolute top-4 right-4 z-10 border border-white/40 text-white">Close</ButtonBasic>
+
+    <ButtonBasic type="button" data-lightbox-step="-1" aria-label="Previous image"
+                 Class="absolute top-1/2 left-4 z-10 -translate-y-1/2 border border-white/40 text-white disabled:opacity-30">←</ButtonBasic>
+
+    <ButtonBasic type="button" data-lightbox-step="1" aria-label="Next image"
+                 Class="absolute top-1/2 right-4 z-10 -translate-y-1/2 border border-white/40 text-white disabled:opacity-30">→</ButtonBasic>
+
+    <p data-lightbox-counter aria-live="polite" hidden
+       class="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white"></p>
+  </dialog>
+</image-lightbox>

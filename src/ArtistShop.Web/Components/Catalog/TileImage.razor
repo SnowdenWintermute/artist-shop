@@ -35,10 +35,15 @@
   // the tiny blurred copy saved with the image, held behind the picture so the box has
   // something to show while it loads
   private string BlurStyle =>
-    Image?.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri})" : "";
+    Image?.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
+
+  // an uncropped box takes the picture's own shape, so the box is the picture and nothing else:
+  // the blur sits behind the work rather than beside it, and a click lands only on the work
+  private string AspectStyle =>
+    IsUncropped && Image is { } shaped ? $"aspect-ratio: {shaped.Width} / {shaped.Height};" : "";
 }
 
-<div class="@($"{BoxClass} overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle">
+<div class="@($"{BoxClass} overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle @AspectStyle">
   @if (Image is { } image)
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
