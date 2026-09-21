@@ -1,14 +1,12 @@
-CREATE OR ALTER PROCEDURE dbo.GetSeriesBySlug @Slug nvarchar(200) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_series_by_slug;
 
+CREATE FUNCTION get_series_by_slug (p_slug text) RETURNS TABLE (id int, name text, slug text) LANGUAGE sql STABLE AS $$
 SELECT
-    Id,
-    Name,
-    Slug
+    series.id,
+    series.name,
+    series.slug
 FROM
-    dbo.Series
+    series
 WHERE
-    Slug = @Slug;
-
-END;
+    series.slug = p_slug;
+$$;

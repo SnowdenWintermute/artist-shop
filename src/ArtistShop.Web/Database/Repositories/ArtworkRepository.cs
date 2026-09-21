@@ -1,6 +1,5 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
@@ -9,7 +8,7 @@ using Npgsql;
 
 public class ArtworkRepository(NpgsqlDataSource dataSource)
 {
-    // what our artwork procedures THROW when a choice changed while the form was open
+    // what our artwork functions RAISE when a choice changed while the form was open
     private static readonly string[] CatalogChangedErrors =
     [
         SqlStates.VocabularyTermNoLongerExists,
@@ -19,63 +18,35 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         SqlStates.ProductTypeNoLongerExists,
     ];
 
-    private static DataTable CreateImageDataTable(
+    private static ArtworkImageInput[] CreateImageInputs(
         IReadOnlyList<ArtworkImage> artworkImages,
         int mainImageIndex
-    )
-    {
-        var images = new DataTable();
-        images.Columns.Add("StorageKey", typeof(string));
-        images.Columns.Add("OriginalFileName", typeof(string));
-        images.Columns.Add("SortOrder", typeof(int));
-        images.Columns.Add("IsPrimary", typeof(bool));
-        images.Columns.Add("Width", typeof(int));
-        images.Columns.Add("Height", typeof(int));
-        images.Columns.Add("BlurDataUri", typeof(string));
+    ) =>
+        [
+            .. artworkImages.Select(
+                (image, index) =>
+                    new ArtworkImageInput(
+                        image.StorageKey,
+                        image.OriginalFileName,
+                        index,
+                        index == mainImageIndex,
+                        image.Width,
+                        image.Height,
+                        image.BlurDataUri
+                    )
+            ),
+        ];
 
-        for (var i = 0; i < artworkImages.Count; i += 1)
-        {
-            var image = artworkImages[i];
-            // must match the Table Value Property dbo.ArtworkImageList
-            // parameter order
-            images.Rows.Add(
-                image.StorageKey,
-                image.OriginalFileName,
-                i,
-                i == mainImageIndex,
-                image.Width,
-                image.Height,
-                image.BlurDataUri
-            );
-        }
-
-        return images;
-    }
-
-    private static DataTable CreateProductDataTable(IReadOnlyList<ProductAddition> products)
-    {
-        var table = new DataTable();
-        // must match dbo.ProductList, in the same order
-        table.Columns.Add("ProductTypeId", typeof(int));
-        table.Columns.Add("Label", typeof(string));
-        table.Columns.Add("Price", typeof(decimal));
-        table.Columns.Add("EditionSize", typeof(int));
-        table.Columns.Add("Stock", typeof(int));
-
-        foreach (var product in products)
-        {
-            // a DataTable stores a missing value as DBNull, not null
-            table.Rows.Add(
+    private static ProductInput[] CreateProductInputs(IReadOnlyList<ProductAddition> products) =>
+        [
+            .. products.Select(product => new ProductInput(
                 product.TypeId.Value,
-                (object?)product.Label ?? DBNull.Value,
-                (object?)product.Price ?? DBNull.Value,
-                (object?)product.EditionSize ?? DBNull.Value,
+                product.Label,
+                product.Price,
+                product.EditionSize,
                 product.Stock
-            );
-        }
-
-        return table;
-    }
+            )),
+        ];
 
     // one addition takes the same path as many, so it can name a series that doesn't exist yet
     public async Task<ArtworkIdentifiers> AddAsync(ArtworkCatalogAddition artworkCatalogAddition) =>
@@ -97,18 +68,33 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
             var newSeriesIds = await SeriesRepository.AddManyAsync(
                 connection,
                 transaction,
-                [.. artworkCatalogAdditions.SelectMany(artworkCatalogAddition => artworkCatalogAddition.NewSeriesNames)]
+                [
+                    .. artworkCatalogAdditions.SelectMany(artworkCatalogAddition =>
+                        artworkCatalogAddition.NewSeriesNames
+                    ),
+                ]
             );
 
-            // AddArtwork's own BEGIN and COMMIT nest inside this transaction, so its COMMIT only
-            // counts down; nothing is saved until the CommitAsync below
+            // add_artwork runs inside this transaction, so nothing is saved until the CommitAsync
+            // below
             foreach (var artworkCatalogAddition in artworkCatalogAdditions)
             {
                 var seriesIds = artworkCatalogAddition
-                    .SeriesIds.Concat(artworkCatalogAddition.NewSeriesNames.Select(name => newSeriesIds[name.Value]))
+                    .SeriesIds.Concat(
+                        artworkCatalogAddition.NewSeriesNames.Select(name =>
+                            newSeriesIds[name.Value]
+                        )
+                    )
                     .ToList();
 
-                identifiers.Add(await ExecuteAddAsync(connection, transaction, artworkCatalogAddition, seriesIds));
+                identifiers.Add(
+                    await ExecuteAddAsync(
+                        connection,
+                        transaction,
+                        artworkCatalogAddition,
+                        seriesIds
+                    )
+                );
             }
 
             await transaction.CommitAsync();
@@ -127,24 +113,18 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         ArtworkCatalogAddition artworkCatalogAddition,
-
         // the addition's own series plus the ones just created for it
         IReadOnlyList<SeriesId> resolvedSeriesIds
     )
     {
-        var images = CreateImageDataTable(
-            artworkCatalogAddition.Images,
-            artworkCatalogAddition.MainImageIndex
-        );
-        var products = CreateProductDataTable(artworkCatalogAddition.Products);
-        var seriesIds = IdListParameter.Create(resolvedSeriesIds.Select(id => id.Value));
-
-        var vocabularyTermIds = IdListParameter.Create(
-            artworkCatalogAddition.VocabularyTermIds.Select(id => id.Value)
-        );
-
         var row = await connection.QuerySingleAsync<AddedArtworkRow>(
-            "dbo.AddArtwork",
+            """
+            SELECT * FROM add_artwork(
+                @ArtworkTypeId, @Name, @CandidateSlug, @Description, @DateCreated, @DateCreatedPrecision,
+                @HeightCm, @WidthCm, @DepthCm, @DurationSeconds,
+                @Images, @VocabularyTermIds, @SeriesIds, @Products
+            )
+            """,
             new
             {
                 ArtworkTypeId = artworkCatalogAddition.TypeId.Value,
@@ -157,13 +137,16 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
                 WidthCm = artworkCatalogAddition.Dimensions?.Width,
                 DepthCm = artworkCatalogAddition.Dimensions?.Depth,
                 DurationSeconds = (int?)artworkCatalogAddition.Duration?.TotalSeconds,
-                Images = images.AsTableValuedParameter("dbo.ArtworkImageList"),
-                SeriesIds = seriesIds,
-                VocabularyTermIds = vocabularyTermIds,
-                Products = products.AsTableValuedParameter("dbo.ProductList"),
+                Images = CreateImageInputs(
+                    artworkCatalogAddition.Images,
+                    artworkCatalogAddition.MainImageIndex
+                ),
+                VocabularyTermIds = (int[])
+                    [.. artworkCatalogAddition.VocabularyTermIds.Select(id => id.Value)],
+                SeriesIds = (int[])[.. resolvedSeriesIds.Select(id => id.Value)],
+                Products = CreateProductInputs(artworkCatalogAddition.Products),
             },
-            transaction,
-            commandType: CommandType.StoredProcedure
+            transaction
         );
 
         return new ArtworkIdentifiers(new ArtworkId(row.Id), new ArtworkSlug(row.Slug));
@@ -179,14 +162,13 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         var row = await connection.QuerySingleOrDefaultAsync<ArtworkNeighboursRow>(
-            "dbo.GetArtworkNeighboursInSeries",
+            "SELECT * FROM get_artwork_neighbours_in_series(@SeriesId, @ArtworkId, @OnlyArtworksWithImages)",
             new
             {
                 SeriesId = seriesId.Value,
                 ArtworkId = artworkId.Value,
                 OnlyArtworksWithImages = onlyArtworksWithImages,
-            },
-            commandType: CommandType.StoredProcedure
+            }
         );
 
         return new ArtworkNeighbours(
@@ -205,18 +187,28 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         var names = await connection.QueryAsync<string>(
-            "dbo.GetArtworkNames",
-            new { ArtworkTypeId = artworkTypeId.Value },
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_artwork_names(@ArtworkTypeId)",
+            new { ArtworkTypeId = artworkTypeId.Value }
         );
         return [.. names];
     }
 
-    public Task<Artwork?> GetByIdAsync(ArtworkId id) =>
-        GetAsync("dbo.GetArtworkById", new { Id = id.Value });
+    public Task<Artwork?> GetByIdAsync(ArtworkId id) => GetAsync(id.Value);
 
-    public Task<Artwork?> GetBySlugAsync(string slug) =>
-        GetAsync("dbo.GetArtworkBySlug", new { Slug = slug });
+    public async Task<Artwork?> GetBySlugAsync(string slug)
+    {
+        int? id;
+
+        await using (var connection = dataSource.CreateConnection())
+        {
+            id = await connection.QuerySingleAsync<int?>(
+                "SELECT get_artwork_id_by_slug(@Slug)",
+                new { Slug = slug }
+            );
+        }
+
+        return id is int artworkId ? await GetAsync(artworkId) : null;
+    }
 
     // the search runs elsewhere and hands its matches in; null means nothing was searched for
     public async Task<ArtworkListPage> GetListAsync(
@@ -230,27 +222,25 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
 
         var rows = (
             await connection.QueryAsync<ArtworkListRow>(
-                "dbo.GetArtworkList",
+                """
+                SELECT * FROM get_artwork_list(
+                    @ArtworkTypeIds, @VocabularyTermIds, @MatchingArtworkIds, @IsSearching,
+                    @SeriesId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
+                )
+                """,
                 new
                 {
-                    ArtworkTypeIds = IdListParameter.Create(
-                        filter.ArtworkTypeIds.Select(id => id.Value)
-                    ),
-                    VocabularyTermIds = IdListParameter.Create(
-                        filter.VocabularyTermIds.Select(id => id.Value)
-                    ),
-                    MatchingArtworkIds = IdListParameter.Create(
-                        searchMatches?.Select(id => id.Value) ?? []
-                    ),
+                    ArtworkTypeIds = (int[])[.. filter.ArtworkTypeIds.Select(id => id.Value)],
+                    VocabularyTermIds = (int[])[.. filter.VocabularyTermIds.Select(id => id.Value)],
+                    MatchingArtworkIds = (int[])[.. searchMatches?.Select(id => id.Value) ?? []],
                     IsSearching = searchMatches is not null,
                     SeriesId = filter.SeriesId?.Value,
                     filter.HasImages,
                     filter.IsForSale,
-                    Sort = (byte)filter.Sort,
+                    Sort = (short)filter.Sort,
                     Offset = (filter.PageNumber - 1) * pageSize,
                     PageSize = pageSize,
-                },
-                commandType: CommandType.StoredProcedure
+                }
             )
         ).ToList();
 
@@ -276,28 +266,21 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         return new ArtworkListPage(items, totalCount, filter.PageNumber, pageSize);
     }
 
-    // the slug comes back because the procedure decides it: a rename can land on a numbered one
+    // the slug comes back because the function decides it: a rename can land on a numbered one
     public async Task<ArtworkSlug> UpdateAsync(ArtworkCatalogUpdate artworkCatalogUpdate)
     {
         await using var connection = dataSource.CreateConnection();
 
-        var images = CreateImageDataTable(
-            artworkCatalogUpdate.Images,
-            artworkCatalogUpdate.MainImageIndex
-        );
-
-        var vocabularyTermIds = IdListParameter.Create(
-            artworkCatalogUpdate.VocabularyTermIds.Select(id => id.Value)
-        );
-
-        var seriesIds = IdListParameter.Create(
-            artworkCatalogUpdate.SeriesIds.Select(id => id.Value)
-        );
-
         try
         {
             var slug = await connection.QuerySingleAsync<string>(
-                "dbo.UpdateArtwork",
+                """
+                SELECT update_artwork(
+                    @Id, @Name, @CandidateSlug, @Description, @DateCreated, @DateCreatedPrecision,
+                    @HeightCm, @WidthCm, @DepthCm, @DurationSeconds,
+                    @Images, @VocabularyTermIds, @SeriesIds
+                )
+                """,
                 new
                 {
                     Id = artworkCatalogUpdate.Id.Value,
@@ -310,11 +293,14 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
                     WidthCm = artworkCatalogUpdate.Dimensions?.Width,
                     DepthCm = artworkCatalogUpdate.Dimensions?.Depth,
                     DurationSeconds = (int?)artworkCatalogUpdate.Duration?.TotalSeconds,
-                    Images = images.AsTableValuedParameter("dbo.ArtworkImageList"),
-                    VocabularyTermIds = vocabularyTermIds,
-                    SeriesIds = seriesIds,
-                },
-                commandType: CommandType.StoredProcedure
+                    Images = CreateImageInputs(
+                        artworkCatalogUpdate.Images,
+                        artworkCatalogUpdate.MainImageIndex
+                    ),
+                    VocabularyTermIds = (int[])
+                        [.. artworkCatalogUpdate.VocabularyTermIds.Select(id => id.Value)],
+                    SeriesIds = (int[])[.. artworkCatalogUpdate.SeriesIds.Select(id => id.Value)],
+                }
             );
 
             return new ArtworkSlug(slug);
@@ -336,25 +322,25 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
-        await connection.ExecuteAsync(
-            "dbo.DeleteArtwork",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
-        );
+        await connection.ExecuteAsync("SELECT delete_artwork(@Id)", new { Id = id.Value });
     }
 
-    // both procedures return the same result sets, since GetArtworkBySlug runs GetArtworkById
-    private async Task<Artwork?> GetAsync(string procedure, object parameters)
+    private async Task<Artwork?> GetAsync(int id)
     {
         await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
-            procedure,
-            parameters,
-            commandType: CommandType.StoredProcedure
+            """
+            SELECT * FROM get_artwork(@Id);
+            SELECT * FROM get_artwork_images(@Id);
+            SELECT * FROM get_artwork_series(@Id);
+            SELECT * FROM get_artwork_vocabulary_terms(@Id);
+            SELECT * FROM get_artwork_products(@Id);
+            """,
+            new { Id = id }
         );
 
-        // These Read calls MUST run in the same order as the SELECTs in the procedure
+        // These Read calls MUST run in the same order as the SELECTs above
         var row = await results.ReadSingleOrDefaultAsync<ArtworkRow>();
 
         if (row is null)
@@ -408,11 +394,16 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
                 ? new PartialDate(createdDate.Value, precision.Value)
                 : null;
 
-        var duration = row.DurationSeconds is int seconds ? TimeSpan.FromSeconds(seconds) : (TimeSpan?)null;
+        var duration = row.DurationSeconds is int seconds
+            ? TimeSpan.FromSeconds(seconds)
+            : (TimeSpan?)null;
 
         var artwork = new Artwork(
             new ArtworkId(row.Id),
-            new ArtworkType(new ArtworkTypeId(row.ArtworkTypeId), new ArtworkTypeName(row.ArtworkTypeName)),
+            new ArtworkType(
+                new ArtworkTypeId(row.ArtworkTypeId),
+                new ArtworkTypeName(row.ArtworkTypeName)
+            ),
             new ArtworkName(row.Name),
             new ArtworkSlug(row.Slug),
             row.Description,
@@ -525,12 +516,12 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         // an artwork with no image leaves all four image columns null, and matching all three
         // of the non-null ones together is what lets the width and height be read as plain ints
         public ArtworkImage? PrimaryImage =>
-            this is
-            {
-                PrimaryImageStorageKey: string storageKey,
-                PrimaryImageWidth: int width,
-                PrimaryImageHeight: int height,
-            }
+            this
+                is {
+                    PrimaryImageStorageKey: string storageKey,
+                    PrimaryImageWidth: int width,
+                    PrimaryImageHeight: int height,
+                }
                 ? new ArtworkImage(storageKey, null, width, height, PrimaryImageBlurDataUri)
                 : null;
     }

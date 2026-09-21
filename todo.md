@@ -38,16 +38,73 @@ has never run against Postgres:
 **The app won't boot yet**, and that's expected. The schema scripts and the 50 procedures are still
 T-SQL, and every repository still calls them with `CommandType.StoredProcedure`.
 
-**Next: Phase 2, the schema.** Rewrite `Database/Scripts/` as a fresh Postgres set, since nothing
-is released and nothing needs migrating. The T-SQL table types in 0002–0006 disappear. The two
-parts to get right:
-- The ICU collations, applied per column: `und-u-ks-level2` for case-insensitive names,
-  `und-u-ks-level1` for the accent-insensitive search.
-- `UNIQUE NULLS NOT DISTINCT` on Products.
+**Phase 2 (the schema) is done, uncommitted.** `Database/Scripts/` is now `0001_CreateCatalog.sql`
+and `0002_CreateInputTypes.sql`. It was applied to a throwaway `postgres:18` and each behaviour below
+was checked there:
+- Two ICU collations: `case_insensitive` (`und-u-ks-level2`) on every name column with a UNIQUE, on
+  artwork names, and on product labels (SQL Server's CI made `A4`/`a4` clash, so the label keeps
+  that). `case_and_accent_insensitive` (`und-u-ks-level1`) is for the title search's `LIKE` only.
+- `unique_series_sort_order` and the junction's `(series_id, sort_order)` are **`DEFERRABLE`**.
+  Postgres checks a plain UNIQUE after each row, so the one-statement swap in `ReorderSeries` and
+  `ReorderSeriesArtworks` would fail without it.
+- `UNIQUE NULLS NOT DISTINCT` on products. Filtered indexes became partial indexes.
+- `created_at` defaults to `clock_timestamp()`, not `now()`. `now()` is the start of the transaction,
+  so every artwork one CSV import adds would share a time.
+- Junction foreign keys have shorter names (`foreign_key_artwork_terms_…`), because Postgres cuts
+  names at 63 bytes.
+- The table types became composite types `artwork_image_input`, `product_input` and
+  `series_name_and_slug`. The id and name lists become `int[]` and `text[]` with no type of their
+  own. A composite type can't hold NOT NULL or a key.
+- `DatabaseCollationComparer` no longer trims, since Postgres counts trailing spaces.
 
-Then Phase 3, one area at a time with its database tests green, **ProductTypes + ArtworkFields
-first**. The unique-constraint names in the repositories (`UniqueNameConstraint` and the others)
-change to the new snake_case names as each area is ported. Ask Mike before running tests.
+**Phase 3 (procedures → functions) is done, uncommitted. All 259 tests pass on Postgres.**
+Every procedure is a function in the same file under `Database/Procedures/`. Repositories call them
+as text (`SELECT * FROM f(@A, @B)`), and each old multi-result procedure is several functions run in
+one command. What to know when reviewing:
+- **Arrays** replace every table type. `ShopDataSource.Create` builds the data source for the app
+  and the tests, and maps the three composite types to the records in `Database/InputTypes.cs`.
+  `IdListParameter` is deleted. An ordered list is an `int[]`, with the position coming from
+  `unnest(...) WITH ORDINALITY`. An array has no primary key, so the reorders count *distinct*
+  matches, and `get_artwork_name_match_types` rejects names differing only in case itself.
+- **Locks.** A function can't set its own isolation level, so each `SERIALIZABLE`/`UPDLOCK` became
+  a specific lock:
+  - `FOR SHARE` on the artwork type row in `check_artwork_choices_are_current`.
+  - `FOR KEY SHARE` on the chosen terms, series and product types: it blocks a delete but not a
+    rename.
+  - An advisory lock in `resolve_artwork_slug`. It's one name for all candidates, because slug
+    families overlap.
+  - `FOR NO KEY UPDATE` on series rows, in id order, before appending (`set_artwork_series`) or
+    reordering a series' artworks.
+  - `LOCK TABLE series IN SHARE ROW EXCLUSIVE MODE` for `add_series`, `add_many_series` and
+    `reorder_series`. Postgres won't lock rows under `MAX`.
+- **`set_series_cover` is two UPDATEs**, clearing the old star first. A partial unique index is
+  checked per row and can't be DEFERRABLE.
+- `attach_primary_image_to_imageless_artwork_by_name` returns one row (`match_type`,
+  `artwork_ids int[]`) instead of two result sets. `GetBySlugAsync` looks the id up first
+  (`get_artwork_id_by_slug`), then reads by id.
+- `DateOnlyTypeHandler` just hands `DateOnly` through. Npgsql 10 reads `date` as `DateOnly`, not
+  `DateTime`, but Dapper still needs a handler to accept the type at all.
+- plpgsql functions that `RETURN QUERY` must return *exactly* the declared types (hence the
+  `::text` casts in `get_artwork_list`). Their `RETURNS TABLE` columns are variables, so every
+  column in their queries names its table.
+- Functions are created in alphabetical file order. A `LANGUAGE sql` function checks its body when
+  it's created, so one may only call functions from files that sort before it. plpgsql checks at
+  call time and doesn't care.
+
+**Phase 4 (identity) is done, uncommitted.** `IdentitySeeder` runs in every environment. It
+makes the `Admin:Email` account an admin, and reads `Admin:Password` only to create that account.
+Dev sets both in `env.sh`. The identity migration was regenerated: `ApplicationDbContext` had a
+SQL Server filter (`[NormalizedEmail] IS NOT NULL`) on the unique email index, which crashed the
+first boot. Postgres lets NULLs past a UNIQUE anyway, so the filter is gone. The app now boots on
+an empty Postgres, creating both databases and the admin, and the tests still pass (259).
+
+**Before running `dev.sh` on this branch, move `content/images` aside**, e.g.
+`mv content/images content/images-sqlserver`. Those 860 files belong to the SQL Server database
+on `main`. The new database has no image rows, and `OrphanedImageSweeper` runs at startup with a
+5-minute grace period in dev, so it would delete every one of them.
+
+**Next:** Mike's browser pass from the plan's Verification section, then Phase 5 (deploy). Logging
+in could not be checked with curl (Blazor rejected the hand-made form post with a 400).
 
 ## Where this stands — 2026-09-21, earlier
 

@@ -12,9 +12,7 @@ public record ArtworkName(string Value)
     public static ArtworkName FromFileName(string fileName) =>
         new(Path.GetFileNameWithoutExtension(fileName).Normalize());
 
-    // The Name column and dbo.ArtworkNameList are both nvarchar(200), and SQL Server truncates a
-    // longer value on the way in rather than refusing it, which could match the wrong artwork. No
-    // stored name can be this long, so one that is matches nothing
+    // No stored name can be longer than the name column allows, so one that is matches nothing
     public bool CanMatchAnArtwork => Value.Length <= CatalogLimits.ArtworkNameMaximumLength;
 }
 

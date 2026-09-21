@@ -1,11 +1,11 @@
-CREATE OR ALTER PROCEDURE dbo.AddVocabularyTerm @VocabularyId int,
-@Name nvarchar(100) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS add_vocabulary_term;
 
+-- RETURNING hands back columns of the inserted row, in place of OUTPUT INSERTED
+CREATE FUNCTION add_vocabulary_term (p_vocabulary_id int, p_name text) RETURNS int LANGUAGE sql AS $$
 INSERT INTO
-    dbo.VocabularyTerms (VocabularyId, Name) OUTPUT INSERTED.Id
+    vocabulary_terms (vocabulary_id, name)
 VALUES
-    (@VocabularyId, @Name);
-
-END;
+    (p_vocabulary_id, p_name)
+RETURNING
+    id;
+$$;

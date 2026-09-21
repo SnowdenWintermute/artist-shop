@@ -51,7 +51,7 @@ public static class SeriesNameSimilarity
     }
 
     // the slug is the whole difference the site can see: same address, same series as far as
-    // Unique_Series_Slug is concerned
+    // unique_series_slug is concerned
     public static bool ShareASlug(string name, string other) =>
         SeriesSlug.FromName(name).Value == SeriesSlug.FromName(other).Value;
 

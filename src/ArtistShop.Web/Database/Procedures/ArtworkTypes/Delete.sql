@@ -1,46 +1,37 @@
-CREATE OR ALTER PROCEDURE dbo.DeleteArtworkType @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS delete_artwork_type;
 
-SET
-XACT_ABORT ON;
-
-BEGIN TRANSACTION;
-
--- XLOCK takes the type row's exclusive lock now rather than at the final DELETE. AddArtwork reads
--- this row first too, so the two wait for each other here instead of deadlocking further down
-DECLARE @LockedId int;
-
-SELECT
-    @LockedId = Id
-FROM
-    dbo.ArtworkTypes WITH (XLOCK, ROWLOCK)
-WHERE
-    Id = @Id;
-
-IF EXISTS (
-    SELECT
-        1
+CREATE FUNCTION delete_artwork_type (p_id int) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    -- PERFORM runs a SELECT and throws the rows away. FOR UPDATE locks the type row until the call
+    -- ends, and an artwork being added takes a share lock on it through its foreign key, so the two
+    -- wait for each other here and no artwork can arrive between the check and the delete
+    PERFORM
     FROM
-        dbo.Artworks
+        artwork_types
     WHERE
-        ArtworkTypeId = @Id
-) THROW 50014,
-'The artwork type is used by artworks.',
-1;
+        id = p_id
+    FOR UPDATE;
 
-DELETE FROM dbo.ArtworkTypeAndArtworkFieldsJunction
-WHERE
-    ArtworkTypeId = @Id;
+    IF EXISTS (
+        SELECT
+        FROM
+            artworks
+        WHERE
+            artwork_type_id = p_id
+    ) THEN
+        RAISE EXCEPTION 'The artwork type is used by artworks.' USING ERRCODE = 'SH014';
+    END IF;
 
-DELETE FROM dbo.VocabularyAndArtworkTypesJunction
-WHERE
-    ArtworkTypeId = @Id;
+    DELETE FROM artwork_type_and_artwork_fields_junction
+    WHERE
+        artwork_type_id = p_id;
 
-DELETE FROM dbo.ArtworkTypes
-WHERE
-    Id = @Id;
+    DELETE FROM vocabulary_and_artwork_types_junction
+    WHERE
+        artwork_type_id = p_id;
 
-COMMIT TRANSACTION;
-
+    DELETE FROM artwork_types
+    WHERE
+        id = p_id;
 END;
+$$;

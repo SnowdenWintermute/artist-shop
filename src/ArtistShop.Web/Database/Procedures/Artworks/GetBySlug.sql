@@ -1,18 +1,11 @@
-CREATE OR ALTER PROCEDURE dbo.GetArtworkBySlug @Slug nvarchar(200) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_artwork_id_by_slug;
 
-DECLARE @Id int = (
-    SELECT
-        Id
-    FROM
-        dbo.Artworks
-    WHERE
-        Slug = @Slug
-);
-
--- the called procedure's result sets go straight to our caller. An unknown slug leaves @Id NULL,
--- which matches no rows, so every result set comes back empty
-EXEC dbo.GetArtworkById @Id = @Id;
-
-END;
+-- NULL for an unknown slug. The repository then reads the artwork by its id
+CREATE FUNCTION get_artwork_id_by_slug (p_slug text) RETURNS int LANGUAGE sql STABLE AS $$
+SELECT
+    artwork.id
+FROM
+    artworks AS artwork
+WHERE
+    artwork.slug = p_slug;
+$$;

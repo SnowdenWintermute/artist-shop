@@ -31,7 +31,7 @@ public class TestDatabaseFixture : IAsyncLifetime
         };
 
         ConnectionString = connectionStringBuilder.ConnectionString;
-        DataSource = NpgsqlDataSource.Create(ConnectionString);
+        DataSource = ShopDataSource.Create(ConnectionString);
     }
 
     // IAsyncLifetime exists because constructors can't be async. xUnit calls this

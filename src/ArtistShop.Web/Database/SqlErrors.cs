@@ -10,7 +10,10 @@ public static class SqlErrors
 
     // Postgres names the violated constraint in its own field, so nothing has to be read out of
     // the message text
-    public static bool IsUniqueConstraintViolation(PostgresException exception, string constraintName) =>
+    public static bool IsUniqueConstraintViolation(
+        PostgresException exception,
+        string constraintName
+    ) =>
         exception.SqlState == PostgresErrorCodes.UniqueViolation
         && exception.ConstraintName == constraintName;
 }

@@ -1,290 +1,306 @@
-CREATE TABLE dbo.ArtworkTypes (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_ArtworkTypes PRIMARY KEY (Id),
-    Name nvarchar(50) NOT NULL,
-    CONSTRAINT Unique_ArtworkTypes_Name UNIQUE (Name)
+-- Postgres compares text byte by byte unless a column says otherwise. These ICU collations are how
+-- a column says otherwise. Non-deterministic means two different strings can count as equal, which
+-- is the point, and Postgres won't allow one as a database's default, so each column names it.
+-- level2 ignores case but not accents: 'Oil' collides with 'oil', 'cafe' and 'café' stay apart
+CREATE COLLATION case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+
+-- level1 ignores accents as well, so "cafe" finds "café". Only the title search uses it, with
+-- COLLATE on the comparison, and LIKE over it needs Postgres 18
+CREATE COLLATION case_and_accent_insensitive (
+    provider = icu,
+    locale = 'und-u-ks-level1',
+    deterministic = false
+);
+
+CREATE TABLE artwork_types (
+    -- ALWAYS refuses an id the insert supplies, as IDENTITY does without IDENTITY_INSERT
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_artwork_types PRIMARY KEY (id),
+    name varchar(50) COLLATE case_insensitive NOT NULL,
+    CONSTRAINT unique_artwork_types_name UNIQUE (name)
 );
 
 INSERT INTO
-    dbo.ArtworkTypes (Name)
+    artwork_types (name)
 VALUES
-    -- N turns the string into unicode
-    (N'Painting'),
-    (N'Photograph'),
-    (N'Screenshot'),
-    (N'Sculpture');
+    ('Painting'),
+    ('Photograph'),
+    ('Screenshot'),
+    ('Sculpture');
 
 -- defined by us; the ids must match the ArtworkField enum in C#
-CREATE TABLE dbo.ArtworkFields (
-    Id int,
-    CONSTRAINT PrimaryKey_ArtworkFields PRIMARY KEY (Id),
-    Name nvarchar(50) NOT NULL,
-    CONSTRAINT Unique_ArtworkFields_Name UNIQUE (Name),
+CREATE TABLE artwork_fields (
+    id int,
+    CONSTRAINT primary_key_artwork_fields PRIMARY KEY (id),
+    name varchar(50) COLLATE case_insensitive NOT NULL,
+    CONSTRAINT unique_artwork_fields_name UNIQUE (name),
     -- a field that only makes sense alongside another, like depth alongside height and width. A field
     -- with no requirement names itself: NOT NULL matters, because a foreign key with a NULL column
     -- isn't checked at all, which would let the junction below skip the requirement
-    RequiresArtworkFieldId int NOT NULL,
-    CONSTRAINT ForeignKey_ArtworkFields_RequiresArtworkField FOREIGN KEY (RequiresArtworkFieldId) REFERENCES dbo.ArtworkFields (Id),
+    requires_artwork_field_id int NOT NULL,
+    CONSTRAINT foreign_key_artwork_fields_requires_artwork_field FOREIGN KEY (requires_artwork_field_id) REFERENCES artwork_fields (id),
     -- lets the junction below copy the requirement under a foreign key
-    CONSTRAINT Unique_ArtworkFields_IdRequires UNIQUE (Id, RequiresArtworkFieldId)
+    CONSTRAINT unique_artwork_fields_id_requires UNIQUE (id, requires_artwork_field_id)
 );
 
 INSERT INTO
-    dbo.ArtworkFields (Id, Name, RequiresArtworkFieldId)
+    artwork_fields (id, name, requires_artwork_field_id)
 VALUES
-    (1, N'Date created', 1),
-    (2, N'Height and width', 2),
-    (3, N'Depth', 2),
-    (4, N'Duration', 4);
+    (1, 'Date created', 1),
+    (2, 'Height and width', 2),
+    (3, 'Depth', 2),
+    (4, 'Duration', 4);
 
 -- which fields the artist switched on for each type
-CREATE TABLE dbo.ArtworkTypeAndArtworkFieldsJunction (
-    ArtworkTypeId int NOT NULL,
-    ArtworkFieldId int NOT NULL,
-    -- copied from ArtworkFields; the foreign key to ArtworkFields keeps the copy honest
-    RequiresArtworkFieldId int NOT NULL,
-    CONSTRAINT PrimaryKey_ArtworkTypeAndArtworkFieldsJunction PRIMARY KEY (ArtworkTypeId, ArtworkFieldId),
-    CONSTRAINT ForeignKey_ArtworkTypeAndArtworkFieldsJunction_ArtworkTypes FOREIGN KEY (ArtworkTypeId) REFERENCES dbo.ArtworkTypes (Id),
-    CONSTRAINT ForeignKey_ArtworkTypeAndArtworkFieldsJunction_ArtworkFields FOREIGN KEY (ArtworkFieldId, RequiresArtworkFieldId) REFERENCES dbo.ArtworkFields (Id, RequiresArtworkFieldId),
+CREATE TABLE artwork_type_and_artwork_fields_junction (
+    artwork_type_id int NOT NULL,
+    artwork_field_id int NOT NULL,
+    -- copied from artwork_fields; the foreign key to artwork_fields keeps the copy honest
+    requires_artwork_field_id int NOT NULL,
+    CONSTRAINT primary_key_artwork_type_and_artwork_fields_junction PRIMARY KEY (artwork_type_id, artwork_field_id),
+    CONSTRAINT foreign_key_artwork_type_fields_artwork_types FOREIGN KEY (artwork_type_id) REFERENCES artwork_types (id),
+    CONSTRAINT foreign_key_artwork_type_fields_artwork_fields FOREIGN KEY (artwork_field_id, requires_artwork_field_id) REFERENCES artwork_fields (id, requires_artwork_field_id),
     -- points at a row of this same table: the type must also have the required field. A field that
     -- requires itself points at its own row, so it always passes
-    CONSTRAINT ForeignKey_ArtworkTypeAndArtworkFieldsJunction_RequiredField FOREIGN KEY (ArtworkTypeId, RequiresArtworkFieldId) REFERENCES dbo.ArtworkTypeAndArtworkFieldsJunction (ArtworkTypeId, ArtworkFieldId)
+    CONSTRAINT foreign_key_artwork_type_fields_required_field FOREIGN KEY (artwork_type_id, requires_artwork_field_id) REFERENCES artwork_type_and_artwork_fields_junction (artwork_type_id, artwork_field_id)
 );
 
 -- a table value constructor: VALUES used as a table of rows, named like any other table
 INSERT INTO
-    dbo.ArtworkTypeAndArtworkFieldsJunction (ArtworkTypeId, ArtworkFieldId, RequiresArtworkFieldId)
+    artwork_type_and_artwork_fields_junction (artwork_type_id, artwork_field_id, requires_artwork_field_id)
 SELECT
-    artworkType.Id,
-    artworkField.Id,
-    artworkField.RequiresArtworkFieldId
+    artwork_type.id,
+    artwork_field.id,
+    artwork_field.requires_artwork_field_id
 FROM
     (
         VALUES
-            (N'Painting', 1),
-            (N'Painting', 2),
-            (N'Photograph', 1),
-            (N'Photograph', 2),
-            (N'Screenshot', 1),
-            (N'Sculpture', 1),
-            (N'Sculpture', 2),
-            (N'Sculpture', 3)
-    ) AS seed (ArtworkTypeName, ArtworkFieldId)
-    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Name = seed.ArtworkTypeName
-    JOIN dbo.ArtworkFields AS artworkField ON artworkField.Id = seed.ArtworkFieldId;
+            ('Painting', 1),
+            ('Painting', 2),
+            ('Photograph', 1),
+            ('Photograph', 2),
+            ('Screenshot', 1),
+            ('Sculpture', 1),
+            ('Sculpture', 2),
+            ('Sculpture', 3)
+    ) AS seed (artwork_type_name, artwork_field_id)
+    JOIN artwork_types AS artwork_type ON artwork_type.name = seed.artwork_type_name
+    JOIN artwork_fields AS artwork_field ON artwork_field.id = seed.artwork_field_id;
 
-CREATE TABLE dbo.Artworks (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_Artworks PRIMARY KEY (Id),
-    ArtworkTypeId int NOT NULL,
-    CONSTRAINT ForeignKey_Artworks_ArtworkTypes FOREIGN KEY (ArtworkTypeId) REFERENCES dbo.ArtworkTypes (Id),
-    CONSTRAINT Unique_Artworks_IdArtworkType UNIQUE (Id, ArtworkTypeId),
-    Name nvarchar(200) NOT NULL,
-    Slug nvarchar(200) NOT NULL,
-    CONSTRAINT Unique_Artworks_Slug UNIQUE (Slug),
-    Description nvarchar(max),
-    DateCreated date,
-    DateCreatedPrecision tinyint,
-    CONSTRAINT Check_Artworks_DateCreated CHECK (
+CREATE TABLE artworks (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_artworks PRIMARY KEY (id),
+    artwork_type_id int NOT NULL,
+    CONSTRAINT foreign_key_artworks_artwork_types FOREIGN KEY (artwork_type_id) REFERENCES artwork_types (id),
+    CONSTRAINT unique_artworks_id_artwork_type UNIQUE (id, artwork_type_id),
+    -- not unique, but bulk image matching finds an artwork by its name whatever the case
+    name varchar(200) COLLATE case_insensitive NOT NULL,
+    slug varchar(200) NOT NULL,
+    CONSTRAINT unique_artworks_slug UNIQUE (slug),
+    description text,
+    date_created date,
+    date_created_precision smallint,
+    CONSTRAINT check_artworks_date_created CHECK (
         (
-            DateCreated IS NULL
-            AND DateCreatedPrecision IS NULL
+            date_created IS NULL
+            AND date_created_precision IS NULL
         )
         OR (
-            DateCreated IS NOT NULL
-            AND DateCreatedPrecision IS NOT NULL
+            date_created IS NOT NULL
+            AND date_created_precision IS NOT NULL
         )
     ),
-    CONSTRAINT Check_Artworks_DateCreatedPrecision CHECK (DateCreatedPrecision IN (1, 2, 3)),
+    CONSTRAINT check_artworks_date_created_precision CHECK (date_created_precision IN (1, 2, 3)),
     -- the parts below the precision must be "the first": a year-only date is stored
     -- as January 1st, so two artworks from "2019" can't hold different hidden days
-    CONSTRAINT Check_Artworks_DateCreatedUnknownParts CHECK (
-        DateCreatedPrecision = 3
+    CONSTRAINT check_artworks_date_created_unknown_parts CHECK (
+        date_created_precision = 3
         OR (
-            DateCreatedPrecision = 2
-            AND DAY(DateCreated) = 1
+            date_created_precision = 2
+            AND EXTRACT(DAY FROM date_created) = 1
         )
         OR (
-            DateCreatedPrecision = 1
-            AND MONTH(DateCreated) = 1
-            AND DAY(DateCreated) = 1
+            date_created_precision = 1
+            AND EXTRACT(MONTH FROM date_created) = 1
+            AND EXTRACT(DAY FROM date_created) = 1
         )
     ),
     -- 4 digits before the decimal point and 4 after, so an inch value with
     -- 2 decimals converts to centimetres with no rounding
     -- in the order galleries list them: height x width x depth
-    HeightCm decimal(8, 4),
-    WidthCm decimal(8, 4),
-    DepthCm decimal(8, 4),
-    CONSTRAINT Check_Artworks_HeightAndWidth CHECK (
+    height_cm numeric(8, 4),
+    width_cm numeric(8, 4),
+    depth_cm numeric(8, 4),
+    CONSTRAINT check_artworks_height_and_width CHECK (
         (
-            HeightCm IS NULL
-            AND WidthCm IS NULL
+            height_cm IS NULL
+            AND width_cm IS NULL
         )
         OR (
-            HeightCm IS NOT NULL
-            AND WidthCm IS NOT NULL
+            height_cm IS NOT NULL
+            AND width_cm IS NOT NULL
         )
     ),
-    CONSTRAINT Check_Artworks_DepthNeedsHeightAndWidth CHECK (
-        DepthCm IS NULL
-        OR HeightCm IS NOT NULL
+    CONSTRAINT check_artworks_depth_needs_height_and_width CHECK (
+        depth_cm IS NULL
+        OR height_cm IS NOT NULL
     ),
     -- will pass if height/width null because x > 0 when x is null is UNKNOWN,
     -- and constraint only fail if evaluate to false
-    CONSTRAINT Check_Artworks_HeightCm CHECK (HeightCm > 0),
-    CONSTRAINT Check_Artworks_WidthCm CHECK (WidthCm > 0),
-    CONSTRAINT Check_Artworks_DepthCm CHECK (DepthCm > 0),
-    DurationSeconds int,
-    CONSTRAINT Check_Artworks_DurationSeconds CHECK (DurationSeconds > 0),
-    CreatedAt datetime2 NOT NULL CONSTRAINT Default_Artworks_CreatedAt DEFAULT SYSUTCDATETIME()
+    CONSTRAINT check_artworks_height_cm CHECK (height_cm > 0),
+    CONSTRAINT check_artworks_width_cm CHECK (width_cm > 0),
+    CONSTRAINT check_artworks_depth_cm CHECK (depth_cm > 0),
+    duration_seconds int,
+    CONSTRAINT check_artworks_duration_seconds CHECK (duration_seconds > 0),
+    -- now() is when the transaction began, so every artwork a CSV import adds would share one time
+    -- and "recently added" couldn't order them. clock_timestamp() is the moment of the insert
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
--- bulk image matching looks artworks up by type and name. Without this index, a lookup
--- WITH (UPDLOCK) scans the table and holds a lock on every row it read
-CREATE INDEX Index_Artworks_TypeAndName ON dbo.Artworks (ArtworkTypeId, Name);
+-- bulk image matching looks artworks up by type and name
+CREATE INDEX index_artworks_type_and_name ON artworks (artwork_type_id, name);
 
-CREATE TABLE dbo.Vocabularies (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_Vocabularies PRIMARY KEY (Id),
-    Name nvarchar(100) NOT NULL,
-    CONSTRAINT Unique_Vocabularies_Name UNIQUE (Name)
+CREATE TABLE vocabularies (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_vocabularies PRIMARY KEY (id),
+    name varchar(100) COLLATE case_insensitive NOT NULL,
+    CONSTRAINT unique_vocabularies_name UNIQUE (name)
 );
 
 -- sets which vocabularies are allowed on which artwork types
-CREATE TABLE dbo.VocabularyAndArtworkTypesJunction (
-    VocabularyId int NOT NULL,
-    ArtworkTypeId int NOT NULL,
-    CONSTRAINT PrimaryKey_VocabularyAndArtworkTypesJunction PRIMARY KEY (VocabularyId, ArtworkTypeId),
-    CONSTRAINT ForeignKey_VocabularyAndArtworkTypesJunction_Vocabularies FOREIGN KEY (VocabularyId) REFERENCES dbo.Vocabularies (Id),
-    CONSTRAINT ForeignKey_VocabularyAndArtworkTypesJunction_ArtworkTypes FOREIGN KEY (ArtworkTypeId) REFERENCES dbo.ArtworkTypes (Id)
+CREATE TABLE vocabulary_and_artwork_types_junction (
+    vocabulary_id int NOT NULL,
+    artwork_type_id int NOT NULL,
+    CONSTRAINT primary_key_vocabulary_and_artwork_types_junction PRIMARY KEY (vocabulary_id, artwork_type_id),
+    CONSTRAINT foreign_key_vocabulary_artwork_types_vocabularies FOREIGN KEY (vocabulary_id) REFERENCES vocabularies (id),
+    CONSTRAINT foreign_key_vocabulary_artwork_types_artwork_types FOREIGN KEY (artwork_type_id) REFERENCES artwork_types (id)
 );
 
 -- The enumerated words of a certain vocabulary, like if the vocabulary is "Support"
 -- the terms could be "Paper", "Canvas" etc
-CREATE TABLE dbo.VocabularyTerms (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_VocabularyTerms PRIMARY KEY (Id),
-    VocabularyId int NOT NULL,
-    CONSTRAINT ForeignKey_VocabularyTerms_Vocabularies FOREIGN KEY (VocabularyId) REFERENCES dbo.Vocabularies (Id),
-    Name nvarchar(100) NOT NULL,
-    -- "Paper" can be both a "Support" and a "Medium", but not a support twice
-    -- UNIQUE rejects duplicates but does not define what a duplicate is -- the column's
-    -- collation does. DatabaseInitializer pins the database to Latin1_General_100_CI_AS_SC:
-    -- CI = case-insensitive, AS = accent-sensitive. So 'Oil' collides with 'oil', but 'cafe' and
-    -- 'cafe' with an accent do not. Postgres compares bytes and would allow both spellings of Oil.
-    CONSTRAINT Unique_VocabularyTerms_VocabularyName UNIQUE (VocabularyId, Name),
-    CONSTRAINT Unique_VocabularyTerms_IdVocabulary UNIQUE (Id, VocabularyId)
+CREATE TABLE vocabulary_terms (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_vocabulary_terms PRIMARY KEY (id),
+    vocabulary_id int NOT NULL,
+    CONSTRAINT foreign_key_vocabulary_terms_vocabularies FOREIGN KEY (vocabulary_id) REFERENCES vocabularies (id),
+    name varchar(100) COLLATE case_insensitive NOT NULL,
+    -- "Paper" can be both a "Support" and a "Medium", but not a support twice. UNIQUE rejects
+    -- duplicates but the column's collation decides what a duplicate is, so 'Oil' collides with 'oil'
+    CONSTRAINT unique_vocabulary_terms_vocabulary_name UNIQUE (vocabulary_id, name),
+    CONSTRAINT unique_vocabulary_terms_id_vocabulary UNIQUE (id, vocabulary_id)
 );
 
-CREATE TABLE dbo.ArtworkAndVocabularyTermsJunction (
-    ArtworkId int NOT NULL,
-    ArtworkTypeId int NOT NULL,
-    TermId int NOT NULL,
-    VocabularyId int NOT NULL,
-    CONSTRAINT PrimaryKey_ArtworkAndVocabularyTermsJunction PRIMARY KEY (ArtworkId, TermId),
-    CONSTRAINT ForeignKey_ArtworkAndVocabularyTermsJunction_Artworks FOREIGN KEY (ArtworkId, ArtworkTypeId) REFERENCES dbo.Artworks (Id, ArtworkTypeId) ON DELETE CASCADE,
-    CONSTRAINT ForeignKey_ArtworkAndVocabularyTermsJunction_VocabularyTerms FOREIGN KEY (TermId, VocabularyId) REFERENCES dbo.VocabularyTerms (Id, VocabularyId),
-    CONSTRAINT ForeignKey_ArtworkAndVocabularyTermsJunction_VocabularyAndArtworkTypesJunction FOREIGN KEY (VocabularyId, ArtworkTypeId) REFERENCES dbo.VocabularyAndArtworkTypesJunction (VocabularyId, ArtworkTypeId)
+CREATE TABLE artwork_and_vocabulary_terms_junction (
+    artwork_id int NOT NULL,
+    artwork_type_id int NOT NULL,
+    term_id int NOT NULL,
+    vocabulary_id int NOT NULL,
+    CONSTRAINT primary_key_artwork_and_vocabulary_terms_junction PRIMARY KEY (artwork_id, term_id),
+    CONSTRAINT foreign_key_artwork_terms_artworks FOREIGN KEY (artwork_id, artwork_type_id) REFERENCES artworks (id, artwork_type_id) ON DELETE CASCADE,
+    CONSTRAINT foreign_key_artwork_terms_vocabulary_terms FOREIGN KEY (term_id, vocabulary_id) REFERENCES vocabulary_terms (id, vocabulary_id),
+    CONSTRAINT foreign_key_artwork_terms_vocabulary_artwork_types FOREIGN KEY (vocabulary_id, artwork_type_id) REFERENCES vocabulary_and_artwork_types_junction (vocabulary_id, artwork_type_id)
 );
 
-CREATE TABLE dbo.ArtworkImages (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_ArtworkImages PRIMARY KEY (Id),
-    ArtworkId int NOT NULL,
-    CONSTRAINT ForeignKey_ArtworkImages_Artworks FOREIGN KEY (ArtworkId) REFERENCES dbo.Artworks (Id) ON DELETE CASCADE,
-    -- always the 32 hexadecimal characters of a version 7 GUID, so a fixed-length ASCII column.
-    -- Dapper sends a string as nvarchar, so a future lookup by this column needs a DbString with
-    -- IsAnsi, or SQL Server converts the column instead of seeking the index
-    StorageKey char(32) NOT NULL,
-    CONSTRAINT Unique_ArtworkImages_StorageKey UNIQUE (StorageKey),
-    OriginalFileName nvarchar(260),
-    SortOrder int NOT NULL,
-    -- DEFAULT can't be put in a standalone constraint
-    IsPrimary bit NOT NULL CONSTRAINT Default_ArtworkImages_IsPrimary DEFAULT 0,
-    Width int NOT NULL,
-    Height int NOT NULL,
-    BlurDataUri nvarchar(1000)
+CREATE TABLE artwork_images (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_artwork_images PRIMARY KEY (id),
+    artwork_id int NOT NULL,
+    CONSTRAINT foreign_key_artwork_images_artworks FOREIGN KEY (artwork_id) REFERENCES artworks (id) ON DELETE CASCADE,
+    -- always the 32 hexadecimal characters of a version 7 GUID
+    storage_key char(32) NOT NULL,
+    CONSTRAINT unique_artwork_images_storage_key UNIQUE (storage_key),
+    original_file_name varchar(260),
+    sort_order int NOT NULL,
+    is_primary boolean NOT NULL DEFAULT false,
+    width int NOT NULL,
+    height int NOT NULL,
+    blur_data_uri varchar(1000)
 );
 
-CREATE UNIQUE INDEX UniqueIndex_ArtworkImages_Primary ON dbo.ArtworkImages (ArtworkId)
+-- a partial index: only the rows matching the WHERE are in it, so it forbids a second primary
+-- image rather than a second of anything
+CREATE UNIQUE INDEX unique_index_artwork_images_primary ON artwork_images (artwork_id)
 WHERE
-    IsPrimary = 1;
+    is_primary;
 
-CREATE TABLE dbo.Series (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_Series PRIMARY KEY (Id),
-    Name nvarchar(256) NOT NULL,
-    CONSTRAINT Unique_Series_Name UNIQUE (Name),
-    Slug nvarchar(200) NOT NULL,
-    CONSTRAINT Unique_Series_Slug UNIQUE (Slug),
+CREATE TABLE series (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_series PRIMARY KEY (id),
+    name varchar(256) COLLATE case_insensitive NOT NULL,
+    CONSTRAINT unique_series_name UNIQUE (name),
+    slug varchar(200) NOT NULL,
+    CONSTRAINT unique_series_slug UNIQUE (slug),
     -- the artist's order, the default visitors see
-    SortOrder int NOT NULL,
-    CONSTRAINT Unique_Series_SortOrder UNIQUE (SortOrder)
+    sort_order int NOT NULL,
+    -- Postgres checks a plain UNIQUE after every row, so an UPDATE that swaps two positions would
+    -- collide halfway. DEFERRABLE moves the check to the end of the statement
+    CONSTRAINT unique_series_sort_order UNIQUE (sort_order) DEFERRABLE
 );
 
 -- any artwork type can join any series, mixed freely
-CREATE TABLE dbo.ArtworkAndSeriesJunction (
-    ArtworkId int NOT NULL,
-    SeriesId int NOT NULL,
-    SortOrder int NOT NULL,
-    CONSTRAINT Unique_ArtworkAndSeriesJunction_SeriesSortOrder UNIQUE (SeriesId, SortOrder),
-    CONSTRAINT PrimaryKey_ArtworkAndSeriesJunction PRIMARY KEY (ArtworkId, SeriesId),
-    CONSTRAINT ForeignKey_ArtworkAndSeriesJunction_Artworks FOREIGN KEY (ArtworkId) REFERENCES dbo.Artworks (Id) ON DELETE CASCADE,
-    CONSTRAINT ForeignKey_ArtworkAndSeriesJunction_Series FOREIGN KEY (SeriesId) REFERENCES dbo.Series (Id),
+CREATE TABLE artwork_and_series_junction (
+    artwork_id int NOT NULL,
+    series_id int NOT NULL,
+    sort_order int NOT NULL,
+    -- DEFERRABLE for the same reason as unique_series_sort_order
+    CONSTRAINT unique_artwork_and_series_junction_series_sort_order UNIQUE (series_id, sort_order) DEFERRABLE,
+    CONSTRAINT primary_key_artwork_and_series_junction PRIMARY KEY (artwork_id, series_id),
+    CONSTRAINT foreign_key_artwork_series_artworks FOREIGN KEY (artwork_id) REFERENCES artworks (id) ON DELETE CASCADE,
+    CONSTRAINT foreign_key_artwork_series_series FOREIGN KEY (series_id) REFERENCES series (id),
     -- the series cover is this artwork's primary image
-    IsCover bit NOT NULL CONSTRAINT Default_ArtworkAndSeriesJunction_IsCover DEFAULT 0
+    is_cover boolean NOT NULL DEFAULT false
 );
 
-CREATE UNIQUE INDEX UniqueIndex_ArtworkAndSeriesJunction_Cover ON dbo.ArtworkAndSeriesJunction (SeriesId)
+CREATE UNIQUE INDEX unique_index_artwork_and_series_junction_cover ON artwork_and_series_junction (series_id)
 WHERE
-    IsCover = 1;
+    is_cover;
 
-CREATE TABLE dbo.ProductTypes (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_ProductTypes PRIMARY KEY (Id),
-    Name nvarchar(50) NOT NULL,
-    CONSTRAINT Unique_ProductTypes_Name UNIQUE (Name),
+CREATE TABLE product_types (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_product_types PRIMARY KEY (id),
+    name varchar(50) COLLATE case_insensitive NOT NULL,
+    CONSTRAINT unique_product_types_name UNIQUE (name),
     -- the one a form offers before the artist chooses. An id can't be written into the code, since
     -- these are rows the artist will manage, so the row says so itself
-    IsDefault bit NOT NULL CONSTRAINT Default_ProductTypes_IsDefault DEFAULT 0
+    is_default boolean NOT NULL DEFAULT false
 );
 
--- filtered, so it only forbids a second default rather than a second of anything
-CREATE UNIQUE INDEX UniqueIndex_ProductTypes_Default ON dbo.ProductTypes (IsDefault)
+-- partial, so it only forbids a second default rather than a second of anything
+CREATE UNIQUE INDEX unique_index_product_types_default ON product_types (is_default)
 WHERE
-    IsDefault = 1;
+    is_default;
 
 INSERT INTO
-    dbo.ProductTypes (Name, IsDefault)
+    product_types (name, is_default)
 VALUES
-    (N'Original', 1),
-    (N'Print', 0),
-    (N'Postcard', 0);
+    ('Original', true),
+    ('Print', false),
+    ('Postcard', false);
 
-CREATE TABLE dbo.Products (
-    Id int IDENTITY(1, 1),
-    CONSTRAINT PrimaryKey_Products PRIMARY KEY (Id),
-    ArtworkId int NOT NULL,
-    CONSTRAINT ForeignKey_Products_Artworks FOREIGN KEY (ArtworkId) REFERENCES dbo.Artworks (Id) ON DELETE CASCADE,
-    ProductTypeId int NOT NULL,
-    CONSTRAINT ForeignKey_Products_ProductTypes FOREIGN KEY (ProductTypeId) REFERENCES dbo.ProductTypes (Id),
+CREATE TABLE products (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_products PRIMARY KEY (id),
+    artwork_id int NOT NULL,
+    CONSTRAINT foreign_key_products_artworks FOREIGN KEY (artwork_id) REFERENCES artworks (id) ON DELETE CASCADE,
+    product_type_id int NOT NULL,
+    CONSTRAINT foreign_key_products_product_types FOREIGN KEY (product_type_id) REFERENCES product_types (id),
     -- tells two products of the same type apart, like "A4" and "A3"
-    Label nvarchar(100),
-    -- UNIQUE treats NULLs as equal in SQL Server, so two unlabelled prints of one artwork clash too
-    CONSTRAINT Unique_Products_ArtworkProductTypeLabel UNIQUE (ArtworkId, ProductTypeId, Label),
-    Price decimal(10, 2),
-    CONSTRAINT Check_Products_Price CHECK (Price >= 0),
+    label varchar(100) COLLATE case_insensitive,
+    -- Postgres lets any number of NULLs past a UNIQUE unless told otherwise, and two unlabelled
+    -- prints of one artwork must clash
+    CONSTRAINT unique_products_artwork_product_type_label UNIQUE NULLS NOT DISTINCT (artwork_id, product_type_id, label),
+    price numeric(10, 2),
+    CONSTRAINT check_products_price CHECK (price >= 0),
     -- how many were ever made; NULL means it can always be restocked
-    EditionSize int,
-    CONSTRAINT Check_Products_EditionSize CHECK (EditionSize > 0),
-    Stock int NOT NULL,
-    CONSTRAINT Check_Products_Stock CHECK (Stock >= 0),
-    -- passes when EditionSize is NULL, for the same reason as the dimension checks
-    CONSTRAINT Check_Products_StockWithinEdition CHECK (Stock <= EditionSize),
+    edition_size int,
+    CONSTRAINT check_products_edition_size CHECK (edition_size > 0),
+    stock int NOT NULL,
+    CONSTRAINT check_products_stock CHECK (stock >= 0),
+    -- passes when edition_size is NULL, for the same reason as the dimension checks
+    CONSTRAINT check_products_stock_within_edition CHECK (stock <= edition_size),
     -- only something with none left may have no price
-    CONSTRAINT Check_Products_PriceUnlessSoldOut CHECK (
-        Price IS NOT NULL
-        OR Stock = 0
+    CONSTRAINT check_products_price_unless_sold_out CHECK (
+        price IS NOT NULL
+        OR stock = 0
     )
 );

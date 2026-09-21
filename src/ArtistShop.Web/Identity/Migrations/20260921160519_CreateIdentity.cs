@@ -211,8 +211,7 @@ namespace ArtistShop.Web.Identity.Migrations
                 name: "EmailIndex",
                 table: "AspNetUsers",
                 column: "NormalizedEmail",
-                unique: true,
-                filter: "[NormalizedEmail] IS NOT NULL");
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",

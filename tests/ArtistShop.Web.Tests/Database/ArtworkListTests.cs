@@ -98,7 +98,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
     }
 
     // the order the artist dragged the artworks into, which is what the public series page
-    // shows. It is the only sort that reads a column outside dbo.Artworks
+    // shows. It is the only sort that reads a column outside artworks
     [Fact]
     public async Task SortsByThePlaceTheArtistGaveEachArtworkInTheSeries()
     {

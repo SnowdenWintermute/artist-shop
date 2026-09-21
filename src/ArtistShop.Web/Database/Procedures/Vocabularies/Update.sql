@@ -1,73 +1,39 @@
-CREATE OR ALTER PROCEDURE dbo.UpdateVocabulary @Id int,
-@Name nvarchar(100),
-@ArtworkTypeIds dbo.IdList READONLY AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS update_vocabulary;
 
-SET
-XACT_ABORT ON;
+CREATE FUNCTION update_vocabulary (p_id int, p_name text, p_artwork_type_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE vocabularies
+    SET
+        name = p_name
+    WHERE
+        id = p_id;
 
-BEGIN TRANSACTION;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The vocabulary no longer exists.' USING ERRCODE = 'SH002';
+    END IF;
 
-UPDATE dbo.Vocabularies
-SET
-    Name = @Name
-WHERE
-    Id = @Id;
+    -- the terms come off the artworks first; the foreign key refuses removing a type from the
+    -- vocabulary while an artwork of that type still uses one of its terms
+    DELETE FROM artwork_and_vocabulary_terms_junction AS artwork_term
+    WHERE
+        artwork_term.vocabulary_id = p_id
+        AND NOT artwork_term.artwork_type_id = ANY (p_artwork_type_ids);
 
-IF @@ROWCOUNT = 0 THROW 50002,
-'The vocabulary no longer exists.',
-1;
+    DELETE FROM vocabulary_and_artwork_types_junction AS applies
+    WHERE
+        applies.vocabulary_id = p_id
+        AND NOT applies.artwork_type_id = ANY (p_artwork_type_ids);
 
--- VocabularyTerms must be removed from Artworks first; the foreign key refuses removing a vocabularyArtworkAssociation that's still in use
-DELETE vocabularyTermArtworkAssociation
-FROM
-    dbo.ArtworkAndVocabularyTermsJunction AS vocabularyTermArtworkAssociation
-WHERE
-    vocabularyTermArtworkAssociation.VocabularyId = @Id
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @ArtworkTypeIds AS artworkTypeIds
-        WHERE
-            artworkTypeIds.Id = vocabularyTermArtworkAssociation.ArtworkTypeId
-    );
-
-DELETE vocabularyArtworkAssociation
-FROM
-    dbo.VocabularyAndArtworkTypesJunction AS vocabularyArtworkAssociation
-WHERE
-    vocabularyArtworkAssociation.VocabularyId = @Id
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @ArtworkTypeIds AS artworkTypeIds
-        WHERE
-            artworkTypeIds.Id = vocabularyArtworkAssociation.ArtworkTypeId
-    );
-
--- the join drops a type deleted in another tab, as in AddVocabulary
-INSERT INTO
-    dbo.VocabularyAndArtworkTypesJunction (VocabularyId, ArtworkTypeId)
-SELECT
-    @Id,
-    artworkType.Id
-FROM
-    @ArtworkTypeIds AS artworkTypeIds
-    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Id = artworkTypeIds.Id
-WHERE
-    NOT EXISTS (
-        SELECT
-            1
-        FROM
-            dbo.VocabularyAndArtworkTypesJunction AS existing
-        WHERE
-            existing.VocabularyId = @Id
-            AND existing.ArtworkTypeId = artworkTypeIds.Id
-    );
-
-COMMIT TRANSACTION;
-
+    -- reading from artwork_types drops a type deleted in another tab, as in add_vocabulary
+    INSERT INTO
+        vocabulary_and_artwork_types_junction (vocabulary_id, artwork_type_id)
+    SELECT
+        p_id,
+        artwork_type.id
+    FROM
+        artwork_types AS artwork_type
+    WHERE
+        artwork_type.id = ANY (p_artwork_type_ids)
+    ON CONFLICT (vocabulary_id, artwork_type_id) DO NOTHING;
 END;
+$$;

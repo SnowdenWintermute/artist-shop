@@ -1,17 +1,22 @@
-CREATE OR ALTER PROCEDURE dbo.CountArtworkTypeArtworks @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS count_artwork_type_artworks;
 
+-- COUNT returns bigint in Postgres, so each is cast to the int the C# record holds
+CREATE FUNCTION count_artwork_type_artworks (p_id int) RETURNS TABLE (
+    total int,
+    with_date_created int,
+    with_height_and_width int,
+    with_depth int,
+    with_duration int
+) LANGUAGE sql STABLE AS $$
 -- COUNT(column) skips NULLs, so each counts the artworks with a value in that field
 SELECT
-    COUNT(*) AS Total,
-    COUNT(DateCreated) AS WithDateCreated,
-    COUNT(HeightCm) AS WithHeightAndWidth,
-    COUNT(DepthCm) AS WithDepth,
-    COUNT(DurationSeconds) AS WithDuration
+    COUNT(*)::int,
+    COUNT(artwork.date_created)::int,
+    COUNT(artwork.height_cm)::int,
+    COUNT(artwork.depth_cm)::int,
+    COUNT(artwork.duration_seconds)::int
 FROM
-    dbo.Artworks
+    artworks AS artwork
 WHERE
-    ArtworkTypeId = @Id;
-
-END;
+    artwork.artwork_type_id = p_id;
+$$;

@@ -1,14 +1,13 @@
-CREATE OR ALTER PROCEDURE dbo.GetAllSeries AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_all_series;
 
+-- SELECT * FROM a function returns its rows in the order the function produced them
+CREATE FUNCTION get_all_series () RETURNS TABLE (id int, name text, slug text) LANGUAGE sql STABLE AS $$
 SELECT
-    Id,
-    Name,
-    Slug
+    series.id,
+    series.name,
+    series.slug
 FROM
-    dbo.Series
+    series
 ORDER BY
-    SortOrder;
-
-END;
+    series.sort_order;
+$$;

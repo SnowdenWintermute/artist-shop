@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ArtistShop.Web.Identity.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260921152420_CreateIdentity")]
+    [Migration("20260921160519_CreateIdentity")]
     partial class CreateIdentity
     {
         /// <inheritdoc />
@@ -82,8 +82,7 @@ namespace ArtistShop.Web.Identity.Migrations
 
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
-                        .HasDatabaseName("EmailIndex")
-                        .HasFilter("[NormalizedEmail] IS NOT NULL");
+                        .HasDatabaseName("EmailIndex");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()

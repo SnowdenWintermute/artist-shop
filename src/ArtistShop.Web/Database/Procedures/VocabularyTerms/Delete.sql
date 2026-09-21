@@ -1,20 +1,11 @@
-CREATE OR ALTER PROCEDURE dbo.DeleteVocabularyTerm @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS delete_vocabulary_term;
 
-SET
-XACT_ABORT ON;
-
-BEGIN TRANSACTION;
-
-DELETE FROM dbo.ArtworkAndVocabularyTermsJunction
+CREATE FUNCTION delete_vocabulary_term (p_id int) RETURNS void LANGUAGE sql AS $$
+DELETE FROM artwork_and_vocabulary_terms_junction
 WHERE
-    TermId = @Id;
+    term_id = p_id;
 
-DELETE FROM dbo.VocabularyTerms
+DELETE FROM vocabulary_terms
 WHERE
-    Id = @Id;
-
-COMMIT TRANSACTION;
-
-END;
+    id = p_id;
+$$;

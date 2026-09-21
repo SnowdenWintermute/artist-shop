@@ -1,22 +1,20 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
 public class VocabularyTermRepository(NpgsqlDataSource dataSource)
 {
-    private const string UniqueNameConstraint = "Unique_VocabularyTerms_VocabularyName";
+    private const string UniqueNameConstraint = "unique_vocabulary_terms_vocabulary_name";
 
     public async Task<List<VocabularyTermWithUsage>> GetAllWithUsageAsync(VocabularyId vocabularyId)
     {
         await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<VocabularyTermWithUsageRow>(
-            "dbo.GetVocabularyTermsWithUsage",
-            new { VocabularyId = vocabularyId.Value },
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_vocabulary_terms_with_usage(@VocabularyId)",
+            new { VocabularyId = vocabularyId.Value }
         );
 
         return
@@ -36,9 +34,8 @@ public class VocabularyTermRepository(NpgsqlDataSource dataSource)
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "dbo.AddVocabularyTerm",
-                new { VocabularyId = vocabularyId.Value, Name = name.Value },
-                commandType: CommandType.StoredProcedure
+                "SELECT add_vocabulary_term(@VocabularyId, @Name)",
+                new { VocabularyId = vocabularyId.Value, Name = name.Value }
             );
 
             return new VocabularyTermId(id);
@@ -57,9 +54,8 @@ public class VocabularyTermRepository(NpgsqlDataSource dataSource)
         try
         {
             await connection.ExecuteAsync(
-                "dbo.RenameVocabularyTerm",
-                new { Id = id.Value, Name = name.Value },
-                commandType: CommandType.StoredProcedure
+                "SELECT rename_vocabulary_term(@Id, @Name)",
+                new { Id = id.Value, Name = name.Value }
             );
         }
         catch (PostgresException exception)
@@ -78,11 +74,7 @@ public class VocabularyTermRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
-        await connection.ExecuteAsync(
-            "dbo.DeleteVocabularyTerm",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
-        );
+        await connection.ExecuteAsync("SELECT delete_vocabulary_term(@Id)", new { Id = id.Value });
     }
 
     private sealed class VocabularyTermWithUsageRow

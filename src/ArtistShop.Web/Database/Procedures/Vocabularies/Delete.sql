@@ -1,28 +1,20 @@
-CREATE OR ALTER PROCEDURE dbo.DeleteVocabulary @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS delete_vocabulary;
 
-SET
-XACT_ABORT ON;
-
-BEGIN TRANSACTION;
-
-DELETE FROM dbo.ArtworkAndVocabularyTermsJunction
+-- a sql function may hold several statements; with no variables or checks it needs no plpgsql
+CREATE FUNCTION delete_vocabulary (p_id int) RETURNS void LANGUAGE sql AS $$
+DELETE FROM artwork_and_vocabulary_terms_junction
 WHERE
-    VocabularyId = @Id;
+    vocabulary_id = p_id;
 
-DELETE FROM dbo.VocabularyTerms
+DELETE FROM vocabulary_terms
 WHERE
-    VocabularyId = @Id;
+    vocabulary_id = p_id;
 
-DELETE FROM dbo.VocabularyAndArtworkTypesJunction
+DELETE FROM vocabulary_and_artwork_types_junction
 WHERE
-    VocabularyId = @Id;
+    vocabulary_id = p_id;
 
-DELETE FROM dbo.Vocabularies
+DELETE FROM vocabularies
 WHERE
-    Id = @Id;
-
-COMMIT TRANSACTION;
-
-END;
+    id = p_id;
+$$;

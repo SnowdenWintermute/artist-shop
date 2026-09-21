@@ -1,6 +1,6 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
-// the values must match the ids seeded into dbo.ArtworkFields
+// the values must match the ids seeded into artwork_fields
 public enum ArtworkField
 {
     DateCreated = 1,

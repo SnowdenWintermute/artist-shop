@@ -1,22 +1,18 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
 public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
 {
-    private const string UniqueNameConstraint = "Unique_ArtworkTypes_Name";
+    private const string UniqueNameConstraint = "unique_artwork_types_name";
 
     public async Task<List<ArtworkType>> GetAllAsync()
     {
         await using var connection = dataSource.CreateConnection();
 
-        var rows = await connection.QueryAsync<ArtworkTypeRow>(
-            "dbo.GetArtworkTypes",
-            commandType: CommandType.StoredProcedure
-        );
+        var rows = await connection.QueryAsync<ArtworkTypeRow>("SELECT * FROM get_artwork_types()");
         return
         [
             .. rows.Select(row => new ArtworkType(
@@ -30,10 +26,13 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
+        // Npgsql returns one result set per statement
         await using var results = await connection.QueryMultipleAsync(
-            "dbo.GetArtworkType",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
+            """
+            SELECT * FROM get_artwork_type(@Id);
+            SELECT * FROM get_artwork_type_field_ids(@Id);
+            """,
+            new { Id = id.Value }
         );
 
         var row = await results.ReadSingleOrDefaultAsync<ArtworkTypeRow>();
@@ -59,21 +58,22 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
 
         // Dapper matches the columns to the record's constructor parameters by name
         return await connection.QuerySingleAsync<ArtworkTypeArtworkCounts>(
-            "dbo.CountArtworkTypeArtworks",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM count_artwork_type_artworks(@Id)",
+            new { Id = id.Value }
         );
     }
 
-    public async Task<ArtworkTypeId> AddAsync(ArtworkTypeName name, IEnumerable<ArtworkField> fields)
+    public async Task<ArtworkTypeId> AddAsync(
+        ArtworkTypeName name,
+        IEnumerable<ArtworkField> fields
+    )
     {
         await using var connection = dataSource.CreateConnection();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "dbo.AddArtworkType",
-                new { Name = name.Value, ArtworkFieldIds = CreateFieldIdList(fields) },
-                commandType: CommandType.StoredProcedure
+                "SELECT add_artwork_type(@Name, @ArtworkFieldIds)",
+                new { Name = name.Value, ArtworkFieldIds = CreateFieldIdList(fields) }
             );
 
             return new ArtworkTypeId(id);
@@ -95,14 +95,13 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
         try
         {
             await connection.ExecuteAsync(
-                "dbo.UpdateArtworkType",
+                "SELECT update_artwork_type(@Id, @Name, @ArtworkFieldIds)",
                 new
                 {
                     Id = id.Value,
                     Name = name.Value,
                     ArtworkFieldIds = CreateFieldIdList(fields),
-                },
-                commandType: CommandType.StoredProcedure
+                }
             );
         }
         catch (PostgresException exception)
@@ -122,21 +121,18 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
         try
         {
-            await connection.ExecuteAsync(
-                "dbo.DeleteArtworkType",
-                new { Id = id.Value },
-                commandType: CommandType.StoredProcedure
-            );
+            await connection.ExecuteAsync("SELECT delete_artwork_type(@Id)", new { Id = id.Value });
         }
-        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeInUse))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeInUse))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
     }
 
-    private static SqlMapper.ICustomQueryParameter CreateFieldIdList(
-        IEnumerable<ArtworkField> fields
-    ) => IdListParameter.Create(fields.Select(field => (int)field));
+    // Npgsql sends an int[] as a Postgres int[]
+    private static int[] CreateFieldIdList(IEnumerable<ArtworkField> fields) =>
+        [.. fields.Select(field => (int)field)];
 
     private sealed class ArtworkTypeRow
     {

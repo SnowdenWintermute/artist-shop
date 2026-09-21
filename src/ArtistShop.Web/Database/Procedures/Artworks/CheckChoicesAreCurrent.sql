@@ -1,142 +1,118 @@
-CREATE OR ALTER PROCEDURE dbo.CheckArtworkChoicesAreCurrent @ArtworkTypeId int,
-@DateCreated date,
-@HeightCm decimal(8, 4),
-@WidthCm decimal(8, 4),
-@DepthCm decimal(8, 4),
-@DurationSeconds int,
-@VocabularyTermIds dbo.IdList READONLY,
-@SeriesIds dbo.IdList READONLY AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS check_artwork_choices_are_current;
 
-SET
-XACT_ABORT ON;
-
--- Everything a form offered could have been changed in another tab while it sat open. The callers
--- run this inside their own SERIALIZABLE transaction, so the rows read here stay locked until they
--- commit: nothing can switch a field off or delete a term between this check and the write.
--- must match the ArtworkField enum in C#
-DECLARE @DateCreatedFieldId int = 1;
-
-DECLARE @HeightAndWidthFieldId int = 2;
-
-DECLARE @DepthFieldId int = 3;
-
-DECLARE @DurationFieldId int = 4;
-
-IF NOT EXISTS (
-    SELECT
-        1
+-- Everything a form offered could have been changed in another tab while it sat open. The locks
+-- taken here last until the caller's transaction ends, so nothing can switch a field off or
+-- delete a choice between this check and the write.
+CREATE FUNCTION check_artwork_choices_are_current (
+    p_artwork_type_id int,
+    p_date_created date,
+    p_height_cm numeric,
+    p_width_cm numeric,
+    p_depth_cm numeric,
+    p_duration_seconds int,
+    p_vocabulary_term_ids int[],
+    p_series_ids int[]
+) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+    -- must match the ArtworkField enum in C#
+    date_created_field_id CONSTANT int := 1;
+    height_and_width_field_id CONSTANT int := 2;
+    depth_field_id CONSTANT int := 3;
+    duration_field_id CONSTANT int := 4;
+    enabled_field_ids int[];
+BEGIN
+    -- FOR SHARE blocks any UPDATE or DELETE of the row. update_artwork_type and delete_artwork_type
+    -- both lock the type row before anything else, so they wait for this transaction
+    PERFORM
     FROM
-        dbo.ArtworkTypes
+        artwork_types
     WHERE
-        Id = @ArtworkTypeId
-) THROW 50010,
-'The artwork type no longer exists.',
-1;
+        id = p_artwork_type_id
+    FOR SHARE;
 
--- a table variable: a temporary table that lives until the procedure ends
-DECLARE @EnabledFieldIds TABLE (Id int PRIMARY KEY);
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The artwork type no longer exists.' USING ERRCODE = 'SH010';
+    END IF;
 
-INSERT INTO
-    @EnabledFieldIds (Id)
-SELECT
-    ArtworkFieldId
-FROM
-    dbo.ArtworkTypeAndArtworkFieldsJunction
-WHERE
-    ArtworkTypeId = @ArtworkTypeId;
+    -- ARRAY(subquery) collects a one-column result into an array
+    enabled_field_ids := ARRAY(
+        SELECT
+            artwork_field_id
+        FROM
+            artwork_type_and_artwork_fields_junction
+        WHERE
+            artwork_type_id = p_artwork_type_id
+    );
 
--- a value for a field the type doesn't have means it was switched off while the form was open
-IF (
-    @DateCreated IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @DateCreatedFieldId
+    -- a value for a field the type doesn't have means it was switched off while the form was open
+    IF (
+        p_date_created IS NOT NULL
+        AND NOT date_created_field_id = ANY (enabled_field_ids)
     )
-)
-OR (
-    COALESCE(@HeightCm, @WidthCm) IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @HeightAndWidthFieldId
+    OR (
+        COALESCE(p_height_cm, p_width_cm) IS NOT NULL
+        AND NOT height_and_width_field_id = ANY (enabled_field_ids)
     )
-)
-OR (
-    @DepthCm IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @DepthFieldId
+    OR (
+        p_depth_cm IS NOT NULL
+        AND NOT depth_field_id = ANY (enabled_field_ids)
     )
-)
-OR (
-    @DurationSeconds IS NOT NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @EnabledFieldIds
-        WHERE
-            Id = @DurationFieldId
-    )
-) THROW 50011,
-'A field was switched off for this artwork type.',
-1;
+    OR (
+        p_duration_seconds IS NOT NULL
+        AND NOT duration_field_id = ANY (enabled_field_ids)
+    ) THEN
+        RAISE EXCEPTION 'A field was switched off for this artwork type.' USING ERRCODE = 'SH011';
+    END IF;
 
--- A join at write time would silently skip a term id that no longer exists (say it was deleted in
--- another tab while this form was open). Checking first turns that into a loud error.
--- THROW needs the statement before it to end with a semicolon.
-IF EXISTS (
-    SELECT
-        1
+    -- A join at write time would silently skip a term id that no longer exists (say it was deleted
+    -- in another tab while this form was open). Checking first turns that into a loud error.
+    -- FOR KEY SHARE is the lightest row lock: it blocks a DELETE but lets a rename through
+    PERFORM
     FROM
-        @VocabularyTermIds AS vocabularyTermIds
+        vocabulary_terms
     WHERE
-        NOT EXISTS (
-            SELECT
-                1
-            FROM
-                dbo.VocabularyTerms AS vocabularyTerm
-            WHERE
-                vocabularyTerm.Id = vocabularyTermIds.Id
-        )
-)
--- 50000 and above are free for our own errors. With XACT_ABORT ON, THROW also
--- rolls the transaction back.
-THROW 50001,
-'A chosen vocabulary term no longer exists.',
-1;
+        id = ANY (p_vocabulary_term_ids)
+    FOR KEY SHARE;
 
--- the junction's foreign key would catch a deleted series too, but as error 547, which says
--- nothing about which choice was stale
-IF EXISTS (
-    SELECT
-        1
+    IF EXISTS (
+        SELECT
+        FROM
+            unnest(p_vocabulary_term_ids) AS chosen (id)
+        WHERE
+            NOT EXISTS (
+                SELECT
+                FROM
+                    vocabulary_terms AS term
+                WHERE
+                    term.id = chosen.id
+            )
+    ) THEN
+        RAISE EXCEPTION 'A chosen vocabulary term no longer exists.' USING ERRCODE = 'SH001';
+    END IF;
+
+    -- the junction's foreign key would catch a deleted series too, but as a plain foreign key
+    -- violation, which says nothing about which choice was stale
+    PERFORM
     FROM
-        @SeriesIds AS seriesIds
+        series
     WHERE
-        NOT EXISTS (
-            SELECT
-                1
-            FROM
-                dbo.Series AS series
-            WHERE
-                series.Id = seriesIds.Id
-        )
-) THROW 50004,
-'A chosen series no longer exists.',
-1;
+        id = ANY (p_series_ids)
+    FOR KEY SHARE;
 
+    IF EXISTS (
+        SELECT
+        FROM
+            unnest(p_series_ids) AS chosen (id)
+        WHERE
+            NOT EXISTS (
+                SELECT
+                FROM
+                    series
+                WHERE
+                    series.id = chosen.id
+            )
+    ) THEN
+        RAISE EXCEPTION 'A chosen series no longer exists.' USING ERRCODE = 'SH004';
+    END IF;
 END;
+$$;

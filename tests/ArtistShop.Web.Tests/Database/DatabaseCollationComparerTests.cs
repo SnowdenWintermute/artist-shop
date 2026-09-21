@@ -6,10 +6,8 @@ namespace ArtistShop.Web.Tests.Database;
 public sealed class DatabaseCollationComparerTests
 {
     [Theory]
-    // SQL Server ignores trailing spaces when it compares, so these are one name to the database
-    [InlineData("Sunset", "Sunset ")]
     [InlineData("Sunset", "sunset")]
-    [InlineData("Sunset", "SUNSET  ")]
+    [InlineData("Sunset", "SUNSET")]
     public void NamesTheDatabaseTreatsAsOneAreEqual(string left, string right)
     {
         Assert.True(DatabaseCollationComparer.Instance.Equals(left, right));
@@ -20,8 +18,9 @@ public sealed class DatabaseCollationComparerTests
     }
 
     [Theory]
-    // a leading space is part of the name, and the collation is accent sensitive
+    // spaces are part of the name at either end, and the collation is accent sensitive
     [InlineData("Sunset", " Sunset")]
+    [InlineData("Sunset", "Sunset ")]
     [InlineData("Café", "Cafe")]
     [InlineData("Sunset", "Sunrise")]
     public void NamesTheDatabaseTellsApartAreNotEqual(string left, string right)

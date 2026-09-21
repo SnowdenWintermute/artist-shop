@@ -1,27 +1,29 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabulariesWithTerms @ArtworkTypeId int = NULL AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_vocabularies_with_terms;
 
+CREATE FUNCTION get_vocabularies_with_terms (p_artwork_type_id int) RETURNS TABLE (
+    id int,
+    name text,
+    term_id int,
+    term_name text
+) LANGUAGE sql STABLE AS $$
 -- one row per term; a vocabulary with no terms still gets one row, with NULL term columns.
 -- No artwork type means every vocabulary, which is what the artwork list filters across
 SELECT
-    vocabulary.Id,
-    vocabulary.Name,
-    term.Id AS TermId,
-    term.Name AS TermName
+    vocabulary.id,
+    vocabulary.name,
+    term.id,
+    term.name
 FROM
-    dbo.Vocabularies AS vocabulary
-    LEFT JOIN dbo.VocabularyTerms AS term ON term.VocabularyId = vocabulary.Id
+    vocabularies AS vocabulary
+    LEFT JOIN vocabulary_terms AS term ON term.vocabulary_id = vocabulary.id
 WHERE
-    @ArtworkTypeId IS NULL
+    p_artwork_type_id IS NULL
     OR EXISTS (
         SELECT
-            1
         FROM
-            dbo.VocabularyAndArtworkTypesJunction AS applies
+            vocabulary_and_artwork_types_junction AS applies
         WHERE
-            applies.VocabularyId = vocabulary.Id
-            AND applies.ArtworkTypeId = @ArtworkTypeId
+            applies.vocabulary_id = vocabulary.id
+            AND applies.artwork_type_id = p_artwork_type_id
     );
-
-END;
+$$;

@@ -16,24 +16,32 @@ public static class IdentitySeeder
             );
         }
 
+        // Admin:Email names the account to make an admin, in every environment. With none set there
+        // is nothing to seed. The password is only read to create the account, so production can
+        // drop it after the first boot
+        var configuration = services.GetRequiredService<IConfiguration>();
+        var adminEmail = configuration["Admin:Email"];
+
+        if (string.IsNullOrWhiteSpace(adminEmail))
+        {
+            return;
+        }
+
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
-        var user = await userManager.FindByEmailAsync("mike@example.com");
+        var user = await userManager.FindByEmailAsync(adminEmail);
 
         if (user is null)
         {
-            user = new ApplicationUser
-            {
-                UserName = "mike@example.com",
-                Email = "mike@example.com",
-            };
-            var configuration = services.GetRequiredService<IConfiguration>();
-            var devAdminPassword =
-                configuration["DEV_ADMIN_PASSWORD"]
-                ?? throw new InvalidOperationException("no dev password in env");
+            user = new ApplicationUser { UserName = adminEmail, Email = adminEmail };
+            var adminPassword =
+                configuration["Admin:Password"]
+                ?? throw new InvalidOperationException(
+                    $"Admin:Email is {adminEmail}, which has no account yet, and Admin:Password is not set"
+                );
 
             ThrowIfFailed(
-                await userManager.CreateAsync(user, devAdminPassword),
+                await userManager.CreateAsync(user, adminPassword),
                 "Creating the admin user"
             );
         }

@@ -1,23 +1,19 @@
-CREATE OR ALTER PROCEDURE dbo.FindArtworkIdsByName @Search nvarchar(200) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS find_artwork_ids_by_name;
 
--- LIKE's own wildcards are hidden by wrapping each one in brackets, so a title holding a
--- % is searched for literally. The [ is replaced first, or it would break the brackets
--- the other two replacements add
-DECLARE @Pattern nvarchar(700) = N'%' + REPLACE(
-    REPLACE(REPLACE(@Search, N'[', N'[[]'), N'%', N'[%]'),
-    N'_',
-    N'[_]'
-) + N'%';
-
+CREATE FUNCTION find_artwork_ids_by_name (p_search text) RETURNS TABLE (id int) LANGUAGE sql STABLE AS $$
 SELECT
-    Id
+    artwork.id
 FROM
-    dbo.Artworks
+    artworks AS artwork
 WHERE
-    -- AI is accent-insensitive, so "cafe" finds "café". The column's own collation is
-    -- accent-sensitive, which is right for term names but wrong for a search box
-    Name COLLATE Latin1_General_100_CI_AI LIKE @Pattern;
-
-END;
+    -- case_and_accent_insensitive ignores accents as well as case, so "cafe" finds "café". The
+    -- column's own collation keeps accents, which is right for matching names but wrong for a
+    -- search box. LIKE's wildcards in the search are escaped with a backslash, LIKE's default
+    -- escape character, so a title holding a % is searched for literally. The backslash is
+    -- escaped first, or it would double the ones the other two add
+    artwork.name COLLATE case_and_accent_insensitive LIKE '%' || replace(
+        replace(replace(p_search, '\', '\\'), '%', '\%'),
+        '_',
+        '\_'
+    ) || '%';
+$$;

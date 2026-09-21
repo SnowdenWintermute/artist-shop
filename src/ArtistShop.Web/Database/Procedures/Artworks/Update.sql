@@ -1,101 +1,86 @@
-CREATE OR ALTER PROCEDURE dbo.UpdateArtwork @Id int,
-@Name nvarchar(200),
-@CandidateSlug nvarchar(200),
-@Description nvarchar(max),
-@DateCreated date,
-@DateCreatedPrecision tinyint,
-@HeightCm decimal(8, 4),
-@WidthCm decimal(8, 4),
-@DepthCm decimal(8, 4),
-@DurationSeconds int,
-@Images dbo.ArtworkImageList READONLY,
-@VocabularyTermIds dbo.IdList READONLY,
-@SeriesIds dbo.IdList READONLY AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS update_artwork;
 
-SET
-XACT_ABORT ON;
+-- returns the slug, because this decides it: a rename can land on a numbered one
+CREATE FUNCTION update_artwork (
+    p_id int,
+    p_name text,
+    p_candidate_slug text,
+    p_description text,
+    p_date_created date,
+    p_date_created_precision smallint,
+    p_height_cm numeric,
+    p_width_cm numeric,
+    p_depth_cm numeric,
+    p_duration_seconds int,
+    p_images artwork_image_input[],
+    p_vocabulary_term_ids int[],
+    p_series_ids int[]
+) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE
+    current_artwork_type_id int;
+    current_slug text;
+    new_slug text;
+BEGIN
+    -- An artwork's type never changes, so it isn't a parameter: it's read from the row, which the
+    -- vocabulary junction copies and which decides the allowed fields. FOR UPDATE holds the row
+    -- until the transaction ends, so a delete in another tab waits rather than landing between
+    -- this read and the UPDATE
+    SELECT
+        artwork.artwork_type_id,
+        artwork.slug
+    INTO
+        current_artwork_type_id,
+        current_slug
+    FROM
+        artworks AS artwork
+    WHERE
+        artwork.id = p_id
+    FOR UPDATE;
 
-SET
-TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The artwork no longer exists.' USING ERRCODE = 'SH003';
+    END IF;
 
-BEGIN TRANSACTION;
+    PERFORM check_artwork_choices_are_current(
+        current_artwork_type_id,
+        p_date_created,
+        p_height_cm,
+        p_width_cm,
+        p_depth_cm,
+        p_duration_seconds,
+        p_vocabulary_term_ids,
+        p_series_ids
+    );
 
--- An artwork's type never changes, so it isn't a parameter: it's read from the row, which the
--- vocabulary junction copies and which decides the allowed fields. UPDLOCK holds that row from here
--- until COMMIT, so a delete in another tab waits rather than landing between this read and the UPDATE.
-DECLARE @ArtworkTypeId int;
+    -- Keep the slug when it already belongs to this name's family, so saving an unchanged form
+    -- doesn't move sunset-2 to sunset-4. Otherwise the current slug is outside the family, so this
+    -- artwork's own row can't be what makes resolve_artwork_slug add a number
+    new_slug := CASE
+        WHEN current_slug = p_candidate_slug
+        OR artwork_slug_number(current_slug, p_candidate_slug) IS NOT NULL THEN current_slug
+        ELSE resolve_artwork_slug(p_candidate_slug)
+    END;
 
-DECLARE @CurrentSlug nvarchar(210);
+    UPDATE artworks
+    SET
+        name = p_name,
+        slug = new_slug,
+        description = p_description,
+        date_created = p_date_created,
+        date_created_precision = p_date_created_precision,
+        height_cm = p_height_cm,
+        width_cm = p_width_cm,
+        depth_cm = p_depth_cm,
+        duration_seconds = p_duration_seconds
+    WHERE
+        id = p_id;
 
-SELECT
-    @ArtworkTypeId = ArtworkTypeId,
-    @CurrentSlug = Slug
-FROM
-    dbo.Artworks WITH (UPDLOCK, ROWLOCK)
-WHERE
-    Id = @Id;
+    PERFORM set_artwork_images(p_id, p_images);
 
--- no row leaves both variables unset, and neither column is nullable
-IF @ArtworkTypeId IS NULL THROW 50003,
-'The artwork no longer exists.',
-1;
+    PERFORM set_artwork_vocabulary_terms(p_id, current_artwork_type_id, p_vocabulary_term_ids);
 
-EXEC dbo.CheckArtworkChoicesAreCurrent @ArtworkTypeId = @ArtworkTypeId,
-@DateCreated = @DateCreated,
-@HeightCm = @HeightCm,
-@WidthCm = @WidthCm,
-@DepthCm = @DepthCm,
-@DurationSeconds = @DurationSeconds,
-@VocabularyTermIds = @VocabularyTermIds,
-@SeriesIds = @SeriesIds;
+    PERFORM set_artwork_series(p_id, p_series_ids);
 
--- Keep the slug when it already belongs to this name's family, so saving an unchanged form doesn't
--- move sunset-2 to sunset-4. The pattern alone would also accept sunset-2b, which TRY_CAST rules
--- out by returning NULL when what follows the dash isn't a whole number.
-DECLARE @NumberSuffixPattern nvarchar(210) = @CandidateSlug + '-[0-9]%';
-
-DECLARE @CurrentSlugNumber int = TRY_CAST(
-    SUBSTRING(@CurrentSlug, LEN(@CandidateSlug) + 2, LEN(@CurrentSlug)) AS int
-);
-
-DECLARE @Slug nvarchar(210) = CASE
-    WHEN @CurrentSlug = @CandidateSlug THEN @CurrentSlug
-    WHEN @CurrentSlug LIKE @NumberSuffixPattern
-    AND @CurrentSlugNumber IS NOT NULL THEN @CurrentSlug
-    -- the current slug is outside the family, so this artwork's own row can't be what makes
-    -- ResolveArtworkSlug add a number
-    ELSE dbo.ResolveArtworkSlug (@CandidateSlug)
+    RETURN new_slug;
 END;
-
-UPDATE dbo.Artworks
-SET
-    Name = @Name,
-    Slug = @Slug,
-    Description = @Description,
-    DateCreated = @DateCreated,
-    DateCreatedPrecision = @DateCreatedPrecision,
-    HeightCm = @HeightCm,
-    WidthCm = @WidthCm,
-    DepthCm = @DepthCm,
-    DurationSeconds = @DurationSeconds
-WHERE
-    Id = @Id;
-
-EXEC dbo.SetArtworkImages @ArtworkId = @Id,
-@Images = @Images;
-
-EXEC dbo.SetArtworkVocabularyTerms @ArtworkId = @Id,
-@ArtworkTypeId = @ArtworkTypeId,
-@VocabularyTermIds = @VocabularyTermIds;
-
-EXEC dbo.SetArtworkSeries @ArtworkId = @Id,
-@SeriesIds = @SeriesIds;
-
-COMMIT TRANSACTION;
-
-SELECT
-    @Slug AS Slug;
-
-END;
+$$;

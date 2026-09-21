@@ -1,10 +1,8 @@
-CREATE OR ALTER PROCEDURE dbo.GetAllArtworkImageStorageKeys AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_all_artwork_image_storage_keys;
 
+CREATE FUNCTION get_all_artwork_image_storage_keys () RETURNS TABLE (storage_key text) LANGUAGE sql STABLE AS $$
 SELECT
-    artworkImages.StorageKey
+    image.storage_key
 FROM
-    dbo.ArtworkImages AS artworkImages;
-
-END
+    artwork_images AS image;
+$$;

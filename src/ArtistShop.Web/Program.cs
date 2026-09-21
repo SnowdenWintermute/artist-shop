@@ -13,7 +13,6 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,7 +56,10 @@ NetVips.NetVips.Concurrency = 1;
 // would only hold memory the limiter's estimates don't count
 NetVips.Cache.Max = 0;
 
-var imageProcessingSettings = ValidatedSettings.Read<ImageProcessingSettings>(builder.Configuration, "ImageProcessing");
+var imageProcessingSettings = ValidatedSettings.Read<ImageProcessingSettings>(
+    builder.Configuration,
+    "ImageProcessing"
+);
 var imageProcessingCapacity = ImageProcessingCapacity.FromHost(imageProcessingSettings);
 builder.Services.AddSingleton(imageProcessingSettings);
 builder.Services.AddSingleton(
@@ -81,10 +83,12 @@ builder.Services.AddHostedService<OrphanedImageSweepService>();
 
 // domain database
 builder.Services.AddSingleton<SchemaMigrator>();
+
 // a factory rather than an instance, so the container disposes the data source, and the pool of
 // connections it holds, when the app shuts down
-builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(shopConnectionString));
+builder.Services.AddSingleton(_ => ShopDataSource.Create(shopConnectionString));
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+
 // the database's artwork_type_id fills the ArtworkTypeId property
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 builder.Services.AddScoped<ArtworkRepository>();
@@ -150,10 +154,7 @@ using (var scope = app.Services.CreateScope())
     // creates the identity database too, if it isn't there yet
     await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
 
-    if (app.Environment.IsDevelopment())
-    {
-        await IdentitySeeder.SeedAsync(scope.ServiceProvider);
-    }
+    await IdentitySeeder.SeedAsync(scope.ServiceProvider);
 }
 
 Console.WriteLine("Database initialization completed.");

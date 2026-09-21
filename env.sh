@@ -21,3 +21,7 @@ export ConnectionStrings__ArtistShop="Host=localhost;Port=5434;Database=artist_s
 export MALLOC_ARENA_MAX=2
 
 export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=artist_shop_identity;Username=postgres;Password=$POSTGRES_PASSWORD"
+
+# the account IdentitySeeder makes an admin; production sets the same two variables
+export Admin__Email="mike@example.com"
+export Admin__Password="$DEV_ADMIN_PASSWORD"

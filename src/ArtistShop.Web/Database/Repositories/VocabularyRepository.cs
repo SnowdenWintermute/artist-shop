@@ -1,6 +1,5 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Utilities;
 using Dapper;
@@ -8,16 +7,13 @@ using Npgsql;
 
 public class VocabularyRepository(NpgsqlDataSource dataSource)
 {
-    private const string UniqueNameConstraint = "Unique_Vocabularies_Name";
+    private const string UniqueNameConstraint = "unique_vocabularies_name";
 
     public async Task<List<Vocabulary>> GetAllAsync()
     {
         await using var connection = dataSource.CreateConnection();
 
-        var rows = await connection.QueryAsync<VocabularyRow>(
-            "dbo.GetVocabularies",
-            commandType: CommandType.StoredProcedure
-        );
+        var rows = await connection.QueryAsync<VocabularyRow>("SELECT * FROM get_vocabularies()");
 
         return [.. rows.Select(ToVocabulary)];
     }
@@ -27,8 +23,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<VocabularyRow>(
-            "dbo.GetVocabulariesWithoutArtworkTypes",
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_vocabularies_without_artwork_types()"
         );
 
         return [.. rows.Select(ToVocabulary)];
@@ -46,9 +41,8 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<VocabularyWithTermRow>(
-            "dbo.GetVocabulariesWithTerms",
-            new { ArtworkTypeId = artworkTypeId },
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_vocabularies_with_terms(@ArtworkTypeId)",
+            new { ArtworkTypeId = artworkTypeId }
         );
 
         return GroupIntoVocabularies(rows);
@@ -81,15 +75,14 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
-        var artworkTypeIdList = IdListParameter.Create(artworkTypeIds.Select(id => id.Value));
+        int[] artworkTypeIdList = [.. artworkTypeIds.Select(id => id.Value)];
 
         await using var connection = dataSource.CreateConnection();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "dbo.AddVocabulary",
-                new { Name = name.Value, ArtworkTypeIds = artworkTypeIdList },
-                commandType: CommandType.StoredProcedure
+                "SELECT add_vocabulary(@Name, @ArtworkTypeIds)",
+                new { Name = name.Value, ArtworkTypeIds = artworkTypeIdList }
             );
 
             return new VocabularyId(id);
@@ -106,9 +99,11 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
-            "dbo.GetVocabulary",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
+            """
+            SELECT * FROM get_vocabulary(@Id);
+            SELECT * FROM get_vocabulary_artwork_type_ids(@Id);
+            """,
+            new { Id = id.Value }
         );
 
         var row = await results.ReadSingleOrDefaultAsync<VocabularyRow>();
@@ -132,9 +127,11 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
-            "dbo.CountVocabularyUsage",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
+            """
+            SELECT count_vocabulary_terms(@Id);
+            SELECT * FROM count_vocabulary_artworks_by_type(@Id);
+            """,
+            new { Id = id.Value }
         );
 
         var termCount = await results.ReadSingleAsync<int>();
@@ -157,23 +154,20 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
-        var artworkTypeIdList = IdListParameter.Create(
-            artworkTypeIds.Select(artworkTypeId => artworkTypeId.Value)
-        );
+        int[] artworkTypeIdList = [.. artworkTypeIds.Select(artworkTypeId => artworkTypeId.Value)];
 
         await using var connection = dataSource.CreateConnection();
         try
         {
-            // ExecuteAsync: for procedures that return no result set
+            // ExecuteAsync: for calls whose result nobody reads
             await connection.ExecuteAsync(
-                "dbo.UpdateVocabulary",
+                "SELECT update_vocabulary(@Id, @Name, @ArtworkTypeIds)",
                 new
                 {
                     Id = id.Value,
                     Name = name.Value,
                     ArtworkTypeIds = artworkTypeIdList,
-                },
-                commandType: CommandType.StoredProcedure
+                }
             );
         }
         catch (PostgresException exception)
@@ -192,11 +186,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
-        await connection.ExecuteAsync(
-            "dbo.DeleteVocabulary",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
-        );
+        await connection.ExecuteAsync("SELECT delete_vocabulary(@Id)", new { Id = id.Value });
     }
 
     private static Vocabulary ToVocabulary(VocabularyRow row) =>

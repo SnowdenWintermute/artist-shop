@@ -1,17 +1,16 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
 public class SeriesRepository(NpgsqlDataSource dataSource)
 {
-    private const string UniqueNameConstraint = "Unique_Series_Name";
-    private const string UniqueSlugConstraint = "Unique_Series_Slug";
+    private const string UniqueNameConstraint = "unique_series_name";
+    private const string UniqueSlugConstraint = "unique_series_slug";
 
-    // the same name also means the same slug, and which constraint SQL Server reports first isn't
-    // defined, so both mean "name taken"
+    // the same name also means the same slug, and which constraint Postgres reports first isn't
+    // something to rely on, so both mean "name taken"
     private static bool IsNameTaken(PostgresException exception) =>
         SqlErrors.IsUniqueConstraintViolation(exception, UniqueNameConstraint)
         || SqlErrors.IsUniqueConstraintViolation(exception, UniqueSlugConstraint);
@@ -20,10 +19,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
-        var rows = await connection.QueryAsync<SeriesRow>(
-            "dbo.GetAllSeries",
-            commandType: CommandType.StoredProcedure
-        );
+        var rows = await connection.QueryAsync<SeriesRow>("SELECT * FROM get_all_series()");
 
         return
         [
@@ -49,9 +45,8 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         var row = await connection.QuerySingleOrDefaultAsync<SeriesRow>(
-            "dbo.GetSeriesBySlug",
-            new { Slug = slug },
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_series_by_slug(@Slug)",
+            new { Slug = slug }
         );
 
         return row is null
@@ -64,9 +59,8 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<SeriesWithCoverRow>(
-            "dbo.GetSeriesWithCovers",
-            new { OnlyArtworksWithImages = onlyArtworksWithImages },
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_series_with_covers(@OnlyArtworksWithImages)",
+            new { OnlyArtworksWithImages = onlyArtworksWithImages }
         );
 
         return
@@ -76,7 +70,12 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
                 new SeriesName(row.Name),
                 new SeriesSlug(row.Slug),
                 row.ArtworkCount,
-                row is { CoverStorageKey: string storageKey, CoverWidth: int width, CoverHeight: int height }
+                row
+                    is {
+                        CoverStorageKey: string storageKey,
+                        CoverWidth: int width,
+                        CoverHeight: int height
+                    }
                     ? new ArtworkImage(
                         storageKey,
                         row.CoverOriginalFileName,
@@ -94,9 +93,11 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         await using var results = await connection.QueryMultipleAsync(
-            "dbo.GetSeries",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
+            """
+            SELECT * FROM get_series(@Id);
+            SELECT * FROM get_series_artworks(@Id);
+            """,
+            new { Id = id.Value }
         );
 
         var row = await results.ReadSingleOrDefaultAsync<SeriesRow>();
@@ -118,7 +119,8 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
                     new ArtworkName(artwork.Name),
                     new ArtworkTypeName(artwork.ArtworkTypeName),
                     artwork.IsCover,
-                    artwork is { StorageKey: string storageKey, Width: int width, Height: int height }
+                    artwork
+                        is { StorageKey: string storageKey, Width: int width, Height: int height }
                         ? new ArtworkImage(
                             storageKey,
                             artwork.OriginalFileName,
@@ -152,23 +154,20 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
             return new Dictionary<string, SeriesId>(DatabaseCollationComparer.Instance);
         }
 
-        var series = new DataTable();
-        // must match dbo.SeriesNameAndSlugList
-        series.Columns.Add("Name", typeof(string));
-        series.Columns.Add("Slug", typeof(string));
-
-        foreach (var name in distinctNames)
-        {
-            series.Rows.Add(name, SeriesSlug.FromName(name).Value);
-        }
+        SeriesNameAndSlug[] series =
+        [
+            .. distinctNames.Select(name => new SeriesNameAndSlug(
+                name,
+                SeriesSlug.FromName(name).Value
+            )),
+        ];
 
         try
         {
             var rows = await connection.QueryAsync<AddedSeriesRow>(
-                "dbo.AddManySeries",
-                new { Series = series.AsTableValuedParameter("dbo.SeriesNameAndSlugList") },
-                transaction,
-                commandType: CommandType.StoredProcedure
+                "SELECT * FROM add_many_series(@Series)",
+                new { Series = series },
+                transaction
             );
 
             return rows.ToDictionary(
@@ -190,9 +189,8 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "dbo.AddSeries",
-                new { Name = name.Value, Slug = slug.Value },
-                commandType: CommandType.StoredProcedure
+                "SELECT add_series(@Name, @Slug)",
+                new { Name = name.Value, Slug = slug.Value }
             );
 
             return new SeriesId(id);
@@ -210,14 +208,13 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         try
         {
             await connection.ExecuteAsync(
-                "dbo.RenameSeries",
+                "SELECT rename_series(@Id, @Name, @Slug)",
                 new
                 {
                     Id = id.Value,
                     Name = name.Value,
                     Slug = slug.Value,
-                },
-                commandType: CommandType.StoredProcedure
+                }
             );
         }
         catch (PostgresException exception) when (IsNameTaken(exception))
@@ -238,9 +235,8 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         try
         {
             await connection.ExecuteAsync(
-                "dbo.ReorderSeries",
-                new { SeriesIds = IdListParameter.CreateOrdered([.. ids.Select(id => id.Value)]) },
-                commandType: CommandType.StoredProcedure
+                "SELECT reorder_series(@SeriesIds)",
+                new { SeriesIds = (int[])[.. ids.Select(id => id.Value)] }
             );
         }
         catch (PostgresException exception)
@@ -254,11 +250,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
-        await connection.ExecuteAsync(
-            "dbo.DeleteSeries",
-            new { Id = id.Value },
-            commandType: CommandType.StoredProcedure
-        );
+        await connection.ExecuteAsync("SELECT delete_series(@Id)", new { Id = id.Value });
     }
 
     public async Task ReorderArtworksAsync(SeriesId id, IReadOnlyList<ArtworkId> artworkIds)
@@ -268,15 +260,12 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         try
         {
             await connection.ExecuteAsync(
-                "dbo.ReorderSeriesArtworks",
+                "SELECT reorder_series_artworks(@SeriesId, @ArtworkIds)",
                 new
                 {
                     SeriesId = id.Value,
-                    ArtworkIds = IdListParameter.CreateOrdered(
-                        [.. artworkIds.Select(artworkId => artworkId.Value)]
-                    ),
-                },
-                commandType: CommandType.StoredProcedure
+                    ArtworkIds = (int[])[.. artworkIds.Select(artworkId => artworkId.Value)],
+                }
             );
         }
         catch (PostgresException exception)
@@ -293,14 +282,14 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         try
         {
             await connection.ExecuteAsync(
-                "dbo.SetSeriesCover",
-                new { SeriesId = id.Value, ArtworkId = artworkId.Value },
-                commandType: CommandType.StoredProcedure
+                "SELECT set_series_cover(@SeriesId, @ArtworkId)",
+                new { SeriesId = id.Value, ArtworkId = artworkId.Value }
             );
         }
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerInSeries)
-                || SqlErrors.IsThrown(exception, SqlStates.ArtworkHasNoImage))
+                || SqlErrors.IsThrown(exception, SqlStates.ArtworkHasNoImage)
+            )
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
@@ -311,9 +300,8 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
-            "dbo.ClearSeriesCover",
-            new { SeriesId = id.Value },
-            commandType: CommandType.StoredProcedure
+            "SELECT clear_series_cover(@SeriesId)",
+            new { SeriesId = id.Value }
         );
     }
 
@@ -322,13 +310,12 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         await using var connection = dataSource.CreateConnection();
 
         await connection.ExecuteAsync(
-            "dbo.RemoveArtworksFromSeries",
+            "SELECT remove_artworks_from_series(@SeriesId, @ArtworkIds)",
             new
             {
                 SeriesId = id.Value,
-                ArtworkIds = IdListParameter.Create(artworkIds.Select(artworkId => artworkId.Value)),
-            },
-            commandType: CommandType.StoredProcedure
+                ArtworkIds = (int[])[.. artworkIds.Select(artworkId => artworkId.Value)],
+            }
         );
     }
 

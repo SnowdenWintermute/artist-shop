@@ -1,32 +1,30 @@
-CREATE OR ALTER PROCEDURE dbo.AddManySeries @Series dbo.SeriesNameAndSlugList READONLY AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS add_many_series;
 
--- a name or slug another series has fails Unique_Series_Name or Unique_Series_Slug: unlike
--- artworks, series slugs aren't numbered
--- New series go last. Every row of one INSERT reads the same MAX, so ROW_NUMBER spreads them out
--- rather than all of them asking for MAX + 1 and failing Unique_Series_SortOrder. HOLDLOCK keeps
--- the range read by MAX locked until the insert, and UPDLOCK makes a second add wait here instead
--- of reading the same MAX
+-- a name or slug another series has fails unique_series_name or unique_series_slug
+CREATE FUNCTION add_many_series (p_series series_name_and_slug[]) RETURNS TABLE (id int, name text) LANGUAGE sql AS $$
+-- locked as in add_series
+LOCK TABLE series IN SHARE ROW EXCLUSIVE MODE;
+
+-- New series go last. Every row of one INSERT reads the same MAX, so row_number spreads them out
+-- rather than all of them asking for MAX + 1
 INSERT INTO
-    dbo.Series (Name, Slug, SortOrder)
-    OUTPUT INSERTED.Id,
-    INSERTED.Name
+    series (name, slug, sort_order)
 SELECT
-    series.Name,
-    series.Slug,
+    new_series.name,
+    new_series.slug,
     (
         SELECT
-            COALESCE(MAX(SortOrder), -1)
+            COALESCE(MAX(existing.sort_order), -1)
         FROM
-            dbo.Series
-        WITH
-            (UPDLOCK, HOLDLOCK)
-    ) + ROW_NUMBER() OVER (
+            series AS existing
+    ) + row_number() OVER (
         ORDER BY
-            series.Name
+            new_series.name
     )
+    -- unnest over an array of a composite type gives one row per element and a column per field
 FROM
-    @Series AS series;
-
-END;
+    unnest(p_series) AS new_series
+RETURNING
+    id,
+    name;
+$$;
