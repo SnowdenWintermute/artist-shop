@@ -27,6 +27,9 @@
   private ArtworkForm Input { get; set; } = default!;
   [SupplyParameterFromQuery(Name = "saved")]
   private bool Saved { get; set; }
+  // A post keeps the address, ?saved=true from the last save included, and a successful save
+  // redirects, so a page rendered from a post is always a save that didn't go through
+  private bool _formWasPosted;
 
   private Artwork? _artwork;
   private IReadOnlyList<ArtworkField> _fields = [];
@@ -46,6 +49,8 @@
 
   protected override async Task OnInitializedAsync()
   {
+    _formWasPosted = Input is not null;
+
     _artwork = await ArtworkRepository.GetByIdAsync(new ArtworkId(Id));
 
     if (_artwork is null)
@@ -127,12 +132,12 @@
         <span class="text-sm text-gray-500">@_artwork.Type.Name.Value</span>
       </div>
 
-      @if (Saved)
+      @if (Saved && !_formWasPosted)
       {
-        <p class="text-green-600">
+        <SavedNotice>
           Saved.
           <a href="@ArtworkPageQuery.Url(_artwork.Slug.Value, seriesSlug: null, imageNumber: null)">View it</a>
-        </p>
+        </SavedNotice>
       }
 
       @if (_deletedElsewhere)
@@ -143,51 +148,53 @@
         </p>
       }
 
-      <EditForm Model="Input" FormName="edit-artwork" OnValidSubmit="SaveArtwork" Enhance class="mb-8">
-        <DataAnnotationsValidator />
+      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+        <EditForm Model="Input" FormName="edit-artwork" OnValidSubmit="SaveArtwork" Enhance class="mb-8">
+          <DataAnnotationsValidator />
 
-        <TextField Label="Title" @bind-Value="Input.Name" />
-        @if (_fields.Contains(ArtworkField.DateCreated))
-        {
-          <PartialDateField Label="Date created" @bind-Year="Input.YearCreated" @bind-Month="Input.MonthCreated"
-                            @bind-Day="Input.DayCreated" />
-        }
-        <TextAreaField Label="Description" @bind-Value="Input.Description" />
-        @if (_fields.Contains(ArtworkField.HeightAndWidth))
-        {
-          <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
-          <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
-        }
-        @if (_fields.Contains(ArtworkField.Depth))
-        {
-          <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
-        }
-        @if (_fields.Contains(ArtworkField.Duration))
-        {
-          <TextField Label="@($"Duration ({ArtworkDuration.ExpectedFormat})")" @bind-Value="Input.Duration" />
-        }
+          <TextField Label="Title" @bind-Value="Input.Name" />
+          @if (_fields.Contains(ArtworkField.DateCreated))
+          {
+            <PartialDateField Label="Date created" @bind-Year="Input.YearCreated" @bind-Month="Input.MonthCreated"
+                              @bind-Day="Input.DayCreated" />
+          }
+          <TextAreaField Label="Description" @bind-Value="Input.Description" />
+          @if (_fields.Contains(ArtworkField.HeightAndWidth))
+          {
+            <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
+            <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+          }
+          @if (_fields.Contains(ArtworkField.Depth))
+          {
+            <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
+          }
+          @if (_fields.Contains(ArtworkField.Duration))
+          {
+            <TextField Label="@($"Duration ({ArtworkDuration.ExpectedFormat})")" @bind-Value="Input.Duration" />
+          }
 
-        <TermAndSeriesPickers @key="PickersKey" ArtworkTypeId="_artwork.Type.Id" Vocabularies="_vocabularies" AllSeries="_series"
-                              SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedSeriesIds="Input.SeriesIds" />
+          <TermAndSeriesPickers @key="PickersKey" ArtworkTypeId="_artwork.Type.Id" Vocabularies="_vocabularies" AllSeries="_series"
+                                SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedSeriesIds="Input.SeriesIds" />
 
-        <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
-        @* the island starts from the images the form holds: the artwork's own on a fresh page, and
-           whatever was posted when a submit comes back with an error *@
-        <ImagesField @key="ImagesKey" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
-                     SelectedImages="Input.ToArtworkImages()" SelectedPrimaryImageKey="Input.PrimaryImageKey" />
+          <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+          @* the island starts from the images the form holds: the artwork's own on a fresh page, and
+             whatever was posted when a submit comes back with an error *@
+          <ImagesField @key="ImagesKey" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
+                       SelectedImages="Input.ToArtworkImages()" SelectedPrimaryImageKey="@Input.PrimaryImageKey" />
 
-        @if (_staleChoices)
-        {
-          <p class="mb-4 text-red-400">
-            Something on this form was removed in another tab: a term, a series or a field. The form has
-            been updated to match. Check it and save again.
-          </p>
-        }
+          @if (_staleChoices)
+          {
+            <p class="mb-4 text-red-400">
+              Something on this form was removed in another tab: a term, a series or a field. The form has
+              been updated to match. Check it and save again.
+            </p>
+          }
 
-        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="text-lg">
-          Save changes
-        </ButtonBasic>
-      </EditForm>
+          <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="text-lg" data-waits-for-change>
+            Save changes
+          </ButtonBasic>
+        </EditForm>
+      </EnableSaveOnChange>
 
       <div class="border-t pt-4">
         <DeleteArtworkButton @rendermode="InteractiveServer" @key="DeleteKey" ArtworkId="_artwork.Id"

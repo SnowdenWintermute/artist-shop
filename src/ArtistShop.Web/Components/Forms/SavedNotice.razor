@@ -1,0 +1,8 @@
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+@* <saved-notice>, defined in SavedNotice.razor.js, removes itself on the first edit, the way the
+   islands' forms hide "Saved." once they have changes *@
+<saved-notice class="mb-4 block text-green-600">@ChildContent</saved-notice>

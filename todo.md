@@ -4,52 +4,129 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
 
 ## Where this stands — 2026-09-22, end of session
 
-**Done:** the schema, `PostRepository` and `PostDocumentParser`, both committed ("initial
-publications sql", "quill parser"). Nothing renders a post yet.
+**Committed:** the schema and `PostRepository` ("initial publications sql"),
+`PostDocumentParser` ("quill parser"), and everything in the list below ("initial post edit page").
 
-**Review pass (2026-09-22, uncommitted, tests pass):** `CatalogChangedException` is
-now `ChangedSincePageLoadException`. `CatalogLimits` and `PublishingLimits` merged into
-`ArtistShopLimits`. `ArtworkEmbedBlock.ArtworkId` is an `ArtworkId`. `set_post_artworks` and the
-parser now agree exactly on an artwork id: a whole number an int can hold (41.5 no longer rounds
-onto artwork 42, and an out-of-range id no longer fails the save). There are new tests for that
-and for republishing, which gives the post a new date.
+**Review of "initial post edit page" (2026-09-22, uncommitted, builds; Mike checked the deleted-post save in the browser):**
+- **Saving a post deleted in another tab keeps the artist's writing.** Before, the POST found no
+  post, `OnInitializedAsync` called `NotFound()`, and since Blazor runs a form's handler only
+  after the page renders that form, the save never ran. The "deleted somewhere else" message was
+  unreachable and the text was gone. Now a POST for a missing post renders the form with what was
+  posted, headed "Deleted post", with that message. `SaveAsync` chooses add or update by `Id`,
+  not `_post`, because a deleted post has no `_post` either and must not be saved as a new one.
+  With Quill in place, the hidden input re-renders with `Input.Body`, so the text survives.
+- **`EditArtwork` has the same unreachable message and was left alone.** Its form can't render
+  without the artwork, since the fields, vocabularies and pickers all come from its type. A deleted
+  artwork on save is still a 404. The loss is a few short fields, not a post.
+- **"Saved." goes away once the artist edits again** (post and artwork edit pages). A post keeps
+  the address, `?saved=true` included, so the notice used to show above a failed save's errors.
+  Now a page rendered from a post never shows it (`_formWasPosted`), because a successful save
+  redirects. `Forms/SavedNotice` is a `<saved-notice>` element that removes itself on the first
+  `input` event anywhere on the page, as the islands' `_justSaved && !HasChanges` does.
+  Reordering, starring or removing an image fires no `input`, so those leave it showing.
+  The vocabulary and artwork-type islands use it too. Inside an island the notice hides itself
+  (`hidden`) rather than removing itself, because Blazor owns that DOM. There it's keyed by
+  `_saveCount`, so each save draws a new, visible one. It used to be `_justSaved &&
+  !HasChanges`, which brought "Saved." back whenever an edit was undone, such as ticking a box and
+  unticking it. Nothing was being saved.
+- **A hand-picked main image was lost on the second save** (found by Mike, 2026-09-22; older
+  than this review). `EditArtwork` and `AddArtwork` passed
+  `SelectedPrimaryImageKey="Input.PrimaryImageKey"`. A string parameter takes that as the literal
+  text, so the island never saw the saved key. It showed the automatic star on the first image,
+  and the next save posted that as the main image. Now `="@Input.PrimaryImageKey"`. The other bare
+  `Input.…` values in those tags are meant as literal field names.
+- **Rule (Mike, 2026-09-22): a form that edits something that exists keeps its Save disabled until
+  the form differs from what was loaded.** Create/Add buttons are always enabled, since pressing
+  one on an empty form says what's required. On the post editor, only the button that keeps the
+  status waits (Save draft on a draft, Save on a published post); Publish and Unpublish are
+  actions in their own right and never do. Every new edit form follows it, in one of two ways:
+  - **Static pages** (edit artwork, post editor): `Forms/EnableSaveOnChange` wraps the form, and
+    buttons marked `data-waits-for-change` are the ones it disables. Its element compares the
+    form's values with a snapshot taken on load and on `enhancedload` (after a save). It reads
+    them itself, not through `FormData`, which leaves out disabled controls: `DisabledUntilInteractive`
+    disables an island's checkboxes until its circuit connects, so on edit artwork the state
+    changed by itself a moment after load and Save never greyed (found by Mike, 2026-09-22). A hidden input
+    changed by code fires no event, but its `value` is an attribute, so a `MutationObserver` sees
+    it. That covers the image list's inputs with no change to `ImagesField`, and the Quill element
+    writing its hidden input will be covered the same way. `HoldsUnsavedChanges="_formWasPosted"`
+    keeps it enabled on a page back from a failed save. Without scripts, the buttons stay enabled.
+  - **Islands** (vocabulary and artwork-type editors, rename series and rename term dialogs):
+    `disabled` from C#, because Blazor owns the attribute there. The editors use
+    `Loaded is not null && !_form.HasChanges`, and the dialogs compare `_form.Name` with the
+    current name.
+- **Save is disabled until something changes** on the vocabulary and artwork-type editors
+  (`!_form.HasChanges`). Their name field is `TextField UpdatesPerKeystroke`, through
+  `Forms/InputTextPerKeystroke` (`InputText` bound on `input`). With the old `change` binding, Save
+  stayed disabled while typing, and Enter did nothing, because a browser won't submit through a
+  disabled button. `ButtonBasic` now greys every disabled button (`disabled:opacity-50`), so island
+  buttons also look disabled for the moment before the circuit connects. The lightbox arrows'
+  own `disabled:opacity-30` went, because two opacities on one button would fight.
+- **Enter in the vocabulary and artwork-type name keeps the focus.** After a save, `Refresh()`
+  passes the saved values back in, and `OnParametersSet` built a new form, so a new
+  `EditContext`. `EditForm` rebuilds everything inside it when that changes, which replaced the
+  focused input. The forms now `Load(saved)` into themselves instead, and `ForExisting` is gone.
+- `LocalDate`'s `datetime` is whole seconds in UTC (`2026-09-22T19:07:19Z`). `"O"` wrote seven
+  fraction digits, more than HTML's `datetime` or JavaScript's `Date` promise to read.
+- `UploadArtworkImages` and `ImportArtworks` now use `AdminPanel`. They were the two admin pages
+  still at 800px.
+- `ButtonVariant.DangerText` (red text, no border) for Delete series and a term's Delete.
+- `PostEditor`'s `<PageTitle>` and `<h1>` share one `Heading`.
 
-**Next: the admin pages are built, and step 2 (Quill) is next.**
-1. BUILT 2026-09-22, not yet checked in a browser: `Components/Pages/Admin/Publishing/Posts/`.
-   `PostList` (`/admin/posts`), and `PostEditor`, one static SSR component for `/admin/posts/new`
-   and `/admin/posts/{Id}/edit` with PRG to `?saved=true`, plus `PostForm`, `PostStatusText`
-   and a `DeletePostButton` island. There's a dashboard link. Decided with Mike: routes are `/admin/posts`;
-   publishing is **two submit buttons**, each posting `Input.Status` (Save draft / Publish on a
-   draft, Save / Unpublish on a published post; the first is what Enter presses, and a submit with
-   no button stays Draft); and **admins see drafts at `/posts/{slug}`** with a draft banner, built
-   with the public pages. Until then the edit page shows the address as text, with no "View it" link.
-   The body is a bare textarea holding the Delta JSON, a stand-in that step 2 replaces with the
-   editor writing to the same `Input.Body`. `PostBody.IsDelta` checks it before the database does.
-   Dates: `Atoms/LocalDate` writes the UTC date with a `<time datetime>`, and its custom element
-   rewrites it in the visitor's own time zone (same "22 Sep 2026" wording). Every date the site
-   shows goes through it, so there's no shop time zone setting.
-   Shared admin components (2026-09-22): `Layout/AdminPanel` (one 900px width for every admin
-   page, with an optional `SectionNav`), `Tables/DataTable<TItem>` + `DataTableCell` (every admin
-   table, the import review's included), and `ButtonBasic`'s `Variant`. Styling is shared this
-   way, never with CSS classes in app.css.
-2. Vendor Quill 2 into `wwwroot/lib` (the prebuilt `quill.js` and `quill.snow.css` from the
-   release, no npm). Write a custom element that mounts Quill with the restricted toolbar and the
-   `formats` whitelist, loads the stored Delta from an attribute, and writes
-   `JSON.stringify(quill.getContents())` into a hidden input on submit. Leave `indent` out of
-   `formats`, which also turns off Tab-to-indent (the parser would flatten nested lists anyway).
-   **When a link has no scheme** (`example.com`), add `https://` in the editor before it's
-   stored. The parser drops anything that isn't an absolute http, https or mailto link, so
-   otherwise the link vanishes from the public page without a word. See how the existing custom
-   elements (`TileImage.razor.js`, `ArtworkGallery.razor.js`) are loaded and registered, and the
-   enhanced-navigation gotchas in the reference memory about Razor static SSR.
+**Earlier the same day, tests pass, looked over in the browser by Mike:**
+- Review pass: `CatalogChangedException` is now `ChangedSincePageLoadException`, and
+  `CatalogLimits` + `PublishingLimits` merged into `ArtistShopLimits`. `ArtworkEmbedBlock.ArtworkId`
+  is an `ArtworkId`. `set_post_artworks` and the parser agree exactly on an artwork id: a whole
+  number an int can hold.
+- Admin pages, in `Components/Pages/Admin/Publishing/Posts/`. `PostList` (`/admin/posts`).
+  `PostEditor` is one static SSR component for `/admin/posts/new` and `/admin/posts/{Id}/edit`,
+  with PRG to `?saved=true`. Also `PostForm`, `PostStatusLabel`, a `DeletePostButton` island and a
+  dashboard link. Publishing is **two submit buttons**, each posting `Input.Status`: Save draft /
+  Publish on a draft, Save / Unpublish on a published post. The first button is what Enter
+  presses, and a submit with no button stays Draft. **Admins will see drafts at `/posts/{slug}`**
+  with a draft banner, built with the public pages. Until then the edit page shows the address as
+  text. `PostBody.IsDelta` checks the body before the database does.
+- Shared components: `Layout/AdminPanel` (one 900px width for every admin page, with an
+  optional `SectionNav` slot), `Tables/DataTable<TItem>` + `DataTableCell` (every admin table),
+  `ButtonBasic`'s `Variant`, and `Utilities/ClassNames.Join`. Styling is shared through
+  components carrying Tailwind classes, never CSS classes in app.css.
+- Dates: `Atoms/LocalDate` writes the UTC date in a `<time datetime>`, and its `<local-date>`
+  element rewrites it in the visitor's time zone, with the same "22 Sep 2026" wording. Every date
+  the site shows goes through it.
+
+**Next session: step 2, the Quill editor.** The body field on `PostEditor` is still a bare
+textarea of Delta JSON (`Input.Body`). Replace it with the editor:
+- **Vendor Quill 2** into `wwwroot/lib/quill/`: `dist/quill.js` and `dist/quill.snow.css` from the
+  release (jsdelivr's `npm/quill@2` serves them, so no npm is needed). Check the licence file goes
+  with them.
+- **Load it only on the editor page.** Every other script is loaded from `App.razor` on every page.
+  Quill is roughly 200 KB, so the small custom element module can inject Quill's script the first
+  time it connects instead. The stylesheet can go in the page's `<HeadContent>`. Both have to work
+  when the artist arrives by enhanced navigation, not only on a full load.
+- **A custom element around the hidden input**, like `SubmitOnChange` or `PartialDateField`:
+  - It mounts Quill with the restricted toolbar and the `formats` whitelist below.
+  - It reads the starting Delta from the hidden input's own value, so a submit that comes back
+    with a validation error keeps what was typed.
+  - It writes `JSON.stringify(quill.getContents())` back on every `text-change`, rather than on
+    submit, so the order of submit listeners against Blazor's enhanced-form handler never matters.
+  - Leave `indent` out of `formats`, which also turns off Tab-to-indent (the parser would flatten
+    nested lists anyway).
+  - **A link with no scheme** (`example.com`): add `https://` in the editor before it's stored.
+    The parser drops anything that isn't an absolute http, https or mailto link, so otherwise the
+    link vanishes from the public page without a word.
+- Watch for Tailwind's preflight fighting `quill.snow.css` (lists, headings) inside the editor.
+- See the reference memory on Razor static SSR for the enhanced-navigation gotchas (an element
+  patched in place is not connected again).
+
+**After that:**
 3. Razor components that render a `PostDocument`'s text blocks, one per block type, switching on
-   the record type. **Never `MarkupString`**: Razor's escaping is half of the security story. The
-   embed components come later, with the embeds. An empty paragraph, heading or list item needs a
-   `<br>` inside it, as Quill writes `<p><br></p>`, or the blank line collapses to nothing.
-4. Then the embeds one at a time, YouTube first. Each must be a Quill `BlockEmbed` blot, not an
+   the record type. **Never `MarkupString`**: Razor's escaping is half of the security story. An
+   empty paragraph, heading or list item needs a `<br>` inside it, as Quill writes `<p><br></p>`,
+   or the blank line collapses to nothing.
+4. The embeds one at a time, YouTube first. Each must be a Quill `BlockEmbed` blot, not an
    inline `Embed`: the parser expects no `\n` after an embed in the middle of the document, and an
-   inline embed's line ends in one, which would add a blank paragraph after every embed. Then `/posts`, `/posts/{slug}` and
-   "Mentioned in".
+   inline embed's line ends in one, which would add a blank paragraph after every embed.
+5. `/posts` and `/posts/{slug}` (with the admin draft view), then "Mentioned in" on the artwork
+   page.
 
 **Decided in discussion (2026-09-22):**
 - No bUnit. The logic lives in the parser, which is tested. Playwright for .NET (not Cypress, which

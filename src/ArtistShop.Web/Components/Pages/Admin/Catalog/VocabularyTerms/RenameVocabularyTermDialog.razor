@@ -75,10 +75,11 @@
     <EditForm EditContext="_form.EditContext" OnValidSubmit="() => RenameAsync(term)">
       <DataAnnotationsValidator />
 
-      <TextField Label="Name" @bind-Value="_form.Name" />
+      <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
       <ModalDialogActions>
         <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
-        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="w-24" disabled="@_isSaving">
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="w-24"
+                     disabled="@(_isSaving || _form.Name == term.Name.Value)">
           @(_isSaving ? "Saving..." : "Rename")
         </ButtonBasic>
       </ModalDialogActions>

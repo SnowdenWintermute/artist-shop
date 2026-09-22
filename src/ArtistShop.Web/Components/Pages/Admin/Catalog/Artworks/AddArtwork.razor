@@ -165,7 +165,7 @@
         @* SelectedImages: a submit that came back with an error has already posted these, and the
            island renders the hidden inputs that carry them *@
         <ImagesField @key="AddedSlug" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
-                     SelectedImages="Input.ToArtworkImages()" SelectedPrimaryImageKey="Input.PrimaryImageKey"
+                     SelectedImages="Input.ToArtworkImages()" SelectedPrimaryImageKey="@Input.PrimaryImageKey"
                      SuggestNameInto="Input.Name" />
 
         @if (_staleChoices)

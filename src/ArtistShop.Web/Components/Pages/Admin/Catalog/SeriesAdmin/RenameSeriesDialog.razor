@@ -68,11 +68,12 @@
     <EditForm EditContext="_form.EditContext" OnValidSubmit="RenameAsync">
       <DataAnnotationsValidator />
 
-      <TextField Label="Name" @bind-Value="_form.Name" />
+      <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
       <p class="mb-4 text-sm text-gray-500">Renaming changes the series' web address, so old links stop working.</p>
       <ModalDialogActions>
         <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
-        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="w-24" disabled="@_isSaving">
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="w-24"
+                     disabled="@(_isSaving || _form.Name == SeriesName.Value)">
           @(_isSaving ? "Saving..." : "Rename")
         </ButtonBasic>
       </ModalDialogActions>

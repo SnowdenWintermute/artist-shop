@@ -1,0 +1,15 @@
+@code {
+  // must contain the form; its buttons marked data-waits-for-change are the ones kept disabled
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // true when the page came back from a save that didn't go through, so what it holds isn't saved
+  [Parameter]
+  public bool HoldsUnsavedChanges { get; set; }
+}
+
+@* <enable-save-on-change> is defined in EnableSaveOnChange.razor.js. An island does the same from
+   its form's HasChanges, since there Blazor owns the button's disabled attribute *@
+<enable-save-on-change class="block" data-holds-unsaved-changes="@HoldsUnsavedChanges">
+  @ChildContent
+</enable-save-on-change>

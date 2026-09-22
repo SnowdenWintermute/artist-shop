@@ -16,15 +16,22 @@
   [Parameter]
   public LoadedArtworkType? Loaded { get; set; }
 
-  private ArtworkTypeForm _form = ArtworkTypeForm.ForNew();
+  private readonly ArtworkTypeForm _form = new();
   private bool _isSaving;
-  private bool _justSaved;
+  // keys the notice, so each save draws a new one, visible until the first edit hides it
+  private int _saveCount;
   private bool _switchOffDialogOpen;
   private bool _deleteDialogOpen;
 
-  // after a save, Refresh re-renders the page, which passes the saved values back in here
-  protected override void OnParametersSet() =>
-    _form = Loaded is null ? ArtworkTypeForm.ForNew() : ArtworkTypeForm.ForExisting(Loaded.ArtworkType);
+  // after a save, Refresh re-renders the page, which passes the saved values back in here. The
+  // island is keyed by the artwork type, so these are always the same type's
+  protected override void OnParametersSet()
+  {
+    if (Loaded is not null)
+    {
+      _form.Load(Loaded.ArtworkType);
+    }
+  }
 
   private List<ArtworkFieldDefinition> SwitchedOffFieldsInUse =>
     Loaded is null
@@ -61,7 +68,7 @@
       }
 
       await ArtworkTypeRepository.UpdateAsync(Loaded.ArtworkType.Id, name, _form.Fields);
-      _justSaved = true;
+      _saveCount++;
       NavigationManager.Refresh();
     }
     catch (NameAlreadyInUseException exception)
@@ -106,16 +113,16 @@
   <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
 
-    <TextField Label="Name" @bind-Value="_form.Name" />
+    <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
     <ArtworkFieldCheckboxes FieldDefinitions="FieldDefinitions" Selected="_form.Fields" OnToggle="ToggleField" />
 
-    @if (_justSaved && !_form.HasChanges)
+    @if (_saveCount > 0)
     {
-      <p class="mb-4 text-green-600">Saved.</p>
+      <SavedNotice @key="_saveCount">Saved.</SavedNotice>
     }
 
     <div class="flex items-baseline justify-between">
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@_isSaving">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@(_isSaving || (Loaded is not null && !_form.HasChanges))">
         @(Loaded is null ? "Create artwork type" : "Save")
       </ButtonBasic>
 

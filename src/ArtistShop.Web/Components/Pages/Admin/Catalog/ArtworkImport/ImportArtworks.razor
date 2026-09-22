@@ -203,8 +203,8 @@
 {
   <PageTitle>Import @_type.Name.Value.ToLower() artworks</PageTitle>
 
-  <main class="">
-    <div class="mx-auto max-w-[800px] border bg-white p-4">
+  <main>
+    <AdminPanel>
       <h1 class="mb-4 text-xl">Import @_type.Name.Value.ToLower() artworks from a spreadsheet</h1>
 
       @if (ImportedCount is int importedCount && _plan is null)
@@ -303,6 +303,6 @@
           </ModalDialogActions>
         </ModalDialog>
       }
-    </div>
+    </AdminPanel>
   </main>
 }

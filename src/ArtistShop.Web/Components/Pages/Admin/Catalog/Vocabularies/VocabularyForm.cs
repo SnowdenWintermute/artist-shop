@@ -8,22 +8,22 @@ namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Vocabularies;
 
 public class VocabularyForm : ServerValidatedForm
 {
-    private readonly HashSet<ArtworkTypeId> _artworkTypeIds;
-    private readonly string? _savedName;
-    private readonly HashSet<ArtworkTypeId> _savedArtworkTypeIds;
+    private readonly HashSet<ArtworkTypeId> _artworkTypeIds = [];
+    private string? _savedName;
+    private readonly HashSet<ArtworkTypeId> _savedArtworkTypeIds = [];
 
-    private VocabularyForm(string? name, IEnumerable<ArtworkTypeId> artworkTypeIds)
+    // Loads into this form rather than making a new one, so the EditContext stays the same:
+    // EditForm rebuilds every element inside it when handed a new one, which takes the focus out
+    // of the field the artist just pressed Enter in
+    public void Load(VocabularyWithArtworkTypes saved)
     {
-        Name = name;
-        _savedName = name;
-        _artworkTypeIds = [.. artworkTypeIds];
-        _savedArtworkTypeIds = [.. artworkTypeIds];
+        Name = saved.Name.Value;
+        _savedName = saved.Name.Value;
+        _artworkTypeIds.Clear();
+        _artworkTypeIds.UnionWith(saved.ArtworkTypeIds);
+        _savedArtworkTypeIds.Clear();
+        _savedArtworkTypeIds.UnionWith(saved.ArtworkTypeIds);
     }
-
-    public static VocabularyForm ForNew() => new(null, []);
-
-    public static VocabularyForm ForExisting(VocabularyWithArtworkTypes vocabulary) =>
-        new(vocabulary.Name.Value, vocabulary.ArtworkTypeIds);
 
     [Required]
     [StringLength(ArtistShopLimits.VocabularyNameMaximumLength)]

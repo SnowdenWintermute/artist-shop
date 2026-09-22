@@ -37,7 +37,7 @@
 <DisabledUntilInteractive>
   <div class="flex gap-2">
     <ButtonBasic type="button" @onclick="() => _renameDialogOpen = true">Rename</ButtonBasic>
-    <ButtonBasic type="button" Class="text-red-600" @onclick="() => _deleteDialogOpen = true">Delete series</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerText" @onclick="() => _deleteDialogOpen = true">Delete series</ButtonBasic>
   </div>
 
   <RenameSeriesDialog @bind-Open="_renameDialogOpen" SeriesId="SeriesId" SeriesName="SeriesName" />

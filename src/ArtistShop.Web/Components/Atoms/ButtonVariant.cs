@@ -8,4 +8,5 @@ public enum ButtonVariant
     Outline,
     Danger,
     DangerOutline,
+    DangerText,
 }

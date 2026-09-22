@@ -27,7 +27,7 @@
         <DataTableCell>@term.ArtworkCount items</DataTableCell>
         <DataTableCell Class="text-right">
           <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
-          <ButtonBasic type="button" Class="text-red-600" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerText" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
         </DataTableCell>
       </Row>
     </DataTable>

@@ -8,22 +8,22 @@ namespace ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes;
 
 public class ArtworkTypeForm : ServerValidatedForm
 {
-    private readonly HashSet<ArtworkField> _fields;
-    private readonly string? _savedName;
-    private readonly HashSet<ArtworkField> _savedFields;
+    private readonly HashSet<ArtworkField> _fields = [];
+    private string? _savedName;
+    private readonly HashSet<ArtworkField> _savedFields = [];
 
-    private ArtworkTypeForm(string? name, IEnumerable<ArtworkField> fields)
+    // Loads into this form rather than making a new one, so the EditContext stays the same:
+    // EditForm rebuilds every element inside it when handed a new one, which takes the focus out
+    // of the field the artist just pressed Enter in
+    public void Load(ArtworkTypeWithFields saved)
     {
-        Name = name;
-        _savedName = name;
-        _fields = [.. fields];
-        _savedFields = [.. fields];
+        Name = saved.Name.Value;
+        _savedName = saved.Name.Value;
+        _fields.Clear();
+        _fields.UnionWith(saved.Fields);
+        _savedFields.Clear();
+        _savedFields.UnionWith(saved.Fields);
     }
-
-    public static ArtworkTypeForm ForNew() => new(null, []);
-
-    public static ArtworkTypeForm ForExisting(ArtworkTypeWithFields artworkType) =>
-        new(artworkType.Name.Value, artworkType.Fields);
 
     [Required]
     [StringLength(ArtistShopLimits.ArtworkTypeNameMaximumLength)]

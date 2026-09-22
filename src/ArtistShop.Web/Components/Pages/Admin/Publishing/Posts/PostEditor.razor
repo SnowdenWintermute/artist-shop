@@ -20,25 +20,40 @@
   private PostForm Input { get; set; } = default!;
   [SupplyParameterFromQuery(Name = "saved")]
   private bool Saved { get; set; }
+  // A post keeps the address, ?saved=true from the last save included, and a successful save
+  // redirects, so a page rendered from a post is always a save that didn't go through
+  private bool _formWasPosted;
 
-  // null when creating
+  // null when creating, and when the post was deleted while the artist was editing it
   private Post? _post;
   private bool _deletedElsewhere;
+
+  private string Heading =>
+    _post is not null ? $"Edit {_post.Title.Value}"
+    : Id is null ? "New post"
+    : "Deleted post";
 
   // keyed by the post, so enhanced navigation to another post's page can't patch this island onto it
   private string DeleteKey => $"delete-{Id}";
 
   protected override async Task OnInitializedAsync()
   {
+    _formWasPosted = Input is not null;
+
     if (Id is int id)
     {
       _post = await PostRepository.GetAsync(new PostId(id));
 
-      if (_post is null)
+      // A save from a post deleted in another tab still renders the form, holding what was posted.
+      // Blazor only runs a form's handler once the page has rendered that form, so a 404 here would
+      // throw the artist's writing away without saying why
+      if (_post is null && !_formWasPosted)
       {
         NavigationManager.NotFound();
         return;
       }
+
+      _deletedElsewhere = _post is null;
     }
 
     // on a post the binder has already filled this in, so only a fresh page seeds it
@@ -49,11 +64,17 @@
   {
     try
     {
-      if (_post is null)
+      // by Id, not _post: a save from a deleted post has no _post either, and must not add a new one
+      if (Id is null)
       {
         var id = await PostRepository.AddAsync(
           Input.ToPostTitle(), Input.ToPostSlug(), Input.ToPostBody(), Input.Status);
         NavigationManager.NavigateTo($"{PageUrls.EditPost(id)}?saved=true");
+        return;
+      }
+
+      if (_post is null)
+      {
         return;
       }
 
@@ -77,16 +98,16 @@
   }
 }
 
-<PageTitle>@(_post is null ? "New post" : $"Edit {_post.Title.Value}")</PageTitle>
+<PageTitle>@Heading</PageTitle>
 
-@if (Id is null || _post is not null)
+@if (Id is null || _post is not null || _deletedElsewhere)
 {
   <main>
     <AdminPanel>
       <a href="@PageUrls.PostList" class="mb-4 inline-block">← Posts</a>
 
       <div class="mb-4 flex items-baseline justify-between">
-        <h1 class="text-xl">@(_post is null ? "New post" : $"Edit {_post.Title.Value}")</h1>
+        <h1 class="text-xl">@Heading</h1>
         @if (_post is not null)
         {
           <span class="text-sm text-gray-500"><PostStatusLabel PublishedAt="_post.PublishedAt" /></span>
@@ -98,9 +119,9 @@
         <p class="mb-4 text-sm text-gray-500">Address: /posts/@_post.Slug.Value</p>
       }
 
-      @if (Saved)
+      @if (Saved && !_formWasPosted)
       {
-        <p class="mb-4 text-green-600">Saved.</p>
+        <SavedNotice>Saved.</SavedNotice>
       }
 
       @if (_deletedElsewhere)
@@ -111,40 +132,43 @@
         </p>
       }
 
-      <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
-        <DataAnnotationsValidator />
+      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+        <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
+          <DataAnnotationsValidator />
 
-        <TextField Label="Title" @bind-Value="Input.Title" />
-        @* stands in for the editor until Quill is vendored: it holds the Delta JSON the editor will write *@
-        <TextAreaField Label="Text (the editor's JSON)" @bind-Value="Input.Body" />
+          <TextField Label="Title" @bind-Value="Input.Title" />
+          @* stands in for the editor until Quill is vendored: it holds the Delta JSON the editor will write *@
+          <TextAreaField Label="Text (the editor's JSON)" @bind-Value="Input.Body" />
 
-        @* Each button posts the status it asks for. The first one is what Enter in the title
-           presses, so it's the one that keeps the post as it is *@
-        <div class="flex gap-2">
-          @if (_post?.PublishedAt is null)
-          {
-            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
-                         Variant="ButtonVariant.PrimaryOutline">
-              Save draft
-            </ButtonBasic>
-            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
-                         Variant="ButtonVariant.Primary">
-              Publish
-            </ButtonBasic>
-          }
-          else
-          {
-            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
-                         Variant="ButtonVariant.Primary">
-              Save
-            </ButtonBasic>
-            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
-                         Variant="ButtonVariant.PrimaryOutline">
-              Unpublish
-            </ButtonBasic>
-          }
-        </div>
-      </EditForm>
+          @* Each button posts the status it asks for. The first one is what Enter in the title
+             presses, so it's the one that keeps the post as it is. On an existing post it waits for a
+             change; Publish and Unpublish are actions in their own right, so they never wait *@
+          <div class="flex gap-2">
+            @if (_post?.PublishedAt is null)
+            {
+              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
+                           Variant="ButtonVariant.PrimaryOutline" data-waits-for-change="@(_post is not null)">
+                Save draft
+              </ButtonBasic>
+              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
+                           Variant="ButtonVariant.Primary">
+                Publish
+              </ButtonBasic>
+            }
+            else
+            {
+              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
+                           Variant="ButtonVariant.Primary" data-waits-for-change>
+                Save
+              </ButtonBasic>
+              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
+                           Variant="ButtonVariant.PrimaryOutline">
+                Unpublish
+              </ButtonBasic>
+            }
+          </div>
+        </EditForm>
+      </EnableSaveOnChange>
 
       @if (_post is not null)
       {
