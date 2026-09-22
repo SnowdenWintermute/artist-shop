@@ -50,4 +50,7 @@ public static class SqlStates
 
     // DeleteArtworkType
     public const string ArtworkTypeInUse = "SH014";
+
+    // UpdatePost
+    public const string PostNoLongerExists = "SH015";
 }

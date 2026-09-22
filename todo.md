@@ -26,13 +26,19 @@ list lines must be grouped into one `<ul>`/`<ol>`.
 - `layout` is `floatLeft | floatRight | center` for every embed. Floats collapse to full width on
   narrow screens.
 
-**Schema:**
-- `posts`: id, title, slug (case-insensitive unique), body `jsonb`, status (draft/published),
-  published_at, created_at, updated_at. Visitors see `status = published AND published_at <= now()`,
-  so scheduled publishing only needs a date picker later.
-- `post_artworks (post_id, artwork_id)`: many-to-many, both keys cascade on delete. Save walks the
-  Delta and replaces the post's rows in the same transaction as the body.
-- `post_images`: the same shape as `artwork_images`. The orphan sweeper needs to know about it.
+**Schema (BUILT 2026-09-22, `0003_CreatePosts.sql`, `Procedures/Posts/`, `PostRepository`,
+17 tests):**
+- `posts`: id, title, slug (unique; follows the title like a series slug, and a clash is
+  refused as `NameAlreadyInUseException`), body `jsonb` (a CHECK requires an `ops` array),
+  published_at, created_at, updated_at. There is no status column: a NULL `published_at` is a
+  draft. Visitors see `published_at <= now()`, so scheduling later needs only a date picker.
+  Saving a published post keeps its date; unpublishing clears it.
+- `post_and_artworks_junction (post_id, artwork_id)`: both keys cascade on delete. The
+  `set_post_artworks` function rebuilds it from the stored body with a jsonpath
+  (`$.ops[*].insert.artwork.artworkId`), so it can't disagree with the body. An embed of an artwork
+  deleted in the meantime is skipped.
+- `post_images` is not built yet. It comes with the uploaded-image embed and needs the orphan
+  sweeper to know about it.
 
 **Editing:** the page stays static SSR. The editor is a custom element inside the `<EditForm>` and
 writes the Delta JSON into a hidden input on submit. The artwork picker calls a small JSON endpoint

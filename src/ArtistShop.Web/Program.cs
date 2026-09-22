@@ -99,6 +99,7 @@ builder.Services.AddScoped<ArtworkTypeRepository>();
 builder.Services.AddScoped<ProductTypeRepository>();
 builder.Services.AddScoped<VocabularyRepository>();
 builder.Services.AddScoped<VocabularyTermRepository>();
+builder.Services.AddScoped<PostRepository>();
 builder.Services.AddScoped<ArtworkSearch, SqlArtworkTitleSearch>();
 
 // identity
