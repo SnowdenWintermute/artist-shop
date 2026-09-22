@@ -1,0 +1,87 @@
+# A local rehearsal of docker-compose.production.yml, which is what the VPS runs; keep the two in
+# step.
+#   docker compose -f docker-compose.rehearsal.yml --env-file .env up --build
+# then open http://localhost:8089 (the VPS puts nginx and https in front of the same port).
+#
+# Differences from the VPS: no restart policy, so a rehearsal doesn't come back after a reboot; the
+# images live in a named volume here and in a host folder there; and the secrets come from .env
+# here and from .artist-shop-env there. The CPU limit is only here, because the VPS has one anyway.
+#
+# Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, about 379 MB free, one CPU.
+
+# its own project name, so a rehearsal gets its own containers and volumes instead of taking over
+# the dev ones in docker-compose.yml (same folder, so same default name)
+name: artist-shop-rehearsal
+
+services:
+  artist-shop-web:
+    build: .
+    image: snowd3n/artist-shop
+    container_name: artist-shop-rehearsal-web
+    depends_on:
+      artist-shop-postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # the app is only reachable through nginx, which sends X-Forwarded-Proto and
+      # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's address
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ConnectionStrings__ArtistShop=Host=artist-shop-postgres;Database=artist_shop;Username=postgres;Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=postgres;Password=${POSTGRES_PASSWORD}
+      # IdentitySeeder makes this account an admin on every boot, and reads the password only to
+      # create it, so the password line can go once the first boot has made the account
+      - Admin__Email=mike@example.com
+      - Admin__Password=${DEV_ADMIN_PASSWORD}
+      # How much of mem_limit .NET may put on its own heap. It has to be larger than the image
+      # budget below or the app refuses to start. Read as hexadecimal: 0x2D is 45, so 45% of
+      # 768 MB is 345 MB
+      - DOTNET_GCHeapHardLimitPercent=0x2D
+      # libvips allocates outside the .NET heap. A 48 MP photo (8000 x 6000) estimates at 275 MB;
+      # a larger one is refused with a message
+      - ImageProcessing__MemoryBudgetMegabytes=300
+      - ImageProcessing__MaximumMegapixels=48
+      # measured on the VPS: a 48 MP image takes about 19 seconds on its one CPU. The app lets
+      # ProxyTimeout / EstimatedTimePerImage uploads wait (4 here) and tells the rest it's busy, so
+      # nothing waits past nginx's proxy_read_timeout, which must match ProxyTimeout
+      - ImageProcessing__EstimatedTimePerImage=00:00:25
+      - ImageProcessing__ProxyTimeout=00:02:00
+    ports:
+      # loopback only: nginx on the host reaches it, the internet doesn't
+      - 127.0.0.1:8089:8080
+    mem_limit: 768m
+    # the VPS has one CPU, and .NET sizes its image processing slots from the CPUs it can use
+    cpus: 1
+    # Docker keeps every line a container logs unless told otherwise; three 10 MB files at most
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    volumes:
+      - artist-shop-images:/data/images
+      # the keys that sign login cookies; without a volume every redeploy logs everyone out
+      - artist-shop-data-protection-keys:/home/app/.aspnet/DataProtection-Keys
+
+  artist-shop-postgres:
+    image: postgres:18
+    container_name: artist-shop-rehearsal-postgres
+    # half the default shared memory cache: the whole catalog is a few megabytes
+    command: ["postgres", "-c", "shared_buffers=64MB"]
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    # not published: only the app talks to it, over the compose network
+    mem_limit: 256m
+    volumes:
+      # see docker-compose.yml for why the parent folder is mounted
+      - artist-shop-postgres_data:/var/lib/postgresql
+    healthcheck:
+      # over TCP, for the reason given in docker-compose.yml
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  artist-shop-images:
+  artist-shop-data-protection-keys:
+  artist-shop-postgres_data:

@@ -29,7 +29,12 @@
 
     var artworks = await ArtworkRepository.GetListAsync(FilterFor(series.Id), searchMatches: null);
 
-    _loaded = new LoadedSeries(series, artworks);
+    // the same cover the home page shows, for the card a pasted link turns into
+    var cover = (await SeriesRepository.GetVisibleWithCoversAsync())
+      .FirstOrDefault(seriesWithCover => seriesWithCover.Id == series.Id)
+      ?.Cover;
+
+    _loaded = new LoadedSeries(series, artworks, cover);
   }
 
   // what a visitor may see: an artwork with no photograph has nothing to show, while one with
@@ -50,6 +55,7 @@
 @if (_loaded is { } loaded)
 {
   <PageTitle>@loaded.Series.Name.Value</PageTitle>
+  <LinkPreview Title="@loaded.Series.Name.Value" Image="loaded.Cover" />
 
   <main class="mx-auto max-w-[1200px] p-4">
     <a href="/" class="mb-4 inline-block">← All series</a>

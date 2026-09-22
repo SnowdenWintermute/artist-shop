@@ -24,6 +24,9 @@ public static class ImageVariants
     // the tile actually came out
     public const int CardWidth = 800;
 
+    // the picture in the card a chat app shows for a pasted link, which is never wide
+    public const int LinkPreviewWidth = 800;
+
     // the image an artwork page is built around may ask for anything there is. [^1] is the
     // last item of the array
     public static readonly int MainImageWidth = Widths[^1];
