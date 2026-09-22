@@ -15,8 +15,10 @@ ARG TAILWIND_VERSION=v4.3.3
 
 WORKDIR /source
 
-# the csproj runs ../../tailwindcss from the project folder, which lands here
-ADD --chmod=755 https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-x64 tailwindcss
+# the csproj runs ../../tailwindcss from the project folder, which lands here. The build fails if
+# the download's SHA-256 doesn't match; when changing the version, take the new value from the
+# release's sha256sums.txt
+ADD --checksum=sha256:dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a --chmod=755 https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-x64 tailwindcss
 
 # Restoring from the project file alone first lets Docker reuse that layer when only code changed
 COPY src/ArtistShop.Web/ArtistShop.Web.csproj src/ArtistShop.Web/

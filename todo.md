@@ -1303,6 +1303,17 @@ The app is single-tenant today; the goal is many artists' sites (say 250) on one
   pinned by `DOTNET_GCHeapHardLimitPercent` so the two fit inside the container. Plan: the app in its
   own container with a memory limit (`mem_limit` in compose), SQL Server in another, so SQL's memory
   is outside the app's. In dev the app runs on the host and shares the whole machine.
+- **(From Claude, 2026-09-22) A Postgres role for the app instead of the superuser.** The app
+  connects as `postgres`. If a SQL injection ever got through, a superuser could read files off the
+  server and run programs (`COPY ... PROGRAM`). None of the tenancy shapes needs a superuser. A
+  database per tenant needs `CREATEDB` (the app creates databases at runtime, as `EnsureDatabase`
+  already does), a schema per tenant needs `CREATE` on the database, and a `TenantId` column needs
+  nothing extra. A role with `CREATEDB` that owns its databases covers all three, so this can be
+  done before or with the tenancy work.
+- **(From Claude, 2026-09-22) Custom domains replace `AllowedHosts`.** Production allows only
+  `artshop.mikesilverman.net` (set in `docker-compose.production.yml`). With tenants on their own
+  domains, no fixed list works: remove the setting when the host-to-shop registry exists, and have
+  that lookup answer 404 for a host it doesn't know.
 - **Future:** move image processing into its own worker container (as imgproxy, Thumbor and
   Mastodon's Sidekiq do), so a memory spike or a crash in libvips can't take the website down.
   Needs `MALLOC_ARENA_MAX=2` in that container too.

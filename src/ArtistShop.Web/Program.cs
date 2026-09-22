@@ -175,6 +175,10 @@ app.UseStaticFiles(
     {
         FileProvider = new PhysicalFileProvider(imageStorage.Variants),
         RequestPath = ImageUrls.VariantsRequestPath,
+        // an address here never gets different bytes (each upload has a new storage key), so
+        // browsers may keep a variant for a week without asking again
+        OnPrepareResponse = context =>
+            context.Context.Response.Headers.CacheControl = "public, max-age=604800, immutable",
     }
 );
 

@@ -7,9 +7,12 @@
 # Before the first start, on the VPS:
 # - the images folder, owned by the container's app user (uid 1654 in the .NET images):
 #     mkdir -p /srv/artist-shop/images && chown 1654:1654 /srv/artist-shop/images
-# - .artist-shop-env beside this file. Compose v1 doesn't substitute variables inside an env file,
-#   so the password is written out in each line:
+# - two env files beside this file, one per container so neither sees the other's secrets, each
+#   readable only by its owner (chmod 600). Compose v1 doesn't substitute variables inside an env
+#   file, so the password is written out in each line.
+#   .artist-shop-postgres-env:
 #     POSTGRES_PASSWORD=<password>
+#   .artist-shop-web-env:
 #     ConnectionStrings__ArtistShop=Host=artist-shop-postgres;Database=artist_shop;Username=postgres;Password=<password>
 #     ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=postgres;Password=<password>
 #     Admin__Email=<email>
@@ -27,9 +30,14 @@ services:
         image: snowd3n/artist-shop
         restart: unless-stopped
         env_file:
-            - .artist-shop-env
+            - .artist-shop-web-env
         environment:
             - ASPNETCORE_ENVIRONMENT=Production
+            # requests naming any other host get a 400, so a forged Host header can't end up in the
+            # absolute addresses the app builds from it (link previews, and password-reset links
+            # once email exists). Tenants on their own domains will replace this with a lookup of
+            # the host in the tenant registry, which rejects unknown hosts itself
+            - AllowedHosts=artshop.mikesilverman.net
             # the app is only reachable through nginx, which sends X-Forwarded-Proto and
             # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's
             # address
@@ -76,7 +84,7 @@ services:
         # half the default shared memory cache: the whole catalog is a few megabytes
         command: ["postgres", "-c", "shared_buffers=64MB"]
         env_file:
-            - .artist-shop-env
+            - .artist-shop-postgres-env
         # not published: only the app talks to it, over the compose network
         mem_limit: 256m
         volumes:

@@ -7,7 +7,8 @@
 # images live in a named volume here and in a host folder there; and the secrets come from .env
 # here and from .artist-shop-env there. The CPU limit is only here, because the VPS has one anyway.
 #
-# Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, about 379 MB free, one CPU.
+# Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, one CPU, 2 GB of swap, and
+# about 485 MB available once the old pm2 apps were stopped.
 
 # its own project name, so a rehearsal gets its own containers and volumes instead of taking over
 # the dev ones in docker-compose.yml (same folder, so same default name)
@@ -23,6 +24,9 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      # the VPS allows only its own domain here, for the reason given in
+      # docker-compose.production.yml
+      - AllowedHosts=localhost
       # the app is only reachable through nginx, which sends X-Forwarded-Proto and
       # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's address
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
