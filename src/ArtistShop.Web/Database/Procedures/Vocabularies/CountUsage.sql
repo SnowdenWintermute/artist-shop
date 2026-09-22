@@ -1,22 +1,24 @@
-CREATE OR ALTER PROCEDURE dbo.CountVocabularyUsage @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS count_vocabulary_terms;
 
+CREATE FUNCTION count_vocabulary_terms (p_id int) RETURNS int LANGUAGE sql STABLE AS $$
 SELECT
-    COUNT(*) AS VocabularyTermCount
+    COUNT(*)::int
 FROM
-    dbo.VocabularyTerms
+    vocabulary_terms AS term
 WHERE
-    VocabularyId = @Id;
+    term.vocabulary_id = p_id;
+$$;
 
+DROP FUNCTION IF EXISTS count_vocabulary_artworks_by_type;
+
+CREATE FUNCTION count_vocabulary_artworks_by_type (p_id int) RETURNS TABLE (artwork_type_id int, artwork_count int) LANGUAGE sql STABLE AS $$
 SELECT
-    ArtworkTypeId,
-    COUNT(DISTINCT ArtworkId) AS ArtworkCount
+    junction.artwork_type_id,
+    COUNT(DISTINCT junction.artwork_id)::int
 FROM
-    dbo.ArtworkAndVocabularyTermsJunction AS junction
+    artwork_and_vocabulary_terms_junction AS junction
 WHERE
-    junction.VocabularyId = @Id
+    junction.vocabulary_id = p_id
 GROUP BY
-    junction.ArtworkTypeId;
-
-END;
+    junction.artwork_type_id;
+$$;

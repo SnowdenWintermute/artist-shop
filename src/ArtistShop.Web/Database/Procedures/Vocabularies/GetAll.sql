@@ -1,11 +1,9 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabularies AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_vocabularies;
 
+CREATE FUNCTION get_vocabularies () RETURNS TABLE (id int, name text) LANGUAGE sql STABLE AS $$
 SELECT
-    vocabulary.Id,
-    vocabulary.Name
+    vocabulary.id,
+    vocabulary.name
 FROM
-    dbo.Vocabularies AS vocabulary;
-
-END;
+    vocabularies AS vocabulary;
+$$;

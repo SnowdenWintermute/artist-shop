@@ -1,62 +1,72 @@
-CREATE OR ALTER PROCEDURE dbo.GetSeriesWithCovers @OnlyArtworksWithImages bit AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_series_with_covers;
 
+CREATE FUNCTION get_series_with_covers (p_only_artworks_with_images boolean) RETURNS TABLE (
+    id int,
+    name text,
+    slug text,
+    artwork_count int,
+    cover_storage_key text,
+    cover_original_file_name text,
+    cover_width int,
+    cover_height int,
+    cover_blur_data_uri text
+) LANGUAGE sql STABLE AS $$
 SELECT
-    series.Id,
-    series.Name,
-    series.Slug,
+    series.id,
+    series.name,
+    series.slug,
     (
         SELECT
-            COUNT(*)
+            COUNT(*)::int
         FROM
-            dbo.ArtworkAndSeriesJunction AS junction
+            artwork_and_series_junction AS junction
         WHERE
-            junction.SeriesId = series.Id
+            junction.series_id = series.id
             AND (
-                @OnlyArtworksWithImages = 0
+                NOT p_only_artworks_with_images
                 OR EXISTS (
                     SELECT
-                        1
                     FROM
-                        dbo.ArtworkImages AS image
+                        artwork_images AS image
                     WHERE
-                        image.ArtworkId = junction.ArtworkId
+                        image.artwork_id = junction.artwork_id
                 )
             )
-    ) AS ArtworkCount,
-    cover.StorageKey AS CoverStorageKey,
-    cover.OriginalFileName AS CoverOriginalFileName,
-    cover.Width AS CoverWidth,
-    cover.Height AS CoverHeight,
-    cover.BlurDataUri AS CoverBlurDataUri
+    ),
+    cover.storage_key,
+    cover.original_file_name,
+    cover.width,
+    cover.height,
+    cover.blur_data_uri
 FROM
-    dbo.Series AS series
-    -- OUTER APPLY runs the subquery once per series. Like a LEFT JOIN it keeps series with no
-    -- match, but unlike a join the subquery can use TOP and ORDER BY
-    OUTER APPLY (
+    series
+    -- LATERAL lets the subquery use the series from its own row, so it runs once per series the
+    -- way OUTER APPLY does. LEFT JOIN ... ON true keeps a series with no match
+    LEFT JOIN LATERAL (
         SELECT
-            TOP (1) primaryImage.StorageKey,
-            primaryImage.OriginalFileName,
-            primaryImage.Width,
-            primaryImage.Height,
-            primaryImage.BlurDataUri
+            primary_image.storage_key,
+            primary_image.original_file_name,
+            primary_image.width,
+            primary_image.height,
+            primary_image.blur_data_uri
         FROM
-            dbo.ArtworkAndSeriesJunction AS junction
+            artwork_and_series_junction AS junction
             -- an inner join, so artworks with no images can't become the cover
-            JOIN dbo.ArtworkImages AS primaryImage ON primaryImage.ArtworkId = junction.ArtworkId
-            AND primaryImage.IsPrimary = 1
+            JOIN artwork_images AS primary_image ON primary_image.artwork_id = junction.artwork_id
+            AND primary_image.is_primary
         WHERE
-            junction.SeriesId = series.Id
+            junction.series_id = series.id
         ORDER BY
-            junction.IsCover DESC,
-            junction.SortOrder
-    ) AS cover
+            -- true sorts after false, so DESC puts the starred cover first
+            junction.is_cover DESC,
+            junction.sort_order
+        LIMIT
+            1
+    ) AS cover ON true
 WHERE
     -- a series whose artworks have no photographs yet has nothing a visitor could look at
-    @OnlyArtworksWithImages = 0
-    OR cover.StorageKey IS NOT NULL
+    NOT p_only_artworks_with_images
+    OR cover.storage_key IS NOT NULL
 ORDER BY
-    series.SortOrder;
-
-END;
+    series.sort_order;
+$$;

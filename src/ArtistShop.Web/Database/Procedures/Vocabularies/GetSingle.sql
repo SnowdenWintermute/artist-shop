@@ -1,20 +1,22 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabulary @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_vocabulary;
 
+CREATE FUNCTION get_vocabulary (p_id int) RETURNS TABLE (id int, name text) LANGUAGE sql STABLE AS $$
 SELECT
-    Id,
-    Name
+    vocabulary.id,
+    vocabulary.name
 FROM
-    dbo.Vocabularies
+    vocabularies AS vocabulary
 WHERE
-    Id = @Id;
+    vocabulary.id = p_id;
+$$;
 
+DROP FUNCTION IF EXISTS get_vocabulary_artwork_type_ids;
+
+CREATE FUNCTION get_vocabulary_artwork_type_ids (p_id int) RETURNS TABLE (artwork_type_id int) LANGUAGE sql STABLE AS $$
 SELECT
-    ArtworkTypeId
+    applies.artwork_type_id
 FROM
-    dbo.VocabularyAndArtworkTypesJunction
+    vocabulary_and_artwork_types_junction AS applies
 WHERE
-    VocabularyId = @Id;
-
-END;
+    applies.vocabulary_id = p_id;
+$$;

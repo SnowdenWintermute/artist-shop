@@ -5,10 +5,10 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ProductTypeRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly ProductTypeRepository _productTypes = new(database.ConnectionFactory);
+    private readonly ProductTypeRepository _productTypes = new(database.DataSource);
 
     // the forms that offer a product type read the default off the row, so the seed has to set one.
-    // UniqueIndex_ProductTypes_Default is what stops a second appearing
+    // unique_index_product_types_default is what stops a second appearing
     [Fact]
     public async Task SeedsOriginalAsTheDefault()
     {

@@ -1,20 +1,18 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabularyTermsWithUsage @VocabularyId int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_vocabulary_terms_with_usage;
 
+CREATE FUNCTION get_vocabulary_terms_with_usage (p_vocabulary_id int) RETURNS TABLE (id int, name text, artwork_count int) LANGUAGE sql STABLE AS $$
 SELECT
-    vocabularyTerm.Id,
-    vocabularyTerm.Name,
-    -- not COUNT(*) because that would count null entries
-    COUNT(association.ArtworkId) AS ArtworkCount
+    term.id,
+    term.name,
+    -- not COUNT(*), because a term with no artworks still has its one joined row
+    COUNT(artwork_term.artwork_id)::int
 FROM
-    dbo.VocabularyTerms AS vocabularyTerm
-    -- We want to include terms with no associations
-    LEFT JOIN dbo.ArtworkAndVocabularyTermsJunction AS association ON association.TermId = vocabularyTerm.Id
+    vocabulary_terms AS term
+    -- a LEFT JOIN keeps the terms no artwork uses
+    LEFT JOIN artwork_and_vocabulary_terms_junction AS artwork_term ON artwork_term.term_id = term.id
 WHERE
-    vocabularyTerm.VocabularyId = @VocabularyId
+    term.vocabulary_id = p_vocabulary_id
 GROUP BY
-    vocabularyTerm.Id,
-    vocabularyTerm.Name;
-
-END;
+    term.id,
+    term.name;
+$$;

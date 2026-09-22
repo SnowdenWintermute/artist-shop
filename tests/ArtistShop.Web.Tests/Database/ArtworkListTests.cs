@@ -10,10 +10,10 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkListTests(TestDatabaseFixture database)
 {
-    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
-    private readonly ArtworkRepository _artworks = new(database.ConnectionFactory);
-    private readonly ProductTypeRepository _productTypes = new(database.ConnectionFactory);
-    private readonly SeriesRepository _series = new(database.ConnectionFactory);
+    private readonly CatalogTestData _catalog = new(database.DataSource);
+    private readonly ArtworkRepository _artworks = new(database.DataSource);
+    private readonly ProductTypeRepository _productTypes = new(database.DataSource);
+    private readonly SeriesRepository _series = new(database.DataSource);
 
     private static ArtworkListFilter FilterFor(
         SeriesId seriesId,
@@ -98,7 +98,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
     }
 
     // the order the artist dragged the artworks into, which is what the public series page
-    // shows. It is the only sort that reads a column outside dbo.Artworks
+    // shows. It is the only sort that reads a column outside artworks
     [Fact]
     public async Task SortsByThePlaceTheArtistGaveEachArtworkInTheSeries()
     {

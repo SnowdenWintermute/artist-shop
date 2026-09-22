@@ -1,18 +1,17 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
+using Npgsql;
 
-public class ArtworkFieldRepository(SqlConnectionFactory connectionFactory)
+public class ArtworkFieldRepository(NpgsqlDataSource dataSource)
 {
     public async Task<List<ArtworkFieldDefinition>> GetAllAsync()
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         var rows = await connection.QueryAsync<ArtworkFieldRow>(
-            "dbo.GetArtworkFields",
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_artwork_fields()"
         );
 
         return

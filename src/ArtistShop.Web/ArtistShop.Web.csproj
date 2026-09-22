@@ -14,6 +14,11 @@
     regenerated tailwind css only lands on a reload. -->
     <BaseIntermediateOutputPath>obj/</BaseIntermediateOutputPath>
 
+    <!-- The SDK only downloads the package holding _framework/blazor.web.js when restore sees a
+      .razor file. The Dockerfile restores from this file alone, before the source is copied in,
+      so without this the published app has no Blazor script. -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
+
     <!-- A switch expression over an enum raises two different warnings. CS8509 names a member of
       the enum that no arm handles, which is the one worth having: it turns a forgotten case into a
       build failure. CS8524 complains that integers with no name in the enum, like (DatePrecision)7,
@@ -27,25 +32,31 @@
   <ItemGroup>
     <PackageReference Include="BlazorBlueprint.Primitives" Version="3.16.1" />
     <PackageReference Include="Dapper" Version="2.1.79" />
-    <PackageReference Include="dbup-sqlserver" Version="7.2.0" />
+    <PackageReference Include="dbup-postgresql" Version="7.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.11" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="NetVips" Version="3.2.0" />
     <PackageReference Include="NetVips.Native.linux-x64" Version="8.18.6" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Sylvan.Data.Csv" Version="1.4.4" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="Database/**/*.sql" />
     <EmbeddedResource Include="Database/**/*.sql" />
   </ItemGroup>
-  <Target Name="BuildTailwindCss" BeforeTargets="ResolveStaticWebAssetsInputs">
+  <Target Name="BuildTailwindCss" BeforeTargets="ResolveProjectStaticWebAssets">
     <Exec Command="../../tailwindcss -i Styles/app.css -o wwwroot/app.css" />
+    <!-- ResolveProjectStaticWebAssets reads wwwroot's files from Content, which was filled before
+      any target ran. On a clean checkout (like the Docker build) app.css didn't exist yet, so it
+      has to be added once it does, unless an earlier build's copy was already listed -->
+    <ItemGroup>
+      <Content Include="wwwroot/app.css" Exclude="@(Content)" />
+    </ItemGroup>
   </Target>
 
 </Project>

@@ -1,60 +1,47 @@
-CREATE OR ALTER PROCEDURE dbo.SetArtworkSeries @ArtworkId int,
-@SeriesIds dbo.IdList READONLY AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS set_artwork_series;
 
-SET
-XACT_ABORT ON;
-
--- A series row does carry something of its own: SortOrder and IsCover. So unticked rows are deleted
--- and newly ticked ones appended, leaving the rest where the artist dragged them. Dropping a row
--- takes IsCover with it, which is what removing a series' cover artwork from that series means.
-DELETE junction
+-- A series row does carry something of its own: sort_order and is_cover. So unticked rows are
+-- deleted and newly ticked ones appended, leaving the rest where the artist dragged them. Dropping a
+-- row takes is_cover with it, which is what removing a series' cover artwork from that series means.
+CREATE FUNCTION set_artwork_series (p_artwork_id int, p_series_ids int[]) RETURNS void LANGUAGE sql AS $$
+-- Appending reads MAX(sort_order), and Postgres won't lock rows under an aggregate, so each chosen
+-- series row is the lock for its own artworks' order: a second append waits here rather than reading
+-- the same MAX, and reorder_series_artworks takes the same lock. NO KEY UPDATE lets foreign key checks through, and id order
+-- means two callers can't each hold a series the other wants
+SELECT
 FROM
-    dbo.ArtworkAndSeriesJunction AS junction
+    series
 WHERE
-    junction.ArtworkId = @ArtworkId
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            @SeriesIds AS seriesIds
-        WHERE
-            seriesIds.Id = junction.SeriesId
-    );
+    id = ANY (p_series_ids)
+ORDER BY
+    id
+FOR NO KEY UPDATE;
+
+DELETE FROM artwork_and_series_junction
+WHERE
+    artwork_id = p_artwork_id
+    AND NOT series_id = ANY (p_series_ids);
 
 INSERT INTO
-    dbo.ArtworkAndSeriesJunction (ArtworkId, SeriesId, SortOrder)
+    artwork_and_series_junction (artwork_id, series_id, sort_order)
 SELECT
-    @ArtworkId,
-    seriesIds.Id,
-    -- a correlated subquery: it runs once per row of @SeriesIds, with seriesIds.Id
-    -- filled in from the outer row. MAX over no rows is NULL, so COALESCE turns
-    -- "empty series" into -1, which the + 1 makes 0
+    p_artwork_id,
+    chosen.id,
+    -- a correlated subquery: it runs once per chosen series. MAX over no rows is NULL, so
+    -- COALESCE turns "empty series" into -1, which the + 1 makes 0
     COALESCE(
         (
             SELECT
-                MAX(existing.SortOrder)
+                MAX(existing.sort_order)
             FROM
-                dbo.ArtworkAndSeriesJunction AS existing
-            WITH
-                (UPDLOCK)
+                artwork_and_series_junction AS existing
             WHERE
-                existing.SeriesId = seriesIds.Id
+                existing.series_id = chosen.id
         ),
         -1
     ) + 1
 FROM
-    @SeriesIds AS seriesIds
-WHERE
-    NOT EXISTS (
-        SELECT
-            1
-        FROM
-            dbo.ArtworkAndSeriesJunction AS junction
-        WHERE
-            junction.ArtworkId = @ArtworkId
-            AND junction.SeriesId = seriesIds.Id
-    );
-
-END;
+    unnest(p_series_ids) AS chosen (id)
+    -- a series the artwork is already in keeps its place
+ON CONFLICT (artwork_id, series_id) DO NOTHING;
+$$;

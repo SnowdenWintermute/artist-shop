@@ -1,20 +1,11 @@
-CREATE OR ALTER PROCEDURE dbo.DeleteSeries @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS delete_series;
 
-SET
-XACT_ABORT ON;
-
-BEGIN TRANSACTION;
-
-DELETE FROM dbo.ArtworkAndSeriesJunction
+CREATE FUNCTION delete_series (p_id int) RETURNS void LANGUAGE sql AS $$
+DELETE FROM artwork_and_series_junction
 WHERE
-    SeriesId = @Id;
+    series_id = p_id;
 
-DELETE FROM dbo.Series
+DELETE FROM series
 WHERE
-    Id = @Id;
-
-COMMIT TRANSACTION;
-
-END;
+    id = p_id;
+$$;

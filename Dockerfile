@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 
-# WORK IN PROGRESS (2026-09-17): the plan for how the app will ship, not yet used for a real
-# deployment. Open items are listed in docker-compose.production.yml.
+# build-and-push.sh builds this and pushes it to Docker Hub as snowd3n/artist-shop, and the VPS
+# pulls it and runs it with docker-compose.production.yml; docker-compose.rehearsal.yml runs it
+# locally.
 #
 # Two stages: the SDK image (large) builds the app, and only the published output is copied into
 # the much smaller runtime image.

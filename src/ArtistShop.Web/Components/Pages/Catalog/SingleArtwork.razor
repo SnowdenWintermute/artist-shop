@@ -60,6 +60,8 @@
 @if (_loaded is { } loaded)
 {
   <PageTitle>@loaded.Artwork.Name.Value</PageTitle>
+  <LinkPreview Title="@loaded.Artwork.Name.Value" Description="@loaded.Artwork.Description"
+               Image="loaded.Artwork.Images.ElementAtOrDefault(loaded.Artwork.MainImageIndex)" />
 
   <main class="mx-auto max-w-[1200px] p-4">
     @if (loaded.Series is { } series)

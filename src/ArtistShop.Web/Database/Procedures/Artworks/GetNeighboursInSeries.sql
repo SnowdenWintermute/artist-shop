@@ -1,68 +1,72 @@
-CREATE OR ALTER PROCEDURE dbo.GetArtworkNeighboursInSeries @SeriesId int,
-@ArtworkId int,
-@OnlyArtworksWithImages bit AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_artwork_neighbours_in_series;
 
+CREATE FUNCTION get_artwork_neighbours_in_series (p_series_id int, p_artwork_id int, p_only_artworks_with_images boolean) RETURNS TABLE (
+    previous_name text,
+    previous_slug text,
+    next_name text,
+    next_slug text
+) LANGUAGE sql STABLE AS $$
 -- the places in the series a visitor may be sent to, filtered once so both sides share the rule.
 -- A work with no photograph is not somewhere a visitor can be sent
 WITH
-    Destinations AS (
+    destinations AS (
         SELECT
-            junction.SortOrder,
-            artwork.Name,
-            artwork.Slug
+            junction.sort_order,
+            artwork.name,
+            artwork.slug
         FROM
-            dbo.ArtworkAndSeriesJunction AS junction
-            JOIN dbo.Artworks AS artwork ON artwork.Id = junction.ArtworkId
+            artwork_and_series_junction AS junction
+            JOIN artworks AS artwork ON artwork.id = junction.artwork_id
         WHERE
-            junction.SeriesId = @SeriesId
+            junction.series_id = p_series_id
             AND (
-                @OnlyArtworksWithImages = 0
+                NOT p_only_artworks_with_images
                 OR EXISTS (
                     SELECT
-                        1
                     FROM
-                        dbo.ArtworkImages AS image
+                        artwork_images AS image
                     WHERE
-                        image.ArtworkId = artwork.Id
+                        image.artwork_id = artwork.id
                 )
             )
     )
     -- The artwork's own place in the series is the anchor, so both sides come off one row and an
-    -- artwork that isn't in the series returns nothing at all. UNIQUE (SeriesId, SortOrder) means no
-    -- two artworks share a place, so < and > can't step over one
+    -- artwork that isn't in the series returns nothing at all. The (series_id, sort_order)
+    -- constraint means no two artworks share a place, so < and > can't step over one
 SELECT
-    previousArtwork.Name AS PreviousName,
-    previousArtwork.Slug AS PreviousSlug,
-    nextArtwork.Name AS NextName,
-    nextArtwork.Slug AS NextSlug
+    previous_artwork.name,
+    previous_artwork.slug,
+    next_artwork.name,
+    next_artwork.slug
 FROM
-    dbo.ArtworkAndSeriesJunction AS here
-    OUTER APPLY (
+    artwork_and_series_junction AS here
+    LEFT JOIN LATERAL (
         SELECT
-            TOP (1) destination.Name,
-            destination.Slug
+            destination.name,
+            destination.slug
         FROM
-            Destinations AS destination
+            destinations AS destination
         WHERE
-            destination.SortOrder < here.SortOrder
+            destination.sort_order < here.sort_order
         ORDER BY
-            destination.SortOrder DESC
-    ) AS previousArtwork
-    OUTER APPLY (
+            destination.sort_order DESC
+        LIMIT
+            1
+    ) AS previous_artwork ON true
+    LEFT JOIN LATERAL (
         SELECT
-            TOP (1) destination.Name,
-            destination.Slug
+            destination.name,
+            destination.slug
         FROM
-            Destinations AS destination
+            destinations AS destination
         WHERE
-            destination.SortOrder > here.SortOrder
+            destination.sort_order > here.sort_order
         ORDER BY
-            destination.SortOrder
-    ) AS nextArtwork
+            destination.sort_order
+        LIMIT
+            1
+    ) AS next_artwork ON true
 WHERE
-    here.SeriesId = @SeriesId
-    AND here.ArtworkId = @ArtworkId;
-
-END;
+    here.series_id = p_series_id
+    AND here.artwork_id = p_artwork_id;
+$$;

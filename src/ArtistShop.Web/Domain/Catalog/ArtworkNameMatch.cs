@@ -1,7 +1,7 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
-// the values must match the match types in dbo.GetArtworkNameMatches and
-// dbo.AttachPrimaryImageToImagelessArtworkByName
+// the values must match the match types in get_artwork_name_match_types and
+// attach_primary_image_to_imageless_artwork_by_name
 public enum ArtworkNameMatchType : byte
 {
     OneImagelessArtwork = 1,

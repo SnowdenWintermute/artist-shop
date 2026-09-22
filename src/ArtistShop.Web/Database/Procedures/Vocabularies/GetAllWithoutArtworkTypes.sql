@@ -1,20 +1,17 @@
-CREATE OR ALTER PROCEDURE dbo.GetVocabulariesWithoutArtworkTypes AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_vocabularies_without_artwork_types;
 
+CREATE FUNCTION get_vocabularies_without_artwork_types () RETURNS TABLE (id int, name text) LANGUAGE sql STABLE AS $$
 SELECT
-    vocabulary.Id,
-    vocabulary.Name
+    vocabulary.id,
+    vocabulary.name
 FROM
-    dbo.Vocabularies AS vocabulary
+    vocabularies AS vocabulary
 WHERE
     NOT EXISTS (
         SELECT
-            1
         FROM
-            dbo.VocabularyAndArtworkTypesJunction AS applies
+            vocabulary_and_artwork_types_junction AS applies
         WHERE
-            applies.VocabularyId = vocabulary.Id
+            applies.vocabulary_id = vocabulary.id
     );
-
-END;
+$$;

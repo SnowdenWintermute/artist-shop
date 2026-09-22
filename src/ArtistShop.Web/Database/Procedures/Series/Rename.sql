@@ -1,18 +1,16 @@
-CREATE OR ALTER PROCEDURE dbo.RenameSeries @Id int,
-@Name nvarchar(256),
-@Slug nvarchar(200) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS rename_series;
 
-UPDATE dbo.Series
-SET
-    Name = @Name,
-    Slug = @Slug
-WHERE
-    Id = @Id;
+CREATE FUNCTION rename_series (p_id int, p_name text, p_slug text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE series
+    SET
+        name = p_name,
+        slug = p_slug
+    WHERE
+        id = p_id;
 
-IF @@ROWCOUNT = 0 THROW 50004,
-'The series no longer exists.',
-1;
-
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The series no longer exists.' USING ERRCODE = 'SH004';
+    END IF;
 END;
+$$;

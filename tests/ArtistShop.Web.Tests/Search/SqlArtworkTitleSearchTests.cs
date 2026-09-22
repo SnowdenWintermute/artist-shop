@@ -7,8 +7,8 @@ namespace ArtistShop.Web.Tests.Search;
 [Collection(DatabaseCollection.Name)]
 public sealed class SqlArtworkTitleSearchTests(TestDatabaseFixture database)
 {
-    private readonly CatalogTestData _catalog = new(database.ConnectionFactory);
-    private readonly SqlArtworkTitleSearch _search = new(database.ConnectionFactory);
+    private readonly CatalogTestData _catalog = new(database.DataSource);
+    private readonly SqlArtworkTitleSearch _search = new(database.DataSource);
 
     [Fact]
     public async Task MatchesPartOfATitleWhateverTheCase()

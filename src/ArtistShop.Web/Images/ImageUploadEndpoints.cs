@@ -49,7 +49,7 @@ public static class ImageUploadEndpoints
     }
 
     private static async Task<
-        Results<Ok<ImageUploadResult>, BadRequest<string>, StatusCodeHttpResult>
+        Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
     > UploadAsync(
         IFormFile file, // binds the form field named "file", the names must match
         ImageUploadStore imageUploadStore,
@@ -60,7 +60,7 @@ public static class ImageUploadEndpoints
     {
         if (ImageUploadValidation.FindProblem(file) is string problem)
         {
-            return TypedResults.BadRequest(problem);
+            return Rejected(problem);
         }
 
         try
@@ -84,11 +84,11 @@ public static class ImageUploadEndpoints
                 .CreateLogger(typeof(ImageUploadEndpoints))
                 .LogWarning(exception, "libvips could not read an uploaded image.");
 
-            return TypedResults.BadRequest(UnreadableImageMessage);
+            return Rejected(UnreadableImageMessage);
         }
         catch (Exception exception) when (IsRejectedImage(exception))
         {
-            return TypedResults.BadRequest(exception.Message);
+            return Rejected(exception.Message);
         }
         catch (ImageProcessingBusyException exception)
         {
@@ -97,7 +97,7 @@ public static class ImageUploadEndpoints
     }
 
     private static async Task<
-        Results<Ok<ArtworkImageMatchResult>, BadRequest<string>, StatusCodeHttpResult>
+        Results<Ok<ArtworkImageMatchResult>, ContentHttpResult, StatusCodeHttpResult>
     > UploadAndAttachByNameAsync(
         IFormFile file,
         // a form field rather than a route value, so it travels in the same multipart body as the file
@@ -112,7 +112,7 @@ public static class ImageUploadEndpoints
     {
         if (ImageUploadValidation.FindProblem(file) is string problem)
         {
-            return TypedResults.BadRequest(problem);
+            return Rejected(problem);
         }
 
         var originalFileName = ImageUploadValidation.OriginalFileName(file);
@@ -166,7 +166,7 @@ public static class ImageUploadEndpoints
         // the artist deleted the work type while the run was going: every remaining file is doomed
         catch (CatalogChangedException exception)
         {
-            return TypedResults.BadRequest(exception.Message);
+            return Rejected(exception.Message);
         }
         catch (VipsException exception)
         {
@@ -174,11 +174,11 @@ public static class ImageUploadEndpoints
                 .CreateLogger(typeof(ImageUploadEndpoints))
                 .LogWarning(exception, "libvips could not read an uploaded image.");
 
-            return TypedResults.BadRequest(UnreadableImageMessage);
+            return Rejected(UnreadableImageMessage);
         }
         catch (Exception exception) when (IsRejectedImage(exception))
         {
-            return TypedResults.BadRequest(exception.Message);
+            return Rejected(exception.Message);
         }
         catch (ImageProcessingBusyException exception)
         {
@@ -192,6 +192,11 @@ public static class ImageUploadEndpoints
     // these carry a message written for the artist; libvips's own messages are caught above
     private static bool IsRejectedImage(Exception exception) =>
         exception is ImageTooSmallException or ImageTooLargeException or UnsupportedImageFormatException;
+
+    // plain text (Text's default, in UTF-8), because that's what the upload pages show the artist.
+    // TypedResults.BadRequest would send it as JSON, which they treat as an unexplained failure
+    private static ContentHttpResult Rejected(string message) =>
+        TypedResults.Text(message, statusCode: StatusCodes.Status400BadRequest);
 
     // 503 tells the client the server is overloaded rather than that the request was wrong, and
     // Retry-After says how many seconds to wait before sending the file again

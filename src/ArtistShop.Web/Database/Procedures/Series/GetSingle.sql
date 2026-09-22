@@ -1,35 +1,47 @@
-CREATE OR ALTER PROCEDURE dbo.GetSeries @Id int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_series;
 
+CREATE FUNCTION get_series (p_id int) RETURNS TABLE (id int, name text, slug text) LANGUAGE sql STABLE AS $$
 SELECT
-    Id,
-    Name,
-    Slug
+    series.id,
+    series.name,
+    series.slug
 FROM
-    dbo.Series
+    series
 WHERE
-    Id = @Id;
+    series.id = p_id;
+$$;
 
+DROP FUNCTION IF EXISTS get_series_artworks;
+
+CREATE FUNCTION get_series_artworks (p_id int) RETURNS TABLE (
+    id int,
+    name text,
+    artwork_type_name text,
+    is_cover boolean,
+    storage_key text,
+    original_file_name text,
+    width int,
+    height int,
+    blur_data_uri text
+) LANGUAGE sql STABLE AS $$
 SELECT
-    artwork.Id,
-    artwork.Name,
-    artworkType.Name AS ArtworkTypeName,
-    junction.IsCover,
-    primaryImage.StorageKey,
-    primaryImage.OriginalFileName,
-    primaryImage.Width,
-    primaryImage.Height,
-    primaryImage.BlurDataUri
+    artwork.id,
+    artwork.name,
+    artwork_type.name,
+    junction.is_cover,
+    primary_image.storage_key,
+    primary_image.original_file_name,
+    primary_image.width,
+    primary_image.height,
+    primary_image.blur_data_uri
 FROM
-    dbo.ArtworkAndSeriesJunction AS junction
-    JOIN dbo.Artworks AS artwork ON artwork.Id = junction.ArtworkId
-    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Id = artwork.ArtworkTypeId
-    LEFT JOIN dbo.ArtworkImages AS primaryImage ON primaryImage.ArtworkId = artwork.Id
-    AND primaryImage.IsPrimary = 1
+    artwork_and_series_junction AS junction
+    JOIN artworks AS artwork ON artwork.id = junction.artwork_id
+    JOIN artwork_types AS artwork_type ON artwork_type.id = artwork.artwork_type_id
+    LEFT JOIN artwork_images AS primary_image ON primary_image.artwork_id = artwork.id
+    AND primary_image.is_primary
 WHERE
-    junction.SeriesId = @Id
+    junction.series_id = p_id
 ORDER BY
-    junction.SortOrder;
-
-END;
+    junction.sort_order;
+$$;

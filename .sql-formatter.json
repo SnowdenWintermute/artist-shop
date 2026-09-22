@@ -1,5 +1,5 @@
 {
-  "language": "tsql",
+  "language": "postgresql",
   "keywordCase": "upper",
   "dataTypeCase": "lower",
   "functionCase": "upper",

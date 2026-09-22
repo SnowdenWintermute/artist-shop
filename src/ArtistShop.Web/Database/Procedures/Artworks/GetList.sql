@@ -1,211 +1,189 @@
-CREATE OR ALTER PROCEDURE dbo.GetArtworkList
-@ArtworkTypeIds dbo.IdList READONLY,
-@VocabularyTermIds dbo.IdList READONLY,
-@MatchingArtworkIds dbo.IdList READONLY,
--- an empty list of matches means the search found nothing, which is not the same
--- as not searching at all
-@IsSearching bit,
-@SeriesId int,
-@HasImages bit,
-@IsForSale bit,
-@Sort tinyint,
-@Offset int,
-@PageSize int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_artwork_list;
 
--- must match the ArtworkListSort enum in C#
-DECLARE @RecentlyAdded tinyint = 1;
-
-DECLARE @TitleAscending tinyint = 2;
-
-DECLARE @TitleDescending tinyint = 3;
-
-DECLARE @DateCreatedNewest tinyint = 4;
-
-DECLARE @DateCreatedOldest tinyint = 5;
-
-DECLARE @SeriesOrder tinyint = 6;
-
--- how many vocabularies the chosen terms come from. An artwork has to match a term from every
--- one of them, so ticking Oil and Pastel widens the search while ticking Paper as well narrows it
-DECLARE @ChosenVocabularyCount int = (
+CREATE FUNCTION get_artwork_list (
+    p_artwork_type_ids int[],
+    p_vocabulary_term_ids int[],
+    p_matching_artwork_ids int[],
+    -- an empty list of matches means the search found nothing, which is not the same
+    -- as not searching at all
+    p_is_searching boolean,
+    p_series_id int,
+    p_has_images boolean,
+    p_is_for_sale boolean,
+    p_sort smallint,
+    p_offset int,
+    p_page_size int
+) RETURNS TABLE (
+    id int,
+    name text,
+    slug text,
+    artwork_type_name text,
+    date_created date,
+    date_created_precision smallint,
+    image_count int,
+    is_for_sale boolean,
+    series_names text,
+    primary_image_storage_key text,
+    primary_image_width int,
+    primary_image_height int,
+    primary_image_blur_data_uri text,
+    total_count int
+) LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    -- must match the ArtworkListSort enum in C#
+    recently_added CONSTANT smallint := 1;
+    title_ascending CONSTANT smallint := 2;
+    title_descending CONSTANT smallint := 3;
+    date_created_newest CONSTANT smallint := 4;
+    date_created_oldest CONSTANT smallint := 5;
+    series_order CONSTANT smallint := 6;
+    chosen_vocabulary_count int;
+BEGIN
+    -- how many vocabularies the chosen terms come from. An artwork has to match a term from every
+    -- one of them, so ticking Oil and Pastel widens the search while ticking Paper as well narrows it
     SELECT
-        COUNT(DISTINCT term.VocabularyId)
+        COUNT(DISTINCT term.vocabulary_id)
+    INTO
+        chosen_vocabulary_count
     FROM
-        @VocabularyTermIds AS chosen
-        JOIN dbo.VocabularyTerms AS term ON term.Id = chosen.Id
-);
+        vocabulary_terms AS term
+    WHERE
+        term.id = ANY (p_vocabulary_term_ids);
 
-SELECT
-    artwork.Id,
-    artwork.Name,
-    artwork.Slug,
-    artworkType.Name AS ArtworkTypeName,
-    artwork.DateCreated,
-    artwork.DateCreatedPrecision,
-    summary.ImageCount,
-    summary.IsForSale,
-    (
-        SELECT
-            STRING_AGG(series.Name, N', ') WITHIN GROUP (
-                ORDER BY
-                    series.SortOrder
-            )
-        FROM
-            dbo.ArtworkAndSeriesJunction AS junction
-            JOIN dbo.Series AS series ON series.Id = junction.SeriesId
-        WHERE
-            junction.ArtworkId = artwork.Id
-    ) AS SeriesNames,
-    primaryImage.StorageKey AS PrimaryImageStorageKey,
-    primaryImage.Width AS PrimaryImageWidth,
-    primaryImage.Height AS PrimaryImageHeight,
-    primaryImage.BlurDataUri AS PrimaryImageBlurDataUri,
-    -- the whole filtered count, repeated on every row of this page
-    COUNT(*) OVER () AS TotalCount
-FROM
-    dbo.Artworks AS artwork
-    JOIN dbo.ArtworkTypes AS artworkType ON artworkType.Id = artwork.ArtworkTypeId
-    -- UniqueIndex_ArtworkImages_Primary allows one primary row per artwork, so this join can
-    -- only ever add one row. The same rule GetSeriesWithCovers and GetSeries read a cover by
-    LEFT JOIN dbo.ArtworkImages AS primaryImage ON primaryImage.ArtworkId = artwork.Id
-    AND primaryImage.IsPrimary = 1
-    -- worked out once, for the columns above and the filters below. APPLY is part of FROM,
-    -- so unlike a column alias its results can be used in WHERE
-    CROSS APPLY (
-        SELECT
-            (
-                SELECT
-                    COUNT(*)
-                FROM
-                    dbo.ArtworkImages AS image
-                WHERE
-                    image.ArtworkId = artwork.Id
-            ) AS ImageCount,
-            CAST(
-                CASE
-                    WHEN EXISTS (
-                        SELECT
-                            1
-                        FROM
-                            dbo.Products AS product
-                        WHERE
-                            product.ArtworkId = artwork.Id
-                            AND product.Stock >= 1
-                    ) THEN 1
-                    ELSE 0
-                END AS bit
-            ) AS IsForSale
-    ) AS summary
-    -- where the artist dragged this artwork inside the series being looked at. NULL under
-    -- every other filter, which is why @SeriesOrder only means anything with a series chosen
-    OUTER APPLY (
-        SELECT
-            junction.SortOrder
-        FROM
-            dbo.ArtworkAndSeriesJunction AS junction
-        WHERE
-            junction.ArtworkId = artwork.Id
-            AND junction.SeriesId = @SeriesId
-    ) AS seriesPlace
-WHERE
-    (
-        NOT EXISTS (
+    -- the RETURNS TABLE columns are variables inside a plpgsql function, so every column below
+    -- names its table, or Postgres couldn't tell artwork.name from the name being returned
+    RETURN QUERY
+    SELECT
+        artwork.id,
+        artwork.name::text,
+        artwork.slug::text,
+        artwork_type.name::text,
+        artwork.date_created,
+        artwork.date_created_precision,
+        summary.image_count,
+        summary.is_for_sale,
+        (
+            -- string_agg takes its own ORDER BY, in place of WITHIN GROUP
             SELECT
-                1
-            FROM
-                @ArtworkTypeIds
-        )
-        OR artwork.ArtworkTypeId IN (
-            SELECT
-                Id
-            FROM
-                @ArtworkTypeIds
-        )
-    )
-    AND (
-        @SeriesId IS NULL
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                dbo.ArtworkAndSeriesJunction AS junction
-            WHERE
-                junction.ArtworkId = artwork.Id
-                AND junction.SeriesId = @SeriesId
-        )
-    )
-    AND (
-        @IsSearching = 0
-        OR artwork.Id IN (
-            SELECT
-                Id
-            FROM
-                @MatchingArtworkIds
-        )
-    )
-    AND (
-        @HasImages IS NULL
-        OR @HasImages = CASE
-            WHEN summary.ImageCount > 0 THEN 1
-            ELSE 0
-        END
-    )
-    AND (
-        @IsForSale IS NULL
-        OR @IsForSale = summary.IsForSale
-    )
-    AND (
-        @ChosenVocabularyCount = 0
-        -- the junction carries VocabularyId of its own, so counting the vocabularies an
-        -- artwork matches needs no join back to the terms
-        OR (
-            SELECT
-                COUNT(DISTINCT junction.VocabularyId)
-            FROM
-                dbo.ArtworkAndVocabularyTermsJunction AS junction
-            WHERE
-                junction.ArtworkId = artwork.Id
-                AND junction.TermId IN (
-                    SELECT
-                        Id
-                    FROM
-                        @VocabularyTermIds
+                string_agg(
+                    series.name,
+                    ', '
+                    ORDER BY
+                        series.sort_order
                 )
-        ) = @ChosenVocabularyCount
-    )
-ORDER BY
-    -- an undated artwork sinks to the bottom of either date sort rather than leading
-    -- the oldest-first one. Every row gets 0 under the other sorts, so it does nothing there
-    CASE
-        WHEN @Sort IN (@DateCreatedNewest, @DateCreatedOldest)
-        AND artwork.DateCreated IS NULL THEN 1
-        ELSE 0
-    END,
-    -- only the chosen sort's CASE has a value; the rest are NULL for every row, which sorts
-    -- everything equal and so changes nothing
-    CASE
-        WHEN @Sort = @RecentlyAdded THEN artwork.CreatedAt
-    END DESC,
-    CASE
-        WHEN @Sort = @TitleAscending THEN artwork.Name
-    END,
-    CASE
-        WHEN @Sort = @TitleDescending THEN artwork.Name
-    END DESC,
-    CASE
-        WHEN @Sort = @DateCreatedNewest THEN artwork.DateCreated
-    END DESC,
-    CASE
-        WHEN @Sort = @DateCreatedOldest THEN artwork.DateCreated
-    END,
-    CASE
-        WHEN @Sort = @SeriesOrder THEN seriesPlace.SortOrder
-    END,
-    -- the tie-break that stops a row moving between pages
-    artwork.Id OFFSET @Offset ROWS
-FETCH NEXT
-    @PageSize ROWS ONLY;
-
+            FROM
+                artwork_and_series_junction AS junction
+                JOIN series ON series.id = junction.series_id
+            WHERE
+                junction.artwork_id = artwork.id
+        ),
+        primary_image.storage_key::text,
+        primary_image.width,
+        primary_image.height,
+        primary_image.blur_data_uri::text,
+        -- the whole filtered count, repeated on every row of this page
+        (COUNT(*) OVER ())::int
+    FROM
+        artworks AS artwork
+        JOIN artwork_types AS artwork_type ON artwork_type.id = artwork.artwork_type_id
+        -- unique_index_artwork_images_primary allows one primary row per artwork, so this join can
+        -- only ever add one row. The same rule get_series_with_covers and get_series_artworks read
+        -- a cover by
+        LEFT JOIN artwork_images AS primary_image ON primary_image.artwork_id = artwork.id
+        AND primary_image.is_primary
+        -- worked out once, for the columns above and the filters below. A LATERAL subquery is part
+        -- of FROM, so unlike a column alias its results can be used in WHERE
+        CROSS JOIN LATERAL (
+            SELECT
+                (
+                    SELECT
+                        COUNT(*)::int
+                    FROM
+                        artwork_images AS image
+                    WHERE
+                        image.artwork_id = artwork.id
+                ) AS image_count,
+                EXISTS (
+                    SELECT
+                    FROM
+                        products AS product
+                    WHERE
+                        product.artwork_id = artwork.id
+                        AND product.stock >= 1
+                ) AS is_for_sale
+        ) AS summary
+        -- where the artist dragged this artwork inside the series being looked at. NULL under
+        -- every other filter, which is why series_order only means anything with a series chosen
+        LEFT JOIN artwork_and_series_junction AS series_place ON series_place.artwork_id = artwork.id
+        AND series_place.series_id = p_series_id
+    WHERE
+        (
+            cardinality(p_artwork_type_ids) = 0
+            OR artwork.artwork_type_id = ANY (p_artwork_type_ids)
+        )
+        AND (
+            p_series_id IS NULL
+            OR series_place.artwork_id IS NOT NULL
+        )
+        AND (
+            NOT p_is_searching
+            OR artwork.id = ANY (p_matching_artwork_ids)
+        )
+        AND (
+            p_has_images IS NULL
+            OR p_has_images = (summary.image_count > 0)
+        )
+        AND (
+            p_is_for_sale IS NULL
+            OR p_is_for_sale = summary.is_for_sale
+        )
+        AND (
+            chosen_vocabulary_count = 0
+            -- the junction carries vocabulary_id of its own, so counting the vocabularies an
+            -- artwork matches needs no join back to the terms
+            OR (
+                SELECT
+                    COUNT(DISTINCT artwork_term.vocabulary_id)
+                FROM
+                    artwork_and_vocabulary_terms_junction AS artwork_term
+                WHERE
+                    artwork_term.artwork_id = artwork.id
+                    AND artwork_term.term_id = ANY (p_vocabulary_term_ids)
+            ) = chosen_vocabulary_count
+        )
+    ORDER BY
+        -- an undated artwork sinks to the bottom of either date sort rather than leading
+        -- the oldest-first one. Every row gets 0 under the other sorts, so it does nothing there
+        CASE
+            WHEN p_sort IN (date_created_newest, date_created_oldest)
+            AND artwork.date_created IS NULL THEN 1
+            ELSE 0
+        END,
+        -- only the chosen sort's CASE has a value; the rest are NULL for every row, which sorts
+        -- everything equal and so changes nothing
+        CASE
+            WHEN p_sort = recently_added THEN artwork.created_at
+        END DESC,
+        CASE
+            WHEN p_sort = title_ascending THEN artwork.name
+        END,
+        CASE
+            WHEN p_sort = title_descending THEN artwork.name
+        END DESC,
+        CASE
+            WHEN p_sort = date_created_newest THEN artwork.date_created
+        END DESC,
+        CASE
+            WHEN p_sort = date_created_oldest THEN artwork.date_created
+        END,
+        CASE
+            WHEN p_sort = series_order THEN series_place.sort_order
+        END,
+        -- the tie-break that stops a row moving between pages
+        artwork.id
+    LIMIT
+        p_page_size
+    OFFSET
+        p_offset;
 END;
+$$;

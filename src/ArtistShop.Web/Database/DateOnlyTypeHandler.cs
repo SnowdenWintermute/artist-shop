@@ -3,16 +3,12 @@ namespace ArtistShop.Web.Database;
 using System.Data;
 using Dapper;
 
+// Npgsql reads and writes DateOnly as a Postgres date by itself, but Dapper refuses a type it
+// doesn't know unless a handler claims it, so this only hands the value through
 public class DateOnlyTypeHandler : SqlMapper.TypeHandler<DateOnly>
 {
-    // Going out: SQL Server has no DateOnly, so send a DateTime at midnight and
-    // tell the parameter it's DbType.Date, which drops the time component.
-    public override void SetValue(IDbDataParameter parameter, DateOnly value)
-    {
-        parameter.DbType = DbType.Date;
-        parameter.Value = value.ToDateTime(TimeOnly.MinValue);
-    }
+    public override void SetValue(IDbDataParameter parameter, DateOnly value) =>
+        parameter.Value = value;
 
-    // Coming back: a `date` column arrives as DateTime; strip it back down.
-    public override DateOnly Parse(object value) => DateOnly.FromDateTime((DateTime)value);
+    public override DateOnly Parse(object value) => (DateOnly)value;
 }

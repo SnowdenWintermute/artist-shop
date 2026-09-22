@@ -1,40 +1,34 @@
-CREATE OR ALTER FUNCTION dbo.ResolveArtworkSlug (@CandidateSlug nvarchar(200)) RETURNS nvarchar(210)
---
-AS BEGIN
---
-DECLARE @NumberSuffixPattern nvarchar(210) = @CandidateSlug + '-[0-9]%';
+DROP FUNCTION IF EXISTS resolve_artwork_slug;
 
-DECLARE @SuffixStart int = LEN(@CandidateSlug) + 2;
+-- the candidate if no artwork has it, otherwise the candidate with the next free number
+CREATE FUNCTION resolve_artwork_slug (p_candidate_slug text) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE
+    candidate_is_taken boolean;
+    highest_number int;
+BEGIN
+    -- An advisory lock is a lock on a name we choose rather than on a row, held until the
+    -- transaction ends. The slug about to be chosen is no row yet, so there is nothing else to
+    -- lock: a second caller waits here instead of choosing the same slug and failing
+    -- unique_artworks_slug. One name for every candidate, because families overlap: sunset can
+    -- resolve to sunset-2, the very slug a work titled "Sunset 2" asks for
+    PERFORM pg_advisory_xact_lock(hashtext('resolve_artwork_slug'));
 
-DECLARE @CandidateSlugCount int;
+    -- bool_or is true if any row's value is true
+    SELECT
+        COALESCE(bool_or(artwork.slug = p_candidate_slug), false),
+        MAX(artwork_slug_number(artwork.slug, p_candidate_slug))
+    INTO
+        candidate_is_taken,
+        highest_number
+    FROM
+        artworks AS artwork
+    WHERE
+        starts_with(artwork.slug, p_candidate_slug);
 
-DECLARE @HighestSlugNumber int;
+    IF NOT candidate_is_taken THEN
+        RETURN p_candidate_slug;
+    END IF;
 
--- One read, not two. The candidate and candidate-N share a prefix, so one index seek covers both
--- and takes its locks in key order: a second caller waits rather than deadlocking.
--- UPDLOCK: with shared locks two callers could both read, then deadlock when both insert
-SELECT
-    @CandidateSlugCount = COUNT(
-        CASE
-            WHEN Slug = @CandidateSlug THEN 1
-        END
-    ),
-    @HighestSlugNumber = MAX(
-        CASE
-            WHEN Slug LIKE @NumberSuffixPattern THEN TRY_CAST(SUBSTRING(Slug, @SuffixStart, LEN(Slug)) AS int)
-        END
-    )
-FROM
-    dbo.Artworks
-WITH
-    (UPDLOCK)
-WHERE
-    Slug LIKE @CandidateSlug + '%';
-
-DECLARE @NextNumber int = COALESCE(@HighestSlugNumber, 1) + 1;
-
-DECLARE @NumberedSlug nvarchar(210) = CONCAT(@CandidateSlug, '-', @NextNumber);
-
-RETURN IIF(@CandidateSlugCount = 0, @CandidateSlug, @NumberedSlug);
-
+    RETURN p_candidate_slug || '-' || (COALESCE(highest_number, 1) + 1);
 END;
+$$;

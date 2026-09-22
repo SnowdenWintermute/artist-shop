@@ -1,24 +1,18 @@
--- set up identity db --
+-- regenerate the identity migration (the app applies it at startup, creating the database) --
 
 . ./env.sh
-dotnet ef migrations add CreateIdentity --project src/ArtistShop.Web --output-dir Identity/Migrations
-dotnet ef database update --project src/ArtistShop.Web
-
--- wipe all identity data and restart --
-
-dotnet ef database drop --project src/ArtistShop.Web --force
 rm -rf src/ArtistShop.Web/Identity/Migrations
-. ./env.sh
 dotnet ef migrations add CreateIdentity --project src/ArtistShop.Web --output-dir Identity/Migrations
-dotnet ef database update --project src/ArtistShop.Web
 
--- wipe domain database and test database --
-cd ~/projects/artist-shop && set -a && . ./.env && set +a
-docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd \
--S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -I -d master \
--Q "DROP DATABASE IF EXISTS ArtistShop; DROP DATABASE IF EXISTS ArtistShopTests;"
+-- wipe only the domain database (keeps the login; the app rebuilds it at startup) --
+docker exec artist-shop-postgres psql -U postgres \
+-c "DROP DATABASE IF EXISTS artist_shop WITH (FORCE);"
 
--- check the database server property --
-docker exec artist-shop-mssql /opt/mssql-tools18/bin/sqlcmd \
--S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -h -1 -W \
--Q "SELECT SERVERPROPERTY('Edition');"
+-- wipe the domain, identity and test databases --
+docker exec artist-shop-postgres psql -U postgres \
+-c "DROP DATABASE IF EXISTS artist_shop WITH (FORCE);" \
+-c "DROP DATABASE IF EXISTS artist_shop_identity WITH (FORCE);" \
+-c "DROP DATABASE IF EXISTS artist_shop_tests WITH (FORCE);"
+
+-- open a SQL prompt on the domain database --
+docker exec -it artist-shop-postgres psql -U postgres -d artist_shop

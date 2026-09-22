@@ -43,7 +43,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
         _sweeper = new OrphanedImageSweeper(
             _imageStorage,
-            new ArtworkImageRepository(database.ConnectionFactory),
+            new ArtworkImageRepository(database.DataSource),
             new OrphanedImageSweepSettings { GracePeriod = GracePeriod, Interval = TimeSpan.FromDays(1) },
             _time,
             NullLogger<OrphanedImageSweeper>.Instance
@@ -119,7 +119,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     // procedure names and column mappings line up between C# and SQL
     private async Task AddPaintingReferencing(string storageKey)
     {
-        var catalog = new CatalogTestData(_database.ConnectionFactory);
+        var catalog = new CatalogTestData(_database.DataSource);
 
         await catalog.AddPaintingAsync(
             "Sweeper test painting",

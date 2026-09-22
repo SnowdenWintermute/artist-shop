@@ -7,7 +7,103 @@ Approach: the page stays static SSR. One `InteractiveServer` island owns the ima
 Bytes go to a separate HTTP endpoint via XHR (not over the circuit). The island and the
 form talk through hidden inputs inside the existing `<EditForm>`.
 
-## Where this stands — 2026-09-21
+## Where this stands — 2026-09-21, end of day: porting to Postgres
+
+**SQL Server is being replaced by Postgres 18, on the `postgresPort` branch.** `main` keeps the
+SQL Server version. The reason: the VPS has 2 GB of RAM, and SQL Server on Linux won't start in
+less than that. Azure SQL's free serverless tier allows about 110 awake minutes a day, and each
+wake-up makes a visitor wait about a minute. The phased plan is at
+`~/.claude/plans/refactored-percolating-backus.md`. **Read it before starting.** Claude writes the
+port and Mike reviews it, with every place Postgres behaves differently called out. Names are
+snake_case.
+
+**Status: phases 1–4 are done. Only Phase 5 (deploy to the VPS) is left.**
+- Phase 1 is committed ("phase 1"). Phases 2–4 are **uncommitted** on `postgresPort`.
+- All 259 tests pass on Postgres.
+- The app boots on an empty Postgres, creating both databases and the admin.
+- Mike's browser pass found nothing broken, though he didn't try every action.
+- Review fixes (2026-09-21, uncommitted): `update_artwork` locks the type before the artwork, the
+  order `update_artwork_type` uses, so the two can't deadlock. `reorder_series_artworks` locks the
+  series row instead of the whole junction table. `set_series_cover` raises SH006 after its last
+  UPDATE, not before. New indexes on `artwork_images (artwork_id)` and the term junction's
+  `term_id`, added to 0001, so the dev database needs recreating to get them.
+
+**Things to know before touching it:**
+- **Run `. ./env.sh` in every terminal before `dotnet test` or `dev.sh`.** A terminal from before the
+  switch still holds the SQL Server connection string. Npgsql then logs in as `sa`, and reads
+  `localhost,1433` as two hosts, one of them 0.0.5.153. Every test fails, because the database
+  fixture belongs to the whole assembly.
+- Dev images are throwaway test data (the real files are kept outside the app), so the orphan
+  sweeper clearing `content/images` in dev is fine.
+- Dev Postgres is `artist-shop-postgres` on host port **5434** (5432 and 5433 are speed-dungeon's
+  and snowauth's). `POSTGRES_PASSWORD` is in `.env`. `artist-shop-mssql` can stay stopped; its
+  volume is kept for `main`.
+- Tests: `. ./env.sh`, then `dotnet test` (not `--nologo`, which runs none), or run the built
+  binary `tests/ArtistShop.Web.Tests/bin/Debug/net10.0/ArtistShop.Web.Tests` (`-class` to pick one).
+
+**How the port works**, for review and for anyone changing SQL from here on:
+- **Schema** (`Database/Scripts/0001`, `0002`):
+  - Two ICU collations, applied per column. `case_insensitive` (`und-u-ks-level2`) is on every
+    unique name, on artwork names, and on product labels. `case_and_accent_insensitive`
+    (`und-u-ks-level1`) is only for the title search's `LIKE`, which needs Postgres 18.
+  - The `sort_order` UNIQUEs are `DEFERRABLE`. Postgres checks a plain UNIQUE after each row, so a
+    one-statement swap would fail without it.
+  - Products use `UNIQUE NULLS NOT DISTINCT`.
+  - `created_at` defaults to `clock_timestamp()`, not `now()`, so artworks from one CSV import get
+    different times.
+  - Constraint names are cut to fit Postgres's 63-byte limit.
+  - The table types became three composite types, mapped to C# records in `Database/InputTypes.cs`
+    by `ShopDataSource.Create`. The app and the tests both build their data source with it.
+- **Functions** (`Database/Procedures/`, one function per old procedure, same file names):
+  - Every procedure became a function, because a Postgres procedure can't return rows.
+  - Repositories call them as text: `SELECT * FROM f(@A)` for a table result, `SELECT f(@A)` for a
+    single value or none. Npgsql turns `CommandType.StoredProcedure` into `CALL`, which only works
+    for procedures.
+  - An old multi-result procedure is several functions, run as several `SELECT`s in one command.
+  - Errors are `RAISE … USING ERRCODE = 'SH0nn'`, from `SqlStates`. Unique violations are matched on
+    `ConstraintName`.
+- **Locks.** A function can't set its own isolation level, so each `SERIALIZABLE`/`UPDLOCK` became a
+  specific lock:
+  - `FOR SHARE` on the artwork type row.
+  - `FOR KEY SHARE` on the chosen terms, series and product types.
+  - An advisory lock for choosing a slug.
+  - Series rows `FOR NO KEY UPDATE`, in id order, before appending to or reordering a series.
+  - `LOCK TABLE series` for the `MAX(sort_order)` of a new series.
+  - `set_series_cover` is two UPDATEs, because a partial unique index can't be deferred.
+- **Traps:**
+  - A plpgsql `RETURN QUERY` must return exactly the declared types, and its `RETURNS TABLE`
+    columns are variables, so every column in its queries names its table.
+  - A `LANGUAGE sql` function checks its body when it's created, so it may only call functions
+    from files that sort before it.
+  - `strpos`, `replace` and regular expressions refuse a non-deterministic collation.
+  - NULLs sort last ascending and first descending, the reverse of SQL Server.
+  - Npgsql 10 reads `date` as `DateOnly`. `DateOnlyTypeHandler` only exists because Dapper won't
+    accept the type without one.
+- **Identity:**
+  - EF migrates at startup, which also creates the database, so there's no manual
+    `dotnet ef database update`.
+  - `IdentitySeeder` runs in every environment. It makes the `Admin:Email` account an admin, and
+    reads `Admin:Password` only when it has to create that account. Dev sets both in `env.sh`.
+  - The old SQL Server filter on the unique email index is gone, since Postgres lets NULLs through
+    a UNIQUE anyway.
+
+**Next: commit phases 2–4, then Phase 5**, the VPS deploy. The plan's Phase 5 section has the steps:
+1. Measure on the VPS (`free -m`, `docker stats --no-stream`, `ss -ltn`).
+2. Write `build-and-push.sh`, then rewrite `docker-compose.production.yml`, which is still SQL
+   Server.
+3. Add a Postgres container and the web container on `127.0.0.1:8089`, with the image bind mount.
+4. Set memory limits from the step 1 numbers.
+5. Add the nginx block (with the websocket headers), then run certbot.
+6. Seed the first admin through `Admin__Email` / `Admin__Password`, then remove the password line.
+
+The domain is still undecided. Two follow-ups:
+- `docker-compose.production.yml`'s header comment says the seeder only runs in Development. That's
+  no longer true; fix it as part of Phase 5.
+- In production, a database restored without its images, or pointed at the wrong image folder,
+  would have its files swept as orphans. Decide at deploy time whether the sweeper should refuse
+  to run when the database has no image rows but the folder has files.
+
+## Where this stands — 2026-09-21, earlier
 
 **The artwork page is built.** `/artworks/{slug}` is the big image, a thumbnail picker, a
 full-screen view, and the panel of everything the work carries. It was done in four slices, each

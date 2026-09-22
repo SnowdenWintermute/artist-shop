@@ -1,21 +1,21 @@
-CREATE OR ALTER PROCEDURE dbo.AddSeries @Name nvarchar(256),
-@Slug nvarchar(200) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS add_series;
 
--- a slug another series has fails Unique_Series_Slug: unlike artworks, series slugs aren't numbered
--- New series go last. HOLDLOCK keeps the range read by MAX locked until the insert, and UPDLOCK
--- makes a second add wait here instead of reading the same MAX and failing Unique_Series_SortOrder
+-- a name or slug another series has fails unique_series_name or unique_series_slug: unlike
+-- artworks, series slugs aren't numbered
+CREATE FUNCTION add_series (p_name text, p_slug text) RETURNS int LANGUAGE sql AS $$
+-- New series go last. Postgres won't lock rows under an aggregate like MAX, so this locks the
+-- table instead: SHARE ROW EXCLUSIVE lets reads through but makes a second add (or a reorder) wait
+-- until this one commits, rather than reading the same MAX and failing unique_series_sort_order
+LOCK TABLE series IN SHARE ROW EXCLUSIVE MODE;
+
 INSERT INTO
-    dbo.Series (Name, Slug, SortOrder)
-    OUTPUT INSERTED.Id
+    series (name, slug, sort_order)
 SELECT
-    @Name,
-    @Slug,
-    COALESCE(MAX(SortOrder), -1) + 1
+    p_name,
+    p_slug,
+    COALESCE(MAX(existing.sort_order), -1) + 1
 FROM
-    dbo.Series
-WITH
-    (UPDLOCK, HOLDLOCK);
-
-END;
+    series AS existing
+RETURNING
+    id;
+$$;

@@ -1,16 +1,15 @@
-CREATE OR ALTER PROCEDURE dbo.RenameVocabularyTerm @Id int,
-@Name nvarchar(100) AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS rename_vocabulary_term;
 
-UPDATE dbo.VocabularyTerms
-SET
-    Name = @Name
-WHERE
-    Id = @Id;
+CREATE FUNCTION rename_vocabulary_term (p_id int, p_name text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE vocabulary_terms
+    SET
+        name = p_name
+    WHERE
+        id = p_id;
 
-IF @@ROWCOUNT = 0 THROW 50001,
-'The vocabulary term no longer exists.',
-1;
-
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'The vocabulary term no longer exists.' USING ERRCODE = 'SH001';
+    END IF;
 END;
+$$;

@@ -1,13 +1,11 @@
-CREATE OR ALTER PROCEDURE dbo.ClearSeriesCover @SeriesId int AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS clear_series_cover;
 
 -- with no starred artwork, the cover falls back to the first one in order with an image
-UPDATE dbo.ArtworkAndSeriesJunction
+CREATE FUNCTION clear_series_cover (p_series_id int) RETURNS void LANGUAGE sql AS $$
+UPDATE artwork_and_series_junction
 SET
-    IsCover = 0
+    is_cover = false
 WHERE
-    SeriesId = @SeriesId
-    AND IsCover = 1;
-
-END;
+    series_id = p_series_id
+    AND is_cover;
+$$;

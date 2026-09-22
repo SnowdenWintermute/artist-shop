@@ -10,10 +10,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
 
-        builder
-            .Entity<ApplicationUser>()
-            .HasIndex(user => user.NormalizedEmail)
-            .IsUnique()
-            .HasFilter("[NormalizedEmail] IS NOT NULL");
+        // no filter for users without an email: Postgres lets any number of NULLs past a UNIQUE
+        builder.Entity<ApplicationUser>().HasIndex(user => user.NormalizedEmail).IsUnique();
     }
 }

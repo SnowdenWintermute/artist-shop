@@ -25,7 +25,7 @@ pkill -9 -f 'project src/ArtistShop\.Web' 2>/dev/null || true
 pkill -9 -f 'bin/Debug/net10\.0/ArtistShop\.Web' 2>/dev/null || true
 pkill -9 -f 'tailwindcss -i src/ArtistShop\.Web' 2>/dev/null || true
 
-# SQL Server gets its own window, the way start.sh does it, so its boot log and T-SQL errors stay
+# Postgres gets its own window, the way start.sh does it, so its boot log and SQL errors stay
 # readable instead of interleaving with dotnet watch.
 #
 # The two ways out of that window differ: Ctrl-C in it sends SIGINT to `docker compose up`, which
@@ -37,11 +37,11 @@ pkill -9 -f 'tailwindcss -i src/ArtistShop\.Web' 2>/dev/null || true
 # what we match on. Ctrl-C *inside* the window is the case the title alone cannot see -- compose
 # exits but `exec bash` keeps the window open on an idle shell -- so check the container too, and
 # open a fresh window when the one already there is no longer attached to anything.
-SQL_WINDOW_TITLE=artist-shop-sql
+SQL_WINDOW_TITLE=artist-shop-postgres
 
 if pgrep -f "alacritty --title $SQL_WINDOW_TITLE" >/dev/null &&
-  [[ "$(docker inspect -f '{{.State.Running}}' artist-shop-mssql 2>/dev/null)" == true ]]; then
-  echo "sql server window already open, reusing it"
+  [[ "$(docker inspect -f '{{.State.Running}}' artist-shop-postgres 2>/dev/null)" == true ]]; then
+  echo "postgres window already open, reusing it"
 else
   alacritty --title "$SQL_WINDOW_TITLE" -e bash -c "cd '$PWD' && docker compose up; exec bash" &
 fi
@@ -51,18 +51,18 @@ fi
 # save and a class typed for the first time never reaches app.css. This watcher regenerates it on
 # the same save, and dotnet watch picks the changed file up and pushes it to the browser. Plain
 # --watch quits as soon as stdin closes, which it does here, so it has to be --watch=always. The
-# first pass runs now, while SQL Server boots, which is what gets app.css there before the build.
+# first pass runs now, while Postgres boots, which is what gets app.css there before the build.
 ./tailwindcss -i "$TAILWIND_IN" -o "$TAILWIND_OUT" --watch=always &
 
-# 1433 accepts connections well before the engine answers queries, so wait on the healthcheck
-# (sqlcmd SELECT 1) rather than the port.
-echo "waiting for sql server..."
+# A new volume initialises behind a temporary server before the real one takes the port, so wait on
+# the healthcheck rather than the port.
+echo "waiting for postgres..."
 for _ in $(seq 90); do
-  [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-mssql 2>/dev/null)" == healthy ]] && break
+  [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-postgres 2>/dev/null)" == healthy ]] && break
   sleep 1
 done
-if [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-mssql 2>/dev/null)" != healthy ]]; then
-  echo "error: sql server never became healthy -- see the sql window." >&2
+if [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-postgres 2>/dev/null)" != healthy ]]; then
+  echo "error: postgres never became healthy -- see the postgres window." >&2
   exit 1
 fi
 

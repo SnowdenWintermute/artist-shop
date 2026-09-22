@@ -1,71 +1,96 @@
-# WORK IN PROGRESS (2026-09-17): the plan for production, not yet used for a real deployment.
-# Try it locally with:
-#   docker compose -f docker-compose.production.yml --env-file .env up --build
+# What the VPS runs, to be merged into its compose file there. docker-compose.rehearsal.yml runs
+# the same services on this machine; keep the two in step.
 #
-# Still open before this can serve real traffic:
-# - HTTPS: a reverse proxy (Caddy or nginx) in front, plus ForwardedHeaders in Program.cs so the app
-#   sees the original scheme and client address; its timeout should match
-#   ImageProcessing:ProxyTimeout
-# - Identity schema: nothing runs the EF migrations here yet (dev runs `dotnet ef database update`
-#   by hand). Options: an EF migrations bundle run before the app starts, or migrating at startup
-# - The first admin account: IdentitySeeder only runs in Development
-# - Backups of the SQL Server volume and the images volume
-# - Memory limits are first guesses; measure under load. The app's image budget is
-#   ImageProcessing:MemoryBudgetMegabytes, inside its own limit (see "Multi-tenancy notes" in todo.md)
+# Format 2.4 because the VPS runs docker-compose v1, and only 2.x keeps depends_on healthcheck
+# conditions outside swarm.
+#
+# Before the first start, on the VPS:
+# - the images folder, owned by the container's app user (uid 1654 in the .NET images):
+#     mkdir -p /srv/artist-shop/images && chown 1654:1654 /srv/artist-shop/images
+# - .artist-shop-env beside this file. Compose v1 doesn't substitute variables inside an env file,
+#   so the password is written out in each line:
+#     POSTGRES_PASSWORD=<password>
+#     ConnectionStrings__ArtistShop=Host=artist-shop-postgres;Database=artist_shop;Username=postgres;Password=<password>
+#     ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=postgres;Password=<password>
+#     Admin__Email=<email>
+#     Admin__Password=<first boot only>
+#   IdentitySeeder makes the Admin__Email account an admin on every boot, and reads the password
+#   only to create it, so that line goes once the first boot has made the account.
+#
+# Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, one CPU, 2 GB of swap, and
+# about 485 MB available once the old pm2 apps were stopped.
 
-# its own project name, so trying this file locally gets its own containers and volumes instead of
-# taking over the dev ones in docker-compose.yml (same folder, so same default name)
-name: artist-shop-production
+version: "2.4"
 
 services:
-  artist-shop-web:
-    build: .
-    container_name: artist-shop-production-web
-    depends_on:
-      artist-shop-mssql:
-        condition: service_healthy
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      # compose reads MSSQL_SA_PASSWORD from the --env-file; the server name is the other service
-      - ConnectionStrings__ArtistShop=Server=artist-shop-mssql,1433;Database=ArtistShop;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
-      - ConnectionStrings__ArtistShopIdentity=Server=artist-shop-mssql,1433;Database=ArtistShopIdentity;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
-      # How much of mem_limit .NET may put on its own heap. Left alone it takes 75%, which next to
-      # the image budget (libvips allocates outside the heap) adds up past the container. 30% of
-      # 2 GB is 600 MB of heap, 1000 MB of images and about 400 MB spare. Read as hexadecimal:
-      # 0x1E is 30
-      - DOTNET_GCHeapHardLimitPercent=0x1E
-    ports:
-      - 8080:8080
-    # holds the .NET heap (DOTNET_GCHeapHardLimitPercent above), ImageProcessing:MemoryBudgetMegabytes
-    # (1000, allocated by libvips outside that heap) and the runtime itself
-    mem_limit: 2g
-    volumes:
-      - artist-shop-images:/data/images
-      - artist-shop-data-protection-keys:/home/app/.aspnet/DataProtection-Keys
+    artist-shop-web:
+        image: snowd3n/artist-shop
+        restart: unless-stopped
+        env_file:
+            - .artist-shop-env
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Production
+            # the app is only reachable through nginx, which sends X-Forwarded-Proto and
+            # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's
+            # address
+            - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+            # How much of mem_limit .NET may put on its own heap. It has to be larger than the image
+            # budget below or the app refuses to start. Read as hexadecimal: 0x2D is 45, so 45% of
+            # 768 MB is 345 MB
+            - DOTNET_GCHeapHardLimitPercent=0x2D
+            # libvips allocates outside the .NET heap. A 48 MP photo (8000 x 6000) estimates at
+            # 275 MB; a larger one is refused with a message
+            - ImageProcessing__MemoryBudgetMegabytes=300
+            - ImageProcessing__MaximumMegapixels=48
+            # measured on the VPS: a 48 MP image takes about 19 seconds on its one CPU. The app
+            # lets ProxyTimeout / EstimatedTimePerImage uploads wait (4 here) and tells the rest
+            # it's busy, so nothing waits past nginx's proxy_read_timeout, which must match
+            # ProxyTimeout
+            - ImageProcessing__EstimatedTimePerImage=00:00:25
+            - ImageProcessing__ProxyTimeout=00:02:00
+        ports:
+            # loopback only: nginx on the host reaches it, the internet doesn't
+            - 127.0.0.1:8089:8080
+        # measured in the rehearsal: a run of 48 MP uploads peaked at 612 MB, of which about 310 MB
+        # was the app's own and the rest file cache the kernel gives back when asked
+        mem_limit: 768m
+        # Docker keeps every line a container logs unless told otherwise; three 10 MB files at most
+        logging:
+            driver: json-file
+            options:
+                max-size: 10m
+                max-file: "3"
+        volumes:
+            # a host folder rather than a volume, so the images can be backed up and rsynced like
+            # any other files. The app writes to /data/images (set in the Dockerfile)
+            - /srv/artist-shop/images:/data/images
+            # the keys that sign login cookies; without a volume every redeploy logs everyone out
+            - artist_shop_data_protection_keys:/home/app/.aspnet/DataProtection-Keys
+        depends_on:
+            artist-shop-postgres:
+                condition: service_healthy
 
-  artist-shop-mssql:
-    image: mcr.microsoft.com/mssql/server:2025-latest
-    container_name: artist-shop-production-mssql
-    environment:
-      - ACCEPT_EULA=Y
-      - MSSQL_PID=Express
-      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
-    # not published to the host: only the app talks to it, over the compose network
-    mem_limit: 2g
-    volumes:
-      - artist-shop-mssql_data:/var/opt/mssql
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q ''SELECT 1'' || exit 1',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
+    artist-shop-postgres:
+        image: postgres:18
+        restart: unless-stopped
+        # half the default shared memory cache: the whole catalog is a few megabytes
+        command: ["postgres", "-c", "shared_buffers=64MB"]
+        env_file:
+            - .artist-shop-env
+        # not published: only the app talks to it, over the compose network
+        mem_limit: 256m
+        volumes:
+            # postgres:18 keeps its data in a versioned folder under this one, so a later major
+            # version upgrade can sit beside the old data
+            - artist_shop_pg_volume:/var/lib/postgresql
+        healthcheck:
+            # over TCP: while a new volume initialises, a temporary server answers only on the
+            # local socket, and a socket check would call that healthy
+            test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
 
 volumes:
-  artist-shop-images:
-  artist-shop-data-protection-keys:
-  artist-shop-mssql_data:
+    artist_shop_pg_volume:
+    artist_shop_data_protection_keys:

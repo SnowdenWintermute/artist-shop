@@ -1,25 +1,23 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Data;
 using ArtistShop.Web.Domain.Catalog;
 using Dapper;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
-public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
+public class ArtworkImageRepository(NpgsqlDataSource dataSource)
 {
     // since we're using this to determine if an image exists, we
     // pick hash set
     public async Task<HashSet<string>> GetAllStorageKeysAsync()
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         // when a result set has exactly one column,
         // QueryAsync maps each row to a string, if it
         // had more columns we would create a class to
         // represent that row's data in C#
         var storageKeys = await connection.QueryAsync<string>(
-            "dbo.GetAllArtworkImageStorageKeys",
-            commandType: CommandType.StoredProcedure
+            "SELECT * FROM get_all_artwork_image_storage_keys()"
         );
 
         return [.. storageKeys];
@@ -31,12 +29,16 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
         ArtworkImage image
     )
     {
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
-            await using var results = await connection.QueryMultipleAsync(
-                "dbo.AttachPrimaryImageToImagelessArtworkByName",
+            var row = await connection.QuerySingleAsync<AttachRow>(
+                """
+                SELECT * FROM attach_primary_image_to_imageless_artwork_by_name(
+                    @ArtworkTypeId, @ArtworkName, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri
+                )
+                """,
                 new
                 {
                     ArtworkTypeId = typeId.Value,
@@ -46,48 +48,42 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
                     image.Width,
                     image.Height,
                     image.BlurDataUri,
-                },
-                commandType: CommandType.StoredProcedure
+                }
             );
 
-            var matchType = await results.ReadSingleAsync<ArtworkNameMatchType>();
-            var artworkIds = await results.ReadAsync<int>();
-
-            return new ImageAttachResult(matchType, [.. artworkIds.Select(id => new ArtworkId(id))]);
+            return new ImageAttachResult(
+                row.MatchType,
+                [.. row.ArtworkIds.Select(id => new ArtworkId(id))]
+            );
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
     }
 
-    // the names must be distinct ignoring case, or the table-valued parameter's primary key rejects them
+    // the names must be distinct ignoring case, or one name's rows would come back under both spellings
     public async Task<Dictionary<ArtworkName, ArtworkNameMatch>> GetArtworkNameMatchesAsync(
         ArtworkTypeId typeId,
         IReadOnlyCollection<ArtworkName> artworkNames
     )
     {
-        var names = new DataTable();
-        // must match dbo.ArtworkNameList
-        names.Columns.Add("Name", typeof(string));
-
-        foreach (var artworkName in artworkNames)
-        {
-            names.Rows.Add(artworkName.Value);
-        }
-
-        await using var connection = connectionFactory.Create();
+        await using var connection = dataSource.CreateConnection();
 
         try
         {
             await using var results = await connection.QueryMultipleAsync(
-                "dbo.GetArtworkNameMatches",
+                """
+                SELECT * FROM get_artwork_name_match_types(@ArtworkTypeId, @ArtworkNames);
+                SELECT * FROM get_artwork_name_matches(@ArtworkTypeId, @ArtworkNames);
+                """,
                 new
                 {
                     ArtworkTypeId = typeId.Value,
-                    ArtworkNames = names.AsTableValuedParameter("dbo.ArtworkNameList"),
-                },
-                commandType: CommandType.StoredProcedure
+                    ArtworkNames = (string[])
+                        [.. artworkNames.Select(artworkName => artworkName.Value)],
+                }
             );
 
             var matchTypes = await results.ReadAsync<NameMatchTypeRow>();
@@ -95,18 +91,28 @@ public class ArtworkImageRepository(SqlConnectionFactory connectionFactory)
 
             // ToLookup groups rows by a key, like a dictionary whose values are lists;
             // a missing key gives an empty list rather than throwing
-            var artworkIdsByName = matchedArtworks.ToLookup(row => row.Name, row => new ArtworkId(row.ArtworkId));
+            var artworkIdsByName = matchedArtworks.ToLookup(
+                row => row.Name,
+                row => new ArtworkId(row.ArtworkId)
+            );
 
-            // the procedure returns each name exactly as it was sent, so plain string keys line up
+            // the functions return each name exactly as it was sent, so plain string keys line up
             return matchTypes.ToDictionary(
                 row => new ArtworkName(row.Name),
                 row => new ArtworkNameMatch(row.MatchType, [.. artworkIdsByName[row.Name]])
             );
         }
-        catch (SqlException exception) when (SqlErrors.IsThrown(exception, SqlErrorNumbers.ArtworkTypeNoLongerExists))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
             throw new CatalogChangedException(exception.Message, exception);
         }
+    }
+
+    private sealed class AttachRow
+    {
+        public required ArtworkNameMatchType MatchType { get; init; }
+        public required int[] ArtworkIds { get; init; }
     }
 
     private sealed class NameMatchTypeRow

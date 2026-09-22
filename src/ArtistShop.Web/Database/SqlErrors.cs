@@ -1,18 +1,19 @@
 namespace ArtistShop.Web.Database;
 
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 public static class SqlErrors
 {
-    // SQL Server's error number for a violated PRIMARY KEY or UNIQUE constraint
-    private const int UniqueConstraintViolation = 2627;
+    // our functions RAISE their own errors with the codes in SqlStates
+    public static bool IsThrown(PostgresException exception, string sqlState) =>
+        exception.SqlState == sqlState;
 
-    // our procedures THROW their own errors with numbers from 50000 up
-    public static bool IsThrown(SqlException exception, int number) => exception.Number == number;
-
-    // the message quotes the name, e.g. 'Unique_Vocabularies_Name', so matching the quotes
-    // stops one constraint name matching another that starts the same way
-    public static bool IsUniqueConstraintViolation(SqlException exception, string constraintName) =>
-        exception.Number == UniqueConstraintViolation
-        && exception.Message.Contains($"'{constraintName}'");
+    // Postgres names the violated constraint in its own field, so nothing has to be read out of
+    // the message text
+    public static bool IsUniqueConstraintViolation(
+        PostgresException exception,
+        string constraintName
+    ) =>
+        exception.SqlState == PostgresErrorCodes.UniqueViolation
+        && exception.ConstraintName == constraintName;
 }

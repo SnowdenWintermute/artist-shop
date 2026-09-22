@@ -1,6 +1,6 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
-// the numbers travel to dbo.GetArtworkList, which orders by them
+// the numbers travel to get_artwork_list, which orders by them
 public enum ArtworkListSort : byte
 {
     RecentlyAdded = 1,

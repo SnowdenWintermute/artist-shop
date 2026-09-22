@@ -1,12 +1,10 @@
-CREATE OR ALTER PROCEDURE dbo.GetArtworkFields AS BEGIN
-SET
-NOCOUNT ON;
+DROP FUNCTION IF EXISTS get_artwork_fields;
 
+CREATE FUNCTION get_artwork_fields () RETURNS TABLE (id int, name text, requires_artwork_field_id int) LANGUAGE sql STABLE AS $$
 SELECT
-    Id,
-    Name,
-    RequiresArtworkFieldId
+    artwork_field.id,
+    artwork_field.name,
+    artwork_field.requires_artwork_field_id
 FROM
-    dbo.ArtworkFields;
-
-END;
+    artwork_fields AS artwork_field;
+$$;
