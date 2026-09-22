@@ -1,0 +1,17 @@
+/* Here and not as Tailwind classes because quill.snow.css is not in a layer, and anything outside
+   a layer beats every Tailwind utility, whatever its specificity */
+
+post-body-editor ::deep .ql-container {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+post-body-editor ::deep .ql-editor {
+  min-height: 16rem;
+}
+
+/* Quill leaves heading weight to the browser's defaults, which Tailwind's reset takes away */
+post-body-editor ::deep .ql-editor h2,
+post-body-editor ::deep .ql-editor h3 {
+  font-weight: 700;
+}

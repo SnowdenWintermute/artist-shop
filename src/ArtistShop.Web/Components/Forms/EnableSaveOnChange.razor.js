@@ -47,11 +47,16 @@ customElements.define(
       const entries = new URLSearchParams();
 
       for (const control of form.elements) {
+        // a control with no name is never posted, like the header dropdown Quill hides in its toolbar
+        if (!("name" in control) || control.name === "") {
+          continue;
+        }
+
         if (control instanceof HTMLSelectElement) {
           [...control.selectedOptions].forEach((option) => entries.append(control.name, option.value));
         } else if (control instanceof HTMLTextAreaElement) {
           entries.append(control.name, control.value);
-        } else if (control instanceof HTMLInputElement && control.name !== "") {
+        } else if (control instanceof HTMLInputElement) {
           const isUncheckedChoice = (control.type === "checkbox" || control.type === "radio") && !control.checked;
 
           if (control.type !== "file" && !isUncheckedChoice) {

@@ -24,6 +24,19 @@ public class PostRepository(NpgsqlDataSource dataSource)
         return row?.ToPost();
     }
 
+    // drafts included: an admin reads a draft on the page it will appear on
+    public async Task<Post?> GetBySlugAsync(PostSlug slug)
+    {
+        await using var connection = dataSource.CreateConnection();
+
+        var row = await connection.QuerySingleOrDefaultAsync<PostRow>(
+            "SELECT * FROM get_post_by_slug(@Slug)",
+            new { Slug = slug.Value }
+        );
+
+        return row?.ToPost();
+    }
+
     public async Task<Post?> GetPublishedBySlugAsync(PostSlug slug)
     {
         await using var connection = dataSource.CreateConnection();

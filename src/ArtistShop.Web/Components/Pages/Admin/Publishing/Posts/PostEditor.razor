@@ -36,6 +36,8 @@
   // keyed by the post, so enhanced navigation to another post's page can't patch this island onto it
   private string DeleteKey => $"delete-{Id}";
 
+  private string BodyEditorKey => $"post-body-{Id}";
+
   protected override async Task OnInitializedAsync()
   {
     _formWasPosted = Input is not null;
@@ -110,13 +112,19 @@
         <h1 class="text-xl">@Heading</h1>
         @if (_post is not null)
         {
-          <span class="text-sm text-gray-500"><PostStatusLabel PublishedAt="_post.PublishedAt" /></span>
+          <span class="text-sm text-gray-500">
+            <PostStatusLabel PublishedAt="_post.PublishedAt" />
+          </span>
         }
       </div>
 
       @if (_post is not null)
       {
-        <p class="mb-4 text-sm text-gray-500">Address: /posts/@_post.Slug.Value</p>
+        @* a new tab, so following it doesn't lose unsaved edits. It shows what was last saved,
+           drafts included, since the artist is an admin *@
+        <p class="mb-4 text-sm text-gray-500">
+          Address: <a class="underline" href="@PageUrls.Post(_post.Slug)">@PageUrls.Post(_post.Slug)</a>
+        </p>
       }
 
       @if (Saved && !_formWasPosted)
@@ -137,8 +145,7 @@
           <DataAnnotationsValidator />
 
           <TextField Label="Title" @bind-Value="Input.Title" />
-          @* stands in for the editor until Quill is vendored: it holds the Delta JSON the editor will write *@
-          <TextAreaField Label="Text (the editor's JSON)" @bind-Value="Input.Body" />
+          <PostBodyEditor Label="Text" DocumentKey="@BodyEditorKey" @bind-Value="Input.Body" />
 
           @* Each button posts the status it asks for. The first one is what Enter in the title
              presses, so it's the one that keeps the post as it is. On an existing post it waits for a

@@ -82,9 +82,8 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
   with PRG to `?saved=true`. Also `PostForm`, `PostStatusLabel`, a `DeletePostButton` island and a
   dashboard link. Publishing is **two submit buttons**, each posting `Input.Status`: Save draft /
   Publish on a draft, Save / Unpublish on a published post. The first button is what Enter
-  presses, and a submit with no button stays Draft. **Admins will see drafts at `/posts/{slug}`**
-  with a draft banner, built with the public pages. Until then the edit page shows the address as
-  text. `PostBody.IsDelta` checks the body before the database does.
+  presses, and a submit with no button stays Draft. Admins see drafts at `/posts/{slug}` with a draft
+  banner. `PostBody.IsDelta` checks the body before the database does.
 - Shared components: `Layout/AdminPanel` (one 900px width for every admin page, with an
   optional `SectionNav` slot), `Tables/DataTable<TItem>` + `DataTableCell` (every admin table),
   `ButtonBasic`'s `Variant`, and `Utilities/ClassNames.Join`. Styling is shared through
@@ -93,40 +92,48 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
   element rewrites it in the visitor's time zone, with the same "22 Sep 2026" wording. Every date
   the site shows goes through it.
 
-**Next session: step 2, the Quill editor.** The body field on `PostEditor` is still a bare
-textarea of Delta JSON (`Input.Body`). Replace it with the editor:
-- **Vendor Quill 2** into `wwwroot/lib/quill/`: `dist/quill.js` and `dist/quill.snow.css` from the
-  release (jsdelivr's `npm/quill@2` serves them, so no npm is needed). Check the licence file goes
-  with them.
-- **Load it only on the editor page.** Every other script is loaded from `App.razor` on every page.
-  Quill is roughly 200 KB, so the small custom element module can inject Quill's script the first
-  time it connects instead. The stylesheet can go in the page's `<HeadContent>`. Both have to work
-  when the artist arrives by enhanced navigation, not only on a full load.
-- **A custom element around the hidden input**, like `SubmitOnChange` or `PartialDateField`:
-  - It mounts Quill with the restricted toolbar and the `formats` whitelist below.
-  - It reads the starting Delta from the hidden input's own value, so a submit that comes back
-    with a validation error keeps what was typed.
-  - It writes `JSON.stringify(quill.getContents())` back on every `text-change`, rather than on
-    submit, so the order of submit listeners against Blazor's enhanced-form handler never matters.
-  - Leave `indent` out of `formats`, which also turns off Tab-to-indent (the parser would flatten
-    nested lists anyway).
-  - **A link with no scheme** (`example.com`): add `https://` in the editor before it's stored.
-    The parser drops anything that isn't an absolute http, https or mailto link, so otherwise the
-    link vanishes from the public page without a word.
-- Watch for Tailwind's preflight fighting `quill.snow.css` (lists, headings) inside the editor.
-- See the reference memory on Razor static SSR for the enhanced-navigation gotchas (an element
-  patched in place is not connected again).
+**Step 2, the Quill editor (BUILT 2026-09-22, uncommitted, builds; not yet tried in the browser):**
+- Quill 2.0.3 is vendored in `wwwroot/lib/quill/` (`quill.js`, `quill.snow.css`, `LICENSE`,
+  `quill.js.LICENSE.txt`), BSD-3-Clause.
+- `Posts/PostBodyEditor` replaces the textarea. Its `<post-body-editor>` wraps a hidden
+  `InputText`, and its script (loaded from `App.razor`, like the others) injects Quill's script the
+  first time an editor connects. The stylesheet is in the component's `<HeadContent>`.
+- **`data-permanent="post-body-{Id}"`** on the element. Without it, the enhanced navigation after
+  a save patches the element's children to the server's markup and removes Quill's toolbar and
+  editing area, and `connectedCallback` never runs again. With it, blazor.web.js keeps the
+  children when the value matches and replaces the element when it doesn't, so another post's
+  editor starts fresh. The hidden input isn't patched either, which is fine: it already holds what
+  was saved or posted.
+- It starts from the hidden input with `setContents(…, "silent")`, so loading isn't an edit. It
+  writes the Delta on every `text-change` and raises `input`, which also dismisses "Saved.".
+- Links: `LinkWithScheme` overrides `formats/link`'s `sanitize`, so `example.com` becomes
+  `https://example.com` and `name@example.com` becomes `mailto:`. **A link starting with `/` or
+  `#` is still dropped by the parser without a word.** Decide whether to allow site-relative links.
+- Its styles are in `PostBodyEditor.razor.css`, not Tailwind classes: `quill.snow.css` isn't in a
+  layer, so it beats every Tailwind utility. Headings are bolded there, since the reset takes away
+  the browser's default weight.
+- `EnableSaveOnChange` now skips every control with no name. Quill's hidden header `<select>` and
+  link box are in the form, and the select changed as the cursor moved.
+- Known wrinkle: Quill's JSON isn't byte for byte what jsonb gives back, so undoing every edit
+  leaves Save enabled.
+
+**Step 3 + the post page (BUILT 2026-09-22, uncommitted, builds; not yet in the browser):**
+- `Components/Publishing/PostDocumentView` switches on the block type, and `PostInlineText`
+  renders one line's runs by wrapping `u`, `em`, `strong` and `a` around Razor-escaped text. An
+  empty line renders `<br>`. Spacing copies the editor: no gaps between blocks, and
+  `whitespace-pre-wrap`. Embeds render nothing yet.
+- `Pages/Publishing/SinglePost` at `/posts/{slug}`. Admins look it up with `GetBySlugAsync`
+  (`get_post_by_slug`, drafts included) and see a draft banner and an Edit link. Visitors use
+  `GetPublishedBySlugAsync`. Test `AdminsFindADraftBySlug` added.
+- The edit page's address is now a link, `PageUrls.Post`, opening in a new tab so unsaved edits
+  survive.
 
 **After that:**
-3. Razor components that render a `PostDocument`'s text blocks, one per block type, switching on
-   the record type. **Never `MarkupString`**: Razor's escaping is half of the security story. An
-   empty paragraph, heading or list item needs a `<br>` inside it, as Quill writes `<p><br></p>`,
-   or the blank line collapses to nothing.
 4. The embeds one at a time, YouTube first. Each must be a Quill `BlockEmbed` blot, not an
    inline `Embed`: the parser expects no `\n` after an embed in the middle of the document, and an
    inline embed's line ends in one, which would add a blank paragraph after every embed.
-5. `/posts` and `/posts/{slug}` (with the admin draft view), then "Mentioned in" on the artwork
-   page.
+5. `/posts`, the public list, then "Mentioned in" on the artwork page. Never render post content
+   with `MarkupString`.
 
 **Decided in discussion (2026-09-22):**
 - No bUnit. The logic lives in the parser, which is tested. Playwright for .NET (not Cypress, which

@@ -1,0 +1,36 @@
+@using ArtistShop.Web.Components.Forms
+@using System.Linq.Expressions
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  // the post's Delta JSON, which the editor starts from and writes back as the artist types
+  [Parameter]
+  public string? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<string?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<string?>> ValueExpression { get; set; } = default!;
+
+  // Names the post being edited. The editor survives enhanced navigation to a page with the same
+  // key, and is replaced on one with another, so it never shows a different post's text
+  [Parameter, EditorRequired]
+  public string DocumentKey { get; set; } = default!;
+}
+
+<HeadContent>
+  <link rel="stylesheet" href="@Assets["lib/quill/quill.snow.css"]" />
+</HeadContent>
+
+<FieldLayout Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+  @* <post-body-editor> is defined in PostBodyEditor.razor.js, and loads Quill itself from
+     data-quill-src. data-permanent stops enhanced navigation from patching its children, which
+     would remove Quill's toolbar and editing area, since the server never renders them *@
+  <post-body-editor class="block bg-white" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]">
+    <InputText type="hidden" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
+               ValueExpression="ValueExpression" />
+  </post-body-editor>
+</FieldLayout>

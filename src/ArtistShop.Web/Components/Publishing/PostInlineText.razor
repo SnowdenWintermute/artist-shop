@@ -1,0 +1,51 @@
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  // one line of a post: a paragraph, a heading, a quote or a list item
+  [Parameter, EditorRequired]
+  public IReadOnlyList<PostText> Text { get; set; } = default!;
+
+  // each wrapper goes around the one before it, so a bold italic link comes out as
+  // <a><strong><em>. The text is written with @, so Razor escapes it
+  private static RenderFragment Styled(PostText run)
+  {
+    RenderFragment content = @<text>@run.Text</text>;
+
+    if (run.Underline)
+    {
+      var inner = content;
+      content = @<u>@inner</u>;
+    }
+
+    if (run.Italic)
+    {
+      var inner = content;
+      content = @<em>@inner</em>;
+    }
+
+    if (run.Bold)
+    {
+      var inner = content;
+      content = @<strong>@inner</strong>;
+    }
+
+    if (run.Link is string link)
+    {
+      var inner = content;
+      content = @<a class="underline" href="@link">@inner</a>;
+    }
+
+    return content;
+  }
+}
+
+@* an empty line keeps its height, as <br> makes it do in the editor *@
+@if (Text.Count == 0)
+{
+  <br />
+}
+
+@foreach (var run in Text)
+{
+  @Styled(run)
+}

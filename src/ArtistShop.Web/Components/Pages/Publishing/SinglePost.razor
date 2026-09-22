@@ -1,0 +1,73 @@
+@page "/posts/{slug}"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Identity
+@inject PostRepository PostRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public string Slug { get; set; } = default!;
+
+  [CascadingParameter]
+  private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+  private LoadedPost? _loaded;
+
+  private record LoadedPost(Post Post, PostDocument Document);
+
+  protected override async Task OnParametersSetAsync()
+  {
+    var slug = new PostSlug(Slug);
+    var user = (await AuthenticationState).User;
+
+    // an admin reads a draft here before publishing it. To a visitor, a draft is the same
+    // "not found" as a slug nobody has
+    var post = user.IsInRole(RoleNames.Admin)
+      ? await PostRepository.GetBySlugAsync(slug)
+      : await PostRepository.GetPublishedBySlugAsync(slug);
+
+    if (post is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    _loaded = new LoadedPost(post, PostDocumentParser.Parse(post.Body));
+  }
+}
+
+@if (_loaded is { } loaded)
+{
+  <PageTitle>@loaded.Post.Title.Value</PageTitle>
+  <LinkPreview Title="@loaded.Post.Title.Value" />
+
+  <main class="mx-auto max-w-[700px] p-4">
+    @if (loaded.Post.PublishedAt is null)
+    {
+      <p class="mb-4 border border-theme-base bg-theme-recessed px-3 py-2">
+        Draft. Only admins can see this page until it's published.
+      </p>
+    }
+
+    <div class="mb-6">
+      <h1 class="flex items-center justify-between text-3xl"><span>@loaded.Post.Title.Value</span>
+        <AuthorizeView Roles="@RoleNames.Admin">
+          <Authorized>
+            <a class="text-base underline" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
+          </Authorized>
+        </AuthorizeView>
+      </h1>
+
+      @if (loaded.Post.PublishedAt is { } publishedAt)
+      {
+        <p class="text-gray-500"><LocalDate Moment="publishedAt" /></p>
+      }
+    </div>
+
+    <PostDocumentView Document="loaded.Document" />
+  </main>
+}

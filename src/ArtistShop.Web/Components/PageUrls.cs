@@ -16,4 +16,6 @@ public static class PageUrls
     public const string NewPost = "/admin/posts/new";
 
     public static string EditPost(PostId id) => $"/admin/posts/{id.Value}/edit";
+
+    public static string Post(PostSlug slug) => $"/posts/{slug.Value}";
 }

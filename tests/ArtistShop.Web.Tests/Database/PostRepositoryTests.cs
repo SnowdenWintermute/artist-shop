@@ -157,6 +157,14 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task AdminsFindADraftBySlug()
+    {
+        var post = await GetExistingAsync(await AddPostAsync(TextOnlyBody, PostStatus.Draft));
+
+        Assert.Equal(post.Id, (await _posts.GetBySlugAsync(post.Slug))?.Id);
+    }
+
+    [Fact]
     public async Task VisitorsFindAPublishedPostBySlug()
     {
         var post = await GetExistingAsync(await AddPostAsync(TextOnlyBody, PostStatus.Published));

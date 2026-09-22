@@ -1,0 +1,51 @@
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  [Parameter, EditorRequired]
+  public PostDocument Document { get; set; } = default!;
+}
+
+@* Spacing follows the editor, where every line sits directly below the last and a gap is an
+   empty line the artist left. whitespace-pre-wrap keeps runs of spaces, as the editor does.
+   Embeds render nothing until each one is built *@
+<div class="whitespace-pre-wrap">
+  @foreach (var block in Document.Blocks)
+  {
+    @switch (block)
+    {
+      case ParagraphBlock paragraph:
+        <p><PostInlineText Text="paragraph.Text" /></p>
+        break;
+
+      case HeadingBlock { Level: HeadingLevel.Two } heading:
+        <h2 class="text-2xl font-bold"><PostInlineText Text="heading.Text" /></h2>
+        break;
+
+      case HeadingBlock heading:
+        <h3 class="text-lg font-bold"><PostInlineText Text="heading.Text" /></h3>
+        break;
+
+      case BlockquoteBlock quote:
+        <blockquote class="border-l-4 border-gray-300 pl-4"><PostInlineText Text="quote.Text" /></blockquote>
+        break;
+
+      case ListBlock { Style: ListStyle.Bullet } list:
+        <ul class="list-disc pl-6">
+          @foreach (var item in list.Items)
+          {
+            <li><PostInlineText Text="item" /></li>
+          }
+        </ul>
+        break;
+
+      case ListBlock list:
+        <ol class="list-decimal pl-6">
+          @foreach (var item in list.Items)
+          {
+            <li><PostInlineText Text="item" /></li>
+          }
+        </ol>
+        break;
+    }
+  }
+</div>
