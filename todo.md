@@ -15,7 +15,7 @@ of ops, not a tree: block formats (header, list) sit on the `\n` that ends a lin
 list lines must be grouped into one `<ul>`/`<ol>`.
 
 **Embeds.** Each stores ids and choices only, never markup:
-- `artwork` stores `{ artworkId, imageId, size: small|medium, layout }` and points at one of an
+- `artwork` stores `{ artworkId, storageKey, size: small|medium, layout }` (no storageKey = the primary image) and points at one of an
   artwork's existing images. Small and medium map onto the 160/400 variants. The renderer reads the
   current title, slug and image at render time. If the artwork has been deleted, the embed
   disappears. If visitors can't see it, the image still shows but isn't a link.
@@ -39,6 +39,14 @@ list lines must be grouped into one `<ul>`/`<ol>`.
   deleted in the meantime is skipped.
 - `post_images` is not built yet. It comes with the uploaded-image embed and needs the orphan
   sweeper to know about it.
+
+**Reading the body (BUILT 2026-09-22):** `PostDocumentParser.Parse` turns the Delta into a
+`PostDocument` of typed blocks (`Domain/Publishing/PostDocument.cs`): paragraphs, h2/h3, quotes,
+grouped lists, artwork and YouTube embeds. Anything it doesn't know is dropped. Links must be
+http, https or mailto. Storage keys and video ids are checked against their exact shape. Razor
+components will render the blocks, so Blazor escapes the text and artwork embeds can reuse
+`TileImage`. No bUnit, so the components get checked in the browser. The SQL jsonpath and the
+parser agree that only a numeric `artworkId` counts.
 
 **Editing:** the page stays static SSR. The editor is a custom element inside the `<EditForm>` and
 writes the Delta JSON into a hidden input on submit. The artwork picker calls a small JSON endpoint

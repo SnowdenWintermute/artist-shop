@@ -218,6 +218,21 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task AnEmbedWhoseIdIsTextIsIgnored()
+    {
+        var artworkId = await AddArtworkAsync();
+        var body = new PostBody(
+            JsonSerializer.Serialize(
+                new { ops = new[] { new { insert = new { artwork = new { artworkId = $"{artworkId.Value}" } } } } }
+            )
+        );
+
+        await AddPostAsync(body, PostStatus.Published);
+
+        Assert.Empty(await GetIdsMentioningAsync(artworkId));
+    }
+
+    [Fact]
     public async Task DeletingAnArtworkKeepsThePostsThatEmbedIt()
     {
         var artworkId = await AddArtworkAsync();

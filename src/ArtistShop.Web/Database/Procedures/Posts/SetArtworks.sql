@@ -14,9 +14,12 @@ SELECT DISTINCT
 FROM
     posts AS post
     -- A jsonpath: every op, then its insert, then an artwork embed's id. The default lax mode skips
-    -- whatever lacks a step, like a text insert, which has no .artwork. Each match is a jsonb value,
-    -- and a jsonb number casts to int
-    CROSS JOIN LATERAL jsonb_path_query(post.body, '$.ops[*].insert.artwork.artworkId') AS embedded (artwork_id)
+    -- whatever lacks a step, like a text insert, which has no .artwork. The ? (...) filter keeps
+    -- only numbers, as the page's parser does: casting a jsonb string to int is an error, not NULL
+    CROSS JOIN LATERAL jsonb_path_query(
+        post.body,
+        '$.ops[*].insert.artwork.artworkId ? (@.type() == "number")'
+    ) AS embedded (artwork_id)
     -- an artwork deleted after the editor loaded leaves an embed that renders nothing, not an error
     JOIN artworks AS artwork ON artwork.id = embedded.artwork_id::int
 WHERE
