@@ -82,7 +82,7 @@
     {
       await save();
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       _changedElsewhere = true;
       _removeDialogOpen = false;
@@ -110,7 +110,7 @@
   {
     <div class="mb-2 flex items-center justify-between text-sm">
       <span>@CountText.Of(_artworks.Count, "artwork")</span>
-      <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@(_selected.Count == 0 || _isSaving)"
+      <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" disabled="@(_selected.Count == 0 || _isSaving)"
                    @onclick="() => _removeDialogOpen = true">
         Remove selected (@_selected.Count)
       </ButtonBasic>

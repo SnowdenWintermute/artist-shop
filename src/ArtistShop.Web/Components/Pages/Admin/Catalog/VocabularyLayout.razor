@@ -14,8 +14,8 @@
   }
 }
 
-<div class="mx-auto max-w-[800px] ">
-  <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
+<AdminPanel>
+  <SectionNav>
     <NavLink href="/admin/catalog/vocabularies/new" ActiveClass="underline">+ New vocabulary</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var vocabulary in _vocabularies)
@@ -25,9 +25,8 @@
         @vocabulary.Name.Value
       </SectionNavLink>
     }
-  </nav>
-
-  <div class="bg-white border p-4">
+  </SectionNav>
+  <ChildContent>
     @Body
-  </div>
-</div>
+  </ChildContent>
+</AdminPanel>

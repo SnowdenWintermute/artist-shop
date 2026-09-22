@@ -147,7 +147,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task RejectsADeletedArtworkType()
     {
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
                 new ArtworkTypeId(int.MaxValue),
                 new ArtworkName(UniqueName("Orphan")),
@@ -230,7 +230,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task MatchingRejectsADeletedArtworkType()
     {
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _images.GetArtworkNameMatchesAsync(
                 new ArtworkTypeId(int.MaxValue),
                 [new ArtworkName(UniqueName("Orphan"))]

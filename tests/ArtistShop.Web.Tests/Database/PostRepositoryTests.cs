@@ -2,6 +2,7 @@ using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
+using System.Globalization;
 using System.Text.Json;
 using Npgsql;
 
@@ -98,7 +99,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
         var post = await GetExistingAsync(await AddPostAsync(TextOnlyBody, PostStatus.Draft));
         await _posts.DeleteAsync(post.Id);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             UpdateAsync(post, TextOnlyBody, PostStatus.Draft)
         );
     }
@@ -118,10 +119,23 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     {
         var id = await AddPostAsync(TextOnlyBody, PostStatus.Published);
         var published = await GetExistingAsync(id);
+        Assert.NotNull(published.PublishedAt);
 
         await UpdateAsync(published, TextOnlyBody, PostStatus.Published);
 
         Assert.Equal(published.PublishedAt, (await GetExistingAsync(id)).PublishedAt);
+    }
+
+    [Fact]
+    public async Task RepublishingDatesThePostAfresh()
+    {
+        var id = await AddPostAsync(TextOnlyBody, PostStatus.Published);
+        var firstPublishedAt = (await GetExistingAsync(id)).PublishedAt;
+        await UpdateAsync(await GetExistingAsync(id), TextOnlyBody, PostStatus.Draft);
+
+        await UpdateAsync(await GetExistingAsync(id), TextOnlyBody, PostStatus.Published);
+
+        Assert.True((await GetExistingAsync(id)).PublishedAt > firstPublishedAt);
     }
 
     [Fact]
@@ -230,6 +244,34 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
         await AddPostAsync(body, PostStatus.Published);
 
         Assert.Empty(await GetIdsMentioningAsync(artworkId));
+    }
+
+    // casting 41.5 to int would round it onto the artwork
+    [Fact]
+    public async Task AnEmbedWhoseIdIsNotWholeIsIgnored()
+    {
+        var artworkId = await AddArtworkAsync();
+        var body = new PostBody(
+            """{"ops":[{"insert":{"artwork":{"artworkId":"""
+                + (artworkId.Value - 0.5m).ToString(CultureInfo.InvariantCulture)
+                + """}}},{"insert":"\n"}]}"""
+        );
+
+        await AddPostAsync(body, PostStatus.Published);
+
+        Assert.Empty(await GetIdsMentioningAsync(artworkId));
+    }
+
+    [Fact]
+    public async Task AnEmbedWhoseIdIsOutOfRangeStillSaves()
+    {
+        var body = new PostBody(
+            """{"ops":[{"insert":{"artwork":{"artworkId":2147483648}}},{"insert":"\n"}]}"""
+        );
+
+        var postId = await AddPostAsync(body, PostStatus.Published);
+
+        Assert.NotNull(await _posts.GetAsync(postId));
     }
 
     [Fact]

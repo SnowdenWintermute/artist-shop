@@ -1,0 +1,42 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Publishing
+@inject PostRepository PostRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public PostId PostId { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public PostTitle PostTitle { get; set; } = default!;
+
+  private bool _dialogOpen;
+  private bool _isDeleting;
+
+  private async Task DeleteAsync()
+  {
+    _isDeleting = true;
+
+    try
+    {
+      await PostRepository.DeleteAsync(PostId);
+      NavigationManager.NavigateTo(PageUrls.PostList);
+    }
+    finally
+    {
+      _isDeleting = false;
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" @onclick="() => _dialogOpen = true">
+    Delete post
+  </ButtonBasic>
+
+  <ConfirmDialog @bind-Open="_dialogOpen" Title="@($"Delete {PostTitle.Value}?")" ConfirmLabel="Delete"
+                 OnConfirm="DeleteAsync" IsWorking="_isDeleting">
+    This deletes the post for good. Its page goes, and the artworks it shows stop listing it.
+  </ConfirmDialog>
+</DisabledUntilInteractive>

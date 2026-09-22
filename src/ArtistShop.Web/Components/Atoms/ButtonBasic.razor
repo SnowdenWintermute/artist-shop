@@ -1,18 +1,32 @@
+@using ArtistShop.Web.Utilities
+
 @code {
   [Parameter(CaptureUnmatchedValues = true)]
   public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 
-
   private const string BaseClass = "p-2 h-10 leading-0 cursor-pointer disabled:cursor-auto";
 
   [Parameter]
+  public ButtonVariant Variant { get; set; }
+
+  // for what a variant doesn't cover, like a width or a position
+  [Parameter]
   public string? Class { get; set; }
 
-  private string CssClass =>
-    string.IsNullOrWhiteSpace(Class) ? BaseClass : $"{BaseClass} {Class}";
+  private string VariantClass =>
+    Variant switch
+    {
+      ButtonVariant.Plain => "",
+      ButtonVariant.Primary => "bg-blue-400 text-white",
+      ButtonVariant.PrimaryOutline => "border border-blue-400 text-blue-600",
+      ButtonVariant.Outline => "border",
+      ButtonVariant.Danger => "bg-red-600 text-white",
+      ButtonVariant.DangerOutline => "border border-red-600 text-red-600",
+    };
 
+  private string CssClass => ClassNames.Join(BaseClass, VariantClass, Class);
 }
 
 @* the spinner is always here and hidden; app.css shows it while the button carries data-busy,

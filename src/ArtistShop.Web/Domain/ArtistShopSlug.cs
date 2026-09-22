@@ -27,9 +27,9 @@ public static class ArtistShopSlug
             }
         }
 
-        if (slug.Length > CatalogLimits.BaseSlugMaximumLength)
+        if (slug.Length > ArtistShopLimits.BaseSlugMaximumLength)
         {
-            slug.Length = CatalogLimits.BaseSlugMaximumLength;
+            slug.Length = ArtistShopLimits.BaseSlugMaximumLength;
         }
 
         return slug.ToString().Trim('-');

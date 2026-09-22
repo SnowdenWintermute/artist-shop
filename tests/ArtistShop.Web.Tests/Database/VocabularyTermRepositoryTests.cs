@@ -97,7 +97,7 @@ public sealed class VocabularyTermRepositoryTests(TestDatabaseFixture database)
         );
         await _terms.DeleteAsync(termId);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _terms.RenameAsync(termId, new VocabularyTermName("Oil paint"))
         );
     }

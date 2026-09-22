@@ -164,7 +164,7 @@ public static class ImageUploadEndpoints
             }
         }
         // the artist deleted the work type while the run was going: every remaining file is doomed
-        catch (CatalogChangedException exception)
+        catch (ChangedSincePageLoadException exception)
         {
             return Rejected(exception.Message);
         }

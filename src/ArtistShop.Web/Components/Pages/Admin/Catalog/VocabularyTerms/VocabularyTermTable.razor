@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Domain.Catalog
 @inject NavigationManager NavigationManager
 
@@ -20,28 +21,16 @@
   }
   else
   {
-    <table class="w-full">
-      <thead>
-        <tr class="text-left text-sm">
-          <th class="pb-2">Term</th>
-          <th class="pb-2">Used on</th>
-          <th class="pb-2"></th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach (var term in Terms)
-        {
-          <tr class="border-t">
-            <td class="py-2">@term.Name.Value</td>
-            <td class="py-2">@term.ArtworkCount items</td>
-            <td class="py-2 text-right">
-              <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
-              <ButtonBasic type="button" Class="text-red-600" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <DataTable Items="Terms" Headings="@(new[] { "Term", "Used on", "" })">
+      <Row Context="term">
+        <DataTableCell>@term.Name.Value</DataTableCell>
+        <DataTableCell>@term.ArtworkCount items</DataTableCell>
+        <DataTableCell Class="text-right">
+          <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
+          <ButtonBasic type="button" Class="text-red-600" @onclick="() => _termToDelete = term">Delete</ButtonBasic>
+        </DataTableCell>
+      </Row>
+    </DataTable>
   }
 
   <RenameVocabularyTermDialog @bind-Term="_termToRename" OnRenamed="RefreshPage" />

@@ -14,8 +14,8 @@
   }
 }
 
-<div class="mx-auto max-w-[800px] ">
-  <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
+<AdminPanel>
+  <SectionNav>
     <NavLink href="/admin/catalog/types/new" ActiveClass="underline">+ New artwork type</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var artworkType in _artworkTypes)
@@ -25,9 +25,8 @@
         @artworkType.Name.Value
       </SectionNavLink>
     }
-  </nav>
-
-  <div class="bg-white border p-4">
+  </SectionNav>
+  <ChildContent>
     @Body
-  </div>
-</div>
+  </ChildContent>
+</AdminPanel>

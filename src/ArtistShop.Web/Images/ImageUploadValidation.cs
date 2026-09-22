@@ -38,9 +38,9 @@ public static class ImageUploadValidation
     // null when the file may go on to processing
     public static string? FindProblem(IFormFile file)
     {
-        if (OriginalFileName(file).Length > CatalogLimits.ArtworkImageFileNameMaximumLength)
+        if (OriginalFileName(file).Length > ArtistShopLimits.ArtworkImageFileNameMaximumLength)
         {
-            return $"File names must be {CatalogLimits.ArtworkImageFileNameMaximumLength} characters or fewer.";
+            return $"File names must be {ArtistShopLimits.ArtworkImageFileNameMaximumLength} characters or fewer.";
         }
 
         if (file.Length is 0)

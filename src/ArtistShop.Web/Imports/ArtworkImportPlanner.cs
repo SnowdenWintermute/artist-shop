@@ -131,9 +131,9 @@ public static class ArtworkImportPlanner
         ArtworkImportCatalogSnapshot snapshot
     )
     {
-        if (title.Length > CatalogLimits.ArtworkNameMaximumLength)
+        if (title.Length > ArtistShopLimits.ArtworkNameMaximumLength)
         {
-            reader.AddError(ArtworkImportHeaders.Title, $"Titles can be at most {CatalogLimits.ArtworkNameMaximumLength} characters.");
+            reader.AddError(ArtworkImportHeaders.Title, $"Titles can be at most {ArtistShopLimits.ArtworkNameMaximumLength} characters.");
         }
         else if (title.Length > 0 && ArtworkSlug.FromName(title).Value.Length == 0)
         {
@@ -249,9 +249,9 @@ public static class ArtworkImportPlanner
             {
                 existingIds.Add(series.Id);
             }
-            else if (name.Length > CatalogLimits.SeriesNameMaximumLength)
+            else if (name.Length > ArtistShopLimits.SeriesNameMaximumLength)
             {
-                reader.AddError(ArtworkImportHeaders.Series, $"Series names can be at most {CatalogLimits.SeriesNameMaximumLength} characters.");
+                reader.AddError(ArtworkImportHeaders.Series, $"Series names can be at most {ArtistShopLimits.SeriesNameMaximumLength} characters.");
             }
             else if (SeriesSlug.FromName(name).Value.Length == 0)
             {

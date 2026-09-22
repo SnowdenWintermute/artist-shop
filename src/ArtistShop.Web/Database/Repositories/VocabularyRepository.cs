@@ -178,7 +178,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.VocabularyNoLongerExists))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 

@@ -2,6 +2,7 @@ namespace ArtistShop.Web.Domain.Publishing;
 
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using ArtistShop.Web.Domain.Catalog;
 
 // Reads the editor's Delta into a PostDocument. A Delta is a flat list of ops, not a tree: text
 // arrives in runs carrying their own bold/italic/link, and a line's heading, list or quote format
@@ -139,7 +140,7 @@ public static partial class PostDocumentParser
             var storageKey = GetString(artwork, "storageKey");
 
             return new ArtworkEmbedBlock(
-                artworkId,
+                new ArtworkId(artworkId),
                 // it becomes part of an image address, so it must look like one of ours
                 storageKey is not null && StorageKeyPattern().IsMatch(storageKey) ? storageKey : null,
                 GetString(artwork, "size") is "small" ? EmbedImageSize.Small : EmbedImageSize.Medium,
@@ -195,12 +196,16 @@ public static partial class PostDocumentParser
             ? value.GetString()
             : null;
 
+    // read as a decimal so the rule is exactly set_post_artworks's: any whole number an int can
+    // hold, written as 42, 42.0 or 4.2e1
     private static int? GetInt(JsonElement? element, string name) =>
         element is { } found
         && found.TryGetProperty(name, out var value)
         && value.ValueKind is JsonValueKind.Number
-        && value.TryGetInt32(out var number)
-            ? number
+        && value.TryGetDecimal(out var number)
+        && number == decimal.Truncate(number)
+        && number is >= int.MinValue and <= int.MaxValue
+            ? (int)number
             : null;
 
     // [GeneratedRegex] writes the matching code at compile time instead of building it at run time.

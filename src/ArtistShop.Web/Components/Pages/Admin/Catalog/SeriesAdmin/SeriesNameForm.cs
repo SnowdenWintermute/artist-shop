@@ -13,7 +13,7 @@ public class SeriesNameForm : ServerValidatedForm, IValidatableObject
     public static SeriesNameForm WithName(string name) => new() { Name = name };
 
     [Required]
-    [StringLength(CatalogLimits.SeriesNameMaximumLength)]
+    [StringLength(ArtistShopLimits.SeriesNameMaximumLength)]
     public string? Name { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

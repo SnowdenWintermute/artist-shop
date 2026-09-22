@@ -9,7 +9,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
 {
     private const string UniqueSlugConstraint = "unique_posts_slug";
 
-    private static bool IsTitleTaken(PostgresException exception) =>
+    private static bool IsSlugTaken(PostgresException exception) =>
         SqlErrors.IsUniqueConstraintViolation(exception, UniqueSlugConstraint);
 
     public async Task<Post?> GetAsync(PostId id)
@@ -85,7 +85,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
 
             return new PostId(id);
         }
-        catch (PostgresException exception) when (IsTitleTaken(exception))
+        catch (PostgresException exception) when (IsSlugTaken(exception))
         {
             throw new NameAlreadyInUseException(title.Value);
         }
@@ -115,14 +115,14 @@ public class PostRepository(NpgsqlDataSource dataSource)
                 }
             );
         }
-        catch (PostgresException exception) when (IsTitleTaken(exception))
+        catch (PostgresException exception) when (IsSlugTaken(exception))
         {
             throw new NameAlreadyInUseException(title.Value);
         }
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.PostNoLongerExists))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 

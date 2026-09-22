@@ -17,10 +17,10 @@ public class ArtworkImportRowReader(CsvRow row)
     // spreadsheets often store an unknown year as 0
     private const string UnknownYear = "0";
 
-    private static readonly decimal MinimumDimensionCm = ParseLimit(CatalogLimits.MinimumDimensionCm);
-    private static readonly decimal MaximumDimensionCm = ParseLimit(CatalogLimits.MaximumDimensionCm);
-    private static readonly decimal MinimumPrice = ParseLimit(CatalogLimits.MinimumPrice);
-    private static readonly decimal MaximumPrice = ParseLimit(CatalogLimits.MaximumPrice);
+    private static readonly decimal MinimumDimensionCm = ParseLimit(ArtistShopLimits.MinimumDimensionCm);
+    private static readonly decimal MaximumDimensionCm = ParseLimit(ArtistShopLimits.MaximumDimensionCm);
+    private static readonly decimal MinimumPrice = ParseLimit(ArtistShopLimits.MinimumPrice);
+    private static readonly decimal MaximumPrice = ParseLimit(ArtistShopLimits.MaximumPrice);
 
     private readonly List<ArtworkImportError> _errors = [];
 

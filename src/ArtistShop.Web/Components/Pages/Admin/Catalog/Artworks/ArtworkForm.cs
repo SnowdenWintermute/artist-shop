@@ -61,7 +61,7 @@ public class ArtworkForm : IValidatableObject
         };
 
     [Required]
-    [StringLength(CatalogLimits.ArtworkNameMaximumLength)]
+    [StringLength(ArtistShopLimits.ArtworkNameMaximumLength)]
     public string? Name { get; set; }
 
     public int? YearCreated { get; set; }
@@ -72,13 +72,13 @@ public class ArtworkForm : IValidatableObject
 
     public string? Description { get; set; }
 
-    [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
+    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm)]
     public decimal? HeightCm { get; set; }
 
-    [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
+    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm)]
     public decimal? WidthCm { get; set; }
 
-    [Range(typeof(decimal), CatalogLimits.MinimumDimensionCm, CatalogLimits.MaximumDimensionCm)]
+    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm)]
     public decimal? DepthCm { get; set; }
 
     // text rather than parts, because h:mm:ss is how a duration is written and read

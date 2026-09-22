@@ -35,7 +35,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         var termId = await _catalog.AddTermAsync(await _catalog.AddPaintingVocabularyAsync());
         await _terms.DeleteAsync(termId);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _catalog.AddPaintingAsync(
                 $"Stale term {Guid.NewGuid():n}",
                 termIds: [termId],
@@ -51,7 +51,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         var seriesId = await _catalog.AddSeriesAsync();
         await _series.DeleteAsync(seriesId);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _catalog.AddPaintingAsync(
                 $"Stale series {Guid.NewGuid():n}",
                 termIds: [],
@@ -66,7 +66,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     {
         var missingType = new ProductTypeId(int.MaxValue);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _catalog.AddPaintingAsync(
                 $"Stale product type {Guid.NewGuid():n}",
                 termIds: [],
@@ -82,7 +82,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task RejectsAValueForAFieldTheTypeDoesNotHave()
     {
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _catalog.AddPaintingAsync(
                 $"Stale field {Guid.NewGuid():n}",
                 termIds: [],
@@ -161,7 +161,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         var photographTypeId = await _catalog.GetTypeIdAsync("Photograph");
         var withDepth = new DimensionsCentimeters(new Dimensions(30m, 40m, depth: 2m));
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _catalog.AddArtworkWithDimensionsAsync(photographTypeId, withDepth)
         );
     }
@@ -243,7 +243,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
             NewSeriesNames = [name],
         };
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() => _artworks.AddManyAsync([addition]));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _artworks.AddManyAsync([addition]));
         Assert.Null(await _artworks.GetBySlugAsync(addition.CandidateSlug.Value));
     }
 
@@ -255,7 +255,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         var first = await PaintingAdditionAsync($"Rolled back {Guid.NewGuid():n}", seriesIds: []);
         var stale = await PaintingAdditionAsync($"Stale {Guid.NewGuid():n}", seriesIds: [deletedSeriesId]);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() => _artworks.AddManyAsync([first, stale]));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _artworks.AddManyAsync([first, stale]));
 
         Assert.Null(await _artworks.GetBySlugAsync(first.CandidateSlug.Value));
     }
@@ -356,7 +356,7 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         var identifiers = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [], images: []);
         await _terms.DeleteAsync(termId);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _artworks.UpdateAsync(UpdateOf(identifiers.Id, name, [termId], seriesIds: []))
         );
     }

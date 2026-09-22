@@ -98,7 +98,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         await _catalog.AddSeriesAsync();
         List<SeriesId> allButOne = [.. (await _series.GetAllWithCoversAsync()).Select(series => series.Id).Skip(1)];
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() => _series.ReorderAsync(allButOne));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _series.ReorderAsync(allButOne));
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var id = await _catalog.AddSeriesAsync();
         var artworkId = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() => _series.SetCoverAsync(id, artworkId));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _series.SetCoverAsync(id, artworkId));
     }
 
     [Fact]
@@ -297,7 +297,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
         await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _series.ReorderArtworksAsync(id, [firstId])
         );
     }
@@ -309,7 +309,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         await _series.DeleteAsync(id);
         var name = $"Renamed {Guid.NewGuid():n}";
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _series.RenameAsync(id, new SeriesName(name), SeriesSlug.FromName(name))
         );
     }

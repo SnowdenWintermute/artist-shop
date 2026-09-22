@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Domain.Catalog
 
 @code {
@@ -20,45 +21,31 @@ else
   @* the indicator is positioned against this wrapper: a div inside the table itself is
      foster-parented out by the html parser, which leaves it with nothing to sit against *@
   <div class="relative">
-    <table class="artist-shop-fades-while-loading w-full">
-      <thead>
-        <tr class="text-left text-sm text-gray-500">
-          <th class="pb-2"></th>
-          <th class="pb-2">Title</th>
-          <th class="pb-2">Type</th>
-          <th class="pb-2">Series</th>
-          <th class="pb-2">Images</th>
-          <th class="pb-2">For sale</th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach (var item in Items)
-        {
-          <tr class="border-t hover:bg-gray-50">
-            <td class="py-2">
-              <ArtworkThumbnail Image="item.PrimaryImage" Class="size-20" />
-            </td>
+    <DataTable Items="Items" Headings="@(new[] { "", "Title", "Type", "Series", "Images", "For sale" })"
+               Class="artist-shop-fades-while-loading">
+      <Row Context="item">
+        <DataTableCell>
+          <ArtworkThumbnail Image="item.PrimaryImage" Class="size-20" />
+        </DataTableCell>
 
-            <td class="py-2">
-              <a href="@PageUrls.EditArtwork(item.Id)" class="underline">@item.Name.Value</a>
+        <DataTableCell>
+          <a href="@PageUrls.EditArtwork(item.Id)" class="underline">@item.Name.Value</a>
 
-              @if (item.DateCreated is { } dateCreated)
-              {
-                <span class="block text-xs text-gray-500">@dateCreated.Text</span>
-              }
-            </td>
+          @if (item.DateCreated is { } dateCreated)
+          {
+            <span class="block text-xs text-gray-500">@dateCreated.Text</span>
+          }
+        </DataTableCell>
 
-            <td class="py-2 text-sm">@item.ArtworkTypeName.Value</td>
+        <DataTableCell Class="text-sm">@item.ArtworkTypeName.Value</DataTableCell>
 
-            <td class="py-2 text-sm text-gray-600">@item.SeriesNames</td>
+        <DataTableCell Class="text-sm text-gray-600">@item.SeriesNames</DataTableCell>
 
-            <td class="py-2 text-sm text-gray-600">@item.ImageCount</td>
+        <DataTableCell Class="text-sm text-gray-600">@item.ImageCount</DataTableCell>
 
-            <td class="py-2 text-sm text-gray-600">@(item.IsForSale ? "Yes" : "No")</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+        <DataTableCell Class="text-sm text-gray-600">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
+      </Row>
+    </DataTable>
 
     <LoadingIndicator />
   </div>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 
 namespace ArtistShop.Web.Tests.Domain;
@@ -184,7 +185,7 @@ public class PostDocumentParserTests
         );
 
         Assert.Equal(
-            new ArtworkEmbedBlock(42, "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Small, EmbedLayout.FloatLeft),
+            new ArtworkEmbedBlock(new ArtworkId(42), "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Small, EmbedLayout.FloatLeft),
             blocks[0]
         );
     }
@@ -195,7 +196,7 @@ public class PostDocumentParserTests
         var blocks = Parse("""{"ops":[{"insert":{"artwork":{"artworkId":42}}},{"insert":"\n"}]}""");
 
         Assert.Equal(
-            new ArtworkEmbedBlock(42, null, EmbedImageSize.Medium, EmbedLayout.Center),
+            new ArtworkEmbedBlock(new ArtworkId(42), null, EmbedImageSize.Medium, EmbedLayout.Center),
             blocks[0]
         );
     }
@@ -215,11 +216,36 @@ public class PostDocumentParserTests
     }
 
     [Fact]
-    public void DropsAnArtworkEmbedWithNoId()
+    public void DropsAnArtworkEmbedWhoseIdIsNotANumber()
     {
         var blocks = Parse("""{"ops":[{"insert":{"artwork":{"artworkId":"42"}}},{"insert":"\n"}]}""");
 
         Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
+    }
+
+    // the same rule set_post_artworks applies, so the page and "Mentioned in" agree
+    [Theory]
+    [InlineData("41.5")]
+    [InlineData("2147483648")]
+    public void DropsAnArtworkEmbedWhoseIdIsNotAnInt(string artworkId)
+    {
+        var blocks = Parse(
+            """{"ops":[{"insert":{"artwork":{"artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
+        );
+
+        Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
+    }
+
+    [Theory]
+    [InlineData("42.0")]
+    [InlineData("4.2e1")]
+    public void ReadsAWholeArtworkIdWrittenAsADecimal(string artworkId)
+    {
+        var blocks = Parse(
+            """{"ops":[{"insert":{"artwork":{"artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
+        );
+
+        Assert.Equal(new ArtworkId(42), Assert.IsType<ArtworkEmbedBlock>(blocks[0]).ArtworkId);
     }
 
     [Fact]

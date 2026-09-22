@@ -64,7 +64,7 @@
     {
       _form.AddNameTakenError(exception.Name);
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // deleted in another tab; the reloaded page says so
       NavigationManager.Refresh();
@@ -106,13 +106,13 @@
     }
 
     <div class="flex justify-between">
-      <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@_isSaving">
         @(Loaded is null ? "Create vocabulary" : "Save")
       </ButtonBasic>
 
       @if (Loaded is not null)
       {
-        <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@_isSaving"
+        <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" disabled="@_isSaving"
                      @onclick="() => _deleteDialogOpen = true">
           Delete vocabulary
         </ButtonBasic>

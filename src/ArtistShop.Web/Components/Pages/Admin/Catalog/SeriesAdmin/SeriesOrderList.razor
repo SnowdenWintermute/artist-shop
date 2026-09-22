@@ -40,7 +40,7 @@
       await SeriesRepository.ReorderAsync([.. reordered.Select(item => item.Id)]);
       _series = reordered;
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       _changedElsewhere = true;
     }

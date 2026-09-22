@@ -54,7 +54,7 @@
     {
       _form.AddNameTakenError(exception.Name);
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // deleted in another tab; closing and reloading drops it from the table
       _isSaving = false;
@@ -78,7 +78,7 @@
       <TextField Label="Name" @bind-Value="_form.Name" />
       <ModalDialogActions>
         <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
-        <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="w-24" disabled="@_isSaving">
           @(_isSaving ? "Saving..." : "Rename")
         </ButtonBasic>
       </ModalDialogActions>

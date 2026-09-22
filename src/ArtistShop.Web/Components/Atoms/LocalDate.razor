@@ -1,0 +1,13 @@
+@using System.Globalization
+
+@code {
+  [Parameter, EditorRequired]
+  public DateTimeOffset Moment { get; set; }
+
+  private string UtcDateText => Moment.UtcDateTime.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+}
+
+@* The server can't know the visitor's time zone, so it writes the date as it falls in UTC, and
+   <local-date>, defined in LocalDate.razor.js, rewrites it for the zone the browser is in. Every
+   date the site shows goes through here *@
+<local-date><time datetime="@Moment.UtcDateTime.ToString("O")">@UtcDateText</time></local-date>

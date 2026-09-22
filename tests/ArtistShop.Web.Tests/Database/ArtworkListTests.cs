@@ -254,7 +254,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
     public async Task NoArtworkAppearsOnTwoPagesWhenTheTitlesTie()
     {
         var seriesId = await _catalog.AddSeriesAsync();
-        var pageSize = CatalogLimits.ArtworkListPageSize;
+        var pageSize = ArtistShopLimits.ArtworkListPageSize;
         var count = pageSize + 3;
         var name = $"Tied {Guid.NewGuid():n}";
         var typeId = await _catalog.GetPaintingTypeIdAsync();

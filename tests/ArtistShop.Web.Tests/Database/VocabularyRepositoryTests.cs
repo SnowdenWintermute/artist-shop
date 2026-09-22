@@ -163,7 +163,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
         var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
         await _vocabularies.DeleteAsync(id);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _vocabularies.UpdateAsync(id, UniqueName(), [paintingTypeId])
         );
     }

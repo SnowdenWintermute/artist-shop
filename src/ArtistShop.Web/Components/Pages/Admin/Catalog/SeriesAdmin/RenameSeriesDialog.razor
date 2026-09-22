@@ -49,7 +49,7 @@
     {
       _form.AddNameTakenError();
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // the series was deleted elsewhere; the reloaded page says so
       NavigationManager.Refresh();
@@ -72,7 +72,7 @@
       <p class="mb-4 text-sm text-gray-500">Renaming changes the series' web address, so old links stop working.</p>
       <ModalDialogActions>
         <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
-        <ButtonBasic type="submit" Class="bg-blue-400 text-white w-24" disabled="@_isSaving">
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="w-24" disabled="@_isSaving">
           @(_isSaving ? "Saving..." : "Rename")
         </ButtonBasic>
       </ModalDialogActions>

@@ -10,7 +10,7 @@ public class SqlArtworkTitleSearch(NpgsqlDataSource dataSource) : ArtworkSearch
     public override async Task<IReadOnlyList<ArtworkId>> FindAsync(string searchText)
     {
         // no stored title is this long, so nothing can contain a longer text
-        if (searchText.Length > CatalogLimits.ArtworkNameMaximumLength)
+        if (searchText.Length > ArtistShopLimits.ArtworkNameMaximumLength)
         {
             return [];
         }

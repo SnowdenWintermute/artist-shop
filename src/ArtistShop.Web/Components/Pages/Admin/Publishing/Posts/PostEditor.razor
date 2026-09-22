@@ -1,0 +1,157 @@
+@page "/admin/posts/new"
+@page "/admin/posts/{Id:int}/edit"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject PostRepository PostRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  // by id, not slug: a new title changes the slug, and this page is what changes it
+  [Parameter]
+  public int? Id { get; set; }
+
+  [SupplyParameterFromForm(FormName = "edit-post")]
+  private PostForm Input { get; set; } = default!;
+  [SupplyParameterFromQuery(Name = "saved")]
+  private bool Saved { get; set; }
+
+  // null when creating
+  private Post? _post;
+  private bool _deletedElsewhere;
+
+  // keyed by the post, so enhanced navigation to another post's page can't patch this island onto it
+  private string DeleteKey => $"delete-{Id}";
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (Id is int id)
+    {
+      _post = await PostRepository.GetAsync(new PostId(id));
+
+      if (_post is null)
+      {
+        NavigationManager.NotFound();
+        return;
+      }
+    }
+
+    // on a post the binder has already filled this in, so only a fresh page seeds it
+    Input ??= _post is null ? PostForm.ForNew() : PostForm.FromPost(_post);
+  }
+
+  private async Task SaveAsync()
+  {
+    try
+    {
+      if (_post is null)
+      {
+        var id = await PostRepository.AddAsync(
+          Input.ToPostTitle(), Input.ToPostSlug(), Input.ToPostBody(), Input.Status);
+        NavigationManager.NavigateTo($"{PageUrls.EditPost(id)}?saved=true");
+        return;
+      }
+
+      await PostRepository.UpdateAsync(
+        _post.Id, Input.ToPostTitle(), Input.ToPostSlug(), Input.ToPostBody(), Input.Status);
+    }
+    catch (NameAlreadyInUseException)
+    {
+      Input.AddTitleTakenError();
+      return;
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _deletedElsewhere = true;
+      return;
+    }
+
+    // reloading is what shows the saved values, including the new status
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["saved"] = true }));
+  }
+}
+
+<PageTitle>@(_post is null ? "New post" : $"Edit {_post.Title.Value}")</PageTitle>
+
+@if (Id is null || _post is not null)
+{
+  <main>
+    <AdminPanel>
+      <a href="@PageUrls.PostList" class="mb-4 inline-block">← Posts</a>
+
+      <div class="mb-4 flex items-baseline justify-between">
+        <h1 class="text-xl">@(_post is null ? "New post" : $"Edit {_post.Title.Value}")</h1>
+        @if (_post is not null)
+        {
+          <span class="text-sm text-gray-500"><PostStatusLabel PublishedAt="_post.PublishedAt" /></span>
+        }
+      </div>
+
+      @if (_post is not null)
+      {
+        <p class="mb-4 text-sm text-gray-500">Address: /posts/@_post.Slug.Value</p>
+      }
+
+      @if (Saved)
+      {
+        <p class="mb-4 text-green-600">Saved.</p>
+      }
+
+      @if (_deletedElsewhere)
+      {
+        <p class="mb-4 text-red-400">
+          This post was deleted somewhere else, so nothing was saved. Your edits are still on this
+          page, but they can't be saved to a post that no longer exists.
+        </p>
+      }
+
+      <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
+        <DataAnnotationsValidator />
+
+        <TextField Label="Title" @bind-Value="Input.Title" />
+        @* stands in for the editor until Quill is vendored: it holds the Delta JSON the editor will write *@
+        <TextAreaField Label="Text (the editor's JSON)" @bind-Value="Input.Body" />
+
+        @* Each button posts the status it asks for. The first one is what Enter in the title
+           presses, so it's the one that keeps the post as it is *@
+        <div class="flex gap-2">
+          @if (_post?.PublishedAt is null)
+          {
+            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
+                         Variant="ButtonVariant.PrimaryOutline">
+              Save draft
+            </ButtonBasic>
+            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
+                         Variant="ButtonVariant.Primary">
+              Publish
+            </ButtonBasic>
+          }
+          else
+          {
+            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
+                         Variant="ButtonVariant.Primary">
+              Save
+            </ButtonBasic>
+            <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
+                         Variant="ButtonVariant.PrimaryOutline">
+              Unpublish
+            </ButtonBasic>
+          }
+        </div>
+      </EditForm>
+
+      @if (_post is not null)
+      {
+        <div class="border-t pt-4">
+          <DeletePostButton @rendermode="InteractiveServer" @key="DeleteKey" PostId="_post.Id" PostTitle="_post.Title" />
+        </div>
+      }
+    </AdminPanel>
+  </main>
+}

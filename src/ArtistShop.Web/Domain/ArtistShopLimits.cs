@@ -1,7 +1,7 @@
 namespace ArtistShop.Web.Domain;
 
 // updates to these must be mirrored in sql
-public static class CatalogLimits
+public static class ArtistShopLimits
 {
     public const int ArtworkImageFileNameMaximumLength = 260;
     public const int ArtworkNameMaximumLength = 200;
@@ -24,4 +24,6 @@ public static class CatalogLimits
     public const int SeriesNameMaximumLength = 256;
 
     public const int ArtworkListPageSize = 25;
+
+    public const int PostTitleMaximumLength = 200;
 }

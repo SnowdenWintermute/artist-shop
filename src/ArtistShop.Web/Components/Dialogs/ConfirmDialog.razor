@@ -28,7 +28,7 @@
 
     <ModalDialogActions>
       <ModalCloseButton Label="Cancel" Disabled="IsWorking" />
-      <ButtonBasic type="button" Class="bg-red-600 text-white" disabled="@IsWorking" @onclick="OnConfirm">
+      <ButtonBasic type="button" Variant="ButtonVariant.Danger" disabled="@IsWorking" @onclick="OnConfirm">
         @ConfirmLabel
       </ButtonBasic>
     </ModalDialogActions>

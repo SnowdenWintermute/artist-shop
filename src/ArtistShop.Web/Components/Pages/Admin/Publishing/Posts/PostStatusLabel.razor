@@ -1,0 +1,16 @@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  // null for a draft
+  [Parameter, EditorRequired]
+  public DateTimeOffset? PublishedAt { get; set; }
+}
+
+@if (PublishedAt is DateTimeOffset publishedAt)
+{
+  <text>Published <LocalDate Moment="publishedAt" /></text>
+}
+else
+{
+  <text>Draft</text>
+}

@@ -136,7 +136,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     // runs on the caller's transaction, so the series and whatever needed them are saved together
     // or not at all. Returns each new series' id by the name it was asked for.
-    // A name another series already has arrives here as CatalogChangedException: the caller checked
+    // A name another series already has arrives here as ChangedSincePageLoadException: the caller checked
     // the names it had, and another admin adding one since is a change it should look at again
     public static async Task<Dictionary<string, SeriesId>> AddManyAsync(
         NpgsqlConnection connection,
@@ -178,7 +178,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         }
         catch (PostgresException exception) when (IsNameTaken(exception))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 
@@ -224,7 +224,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.SeriesNoLongerExists))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 
@@ -242,7 +242,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.SeriesChangedSincePageLoad))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 
@@ -271,7 +271,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworksChangedSincePageLoad))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 
@@ -291,7 +291,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
                 || SqlErrors.IsThrown(exception, SqlStates.ArtworkHasNoImage)
             )
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 

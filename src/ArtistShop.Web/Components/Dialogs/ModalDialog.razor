@@ -48,7 +48,7 @@
 <modal-dialog class="@(ReopenLabel is null ? "contents" : "mb-4 block")">
   @if (ReopenLabel is not null)
   {
-    <ButtonBasic type="button" Class="border" data-modal-dialog="open">@ReopenLabel</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-modal-dialog="open">@ReopenLabel</ButtonBasic>
   }
 
   @* close fires however the dialog closed. data-keep-open: a bool attribute is only rendered while

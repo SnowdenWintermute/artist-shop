@@ -26,7 +26,7 @@ public class ArtworkTypeForm : ServerValidatedForm
         new(artworkType.Name.Value, artworkType.Fields);
 
     [Required]
-    [StringLength(CatalogLimits.ArtworkTypeNameMaximumLength)]
+    [StringLength(ArtistShopLimits.ArtworkTypeNameMaximumLength)]
     public string? Name { get; set; }
 
     public IReadOnlySet<ArtworkField> Fields => _fields;

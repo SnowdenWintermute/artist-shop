@@ -59,7 +59,7 @@ public class ArtworkImageRepository(NpgsqlDataSource dataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 
@@ -105,7 +105,7 @@ public class ArtworkImageRepository(NpgsqlDataSource dataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 

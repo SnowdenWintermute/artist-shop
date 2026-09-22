@@ -1,5 +1,7 @@
 namespace ArtistShop.Web.Domain.Publishing;
 
+using ArtistShop.Web.Domain.Catalog;
+
 // A post's body as the page shows it. Everything the editor might store that isn't one of these
 // is dropped on the way in, so nothing a page renders came from the stored JSON unchecked
 public record PostDocument(IReadOnlyList<PostBlock> Blocks);
@@ -17,7 +19,7 @@ public record ListBlock(ListStyle Style, IReadOnlyList<IReadOnlyList<PostText>> 
 
 // StorageKey picks one of the artwork's images; null means its primary one
 public record ArtworkEmbedBlock(
-    int ArtworkId,
+    ArtworkId ArtworkId,
     string? StorageKey,
     EmbedImageSize Size,
     EmbedLayout Layout

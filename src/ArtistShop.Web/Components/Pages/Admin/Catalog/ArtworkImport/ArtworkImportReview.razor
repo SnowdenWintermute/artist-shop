@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Utilities
@@ -31,25 +32,14 @@
     <div class="mb-6">
       <h3 class="mb-1 text-red-600">Problems</h3>
       <p class="mb-2 text-sm">Nothing is imported until these are fixed in the spreadsheet. Row 1 is the header row.</p>
-      <table class="w-full text-left text-sm">
-        <thead>
-          <tr class="border-b">
-            <th class="sticky top-0 bg-white pr-4">Row</th>
-            <th class="sticky top-0 bg-white pr-4">Column</th>
-            <th class="sticky top-0 bg-white">Problem</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach (var error in Plan.Errors.OrderBy(error => error.RowNumber))
-          {
-            <tr class="border-b align-top">
-              <td class="pr-4">@error.RowNumber</td>
-              <td class="pr-4 font-mono">@error.Column</td>
-              <td>@error.Message</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <DataTable Items="@(Plan.Errors.OrderBy(error => error.RowNumber).ToList())"
+                 Headings="@(new[] { "Row", "Column", "Problem" })" Class="text-sm" RowClass="align-top" StickyHeadings>
+        <Row Context="error">
+          <DataTableCell>@error.RowNumber</DataTableCell>
+          <DataTableCell Class="font-mono">@error.Column</DataTableCell>
+          <DataTableCell>@error.Message</DataTableCell>
+        </Row>
+      </DataTable>
     </div>
   }
 
@@ -72,23 +62,12 @@
         </ul>
       }
 
-      <table class="w-full text-left text-sm">
-        <thead>
-          <tr class="border-b">
-            <th class="sticky top-0 bg-white pr-4">Name</th>
-            <th class="sticky top-0 bg-white">Rows</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach (var series in Plan.NewSeries)
-          {
-            <tr class="border-b">
-              <td class="pr-4">@series.Name</td>
-              <td>@series.RowCount</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <DataTable Items="Plan.NewSeries" Headings="@(new[] { "Name", "Rows" })" Class="text-sm" StickyHeadings>
+        <Row Context="series">
+          <DataTableCell>@series.Name</DataTableCell>
+          <DataTableCell>@series.RowCount</DataTableCell>
+        </Row>
+      </DataTable>
     </div>
   }
 
@@ -99,25 +78,14 @@
       <p class="mb-2 text-sm">
         These rows aren't imported and aren't checked. Add same-titled artworks one at a time instead.
       </p>
-      <table class="w-full text-left text-sm">
-        <thead>
-          <tr class="border-b">
-            <th class="sticky top-0 bg-white pr-4">Row</th>
-            <th class="sticky top-0 bg-white pr-4">Title</th>
-            <th class="sticky top-0 bg-white">Why</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach (var skipped in Plan.SkippedRows)
-          {
-            <tr class="border-b align-top">
-              <td class="pr-4">@skipped.RowNumber</td>
-              <td class="pr-4">@skipped.Title</td>
-              <td>@Describe(skipped.Reason)</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <DataTable Items="Plan.SkippedRows" Headings="@(new[] { "Row", "Title", "Why" })" Class="text-sm" RowClass="align-top"
+                 StickyHeadings>
+        <Row Context="skipped">
+          <DataTableCell>@skipped.RowNumber</DataTableCell>
+          <DataTableCell>@skipped.Title</DataTableCell>
+          <DataTableCell>@Describe(skipped.Reason)</DataTableCell>
+        </Row>
+      </DataTable>
     </div>
   }
 
@@ -125,23 +93,12 @@
   {
     <div class="mb-6">
       <h3 class="mb-1">To add</h3>
-      <table class="w-full text-left text-sm">
-        <thead>
-          <tr class="border-b">
-            <th class="sticky top-0 bg-white pr-4">Row</th>
-            <th class="sticky top-0 bg-white">Title</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach (var addition in Plan.Additions)
-          {
-            <tr class="border-b">
-              <td class="pr-4">@addition.RowNumber</td>
-              <td>@addition.Addition.Name.Value</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <DataTable Items="Plan.Additions" Headings="@(new[] { "Row", "Title" })" Class="text-sm" StickyHeadings>
+        <Row Context="addition">
+          <DataTableCell>@addition.RowNumber</DataTableCell>
+          <DataTableCell>@addition.Addition.Name.Value</DataTableCell>
+        </Row>
+      </DataTable>
     </div>
   }
 </div>

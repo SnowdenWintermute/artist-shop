@@ -26,7 +26,7 @@ public class VocabularyForm : ServerValidatedForm
         new(vocabulary.Name.Value, vocabulary.ArtworkTypeIds);
 
     [Required]
-    [StringLength(CatalogLimits.VocabularyNameMaximumLength)]
+    [StringLength(ArtistShopLimits.VocabularyNameMaximumLength)]
     public string? Name { get; set; }
 
     public IReadOnlySet<ArtworkTypeId> ArtworkTypeIds => _artworkTypeIds;

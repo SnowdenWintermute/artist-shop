@@ -1,0 +1,22 @@
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // links between the pages of one section, shown above the panel
+  [Parameter]
+  public RenderFragment? SectionNav { get; set; }
+}
+
+@* one width for every admin page, so the panel doesn't jump as the artist moves between them *@
+<div class="mx-auto max-w-[900px]">
+  @if (SectionNav is not null)
+  {
+    <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
+      @SectionNav
+    </nav>
+  }
+
+  <div class="border bg-white p-4">
+    @ChildContent
+  </div>
+</div>

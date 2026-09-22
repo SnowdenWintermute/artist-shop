@@ -1,0 +1,45 @@
+@page "/admin/posts"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject PostRepository PostRepository
+
+@code {
+  // drafts first, then the newest published
+  private List<PostSummary> _posts = [];
+
+  protected override async Task OnInitializedAsync() =>
+    _posts = await PostRepository.GetAllAsync();
+}
+
+<PageTitle>Posts</PageTitle>
+
+<main>
+  <AdminPanel>
+    <div class="mb-4 flex items-baseline justify-between">
+      <h1 class="text-xl">Posts</h1>
+      <a href="@PageUrls.NewPost">+ New post</a>
+    </div>
+
+    @if (_posts.Count == 0)
+    {
+      <p>No posts yet.</p>
+    }
+    else
+    {
+      <DataTable Items="_posts" Headings="@(new[] { "Title", "Status", "Last updated" })">
+        <Row Context="post">
+          <DataTableCell>
+            <a href="@PageUrls.EditPost(post.Id)" class="underline">@post.Title.Value</a>
+          </DataTableCell>
+          <DataTableCell Class="text-sm text-gray-600"><PostStatusLabel PublishedAt="post.PublishedAt" /></DataTableCell>
+          <DataTableCell Class="text-sm text-gray-600"><LocalDate Moment="post.UpdatedAt" /></DataTableCell>
+        </Row>
+      </DataTable>
+    }
+  </AdminPanel>
+</main>

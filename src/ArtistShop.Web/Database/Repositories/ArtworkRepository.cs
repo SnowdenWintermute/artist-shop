@@ -102,7 +102,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         }
         catch (PostgresException exception) when (IsCatalogChanged(exception))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 
@@ -218,7 +218,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
     {
         await using var connection = dataSource.CreateConnection();
 
-        var pageSize = CatalogLimits.ArtworkListPageSize;
+        var pageSize = ArtistShopLimits.ArtworkListPageSize;
 
         var rows = (
             await connection.QueryAsync<ArtworkListRow>(
@@ -312,7 +312,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         }
         catch (PostgresException exception) when (IsCatalogChanged(exception))
         {
-            throw new CatalogChangedException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.Message, exception);
         }
     }
 

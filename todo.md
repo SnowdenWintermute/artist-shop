@@ -2,6 +2,63 @@
 
 Claude writes this one and Mike reviews it, as on the Postgres port.
 
+## Where this stands — 2026-09-22, end of session
+
+**Done:** the schema, `PostRepository` and `PostDocumentParser`, both committed ("initial
+publications sql", "quill parser"). Nothing renders a post yet.
+
+**Review pass (2026-09-22, uncommitted, tests pass):** `CatalogChangedException` is
+now `ChangedSincePageLoadException`. `CatalogLimits` and `PublishingLimits` merged into
+`ArtistShopLimits`. `ArtworkEmbedBlock.ArtworkId` is an `ArtworkId`. `set_post_artworks` and the
+parser now agree exactly on an artwork id: a whole number an int can hold (41.5 no longer rounds
+onto artwork 42, and an out-of-range id no longer fails the save). There are new tests for that
+and for republishing, which gives the post a new date.
+
+**Next: the admin pages are built, and step 2 (Quill) is next.**
+1. BUILT 2026-09-22, not yet checked in a browser: `Components/Pages/Admin/Publishing/Posts/`.
+   `PostList` (`/admin/posts`), and `PostEditor`, one static SSR component for `/admin/posts/new`
+   and `/admin/posts/{Id}/edit` with PRG to `?saved=true`, plus `PostForm`, `PostStatusText`
+   and a `DeletePostButton` island. There's a dashboard link. Decided with Mike: routes are `/admin/posts`;
+   publishing is **two submit buttons**, each posting `Input.Status` (Save draft / Publish on a
+   draft, Save / Unpublish on a published post; the first is what Enter presses, and a submit with
+   no button stays Draft); and **admins see drafts at `/posts/{slug}`** with a draft banner, built
+   with the public pages. Until then the edit page shows the address as text, with no "View it" link.
+   The body is a bare textarea holding the Delta JSON, a stand-in that step 2 replaces with the
+   editor writing to the same `Input.Body`. `PostBody.IsDelta` checks it before the database does.
+   Dates: `Atoms/LocalDate` writes the UTC date with a `<time datetime>`, and its custom element
+   rewrites it in the visitor's own time zone (same "22 Sep 2026" wording). Every date the site
+   shows goes through it, so there's no shop time zone setting.
+   Shared admin components (2026-09-22): `Layout/AdminPanel` (one 900px width for every admin
+   page, with an optional `SectionNav`), `Tables/DataTable<TItem>` + `DataTableCell` (every admin
+   table, the import review's included), and `ButtonBasic`'s `Variant`. Styling is shared this
+   way, never with CSS classes in app.css.
+2. Vendor Quill 2 into `wwwroot/lib` (the prebuilt `quill.js` and `quill.snow.css` from the
+   release, no npm). Write a custom element that mounts Quill with the restricted toolbar and the
+   `formats` whitelist, loads the stored Delta from an attribute, and writes
+   `JSON.stringify(quill.getContents())` into a hidden input on submit. Leave `indent` out of
+   `formats`, which also turns off Tab-to-indent (the parser would flatten nested lists anyway).
+   **When a link has no scheme** (`example.com`), add `https://` in the editor before it's
+   stored. The parser drops anything that isn't an absolute http, https or mailto link, so
+   otherwise the link vanishes from the public page without a word. See how the existing custom
+   elements (`TileImage.razor.js`, `ArtworkGallery.razor.js`) are loaded and registered, and the
+   enhanced-navigation gotchas in the reference memory about Razor static SSR.
+3. Razor components that render a `PostDocument`'s text blocks, one per block type, switching on
+   the record type. **Never `MarkupString`**: Razor's escaping is half of the security story. The
+   embed components come later, with the embeds. An empty paragraph, heading or list item needs a
+   `<br>` inside it, as Quill writes `<p><br></p>`, or the blank line collapses to nothing.
+4. Then the embeds one at a time, YouTube first. Each must be a Quill `BlockEmbed` blot, not an
+   inline `Embed`: the parser expects no `\n` after an embed in the middle of the document, and an
+   inline embed's line ends in one, which would add a blank paragraph after every embed. Then `/posts`, `/posts/{slug}` and
+   "Mentioned in".
+
+**Decided in discussion (2026-09-22):**
+- No bUnit. The logic lives in the parser, which is tested. Playwright for .NET (not Cypress, which
+  is JavaScript-only) is the candidate if the editor flow ever needs a test, once it works.
+- Pasting is safe by construction. Quill turns pasted HTML into Delta ops in the browser and
+  keeps only whitelisted formats. The server only ever reads Delta JSON. The parser validates a
+  hand-made Delta, and Razor escapes the output.
+- The parser is `partial` only because `[GeneratedRegex]` generates the method bodies.
+
 **Editor: Quill 2.** It ships a single prebuilt file for `wwwroot/lib`, so the repo still has no
 Node toolchain. It's locked down in two places. The toolbar shows only our buttons, and the
 `formats` whitelist makes the editor drop anything else, including pasted formatting.
@@ -9,8 +66,9 @@ Node toolchain. It's locked down in two places. The toolbar shows only our butto
 **Allowed formats:** bold, italic, underline, link, header (H2/H3), bullet and ordered lists,
 blockquote, plus three custom embeds. No colours for now.
 
-**Storage:** the Quill Delta is stored as `jsonb`, and the server renders the HTML itself in C#.
-Anything the renderer doesn't know is dropped, so no HTML sanitizer is needed. Delta is a flat list
+**Storage:** the Quill Delta is stored as `jsonb`. The server parses it into typed blocks, and
+Razor components render them. Anything the parser doesn't know is dropped, so no HTML sanitizer
+is needed. Delta is a flat list
 of ops, not a tree: block formats (header, list) sit on the `\n` that ends a line, and consecutive
 list lines must be grouped into one `<ul>`/`<ol>`.
 
@@ -26,8 +84,7 @@ list lines must be grouped into one `<ul>`/`<ol>`.
 - `layout` is `floatLeft | floatRight | center` for every embed. Floats collapse to full width on
   narrow screens.
 
-**Schema (BUILT 2026-09-22, `0003_CreatePosts.sql`, `Procedures/Posts/`, `PostRepository`,
-17 tests):**
+**Schema (BUILT 2026-09-22, `0003_CreatePosts.sql`, `Procedures/Posts/`, `PostRepository`):**
 - `posts`: id, title, slug (unique; follows the title like a series slug, and a clash is
   refused as `NameAlreadyInUseException`), body `jsonb` (a CHECK requires an `ops` array),
   published_at, created_at, updated_at. There is no status column: a NULL `published_at` is a
@@ -35,7 +92,7 @@ list lines must be grouped into one `<ul>`/`<ol>`.
   Saving a published post keeps its date; unpublishing clears it.
 - `post_and_artworks_junction (post_id, artwork_id)`: both keys cascade on delete. The
   `set_post_artworks` function rebuilds it from the stored body with a jsonpath
-  (`$.ops[*].insert.artwork.artworkId`), so it can't disagree with the body. An embed of an artwork
+  (`$.ops[*].insert.artwork.artworkId`, numbers only), so it can't disagree with the body. An embed of an artwork
   deleted in the meantime is skipped.
 - `post_images` is not built yet. It comes with the uploaded-image embed and needs the orphan
   sweeper to know about it.
@@ -46,7 +103,7 @@ grouped lists, artwork and YouTube embeds. Anything it doesn't know is dropped. 
 http, https or mailto. Storage keys and video ids are checked against their exact shape. Razor
 components will render the blocks, so Blazor escapes the text and artwork embeds can reuse
 `TileImage`. No bUnit, so the components get checked in the browser. The SQL jsonpath and the
-parser agree that only a numeric `artworkId` counts.
+parser agree that an `artworkId` counts only as a whole number an int can hold.
 
 **Editing:** the page stays static SSR. The editor is a custom element inside the `<EditForm>` and
 writes the Delta JSON into a hidden input on submit. The artwork picker calls a small JSON endpoint
@@ -577,7 +634,7 @@ the review:
   next start). **`SortOrder` is `UNIQUE` with no gap filling**, so a batch cannot have every row read
   the same `MAX` and ask for `MAX + 1`: it uses `MAX(SortOrder) + ROW_NUMBER()` under the same
   `UPDLOCK, HOLDLOCK` that `AddSeries` uses. A name taken between review and confirm comes back as
-  `CatalogChangedException`, which the page already answers by re-reviewing.
+  `ChangedSincePageLoadException`, which the page already answers by re-reviewing.
 
 **A concern I raised here that turned out to be unfounded:** a row listing the same series twice
 (`Mines; Mines`) is fine. `ArtworkImportRowReader.List` already ends with
@@ -993,7 +1050,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
         are matched on the constraint name by `SqlErrors.IsUniqueConstraintViolation` and become
         `NameAlreadyInUseException`, then a field message. No `ShopItemType` C# enum was needed.
 
-      **Stale rows, done 2026-09-15.** Deleted-elsewhere errors all become `CatalogChangedException`
+      **Stale rows, done 2026-09-15.** Deleted-elsewhere errors all become `ChangedSincePageLoadException`
       now: 50002 (vocabulary, `UpdateVocabulary`) refreshes the editor page, which then says the
       vocabulary doesn't exist; 50003 (term, `RenameVocabularyTerm`) closes the dialog and refreshes
       the table. See the add-artwork form for 50001/50004.
@@ -1018,7 +1075,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
         calls, since all shop items share `dbo.ShopItems`. (A caller-passes-slugs `dbo.ResolveSlug`
         was built and removed the same day, once series stopped needing it.) When shop item editing
         arrives, the function takes the item's own id to leave out, or renaming "Sunset" to
-        "Sunset!" yields `sunset-2`. One slug max length (`CatalogLimits.SlugMaximumLength`) and one
+        "Sunset!" yields `sunset-2`. One slug max length (`ArtistShopLimits.SlugMaximumLength`) and one
         `ArtistShopSlug.FromName` for shop items and series.
       - **Cover:** the artist stars one artwork on the series page, and its primary image is the
         cover, like `IsPrimary` on images. `IsCover` on the junction with a filtered unique index
@@ -1041,7 +1098,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       **Build order:** 1) schema — DONE 2026-09-15 (`Series`, `ShopItemAndSeriesJunction` with
       `IsCover` + filtered unique index, series slug `nvarchar(200)`; `AddPainting` and
       `GetPaintingBySlug` updated); 2) slugs — DONE 2026-09-15 (`ArtistShopSlug.FromName` shared,
-      `CatalogLimits.SlugMaximumLength`, test `NumbersTheSlugWhenItIsTaken`). Parallel tests
+      `ArtistShopLimits.SlugMaximumLength`, test `NumbersTheSlugWhenItIsTaken`). Parallel tests
       exposed deadlocks in `AddPainting` under `SERIALIZABLE`: fixed by `ResolveShopItemSlug`
       reading once, over one prefix range, `WITH (UPDLOCK)`; 20 clean runs; 3) series procedures, repository, tests —
       DONE 2026-09-15 (`Procedures/Series/`, `SeriesRepository`, 13 tests in
@@ -1064,7 +1121,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       the vocabulary `CatalogLayout` (Mike: keep them separate). `SeriesList` (static, add form),
       `SeriesEditor` (static) with two islands: `SeriesActions` (rename dialog, delete confirm) and
       `SeriesShopItemList` (order, star, clear star, select and remove). The repository turns the
-      "page is stale" errors 50004-50007 into `CatalogChangedException`; the list island shows
+      "page is stale" errors 50004-50007 into `ChangedSincePageLoadException`; the list island shows
       "changed somewhere else" and refreshes. Nothing in the UI adds artworks to a series yet. Name-taken wording, following
       the artwork form's "web address": "Another series already has this name, or one that only
       differs in punctuation, accents or capital letters." A name with no letters or digits needs
@@ -1111,7 +1168,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       form's lists turn null into empty. `ShopItemTypeId.Painting` mirrors the
       SQL `1`. **Stale picks, done 2026-09-15:** `AddPainting` checks series ids too (50009, so a
       deleted series isn't a foreign key error), the repository turns 50001/50009 into
-      `CatalogChangedException`, and the page keeps the form and its uploads while saying the choices
+      `ChangedSincePageLoadException`, and the page keeps the form and its uploads while saying the choices
       were updated. The pickers island adopts the options it's passed on every render (the page reads
       them fresh each request), so a failed submit drops what no longer exists; ticks stay island state,
       seeded once.
@@ -1141,7 +1198,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
          upload a JPEG, PNG, WebP, AVIF and TIFF to confirm they still work
       2. DONE 2026-09-17: `dbo.AttachPrimaryImageToImagelessArtworkByName` (`Procedures/Artworks/AttachPrimaryImageToImagelessByName.sql`),
          `ArtworkImageRepository.AttachPrimaryToImagelessArtworkByNameAsync` returning the match (type +
-         every matching artwork id), 50010 → `CatalogChangedException`. `0001` gained
+         every matching artwork id), 50010 → `ChangedSincePageLoadException`. `0001` gained
          `Index_Artworks_TypeAndName` so the `UPDLOCK` lookup doesn't lock the whole table; the dev
          database must be dropped. 7 tests in `ArtworkImageRepositoryTests`, 148 pass.
          Collation pinned the same day: `DatabaseInitializer.Collation` (`Latin1_General_100_CI_AS_SC`) on
@@ -1214,7 +1271,7 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
 - `ArtworkFields` (seeded by us, mirrored by a C# enum with explicit values) and
   `ArtworkTypeAndArtworkFieldsJunction`. A `CHECK` can't read another table, so `AddArtwork` (and
   later `UpdateArtwork`) `THROW`s when a value is given for a field its type doesn't have; that
-  error becomes `CatalogChangedException` like 50001-50009.
+  error becomes `ChangedSincePageLoadException` like 50001-50009.
 - Fields (decided 2026-09-16): 1 Date created, 2 Height and width, 3 Depth, 4 Duration. Description
   is always on. Height and width are one switch because neither is any use alone. Depth requires
   height and width: `ArtworkFields.RequiresArtworkFieldId` (a field with no requirement names
@@ -1277,7 +1334,7 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       with their own steps
 - [x] C# (2026-09-16): `ShopItem*` → `Artwork*` everywhere; `Painting` removed, `Artwork` is concrete
       with its type and products; `ArtworkRepository` (`AddAsync`, `GetByIdAsync`, `GetBySlugAsync`)
-      maps 50001/50009-50012 to `CatalogChangedException`; `ProductTypeRepository` + `GetProductTypes`;
+      maps 50001/50009-50012 to `ChangedSincePageLoadException`; `ProductTypeRepository` + `GetProductTypes`;
       `ArtworkField` enum; `Product`/`ProductAddition` in `Domain/Commerce`. 77 tests pass.
       Interim state until the later steps:
       - `/admin/catalog/artworks/add?type={id}` (dashboard links one per type) renders only the

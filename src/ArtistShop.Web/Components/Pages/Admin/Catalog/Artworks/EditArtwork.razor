@@ -100,7 +100,7 @@
       _deletedElsewhere = true;
       return;
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // nothing was saved, so the form still holds the artist's edits; the pickers below have
       // already dropped whatever no longer exists
@@ -118,8 +118,8 @@
 {
   <PageTitle>Edit @_artwork.Name.Value</PageTitle>
 
-  <main class="">
-    <div class="border max-w-[600px] mx-auto p-4 bg-white">
+  <main>
+    <AdminPanel>
       <a href="/admin/catalog/artworks" class="mb-4 inline-block">← Artworks</a>
 
       <div class="mb-4 flex items-baseline justify-between">
@@ -184,7 +184,7 @@
           </p>
         }
 
-        <ButtonBasic type="submit" Class="bg-blue-400 text-white text-lg">
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Class="text-lg">
           Save changes
         </ButtonBasic>
       </EditForm>
@@ -193,6 +193,6 @@
         <DeleteArtworkButton @rendermode="InteractiveServer" @key="DeleteKey" ArtworkId="_artwork.Id"
                              ArtworkName="_artwork.Name" ImageCount="_artwork.Images.Count" />
       </div>
-    </div>
+    </AdminPanel>
   </main>
 }

@@ -52,7 +52,7 @@ public sealed class SqlArtworkTitleSearchTests(TestDatabaseFixture database)
     [Fact]
     public async Task FindsNothingForATextNoTitleCouldHold()
     {
-        var tooLong = new string('a', CatalogLimits.ArtworkNameMaximumLength + 1);
+        var tooLong = new string('a', ArtistShopLimits.ArtworkNameMaximumLength + 1);
 
         Assert.Empty(await _search.FindAsync(tooLong));
     }

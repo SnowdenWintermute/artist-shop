@@ -13,7 +13,7 @@ public class VocabularyTermNameForm : ServerValidatedForm
     public static VocabularyTermNameForm WithName(string name) => new() { Name = name };
 
     [Required]
-    [StringLength(CatalogLimits.VocabularyTermNameMaximumLength)]
+    [StringLength(ArtistShopLimits.VocabularyTermNameMaximumLength)]
     public string? Name { get; set; }
 
     public void AddNameTakenError(string name)

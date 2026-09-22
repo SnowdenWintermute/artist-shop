@@ -1,0 +1,44 @@
+@using ArtistShop.Web.Utilities
+@typeparam TItem
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<TItem> Items { get; set; } = default!;
+
+  // an empty string for a column that needs no label, like a thumbnail's
+  [Parameter, EditorRequired]
+  public IReadOnlyList<string> Headings { get; set; } = default!;
+
+  // one item's cells, each a DataTableCell
+  [Parameter, EditorRequired]
+  public RenderFragment<TItem> Row { get; set; } = default!;
+
+  [Parameter]
+  public string? Class { get; set; }
+
+  [Parameter]
+  public string? RowClass { get; set; }
+
+  // for a table in its own scrolling box: the headings stay in view as the rows scroll under them
+  [Parameter]
+  public bool StickyHeadings { get; set; }
+}
+
+<table class="@ClassNames.Join("w-full text-left", Class)">
+  <thead>
+    <tr class="text-sm text-gray-500">
+      @foreach (var heading in Headings)
+      {
+        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null)">@heading</th>
+      }
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (var item in Items)
+    {
+      <tr class="@ClassNames.Join("border-t hover:bg-gray-50", RowClass)">
+        @Row(item)
+      </tr>
+    }
+  </tbody>
+</table>

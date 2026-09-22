@@ -108,12 +108,12 @@ public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task UpdateOfDeletedTypeThrowsCatalogChanged()
+    public async Task UpdateOfDeletedTypeThrowsChangedSincePageLoad()
     {
         var id = await _artworkTypes.AddAsync(UniqueName(), []);
         await _artworkTypes.DeleteAsync(id);
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _artworkTypes.UpdateAsync(id, UniqueName(), [])
         );
     }
@@ -188,7 +188,7 @@ public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
             new DimensionsCentimeters(new Dimensions(30m, 40m, depth: null))
         );
 
-        await Assert.ThrowsAsync<CatalogChangedException>(() => _artworkTypes.DeleteAsync(id));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _artworkTypes.DeleteAsync(id));
         Assert.NotNull(await _artworkTypes.GetAsync(id));
     }
 }

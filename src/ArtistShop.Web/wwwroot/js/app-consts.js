@@ -1,4 +1,4 @@
-// Tunable numbers for the browser scripts, the way CatalogLimits holds them for the server.
+// Tunable numbers for the browser scripts, the way ArtistShopLimits holds them for the server.
 // Imported by an absolute path, so a script can read it whatever page it was loaded from
 
 // how long a filter bar waits after a control changes before it submits: long enough that

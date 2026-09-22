@@ -161,7 +161,7 @@
     {
       added = await ArtworkRepository.AddManyAsync([.. plan.Additions.Select(addition => addition.Addition)]);
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // nothing was saved; checking again shows what changed
       _catalogChangedSinceReview = true;
@@ -254,7 +254,7 @@
 
         <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
 
-        <ButtonBasic type="submit" Class="bg-blue-400 text-white">Check file</ButtonBasic>
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
       </EditForm>
 
       @if (_reviewLost)
@@ -296,7 +296,7 @@
             <ModalCloseButton Label="Close" />
             @if (_plan.CanImport)
             {
-              <ButtonBasic type="submit" form="@ConfirmFormName" Class="bg-blue-400 text-white">
+              <ButtonBasic type="submit" form="@ConfirmFormName" Variant="ButtonVariant.Primary">
                 Import @CountText.Of(_plan.Additions.Count, "artwork")
               </ButtonBasic>
             }

@@ -68,7 +68,7 @@
     {
       _form.AddNameTakenError(exception.Name);
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // deleted in another tab; the reloaded page says so
       NavigationManager.Refresh();
@@ -89,7 +89,7 @@
       await ArtworkTypeRepository.DeleteAsync(loaded.ArtworkType.Id);
       NavigationManager.NavigateTo("/admin/catalog/types/new");
     }
-    catch (CatalogChangedException)
+    catch (ChangedSincePageLoadException)
     {
       // artworks were added in another tab; the reloaded page shows the count
       NavigationManager.Refresh();
@@ -115,7 +115,7 @@
     }
 
     <div class="flex items-baseline justify-between">
-      <ButtonBasic type="submit" Class="bg-blue-400 text-white" disabled="@_isSaving">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@_isSaving">
         @(Loaded is null ? "Create artwork type" : "Save")
       </ButtonBasic>
 
@@ -131,7 +131,7 @@
         }
         else
         {
-          <ButtonBasic type="button" Class="border border-red-600 text-red-600" disabled="@_isSaving"
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" disabled="@_isSaving"
                        @onclick="() => _deleteDialogOpen = true">
             Delete artwork type
           </ButtonBasic>

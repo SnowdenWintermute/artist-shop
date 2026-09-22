@@ -367,13 +367,13 @@
       @(_percentComplete == 100 ? "Processing the last images…" : $"Uploading… {_percentComplete}%")
     </p>
 
-    <ButtonBasic type="button" Class="border" @onclick="StopUploadAsync">Stop</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="StopUploadAsync">Stop</ButtonBasic>
   </div>
 }
 else if (WillAttachCount > 0)
 {
   <div class="mb-4">
-    <ButtonBasic type="button" Class="bg-blue-400 text-white" @onclick="StartUploadAsync">
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="StartUploadAsync">
       Upload @CountText.Of(WillAttachCount, "image")
     </ButtonBasic>
   </div>

@@ -22,13 +22,13 @@
   <p class="mb-2 text-sm">@Prompt</p>
 
   @* data-part is how the script finds the button *@
-  <ButtonBasic type="button" Class="border" data-part="choose">
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-part="choose">
     @ButtonLabel
   </ButtonBasic>
 
   @if (DirectoryButtonLabel is not null)
   {
-    <ButtonBasic type="button" Class="ml-2 border" data-part="choose-directory">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="ml-2" data-part="choose-directory">
       @DirectoryButtonLabel
     </ButtonBasic>
   }

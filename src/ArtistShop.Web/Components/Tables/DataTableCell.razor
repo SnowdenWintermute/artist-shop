@@ -1,0 +1,11 @@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+<td class="@ClassNames.Join("py-2 pr-4 last:pr-0", Class)">@ChildContent</td>

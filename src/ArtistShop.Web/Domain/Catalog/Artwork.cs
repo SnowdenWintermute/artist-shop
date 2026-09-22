@@ -13,7 +13,7 @@ public record ArtworkName(string Value)
         new(Path.GetFileNameWithoutExtension(fileName).Normalize());
 
     // No stored name can be longer than the name column allows, so one that is matches nothing
-    public bool CanMatchAnArtwork => Value.Length <= CatalogLimits.ArtworkNameMaximumLength;
+    public bool CanMatchAnArtwork => Value.Length <= ArtistShopLimits.ArtworkNameMaximumLength;
 }
 
 public record ArtworkImage(
