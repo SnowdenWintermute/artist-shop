@@ -1,3 +1,51 @@
+# Next: blog posts (designed 2026-09-22)
+
+Claude writes this one and Mike reviews it, as on the Postgres port.
+
+**Editor: Quill 2.** It ships a single prebuilt file for `wwwroot/lib`, so the repo still has no
+Node toolchain. It's locked down in two places. The toolbar shows only our buttons, and the
+`formats` whitelist makes the editor drop anything else, including pasted formatting.
+
+**Allowed formats:** bold, italic, underline, link, header (H2/H3), bullet and ordered lists,
+blockquote, plus three custom embeds. No colours for now.
+
+**Storage:** the Quill Delta is stored as `jsonb`, and the server renders the HTML itself in C#.
+Anything the renderer doesn't know is dropped, so no HTML sanitizer is needed. Delta is a flat list
+of ops, not a tree: block formats (header, list) sit on the `\n` that ends a line, and consecutive
+list lines must be grouped into one `<ul>`/`<ol>`.
+
+**Embeds.** Each stores ids and choices only, never markup:
+- `artwork` stores `{ artworkId, imageId, size: small|medium, layout }` and points at one of an
+  artwork's existing images. Small and medium map onto the 160/400 variants. The renderer reads the
+  current title, slug and image at render time. If the artwork has been deleted, the embed
+  disappears. If visitors can't see it, the image still shows but isn't a link.
+- `postImage` stores `{ postImageId, size, layout }`: an image uploaded into the post itself. It
+  goes through the existing image pipeline (variants and blur), stored in `post_images`, not
+  `artwork_images`.
+- `youtube` stores `{ videoId, layout }` and renders a `youtube-nocookie.com` iframe.
+- `layout` is `floatLeft | floatRight | center` for every embed. Floats collapse to full width on
+  narrow screens.
+
+**Schema:**
+- `posts`: id, title, slug (case-insensitive unique), body `jsonb`, status (draft/published),
+  published_at, created_at, updated_at. Visitors see `status = published AND published_at <= now()`,
+  so scheduled publishing only needs a date picker later.
+- `post_artworks (post_id, artwork_id)`: many-to-many, both keys cascade on delete. Save walks the
+  Delta and replaces the post's rows in the same transaction as the body.
+- `post_images`: the same shape as `artwork_images`. The orphan sweeper needs to know about it.
+
+**Editing:** the page stays static SSR. The editor is a custom element inside the `<EditForm>` and
+writes the Delta JSON into a hidden input on submit. The artwork picker calls a small JSON endpoint
+over `ArtworkSearch`. Post images upload over XHR, like the artwork uploader.
+
+**Pages:** `/admin/posts` (list), `/admin/posts/new`, `/admin/posts/{id}/edit` (delete lives here),
+`/posts` (public index, newest first, paged), `/posts/{slug}`, a "Mentioned in" section on the
+artwork page (published posts only), and a nav link. Details get decided as each page is built.
+
+**Build order:** schema, then the repository and tests, then the Delta renderer and its tests, then
+the admin list and the edit page with a plain-text editor, then the custom embeds one at a time
+(youtube first, as the simplest), then the public pages and "Mentioned in".
+
 # Todo: interactive image upload on the add-artwork form
 
 Goal: drop or pick multiple images on `/admin/catalog/artworks/add`, watch each one upload,
