@@ -157,23 +157,46 @@ has the old one in memory until the page is left.
 - `Components/Publishing/PostColumn.WidthClass` is the width of a post's text (42rem, content-box),
   used by `/posts/{slug}`'s `<main>` and added to Quill's writing area, which is centred in the
   editor with the page's line height, so lines break in the same places.
-- **The toolbar's "Artwork" button is temporary**: it inserts a hard-coded dev artwork
-  (`PLACEHOLDER_ARTWORK` in `PostBodyEditor.razor.js`) until the picker exists.
 - `storageKey` is now required (Mike, 2026-09-23): the picker always names an image, so the
   editor can build its address from the key alone. If the image is deleted, the editor shows
   "This image was removed." and the public page leaves the embed out.
 - `globals.d.ts` declares `Blazor`, `Quill` and Floating UI for `checkJs`, and `jsconfig.json`
   no longer checks `wwwroot/lib`. TypeScript proper maybe later (Mike).
 
-**Picker, agreed 2026-09-23:** a dialog holding an `<iframe>` of a picker version of the admin
-artwork list, since its state is all in the address. Step 1: the list, with rows linking to
-step 2 rather than the edit page. Step 2: the artwork's images (skipped by the server when there's
-one). Step 3: size and layout, then Insert, which hands the value to the page, and the embed goes
-in where the cursor was (save the index before the dialog takes the focus). Escape inside the frame
-must still close the dialog.
+**Picker, BUILT 2026-09-23 (builds, tests pass; pages checked by curl, not yet in the browser):**
+- The toolbar's Artwork button opens `Posts/ArtworkPickerDialog`, a `ModalDialog` with the new
+  `StartsClosed` (the script calls `showModal`) holding an `<iframe>`. The frame only gets its first
+  page when the dialog opens, and goes back to `about:blank` when it closes, so each opening starts
+  at the list.
+- `ArtworkPicker/PickArtwork` (`/admin/posts/pick-artwork`) is the admin list in `FrameLayout` (no
+  site header). The list moved into `Catalog/Artworks/ArtworkListBrowser`, which takes `RowHref`
+  (null = no link; the picker gives image-less artworks none) and `ClearFiltersHref`.
+- `ArtworkPicker/PickArtworkImage` (`/admin/posts/pick-artwork/{id}`) shows the artwork's images,
+  or, with `?image={key}`, `ArtworkEmbedChoice` (size, Left/Centre/Right, wrap). One image
+  redirects straight to the choice.
+- The frame talks through `postMessage` (`sendToArtworkPickerOwner` in `PostArtworkEmbed.razor.js`):
+  `insert` with the value, or `close` for Escape, which a frame keeps to itself. The editor only
+  listens to its own frame at this site's origin, and closes the dialog before inserting where the
+  cursor was when it opened.
+- The list's query string rides along as `?list=` (`PageUrls.ArtworkPickerListKey`), so every Back link returns to the list as it was.
+- The embed toolbar's **Change image** opens the picker at that artwork's images in
+  `ArtworkPickerMode.ChangeImage` (`?mode=change-image`), whose last step only offers "Use this
+  image": the embed keeps its size and layout, and the swap is one undoable change. The mode and
+  the list's query ride in `ArtworkPickerTrail`; the list's GET filter form keeps the mode through
+  `ArtworkListBrowser`'s `KeptFields` hidden inputs. **Done** closes the toolbar.
+- The picker starts at `?images=yes` (`PageUrls.ArtworkPickerList`), shown in the filter and
+  switchable; "Clear filters" hides when the page is already at its clear address. Its script
+  remembers each page's scroll position when a link is followed and restores it when a Back link
+  returns to that address (enhanced navigation keeps the module alive; closing the dialog resets it).
 
-**Public rendering, agreed:** load every embedded artwork in one query from the parsed document's
-ids, not one per embed; the same query answers the visibility rule.
+**Public rendering of artwork embeds, BUILT 2026-09-23:** `SinglePost` collects the parsed
+document's storage keys and loads them in one call, `ArtworkRepository.GetImagesByStorageKeyAsync`
+(`get_artwork_images_by_storage_keys`, keys cast to `char(32)[]` so the unique index is used),
+which returns each image with its artwork and its place on the artwork page. `PostDocumentView`
+leaves out an embed whose image is gone (or belongs to another artwork), and
+`Publishing/ArtworkEmbedView` draws the rest with `EmbedLayoutClasses`, width and height set, the
+stored blur behind, the title as alt text, and a link to `/artworks/{slug}?image={n}`. The post
+body is `flow-root` so floats stay inside it.
 
 **After that:**
 4. **Next session: the artwork embed first** (Mike, 2026-09-22: he wants to see what a custom

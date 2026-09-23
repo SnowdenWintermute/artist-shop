@@ -5,6 +5,10 @@
 @code {
   [Parameter, EditorRequired]
   public IReadOnlyList<ArtworkListItem> Items { get; set; } = default!;
+
+  // null leaves the title as text
+  [Parameter, EditorRequired]
+  public Func<ArtworkListItem, string?> RowHref { get; set; } = default!;
 }
 
 @if (Items.Count == 0)
@@ -29,7 +33,14 @@ else
         </DataTableCell>
 
         <DataTableCell>
-          <a href="@PageUrls.EditArtwork(item.Id)" class="underline">@item.Name.Value</a>
+          @if (RowHref(item) is { } href)
+          {
+            <a href="@href" class="underline">@item.Name.Value</a>
+          }
+          else
+          {
+            <span>@item.Name.Value</span>
+          }
 
           @if (item.DateCreated is { } dateCreated)
           {

@@ -1,0 +1,31 @@
+@page "/admin/posts/pick-artwork"
+@layout FrameLayout
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromQuery(Name = ArtworkPickerTrail.ModeKey)]
+  private string? ModeValue { get; set; }
+
+  // this list's own query string, filters, page and mode included, which the next steps carry
+  // for their Back links
+  private ArtworkPickerTrail Trail =>
+    ArtworkPickerTrail.Read(ModeValue, new Uri(NavigationManager.Uri).Query.TrimStart('?'));
+
+  private IReadOnlyDictionary<string, string>? KeptFields =>
+    Trail.ModeValue is { } mode ? new Dictionary<string, string> { [ArtworkPickerTrail.ModeKey] = mode } : null;
+
+  // an artwork with no image has nothing to embed, so its row isn't a link
+  private string? RowHref(ArtworkListItem item) =>
+    item.ImageCount > 0 ? PageUrls.ArtworkPickerImages(item.Id, Trail) : null;
+}
+
+@* Step one of the post editor's artwork picker, shown in its frame *@
+<ArtworkPickerPage Heading="Choose an artwork">
+  <ArtworkListBrowser RowHref="RowHref" ClearFiltersHref="@PageUrls.ArtworkPickerList(Trail with { ListQuery = null })"
+                      KeptFields="KeptFields" />
+</ArtworkPickerPage>

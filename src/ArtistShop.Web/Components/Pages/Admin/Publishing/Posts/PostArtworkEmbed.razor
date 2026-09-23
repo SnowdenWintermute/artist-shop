@@ -25,7 +25,7 @@
      data-medium-image-url="@ImageUrls.EmbedVariant(StorageKeyPlaceholder, EmbedImageSize.Medium)"
      data-layout-classes="@LayoutClasses"
      data-floating-ui-src="@Assets["lib/floating-ui/floating-ui.dom.browser.min.mjs"]">
-  <div class="flex items-center gap-4">
+  <div class="flex flex-wrap items-center gap-4">
     <div class="flex gap-1" role="group" aria-label="Size">
       <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" data-size="small" aria-pressed="false">Small</ButtonBasic>
       <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" data-size="medium" aria-pressed="false">Medium</ButtonBasic>
@@ -44,6 +44,9 @@
     </div>
     <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" aria-pressed="false"
                  data-action="wrap">Wrap text</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="change-image">Change image</ButtonBasic>
     <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-action="remove">Remove</ButtonBasic>
+    @* closes the toolbar, as a click anywhere else does, for anyone who doesn't know that *@
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-action="done">Done</ButtonBasic>
   </div>
 </div>

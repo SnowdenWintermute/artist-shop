@@ -1,0 +1,33 @@
+@using System.Globalization
+@using ArtistShop.Web.Components.Pages.Catalog
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkEmbedBlock Embed { get; set; } = default!;
+
+  // the image the embed names, read now, so the title and picture are the artwork's current ones
+  [Parameter, EditorRequired]
+  public ArtworkImageWithArtwork Source { get; set; } = default!;
+
+  private int Width => ImageVariants.EmbedWidth(Embed.Size);
+
+  // written on the img so the page keeps the image's room while it loads, rather than jumping
+  private int Height => (int)Math.Round((double)Width * Source.Image.Height / Source.Image.Width);
+
+  // the tiny blurred copy saved with the image, shown behind it until it arrives
+  private string BlurStyle =>
+    Source.Image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
+}
+
+@* Places itself as it did in the editor, from the same EmbedLayoutClasses. The link opens the
+   artwork's page at this very image *@
+<div class="@EmbedLayoutClasses.For(Embed.Layout)">
+  <a href="@ArtworkPageQuery.Url(Source.Artwork.Slug.Value, seriesSlug: null, Source.ImageNumber)" class="block">
+    <img src="@ImageUrls.EmbedVariant(Source.Image.StorageKey, Embed.Size)" alt="@Source.Artwork.Name.Value"
+         width="@Width.ToString(CultureInfo.InvariantCulture)" height="@Height.ToString(CultureInfo.InvariantCulture)"
+         loading="lazy" class="h-auto max-w-full bg-cover bg-center" style="@BlurStyle" />
+  </a>
+</div>

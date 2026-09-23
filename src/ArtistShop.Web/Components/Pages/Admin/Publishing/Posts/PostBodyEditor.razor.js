@@ -1,7 +1,8 @@
 import {
   ARTWORK_EMBED,
+  addArtworkEmbed,
   attachArtworkEmbedToolbar,
-  insertArtworkEmbed,
+  attachArtworkPicker,
   registerArtworkEmbed,
 } from "./PostArtworkEmbed.razor.js";
 
@@ -26,14 +27,6 @@ const TOOLBAR = [
   [ARTWORK_EMBED],
   ["clean"],
 ];
-
-// TEMPORARY until the picker is built: an artwork and image from the dev database
-const PLACEHOLDER_ARTWORK = {
-  artworkId: 2,
-  storageKey: "01a0cb0f75db70f48a7e36534091cb7d",
-  size: /** @type {const} */ ("medium"),
-  layout: /** @type {const} */ ("center"),
-};
 
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const EMAIL_ADDRESS = /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/;
@@ -121,6 +114,7 @@ customElements.define(
     async connectedCallback() {
       const input = this.querySelector('input[type="hidden"]');
       const embedToolbar = this.querySelector('[data-part="artwork-embed-toolbar"]');
+      const artworkPicker = this.querySelector('dialog[data-part="artwork-picker"]');
       const quillSource = this.dataset.quillSrc;
 
       // Moving the element in the page connects it again, and Quill is already in it
@@ -128,6 +122,7 @@ customElements.define(
         this.#isMounted ||
         !(input instanceof HTMLInputElement) ||
         !(embedToolbar instanceof HTMLElement) ||
+        !(artworkPicker instanceof HTMLDialogElement) ||
         quillSource === undefined
       ) {
         return;
@@ -146,13 +141,23 @@ customElements.define(
       const editingArea = document.createElement("div");
       this.append(editingArea);
 
+      this.#listeners = new AbortController();
+      const picker = attachArtworkPicker(artworkPicker, this.#listeners.signal);
+
       const quill = new Quill(editingArea, {
         theme: "snow",
         formats: FORMATS,
         modules: {
           toolbar: {
             container: TOOLBAR,
-            handlers: { [ARTWORK_EMBED]: () => insertArtworkEmbed(quill, PLACEHOLDER_ARTWORK) },
+            // only ever called once quill below is set
+            handlers: {
+              [ARTWORK_EMBED]: () => {
+                if (picker !== null) {
+                  addArtworkEmbed(quill, picker);
+                }
+              },
+            },
           },
         },
       });
@@ -178,9 +183,10 @@ customElements.define(
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
 
-      this.#listeners = new AbortController();
       this.#labelEditingArea(input, quill, this.#listeners.signal);
-      attachArtworkEmbedToolbar(quill, embedToolbar, this.#listeners.signal);
+      if (picker !== null) {
+        attachArtworkEmbedToolbar(quill, embedToolbar, picker, this.#listeners.signal);
+      }
       this.#mounted.resolve(quill);
     }
 

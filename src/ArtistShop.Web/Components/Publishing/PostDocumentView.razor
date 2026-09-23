@@ -1,14 +1,27 @@
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 
 @code {
   [Parameter, EditorRequired]
   public PostDocument Document { get; set; } = default!;
+
+  // the images the artwork embeds name, by storage key, loaded together by the page
+  [Parameter, EditorRequired]
+  public IReadOnlyDictionary<string, ArtworkImageWithArtwork> ArtworkImages { get; set; } = default!;
+
+  // Left out: an embed whose image was deleted, and one whose image now belongs to another
+  // artwork than the one the embed names, which no edit can do, but the parser can't rule out
+  private ArtworkImageWithArtwork? SourceOf(ArtworkEmbedBlock embed) =>
+    ArtworkImages.TryGetValue(embed.StorageKey, out var source) && source.ArtworkId == embed.ArtworkId
+      ? source
+      : null;
 }
 
 @* Spacing follows the editor, where every line sits directly below the last and a gap is an
    empty line the artist left. whitespace-pre-wrap keeps runs of spaces, as the editor does.
-   Embeds render nothing until each one is built *@
-<div class="whitespace-pre-wrap">
+   flow-root keeps a floated embed inside the post, rather than hanging below its end.
+   break-words is the editor's own word-wrap, so a word too long for the line breaks here too *@
+<div class="flow-root break-words whitespace-pre-wrap">
   @foreach (var block in Document.Blocks)
   {
     @switch (block)
@@ -45,6 +58,10 @@
             <li><PostInlineText Text="item" /></li>
           }
         </ol>
+        break;
+
+      case ArtworkEmbedBlock embed when SourceOf(embed) is { } source:
+        <ArtworkEmbedView Embed="embed" Source="source" />
         break;
     }
   }

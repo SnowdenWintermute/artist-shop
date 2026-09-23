@@ -25,6 +25,10 @@
   // static pages only: a button left on the page that opens the dialog again after it's closed
   [Parameter]
   public string? ReopenLabel { get; set; }
+  // static pages only: rendered closed, for a script to open with showModal, such as the post
+  // editor's artwork picker
+  [Parameter]
+  public bool StartsClosed { get; set; }
   // extra panel classes, like a border. Not padding or display: .artist-shop-modal isn't in a
   // tailwind layer, so it wins over utility classes that set the same thing
   [Parameter]
@@ -45,7 +49,7 @@
 
 @* <modal-dialog> is defined in ModalDialog.razor.js, loaded on every page. Without a reopen button it
    has nothing to lay out ("contents"), since an open modal sits above the page *@
-<modal-dialog class="@(ReopenLabel is null ? "contents" : "mb-4 block")">
+<modal-dialog class="@(ReopenLabel is null ? "contents" : "mb-4 block")" data-starts-closed="@StartsClosed">
   @if (ReopenLabel is not null)
   {
     <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-modal-dialog="open">@ReopenLabel</ButtonBasic>

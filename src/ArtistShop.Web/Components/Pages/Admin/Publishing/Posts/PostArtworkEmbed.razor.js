@@ -106,11 +106,125 @@ export function registerArtworkEmbed(toolbar) {
 /**
  * @param {Quill} quill
  * @param {ArtworkEmbedValue} value
+ * @param {number} index
  */
-export function insertArtworkEmbed(quill, value) {
-  const { index } = quill.getSelection(true);
+function insertArtworkEmbed(quill, value, index) {
   quill.insertEmbed(index, ARTWORK_EMBED, value, "user");
-  quill.setSelection(index + 1, 0, "silent");
+  quill.setSelection(index + 1, 0, "user");
+}
+
+// marks the picker's messages, since any page in any frame can post to this window
+const ARTWORK_PICKER_MESSAGE = "artshop-artwork-picker";
+
+/**
+ * What the artist picked. Size and layout come only when adding: changing an embed's image keeps
+ * the size and layout it has
+ * @typedef {object} ArtworkPickerChoice
+ * @property {number} artworkId
+ * @property {string} storageKey
+ * @property {"small" | "medium"} [size]
+ * @property {string} [layout]
+ */
+
+/** @typedef {{ action: "close" } | { action: "choose", choice: ArtworkPickerChoice }} ArtworkPickerMessage */
+
+/**
+ * @typedef {object} ArtworkPicker
+ * @property {string} addUrl the picker's first page for adding an embed
+ * @property {(artworkId: number) => string} changeImageUrl its page of an artwork's images, for
+ *   changing an embed's image
+ * @property {(url: string, onChosen: (choice: ArtworkPickerChoice) => void) => void} open
+ */
+
+// Called by the picker's pages inside the frame. A picker page opened on its own, outside a frame,
+// has no editor to tell
+/** @param {ArtworkPickerMessage} message */
+export function sendToArtworkPickerOwner(message) {
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: ARTWORK_PICKER_MESSAGE, ...message }, location.origin);
+  }
+}
+
+// Wires up the dialog holding the picker's frame. Its addresses come from the server, with a
+// placeholder where an artwork's id goes
+/**
+ * @param {HTMLDialogElement} dialog
+ * @param {AbortSignal} signal
+ * @returns {ArtworkPicker | null}
+ */
+export function attachArtworkPicker(dialog, signal) {
+  const frame = dialog.querySelector("iframe");
+  const { addSrc, changeImageSrc, artworkIdPlaceholder } = frame?.dataset ?? {};
+
+  if (frame === null || addSrc === undefined || changeImageSrc === undefined || artworkIdPlaceholder === undefined) {
+    return null;
+  }
+
+  // what the current opening does with the choice
+  /** @type {((choice: ArtworkPickerChoice) => void) | null} */
+  let onChosen = null;
+
+  window.addEventListener(
+    "message",
+    (event) => {
+      // only this editor's own frame, showing a page of this site
+      if (event.origin !== location.origin || event.source !== frame.contentWindow) {
+        return;
+      }
+
+      /** @type {(ArtworkPickerMessage & { type: unknown }) | null} */
+      const message = event.data;
+
+      if (message?.type !== ARTWORK_PICKER_MESSAGE) {
+        return;
+      }
+
+      const chosen = onChosen;
+      // closed first, so the focus it hands back doesn't land after the cursor is placed
+      dialog.close();
+
+      if (message.action === "choose") {
+        chosen?.(message.choice);
+      }
+    },
+    { signal }
+  );
+
+  // the next opening starts again from its first page, and the page left behind stops running
+  dialog.addEventListener(
+    "close",
+    () => {
+      onChosen = null;
+      frame.setAttribute("src", "about:blank");
+    },
+    { signal }
+  );
+
+  return {
+    addUrl: addSrc,
+    changeImageUrl: (artworkId) => changeImageSrc.replace(artworkIdPlaceholder, String(artworkId)),
+    open(url, handleChoice) {
+      onChosen = handleChoice;
+      frame.src = url;
+      dialog.showModal();
+    },
+  };
+}
+
+// The toolbar's Artwork button. The cursor's place is kept now, since the dialog takes the focus
+/**
+ * @param {Quill} quill
+ * @param {ArtworkPicker} picker
+ */
+export function addArtworkEmbed(quill, picker) {
+  const { index } = quill.getSelection(true);
+
+  picker.open(picker.addUrl, ({ artworkId, storageKey, size, layout }) => {
+    // the adding steps always send both
+    if (size !== undefined && layout !== undefined) {
+      insertArtworkEmbed(quill, { artworkId, storageKey, size, layout }, index);
+    }
+  });
 }
 
 // the same module for every editor, so the first import is the one that loads it
@@ -128,9 +242,10 @@ function loadFloatingUi(src) {
 /**
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
+ * @param {ArtworkPicker} picker
  * @param {AbortSignal} signal
  */
-export function attachArtworkEmbedToolbar(quill, toolbar, signal) {
+export function attachArtworkEmbedToolbar(quill, toolbar, picker, signal) {
   const floatingUiSource = toolbar.dataset.floatingUiSrc;
 
   if (floatingUiSource === undefined) {
@@ -222,37 +337,64 @@ export function attachArtworkEmbedToolbar(quill, toolbar, signal) {
     }
   }
 
-  // where the open embed is in the document, or null if an edit has removed it
-  function embedIndex() {
-    const blot = embed?.isConnected ? Quill.find(embed) : null;
+  // where an embed is in the document, or null if an edit has removed it
+  /** @param {HTMLElement | null} node */
+  function indexOf(node) {
+    const blot = node?.isConnected ? Quill.find(node) : null;
     return blot === null || blot instanceof Quill ? null : quill.getIndex(blot);
+  }
+
+  // swaps the embed for one holding the changed value, and returns the new node
+  /**
+   * @param {HTMLElement} node
+   * @param {Partial<ArtworkEmbedValue>} change
+   */
+  function replace(node, change) {
+    const index = indexOf(node);
+
+    if (index === null) {
+      return null;
+    }
+
+    const value = { ...readValue(node), ...change };
+    // let go of the node being replaced first, or the text-change handler below would take its
+    // removal for an edit that deleted the embed, and close the toolbar
+    if (embed === node) {
+      embed = null;
+    }
+    quill.updateContents(new Delta().retain(index).delete(1).insert({ [ARTWORK_EMBED]: value }), "user");
+
+    const [replacement] = quill.getLine(index);
+    return replacement?.domNode instanceof HTMLElement ? replacement.domNode : null;
   }
 
   /** @param {Partial<ArtworkEmbedValue>} change */
   function update(change) {
-    const index = embedIndex();
+    const replacement = embed === null ? null : replace(embed, change);
 
-    if (embed === null || index === null) {
-      close();
-      return;
-    }
-
-    const value = { ...readValue(embed), ...change };
-    // let go of the node being replaced first, or the text-change handler below would take its
-    // removal for an edit that deleted the embed, and close the toolbar
-    embed = null;
-    quill.updateContents(new Delta().retain(index).delete(1).insert({ [ARTWORK_EMBED]: value }), "user");
-
-    const [replacement] = quill.getLine(index);
-    if (replacement?.domNode instanceof HTMLElement) {
-      open(replacement.domNode);
+    if (replacement !== null) {
+      open(replacement);
     } else {
       close();
     }
   }
 
+  // Opening the dialog closes the toolbar, so the embed is held here until the choice comes back.
+  // The embed keeps its size and layout
+  function changeImage() {
+    const node = embed;
+
+    if (node === null) {
+      return;
+    }
+
+    picker.open(picker.changeImageUrl(readValue(node).artworkId), ({ artworkId, storageKey }) => {
+      replace(node, { artworkId, storageKey });
+    });
+  }
+
   function remove() {
-    const index = embedIndex();
+    const index = indexOf(embed);
 
     if (index !== null) {
       quill.updateContents(new Delta().retain(index).delete(1), "user");
@@ -289,7 +431,11 @@ export function attachArtworkEmbedToolbar(quill, toolbar, signal) {
         return;
       }
 
-      if (action === "remove") {
+      if (action === "done") {
+        close();
+      } else if (action === "change-image") {
+        changeImage();
+      } else if (action === "remove") {
         remove();
       } else if (action === "wrap") {
         const alignment = alignmentOf(current.layout)?.dataset;

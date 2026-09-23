@@ -1,0 +1,24 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.ArtworkPicker
+
+@code {
+  // stands in for the artwork's id in the change-image address, which the script fills in
+  private const string ArtworkIdPlaceholder = "{artworkId}";
+
+  private static readonly ArtworkPickerTrail AddTrail = new(ArtworkPickerMode.Add, ListQuery: null);
+  private static readonly ArtworkPickerTrail ChangeImageTrail = new(ArtworkPickerMode.ChangeImage, ListQuery: null);
+}
+
+@* The dialog the toolbar's Artwork button, and an embed's Change image, open. PostArtworkEmbed.razor.js
+   opens it and hears back from the frame. The frame is only given a page on opening, so writing a
+   post that never adds an artwork never loads the list *@
+<ModalDialog Title="Choose an artwork" Width="ModalDialogWidth.Wide" StartsClosed data-part="artwork-picker">
+  <iframe title="Artwork picker" class="mb-4 h-[65vh] w-full shrink-0 border border-theme-base"
+          data-add-src="@PageUrls.ArtworkPickerList(AddTrail)"
+          data-change-image-src="@PageUrls.ArtworkPickerImages(ArtworkIdPlaceholder, ChangeImageTrail)"
+          data-artwork-id-placeholder="@ArtworkIdPlaceholder"></iframe>
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" />
+  </ModalDialogActions>
+</ModalDialog>

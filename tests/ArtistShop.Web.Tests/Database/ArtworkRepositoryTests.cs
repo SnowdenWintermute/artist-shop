@@ -373,6 +373,29 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         );
     }
 
+    // what a post's artwork embeds are drawn from: the image, its artwork, and where it sits
+    [Fact]
+    public async Task FindsImagesByStorageKeyWithTheirArtworkAndPlace()
+    {
+        var first = CatalogTestData.CreateTestImage();
+        var second = CatalogTestData.CreateTestImage();
+        var identifiers = await _catalog.AddPaintingAsync(
+            $"Embedded {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [],
+            images: [first, second]
+        );
+        var deletedKey = CatalogTestData.CreateTestImage().StorageKey;
+
+        var found = await _artworks.GetImagesByStorageKeyAsync([second.StorageKey, deletedKey]);
+
+        var source = Assert.Single(found).Value;
+        Assert.Equal(identifiers.Id, source.ArtworkId);
+        Assert.Equal(identifiers.Slug, source.Artwork.Slug);
+        Assert.Equal(second.StorageKey, source.Image.StorageKey);
+        Assert.Equal(2, source.ImageNumber);
+    }
+
     // the image rows go through ON DELETE CASCADE, which is what frees the files for the sweep
     [Fact]
     public async Task DeleteTakesTheArtworksImagesWithIt()

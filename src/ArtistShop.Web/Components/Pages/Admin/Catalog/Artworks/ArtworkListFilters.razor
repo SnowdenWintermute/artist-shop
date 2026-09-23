@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Domain.Catalog
+@inject NavigationManager NavigationManager
 
 @code {
   [Parameter, EditorRequired]
@@ -13,8 +14,18 @@
   // in the artist's order
   [Parameter, EditorRequired]
   public IReadOnlyList<Series> Series { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string ClearFiltersHref { get; set; } = default!;
+  [Parameter]
+  public IReadOnlyDictionary<string, string>? KeptFields { get; set; }
 
-  private string ClearFiltersClass => Filter.HasAnyFilter ? "" : "invisible";
+  // hidden when clearing would change nothing: no filters, or already at the list's clear address,
+  // which for the picker keeps its images filter
+  private string ClearFiltersClass =>
+    Filter.HasAnyFilter && !IsAtClearFiltersHref ? "" : "invisible";
+
+  private bool IsAtClearFiltersHref =>
+    "/" + NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == ClearFiltersHref;
 
   // the artist's order inside a series can only sort a list that is one series' worth
   private IEnumerable<ArtworkListSort> SortOptions =>
@@ -37,6 +48,11 @@
    data-enhance: blazor builds the address from the fields and patches the page in, instead of
    the browser reloading it, which is what put the address in the tab's title mid-submit *@
 <form method="get" data-enhance class="mb-4 border p-4">
+  @foreach (var (name, value) in KeptFields ?? new Dictionary<string, string>())
+  {
+    <input type="hidden" name="@name" value="@value" />
+  }
+
   <SubmitOnChange>
     <div class="mb-3 flex flex-wrap items-end gap-4">
       <label>
@@ -94,7 +110,7 @@
          can't submit the filter bar by itself *@
       <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Apply filters</ButtonBasic>
 
-      <a href="/admin/catalog/artworks" class="@ClearFiltersClass">Clear filters</a>
+      <a href="@ClearFiltersHref" class="@ClearFiltersClass">Clear filters</a>
     </div>
   </SubmitOnChange>
 </form>

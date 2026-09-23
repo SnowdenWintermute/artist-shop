@@ -1,107 +1,16 @@
 @page "/admin/catalog/artworks"
-@using ArtistShop.Web.Components.Catalog
-@using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Identity
-@using ArtistShop.Web.Search
-@using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = RoleNames.Admin)]
-@inject ArtworkRepository ArtworkRepository
-@inject ArtworkSearch ArtworkSearch
-@inject ArtworkTypeRepository ArtworkTypeRepository
-@inject VocabularyRepository VocabularyRepository
-@inject SeriesRepository SeriesRepository
-@inject NavigationManager NavigationManager
 
-@code {
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.TypeKey)]
-  private int[]? TypeIds { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.TermKey)]
-  private int[]? TermIds { get; set; }
-  // read as text and parsed in one place, so an empty or hand-edited value is a missing
-  // filter rather than a failure
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.SeriesKey)]
-  private string? SeriesValue { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.SearchKey)]
-  private string? SearchValue { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.ImagesKey)]
-  private string? ImagesValue { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.SaleKey)]
-  private string? SaleValue { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.SortKey)]
-  private string? SortValue { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.PageKey)]
-  private string? PageValue { get; set; }
+<PageTitle>Artworks</PageTitle>
 
-  private LoadedArtworkList? _loaded;
+<main>
+  <AdminPanel>
+    <a href="/admin" class="mb-4 inline-block">← Admin</a>
 
-  // not OnInitializedAsync: a filter change is the same page with new query parameters
-  protected override async Task OnParametersSetAsync()
-  {
-    var filter = ArtworkListQuery.Read(
-      typeIds: TypeIds,
-      termIds: TermIds,
-      series: SeriesValue,
-      search: SearchValue,
-      images: ImagesValue,
-      sale: SaleValue,
-      sort: SortValue,
-      page: PageValue
-    );
+    <h1 class="mb-4">Artworks</h1>
 
-    // null means nothing was searched for, which is not the same as a search that found nothing
-    var searchMatches =
-      filter.SearchText is null ? null : await ArtworkSearch.FindAsync(filter.SearchText);
-
-    var artworks = await ArtworkRepository.GetListAsync(filter, searchMatches);
-
-    // a link to a page that has since emptied, because the filter narrowed or artworks were deleted
-    if (artworks.Items.Count == 0 && filter.PageNumber > 1)
-    {
-      NavigationManager.NavigateTo(
-        NavigationManager.GetUriWithQueryParameter(ArtworkListQuery.PageKey, (int?)null)
-      );
-      return;
-    }
-
-    var types = await ArtworkTypeRepository.GetAllAsync();
-    var vocabularies = await VocabularyRepository.GetAllWithTermsAsync();
-
-    _loaded = new LoadedArtworkList(
-      filter,
-      artworks,
-      ArtworkTypeOrder.SortedByName(types),
-      VocabularyOrder.SortedByName(vocabularies),
-      await SeriesRepository.GetAllAsync()
-    );
-  }
-}
-
-@if (_loaded is { } loaded)
-{
-  <PageTitle>Artworks</PageTitle>
-
-  <main>
-    <AdminPanel>
-      <a href="/admin" class="mb-4 inline-block">← Admin</a>
-
-      <h1 class="mb-4">Artworks</h1>
-
-      <ArtworkListFilters Filter="loaded.Filter" Types="loaded.Types" Vocabularies="loaded.Vocabularies"
-                          Series="loaded.Series" />
-
-      <div class="flex justify-between items-center  mb-2">
-        <span class="text-sm">@CountText.Of(loaded.Artworks.TotalCount, "artwork")</span>
-
-        <ArtworkListPaging Page="loaded.Artworks" />
-      </div>
-
-      <ArtworkListRows Items="loaded.Artworks.Items" />
-
-      <div class="flex justify-end">
-        <ArtworkListPaging Page="loaded.Artworks" />
-      </div>
-    </AdminPanel>
-  </main>
-}
+    <ArtworkListBrowser RowHref="item => PageUrls.EditArtwork(item.Id)" ClearFiltersHref="@PageUrls.ArtworkList" />
+  </AdminPanel>
+</main>

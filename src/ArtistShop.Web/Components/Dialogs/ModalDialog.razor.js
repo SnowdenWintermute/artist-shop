@@ -24,7 +24,9 @@ customElements.define(
 
       // Blazor adds an element to the page before its children. A microtask runs once the current
       // render has finished, when the dialog is inside
-      queueMicrotask(() => this.#open());
+      if (!this.hasAttribute("data-starts-closed")) {
+        queueMicrotask(() => this.#open());
+      }
     }
 
     disconnectedCallback() {

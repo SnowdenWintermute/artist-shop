@@ -3,9 +3,11 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Identity
 @inject PostRepository PostRepository
+@inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
 
 @code {
@@ -17,7 +19,11 @@
 
   private LoadedPost? _loaded;
 
-  private record LoadedPost(Post Post, PostDocument Document);
+  private record LoadedPost(
+    Post Post,
+    PostDocument Document,
+    IReadOnlyDictionary<string, ArtworkImageWithArtwork> ArtworkImages
+  );
 
   protected override async Task OnParametersSetAsync()
   {
@@ -36,7 +42,14 @@
       return;
     }
 
-    _loaded = new LoadedPost(post, PostDocumentParser.Parse(post.Body));
+    var document = PostDocumentParser.Parse(post.Body);
+
+    // every artwork embed's image in one query, however many the post has
+    var artworkImages = await ArtworkRepository.GetImagesByStorageKeyAsync(
+      [.. document.Blocks.OfType<ArtworkEmbedBlock>().Select(embed => embed.StorageKey).Distinct()]
+    );
+
+    _loaded = new LoadedPost(post, document, artworkImages);
   }
 }
 
@@ -54,7 +67,9 @@
     }
 
     <div class="mb-6">
-      <h1 class="flex items-center justify-between text-3xl"><span>@loaded.Post.Title.Value</span>
+      <h1 class="flex items-center justify-between text-3xl">
+        @* min-w-0, since a flex item otherwise won't shrink below its longest word *@
+        <span class="min-w-0 break-words">@loaded.Post.Title.Value</span>
         <AuthorizeView Roles="@RoleNames.Admin">
           <Authorized>
             <a class="text-base underline" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
@@ -68,6 +83,6 @@
       }
     </div>
 
-    <PostDocumentView Document="loaded.Document" />
+    <PostDocumentView Document="loaded.Document" ArtworkImages="loaded.ArtworkImages" />
   </main>
 }

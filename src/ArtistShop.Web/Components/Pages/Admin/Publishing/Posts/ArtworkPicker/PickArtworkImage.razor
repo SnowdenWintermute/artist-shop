@@ -1,0 +1,85 @@
+@page "/admin/posts/pick-artwork/{Id:int}"
+@layout FrameLayout
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Identity
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = RoleNames.Admin)]
+@inject ArtworkRepository ArtworkRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public int Id { get; set; }
+
+  // with no image named, or one that isn't this artwork's, this is the step that picks one
+  [SupplyParameterFromQuery(Name = PageUrls.ArtworkPickerImageKey)]
+  private string? ImageKey { get; set; }
+
+  [SupplyParameterFromQuery(Name = ArtworkPickerTrail.ModeKey)]
+  private string? ModeValue { get; set; }
+
+  [SupplyParameterFromQuery(Name = ArtworkPickerTrail.ListKey)]
+  private string? ListQuery { get; set; }
+
+  private ArtworkPickerTrail Trail => ArtworkPickerTrail.Read(ModeValue, ListQuery);
+
+  private LoadedArtwork? _loaded;
+
+  private record LoadedArtwork(Artwork Artwork, ArtworkImage? Image);
+
+  protected override async Task OnParametersSetAsync()
+  {
+    var artwork = await ArtworkRepository.GetByIdAsync(new ArtworkId(Id));
+
+    if (artwork is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    var image = artwork.Images.FirstOrDefault(image => image.StorageKey == ImageKey);
+
+    // one image is nothing to choose between, so this goes straight to the next step. The
+    // redirect never lands in the frame's history, so Back from there returns to the list
+    if (image is null && artwork.Images is [var only])
+    {
+      NavigationManager.NavigateTo(PageUrls.ArtworkPickerChoice(artwork.Id, only.StorageKey, Trail));
+      return;
+    }
+
+    _loaded = new LoadedArtwork(artwork, image);
+  }
+}
+
+@* Steps two and three of the post editor's artwork picker, shown in its frame *@
+@if (_loaded is { Image: { } image } chosen)
+{
+  <ArtworkPickerPage Heading="@(Trail.Mode is ArtworkPickerMode.ChangeImage ? $"Use this image of {chosen.Artwork.Name.Value}?" : $"How {chosen.Artwork.Name.Value} sits in the post")"
+                     BackHref="@(chosen.Artwork.Images.Count > 1 ? PageUrls.ArtworkPickerImages(chosen.Artwork.Id, Trail) : PageUrls.ArtworkPickerList(Trail))"
+                     BackLabel="@(chosen.Artwork.Images.Count > 1 ? "Images" : "Artworks")">
+    <ArtworkEmbedChoice ArtworkId="chosen.Artwork.Id" Image="image" Mode="Trail.Mode" />
+  </ArtworkPickerPage>
+}
+else if (_loaded is { } loaded)
+{
+  <ArtworkPickerPage Heading="@($"Choose an image of {loaded.Artwork.Name.Value}")"
+                     BackHref="@PageUrls.ArtworkPickerList(Trail)" BackLabel="Artworks">
+    @if (loaded.Artwork.Images.Count == 0)
+    {
+      <p>This artwork has no images to add.</p>
+    }
+    else
+    {
+      <TileGrid>
+        @foreach (var (artworkImage, index) in loaded.Artwork.Images.Select((artworkImage, index) => (artworkImage, index)))
+        {
+          <a href="@PageUrls.ArtworkPickerChoice(loaded.Artwork.Id, artworkImage.StorageKey, Trail)" class="block">
+            <TileImage Image="artworkImage" Alt="@(artworkImage.OriginalFileName ?? $"Image {index + 1}")" />
+          </a>
+        }
+      </TileGrid>
+    }
+  </ArtworkPickerPage>
+}

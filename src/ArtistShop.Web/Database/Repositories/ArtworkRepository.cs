@@ -195,6 +195,34 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
 
     public Task<Artwork?> GetByIdAsync(ArtworkId id) => GetAsync(id.Value);
 
+    // by storage key. A deleted image has no entry
+    public async Task<Dictionary<string, ArtworkImageWithArtwork>> GetImagesByStorageKeyAsync(
+        IReadOnlyCollection<string> storageKeys
+    )
+    {
+        if (storageKeys.Count == 0)
+        {
+            return [];
+        }
+
+        await using var connection = dataSource.CreateConnection();
+
+        var rows = await connection.QueryAsync<ImageWithArtworkRow>(
+            "SELECT * FROM get_artwork_images_by_storage_keys(@StorageKeys)",
+            new { StorageKeys = storageKeys.ToArray() }
+        );
+
+        return rows.ToDictionary(
+            row => row.StorageKey,
+            row => new ArtworkImageWithArtwork(
+                new ArtworkId(row.ArtworkId),
+                new ArtworkLink(new ArtworkName(row.ArtworkName), new ArtworkSlug(row.ArtworkSlug)),
+                new ArtworkImage(row.StorageKey, row.OriginalFileName, row.Width, row.Height, row.BlurDataUri),
+                row.ImageNumber
+            )
+        );
+    }
+
     public async Task<Artwork?> GetBySlugAsync(string slug)
     {
         int? id;
@@ -467,6 +495,19 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         public required int Width { get; init; }
         public required int Height { get; init; }
         public string? BlurDataUri { get; init; }
+    }
+
+    private sealed class ImageWithArtworkRow
+    {
+        public required int ArtworkId { get; init; }
+        public required string ArtworkName { get; init; }
+        public required string ArtworkSlug { get; init; }
+        public required string StorageKey { get; init; }
+        public string? OriginalFileName { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+        public string? BlurDataUri { get; init; }
+        public required int ImageNumber { get; init; }
     }
 
     private sealed class SeriesRow

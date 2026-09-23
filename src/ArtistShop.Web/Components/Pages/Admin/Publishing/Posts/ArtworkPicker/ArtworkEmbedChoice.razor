@@ -1,0 +1,52 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkId ArtworkId { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public ArtworkImage Image { get; set; } = default!;
+  // changing an existing embed's image keeps its size and layout, so there's nothing more to ask
+  [Parameter, EditorRequired]
+  public ArtworkPickerMode Mode { get; set; }
+}
+
+@* The last step of the picker. <artwork-embed-choice>, defined in ArtworkPickerPage.razor.js, sends
+   the choice to the editor around the frame, which adds the embed or changes its image; nothing
+   here is posted. The
+   alignments pair up with their wrapped layouts as the embed's toolbar does *@
+<artwork-embed-choice class="block" data-artwork-id="@ArtworkId.Value" data-storage-key="@Image.StorageKey">
+  <img src="@ImageUrls.EmbedVariant(Image.StorageKey, EmbedImageSize.Medium)" alt=""
+       class="mb-4 max-h-64 max-w-full" />
+
+  @if (Mode is ArtworkPickerMode.Add)
+  {
+    <fieldset class="mb-4">
+      <legend class="artist-shop-field-label">Size</legend>
+      <label class="mr-4"><input type="radio" name="size" value="small" /> Small</label>
+      <label><input type="radio" name="size" value="medium" checked /> Medium</label>
+    </fieldset>
+
+    <fieldset class="mb-4">
+      <legend class="artist-shop-field-label">Position</legend>
+      <label class="mr-4">
+        <input type="radio" name="alignment" value="@EmbedLayoutNames.Of(EmbedLayout.Left)"
+               data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)" /> Left
+      </label>
+      <label class="mr-4">
+        <input type="radio" name="alignment" value="@EmbedLayoutNames.Of(EmbedLayout.Center)" checked /> Centre
+      </label>
+      <label>
+        <input type="radio" name="alignment" value="@EmbedLayoutNames.Of(EmbedLayout.Right)"
+               data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)" /> Right
+      </label>
+      <label class="mt-2 block"><input type="checkbox" name="wrap" /> Wrap the text around it</label>
+    </fieldset>
+  }
+
+  <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-part="insert">
+    @(Mode is ArtworkPickerMode.Add ? "Add to post" : "Use this image")
+  </ButtonBasic>
+</artwork-embed-choice>
