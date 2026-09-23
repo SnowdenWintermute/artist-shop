@@ -1,0 +1,47 @@
+@using System.Globalization
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  // must contain the post's form
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // null on a new post
+  [Parameter]
+  public Post? Post { get; set; }
+
+  // true when the page came back from a save that didn't go through: the form already holds the
+  // latest edits, so there is nothing to offer back, and a copy that matches it isn't saved yet
+  [Parameter]
+  public bool HoldsUnsavedChanges { get; set; }
+
+  // New posts share one key. There's only ever one being written, and an edit page clears it once
+  // the post it became is saved. A post deleted while it was being edited has no Post either, so
+  // its text lands here too, and New post offers it back
+  private string BackupKey => Post is null ? "new" : Post.Id.Value.ToString(CultureInfo.InvariantCulture);
+
+  // only compared, never read as a date: it tells whether the post was saved since the copy was made
+  private string? SavedVersion => Post?.UpdatedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+}
+
+@* <post-backup>, defined in PostBackup.razor.js, keeps a copy of the title and text in the browser
+   as the artist types, and offers it back here when the page opens without it *@
+<post-backup class="block" data-backup-key="@BackupKey" data-saved-version="@SavedVersion"
+             data-holds-unsaved-changes="@HoldsUnsavedChanges">
+  <div class="mb-4 border border-theme-base bg-theme-recessed p-3" data-part="notice" role="status" hidden>
+    <p class="mb-2">
+      You have unsaved changes to this post from <span data-part="backed-up-at"></span>, kept in this
+      browser.
+    </p>
+    <p class="mb-2" data-part="saved-since" hidden>
+      The post has been saved since then, so restoring them replaces that save.
+    </p>
+    <div class="flex gap-2">
+      <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-part="restore">Restore</ButtonBasic>
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-part="discard">Discard</ButtonBasic>
+    </div>
+  </div>
+
+  @ChildContent
+</post-backup>

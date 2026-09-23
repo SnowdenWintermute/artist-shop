@@ -125,8 +125,20 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
 - `Pages/Publishing/SinglePost` at `/posts/{slug}`. Admins look it up with `GetBySlugAsync`
   (`get_post_by_slug`, drafts included) and see a draft banner and an Edit link. Visitors use
   `GetPublishedBySlugAsync`. Test `AdminsFindADraftBySlug` added.
-- The edit page's address is now a link, `PageUrls.Post`, opening in a new tab so unsaved edits
-  survive.
+- The edit page's address is now a link, `PageUrls.Post` (same tab, Mike's call).
+
+**Unsaved-edit backup (BUILT 2026-09-22, uncommitted, builds; not yet in the browser):**
+Mike's choice over a leave-page confirm, because Blazor handles Back itself and a page can't
+cancel that. `Posts/PostBackup` wraps the form, and `<post-backup>` writes the title and body to
+localStorage (`artist-shop:post-backup:{id|new}`) half a second after an edit, on submit and on
+`pagehide`. It stores the post's `updated_at` from page load. A fresh page with a different copy
+shows Restore / Discard, adding "saved since then" when the version moved on. A copy equal to the
+form is deleted, which is how a save clears it. Bodies are compared with sorted keys, because
+jsonb reorders them. A page back from a failed save neither offers nor deletes. An edit page also
+clears the "new" copy once it matches, and a post deleted mid-edit writes to "new", so New post
+offers its text back. Restore goes through `post-body-editor`'s `load()`, as a "user" change that
+can be undone. Typing before answering the notice overwrites the stored copy, but Restore still
+has the old one in memory until the page is left.
 
 **After that:**
 4. The embeds one at a time, YouTube first. Each must be a Quill `BlockEmbed` blot, not an

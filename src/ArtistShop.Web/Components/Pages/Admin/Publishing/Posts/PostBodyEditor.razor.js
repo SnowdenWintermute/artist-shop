@@ -73,6 +73,9 @@ customElements.define(
     /** @type {AbortController | null} */
     #listeners = null;
     #isMounted = false;
+    // resolves once Quill is mounted, so a restore clicked while Quill is loading still lands
+    /** @type {PromiseWithResolvers<Quill>} */
+    #mounted = Promise.withResolvers();
 
     async connectedCallback() {
       const input = this.querySelector('input[type="hidden"]');
@@ -114,6 +117,15 @@ customElements.define(
       });
 
       this.#labelEditingArea(input, quill);
+      this.#mounted.resolve(quill);
+    }
+
+    // Replaces the text as if the artist had made the change, so it can be undone, and the
+    // text-change handler writes it to the input like any other edit
+    /** @param {string} json */
+    async load(json) {
+      const quill = await this.#mounted.promise;
+      quill.setContents(JSON.parse(json), "user");
     }
 
     disconnectedCallback() {

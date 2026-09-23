@@ -120,8 +120,8 @@
 
       @if (_post is not null)
       {
-        @* a new tab, so following it doesn't lose unsaved edits. It shows what was last saved,
-           drafts included, since the artist is an admin *@
+        @* shows what was last saved, drafts included, since the artist is an admin. Edits not saved
+           yet are kept by PostBackup and offered back on return *@
         <p class="mb-4 text-sm text-gray-500">
           Address: <a class="underline" href="@PageUrls.Post(_post.Slug)">@PageUrls.Post(_post.Slug)</a>
         </p>
@@ -140,42 +140,44 @@
         </p>
       }
 
-      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
-        <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
-          <DataAnnotationsValidator />
+      <PostBackup Post="_post" HoldsUnsavedChanges="_formWasPosted">
+        <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+          <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
+            <DataAnnotationsValidator />
 
-          <TextField Label="Title" @bind-Value="Input.Title" />
-          <PostBodyEditor Label="Text" DocumentKey="@BodyEditorKey" @bind-Value="Input.Body" />
+            <TextField Label="Title" @bind-Value="Input.Title" />
+            <PostBodyEditor Label="Text" DocumentKey="@BodyEditorKey" @bind-Value="Input.Body" />
 
-          @* Each button posts the status it asks for. The first one is what Enter in the title
-             presses, so it's the one that keeps the post as it is. On an existing post it waits for a
-             change; Publish and Unpublish are actions in their own right, so they never wait *@
-          <div class="flex gap-2">
-            @if (_post?.PublishedAt is null)
-            {
-              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
-                           Variant="ButtonVariant.PrimaryOutline" data-waits-for-change="@(_post is not null)">
-                Save draft
-              </ButtonBasic>
-              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
-                           Variant="ButtonVariant.Primary">
-                Publish
-              </ButtonBasic>
-            }
-            else
-            {
-              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
-                           Variant="ButtonVariant.Primary" data-waits-for-change>
-                Save
-              </ButtonBasic>
-              <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
-                           Variant="ButtonVariant.PrimaryOutline">
-                Unpublish
-              </ButtonBasic>
-            }
-          </div>
-        </EditForm>
-      </EnableSaveOnChange>
+            @* Each button posts the status it asks for. The first one is what Enter in the title
+               presses, so it's the one that keeps the post as it is. On an existing post it waits for a
+               change; Publish and Unpublish are actions in their own right, so they never wait *@
+            <div class="flex gap-2">
+              @if (_post?.PublishedAt is null)
+              {
+                <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
+                             Variant="ButtonVariant.PrimaryOutline" data-waits-for-change="@(_post is not null)">
+                  Save draft
+                </ButtonBasic>
+                <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
+                             Variant="ButtonVariant.Primary">
+                  Publish
+                </ButtonBasic>
+              }
+              else
+              {
+                <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Published)"
+                             Variant="ButtonVariant.Primary" data-waits-for-change>
+                  Save
+                </ButtonBasic>
+                <ButtonBasic type="submit" name="Input.Status" value="@nameof(PostStatus.Draft)"
+                             Variant="ButtonVariant.PrimaryOutline">
+                  Unpublish
+                </ButtonBasic>
+              }
+            </div>
+          </EditForm>
+        </EnableSaveOnChange>
+      </PostBackup>
 
       @if (_post is not null)
       {
