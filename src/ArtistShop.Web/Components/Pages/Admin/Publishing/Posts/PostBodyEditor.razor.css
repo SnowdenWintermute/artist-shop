@@ -6,12 +6,39 @@ post-body-editor ::deep .ql-container {
   font-size: 1rem;
 }
 
+/* The writing area gets PostColumn's width from the script. box-sizing is set again here because
+   quill.snow.css's border-box beats the class's content-box, and would take Quill's padding out of
+   the text's width. The line height is the page's, so a wrapped image has as many lines beside it */
 post-body-editor ::deep .ql-editor {
   min-height: 16rem;
+  box-sizing: content-box;
+  margin: 0 auto;
+  line-height: inherit;
 }
 
 /* Quill leaves heading weight to the browser's defaults, which Tailwind's reset takes away */
 post-body-editor ::deep .ql-editor h2,
 post-body-editor ::deep .ql-editor h3 {
   font-weight: 700;
+}
+
+/* The toolbar button Quill leaves at an icon's width, with no icon */
+post-body-editor ::deep .ql-toolbar button.ql-artshop-artwork {
+  width: auto;
+}
+
+/* Where an artwork embed sits comes from EmbedLayoutClasses, the same classes the post page uses.
+   Only what belongs to editing is here: quill.snow.css gives every line a text cursor */
+post-body-editor ::deep .artshop-artwork {
+  cursor: pointer;
+}
+
+post-body-editor ::deep .artshop-artwork:hover img {
+  outline: 2px solid var(--color-blue-400);
+}
+
+post-body-editor ::deep .artshop-artwork span {
+  border: 1px dashed var(--color-gray-400);
+  padding: 1rem;
+  color: var(--color-gray-500);
 }

@@ -140,10 +140,12 @@ public class PostDocumentParserTests
     [InlineData("https://example.com/a")]
     [InlineData("http://example.com")]
     [InlineData("mailto:someone@example.com")]
-    public void KeepsWebAndMailLinks(string link)
+    [InlineData("/artworks/some-slug")]
+    [InlineData("/")]
+    public void KeepsWebMailAndSiteLinks(string link)
     {
         var blocks = Parse(
-            $$$"""{"ops":[{"insert":"here","attributes":{"link":"{{{link}}}"}},{"insert":"\n"}]}"""
+            $$$"""{"ops":[{"insert":"here","attributes":{"link":{{{JsonSerializer.Serialize(link)}}}}},{"insert":"\n"}]}"""
         );
 
         Assert.Equal(link, Assert.IsType<ParagraphBlock>(Assert.Single(blocks)).Text[0].Link);
@@ -152,11 +154,14 @@ public class PostDocumentParserTests
     [Theory]
     [InlineData("javascript:alert(1)")]
     [InlineData("data:text/html,hello")]
-    [InlineData("/relative")]
+    [InlineData("//example.com")]
+    [InlineData(@"/\example.com")]
+    [InlineData("/\t/example.com")]
+    [InlineData("relative")]
     public void DropsOtherLinksButKeepsTheirText(string link)
     {
         var blocks = Parse(
-            $$$"""{"ops":[{"insert":"here","attributes":{"link":"{{{link}}}"}},{"insert":"\n"}]}"""
+            $$$"""{"ops":[{"insert":"here","attributes":{"link":{{{JsonSerializer.Serialize(link)}}}}},{"insert":"\n"}]}"""
         );
 
         Assert.Equal([Plain("here")], Assert.IsType<ParagraphBlock>(Assert.Single(blocks)).Text);
@@ -178,7 +183,7 @@ public class PostDocumentParserTests
         var blocks = Parse(
             """
             {"ops":[
-                {"insert":{"artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","size":"small","layout":"floatLeft"}}},
+                {"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","size":"small","layout":"floatLeft"}}},
                 {"insert":"\n"}
             ]}
             """
@@ -191,34 +196,62 @@ public class PostDocumentParserTests
     }
 
     [Fact]
-    public void AnArtworkEmbedDefaultsToTheMediumPrimaryImageCentred()
+    public void AnArtworkEmbedDefaultsToMediumAndCentred()
     {
-        var blocks = Parse("""{"ops":[{"insert":{"artwork":{"artworkId":42}}},{"insert":"\n"}]}""");
+        var blocks = Parse(
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f"}}},{"insert":"\n"}]}"""
+        );
 
         Assert.Equal(
-            new ArtworkEmbedBlock(new ArtworkId(42), null, EmbedImageSize.Medium, EmbedLayout.Center),
+            new ArtworkEmbedBlock(new ArtworkId(42), "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Medium, EmbedLayout.Center),
             blocks[0]
         );
     }
 
     [Theory]
-    [InlineData("../../etc/passwd")]
-    [InlineData("0192f1c2a3b44c5d8e9f0a1b2c3d4e5f\n")]
-    public void IgnoresAStorageKeyThatIsNotOneOfOurs(string storageKey)
+    [InlineData("center", EmbedLayout.Center)]
+    [InlineData("left", EmbedLayout.Left)]
+    [InlineData("right", EmbedLayout.Right)]
+    [InlineData("floatLeft", EmbedLayout.FloatLeft)]
+    [InlineData("floatRight", EmbedLayout.FloatRight)]
+    [InlineData("sideways", EmbedLayout.Center)]
+    public void ReadsEachLayoutAndCentresAnUnknownOne(string layout, EmbedLayout expected)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artwork":{"artworkId":42,"storageKey":"""
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","layout":"""
+                + JsonSerializer.Serialize(layout)
+                + """}}},{"insert":"\n"}]}"""
+        );
+
+        Assert.Equal(expected, Assert.IsType<ArtworkEmbedBlock>(blocks[0]).Layout);
+    }
+
+    [Fact]
+    public void DropsAnArtworkEmbedWithNoStorageKey()
+    {
+        var blocks = Parse("""{"ops":[{"insert":{"artshop-artwork":{"artworkId":42}}},{"insert":"\n"}]}""");
+
+        Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
+    }
+
+    [Theory]
+    [InlineData("../../etc/passwd")]
+    [InlineData("0192f1c2a3b44c5d8e9f0a1b2c3d4e5f\n")]
+    public void DropsAnArtworkEmbedWhoseStorageKeyIsNotOneOfOurs(string storageKey)
+    {
+        var blocks = Parse(
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"""
                 + JsonSerializer.Serialize(storageKey)
                 + """}}},{"insert":"\n"}]}"""
         );
 
-        Assert.Null(Assert.IsType<ArtworkEmbedBlock>(blocks[0]).StorageKey);
+        Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
     }
 
     [Fact]
     public void DropsAnArtworkEmbedWhoseIdIsNotANumber()
     {
-        var blocks = Parse("""{"ops":[{"insert":{"artwork":{"artworkId":"42"}}},{"insert":"\n"}]}""");
+        var blocks = Parse("""{"ops":[{"insert":{"artshop-artwork":{"artworkId":"42","storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f"}}},{"insert":"\n"}]}""");
 
         Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
     }
@@ -230,7 +263,7 @@ public class PostDocumentParserTests
     public void DropsAnArtworkEmbedWhoseIdIsNotAnInt(string artworkId)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artwork":{"artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-artwork":{"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
         );
 
         Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
@@ -242,7 +275,7 @@ public class PostDocumentParserTests
     public void ReadsAWholeArtworkIdWrittenAsADecimal(string artworkId)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artwork":{"artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-artwork":{"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
         );
 
         Assert.Equal(new ArtworkId(42), Assert.IsType<ArtworkEmbedBlock>(blocks[0]).ArtworkId);
@@ -252,7 +285,7 @@ public class PostDocumentParserTests
     public void ReadsAYouTubeEmbed()
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"youtube":{"videoId":"dQw4w9WgXcQ","layout":"floatRight"}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-youtube":{"videoId":"dQw4w9WgXcQ","layout":"floatRight"}}},{"insert":"\n"}]}"""
         );
 
         Assert.Equal(new YouTubeEmbedBlock("dQw4w9WgXcQ", EmbedLayout.FloatRight), blocks[0]);
@@ -265,7 +298,7 @@ public class PostDocumentParserTests
     public void DropsAYouTubeEmbedWhoseIdIsNotAnId(string videoId)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"youtube":{"videoId":"""
+            """{"ops":[{"insert":{"artshop-youtube":{"videoId":"""
                 + JsonSerializer.Serialize(videoId)
                 + """}}},{"insert":"\n"}]}"""
         );
@@ -287,7 +320,7 @@ public class PostDocumentParserTests
     public void TextBeforeAnEmbedOnTheSameLineKeepsItsOwnParagraph()
     {
         var blocks = Parse(
-            """{"ops":[{"insert":"Before"},{"insert":{"youtube":{"videoId":"dQw4w9WgXcQ"}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":"Before"},{"insert":{"artshop-youtube":{"videoId":"dQw4w9WgXcQ"}}},{"insert":"\n"}]}"""
         );
 
         Assert.Equal([Plain("Before")], Assert.IsType<ParagraphBlock>(blocks[0]).Text);

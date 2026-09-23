@@ -8,5 +8,6 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["Components/**/*.js", "wwwroot/**/*.js"]
+  "include": ["Components/**/*.js", "wwwroot/**/*.js", "globals.d.ts"],
+  "exclude": ["wwwroot/lib"]
 }

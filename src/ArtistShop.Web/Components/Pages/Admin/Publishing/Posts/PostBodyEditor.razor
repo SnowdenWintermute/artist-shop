@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Publishing
 @using System.Linq.Expressions
 
 @code {
@@ -29,8 +30,10 @@
   @* <post-body-editor> is defined in PostBodyEditor.razor.js, and loads Quill itself from
      data-quill-src. data-permanent stops enhanced navigation from patching its children, which
      would remove Quill's toolbar and editing area, since the server never renders them *@
-  <post-body-editor class="block bg-white" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]">
+  <post-body-editor class="block bg-white" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]"
+                    data-column-class="@PostColumn.WidthClass">
     <InputText type="hidden" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
                ValueExpression="ValueExpression" />
+    <PostArtworkEmbed />
   </post-body-editor>
 </FieldLayout>

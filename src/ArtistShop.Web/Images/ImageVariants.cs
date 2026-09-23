@@ -1,3 +1,5 @@
+using ArtistShop.Web.Domain.Publishing;
+
 namespace ArtistShop.Web.Images;
 
 public enum ImageVariantFormat : byte
@@ -30,6 +32,15 @@ public static class ImageVariants
     // the image an artwork page is built around may ask for anything there is. [^1] is the
     // last item of the array
     public static readonly int MainImageWidth = Widths[^1];
+
+    // an image embedded in a post. Every image has both, since none narrower than
+    // MinimumSourceWidth is kept
+    public static int EmbedWidth(EmbedImageSize size) =>
+        size switch
+        {
+            EmbedImageSize.Small => Widths[0],
+            EmbedImageSize.Medium => Widths[1],
+        };
 
     public static string FileName(int width, ImageVariantFormat format) =>
         format switch

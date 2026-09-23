@@ -17,10 +17,10 @@ public record BlockquoteBlock(IReadOnlyList<PostText> Text) : PostBlock;
 
 public record ListBlock(ListStyle Style, IReadOnlyList<IReadOnlyList<PostText>> Items) : PostBlock;
 
-// StorageKey picks one of the artwork's images; null means its primary one
+// StorageKey names the one of the artwork's images it shows
 public record ArtworkEmbedBlock(
     ArtworkId ArtworkId,
-    string? StorageKey,
+    string StorageKey,
     EmbedImageSize Size,
     EmbedLayout Layout
 ) : PostBlock;
@@ -49,9 +49,12 @@ public enum EmbedImageSize
     Medium,
 }
 
+// Left and Right sit on a line of their own; the Float ones let the text wrap around them
 public enum EmbedLayout
 {
     Center,
+    Left,
+    Right,
     FloatLeft,
     FloatRight,
 }

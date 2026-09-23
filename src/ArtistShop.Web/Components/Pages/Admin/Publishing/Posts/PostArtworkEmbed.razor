@@ -1,0 +1,49 @@
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  // stands in for the storage key in the image addresses below, which the embed fills in
+  private const string StorageKeyPlaceholder = "{storageKey}";
+
+  private const string PressedClass = "aria-pressed:bg-blue-400 aria-pressed:text-white";
+
+  // each layout's name in the Delta, mapped to the classes the post page gives it
+  private static readonly string LayoutClasses = JsonSerializer.Serialize(
+    Enum.GetValues<EmbedLayout>().ToDictionary(EmbedLayoutNames.Of, EmbedLayoutClasses.For));
+}
+
+@* The toolbar that opens under an artwork embed when the artist clicks one. PostArtworkEmbed.razor.js
+   defines the embed and places this with Floating UI. It carries the image addresses because the
+   server is what knows them. Its buttons have no name, so the form never posts them *@
+<div popover class="m-0 inset-auto border border-theme-base bg-white p-2 shadow"
+     data-part="artwork-embed-toolbar"
+     data-storage-key-placeholder="@StorageKeyPlaceholder"
+     data-small-image-url="@ImageUrls.EmbedVariant(StorageKeyPlaceholder, EmbedImageSize.Small)"
+     data-medium-image-url="@ImageUrls.EmbedVariant(StorageKeyPlaceholder, EmbedImageSize.Medium)"
+     data-layout-classes="@LayoutClasses"
+     data-floating-ui-src="@Assets["lib/floating-ui/floating-ui.dom.browser.min.mjs"]">
+  <div class="flex items-center gap-4">
+    <div class="flex gap-1" role="group" aria-label="Size">
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" data-size="small" aria-pressed="false">Small</ButtonBasic>
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" data-size="medium" aria-pressed="false">Medium</ButtonBasic>
+    </div>
+    @* An alignment button names its layout on a line of its own, and the one with text wrapped
+       around it, if it has one. Wrap text switches between the two *@
+    <div class="flex gap-1" role="group" aria-label="Layout">
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" aria-pressed="false"
+                   data-layout="@EmbedLayoutNames.Of(EmbedLayout.Left)"
+                   data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">Left</ButtonBasic>
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" aria-pressed="false"
+                   data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">Centre</ButtonBasic>
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" aria-pressed="false"
+                   data-layout="@EmbedLayoutNames.Of(EmbedLayout.Right)"
+                   data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">Right</ButtonBasic>
+    </div>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PressedClass" aria-pressed="false"
+                 data-action="wrap">Wrap text</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-action="remove">Remove</ButtonBasic>
+  </div>
+</div>

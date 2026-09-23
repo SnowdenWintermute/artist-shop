@@ -26,7 +26,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
                         [
                             .. artworkIds.Select(id => new
                             {
-                                insert = new { artwork = new { artworkId = id.Value } },
+                                insert = new Dictionary<string, object> { ["artshop-artwork"] = new { artworkId = id.Value } },
                             }),
                             new { insert = "\n" },
                         ],
@@ -245,7 +245,19 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
         var artworkId = await AddArtworkAsync();
         var body = new PostBody(
             JsonSerializer.Serialize(
-                new { ops = new[] { new { insert = new { artwork = new { artworkId = $"{artworkId.Value}" } } } } }
+                new
+                {
+                    ops = new[]
+                    {
+                        new
+                        {
+                            insert = new Dictionary<string, object>
+                            {
+                                ["artshop-artwork"] = new { artworkId = $"{artworkId.Value}" },
+                            },
+                        },
+                    },
+                }
             )
         );
 
@@ -260,7 +272,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     {
         var artworkId = await AddArtworkAsync();
         var body = new PostBody(
-            """{"ops":[{"insert":{"artwork":{"artworkId":"""
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":"""
                 + (artworkId.Value - 0.5m).ToString(CultureInfo.InvariantCulture)
                 + """}}},{"insert":"\n"}]}"""
         );
@@ -274,7 +286,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     public async Task AnEmbedWhoseIdIsOutOfRangeStillSaves()
     {
         var body = new PostBody(
-            """{"ops":[{"insert":{"artwork":{"artworkId":2147483648}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":2147483648}}},{"insert":"\n"}]}"""
         );
 
         var postId = await AddPostAsync(body, PostStatus.Published);

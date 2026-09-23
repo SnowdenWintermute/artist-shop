@@ -10,6 +10,11 @@ using ArtistShop.Web.Domain.Catalog;
 // so a post keeps showing what it can if the editor ever stores something new
 public static partial class PostDocumentParser
 {
+    // the names the editor registers its embeds under. Prefixed so they can't be mistaken for, or
+    // collide with, one of Quill's own formats. set_post_artworks reads the artwork one too
+    private const string ArtworkEmbedName = "artshop-artwork";
+    private const string YouTubeEmbedName = "artshop-youtube";
+
     public static PostDocument Parse(PostBody body)
     {
         using var document = JsonDocument.Parse(body.Json);
@@ -130,7 +135,7 @@ public static partial class PostDocumentParser
 
     private static PostBlock? ReadEmbed(JsonElement insert)
     {
-        if (insert.TryGetProperty("artwork", out var artwork) && artwork.ValueKind is JsonValueKind.Object)
+        if (insert.TryGetProperty(ArtworkEmbedName, out var artwork) && artwork.ValueKind is JsonValueKind.Object)
         {
             if (GetInt(artwork, "artworkId") is not int artworkId)
             {
@@ -139,21 +144,26 @@ public static partial class PostDocumentParser
 
             var storageKey = GetString(artwork, "storageKey");
 
+            // it becomes part of an image address, so it must look like one of ours
+            if (storageKey is null || !StorageKeyPattern().IsMatch(storageKey))
+            {
+                return null;
+            }
+
             return new ArtworkEmbedBlock(
                 new ArtworkId(artworkId),
-                // it becomes part of an image address, so it must look like one of ours
-                storageKey is not null && StorageKeyPattern().IsMatch(storageKey) ? storageKey : null,
+                storageKey,
                 GetString(artwork, "size") is "small" ? EmbedImageSize.Small : EmbedImageSize.Medium,
-                ReadLayout(GetString(artwork, "layout"))
+                EmbedLayoutNames.Parse(GetString(artwork, "layout"))
             );
         }
 
-        if (insert.TryGetProperty("youtube", out var youtube) && youtube.ValueKind is JsonValueKind.Object)
+        if (insert.TryGetProperty(YouTubeEmbedName, out var youtube) && youtube.ValueKind is JsonValueKind.Object)
         {
             var videoId = GetString(youtube, "videoId");
 
             return videoId is not null && YouTubeVideoIdPattern().IsMatch(videoId)
-                ? new YouTubeEmbedBlock(videoId, ReadLayout(GetString(youtube, "layout")))
+                ? new YouTubeEmbedBlock(videoId, EmbedLayoutNames.Parse(GetString(youtube, "layout")))
                 : null;
         }
 
@@ -168,21 +178,20 @@ public static partial class PostDocumentParser
             _ => null,
         };
 
-    private static EmbedLayout ReadLayout(string? value) =>
-        value switch
-        {
-            "floatLeft" => EmbedLayout.FloatLeft,
-            "floatRight" => EmbedLayout.FloatRight,
-            _ => EmbedLayout.Center,
-        };
-
     // Blazor encodes an href's characters but will still write javascript:alert(1) into one, so
     // the scheme is checked here
     private static string? SafeLink(string? link) =>
-        Uri.TryCreate(link, UriKind.Absolute, out var uri)
-        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeMailto)
+        link is not null && IsSitePath(link)
+        || Uri.TryCreate(link, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeMailto)
             ? link
             : null;
+
+    // A page on this site, like /artworks/some-slug. Browsers read "//host" and "/\host" as another
+    // site's address, and strip tabs and newlines before reading one, so a tab between the two
+    // slashes is the same trap
+    private static bool IsSitePath(string link) =>
+        link is ['/'] or ['/', not ('/' or '\\'), ..] && !link.Any(char.IsControl);
 
     private static bool IsTrue(JsonElement? element, string name) =>
         element is { } found

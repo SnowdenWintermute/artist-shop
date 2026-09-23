@@ -45,7 +45,7 @@
   <PageTitle>@loaded.Post.Title.Value</PageTitle>
   <LinkPreview Title="@loaded.Post.Title.Value" />
 
-  <main class="mx-auto max-w-[700px] p-4">
+  <main class="@($"mx-auto p-4 {PostColumn.WidthClass}")">
     @if (loaded.Post.PublishedAt is null)
     {
       <p class="mb-4 border border-theme-base bg-theme-recessed px-3 py-2">

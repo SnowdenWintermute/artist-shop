@@ -92,7 +92,7 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
   element rewrites it in the visitor's time zone, with the same "22 Sep 2026" wording. Every date
   the site shows goes through it.
 
-**Step 2, the Quill editor (BUILT 2026-09-22, uncommitted, builds; not yet tried in the browser):**
+**Step 2, the Quill editor (BUILT and committed 2026-09-22):**
 - Quill 2.0.3 is vendored in `wwwroot/lib/quill/` (`quill.js`, `quill.snow.css`, `LICENSE`,
   `quill.js.LICENSE.txt`), BSD-3-Clause.
 - `Posts/PostBodyEditor` replaces the textarea. Its `<post-body-editor>` wraps a hidden
@@ -107,8 +107,8 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
 - It starts from the hidden input with `setContents(…, "silent")`, so loading isn't an edit. It
   writes the Delta on every `text-change` and raises `input`, which also dismisses "Saved.".
 - Links: `LinkWithScheme` overrides `formats/link`'s `sanitize`, so `example.com` becomes
-  `https://example.com` and `name@example.com` becomes `mailto:`. **A link starting with `/` or
-  `#` is still dropped by the parser without a word.** Decide whether to allow site-relative links.
+  `https://example.com` and `name@example.com` becomes `mailto:`. The parser keeps a path on this site (one leading `/`, Mike 2026-09-23), but still
+  drops `//host`, `/\host` and `#…`.
 - Its styles are in `PostBodyEditor.razor.css`, not Tailwind classes: `quill.snow.css` isn't in a
   layer, so it beats every Tailwind utility. Headings are bolded there, since the reset takes away
   the browser's default weight.
@@ -117,7 +117,7 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
 - Known wrinkle: Quill's JSON isn't byte for byte what jsonb gives back, so undoing every edit
   leaves Save enabled.
 
-**Step 3 + the post page (BUILT 2026-09-22, uncommitted, builds; not yet in the browser):**
+**Step 3 + the post page (BUILT and committed 2026-09-22):**
 - `Components/Publishing/PostDocumentView` switches on the block type, and `PostInlineText`
   renders one line's runs by wrapping `u`, `em`, `strong` and `a` around Razor-escaped text. An
   empty line renders `<br>`. Spacing copies the editor: no gaps between blocks, and
@@ -127,7 +127,7 @@ Claude writes this one and Mike reviews it, as on the Postgres port.
   `GetPublishedBySlugAsync`. Test `AdminsFindADraftBySlug` added.
 - The edit page's address is now a link, `PageUrls.Post` (same tab, Mike's call).
 
-**Unsaved-edit backup (BUILT 2026-09-22, uncommitted, builds; not yet in the browser):**
+**Unsaved-edit backup (BUILT and committed 2026-09-22):**
 Mike's choice over a leave-page confirm, because Blazor handles Back itself and a page can't
 cancel that. `Posts/PostBackup` wraps the form, and `<post-backup>` writes the title and body to
 localStorage (`artist-shop:post-backup:{id|new}`) half a second after an edit, on submit and on
@@ -140,8 +140,48 @@ offers its text back. Restore goes through `post-body-editor`'s `load()`, as a "
 can be undone. Typing before answering the notice overwrites the stored copy, but Restore still
 has the old one in memory until the page is left.
 
+**Artwork embed, started 2026-09-23 (builds, tests pass, not yet in the browser):**
+- `Posts/PostArtworkEmbed.razor.js` defines the `artshop-artwork` `BlockEmbed` blot and the
+  toolbar that opens under an embed when it's clicked (Small/Medium, Left/Centre/Right, Remove).
+  A change replaces the embed through one `updateContents`, so one undo takes it back.
+  `PostArtworkEmbed.razor` renders that toolbar as a native `popover`, and carries the two image
+  addresses, built by `ImageUrls.EmbedVariant` around a `{storageKey}` placeholder, so image
+  addresses stay a C# concern.
+- Positioning is Floating UI 1.8.0, vendored in `wwwroot/lib/floating-ui/` (see its `SOURCE.md`)
+  and imported when an editor connects. Blueprint's `BbPopover` can't run on a static page.
+- Layouts are `center | left | right | floatLeft | floatRight` (`EmbedLayoutNames`, Mike
+  2026-09-23): left and right on a line of their own, the float ones with text wrapping. The
+  toolbar shows Left / Centre / Right plus Wrap text. `Components/Publishing/EmbedLayoutClasses`
+  holds each layout's Tailwind classes, and the editor applies the same ones, so the editor wraps
+  exactly as the page will. The post page's renderer must use it too.
+- `Components/Publishing/PostColumn.WidthClass` is the width of a post's text (42rem, content-box),
+  used by `/posts/{slug}`'s `<main>` and added to Quill's writing area, which is centred in the
+  editor with the page's line height, so lines break in the same places.
+- **The toolbar's "Artwork" button is temporary**: it inserts a hard-coded dev artwork
+  (`PLACEHOLDER_ARTWORK` in `PostBodyEditor.razor.js`) until the picker exists.
+- `storageKey` is now required (Mike, 2026-09-23): the picker always names an image, so the
+  editor can build its address from the key alone. If the image is deleted, the editor shows
+  "This image was removed." and the public page leaves the embed out.
+- `globals.d.ts` declares `Blazor`, `Quill` and Floating UI for `checkJs`, and `jsconfig.json`
+  no longer checks `wwwroot/lib`. TypeScript proper maybe later (Mike).
+
+**Picker, agreed 2026-09-23:** a dialog holding an `<iframe>` of a picker version of the admin
+artwork list, since its state is all in the address. Step 1: the list, with rows linking to
+step 2 rather than the edit page. Step 2: the artwork's images (skipped by the server when there's
+one). Step 3: size and layout, then Insert, which hands the value to the page, and the embed goes
+in where the cursor was (save the index before the dialog takes the focus). Escape inside the frame
+must still close the dialog.
+
+**Public rendering, agreed:** load every embedded artwork in one query from the parsed document's
+ids, not one per embed; the same query answers the visibility rule.
+
 **After that:**
-4. The embeds one at a time, YouTube first. Each must be a Quill `BlockEmbed` blot, not an
+4. **Next session: the artwork embed first** (Mike, 2026-09-22: he wants to see what a custom
+   Quill embed looks like on the real case; the picker's design gets agreed before building).
+   YouTube after it, as `{ videoId, layout }` rather than Quill's built-in `video`, which stores
+   any iframe address and has no layout. Its blot can extend Quill's video blot for the iframe,
+   with its own toolbar handler turning a pasted watch or youtu.be address into the id.
+   The embeds one at a time. Each must be a Quill `BlockEmbed` blot, not an
    inline `Embed`: the parser expects no `\n` after an embed in the middle of the document, and an
    inline embed's line ends in one, which would add a blank paragraph after every embed.
 5. `/posts`, the public list, then "Mentioned in" on the artwork page. Never render post content
@@ -169,15 +209,17 @@ of ops, not a tree: block formats (header, list) sit on the `\n` that ends a lin
 list lines must be grouped into one `<ul>`/`<ol>`.
 
 **Embeds.** Each stores ids and choices only, never markup:
-- `artwork` stores `{ artworkId, storageKey, size: small|medium, layout }` (no storageKey = the primary image) and points at one of an
+- `artshop-artwork` stores `{ artworkId, storageKey, size: small|medium, layout }` and points at one of an
   artwork's existing images. Small and medium map onto the 160/400 variants. The renderer reads the
   current title, slug and image at render time. If the artwork has been deleted, the embed
   disappears. If visitors can't see it, the image still shows but isn't a link.
 - `postImage` stores `{ postImageId, size, layout }`: an image uploaded into the post itself. It
   goes through the existing image pipeline (variants and blur), stored in `post_images`, not
   `artwork_images`.
-- `youtube` stores `{ videoId, layout }` and renders a `youtube-nocookie.com` iframe.
-- `layout` is `floatLeft | floatRight | center` for every embed. Floats collapse to full width on
+- `artshop-youtube` stores `{ videoId, layout }` and renders a `youtube-nocookie.com` iframe.
+- Our own format and embed names carry an `artshop-` prefix (Mike, 2026-09-23), so nobody mistakes
+  them for Quill's. The keys inside an embed's value aren't prefixed.
+- `layout` is one of `EmbedLayoutNames` for every embed. Floats collapse to full width on
   narrow screens.
 
 **Schema (BUILT 2026-09-22, `0003_CreatePosts.sql`, `Procedures/Posts/`, `PostRepository`):**
@@ -188,7 +230,7 @@ list lines must be grouped into one `<ul>`/`<ol>`.
   Saving a published post keeps its date; unpublishing clears it.
 - `post_and_artworks_junction (post_id, artwork_id)`: both keys cascade on delete. The
   `set_post_artworks` function rebuilds it from the stored body with a jsonpath
-  (`$.ops[*].insert.artwork.artworkId`, numbers only), so it can't disagree with the body. An embed of an artwork
+  (`$.ops[*].insert."artshop-artwork".artworkId`, numbers only), so it can't disagree with the body. An embed of an artwork
   deleted in the meantime is skipped.
 - `post_images` is not built yet. It comes with the uploaded-image embed and needs the orphan
   sweeper to know about it.
