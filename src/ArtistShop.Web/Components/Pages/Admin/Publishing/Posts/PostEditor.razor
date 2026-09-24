@@ -6,10 +6,12 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Images
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = RoleNames.Admin)]
 @inject PostRepository PostRepository
 @inject NavigationManager NavigationManager
+@inject ImageStorage ImageStorage
 
 @code {
   // by id, not slug: a new title changes the slug, and this page is what changes it
@@ -64,6 +66,14 @@
 
   private async Task SaveAsync()
   {
+    var missingImages = Input.ImagesMissingFrom(ImageStorage);
+
+    if (missingImages.Count > 0)
+    {
+      Input.AddMissingImageErrors(missingImages);
+      return;
+    }
+
     try
     {
       // by Id, not _post: a save from a deleted post has no _post either, and must not add a new one

@@ -24,6 +24,8 @@ declare class QuillDelta {
   retain(length: number): this;
   delete(length: number): this;
   insert(value: string | Record<string, unknown>): this;
+  // where index ends up once this change is applied
+  transformPosition(index: number): number;
 }
 
 // a piece of the document, which Quill keeps in step with its DOM node
@@ -52,6 +54,9 @@ declare class Quill {
       formats?: string[];
       modules?: {
         toolbar?: { container: unknown[]; handlers?: Record<string, () => void> };
+        // a dropped or pasted file of one of mimetypes goes to handler, with where it goes
+        history?: { userOnly: boolean };
+        uploader?: { mimetypes: string[]; handler: (range: { index: number; length: number }, files: File[]) => void };
       };
     }
   );
@@ -61,6 +66,7 @@ declare class Quill {
   updateContents(delta: QuillDelta, source?: QuillSource): void;
   insertEmbed(index: number, type: string, value: unknown, source?: QuillSource): void;
   on(event: "text-change", handler: (change: QuillDelta, old: QuillDelta, source: QuillSource) => void): this;
+  off(event: "text-change", handler: (change: QuillDelta, old: QuillDelta, source: QuillSource) => void): this;
   focus(): void;
   // with focus true, the editor takes the focus first, so there is always a selection
   getSelection(focus: true): { index: number; length: number };

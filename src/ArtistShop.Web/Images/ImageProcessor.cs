@@ -54,13 +54,15 @@ public class ImageProcessor(ImageStorage imageStorage)
         return new ImageHeader(image.Width, image.Height, decodedBytes);
     }
 
-    public ProcessedImage Process(string storageKey)
+    // minimumWidth is what the image is for: MinimumSourceWidth for an artwork, and
+    // MinimumPostImageWidth for an image in a post
+    public ProcessedImage Process(string storageKey, int minimumWidth)
     {
         var originalPath = imageStorage.OriginalPath(storageKey);
         using var source = Image.NewFromFile(originalPath).Autorot();
-        if (source.Width < ImageVariants.MinimumSourceWidth)
+        if (source.Width < minimumWidth)
         {
-            throw new ImageTooSmallException(ImageVariants.MinimumSourceWidth);
+            throw new ImageTooSmallException(minimumWidth);
         }
 
         var fittingWidths = ImageVariants.WidthsFor(source.Width);

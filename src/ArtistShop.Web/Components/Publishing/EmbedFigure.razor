@@ -1,0 +1,83 @@
+@using System.Globalization
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  // the editor's toolbars hand this to the editor, so a caption looks the same while writing
+  public const string CaptionClass = "pt-1 text-sm text-gray-500";
+
+  [Parameter, EditorRequired]
+  public EmbedLayout Layout { get; set; }
+
+  [Parameter, EditorRequired]
+  public EmbedImageSize Size { get; set; }
+
+  [Parameter, EditorRequired]
+  public string Src { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public string Alt { get; set; } = default!;
+
+  // the image's own size, for its shape
+  [Parameter, EditorRequired]
+  public int ImageWidth { get; set; }
+
+  [Parameter, EditorRequired]
+  public int ImageHeight { get; set; }
+
+  [Parameter, EditorRequired]
+  public string? BlurDataUri { get; set; }
+
+  [Parameter, EditorRequired]
+  public string? Caption { get; set; }
+
+  // null for an image that goes nowhere when clicked
+  [Parameter, EditorRequired]
+  public string? Href { get; set; }
+
+  // every file there is of the image, for the lightbox a click opens to pick a wider one from.
+  // Null when a click doesn't open one
+  [Parameter, EditorRequired]
+  public string? LightboxSourceSet { get; set; }
+
+  private int Width => ImageVariants.EmbedWidth(Size);
+
+  // written on the img so the page keeps the image's room while it loads, rather than jumping
+  private int Height => (int)Math.Round((double)Width * ImageHeight / ImageWidth);
+
+  // the tiny blurred copy saved with the image, shown behind it until it arrives
+  private string BlurStyle => BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
+}
+
+@* An image embed in a post, placed as it was in the editor, from the same EmbedLayoutClasses. The
+   figure is the size's width, so a caption wraps under the image rather than widening it, and the
+   image fills it, stretched if the file is narrower *@
+<div class="@EmbedLayoutClasses.For(Layout)">
+  <figure class="max-w-full" style="@($"width: {Width.ToString(CultureInfo.InvariantCulture)}px;")">
+    @if (Href is not null)
+    {
+      <a href="@Href" class="block">@Image</a>
+    }
+    else if (LightboxSourceSet is not null)
+    {
+      <LightboxTrigger>@Image</LightboxTrigger>
+    }
+    else
+    {
+      @Image
+    }
+    @if (Caption is not null)
+    {
+      <figcaption class="@CaptionClass">@Caption</figcaption>
+    }
+  </figure>
+</div>
+
+@code {
+  private RenderFragment Image =>
+    @<img src="@Src" srcset="@LightboxSourceSet" sizes="@(LightboxSourceSet is null ? null : $"{Width.ToString(CultureInfo.InvariantCulture)}px")"
+          alt="@Alt" width="@Width.ToString(CultureInfo.InvariantCulture)"
+          height="@Height.ToString(CultureInfo.InvariantCulture)" loading="lazy"
+          class="block h-auto w-full bg-cover bg-center" style="@BlurStyle" />;
+}

@@ -1,98 +1,8 @@
-// The dialog the editor's Video button, and a video embed's Change video, open. It reads a pasted YouTube or Vimeo link into which
-// video it is, and says so when it can't, rather than closing.
-// Imported by PostBodyEditor.razor.js, which finds the element by its id when it opens it
+// The dialog the editor's Video button, and a video embed's Change video, open. The server reads
+// a pasted YouTube or Vimeo link into which video it is, and the dialog says so when it can't,
+// rather than closing. Imported by PostBodyEditor.razor.js, which finds the element by its id
 
 /** @typedef {import("./PostVideoEmbed.razor.js").VideoSource} VideoSource */
-
-// PostDocumentParser checks the stored parts against the same patterns
-const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
-const VIMEO_ID = /^[0-9]{1,12}$/;
-const VIMEO_HASH = /^[A-Za-z0-9]{1,32}$/;
-
-const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
-
-// the pages a YouTube video is watched from, besides watch?v=, whose next part is the id
-const YOUTUBE_ID_PATHS = ["shorts", "embed", "live", "v"];
-
-/**
- * youtube.com/watch?v=…, youtu.be/…, and the shorts, embed and live addresses
- * @param {string} host
- * @param {string[]} path
- * @param {URLSearchParams} query
- * @returns {VideoSource | null}
- */
-function readYouTube(host, path, query) {
-  const id =
-    host === "youtu.be"
-      ? path[0]
-      : host !== "youtube.com" && host !== "youtube-nocookie.com"
-        ? undefined
-        : path[0] === "watch"
-          ? query.get("v")
-          : YOUTUBE_ID_PATHS.includes(path[0])
-            ? path[1]
-            : undefined;
-
-  return id != null && YOUTUBE_ID.test(id) ? { provider: "youtube", videoId: id } : null;
-}
-
-/**
- * vimeo.com/…/{id}, where an unlisted video's link has its hash after the id, and the player's own
- * player.vimeo.com/video/{id}?h={hash}
- * @param {string} host
- * @param {string[]} path
- * @param {URLSearchParams} query
- * @returns {VideoSource | null}
- */
-function readVimeo(host, path, query) {
-  if (host !== "vimeo.com" && host !== "player.vimeo.com") {
-    return null;
-  }
-
-  // A video's own link starts with its id, and a hash after it can be all digits too. A channel's
-  // or showcase's link has the video's id last, with the showcase's own number earlier
-  const idIndex = VIMEO_ID.test(path[0] ?? "") ? 0 : path.findLastIndex((part) => VIMEO_ID.test(part));
-
-  if (idIndex === -1) {
-    return null;
-  }
-
-  const hash = path[idIndex + 1] ?? query.get("h");
-
-  if (hash == null) {
-    return { provider: "vimeo", videoId: path[idIndex] };
-  }
-
-  return VIMEO_HASH.test(hash) ? { provider: "vimeo", videoId: path[idIndex], hash } : null;
-}
-
-// Which video a link is to, or null if it isn't one this can read. A link pasted without its
-// https:// is read as if it had it
-/**
- * @param {string} text
- * @returns {VideoSource | null}
- */
-export function readVideoAddress(text) {
-  const trimmed = text.trim();
-
-  /** @type {URL} */
-  let url;
-
-  try {
-    url = new URL(HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`);
-  } catch {
-    return null;
-  }
-
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    return null;
-  }
-
-  const host = url.hostname.replace(/^(www|m|music)\./, "");
-  const path = url.pathname.split("/").filter(Boolean);
-
-  return readYouTube(host, path, url.searchParams) ?? readVimeo(host, path, url.searchParams);
-}
 
 export class VideoAddressDialog extends HTMLElement {
   /** @type {AbortController | null} */
@@ -106,8 +16,8 @@ export class VideoAddressDialog extends HTMLElement {
     const { signal } = this.#listeners;
 
     this.addEventListener("submit", (event) => this.#submit(event), { signal });
-    // the error is about the link as it was, so it goes once the artist changes it
-    this.addEventListener("input", () => (this.#parts().error.hidden = true), { signal });
+    // the messages are about the link as it was, so they go once the artist changes it
+    this.addEventListener("input", () => this.#hideMessages(), { signal });
     // close doesn't bubble, so this listens on the way down
     this.addEventListener("close", () => (this.#onChosen = null), { signal, capture: true });
   }
@@ -121,11 +31,11 @@ export class VideoAddressDialog extends HTMLElement {
    * @param {(source: VideoSource) => void} onChosen
    */
   open(address, onChosen) {
-    const { dialog, field, error } = this.#parts();
+    const { dialog, field } = this.#parts();
 
     this.#onChosen = onChosen;
     field.value = address;
-    error.hidden = true;
+    this.#hideMessages();
     dialog.showModal();
     // so pasting a new link replaces the one being changed
     field.select();
@@ -134,33 +44,99 @@ export class VideoAddressDialog extends HTMLElement {
   // Always prevented, so the dialog is closed here, before the video goes in, and the focus it
   // hands back doesn't land after the cursor is placed
   /** @param {SubmitEvent} event */
-  #submit(event) {
+  async #submit(event) {
     event.preventDefault();
 
-    const { dialog, field, error } = this.#parts();
-    const source = readVideoAddress(field.value);
+    const { dialog, field, submitButton, notAVideo, failed } = this.#parts();
+    const onChosen = this.#onChosen;
+
+    // Enter again while the link is being read
+    if (submitButton.hasAttribute("data-busy")) {
+      return;
+    }
+
+    submitButton.setAttribute("data-busy", "");
+    submitButton.setAttribute("aria-busy", "true");
+
+    /** @type {VideoSource | null} */
+    let source;
+
+    try {
+      source = await this.#readLink(field.value);
+    } catch {
+      failed.hidden = false;
+      return;
+    } finally {
+      submitButton.removeAttribute("data-busy");
+      submitButton.removeAttribute("aria-busy");
+    }
+
+    // closed, or opened again for another embed, while the link was being read
+    if (this.#onChosen !== onChosen) {
+      return;
+    }
 
     if (source === null) {
-      error.hidden = false;
+      notAVideo.hidden = false;
       field.focus();
       return;
     }
 
-    const chosen = this.#onChosen;
     dialog.close();
-    chosen?.(source);
+    onChosen?.(source);
+  }
+
+  // Which video the link is to, or null if it isn't one the server can read. Throws when the
+  // server can't be asked, such as a lost connection or a login that has run out, which answers
+  // with a redirect to the login page
+  /**
+   * @param {string} link
+   * @returns {Promise<VideoSource | null>}
+   */
+  async #readLink(link) {
+    const url = this.dataset.videoLinkUrl;
+
+    if (url === undefined) {
+      throw new Error("The video address dialog is missing its link reader's address.");
+    }
+
+    const response = await fetch(`${url}?${new URLSearchParams({ link })}`, { redirect: "error" });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Reading the video link failed with ${response.status}.`);
+    }
+
+    return response.json();
+  }
+
+  #hideMessages() {
+    const { notAVideo, failed } = this.#parts();
+    notAVideo.hidden = true;
+    failed.hidden = true;
   }
 
   #parts() {
     const dialog = this.querySelector("dialog");
     const field = this.querySelector('input[data-part="address"]');
-    const error = this.querySelector('[data-part="error"]');
+    const submitButton = this.querySelector('button[type="submit"]');
+    const notAVideo = this.querySelector('[data-part="not-a-video"]');
+    const failed = this.querySelector('[data-part="failed"]');
 
-    if (!(dialog instanceof HTMLDialogElement) || !(field instanceof HTMLInputElement) || !(error instanceof HTMLElement)) {
-      throw new Error("The video address dialog is missing its dialog, field or error message.");
+    if (
+      !(dialog instanceof HTMLDialogElement) ||
+      !(field instanceof HTMLInputElement) ||
+      !(submitButton instanceof HTMLButtonElement) ||
+      !(notAVideo instanceof HTMLElement) ||
+      !(failed instanceof HTMLElement)
+    ) {
+      throw new Error("The video address dialog is missing its dialog, field, button or messages.");
     }
 
-    return { dialog, field, error };
+    return { dialog, field, submitButton, notAVideo, failed };
   }
 }
 

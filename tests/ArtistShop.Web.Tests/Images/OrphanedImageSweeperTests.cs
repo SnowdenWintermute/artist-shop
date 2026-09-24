@@ -1,6 +1,7 @@
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Tests.Database;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,6 +45,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _sweeper = new OrphanedImageSweeper(
             _imageStorage,
             new ArtworkImageRepository(database.DataSource),
+            new PostRepository(database.DataSource),
             new OrphanedImageSweepSettings { GracePeriod = GracePeriod, Interval = TimeSpan.FromDays(1) },
             _time,
             NullLogger<OrphanedImageSweeper>.Instance
@@ -91,6 +93,27 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     }
 
     [Fact]
+    public async Task KeepsUploadAPostNamesOlderThanGracePeriod()
+    {
+        var storageKey = await UploadImageAsync();
+        await new PostRepository(_database.DataSource).AddAsync(
+            new PostTitle($"Sweeper test post {storageKey}"),
+            PostSlug.FromTitle($"Sweeper test post {storageKey}"),
+            new PostBody(
+                """{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600}}},{"insert":"\n"}]}"""
+                    .Replace("KEY", storageKey)
+            ),
+            PostStatus.Draft
+        );
+
+        _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
+        await _sweeper.SweepAsync();
+
+        Assert.True(_imageStorage.OriginalExists(storageKey));
+        Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
+    }
+
+    [Fact]
     public async Task LeavesFilesNotNamedLikeUploadsAlone()
     {
         var strayFilePath = Path.Combine(_imageStorage.Originals, "notes.txt");
@@ -111,7 +134,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
         // TestContext.Current.CancellationToken is cancelled if the test run is stopped or times
         // out; xUnit's analyzer asks for it wherever a method accepts a cancellation token
-        var stored = await _uploadStore.SaveAsync(content, TestContext.Current.CancellationToken);
+        var stored = await _uploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
         return stored.StorageKey;
     }
 

@@ -1,4 +1,19 @@
-const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
+export const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
+
+// the page's antiforgery token, which an upload sends along as a form field
+export function antiforgeryToken() {
+  const input = document.querySelector(`input[name="${REQUEST_VERIFICATION_TOKEN_INPUT_NAME}"]`);
+  return input instanceof HTMLInputElement ? input.value : "";
+}
+
+// the upload endpoints answer a turned-away file with a short plain-text message for the artist
+/** @param {XMLHttpRequest} request */
+export function uploadErrorMessage(request) {
+  const contentType = request.getResponseHeader("Content-Type") ?? "";
+  const isPlainMessage = contentType.startsWith("text/plain") && request.responseText.length <= 300;
+
+  return isPlainMessage ? request.responseText : `Upload failed (${request.status}).`;
+}
 
 /**
  * FileDropZoneFrame's script opens the picker and handles drops, so both arrive here as "change"
@@ -36,13 +51,6 @@ export function createUploader(
       announce(fileInput.files);
     }
     fileInput.value = "";
-  }
-
-  function antiforgeryToken() {
-    const input = document.querySelector(
-      `input[name="${REQUEST_VERIFICATION_TOKEN_INPUT_NAME}"]`
-    );
-    return input instanceof HTMLInputElement ? input.value : "";
   }
 
   /** @param {string} id */
@@ -83,7 +91,7 @@ export function createUploader(
           .catch((error) => console.error("OnUploadCompleted failed", error));
       } else {
         dotNetReference
-          .invokeMethodAsync("OnUploadFailed", id, errorMessageFrom(request))
+          .invokeMethodAsync("OnUploadFailed", id, uploadErrorMessage(request))
           .catch((error) => console.error("OnUploadFailed failed", error));
       }
     });
@@ -110,18 +118,6 @@ export function createUploader(
   /** @param {string} id */
   function abort(id) {
     inFlightRequests.get(id)?.abort();
-  }
-
-  /** @param {XMLHttpRequest} request */
-  function errorMessageFrom(request) {
-    const contentType = request.getResponseHeader("Content-Type") ?? "";
-    const isPlainMessage =
-      contentType.startsWith("text/plain") &&
-      request.responseText.length <= 300;
-
-    return isPlainMessage
-      ? request.responseText
-      : `Upload failed (${request.status}).`;
   }
 
   fileInput.addEventListener("change", onChange);

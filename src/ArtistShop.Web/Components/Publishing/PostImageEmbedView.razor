@@ -1,0 +1,21 @@
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  [Parameter, EditorRequired]
+  public PostImageEmbedBlock Embed { get; set; } = default!;
+
+  // as the artist ticked it, and only when there's a wider version than the size shows: a
+  // lightbox would otherwise just blow up the same file
+  public static bool OpensLightbox(PostImageEmbedBlock embed) =>
+    embed.OpensLightbox && ImageVariants.LargestWidthFor(embed.Width) > ImageVariants.EmbedWidth(embed.Size);
+
+  private string? LightboxSourceSet =>
+    OpensLightbox(Embed)
+      ? ImageUrls.SourceSet(Embed.StorageKey, Embed.Width, ImageVariants.MainImageWidth, ImageVariantFormat.Avif)
+      : null;
+}
+
+<EmbedFigure Layout="Embed.Layout" Size="Embed.Size" Src="@ImageUrls.PostImageVariant(Embed.StorageKey, Embed.Width, Embed.Size)"
+             Alt="@Embed.Alt" ImageWidth="Embed.Width" ImageHeight="Embed.Height" BlurDataUri="@Embed.BlurDataUri"
+             Caption="@Embed.Caption" Href="@null" LightboxSourceSet="@LightboxSourceSet" />

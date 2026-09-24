@@ -5,6 +5,17 @@ import {
   attachArtworkPicker,
   registerArtworkEmbed,
 } from "./PostArtworkEmbed.razor.js";
+import {
+  IMAGE_EMBED,
+  UPLOAD_PLACEHOLDER,
+  acceptedImageTypes,
+  addPostImageEmbed,
+  attachPostImageEmbedToolbar,
+  createImagePicker,
+  createImageUploads,
+  isUploadPlaceholder,
+  registerPostImageEmbed,
+} from "./PostImageEmbed.razor.js";
 import { VIDEO_EMBED, addVideoEmbed, attachVideoEmbedToolbar, registerVideoEmbed } from "./PostVideoEmbed.razor.js";
 import { VideoAddressDialog } from "./VideoAddressDialog.razor.js";
 
@@ -19,6 +30,8 @@ const FORMATS = [
   "list",
   "blockquote",
   ARTWORK_EMBED,
+  IMAGE_EMBED,
+  UPLOAD_PLACEHOLDER,
   VIDEO_EMBED,
 ];
 
@@ -27,7 +40,7 @@ const TOOLBAR = [
   ["bold", "italic", "underline", "link"],
   [{ list: "ordered" }, { list: "bullet" }],
   ["blockquote"],
-  [ARTWORK_EMBED, VIDEO_EMBED],
+  [ARTWORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
   ["clean"],
 ];
 
@@ -117,11 +130,16 @@ customElements.define(
     async connectedCallback() {
       const input = this.querySelector('input[type="hidden"]');
       const artworkToolbar = this.querySelector('[data-part="artwork-embed-toolbar"]');
+      const imageToolbar = this.querySelector('[data-part="image-embed-toolbar"]');
+      const imageFileInput = this.querySelector('input[data-part="image-file"]');
       const videoToolbar = this.querySelector('[data-part="video-embed-toolbar"]');
       const artworkPicker = this.querySelector('dialog[data-part="artwork-picker"]');
       const quillSource = this.dataset.quillSrc;
 
-      // Moving the element in the page connects it again, and Quill is already in it
+      // Only a move would connect this element again, and Blazor never moves one: it keeps a
+      // data-permanent element where it is (checked in blazor.web.js, .NET 10.0.11). This only
+      // stops a second Quill if something else ever does; that would also need the listeners
+      // disconnectedCallback drops attached again
       if (this.#isMounted) {
         return;
       }
@@ -129,16 +147,21 @@ customElements.define(
       if (
         !(input instanceof HTMLInputElement) ||
         !(artworkToolbar instanceof HTMLElement) ||
+        !(imageToolbar instanceof HTMLElement) ||
+        !(imageFileInput instanceof HTMLInputElement) ||
         !(videoToolbar instanceof HTMLElement) ||
         !(artworkPicker instanceof HTMLDialogElement) ||
         quillSource === undefined
       ) {
-        throw new Error("The post body editor is missing its input, an embed toolbar, the artwork picker or Quill's address.");
+        throw new Error(
+          "The post body editor is missing its input, an embed toolbar, the image file input, the artwork picker or Quill's address."
+        );
       }
 
       this.#isMounted = true;
       await loadQuill(quillSource, () => {
         registerArtworkEmbed(artworkToolbar);
+        registerPostImageEmbed(imageToolbar);
         registerVideoEmbed(videoToolbar);
       });
 
@@ -154,6 +177,7 @@ customElements.define(
 
       this.#listeners = new AbortController();
       const picker = attachArtworkPicker(artworkPicker, this.#listeners.signal);
+      const imagePicker = createImagePicker(imageFileInput);
 
       const quill = new Quill(editingArea, {
         theme: "snow",
@@ -164,11 +188,23 @@ customElements.define(
             // only ever called once quill below is set
             handlers: {
               [ARTWORK_EMBED]: () => addArtworkEmbed(quill, picker),
+              [IMAGE_EMBED]: () => addPostImageEmbed(quill, imagePicker, imageUploads),
               [VIDEO_EMBED]: () => addVideoEmbed(quill, videoToolbar, this.#videoAddressDialog()),
             },
           },
+          // Quill's own drop and paste handling, which hands over the files of a type it takes.
+          // Its default puts each image in the Delta as a data: address. Also only ever called
+          // once imageUploads below is set
+          // Only the artist's own edits are undone. Anything else, such as an upload's placeholder
+          // coming and going, is left out, and the steps kept are adjusted around it
+          history: { userOnly: true },
+          uploader: {
+            mimetypes: acceptedImageTypes(imageToolbar),
+            handler: (range, files) => imageUploads.insert(range.index, files),
+          },
         },
       });
+      const imageUploads = createImageUploads(quill, imageToolbar);
 
       // the post page's text width, so the artist sees the lines and wrapping the page will show
       quill.root.classList.add(...(this.dataset.columnClass ?? "").split(" ").filter(Boolean));
@@ -176,6 +212,7 @@ customElements.define(
       // Quill draws its own buttons' icons and leaves ours empty
       for (const [embedName, text, label] of [
         [ARTWORK_EMBED, "Artwork", "Add an artwork"],
+        [IMAGE_EMBED, "Image", "Upload an image"],
         [VIDEO_EMBED, "Video", "Add a video"],
       ]) {
         const button = quill.getModule("toolbar").container.querySelector(`.ql-${embedName}`);
@@ -190,14 +227,20 @@ customElements.define(
       quill.setContents(JSON.parse(input.value), "silent");
 
       // Written on every change rather than on submit, so the order of submit listeners never
-      // matters. The input event tells the page the form changed, as typing in a field would
+      // matters. The input event tells the page the form changed, as typing in a field would.
+      // An upload's placeholder is left out, so a save while it uploads never stores one
       quill.on("text-change", () => {
-        input.value = JSON.stringify(quill.getContents());
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        const json = JSON.stringify({ ops: quill.getContents().ops.filter((op) => !isUploadPlaceholder(op)) });
+
+        if (json !== input.value) {
+          input.value = json;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
       });
 
       this.#labelEditingArea(input, quill, this.#listeners.signal);
       attachArtworkEmbedToolbar(quill, artworkToolbar, picker, this.#listeners.signal);
+      attachPostImageEmbedToolbar(quill, imageToolbar, imagePicker, imageUploads, this.#listeners.signal);
       attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), this.#listeners.signal);
       this.#mounted.resolve(quill);
     }
@@ -214,9 +257,6 @@ customElements.define(
       this.#listeners?.abort();
     }
 
-    // The field's label points at the hidden input, which can't take focus or be read out. The
-    // label is found now, because enhanced navigation gives it a new "for" that no longer matches
-    // the input it kept
     // Looked up each time, not kept: it's outside this element, so an enhanced navigation can
     // replace it where it can't replace this
     #videoAddressDialog() {
@@ -229,6 +269,9 @@ customElements.define(
       return dialog;
     }
 
+    // The field's label points at the hidden input, which can't take focus or be read out. The
+    // label is found now, because enhanced navigation gives it a new "for" that no longer matches
+    // the input it kept
     /**
      * @param {HTMLInputElement} input
      * @param {Quill} quill

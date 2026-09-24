@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 
@@ -15,12 +16,18 @@
     ArtworkImages.TryGetValue(embed.StorageKey, out var source) && source.ArtworkId == embed.ArtworkId
       ? source
       : null;
+
+  private bool HasLightboxImages =>
+    Document.Blocks.OfType<PostImageEmbedBlock>().Any(PostImageEmbedView.OpensLightbox);
 }
 
 @* Spacing follows the editor, where every line sits directly below the last and a gap is an
    empty line the artist left. whitespace-pre-wrap keeps runs of spaces, as the editor does.
    flow-root keeps a floated embed inside the post, rather than hanging below its end.
-   break-words is the editor's own word-wrap, so a word too long for the line breaks here too *@
+   break-words is the editor's own word-wrap, so a word too long for the line breaks here too.
+   <post-document>, from PostDocumentView.razor.js, opens the lightbox on the images that do,
+   stepping through all of them *@
+<post-document class="block">
 <div class="flow-root break-words whitespace-pre-wrap">
   @foreach (var block in Document.Blocks)
   {
@@ -64,9 +71,19 @@
         <ArtworkEmbedView Embed="embed" Source="source" />
         break;
 
+      case PostImageEmbedBlock image:
+        <PostImageEmbedView Embed="image" />
+        break;
+
       case VideoEmbedBlock video:
         <VideoEmbedView Embed="video" />
         break;
     }
   }
 </div>
+
+@if (HasLightboxImages)
+{
+  <ImageLightbox />
+}
+</post-document>

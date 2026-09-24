@@ -1,5 +1,6 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
+using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
@@ -195,5 +196,8 @@ app.MapAdditionalIdentityEndpoints();
 
 // image endpoints
 app.MapImageUploadEndpoints();
+
+// post editor endpoints
+app.MapVideoLinkEndpoints();
 
 app.Run();

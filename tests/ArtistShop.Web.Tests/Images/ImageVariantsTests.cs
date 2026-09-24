@@ -1,3 +1,4 @@
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
 
 namespace ArtistShop.Web.Tests.Images;
@@ -17,12 +18,54 @@ public sealed class ImageVariantsTests
         Assert.Equal(expected, ImageVariants.LargestWidthUpTo(imageWidth, wantedWidth));
     }
 
-    // narrower than the smallest variant. ImageProcessor turns an upload like this away long
-    // before here, against MinimumSourceWidth, which is wider still
-    [Fact]
-    public void AnImageNarrowerThanEveryVariantHasNone()
+    // only a post takes an image this narrow
+    [Theory]
+    [InlineData(120, new[] { 120 })]
+    [InlineData(160, new[] { 160 })]
+    [InlineData(300, new[] { 160, 300 })]
+    [InlineData(400, new[] { 160, 400 })]
+    [InlineData(1000, new[] { 160, 400, 800 })]
+    public void AnImageNarrowerThanTheMediumEmbedAlsoHasItsOwnWidth(int imageWidth, int[] expected)
     {
-        Assert.Throws<InvalidOperationException>(() => ImageVariants.LargestWidthUpTo(120, 800));
+        Assert.Equal(expected, ImageVariants.WidthsFor(imageWidth));
+    }
+
+    // the rule PostImageEmbed.razor.js decides whether the lightbox checkbox is on by
+    [Theory]
+    [InlineData(1)]
+    [InlineData(120)]
+    [InlineData(160)]
+    [InlineData(300)]
+    [InlineData(399)]
+    [InlineData(400)]
+    [InlineData(799)]
+    [InlineData(800)]
+    [InlineData(5000)]
+    public void AnImagesWidestFileIsItsOwnWidthUnderMediumAndOtherwiseTheWidestStandardOneItReaches(int imageWidth)
+    {
+        var expected =
+            imageWidth < ImageVariants.EmbedWidth(EmbedImageSize.Medium)
+                ? imageWidth
+                : ImageVariants.Widths.Where(width => width <= imageWidth).Max();
+
+        Assert.Equal(expected, ImageVariants.LargestWidthFor(imageWidth));
+    }
+
+    // the rule PostImageEmbed.razor.js picks a post image's file by
+    [Theory]
+    [InlineData(1)]
+    [InlineData(120)]
+    [InlineData(160)]
+    [InlineData(300)]
+    [InlineData(400)]
+    [InlineData(5000)]
+    public void APostImagesEmbedShowsTheNarrowerOfItsSizeAndItsOwnWidth(int imageWidth)
+    {
+        foreach (var size in Enum.GetValues<EmbedImageSize>())
+        {
+            var embedWidth = ImageVariants.EmbedWidth(size);
+            Assert.Equal(Math.Min(embedWidth, imageWidth), ImageVariants.LargestWidthUpTo(imageWidth, embedWidth));
+        }
     }
 
     [Fact]

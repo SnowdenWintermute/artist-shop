@@ -1,6 +1,8 @@
 namespace ArtistShop.Web.Components.Publishing;
 
+using System.Globalization;
 using ArtistShop.Web.Domain.Publishing;
+using ArtistShop.Web.Images;
 
 // How an embed sits in the text, for the post page and the editor alike: the editor's toolbar
 // hands these to the editor's script, so what the artist sees while writing is what gets published.
@@ -22,6 +24,11 @@ public static class EmbedLayoutClasses
     // wrapped beside it. aspect-video gives it its height, since a player has none of its own
     public static string VideoFor(EmbedLayout layout) =>
         layout is EmbedLayout.FloatLeft or EmbedLayout.FloatRight
-            ? "aspect-video w-full sm:w-[400px]"
+            ? "aspect-video w-full sm:w-(--wrapped-video-width)"
             : "aspect-video w-full";
+
+    // goes on the player with VideoFor's classes. A variable, since a class can't be built from
+    // a number at run time and Tailwind only sees the classes written out in the source
+    public static readonly string VideoStyle =
+        $"--wrapped-video-width: {ImageVariants.EmbedWidth(EmbedImageSize.Medium).ToString(CultureInfo.InvariantCulture)}px";
 }

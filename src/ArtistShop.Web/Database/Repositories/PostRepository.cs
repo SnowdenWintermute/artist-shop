@@ -12,6 +12,16 @@ public class PostRepository(NpgsqlDataSource dataSource)
     private static bool IsSlugTaken(PostgresException exception) =>
         SqlErrors.IsUniqueConstraintViolation(exception, UniqueSlugConstraint);
 
+    // the images uploaded into posts, which live only in the bodies, for the orphan sweep
+    public async Task<HashSet<string>> GetAllImageStorageKeysAsync()
+    {
+        await using var connection = dataSource.CreateConnection();
+
+        var storageKeys = await connection.QueryAsync<string>("SELECT * FROM get_all_post_image_storage_keys()");
+
+        return [.. storageKeys];
+    }
+
     public async Task<Post?> GetAsync(PostId id)
     {
         await using var connection = dataSource.CreateConnection();

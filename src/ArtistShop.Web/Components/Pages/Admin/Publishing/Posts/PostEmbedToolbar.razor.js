@@ -13,6 +13,21 @@ function loadFloatingUi(src) {
   return floatingUiLoaded;
 }
 
+// one of the data- attributes the server renders onto a kind's toolbar, such as an image address
+/**
+ * @param {HTMLElement} toolbar
+ * @param {string} name
+ */
+export function readToolbarSetting(toolbar, name) {
+  const setting = toolbar.dataset[name];
+
+  if (setting === undefined) {
+    throw new Error(`The ${toolbar.dataset.part ?? "embed toolbar"} is missing its ${name}.`);
+  }
+
+  return setting;
+}
+
 /**
  * The open embed, as a kind's button handler sees it
  * @template V
@@ -20,8 +35,9 @@ function loadFloatingUi(src) {
  * @property {V} value
  * @property {(change: Partial<V>) => void} update swaps in the changed embed and keeps the toolbar
  *   open on it
- * @property {(change: Partial<V>) => void} replace swaps in the changed embed with the toolbar left
- *   closed, such as when a dialog answers later. Does nothing if an edit has removed the embed since
+ * @property {(change: Partial<V>) => void} replace swaps in the changed embed when an answer comes
+ *   later, such as from a dialog or an upload. The toolbar stays on it if it's still open there;
+ *   otherwise it's left as it is. Does nothing if an edit has removed the embed since
  */
 
 /**
@@ -156,7 +172,14 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
       value: kind.readValue(node),
       update: (change) => update(node, change),
       replace: (change) => {
-        replace(node, change);
+        // a dialog closes the toolbar, but the file picker doesn't, and an open toolbar that
+        // had let go of its embed would have buttons that did nothing
+        const wasOpenOnIt = embed === node && toolbar.matches(":popover-open");
+        const replacement = replace(node, change);
+
+        if (wasOpenOnIt && replacement !== null) {
+          open(replacement);
+        }
       },
     };
 

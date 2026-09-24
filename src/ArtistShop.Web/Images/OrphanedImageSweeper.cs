@@ -16,6 +16,7 @@ public sealed record OrphanedImageSweepSettings
 public class OrphanedImageSweeper(
     ImageStorage imageStorage,
     ArtworkImageRepository imageRepository,
+    PostRepository postRepository,
     OrphanedImageSweepSettings settings,
     TimeProvider timeProvider,
     // labels messages about this class with the class's
@@ -34,7 +35,9 @@ public class OrphanedImageSweeper(
             return;
         }
 
+        // an artwork's images, and the ones uploaded into posts
         var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
+        referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
 
         var deletedCount = 0;
         foreach (var storageKey in candidateKeys)

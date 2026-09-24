@@ -26,6 +26,21 @@ public record ArtworkEmbedBlock(
     string? Caption
 ) : PostBlock;
 
+// An image uploaded into the post. Width and Height are the upload's own, which may be narrower
+// than the size picked. Alt is empty when the artist cleared it. OpensLightbox is what the artist
+// ticked; the page also needs a version wider than the size before a click opens one
+public record PostImageEmbedBlock(
+    string StorageKey,
+    int Width,
+    int Height,
+    string? BlurDataUri,
+    EmbedImageSize Size,
+    EmbedLayout Layout,
+    string? Caption,
+    string Alt,
+    bool OpensLightbox
+) : PostBlock;
+
 public record VideoEmbedBlock(VideoSource Source, EmbedLayout Layout) : PostBlock;
 
 // which site plays the video, and what that site needs to find it

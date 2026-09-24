@@ -39,11 +39,37 @@ public sealed class ImageUploadStoreTests : IDisposable
         var store = CreateStore(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings);
         using var content = CreateJpeg(800, 600);
 
-        var stored = await store.SaveAsync(content, TestContext.Current.CancellationToken);
+        var stored = await store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
 
         Assert.True(_imageStorage.OriginalExists(stored.StorageKey));
         Assert.True(File.Exists(Path.Combine(_imageStorage.VariantDirectory(stored.StorageKey), "800.webp")));
         Assert.Equal(800, stored.Processed.Width);
+    }
+
+    [Fact]
+    public async Task RejectsAndDeletesAnArtworkImageNarrowerThanTheMinimum()
+    {
+        var store = CreateStore(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings);
+        using var content = CreateJpeg(300, 200);
+
+        await Assert.ThrowsAsync<ImageTooSmallException>(() =>
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
+        );
+        AssertNothingStored();
+    }
+
+    [Fact]
+    public async Task StoresASmallPostImageWithACopyAtItsOwnWidth()
+    {
+        var store = CreateStore(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings);
+        using var content = CreateJpeg(300, 200);
+
+        var stored = await store.SaveAsync(content, ImageVariants.MinimumPostImageWidth, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["160.avif", "160.webp", "300.avif", "300.webp"],
+            Directory.EnumerateFiles(_imageStorage.VariantDirectory(stored.StorageKey)).Select(Path.GetFileName).Order()
+        );
     }
 
     [Fact]
@@ -54,7 +80,7 @@ public sealed class ImageUploadStoreTests : IDisposable
         using var content = CreateJpeg(1500, 1000);
 
         await Assert.ThrowsAsync<ImageTooLargeException>(() =>
-            store.SaveAsync(content, TestContext.Current.CancellationToken)
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
         );
         AssertNothingStored();
     }
@@ -71,7 +97,7 @@ public sealed class ImageUploadStoreTests : IDisposable
         using var content = CreateJpeg(800, 600);
 
         await Assert.ThrowsAsync<ImageTooLargeException>(() =>
-            store.SaveAsync(content, TestContext.Current.CancellationToken)
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
         );
         AssertNothingStored();
     }
@@ -89,7 +115,7 @@ public sealed class ImageUploadStoreTests : IDisposable
         using var otherImage = await limiter.AcquireAsync(1, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<ImageProcessingBusyException>(() =>
-            store.SaveAsync(content, TestContext.Current.CancellationToken)
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
         );
         AssertNothingStored();
     }
@@ -102,7 +128,7 @@ public sealed class ImageUploadStoreTests : IDisposable
         await using var content = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Images", "Fixtures", "sample.heic"));
 
         var exception = await Assert.ThrowsAsync<UnsupportedImageFormatException>(() =>
-            store.SaveAsync(content, TestContext.Current.CancellationToken)
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
         );
         Assert.Equal(ImageProcessor.UnsupportedHeicMessage, exception.Message);
         AssertNothingStored();
@@ -115,7 +141,7 @@ public sealed class ImageUploadStoreTests : IDisposable
         using var content = new MemoryStream("not an image"u8.ToArray());
 
         await Assert.ThrowsAsync<VipsException>(() =>
-            store.SaveAsync(content, TestContext.Current.CancellationToken)
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
         );
         AssertNothingStored();
     }

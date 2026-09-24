@@ -32,10 +32,13 @@ public static class ImageUploadEndpoints
     private const string UnreadableImageMessage =
         "We couldn't read this file as an image. It may be damaged, or in a format we don't support.";
 
+    // the post editor's script sends its images here
+    public const string PostImageUploadPath = "/admin/uploads/post-image";
+
     public static void MapImageUploadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints
-            .MapPost("/admin/uploads", UploadAsync)
+            .MapPost("/admin/uploads", UploadArtworkImageAsync)
             // replaces Kestrel's default 30 MB limit for this endpoint only
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
             .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
@@ -46,12 +49,41 @@ public static class ImageUploadEndpoints
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
             .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
             .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
+
+        endpoints
+            .MapPost(PostImageUploadPath, UploadPostImageAsync)
+            .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
+            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
+            .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
     }
+
+    private static Task<
+        Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
+    > UploadArtworkImageAsync(
+        IFormFile file, // binds the form field named "file", the names must match
+        ImageUploadStore imageUploadStore,
+        HttpResponse response,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken
+    ) =>
+        UploadAsync(file, ImageVariants.MinimumSourceWidth, imageUploadStore, response, loggerFactory, cancellationToken);
+
+    private static Task<
+        Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
+    > UploadPostImageAsync(
+        IFormFile file,
+        ImageUploadStore imageUploadStore,
+        HttpResponse response,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken
+    ) =>
+        UploadAsync(file, ImageVariants.MinimumPostImageWidth, imageUploadStore, response, loggerFactory, cancellationToken);
 
     private static async Task<
         Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
     > UploadAsync(
-        IFormFile file, // binds the form field named "file", the names must match
+        IFormFile file,
+        int minimumWidth,
         ImageUploadStore imageUploadStore,
         HttpResponse response,
         ILoggerFactory loggerFactory,
@@ -67,7 +99,7 @@ public static class ImageUploadEndpoints
         {
             // OpenReadStream reads the uploaded bytes as a stream rather than all at once
             await using var content = file.OpenReadStream();
-            var stored = await imageUploadStore.SaveAsync(content, cancellationToken);
+            var stored = await imageUploadStore.SaveAsync(content, minimumWidth, cancellationToken);
             return TypedResults.Ok(
                 new ImageUploadResult(
                     stored.StorageKey,
@@ -126,7 +158,7 @@ public static class ImageUploadEndpoints
         try
         {
             await using var content = file.OpenReadStream();
-            var stored = await imageUploadStore.SaveAsync(content, cancellationToken);
+            var stored = await imageUploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, cancellationToken);
 
             try
             {

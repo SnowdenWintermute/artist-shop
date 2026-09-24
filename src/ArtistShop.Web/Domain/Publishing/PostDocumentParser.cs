@@ -13,6 +13,7 @@ public static partial class PostDocumentParser
     // the names the editor registers its embeds under. Prefixed so they can't be mistaken for, or
     // collide with, one of Quill's own formats. set_post_artworks reads the artwork one too
     private const string ArtworkEmbedName = "artshop-artwork";
+    private const string PostImageEmbedName = "artshop-image";
     private const string VideoEmbedName = "artshop-video";
 
     public static PostDocument Parse(PostBody body)
@@ -153,18 +154,47 @@ public static partial class PostDocumentParser
             return new ArtworkEmbedBlock(
                 new ArtworkId(artworkId),
                 storageKey,
-                GetString(artwork, "size") is "small" ? EmbedImageSize.Small : EmbedImageSize.Medium,
+                ReadSize(artwork),
                 EmbedLayoutNames.Parse(GetString(artwork, "layout")),
-                // stored as typed, so the editor never trims a space from under the artist's cursor
-                GetString(artwork, "caption") is { } caption && !string.IsNullOrWhiteSpace(caption)
-                    ? caption.Trim()
-                    : null
+                ReadCaption(artwork)
+            );
+        }
+
+        if (insert.TryGetProperty(PostImageEmbedName, out var image) && image.ValueKind is JsonValueKind.Object)
+        {
+            var storageKey = GetString(image, "storageKey");
+
+            if (
+                storageKey is null
+                || !StorageKeyPattern().IsMatch(storageKey)
+                || GetInt(image, "width") is not (> 0 and var width)
+                || GetInt(image, "height") is not (> 0 and var height)
+            )
+            {
+                return null;
+            }
+
+            // A style's url(), so it must be exactly the processor's kind of blur. One that isn't
+            // loses only the blur
+            var blur = GetString(image, "blur");
+
+            return new PostImageEmbedBlock(
+                storageKey,
+                width,
+                height,
+                blur is { Length: <= MaximumBlurLength } && BlurPattern().IsMatch(blur) ? blur : null,
+                ReadSize(image),
+                EmbedLayoutNames.Parse(GetString(image, "layout")),
+                ReadCaption(image),
+                GetString(image, "alt")?.Trim() ?? "",
+                IsTrue(image, "lightbox")
             );
         }
 
         if (insert.TryGetProperty(VideoEmbedName, out var video) && video.ValueKind is JsonValueKind.Object)
         {
-            return ReadVideoSource(video) is { } source
+            return VideoSources.FromParts(GetString(video, "provider"), GetString(video, "videoId"), GetString(video, "hash"))
+                is { } source
                 ? new VideoEmbedBlock(source, EmbedLayoutNames.Parse(GetString(video, "layout")))
                 : null;
         }
@@ -172,18 +202,12 @@ public static partial class PostDocumentParser
         return null;
     }
 
-    // Every part becomes part of a player's address, so each must have its site's exact shape. A
-    // malformed hash drops the video rather than the hash, since Vimeo won't play it without one
-    private static VideoSource? ReadVideoSource(JsonElement video) =>
-        (GetString(video, "provider"), GetString(video, "videoId"), GetString(video, "hash")) switch
-        {
-            ("youtube", { } id, _) when YouTubeVideoIdPattern().IsMatch(id) => new YouTubeVideo(id),
-            ("vimeo", { } id, null) when VimeoVideoIdPattern().IsMatch(id) => new VimeoVideo(id, null),
-            ("vimeo", { } id, { } unlistedHash)
-                when VimeoVideoIdPattern().IsMatch(id) && VimeoHashPattern().IsMatch(unlistedHash) =>
-                new VimeoVideo(id, unlistedHash),
-            _ => null,
-        };
+    private static EmbedImageSize ReadSize(JsonElement embed) =>
+        GetString(embed, "size") is "small" ? EmbedImageSize.Small : EmbedImageSize.Medium;
+
+    // stored as typed, so the editor never trims a space from under the artist's cursor
+    private static string? ReadCaption(JsonElement embed) =>
+        GetString(embed, "caption") is { } caption && !string.IsNullOrWhiteSpace(caption) ? caption.Trim() : null;
 
     private static ListStyle? ReadListStyle(string? value) =>
         value switch
@@ -237,14 +261,9 @@ public static partial class PostDocumentParser
     [GeneratedRegex(@"^[0-9a-f]{32}\z")]
     private static partial Regex StorageKeyPattern();
 
-    // every YouTube video id is eleven of these characters
-    [GeneratedRegex(@"^[A-Za-z0-9_-]{11}\z")]
-    private static partial Regex YouTubeVideoIdPattern();
+    // what ImageProcessor makes, in no more room than artwork_images.blur_data_uri gives it
+    private const int MaximumBlurLength = 1000;
 
-    // VideoAddressDialog.razor.js reads links with the same two patterns
-    [GeneratedRegex(@"^[0-9]{1,12}\z")]
-    private static partial Regex VimeoVideoIdPattern();
-
-    [GeneratedRegex(@"^[A-Za-z0-9]{1,32}\z")]
-    private static partial Regex VimeoHashPattern();
+    [GeneratedRegex(@"^data:image/webp;base64,[A-Za-z0-9+/]+={0,2}\z")]
+    private static partial Regex BlurPattern();
 }

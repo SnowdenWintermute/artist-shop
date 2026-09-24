@@ -1,7 +1,7 @@
 // The video embed: a YouTube or Vimeo player on a line of its own. The Delta holds only which video
 // it is and where it sits, and the public page builds the player's address from those.
 // Imported by PostBodyEditor.razor.js; nothing here runs until an editor calls it
-import { attachEmbedToolbar } from "./PostEmbedToolbar.razor.js";
+import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
 
 // the name Quill stores it under, and the parser reads
 export const VIDEO_EMBED = "artshop-video";
@@ -9,7 +9,7 @@ export const VIDEO_EMBED = "artshop-video";
 const EMBED_CLASS = "artshop-video";
 
 /**
- * Which video, as VideoAddressDialog.razor.js reads it from a link
+ * Which video, as the server's VideoParts names it
  * @typedef {object} VideoSource
  * @property {"youtube" | "vimeo"} provider
  * @property {string} videoId
@@ -37,26 +37,12 @@ function readValue(node) {
   return value;
 }
 
-/**
- * @param {HTMLElement} toolbar
- * @param {string} name
- */
-function readSetting(toolbar, name) {
-  const setting = toolbar.dataset[name];
-
-  if (setting === undefined) {
-    throw new Error(`The video embed toolbar is missing its ${name}.`);
-  }
-
-  return setting;
-}
-
 // A video's addresses, from the templates VideoUrls renders onto the toolbar: its player's, and its
 // own page's, which is also a link the address dialog reads back
 /** @param {HTMLElement} toolbar */
 function videoAddresses(toolbar) {
-  const videoIdPlaceholder = readSetting(toolbar, "videoIdPlaceholder");
-  const hashPlaceholder = readSetting(toolbar, "hashPlaceholder");
+  const videoIdPlaceholder = readToolbarSetting(toolbar, "videoIdPlaceholder");
+  const hashPlaceholder = readToolbarSetting(toolbar, "hashPlaceholder");
 
   /**
    * @param {string} youtube
@@ -79,14 +65,14 @@ function videoAddresses(toolbar) {
 
   return {
     player: addressFrom(
-      readSetting(toolbar, "youtubePlayerUrl"),
-      readSetting(toolbar, "vimeoPlayerUrl"),
-      readSetting(toolbar, "unlistedVimeoPlayerUrl")
+      readToolbarSetting(toolbar, "youtubePlayerUrl"),
+      readToolbarSetting(toolbar, "vimeoPlayerUrl"),
+      readToolbarSetting(toolbar, "unlistedVimeoPlayerUrl")
     ),
     page: addressFrom(
-      readSetting(toolbar, "youtubePageUrl"),
-      readSetting(toolbar, "vimeoPageUrl"),
-      readSetting(toolbar, "unlistedVimeoPageUrl")
+      readToolbarSetting(toolbar, "youtubePageUrl"),
+      readToolbarSetting(toolbar, "vimeoPageUrl"),
+      readToolbarSetting(toolbar, "unlistedVimeoPageUrl")
     ),
   };
 }
@@ -98,10 +84,11 @@ export function registerVideoEmbed(toolbar) {
   const addresses = videoAddresses(toolbar);
 
   // the post page's own classes for each layout, so the editor places a video as the page will
-  const classesByLayout = /** @type {Record<string, string>} */ (JSON.parse(readSetting(toolbar, "layoutClasses")));
+  const classesByLayout = /** @type {Record<string, string>} */ (JSON.parse(readToolbarSetting(toolbar, "layoutClasses")));
   const playerClassesByLayout = /** @type {Record<string, string>} */ (
-    JSON.parse(readSetting(toolbar, "playerClasses"))
+    JSON.parse(readToolbarSetting(toolbar, "playerClasses"))
   );
+  const playerStyle = readToolbarSetting(toolbar, "playerStyle");
 
   /** @param {string | undefined} classes */
   const classList = (classes) => (classes ?? "").split(" ").filter(Boolean);
@@ -131,6 +118,7 @@ export function registerVideoEmbed(toolbar) {
       // the frame is sized as the page sizes the player, and the player fills it
       const frame = document.createElement("div");
       frame.classList.add(...classList(playerClassesByLayout[value.layout]));
+      frame.setAttribute("style", playerStyle);
 
       const player = document.createElement("iframe");
       player.src = addresses.player(value);
@@ -171,7 +159,7 @@ export function registerVideoEmbed(toolbar) {
  */
 export function addVideoEmbed(quill, toolbar, dialog) {
   const { index } = quill.getSelection(true);
-  const layout = readSetting(toolbar, "newLayout");
+  const layout = readToolbarSetting(toolbar, "newLayout");
 
   dialog.open("", (source) => {
     quill.insertEmbed(index, VIDEO_EMBED, { ...source, layout }, "user");

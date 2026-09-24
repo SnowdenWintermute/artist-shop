@@ -298,6 +298,74 @@ public class PostDocumentParserTests
         Assert.Equal(expected, Assert.IsType<ArtworkEmbedBlock>(blocks[0]).Caption);
     }
 
+    private const string ImageKey = "0123456789abcdef0123456789abcdef";
+
+    private static IReadOnlyList<PostBlock> ParseImage(string value) =>
+        Parse("""{"ops":[{"insert":{"artshop-image":""" + value + """}},{"insert":"\n"}]}""");
+
+    [Fact]
+    public void ReadsAnUploadedImageEmbed()
+    {
+        var blocks = ParseImage(
+            $$"""{"storageKey":"{{ImageKey}}","width":300,"height":200,"blur":"data:image/webp;base64,UklGRg==","size":"small","layout":"floatLeft","caption":" A pier ","alt":" Sunset ","lightbox":true}"""
+        );
+
+        Assert.Equal(
+            new PostImageEmbedBlock(
+                ImageKey,
+                300,
+                200,
+                "data:image/webp;base64,UklGRg==",
+                EmbedImageSize.Small,
+                EmbedLayout.FloatLeft,
+                "A pier",
+                "Sunset",
+                OpensLightbox: true
+            ),
+            blocks[0]
+        );
+    }
+
+    [Fact]
+    public void AnUploadedImageWithNoAltHasAnEmptyOne()
+    {
+        var blocks = ParseImage($$"""{"storageKey":"{{ImageKey}}","width":300,"height":200}""");
+
+        var image = Assert.IsType<PostImageEmbedBlock>(blocks[0]);
+        Assert.Equal("", image.Alt);
+        Assert.False(image.OpensLightbox);
+        Assert.Null(image.BlurDataUri);
+        Assert.Equal(EmbedImageSize.Medium, image.Size);
+    }
+
+    [Theory]
+    [InlineData("\"storageKey\":\"not-ours\",\"width\":300,\"height\":200")]
+    [InlineData("\"width\":300,\"height\":200")]
+    [InlineData("\"storageKey\":\"" + ImageKey + "\",\"height\":200")]
+    [InlineData("\"storageKey\":\"" + ImageKey + "\",\"width\":0,\"height\":200")]
+    [InlineData("\"storageKey\":\"" + ImageKey + "\",\"width\":300,\"height\":-1")]
+    [InlineData("\"storageKey\":\"" + ImageKey + "\",\"width\":\"300\",\"height\":200")]
+    public void DropsAnUploadedImageMissingItsKeyOrSize(string parts)
+    {
+        var blocks = ParseImage("{" + parts + "}");
+
+        Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
+    }
+
+    // it goes into a style attribute's url(), so anything else could break out of it
+    [Theory]
+    [InlineData("data:image/png;base64,UklGRg==")]
+    [InlineData("data:image/webp;base64,UklGRg==);color:red")]
+    [InlineData("https://example.com/blur.webp")]
+    public void KeepsAnUploadedImageButNotABlurThatIsNotOurs(string blur)
+    {
+        var blocks = ParseImage(
+            $$"""{"storageKey":"{{ImageKey}}","width":300,"height":200,"blur":{{JsonSerializer.Serialize(blur)}}}"""
+        );
+
+        Assert.Null(Assert.IsType<PostImageEmbedBlock>(blocks[0]).BlurDataUri);
+    }
+
     [Fact]
     public void ReadsAYouTubeVideo()
     {

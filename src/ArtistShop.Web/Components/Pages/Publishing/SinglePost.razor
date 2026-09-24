@@ -6,7 +6,9 @@
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Images
 @inject PostRepository PostRepository
+@inject ImageStorage ImageStorage
 @inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
 
@@ -42,7 +44,15 @@
       return;
     }
 
-    var document = PostDocumentParser.Parse(post.Body);
+    var parsed = PostDocumentParser.Parse(post.Body);
+
+    // an uploaded image whose file is gone is left out, as an artwork embed whose image was
+    // deleted is, rather than showing its blur with nothing over it. The post's save refuses one,
+    // but a post saved before that check could still name one
+    var document = parsed with
+    {
+      Blocks = [.. parsed.Blocks.Where(block => block is not PostImageEmbedBlock image || ImageStorage.OriginalExists(image.StorageKey))],
+    };
 
     // every artwork embed's image in one query, however many the post has
     var artworkImages = await ArtworkRepository.GetImagesByStorageKeyAsync(

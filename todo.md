@@ -1,41 +1,36 @@
-# Next: Mike's browser check of the video embed, then the public post list (blog posts)
+# Next: the public post list, `/posts` (blog posts)
 
 Claude writes the blog-post feature and Mike reviews it, as on the Postgres port.
 
-## Where this stands — 2026-09-24
+## Where this stands — 2026-09-24, second session
 
-**Uncommitted, builds, all 355 tests pass; not yet seen in a browser:**
-- **Review fixes to the 2026-09-23 work.** Clear filters compares filters, not addresses
-  (`ArtworkListQuery.ReadAddress` + `ArtworkListFilter.HasSameFiltersAs`, replacing
-  `HasAnyFilter`), since the GET form sends its empty fields and the picker's address never matched
-  again. Also: Floating UI's follow race, missing server-rendered parts throw, and a stale jsonpath
-  comment in `SetArtworks.sql`.
-- **Artwork captions** (Mike, 2026-09-24): an optional Caption field in the artwork embed's
-  toolbar, shown under the image in the editor and on the page. See "Artwork embed" below.
-- **Scroll position on Back/Forward, site-wide** (`wwwroot/js/scroll-restoration.js`, loaded from
-  `App.razor`). Under enhanced navigation the browser restores the position when the address
-  changes, against the page still showing, so it's clamped to that page's height (Mike's console log
-  showed 5745 come back as 224.8). Blazor closed dotnet/aspnetcore#51646 leaving Back to the
-  browser; Mozilla bug 1442958 is the browser side. No library does it for Blazor (Osirion's
-  "EnhancedNavigation" only scrolls to the top). The script takes over (`scrollRestoration =
-  "manual"`), notes the position at `enhancednavigationstart`, restores at `enhancedload` after
-  Back/Forward or a `data-restores-scroll` link, and handles reloads itself. The picker's Back links
-  use it instead of their own map. Mike saw it working on the long post.
-- **The video embed, YouTube and Vimeo** (Mike, 2026-09-24): `artshop-video` replaces the parser's
-  `artshop-youtube`, which no post ever stored. See "Video embed" below.
+**Uncommitted; builds, 413 tests pass, scripts type-check** (`npx -y -p typescript@5 tsc -p
+jsconfig.json` from `src/ArtistShop.Web`, looking only at the files touched: other files have
+older errors). Mike checked the earlier browser list and it passed. This session:
+- **Review fixes to `53d844f`:** the label comment in `PostBodyEditor.razor.js` is back on its
+  method; the caption uses `pt-1`; the wrapped video's width comes from `ImageVariants` through
+  `--wrapped-video-width`; video links are read on the server (`VideoSources`, `GET
+  /admin/video-link`, tests) rather than by the dialog's script; the `post-body-editor`
+  reconnect comment now says Blazor never moves a `data-permanent` element.
+- **The uploaded image embed, `artshop-image`**, built end to end. See item 3 below for the
+  decisions. Seen working over curl: a 120px and a 1200px upload through
+  `/admin/uploads/post-image`, post 4 saved through the form with both, and the post page
+  showing the 120px file stretched to medium and the 160 file for the small one. Mike then
+  tried the editor: Replace image left the toolbar dead (fixed), and the progress moved to a
+  placeholder box shaped like the image and into the toolbar. He was happy with the result.
 
-**Mike to check in the browser:** draft post 4, "Claude video embed check", was last saved through
-the form with a captioned artwork wrapped left, a small one with a blank caption, and a YouTube
-video. Delete it afterwards. Worth trying:
-- the Video button and dialog (a bad link, Enter, Cancel), and the video toolbar's link, Change
-  video (YouTube to unlisted Vimeo and back), three layouts and undo
-- an artwork caption: typing, Enter, undo, clearing it
-- clicking between an artwork and a video embed, and the artwork toolbar still working on the
-  shared one
-- on the admin artwork list and in the picker, Clear filters showing only when clearing changes
-  something
-- Back and Forward keeping the scroll position: the long post, the home page's series cards, the
-  admin list, and the picker's Back links
+**Browser checklist** (post 4, "Claude video embed check", now starts with two uploaded images;
+delete it afterwards):
+- the Image button, one file and several; a drop into the text; a pasted screenshot
+- the placeholder box where a new image will go: its shape matching the image (a TIFF keeps
+  4:3), waiting, progress, a failure (a non-image
+  renamed .png) and Dismiss, deleting it mid-upload, typing above it while a big file uploads,
+  undo after the image lands (one step, no placeholder coming back), Save while one uploads
+- Replace image: progress in the toolbar, and the toolbar's buttons still working afterwards
+  (Mike found them dead; fixed in `PostEmbedToolbar`'s `replace`)
+- the image toolbar: alt text and its ⓘ help, caption, sizes, layouts, wrap, Replace image, undo
+- the artwork embed's toolbar still working, now on the shared `ImageEmbedControls`
+- the Video dialog on a real link and on nonsense
 
 **Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
 `/posts/{slug}` page, the unsaved-edit backup, the artwork embed end to end, and the video embed.
@@ -45,8 +40,42 @@ video. Delete it afterwards. Worth trying:
 1. `/posts`, the public list (newest first, paged), then a nav link.
 2. "Mentioned in" on the artwork page, from `post_and_artworks_junction`, published posts only
    (`PostRepository.GetPublishedMentioningArtworkAsync` exists).
-3. The uploaded-image embed (`postImage`): the `post_images` table, the image pipeline, and the
-   orphan sweeper learning about it.
+3. **Built 2026-09-24**, checked by Mike in the browser: the uploaded-image embed, `artshop-image`.
+   Decided with Mike:
+   - Same upload pipeline and storage keys as artwork images, but **no table**: the embed's Delta
+     value holds `{ storageKey, width, height, blur, size, layout, caption, alt }`, and the orphan
+     sweeper also reads image keys out of post bodies with a jsonpath (as `set_post_artworks`
+     does). Nothing needs a relation to these images.
+   - **Any width may be uploaded** (`ImageVariants.MinimumPostImageWidth`), never enlarged. An
+     image narrower than the medium embed also gets a copy at its own width
+     (`ImageVariants.WidthsFor`), so the file an embed shows is the narrower of the size and the
+     image, which the page and the editor stretch to the size. Artwork uploads keep
+     `MinimumSourceWidth`, so none of them has such a copy.
+   - **Alt text** is a field in the toolbar, filled with the file name without its extension,
+     next to an ⓘ button that shows what alt text is for. Cleared stays cleared.
+   - **Drop and paste** both upload. Quill 2's `uploader` module already hands a drop (at the
+     caret) and a pasted file to one `handler(range, files)`, filtered by `mimetypes`, so our
+     handler replaces its data-URL one. `FileDropZone` isn't the right fit: it's a box, and its
+     uploader talks to a Blazor island; its token and error-message helpers are shared now.
+   - While a new image uploads, a placeholder box (`artshop-image-upload`) stands where it will go,
+     showing progress or the failure (Mike, after trying a status line under Quill's toolbar,
+     which was out of sight). It comes and goes as `"api"` changes, and the editor's history is
+     `userOnly`, so undo only ever sees the finished image. The editor leaves placeholders out of
+     the form's value, so they're never saved or backed up. Replace image shows its progress in
+     the toolbar.
+   - Replace image keeps size, layout, caption and alt.
+   - **A deleted file** (found 2026-09-24: images added to post 4 and saved more than dev's 5
+     minute grace later were swept first, which Mike wants kept as it is, since it found this):
+     saving refuses a post naming an uploaded image whose original is gone
+     (`PostForm.ImagesMissingFrom`, as the artwork form does), and the post page leaves such an
+     image out, as it does an artwork embed whose image was deleted.
+   - **Lightbox** (built 2026-09-24, not yet seen in a browser): an "Open full screen when
+     clicked" checkbox in the image toolbar, off by default and disabled when the upload has no
+     file wider than the size shown (`ImageVariants.LargestWidthFor`, which the script mirrors and
+     a test pins). The page checks the same rule, so a ticked image that a new size or Replace
+     left with nothing wider just isn't clickable. `<post-document>` (`PostDocumentView.razor.js`)
+     hands every such image in the post to the existing `ImageLightbox`, so the visitor steps
+     through them all. Uploaded images only: an artwork embed already links to its page.
 4. Open, small: a `#…` link is still dropped by the parser without a word. Headings have no ids
    to jump to anyway.
 
@@ -136,8 +165,8 @@ closes the other.
 part's exact shape and drops the video otherwise (`VideoEmbedBlock` over `YouTubeVideo` /
 `VimeoVideo`). `VideoPlayerUrls` builds the player addresses, `youtube-nocookie.com` and Vimeo with
 `dnt=1`, and hands the editor templates with placeholders.
-- A video fills the column, or is 400px (a medium artwork's width) with text wrapped beside it
-  (`EmbedLayoutClasses.VideoFor`). So its toolbar has Full width / Wrap left / Wrap right, not
+- A video fills the column, or is a medium artwork's width with text wrapped beside it
+  (`EmbedLayoutClasses.VideoFor`, the width from `ImageVariants` through a CSS variable). So its toolbar has Full width / Wrap left / Wrap right, not
   left and right on a line of their own.
 - In the editor, the live player sits under a transparent cover, so a click opens the toolbar.
 - The toolbar shows the video's own page as a link (opens a new tab) and **Change video**, which
@@ -146,8 +175,11 @@ part's exact shape and drops the video otherwise (`VideoEmbedBlock` over `YouTub
   it sits inside the post's form, where Enter would submit the post.
 - `VideoAddressDialog` is outside the post's `<form>`, in a `method="dialog"` form of its own, so
   Enter in its field can never submit the post. The editor finds it by id when opening it. Its
-  script reads watch, `youtu.be`, `shorts/`, `embed/`, `live/`, `vimeo.com/{id}[/{hash}]`,
-  channel and showcase links and `player.vimeo.com/video/{id}?h=`, and says so when it can't.
+  script sends the link to `GET /admin/video-link` (`VideoLinkEndpoints`), and
+  `VideoSources.FromLink` reads watch, `youtu.be`, `shorts/`, `embed/`, `live/`,
+  `vimeo.com/{id}[/{hash}]`, channel and showcase links and `player.vimeo.com/video/{id}?h=`, with
+  tests. It answers with the embed's parts, or 404, and the dialog says so. `VideoSources` also
+  holds the shape checks the parser uses, so there's one copy of each pattern.
 - The public iframe sets `referrerpolicy="strict-origin-when-cross-origin"`: YouTube's player
   refuses to play without a referrer.
 

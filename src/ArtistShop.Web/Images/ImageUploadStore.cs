@@ -12,7 +12,7 @@ public class ImageUploadStore(
     ImageProcessingSettings processingSettings
 )
 {
-    public async Task<StoredImage> SaveAsync(Stream content, CancellationToken cancellationToken)
+    public async Task<StoredImage> SaveAsync(Stream content, int minimumWidth, CancellationToken cancellationToken)
     {
         // version 7 embeds timestamp when created so they can be sorted by date
         // and avoid database fragmenting if stored there
@@ -44,7 +44,7 @@ public class ImageUploadStore(
 
             // waits here while other images use the slots or the memory
             using var lease = await processingLimiter.AcquireAsync(megabytes, cancellationToken);
-            return new StoredImage(storageKey, imageProcessor.Process(storageKey));
+            return new StoredImage(storageKey, imageProcessor.Process(storageKey, minimumWidth));
         }
         catch
         {
