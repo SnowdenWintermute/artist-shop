@@ -4,15 +4,13 @@ CREATE FUNCTION get_published_posts_mentioning_artwork (p_artwork_id int) RETURN
     id int,
     title text,
     slug text,
-    published_at timestamptz,
-    updated_at timestamptz
+    published_at timestamptz
 ) LANGUAGE sql STABLE AS $$
 SELECT
     post.id,
     post.title,
     post.slug,
-    post.published_at,
-    post.updated_at
+    post.published_at
 FROM
     post_and_artworks_junction AS junction
     JOIN posts AS post ON post.id = junction.post_id

@@ -22,7 +22,7 @@ fi
 # file watches, race over the same obj/, and the survivors end up serving a stale build. SIGKILL is
 # the only signal that actually clears them, so start from a known-empty state with that.
 pkill -9 -f 'project src/ArtistShop\.Web' 2>/dev/null || true
-pkill -9 -f 'bin/Debug/net10\.0/ArtistShop\.Web' 2>/dev/null || true
+pkill -9 -f 'bin/Debug/net[0-9.]*/ArtistShop\.Web' 2>/dev/null || true
 pkill -9 -f 'tailwindcss -i src/ArtistShop\.Web' 2>/dev/null || true
 
 # Postgres gets its own window, the way start.sh does it, so its boot log and SQL errors stay

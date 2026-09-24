@@ -90,16 +90,16 @@ public class PostRepository(NpgsqlDataSource dataSource)
         return new PostListPage([.. rows.Select(row => row.ToPostListItem())], totalCount, pageNumber, pageSize);
     }
 
-    public async Task<List<PostSummary>> GetPublishedMentioningArtworkAsync(ArtworkId artworkId)
+    public async Task<List<PostMention>> GetPublishedMentioningArtworkAsync(ArtworkId artworkId)
     {
         await using var connection = dataSource.CreateConnection();
 
-        var rows = await connection.QueryAsync<PostSummaryRow>(
+        var rows = await connection.QueryAsync<PostMentionRow>(
             "SELECT * FROM get_published_posts_mentioning_artwork(@ArtworkId)",
             new { ArtworkId = artworkId.Value }
         );
 
-        return [.. rows.Select(row => row.ToPostSummary())];
+        return [.. rows.Select(row => row.ToPostMention())];
     }
 
     // Npgsql sends a C# string as text, and Postgres has no implicit cast from text to jsonb, so
@@ -210,6 +210,17 @@ public class PostRepository(NpgsqlDataSource dataSource)
                 PublishedAt is DateTime publishedAt ? new DateTimeOffset(publishedAt) : null,
                 new DateTimeOffset(UpdatedAt)
             );
+    }
+
+    private sealed class PostMentionRow
+    {
+        public required int Id { get; init; }
+        public required string Title { get; init; }
+        public required string Slug { get; init; }
+        public required DateTime PublishedAt { get; init; }
+
+        public PostMention ToPostMention() =>
+            new(new PostId(Id), new PostTitle(Title), new PostSlug(Slug), new DateTimeOffset(PublishedAt));
     }
 
     private sealed class PostListRow

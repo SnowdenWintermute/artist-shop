@@ -10,5 +10,5 @@ public record LoadedArtwork(
     Artwork Artwork,
     Series? Series,
     ArtworkNeighbours Neighbours,
-    IReadOnlyList<PostSummary> Mentions
+    IReadOnlyList<PostMention> Mentions
 );

@@ -4,9 +4,13 @@
   // the query parameter every paged list keeps its page number in
   public const string PageKey = "page";
 
+  // far past any list's end, and small enough that no page size times it overflows an int offset.
+  // A page past the end goes back to the first page anyway
+  private const int MaximumPageNumber = 1_000_000;
+
   // anything below the first page is the first page, so a hand-edited link lands somewhere real
   public static int ReadPageNumber(string? value) =>
-    int.TryParse(value, out var pageNumber) && pageNumber > 1 ? pageNumber : 1;
+    int.TryParse(value, out var pageNumber) && pageNumber > 1 ? Math.Min(pageNumber, MaximumPageNumber) : 1;
 
   [Parameter, EditorRequired]
   public int PageNumber { get; set; }

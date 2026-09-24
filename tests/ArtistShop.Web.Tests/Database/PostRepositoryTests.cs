@@ -1,3 +1,4 @@
+using ArtistShop.Web.Components.Lists;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
@@ -213,6 +214,17 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
 
         Assert.Empty(page.Items);
         Assert.Equal(0, page.TotalCount);
+    }
+
+    // a hand-edited ?page= as large as an int holds, which once overflowed the offset
+    [Fact]
+    public async Task BlogPageFromTheLargestPageNumberIsEmpty()
+    {
+        var pageNumber = PageLinks.ReadPageNumber(int.MaxValue.ToString(CultureInfo.InvariantCulture));
+
+        var page = await _posts.GetPublishedPageAsync(pageNumber);
+
+        Assert.Empty(page.Items);
     }
 
     [Fact]

@@ -1,60 +1,67 @@
-# Next: the public post list, `/posts` (blog posts)
+# Next: multi-tenancy design (in progress; see "Multi-tenancy notes" near the end)
 
-Claude writes the blog-post feature and Mike reviews it, as on the Postgres port.
+Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
 ## Where this stands — end of 2026-09-24
 
-**All committed by Mike** (`4e30dbe`); 423 tests pass, and the touched scripts type-check
-(`npx -y -p typescript@5 tsc -p jsconfig.json` from `src/ArtistShop.Web`, looking only at the
-files touched: other files have older errors). Mike checked the image embed in the browser. The
-day's second session:
-- **Review fixes to `53d844f`:** video links read on the server (`VideoSources`, `GET
-  /admin/video-link`, tests), the wrapped video's width from `ImageVariants`, the caption's
-  `pt-1`, and two comments corrected.
-- **The uploaded image embed, `artshop-image`**, end to end, with upload placeholders, the
-  lightbox option, and the save check for deleted files. Decisions are under item 3 below.
-- **The lightbox was laid out at the top of the page** (`.artist-shop-lightbox` was `relative`,
-  overriding a modal's `fixed`), so opening it scrolled there and the page scrolled under it.
-  Now `fixed inset-0`, with the page's scrolling frozen while one is open. The artwork gallery
-  had the same bug.
+**All committed by Mike** (`75f4182`); 431 tests pass. Since `4e30dbe`: review fixes to the image
+embed, "Mentioned in" on the artwork page, the public `/posts` list (headed Blog) with its filler-post
+seeder, and the move to .NET 11 RC1 with a chiseled runtime image. Details are under ".NET 11" and
+"After that" below. Not yet deployed.
 
-**Start of next session:**
-- Post 4, "Claude video embed check", is the test post. It names two images the dev sweep
-  deleted (found the save-check bug), so it won't save until they're removed. Delete the post
-  when done with it.
-- Not yet tried in a browser: the lightbox checkbox greying out as the size changes, and
-  previous/next through a post's lightbox images.
-- Review fixes to `4e30dbe` (uncommitted, 423 tests pass): uploads share `wwwroot/js/upload-request.js`
-  (drop zone, bulk upload, post images); the artwork upload route is now
-  `/admin/uploads/artwork-image`; `VideoLinkEndpoints` and `VideoParts` moved to `Publishing/`, and
-  an unreadable link is 422; `PostImageFiles` holds the missing-file check; the editor's figure is
-  `EmbedFigure.razor.js`; every embed on the page now has a `srcset` (up to 2x, or every width when
-  it opens the lightbox). Worth a browser check: an artwork image upload on the edit page, a bulk
-  upload, a post image upload, and the Video dialog on nonsense.
-- `/posts` is built (see item 1 below); worth a browser look, and at the paging once there are more than 10 posts.
+**Review fixes to `75f4182`** (2026-09-24, uncommitted, 432 tests): `dev.sh` kills a leftover app
+under any `net*` folder (it still looked in `net10.0`); `PageLinks.ReadPageNumber` caps the page at
+1,000,000, since `?page=2147483647` overflowed the offset into a 500; "Mentioned in" reads a
+`PostMention` whose date isn't nullable.
 
-**Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
-`/posts/{slug}` page, the unsaved-edit backup, and the artwork, video and uploaded image embeds.
+**Start of next session: the choice Mike was weighing.**
+- **Auth today:** Microsoft's Identity pages (login, passkeys, 2FA, password reset) and one admin
+  made by `IdentitySeeder`. No Register page, `IdentityNoOpEmailSender` (reset and confirmation
+  emails never go out), no external providers.
+- **Claude's recommendation:** a design session on multi-tenancy first, not the build, since it
+  decides how auth is shaped. Who logs in to what: each artist administers only their shop, and
+  customers are per shop or per platform. That decides whether an account carries a shop id, how
+  roles are checked, and what the seeder becomes. Google sign-in only returns to callback addresses
+  registered with Google, so shops on their own domains need either every domain registered or
+  sign-in on one central domain handing back to the shop, which is a tenancy decision.
+- **Either way, and small:** real email sending, and a Postgres role for the app instead of
+  `postgres` (see the multi-tenancy notes).
+- The multi-tenancy notes at the end of this file predate the Postgres port: they still speak of
+  SQL Server Express and `SqlConnectionFactory`. Read them with that in mind, and refresh them in
+  the design session.
 
-## .NET 11 (moved to RC1 on 2026-09-24, uncommitted)
+**Still to see in a browser:** the lightbox checkbox greying out as the size changes; previous/next
+through a post's lightbox images; the Video dialog on nonsense; an artwork upload, a bulk upload and
+a post image upload after the shared `upload-request.js`. Post 4, "Claude video embed check", is
+published and names two swept images, so it won't save until they're removed; delete it when done.
+The 25 filler posts are in the dev database (`tools/seed-blog-posts/seed.cs -- --clean` removes
+them).
+
+**Built so far (blog):** the admin post list and editor (Quill 2), drafts and publishing, the
+`/posts/{slug}` page, the unsaved-edit backup, the artwork, video and uploaded image embeds,
+"Mentioned in", and `/posts`.
+
+## .NET 11 (moved to RC1 on 2026-09-24)
 
 Moved for the enhanced-navigation fix (dotnet/aspnetcore#64015: .NET 10 scrolled to the top at the
-click, before the new page arrived; Mike saw it fixed in the browser). Builds, 431 tests pass;
-not yet deployed. Docker tags are pinned to the RC1 ones.
+click, before the new page arrived; Mike saw it fixed in the browser). Docker tags are pinned to
+the RC1 ones. Not yet deployed.
 - EF Core, Identity and Npgsql's EF provider stay on 10.0 until npgsql/efcore.pg#3913 is fixed (its
   11.0.0-rc.1 pins an EF Core build nuget.org doesn't have). Move them, and the pinned tags, at RC2
   or GA (November).
 - The 11 SDK's new warnings are fixed: `ValidateAsync` in `Login.razor` and `ImportArtworks.razor`,
   and the JS interop calls BL0016 flagged catch `JSDisconnectedException` (only that, so real
   JavaScript errors still surface).
-- The runtime image is now `aspnet:11.0.0-rc.1-resolute-chiseled-extra`: no shell or package
-  manager, ICU included (the collation comparer and slugs need it), 218 MB built. Checked with the
+- The runtime image is `aspnet:11.0.0-rc.1-resolute-chiseled-extra`: no shell or package manager,
+  ICU included (the collation comparer and slugs need it), 218 MB built. Checked with the
   rehearsal compose: login, an upload, both volumes owned by 1654, login kept across a restart.
   No `docker exec … sh` into the app container any more.
+- `scroll-restoration.js` is still needed on 11 (Back/Forward still has no scroll handling); its
+  comments were rechecked against 11 RC1.
 
 ## After that
 
-1. **Built 2026-09-24** (uncommitted): `/posts`, headed "Blog", with a Blog nav link after Home.
+1. **Built 2026-09-24**: `/posts`, headed "Blog", with a Blog nav link after Home.
    Decided with Mike: title, date and a plain-text excerpt (`PostExcerpt`, 300 characters on a
    whole word, clamped to 3 lines), published posts only, 10 per page
    (`ArtistShopLimits.BlogPageSize`) with ← Newer / Older →. `ArtworkListPaging` became the
@@ -62,7 +69,7 @@ not yet deployed. Docker tags are pinned to the RC1 ones.
    `tools/seed-blog-posts/seed.cs` adds 25 filler posts a few days apart for the paging (`--clean`
    removes them); they're in the dev database now. `GetPublishedAsync` is gone, and
    `get_post_list` lost its published-only flag.
-2. **Built 2026-09-24** (uncommitted): "Mentioned in" on the artwork page (`ArtworkMentions`),
+2. **Built 2026-09-24**: "Mentioned in" on the artwork page (`ArtworkMentions`),
    below the description, one row per published post with its date, newest first. Chosen by Mike
    over a row in the details list.
 3. **Built 2026-09-24**, checked by Mike in the browser: the uploaded-image embed, `artshop-image`.
@@ -1488,7 +1495,65 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
   copied, plus a nullable `ProductId` with `ON DELETE SET NULL`. Renames, price changes and
   deletions then can't rewrite history. The order copies the shipping address and totals too.
 
-## Multi-tenancy notes (undecided, 2026-09-17)
+## Multi-tenancy notes (design started 2026-09-24)
+
+**Decided with Mike, 2026-09-24:**
+- One Postgres cluster: a database per shop, plus the shared identity database. Accounts are
+  platform-wide, for customers and admins alike.
+- A shop has one **owner** (can delete the shop and add admins) and any number of **admins** (edit
+  content only). An account may administer several shops. Identity roles are global, so shop rights
+  are a membership `(user, shop, role)`, not `RoleNames.Admin`. If the owner deletes their account,
+  their shop goes too.
+- **Which shop:** an exact host name → shop lookup, so platform subdomains
+  (`shop1.mikesilverman.net`) and custom domains (`alicepaints.com`, `shop.bobart.com`) work the same.
+  Unknown host → 404. Cookies stay host-only: a customer signs in on each shop separately.
+- **Sign-up for now:** a code Mike hands out, which works only if it was issued, and is deleted
+  once used. It expires, and can carry settings such as the storage quota. A random code, stored
+  hashed in the platform database, made on a platform-operator dashboard in the production app
+  (no signing). Real sign-up with billing and a free tier comes later, with abuse of the free tier
+  as its own design.
+- **Hosts:** a new shop gets `name.artistshop.com` (reserved names such as `www`, `admin`, `api`,
+  `mail` are never handed out). A custom domain is set up by the artist at their DNS provider (or
+  by Mike, by separate agreement), and for now Mike adds it to the shop's hosts by hand. One host is
+  a shop's main one; the others redirect to it. A host belongs to exactly one shop, since it's how a
+  request finds its shop. So once artists add their own domains, a DNS TXT check is needed: without
+  it, someone could list a domain whose owner has pointed it here but not yet added it, or one left
+  pointing here after its shop closed ("subdomain takeover").
+- **Platform host** (`artistshop.com` itself, not a shop): what the product is, sign-up, "my shops".
+- **Platform database**, a third one, holding shops, hosts, memberships and sign-up codes. Dapper and
+  plain SQL, not EF.
+- **Owner:** exactly one per shop, and ownership can be handed to one of its admins. Deleting a shop
+  or an owner's account has a 30-day grace period before anything is erased, tested with
+  `FakeTimeProvider` (already a test dependency).
+- **Image processing between shops:** shops take turns when several are uploading at once; one
+  shop alone gets every slot. Not needed for test shops.
+- **Payments (far future):** Stripe or similar, paid straight to the artist, with no fee taken by the
+  platform. Artists pay a subscription. An artist sees the email and shipping address on their own
+  shop's orders only.
+- **Storage:** image files get a per-shop prefix before a second shop database exists (see the
+  sweeper note below), and each shop has a storage quota.
+- **Connections:** short `Connection Idle Lifetime` and a small `Maximum Pool Size` per shop first;
+  PgBouncer if measuring shows that isn't enough; raising `max_connections` last.
+- Deferred: per-shop running of backups, sweeps and export (schema updates can run for every shop at
+  startup while there are only test shops); fair sharing of image processing between shops; anything
+  across all shops, such as a shared gallery.
+
+- Production's current content doesn't carry over: it can be deleted, and the spreadsheet import
+  brings it back.
+
+**Build order (draft, from Claude):**
+1. A Postgres role for the app with `CREATEDB`, instead of `postgres`.
+2. Image storage with a per-shop prefix, and the sweeper run per shop. Before a second shop exists.
+3. The platform database and host lookup: finding the shop from the request's host, a cached
+   `NpgsqlDataSource` per shop with the pool settings above, schema updates for every shop at
+   startup, `AllowedHosts` removed, today's catalog as the first shop. `shop1.localhost` in dev.
+4. Shop membership replaces `RoleNames.Admin`; `IdentitySeeder` makes the platform operator.
+5. The platform host: landing page, sign-up with a code, "my shops".
+6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
+   grace period.
+7. Custom domains and their certificates.
+
+### Earlier notes (2026-09-17, written for SQL Server; the Postgres port has happened since)
 
 The app is single-tenant today; the goal is many artists' sites (say 250) on one small VPS.
 - **Shape:** one process with a `TenantId` column, one process with a database per tenant, or a

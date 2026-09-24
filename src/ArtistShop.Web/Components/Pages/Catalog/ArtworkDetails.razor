@@ -10,7 +10,7 @@
   public Artwork Artwork { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public IReadOnlyList<PostSummary> Mentions { get; set; } = default!;
+  public IReadOnlyList<PostMention> Mentions { get; set; } = default!;
 
   // nothing is for sale on the site yet, so a price is a label. Sold work keeps its row
   // without its price
