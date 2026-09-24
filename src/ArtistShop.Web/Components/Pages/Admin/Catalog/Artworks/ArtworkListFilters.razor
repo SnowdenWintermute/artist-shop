@@ -2,7 +2,6 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Domain.Catalog
-@inject NavigationManager NavigationManager
 
 @code {
   [Parameter, EditorRequired]
@@ -19,13 +18,11 @@
   [Parameter]
   public IReadOnlyDictionary<string, string>? KeptFields { get; set; }
 
-  // hidden when clearing would change nothing: no filters, or already at the list's clear address,
-  // which for the picker keeps its images filter
+  // Hidden when clearing would change nothing. Compared as filters, not addresses: the form sends
+  // its empty fields too, so a list back at the cleared filters never has the same address. The
+  // picker's cleared list keeps its images filter
   private string ClearFiltersClass =>
-    Filter.HasAnyFilter && !IsAtClearFiltersHref ? "" : "invisible";
-
-  private bool IsAtClearFiltersHref =>
-    "/" + NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == ClearFiltersHref;
+    Filter.HasSameFiltersAs(ArtworkListQuery.ReadAddress(ClearFiltersHref)) ? "invisible" : "";
 
   // the artist's order inside a series can only sort a list that is one series' worth
   private IEnumerable<ArtworkListSort> SortOptions =>

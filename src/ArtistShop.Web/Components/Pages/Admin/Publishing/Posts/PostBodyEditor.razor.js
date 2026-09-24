@@ -5,6 +5,8 @@ import {
   attachArtworkPicker,
   registerArtworkEmbed,
 } from "./PostArtworkEmbed.razor.js";
+import { VIDEO_EMBED, addVideoEmbed, attachVideoEmbedToolbar, registerVideoEmbed } from "./PostVideoEmbed.razor.js";
+import { VideoAddressDialog } from "./VideoAddressDialog.razor.js";
 
 // Must stay within what PostDocumentParser reads. Leaving out indent also turns off Tab-to-indent,
 // since the parser would flatten a nested list anyway
@@ -17,6 +19,7 @@ const FORMATS = [
   "list",
   "blockquote",
   ARTWORK_EMBED,
+  VIDEO_EMBED,
 ];
 
 const TOOLBAR = [
@@ -24,7 +27,7 @@ const TOOLBAR = [
   ["bold", "italic", "underline", "link"],
   [{ list: "ordered" }, { list: "bullet" }],
   ["blockquote"],
-  [ARTWORK_EMBED],
+  [ARTWORK_EMBED, VIDEO_EMBED],
   ["clean"],
 ];
 
@@ -64,15 +67,15 @@ let quillLoaded = null;
 
 /**
  * @param {string} src
- * @param {HTMLElement} embedToolbar
+ * @param {() => void} registerEmbeds
  */
-function loadQuill(src, embedToolbar) {
+function loadQuill(src, registerEmbeds) {
   quillLoaded ??= new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = src;
     script.onload = () => {
       registerFormats();
-      registerArtworkEmbed(embedToolbar);
+      registerEmbeds();
       resolve();
     };
     script.onerror = () => {
@@ -113,23 +116,31 @@ customElements.define(
 
     async connectedCallback() {
       const input = this.querySelector('input[type="hidden"]');
-      const embedToolbar = this.querySelector('[data-part="artwork-embed-toolbar"]');
+      const artworkToolbar = this.querySelector('[data-part="artwork-embed-toolbar"]');
+      const videoToolbar = this.querySelector('[data-part="video-embed-toolbar"]');
       const artworkPicker = this.querySelector('dialog[data-part="artwork-picker"]');
       const quillSource = this.dataset.quillSrc;
 
       // Moving the element in the page connects it again, and Quill is already in it
-      if (
-        this.#isMounted ||
-        !(input instanceof HTMLInputElement) ||
-        !(embedToolbar instanceof HTMLElement) ||
-        !(artworkPicker instanceof HTMLDialogElement) ||
-        quillSource === undefined
-      ) {
+      if (this.#isMounted) {
         return;
       }
 
+      if (
+        !(input instanceof HTMLInputElement) ||
+        !(artworkToolbar instanceof HTMLElement) ||
+        !(videoToolbar instanceof HTMLElement) ||
+        !(artworkPicker instanceof HTMLDialogElement) ||
+        quillSource === undefined
+      ) {
+        throw new Error("The post body editor is missing its input, an embed toolbar, the artwork picker or Quill's address.");
+      }
+
       this.#isMounted = true;
-      await loadQuill(quillSource, embedToolbar);
+      await loadQuill(quillSource, () => {
+        registerArtworkEmbed(artworkToolbar);
+        registerVideoEmbed(videoToolbar);
+      });
 
       // the artist left the page while Quill was loading
       if (!this.isConnected) {
@@ -152,11 +163,8 @@ customElements.define(
             container: TOOLBAR,
             // only ever called once quill below is set
             handlers: {
-              [ARTWORK_EMBED]: () => {
-                if (picker !== null) {
-                  addArtworkEmbed(quill, picker);
-                }
-              },
+              [ARTWORK_EMBED]: () => addArtworkEmbed(quill, picker),
+              [VIDEO_EMBED]: () => addVideoEmbed(quill, videoToolbar, this.#videoAddressDialog()),
             },
           },
         },
@@ -166,10 +174,15 @@ customElements.define(
       quill.root.classList.add(...(this.dataset.columnClass ?? "").split(" ").filter(Boolean));
 
       // Quill draws its own buttons' icons and leaves ours empty
-      const artworkButton = quill.getModule("toolbar").container.querySelector(`.ql-${ARTWORK_EMBED}`);
-      if (artworkButton !== null) {
-        artworkButton.textContent = "Artwork";
-        artworkButton.setAttribute("aria-label", "Add an artwork");
+      for (const [embedName, text, label] of [
+        [ARTWORK_EMBED, "Artwork", "Add an artwork"],
+        [VIDEO_EMBED, "Video", "Add a video"],
+      ]) {
+        const button = quill.getModule("toolbar").container.querySelector(`.ql-${embedName}`);
+        if (button !== null) {
+          button.textContent = text;
+          button.setAttribute("aria-label", label);
+        }
       }
 
       // from the input, not the server's copy, so a save that came back with an error keeps what
@@ -184,9 +197,8 @@ customElements.define(
       });
 
       this.#labelEditingArea(input, quill, this.#listeners.signal);
-      if (picker !== null) {
-        attachArtworkEmbedToolbar(quill, embedToolbar, picker, this.#listeners.signal);
-      }
+      attachArtworkEmbedToolbar(quill, artworkToolbar, picker, this.#listeners.signal);
+      attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), this.#listeners.signal);
       this.#mounted.resolve(quill);
     }
 
@@ -205,6 +217,18 @@ customElements.define(
     // The field's label points at the hidden input, which can't take focus or be read out. The
     // label is found now, because enhanced navigation gives it a new "for" that no longer matches
     // the input it kept
+    // Looked up each time, not kept: it's outside this element, so an enhanced navigation can
+    // replace it where it can't replace this
+    #videoAddressDialog() {
+      const dialog = document.getElementById(this.dataset.videoAddressDialog ?? "");
+
+      if (!(dialog instanceof VideoAddressDialog)) {
+        throw new Error("The post body editor can't find its video address dialog.");
+      }
+
+      return dialog;
+    }
+
     /**
      * @param {HTMLInputElement} input
      * @param {Quill} quill

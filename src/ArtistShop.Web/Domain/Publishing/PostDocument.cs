@@ -17,17 +17,26 @@ public record BlockquoteBlock(IReadOnlyList<PostText> Text) : PostBlock;
 
 public record ListBlock(ListStyle Style, IReadOnlyList<IReadOnlyList<PostText>> Items) : PostBlock;
 
-// StorageKey names the one of the artwork's images it shows
+// StorageKey names the one of the artwork's images it shows. Caption is null when there is none
 public record ArtworkEmbedBlock(
     ArtworkId ArtworkId,
     string StorageKey,
     EmbedImageSize Size,
-    EmbedLayout Layout
+    EmbedLayout Layout,
+    string? Caption
 ) : PostBlock;
 
-public record YouTubeEmbedBlock(string VideoId, EmbedLayout Layout) : PostBlock;
+public record VideoEmbedBlock(VideoSource Source, EmbedLayout Layout) : PostBlock;
 
-// Link is null for plain text, and only ever an http, https or mailto address
+// which site plays the video, and what that site needs to find it
+public abstract record VideoSource;
+
+public record YouTubeVideo(string Id) : VideoSource;
+
+// UnlistedHash is the second part of an unlisted video's link, without which Vimeo won't play it
+public record VimeoVideo(string Id, string? UnlistedHash) : VideoSource;
+
+// Link is null for plain text, and only ever an http, https or mailto address, or a path on this site
 public record PostText(string Text, bool Bold, bool Italic, bool Underline, string? Link);
 
 // the page title is the h1, so a post's headings start at h2

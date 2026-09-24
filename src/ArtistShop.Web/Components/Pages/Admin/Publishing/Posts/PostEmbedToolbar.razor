@@ -1,0 +1,33 @@
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  public const string PressedClass = "aria-pressed:bg-blue-400 aria-pressed:text-white";
+
+  // each layout's name in the Delta, mapped to the classes the post page gives it
+  public static readonly string LayoutClasses = JsonSerializer.Serialize(
+    Enum.GetValues<EmbedLayout>().ToDictionary(EmbedLayoutNames.Of, EmbedLayoutClasses.For));
+
+  // the buttons for this kind of embed, which go before Remove and Done
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // what the embed's script reads, such as its image or player addresses
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}
+
+@* The toolbar that opens under an embed when the artist clicks one, for any kind of embed.
+   PostEmbedToolbar.razor.js places it with Floating UI and handles Remove and Done. Its buttons
+   have no name, so the form never posts them *@
+<div popover class="m-0 inset-auto border border-theme-base bg-white p-2 shadow" @attributes="AdditionalAttributes"
+     data-floating-ui-src="@Assets["lib/floating-ui/floating-ui.dom.browser.min.mjs"]">
+  <div class="flex flex-wrap items-center gap-4">
+    @ChildContent
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-action="remove">Remove</ButtonBasic>
+    @* closes the toolbar, as a click anywhere else does, for anyone who doesn't know that *@
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-action="done">Done</ButtonBasic>
+  </div>
+</div>

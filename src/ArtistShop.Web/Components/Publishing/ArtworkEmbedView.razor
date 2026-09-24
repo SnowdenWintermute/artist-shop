@@ -5,6 +5,9 @@
 @using ArtistShop.Web.Images
 
 @code {
+  // the editor's toolbar hands this to the editor, so a caption looks the same while writing
+  public const string CaptionClass = "mt-1 text-sm text-gray-500";
+
   [Parameter, EditorRequired]
   public ArtworkEmbedBlock Embed { get; set; } = default!;
 
@@ -23,11 +26,18 @@
 }
 
 @* Places itself as it did in the editor, from the same EmbedLayoutClasses. The link opens the
-   artwork's page at this very image *@
+   artwork's page at this very image. The figure is the image's width, so a caption wraps under the
+   image rather than widening it *@
 <div class="@EmbedLayoutClasses.For(Embed.Layout)">
-  <a href="@ArtworkPageQuery.Url(Source.Artwork.Slug.Value, seriesSlug: null, Source.ImageNumber)" class="block">
-    <img src="@ImageUrls.EmbedVariant(Source.Image.StorageKey, Embed.Size)" alt="@Source.Artwork.Name.Value"
-         width="@Width.ToString(CultureInfo.InvariantCulture)" height="@Height.ToString(CultureInfo.InvariantCulture)"
-         loading="lazy" class="h-auto max-w-full bg-cover bg-center" style="@BlurStyle" />
-  </a>
+  <figure class="max-w-full" style="@($"width: {Width.ToString(CultureInfo.InvariantCulture)}px;")">
+    <a href="@ArtworkPageQuery.Url(Source.Artwork.Slug.Value, seriesSlug: null, Source.ImageNumber)" class="block">
+      <img src="@ImageUrls.EmbedVariant(Source.Image.StorageKey, Embed.Size)" alt="@Source.Artwork.Name.Value"
+           width="@Width.ToString(CultureInfo.InvariantCulture)" height="@Height.ToString(CultureInfo.InvariantCulture)"
+           loading="lazy" class="h-auto w-full bg-cover bg-center" style="@BlurStyle" />
+    </a>
+    @if (Embed.Caption is { } caption)
+    {
+      <figcaption class="@CaptionClass">@caption</figcaption>
+    }
+  </figure>
 </div>

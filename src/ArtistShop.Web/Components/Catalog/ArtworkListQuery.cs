@@ -2,6 +2,8 @@ namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Domain.Catalog;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 
 // The query string holds the page's whole state, so every filtered view is a link that can be
 // bookmarked or sent. This turns the raw values into a filter and names them back for the form
@@ -42,6 +44,27 @@ public static class ArtworkListQuery
             ReadPage(page)
         );
     }
+
+    // the filter a link to the list shows, such as its Clear filters link
+    public static ArtworkListFilter ReadAddress(string address)
+    {
+        var queryStart = address.IndexOf('?');
+        var query = QueryHelpers.ParseQuery(queryStart < 0 ? null : address[queryStart..]);
+
+        return Read(
+            typeIds: Ids(query.GetValueOrDefault(TypeKey)),
+            termIds: Ids(query.GetValueOrDefault(TermKey)),
+            series: query.GetValueOrDefault(SeriesKey),
+            search: query.GetValueOrDefault(SearchKey),
+            images: query.GetValueOrDefault(ImagesKey),
+            sale: query.GetValueOrDefault(SaleKey),
+            sort: query.GetValueOrDefault(SortKey),
+            page: query.GetValueOrDefault(PageKey)
+        );
+    }
+
+    private static int[] Ids(StringValues values) =>
+        [.. values.Select(value => int.TryParse(value, out var id) ? id : (int?)null).OfType<int>()];
 
     // anything below the first page is the first page, so a hand-edited link lands somewhere real
     public static int ReadPage(string? value) =>

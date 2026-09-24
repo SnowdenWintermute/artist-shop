@@ -1,6 +1,7 @@
 // The artwork embed: a block in a post showing one of an artwork's images. The Delta holds only
 // what PostDocumentParser reads, and the public page looks up the title and image when it renders.
 // Imported by PostBodyEditor.razor.js; nothing here runs until an editor calls it
+import { attachEmbedToolbar } from "./PostEmbedToolbar.razor.js";
 
 // the name Quill stores it under, and the parser and set_post_artworks read
 export const ARTWORK_EMBED = "artshop-artwork";
@@ -13,11 +14,12 @@ const EMBED_CLASS = "artshop-artwork";
  * @property {string} storageKey
  * @property {"small" | "medium"} size
  * @property {string} layout one of EmbedLayoutNames, which the toolbar's buttons carry
+ * @property {string} [caption] as typed; the parser trims it, and counts a blank one as none
  */
 
 /** @param {HTMLElement} node */
 function readValue(node) {
-  const { artworkId, storageKey, size, layout } = node.dataset;
+  const { artworkId, storageKey, size, layout, caption } = node.dataset;
 
   /** @type {ArtworkEmbedValue} */
   const value = {
@@ -26,6 +28,7 @@ function readValue(node) {
     size: size === "small" ? "small" : "medium",
     // the parser centres a layout it doesn't know
     layout: layout ?? "",
+    ...(caption === undefined ? {} : { caption }),
   };
 
   return value;
@@ -35,19 +38,32 @@ function readValue(node) {
 // the first one to connect is as good as any
 /** @param {HTMLElement} toolbar */
 export function registerArtworkEmbed(toolbar) {
-  const { storageKeyPlaceholder, smallImageUrl, mediumImageUrl, layoutClasses } = toolbar.dataset;
+  const {
+    storageKeyPlaceholder,
+    smallImageUrl,
+    mediumImageUrl,
+    smallWidth,
+    mediumWidth,
+    layoutClasses,
+    captionClass,
+  } = toolbar.dataset;
 
   if (
     storageKeyPlaceholder === undefined ||
     smallImageUrl === undefined ||
     mediumImageUrl === undefined ||
-    layoutClasses === undefined
+    smallWidth === undefined ||
+    mediumWidth === undefined ||
+    layoutClasses === undefined ||
+    captionClass === undefined
   ) {
-    throw new Error("The artwork embed toolbar is missing its image addresses or layout classes.");
+    throw new Error("The artwork embed toolbar is missing its image addresses, widths or classes.");
   }
 
   // the post page's own classes for each layout, so the editor places an embed as the page will
   const classesByLayout = /** @type {Record<string, string>} */ (JSON.parse(layoutClasses));
+  // taken after the check above, which TypeScript doesn't carry into the class below
+  const figcaptionClass = captionClass;
 
   /** @param {ArtworkEmbedValue} value */
   const imageUrl = (value) =>
@@ -71,7 +87,15 @@ export function registerArtworkEmbed(toolbar) {
       node.dataset.storageKey = value.storageKey;
       node.dataset.size = value.size;
       node.dataset.layout = value.layout;
+      if (value.caption !== undefined) {
+        node.dataset.caption = value.caption;
+      }
       node.classList.add(...(classesByLayout[value.layout] ?? "").split(" ").filter(Boolean));
+
+      // the image's width, as the post page's figure is, so a caption wraps under the image
+      const figure = document.createElement("figure");
+      figure.style.width = `${value.size === "small" ? smallWidth : mediumWidth}px`;
+      figure.style.maxWidth = "100%";
 
       const image = document.createElement("img");
       image.src = imageUrl(value);
@@ -90,7 +114,16 @@ export function registerArtworkEmbed(toolbar) {
         { once: true }
       );
 
-      node.append(image, missing);
+      figure.append(image, missing);
+
+      if (value.caption !== undefined && value.caption.trim() !== "") {
+        const caption = document.createElement("figcaption");
+        caption.className = figcaptionClass;
+        caption.textContent = value.caption;
+        figure.append(caption);
+      }
+
+      node.append(figure);
       return node;
     }
 
@@ -150,14 +183,14 @@ export function sendToArtworkPickerOwner(message) {
 /**
  * @param {HTMLDialogElement} dialog
  * @param {AbortSignal} signal
- * @returns {ArtworkPicker | null}
+ * @returns {ArtworkPicker}
  */
 export function attachArtworkPicker(dialog, signal) {
   const frame = dialog.querySelector("iframe");
   const { addSrc, changeImageSrc, artworkIdPlaceholder } = frame?.dataset ?? {};
 
   if (frame === null || addSrc === undefined || changeImageSrc === undefined || artworkIdPlaceholder === undefined) {
-    return null;
+    throw new Error("The artwork picker is missing its frame or the frame's addresses.");
   }
 
   // what the current opening does with the choice
@@ -227,18 +260,8 @@ export function addArtworkEmbed(quill, picker) {
   });
 }
 
-// the same module for every editor, so the first import is the one that loads it
-/** @type {Promise<FloatingUi> | null} */
-let floatingUiLoaded = null;
-
-/** @param {string} src */
-function loadFloatingUi(src) {
-  floatingUiLoaded ??= import(src);
-  return floatingUiLoaded;
-}
-
-// Opens the toolbar under an embed the artist clicks. A change replaces the embed with a new one
-// holding the new value, as one edit, so a single undo takes it back
+// The toolbar's caption field and buttons for an artwork embed. Opening the picker for Change image closes the
+// toolbar, and the embed keeps its size and layout
 /**
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
@@ -246,49 +269,15 @@ function loadFloatingUi(src) {
  * @param {AbortSignal} signal
  */
 export function attachArtworkEmbedToolbar(quill, toolbar, picker, signal) {
-  const floatingUiSource = toolbar.dataset.floatingUiSrc;
-
-  if (floatingUiSource === undefined) {
-    return;
-  }
-
-  // started now, so it has usually arrived before the first click
-  const floatingUi = loadFloatingUi(floatingUiSource);
-  const Delta = Quill.import("delta");
-
-  // the embed the toolbar is open for
-  /** @type {HTMLElement | null} */
-  let embed = null;
-  /** @type {(() => void) | null} */
-  let stopFollowing = null;
-
-  /** @param {HTMLElement} node */
-  async function follow(node) {
-    stopFollowing?.();
-    stopFollowing = null;
-    const { computePosition, autoUpdate, offset, flip, shift } = await floatingUi;
-
-    // closed, or moved to another embed, while Floating UI was loading
-    if (embed !== node) {
-      return;
-    }
-
-    stopFollowing = autoUpdate(node, toolbar, async () => {
-      // fixed, because an open popover sits in the top layer, above the page's own layout
-      const { x, y } = await computePosition(node, toolbar, {
-        placement: "bottom",
-        strategy: "fixed",
-        middleware: [offset(8), flip(), shift({ padding: 8 })],
-      });
-      toolbar.style.left = `${x}px`;
-      toolbar.style.top = `${y}px`;
-    });
-  }
-
   const alignmentButtons = [...toolbar.querySelectorAll("button[data-layout]")].filter(
     (button) => button instanceof HTMLButtonElement
   );
   const wrapButton = toolbar.querySelector('button[data-action="wrap"]');
+  const captionField = toolbar.querySelector('input[data-part="caption"]');
+
+  if (!(captionField instanceof HTMLInputElement)) {
+    throw new Error("The artwork embed toolbar is missing its caption field.");
+  }
 
   // the alignment button a layout belongs to, whether or not its text wraps
   /** @param {string} layout */
@@ -303,176 +292,69 @@ export function attachArtworkEmbedToolbar(quill, toolbar, picker, signal) {
     return alignmentOf(layout)?.dataset.wrappedLayout === layout;
   }
 
-  /** @param {ArtworkEmbedValue} value */
-  function showPressed(value) {
-    toolbar.querySelectorAll("button[data-size]").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button instanceof HTMLElement && button.dataset.size === value.size));
-    });
+  attachEmbedToolbar(
+    quill,
+    toolbar,
+    {
+      blotName: ARTWORK_EMBED,
+      className: EMBED_CLASS,
+      readValue,
 
-    const alignment = alignmentOf(value.layout);
-    alignmentButtons.forEach((button) => button.setAttribute("aria-pressed", String(button === alignment)));
-
-    if (wrapButton instanceof HTMLButtonElement) {
-      wrapButton.setAttribute("aria-pressed", String(isWrapped(value.layout)));
-      // centred has nothing beside it to wrap
-      wrapButton.disabled = alignment?.dataset.wrappedLayout === undefined;
-    }
-  }
-
-  /** @param {HTMLElement} node */
-  function open(node) {
-    embed = node;
-    showPressed(readValue(node));
-
-    if (!toolbar.matches(":popover-open")) {
-      toolbar.showPopover();
-    }
-
-    follow(node);
-  }
-
-  function close() {
-    if (toolbar.matches(":popover-open")) {
-      toolbar.hidePopover();
-    }
-  }
-
-  // where an embed is in the document, or null if an edit has removed it
-  /** @param {HTMLElement | null} node */
-  function indexOf(node) {
-    const blot = node?.isConnected ? Quill.find(node) : null;
-    return blot === null || blot instanceof Quill ? null : quill.getIndex(blot);
-  }
-
-  // swaps the embed for one holding the changed value, and returns the new node
-  /**
-   * @param {HTMLElement} node
-   * @param {Partial<ArtworkEmbedValue>} change
-   */
-  function replace(node, change) {
-    const index = indexOf(node);
-
-    if (index === null) {
-      return null;
-    }
-
-    const value = { ...readValue(node), ...change };
-    // let go of the node being replaced first, or the text-change handler below would take its
-    // removal for an edit that deleted the embed, and close the toolbar
-    if (embed === node) {
-      embed = null;
-    }
-    quill.updateContents(new Delta().retain(index).delete(1).insert({ [ARTWORK_EMBED]: value }), "user");
-
-    const [replacement] = quill.getLine(index);
-    return replacement?.domNode instanceof HTMLElement ? replacement.domNode : null;
-  }
-
-  /** @param {Partial<ArtworkEmbedValue>} change */
-  function update(change) {
-    const replacement = embed === null ? null : replace(embed, change);
-
-    if (replacement !== null) {
-      open(replacement);
-    } else {
-      close();
-    }
-  }
-
-  // Opening the dialog closes the toolbar, so the embed is held here until the choice comes back.
-  // The embed keeps its size and layout
-  function changeImage() {
-    const node = embed;
-
-    if (node === null) {
-      return;
-    }
-
-    picker.open(picker.changeImageUrl(readValue(node).artworkId), ({ artworkId, storageKey }) => {
-      replace(node, { artworkId, storageKey });
-    });
-  }
-
-  function remove() {
-    const index = indexOf(embed);
-
-    if (index !== null) {
-      quill.updateContents(new Delta().retain(index).delete(1), "user");
-    }
-
-    close();
-  }
-
-  quill.root.addEventListener(
-    "click",
-    (event) => {
-      const clicked = event.target instanceof Element ? event.target.closest(`.${EMBED_CLASS}`) : null;
-
-      if (clicked instanceof HTMLElement) {
-        open(clicked);
-      }
-    },
-    { signal }
-  );
-
-  toolbar.addEventListener(
-    "click",
-    (event) => {
-      const button = event.target instanceof Element ? event.target.closest("button") : null;
-
-      if (button === null) {
-        return;
-      }
-
-      const { size, layout, wrappedLayout, action } = button.dataset;
-      const current = embed === null ? null : readValue(embed);
-
-      if (current === null) {
-        return;
-      }
-
-      if (action === "done") {
-        close();
-      } else if (action === "change-image") {
-        changeImage();
-      } else if (action === "remove") {
-        remove();
-      } else if (action === "wrap") {
-        const alignment = alignmentOf(current.layout)?.dataset;
-        const toggled = isWrapped(current.layout) ? alignment?.layout : alignment?.wrappedLayout;
-
-        if (toggled !== undefined) {
-          update({ layout: toggled });
+      show(value) {
+        // only when it differs: setting a field's value moves the cursor to its end, which would
+        // happen on every keystroke as the embed is replaced under it
+        if (captionField.value !== (value.caption ?? "")) {
+          captionField.value = value.caption ?? "";
         }
-      } else if (size === "small" || size === "medium") {
-        update({ size });
-      } else if (layout !== undefined) {
-        // a new alignment keeps whether the text wraps, where it can
-        update({ layout: isWrapped(current.layout) ? wrappedLayout ?? layout : layout });
-      }
-    },
-    { signal }
-  );
 
-  // Closed by a click elsewhere, Escape, or one of the handlers above. The event arrives a moment
-  // later and can be merged with another, so it's the popover's state now that counts: a click on
-  // a second embed closes the toolbar and opens it again before this runs
-  toolbar.addEventListener(
-    "toggle",
-    () => {
-      if (!toolbar.matches(":popover-open")) {
-        stopFollowing?.();
-        stopFollowing = null;
-        embed = null;
-      }
-    },
-    { signal }
-  );
+        toolbar.querySelectorAll("button[data-size]").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            String(button instanceof HTMLElement && button.dataset.size === value.size)
+          );
+        });
 
-  // an edit that deletes the open embed, such as selecting across it and typing
-  quill.on("text-change", () => {
-    if (embed !== null && !embed.isConnected) {
-      close();
-    }
-  });
+        const alignment = alignmentOf(value.layout);
+        alignmentButtons.forEach((button) => button.setAttribute("aria-pressed", String(button === alignment)));
+
+        if (wrapButton instanceof HTMLButtonElement) {
+          wrapButton.setAttribute("aria-pressed", String(isWrapped(value.layout)));
+          // centred has nothing beside it to wrap
+          wrapButton.disabled = alignment?.dataset.wrappedLayout === undefined;
+        }
+      },
+
+      onButton(button, embed) {
+        const { size, layout, wrappedLayout, action } = button.dataset;
+        const current = embed.value;
+
+        if (action === "change-image") {
+          picker.open(picker.changeImageUrl(current.artworkId), ({ artworkId, storageKey }) => {
+            embed.replace({ artworkId, storageKey });
+          });
+        } else if (action === "wrap") {
+          const alignment = alignmentOf(current.layout)?.dataset;
+          const toggled = isWrapped(current.layout) ? alignment?.layout : alignment?.wrappedLayout;
+
+          if (toggled !== undefined) {
+            embed.update({ layout: toggled });
+          }
+        } else if (size === "small" || size === "medium") {
+          embed.update({ size });
+        } else if (layout !== undefined) {
+          // a new alignment keeps whether the text wraps, where it can
+          embed.update({ layout: isWrapped(current.layout) ? wrappedLayout ?? layout : layout });
+        }
+      },
+
+      // applied as it's typed, so no way of closing the toolbar can lose it. An emptied field
+      // leaves no caption key behind
+      onInput(field, embed) {
+        if (field === captionField) {
+          embed.update({ caption: field.value === "" ? undefined : field.value });
+        }
+      },
+    },
+    signal
+  );
 }

@@ -179,6 +179,9 @@
         </EnableSaveOnChange>
       </PostBackup>
 
+      @* the editor's Video button opens this. Outside the post's form, since it has a form of its own *@
+      <VideoAddressDialog />
+
       @if (_post is not null)
       {
         <div class="border-t pt-4">

@@ -26,13 +26,13 @@ public record ArtworkListFilter(
 )
 {
     // the sort and the page number are not filters: neither of them hides an artwork
-    public bool HasAnyFilter =>
-        ArtworkTypeIds.Count > 0
-        || VocabularyTermIds.Count > 0
-        || SeriesId is not null
-        || SearchText is not null
-        || HasImages is not null
-        || IsForSale is not null;
+    public bool HasSameFiltersAs(ArtworkListFilter other) =>
+        ArtworkTypeIds.ToHashSet().SetEquals(other.ArtworkTypeIds)
+        && VocabularyTermIds.ToHashSet().SetEquals(other.VocabularyTermIds)
+        && SeriesId == other.SeriesId
+        && SearchText == other.SearchText
+        && HasImages == other.HasImages
+        && IsForSale == other.IsForSale;
 }
 
 public record ArtworkListItem(

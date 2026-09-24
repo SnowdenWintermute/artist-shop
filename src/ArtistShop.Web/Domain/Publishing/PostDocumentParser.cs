@@ -13,7 +13,7 @@ public static partial class PostDocumentParser
     // the names the editor registers its embeds under. Prefixed so they can't be mistaken for, or
     // collide with, one of Quill's own formats. set_post_artworks reads the artwork one too
     private const string ArtworkEmbedName = "artshop-artwork";
-    private const string YouTubeEmbedName = "artshop-youtube";
+    private const string VideoEmbedName = "artshop-video";
 
     public static PostDocument Parse(PostBody body)
     {
@@ -154,21 +154,36 @@ public static partial class PostDocumentParser
                 new ArtworkId(artworkId),
                 storageKey,
                 GetString(artwork, "size") is "small" ? EmbedImageSize.Small : EmbedImageSize.Medium,
-                EmbedLayoutNames.Parse(GetString(artwork, "layout"))
+                EmbedLayoutNames.Parse(GetString(artwork, "layout")),
+                // stored as typed, so the editor never trims a space from under the artist's cursor
+                GetString(artwork, "caption") is { } caption && !string.IsNullOrWhiteSpace(caption)
+                    ? caption.Trim()
+                    : null
             );
         }
 
-        if (insert.TryGetProperty(YouTubeEmbedName, out var youtube) && youtube.ValueKind is JsonValueKind.Object)
+        if (insert.TryGetProperty(VideoEmbedName, out var video) && video.ValueKind is JsonValueKind.Object)
         {
-            var videoId = GetString(youtube, "videoId");
-
-            return videoId is not null && YouTubeVideoIdPattern().IsMatch(videoId)
-                ? new YouTubeEmbedBlock(videoId, EmbedLayoutNames.Parse(GetString(youtube, "layout")))
+            return ReadVideoSource(video) is { } source
+                ? new VideoEmbedBlock(source, EmbedLayoutNames.Parse(GetString(video, "layout")))
                 : null;
         }
 
         return null;
     }
+
+    // Every part becomes part of a player's address, so each must have its site's exact shape. A
+    // malformed hash drops the video rather than the hash, since Vimeo won't play it without one
+    private static VideoSource? ReadVideoSource(JsonElement video) =>
+        (GetString(video, "provider"), GetString(video, "videoId"), GetString(video, "hash")) switch
+        {
+            ("youtube", { } id, _) when YouTubeVideoIdPattern().IsMatch(id) => new YouTubeVideo(id),
+            ("vimeo", { } id, null) when VimeoVideoIdPattern().IsMatch(id) => new VimeoVideo(id, null),
+            ("vimeo", { } id, { } unlistedHash)
+                when VimeoVideoIdPattern().IsMatch(id) && VimeoHashPattern().IsMatch(unlistedHash) =>
+                new VimeoVideo(id, unlistedHash),
+            _ => null,
+        };
 
     private static ListStyle? ReadListStyle(string? value) =>
         value switch
@@ -225,4 +240,11 @@ public static partial class PostDocumentParser
     // every YouTube video id is eleven of these characters
     [GeneratedRegex(@"^[A-Za-z0-9_-]{11}\z")]
     private static partial Regex YouTubeVideoIdPattern();
+
+    // VideoAddressDialog.razor.js reads links with the same two patterns
+    [GeneratedRegex(@"^[0-9]{1,12}\z")]
+    private static partial Regex VimeoVideoIdPattern();
+
+    [GeneratedRegex(@"^[A-Za-z0-9]{1,32}\z")]
+    private static partial Regex VimeoHashPattern();
 }

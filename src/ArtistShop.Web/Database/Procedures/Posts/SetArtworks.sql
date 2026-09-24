@@ -14,8 +14,8 @@ SELECT DISTINCT
 FROM
     posts AS post
     -- A jsonpath: every op, then its insert, then an artwork embed's id (a key with a hyphen is
-    -- quoted). The default lax mode skips
-    -- whatever lacks a step, like a text insert, which has no .artwork. The ? (...) filter keeps
+    -- quoted). The default lax mode skips whatever lacks a step, like a text insert, which has no
+    -- "artshop-artwork" key. The ? (...) filter keeps
     -- only whole numbers an int can hold, as the page's parser does: the cast below would round
     -- 1.5 to 2, and fail the save on a string or on a number out of range
     CROSS JOIN LATERAL jsonb_path_query(

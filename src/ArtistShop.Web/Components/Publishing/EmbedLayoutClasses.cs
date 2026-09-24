@@ -17,4 +17,11 @@ public static class EmbedLayoutClasses
             EmbedLayout.FloatLeft => "my-2 flex justify-center sm:float-left sm:mt-1 sm:mr-4",
             EmbedLayout.FloatRight => "my-2 flex justify-center sm:float-right sm:mt-1 sm:ml-4",
         };
+
+    // A video fills the column on a line of its own, and is a medium artwork's width with text
+    // wrapped beside it. aspect-video gives it its height, since a player has none of its own
+    public static string VideoFor(EmbedLayout layout) =>
+        layout is EmbedLayout.FloatLeft or EmbedLayout.FloatRight
+            ? "aspect-video w-full sm:w-[400px]"
+            : "aspect-video w-full";
 }

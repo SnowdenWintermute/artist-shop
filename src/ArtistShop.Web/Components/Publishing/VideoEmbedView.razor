@@ -1,0 +1,17 @@
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  [Parameter, EditorRequired]
+  public VideoEmbedBlock Embed { get; set; } = default!;
+
+  private string Title => Embed.Source is YouTubeVideo ? "YouTube video" : "Vimeo video";
+}
+
+@* Places itself as it did in the editor, from the same EmbedLayoutClasses. YouTube's player won't
+   play without being told which site it's on, so the referrer policy is written out, in case the
+   site's default ever changes *@
+<div class="@EmbedLayoutClasses.For(Embed.Layout)">
+  <iframe src="@VideoUrls.Player(Embed.Source)" title="@Title" class="@EmbedLayoutClasses.VideoFor(Embed.Layout)"
+          loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+          allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+</div>

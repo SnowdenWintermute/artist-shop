@@ -1,0 +1,45 @@
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  // stand in for a video's parts in the addresses below, which the embed fills in
+  private const string VideoIdPlaceholder = "{videoId}";
+  private const string HashPlaceholder = "{hash}";
+
+  // each layout's name in the Delta, mapped to the classes the post page gives the player
+  private static readonly string PlayerClasses = JsonSerializer.Serialize(
+    Enum.GetValues<EmbedLayout>().ToDictionary(EmbedLayoutNames.Of, EmbedLayoutClasses.VideoFor));
+}
+
+@* The video embed's toolbar. PostVideoEmbed.razor.js defines the embed, and fills in the link to the
+   video's page. A video fills the column unless text wraps beside it, so it has no left or right of
+   its own, only these three layouts *@
+<PostEmbedToolbar data-part="video-embed-toolbar"
+                  data-video-id-placeholder="@VideoIdPlaceholder"
+                  data-hash-placeholder="@HashPlaceholder"
+                  data-youtube-player-url="@VideoUrls.YouTubePlayer(VideoIdPlaceholder)"
+                  data-vimeo-player-url="@VideoUrls.VimeoPlayer(VideoIdPlaceholder, null)"
+                  data-unlisted-vimeo-player-url="@VideoUrls.VimeoPlayer(VideoIdPlaceholder, HashPlaceholder)"
+                  data-youtube-page-url="@VideoUrls.YouTubePage(VideoIdPlaceholder)"
+                  data-vimeo-page-url="@VideoUrls.VimeoPage(VideoIdPlaceholder, null)"
+                  data-unlisted-vimeo-page-url="@VideoUrls.VimeoPage(VideoIdPlaceholder, HashPlaceholder)"
+                  data-layout-classes="@PostEmbedToolbar.LayoutClasses"
+                  data-player-classes="@PlayerClasses"
+                  data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">
+  @* the video it is, on a line of its own above the buttons. Opens in a new tab,
+     so checking the video never leaves the editor *@
+  <div class="flex w-full items-center gap-2">
+    <a data-part="video-link" target="_blank" rel="noopener noreferrer" class="max-w-sm min-w-0 truncate underline"></a>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="shrink-0" data-action="change-video">Change video</ButtonBasic>
+  </div>
+  <div class="flex gap-1" role="group" aria-label="Layout">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
+                 data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">Full width</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
+                 data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">Wrap left</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
+                 data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">Wrap right</ButtonBasic>
+  </div>
+</PostEmbedToolbar>

@@ -1,0 +1,34 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+
+@code {
+  // how the post editor finds it, since it sits outside the editor
+  public const string ElementId = "video-address-dialog";
+
+  private const string FieldId = "video-address-dialog-field";
+}
+
+@* Asks for a video's link, for the editor's Video button and a video embed's Change video. It sits
+   outside the post's form, in a form of its own, so Enter in its field submits this one and never
+   the post. HTML allows no form inside another. VideoAddressDialog.razor.js reads the link; the
+   field has no name *@
+<video-address-dialog id="@ElementId" class="contents">
+  <ModalDialog Title="Choose a video" Width="ModalDialogWidth.Narrow" StartsClosed>
+    <form method="dialog">
+      <div class="mb-4">
+        <label class="artist-shop-field-label" for="@FieldId">YouTube or Vimeo link</label>
+        <input id="@FieldId" type="text" inputmode="url" autocomplete="off" autofocus
+               class="artist-shop-field-input w-full" data-part="address" />
+        <p class="text-red-400" data-part="error" hidden>
+          That isn't a YouTube or Vimeo video's link. Copy the address from the video's page, or from
+          its Share button.
+        </p>
+      </div>
+
+      <ModalDialogActions>
+        <ModalCloseButton Label="Cancel" />
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Use this video</ButtonBasic>
+      </ModalDialogActions>
+    </form>
+  </ModalDialog>
+</video-address-dialog>

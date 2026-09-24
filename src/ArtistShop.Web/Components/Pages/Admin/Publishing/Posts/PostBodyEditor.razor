@@ -31,10 +31,11 @@
      data-quill-src. data-permanent stops enhanced navigation from patching its children, which
      would remove Quill's toolbar and editing area, since the server never renders them *@
   <post-body-editor class="block bg-white" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]"
-                    data-column-class="@PostColumn.WidthClass">
+                    data-column-class="@PostColumn.WidthClass" data-video-address-dialog="@VideoAddressDialog.ElementId">
     <InputText type="hidden" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
                ValueExpression="ValueExpression" />
     <PostArtworkEmbed />
+    <PostVideoEmbed />
     <ArtworkPickerDialog />
   </post-body-editor>
 </FieldLayout>

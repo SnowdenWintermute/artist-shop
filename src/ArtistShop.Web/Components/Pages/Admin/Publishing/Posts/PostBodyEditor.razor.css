@@ -22,8 +22,9 @@ post-body-editor ::deep .ql-editor h3 {
   font-weight: 700;
 }
 
-/* The toolbar button Quill leaves at an icon's width, with no icon */
-post-body-editor ::deep .ql-toolbar button.ql-artshop-artwork {
+/* The toolbar buttons Quill leaves at an icon's width, with no icon */
+post-body-editor ::deep .ql-toolbar button.ql-artshop-artwork,
+post-body-editor ::deep .ql-toolbar button.ql-artshop-video {
   width: auto;
 }
 
@@ -31,6 +32,13 @@ post-body-editor ::deep .ql-toolbar button.ql-artshop-artwork {
    Only what belongs to editing is here: quill.snow.css gives every line a text cursor */
 post-body-editor ::deep .artshop-artwork {
   cursor: pointer;
+}
+
+/* the figure is the image's width, from the script, and the image fills it */
+post-body-editor ::deep .artshop-artwork img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 post-body-editor ::deep .artshop-artwork:hover img {
@@ -41,4 +49,26 @@ post-body-editor ::deep .artshop-artwork span {
   border: 1px dashed var(--color-gray-400);
   padding: 1rem;
   color: var(--color-gray-500);
+}
+
+/* The video's frame is sized by EmbedLayoutClasses as the page sizes its player. The player fills
+   it, and the cover over the player takes the clicks that would start the video */
+post-body-editor ::deep .artshop-video > div {
+  position: relative;
+}
+
+post-body-editor ::deep .artshop-video iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+post-body-editor ::deep .artshop-video [data-part="cover"] {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+post-body-editor ::deep .artshop-video:hover [data-part="cover"] {
+  outline: 2px solid var(--color-blue-400);
 }

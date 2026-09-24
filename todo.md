@@ -1,282 +1,144 @@
-# Next: blog posts (designed 2026-09-22)
+# Next: Mike's browser check of the video embed, then the public post list (blog posts)
 
-Claude writes this one and Mike reviews it, as on the Postgres port.
+Claude writes the blog-post feature and Mike reviews it, as on the Postgres port.
 
-## Where this stands — 2026-09-22, end of session
+## Where this stands — 2026-09-24
 
-**Committed:** the schema and `PostRepository` ("initial publications sql"),
-`PostDocumentParser` ("quill parser"), and everything in the list below ("initial post edit page").
+**Uncommitted, builds, all 355 tests pass; not yet seen in a browser:**
+- **Review fixes to the 2026-09-23 work.** Clear filters compares filters, not addresses
+  (`ArtworkListQuery.ReadAddress` + `ArtworkListFilter.HasSameFiltersAs`, replacing
+  `HasAnyFilter`), since the GET form sends its empty fields and the picker's address never matched
+  again. Also: Floating UI's follow race, missing server-rendered parts throw, and a stale jsonpath
+  comment in `SetArtworks.sql`.
+- **Artwork captions** (Mike, 2026-09-24): an optional Caption field in the artwork embed's
+  toolbar, shown under the image in the editor and on the page. See "Artwork embed" below.
+- **The video embed, YouTube and Vimeo** (Mike, 2026-09-24): `artshop-video` replaces the parser's
+  `artshop-youtube`, which no post ever stored. See "Video embed" below.
 
-**Review of "initial post edit page" (2026-09-22, uncommitted, builds; Mike checked the deleted-post save in the browser):**
-- **Saving a post deleted in another tab keeps the artist's writing.** Before, the POST found no
-  post, `OnInitializedAsync` called `NotFound()`, and since Blazor runs a form's handler only
-  after the page renders that form, the save never ran. The "deleted somewhere else" message was
-  unreachable and the text was gone. Now a POST for a missing post renders the form with what was
-  posted, headed "Deleted post", with that message. `SaveAsync` chooses add or update by `Id`,
-  not `_post`, because a deleted post has no `_post` either and must not be saved as a new one.
-  With Quill in place, the hidden input re-renders with `Input.Body`, so the text survives.
-- **`EditArtwork` has the same unreachable message and was left alone.** Its form can't render
-  without the artwork, since the fields, vocabularies and pickers all come from its type. A deleted
-  artwork on save is still a 404. The loss is a few short fields, not a post.
-- **"Saved." goes away once the artist edits again** (post and artwork edit pages). A post keeps
-  the address, `?saved=true` included, so the notice used to show above a failed save's errors.
-  Now a page rendered from a post never shows it (`_formWasPosted`), because a successful save
-  redirects. `Forms/SavedNotice` is a `<saved-notice>` element that removes itself on the first
-  `input` event anywhere on the page, as the islands' `_justSaved && !HasChanges` does.
-  Reordering, starring or removing an image fires no `input`, so those leave it showing.
-  The vocabulary and artwork-type islands use it too. Inside an island the notice hides itself
-  (`hidden`) rather than removing itself, because Blazor owns that DOM. There it's keyed by
-  `_saveCount`, so each save draws a new, visible one. It used to be `_justSaved &&
-  !HasChanges`, which brought "Saved." back whenever an edit was undone, such as ticking a box and
-  unticking it. Nothing was being saved.
-- **A hand-picked main image was lost on the second save** (found by Mike, 2026-09-22; older
-  than this review). `EditArtwork` and `AddArtwork` passed
-  `SelectedPrimaryImageKey="Input.PrimaryImageKey"`. A string parameter takes that as the literal
-  text, so the island never saw the saved key. It showed the automatic star on the first image,
-  and the next save posted that as the main image. Now `="@Input.PrimaryImageKey"`. The other bare
-  `Input.…` values in those tags are meant as literal field names.
-- **Rule (Mike, 2026-09-22): a form that edits something that exists keeps its Save disabled until
-  the form differs from what was loaded.** Create/Add buttons are always enabled, since pressing
-  one on an empty form says what's required. On the post editor, only the button that keeps the
-  status waits (Save draft on a draft, Save on a published post); Publish and Unpublish are
-  actions in their own right and never do. Every new edit form follows it, in one of two ways:
-  - **Static pages** (edit artwork, post editor): `Forms/EnableSaveOnChange` wraps the form, and
-    buttons marked `data-waits-for-change` are the ones it disables. Its element compares the
-    form's values with a snapshot taken on load and on `enhancedload` (after a save). It reads
-    them itself, not through `FormData`, which leaves out disabled controls: `DisabledUntilInteractive`
-    disables an island's checkboxes until its circuit connects, so on edit artwork the state
-    changed by itself a moment after load and Save never greyed (found by Mike, 2026-09-22). A hidden input
-    changed by code fires no event, but its `value` is an attribute, so a `MutationObserver` sees
-    it. That covers the image list's inputs with no change to `ImagesField`, and the Quill element
-    writing its hidden input will be covered the same way. `HoldsUnsavedChanges="_formWasPosted"`
-    keeps it enabled on a page back from a failed save. Without scripts, the buttons stay enabled.
-  - **Islands** (vocabulary and artwork-type editors, rename series and rename term dialogs):
-    `disabled` from C#, because Blazor owns the attribute there. The editors use
-    `Loaded is not null && !_form.HasChanges`, and the dialogs compare `_form.Name` with the
-    current name.
-- **Save is disabled until something changes** on the vocabulary and artwork-type editors
-  (`!_form.HasChanges`). Their name field is `TextField UpdatesPerKeystroke`, through
-  `Forms/InputTextPerKeystroke` (`InputText` bound on `input`). With the old `change` binding, Save
-  stayed disabled while typing, and Enter did nothing, because a browser won't submit through a
-  disabled button. `ButtonBasic` now greys every disabled button (`disabled:opacity-50`), so island
-  buttons also look disabled for the moment before the circuit connects. The lightbox arrows'
-  own `disabled:opacity-30` went, because two opacities on one button would fight.
-- **Enter in the vocabulary and artwork-type name keeps the focus.** After a save, `Refresh()`
-  passes the saved values back in, and `OnParametersSet` built a new form, so a new
-  `EditContext`. `EditForm` rebuilds everything inside it when that changes, which replaced the
-  focused input. The forms now `Load(saved)` into themselves instead, and `ForExisting` is gone.
-- `LocalDate`'s `datetime` is whole seconds in UTC (`2026-09-22T19:07:19Z`). `"O"` wrote seven
-  fraction digits, more than HTML's `datetime` or JavaScript's `Date` promise to read.
-- `UploadArtworkImages` and `ImportArtworks` now use `AdminPanel`. They were the two admin pages
-  still at 800px.
-- `ButtonVariant.DangerText` (red text, no border) for Delete series and a term's Delete.
-- `PostEditor`'s `<PageTitle>` and `<h1>` share one `Heading`.
+**Mike to check in the browser:** draft post 4, "Claude video embed check", was last saved through
+the form with a captioned artwork wrapped left, a small one with a blank caption, and a YouTube
+video. Delete it afterwards. Worth trying:
+- the Video button and dialog (a bad link, Enter, Cancel), and the video toolbar's link, Change
+  video (YouTube to unlisted Vimeo and back), three layouts and undo
+- an artwork caption: typing, Enter, undo, clearing it
+- clicking between an artwork and a video embed, and the artwork toolbar still working on the
+  shared one
+- on the admin artwork list and in the picker, Clear filters showing only when clearing changes
+  something
 
-**Earlier the same day, tests pass, looked over in the browser by Mike:**
-- Review pass: `CatalogChangedException` is now `ChangedSincePageLoadException`, and
-  `CatalogLimits` + `PublishingLimits` merged into `ArtistShopLimits`. `ArtworkEmbedBlock.ArtworkId`
-  is an `ArtworkId`. `set_post_artworks` and the parser agree exactly on an artwork id: a whole
-  number an int can hold.
-- Admin pages, in `Components/Pages/Admin/Publishing/Posts/`. `PostList` (`/admin/posts`).
-  `PostEditor` is one static SSR component for `/admin/posts/new` and `/admin/posts/{Id}/edit`,
-  with PRG to `?saved=true`. Also `PostForm`, `PostStatusLabel`, a `DeletePostButton` island and a
-  dashboard link. Publishing is **two submit buttons**, each posting `Input.Status`: Save draft /
-  Publish on a draft, Save / Unpublish on a published post. The first button is what Enter
-  presses, and a submit with no button stays Draft. Admins see drafts at `/posts/{slug}` with a draft
-  banner. `PostBody.IsDelta` checks the body before the database does.
-- Shared components: `Layout/AdminPanel` (one 900px width for every admin page, with an
-  optional `SectionNav` slot), `Tables/DataTable<TItem>` + `DataTableCell` (every admin table),
-  `ButtonBasic`'s `Variant`, and `Utilities/ClassNames.Join`. Styling is shared through
-  components carrying Tailwind classes, never CSS classes in app.css.
-- Dates: `Atoms/LocalDate` writes the UTC date in a `<time datetime>`, and its `<local-date>`
-  element rewrites it in the visitor's time zone, with the same "22 Sep 2026" wording. Every date
-  the site shows goes through it.
+**Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
+`/posts/{slug}` page, the unsaved-edit backup, the artwork embed end to end, and the video embed.
 
-**Step 2, the Quill editor (BUILT and committed 2026-09-22):**
-- Quill 2.0.3 is vendored in `wwwroot/lib/quill/` (`quill.js`, `quill.snow.css`, `LICENSE`,
-  `quill.js.LICENSE.txt`), BSD-3-Clause.
-- `Posts/PostBodyEditor` replaces the textarea. Its `<post-body-editor>` wraps a hidden
-  `InputText`, and its script (loaded from `App.razor`, like the others) injects Quill's script the
-  first time an editor connects. The stylesheet is in the component's `<HeadContent>`.
-- **`data-permanent="post-body-{Id}"`** on the element. Without it, the enhanced navigation after
-  a save patches the element's children to the server's markup and removes Quill's toolbar and
-  editing area, and `connectedCallback` never runs again. With it, blazor.web.js keeps the
-  children when the value matches and replaces the element when it doesn't, so another post's
-  editor starts fresh. The hidden input isn't patched either, which is fine: it already holds what
-  was saved or posted.
-- It starts from the hidden input with `setContents(…, "silent")`, so loading isn't an edit. It
-  writes the Delta on every `text-change` and raises `input`, which also dismisses "Saved.".
-- Links: `LinkWithScheme` overrides `formats/link`'s `sanitize`, so `example.com` becomes
-  `https://example.com` and `name@example.com` becomes `mailto:`. The parser keeps a path on this site (one leading `/`, Mike 2026-09-23), but still
-  drops `//host`, `/\host` and `#…`.
-- Its styles are in `PostBodyEditor.razor.css`, not Tailwind classes: `quill.snow.css` isn't in a
-  layer, so it beats every Tailwind utility. Headings are bolded there, since the reset takes away
-  the browser's default weight.
-- `EnableSaveOnChange` now skips every control with no name. Quill's hidden header `<select>` and
-  link box are in the form, and the select changed as the cursor moved.
-- Known wrinkle: Quill's JSON isn't byte for byte what jsonb gives back, so undoing every edit
+## After that
+
+1. `/posts`, the public list (newest first, paged), then a nav link.
+2. "Mentioned in" on the artwork page, from `post_and_artworks_junction`, published posts only
+   (`PostRepository.GetPublishedMentioningArtworkAsync` exists).
+3. The uploaded-image embed (`postImage`): the `post_images` table, the image pipeline, and the
+   orphan sweeper learning about it.
+4. Open, small: a `#…` link is still dropped by the parser without a word. Headings have no ids
+   to jump to anyway.
+
+## How the blog posts are built
+
+**Rules.** Never render post content with `MarkupString`. No bUnit: the logic is in the parser,
+which is tested; Playwright for .NET is the candidate if the editor ever needs a test. Our own
+Quill format and embed names carry an `artshop-` prefix (Mike), and the keys inside an embed's
+value don't. Each embed is a Quill `BlockEmbed`, never an inline `Embed`: an inline embed's line
+ends in a `\n`, which the parser would read as an empty paragraph after every embed.
+
+**Storage and reading.** The Quill Delta is stored as `jsonb` (a CHECK requires an `ops` array).
+`PostDocumentParser.Parse` turns it into typed blocks (`Domain/Publishing/PostDocument.cs`) and
+drops anything it doesn't know, so no HTML sanitizer is needed and pasting is safe by construction.
+Links must be http, https, mailto, or a path with one leading `/` (not `//host` or `/\host`).
+Storage keys and video ids are checked against their exact shape. The parser is `partial` only for
+`[GeneratedRegex]`.
+
+**Schema.** `posts` has no status column: a NULL `published_at` is a draft, and visitors see
+`published_at <= now()`, so scheduling later needs only a date picker. Slugs follow the title, and
+a clash is `NameAlreadyInUseException`. `set_post_artworks` rebuilds `post_and_artworks_junction`
+from the saved body with a jsonpath (`$.ops[*].insert."artshop-artwork".artworkId`, whole numbers
+an int can hold, exactly as the parser reads them).
+
+**Editor** (`Components/Pages/Admin/Publishing/Posts/`):
+- `PostEditor` is one static SSR page for new and edit, with Post/Redirect/Get to `?saved=true`.
+  Publishing is two submit buttons posting `Input.Status`. A save of a post deleted in another tab
+  keeps the writing on the page, headed "Deleted post".
+- `PostBodyEditor`'s `<post-body-editor>` loads the vendored Quill 2.0.3 (`wwwroot/lib/quill/`) on
+  first use and writes the Delta into a hidden input on every change. **`data-permanent`** stops
+  enhanced navigation from wiping Quill's DOM after a save.
+- Its styles are in `PostBodyEditor.razor.css`, because `quill.snow.css` isn't in a layer and beats
+  every Tailwind utility. That's also why the writing area's `box-sizing` is set there.
+- `PostBackup` keeps a localStorage copy of unsaved edits and offers Restore / Discard, Mike's
+  choice over a leave-page confirm, which can't stop Blazor's Back.
+- **Rule (Mike): a form editing something that exists keeps Save disabled until it differs from
+  what was loaded.** Static pages use `Forms/EnableSaveOnChange` with `data-waits-for-change`;
+  islands set `disabled` from C#. Known wrinkle: jsonb reorders Quill's JSON, so undoing every edit
   leaves Save enabled.
+- `globals.d.ts` declares `Blazor`, `Quill` and Floating UI for `checkJs`, and `jsconfig.json` no
+  longer checks `wwwroot/lib`. TypeScript proper maybe later (Mike).
 
-**Step 3 + the post page (BUILT and committed 2026-09-22):**
-- `Components/Publishing/PostDocumentView` switches on the block type, and `PostInlineText`
-  renders one line's runs by wrapping `u`, `em`, `strong` and `a` around Razor-escaped text. An
-  empty line renders `<br>`. Spacing copies the editor: no gaps between blocks, and
-  `whitespace-pre-wrap`. Embeds render nothing yet.
-- `Pages/Publishing/SinglePost` at `/posts/{slug}`. Admins look it up with `GetBySlugAsync`
-  (`get_post_by_slug`, drafts included) and see a draft banner and an Edit link. Visitors use
-  `GetPublishedBySlugAsync`. Test `AdminsFindADraftBySlug` added.
-- The edit page's address is now a link, `PageUrls.Post` (same tab, Mike's call).
+**Matching the page.** `Components/Publishing/EmbedLayoutClasses` holds each layout's Tailwind
+classes (`center | left | right | floatLeft | floatRight`, named by `EmbedLayoutNames`). The editor
+applies the same classes, so it wraps exactly as the page will, and wrapped embeds take their own
+line below `sm`. `PostColumn.WidthClass` (42rem, content-box) is the text's width on the page and
+in Quill's writing area, with the page's line height. The post body is `flow-root break-words`.
 
-**Unsaved-edit backup (BUILT and committed 2026-09-22):**
-Mike's choice over a leave-page confirm, because Blazor handles Back itself and a page can't
-cancel that. `Posts/PostBackup` wraps the form, and `<post-backup>` writes the title and body to
-localStorage (`artist-shop:post-backup:{id|new}`) half a second after an edit, on submit and on
-`pagehide`. It stores the post's `updated_at` from page load. A fresh page with a different copy
-shows Restore / Discard, adding "saved since then" when the version moved on. A copy equal to the
-form is deleted, which is how a save clears it. Bodies are compared with sorted keys, because
-jsonb reorders them. A page back from a failed save neither offers nor deletes. An edit page also
-clears the "new" copy once it matches, and a post deleted mid-edit writes to "new", so New post
-offers its text back. Restore goes through `post-body-editor`'s `load()`, as a "user" change that
-can be undone. Typing before answering the notice overwrites the stored copy, but Restore still
-has the old one in memory until the page is left.
+**Artwork embed.** `artshop-artwork` stores `{ artworkId, storageKey, size, layout }`, and the
+storage key is required. Small and medium are the 160 and 400 variants, which every image has
+(`ImageUrls.EmbedVariant`). The server renders image addresses with a `{storageKey}` placeholder,
+so they stay a C# concern.
+- `PostArtworkEmbed.razor.js` defines the blot and its toolbar buttons: Small / Medium,
+  Left / Centre / Right, Wrap text, Change image. The toolbar itself is the shared one (see "Embed
+  toolbars"), a native `popover` placed by Floating UI 1.8.0, vendored in `wwwroot/lib/floating-ui/`
+  (see its `SOURCE.md`); Blueprint's `BbPopover` can't run on a static page.
+- **Caption:** an optional `caption` key, stored as typed and applied on every keystroke (Quill
+  merges them into one undo), so no way of closing the toolbar loses it. The parser trims it and
+  reads a blank one as none. The page renders `<figure>` at the image's width with a
+  `<figcaption>` (`ArtworkEmbedView.CaptionClass`, which the editor gets too), so a long caption
+  wraps under the image. Enter in any embed toolbar's field means Done, since the toolbar is inside
+  the post's form and Enter would submit it. To watch in the browser: whether the image flickers
+  while typing, since each keystroke replaces the embed.
+- **The picker** is `ArtworkPickerDialog`, a `ModalDialog` with `StartsClosed` holding an `<iframe>`
+  of `ArtworkPicker/` pages in `FrameLayout`:
+  1. The list reuses `Catalog/Artworks/ArtworkListBrowser`, which takes `RowHref`,
+     `ClearFiltersHref` and `KeptFields`. It starts at `?images=yes`.
+  2. An artwork's images.
+  3. `ArtworkEmbedChoice`: size and layout, or only "Use this image" in
+     `ArtworkPickerMode.ChangeImage`.
+- `ArtworkPickerTrail` carries the mode and the list's query string through every step, so Back
+  links keep the filters. The picker's script restores the scroll position on Back.
+- The frame and the editor talk through `postMessage` (`choose` or `close`, since a frame keeps
+  Escape to itself). The editor only listens to its own frame at this site's origin.
+- **Public:** `SinglePost` loads every embed's image in one call
+  (`ArtworkRepository.GetImagesByStorageKeyAsync`, keys cast to `char(32)[]` so the unique index is
+  used). `ArtworkEmbedView` links to `/artworks/{slug}?image={n}`. An embed whose image is gone is
+  left out.
 
-**Artwork embed, started 2026-09-23 (builds, tests pass, not yet in the browser):**
-- `Posts/PostArtworkEmbed.razor.js` defines the `artshop-artwork` `BlockEmbed` blot and the
-  toolbar that opens under an embed when it's clicked (Small/Medium, Left/Centre/Right, Remove).
-  A change replaces the embed through one `updateContents`, so one undo takes it back.
-  `PostArtworkEmbed.razor` renders that toolbar as a native `popover`, and carries the two image
-  addresses, built by `ImageUrls.EmbedVariant` around a `{storageKey}` placeholder, so image
-  addresses stay a C# concern.
-- Positioning is Floating UI 1.8.0, vendored in `wwwroot/lib/floating-ui/` (see its `SOURCE.md`)
-  and imported when an editor connects. Blueprint's `BbPopover` can't run on a static page.
-- Layouts are `center | left | right | floatLeft | floatRight` (`EmbedLayoutNames`, Mike
-  2026-09-23): left and right on a line of their own, the float ones with text wrapping. The
-  toolbar shows Left / Centre / Right plus Wrap text. `Components/Publishing/EmbedLayoutClasses`
-  holds each layout's Tailwind classes, and the editor applies the same ones, so the editor wraps
-  exactly as the page will. The post page's renderer must use it too.
-- `Components/Publishing/PostColumn.WidthClass` is the width of a post's text (42rem, content-box),
-  used by `/posts/{slug}`'s `<main>` and added to Quill's writing area, which is centred in the
-  editor with the page's line height, so lines break in the same places.
-- `storageKey` is now required (Mike, 2026-09-23): the picker always names an image, so the
-  editor can build its address from the key alone. If the image is deleted, the editor shows
-  "This image was removed." and the public page leaves the embed out.
-- `globals.d.ts` declares `Blazor`, `Quill` and Floating UI for `checkJs`, and `jsconfig.json`
-  no longer checks `wwwroot/lib`. TypeScript proper maybe later (Mike).
+**Embed toolbars.** `PostEmbedToolbar` (markup) and `PostEmbedToolbar.razor.js` are shared: the
+popover, Floating UI, one-undo replace, Remove and Done. Each embed kind supplies its own buttons
+and an `EmbedKind` (`readValue`, `showPressed`, `onButton`). Two popovers, one per kind; opening one
+closes the other.
 
-**Picker, BUILT 2026-09-23 (builds, tests pass; pages checked by curl, not yet in the browser):**
-- The toolbar's Artwork button opens `Posts/ArtworkPickerDialog`, a `ModalDialog` with the new
-  `StartsClosed` (the script calls `showModal`) holding an `<iframe>`. The frame only gets its first
-  page when the dialog opens, and goes back to `about:blank` when it closes, so each opening starts
-  at the list.
-- `ArtworkPicker/PickArtwork` (`/admin/posts/pick-artwork`) is the admin list in `FrameLayout` (no
-  site header). The list moved into `Catalog/Artworks/ArtworkListBrowser`, which takes `RowHref`
-  (null = no link; the picker gives image-less artworks none) and `ClearFiltersHref`.
-- `ArtworkPicker/PickArtworkImage` (`/admin/posts/pick-artwork/{id}`) shows the artwork's images,
-  or, with `?image={key}`, `ArtworkEmbedChoice` (size, Left/Centre/Right, wrap). One image
-  redirects straight to the choice.
-- The frame talks through `postMessage` (`sendToArtworkPickerOwner` in `PostArtworkEmbed.razor.js`):
-  `insert` with the value, or `close` for Escape, which a frame keeps to itself. The editor only
-  listens to its own frame at this site's origin, and closes the dialog before inserting where the
-  cursor was when it opened.
-- The list's query string rides along as `?list=` (`PageUrls.ArtworkPickerListKey`), so every Back link returns to the list as it was.
-- The embed toolbar's **Change image** opens the picker at that artwork's images in
-  `ArtworkPickerMode.ChangeImage` (`?mode=change-image`), whose last step only offers "Use this
-  image": the embed keeps its size and layout, and the swap is one undoable change. The mode and
-  the list's query ride in `ArtworkPickerTrail`; the list's GET filter form keeps the mode through
-  `ArtworkListBrowser`'s `KeptFields` hidden inputs. **Done** closes the toolbar.
-- The picker starts at `?images=yes` (`PageUrls.ArtworkPickerList`), shown in the filter and
-  switchable; "Clear filters" hides when the page is already at its clear address. Its script
-  remembers each page's scroll position when a link is followed and restores it when a Back link
-  returns to that address (enhanced navigation keeps the module alive; closing the dialog resets it).
-
-**Public rendering of artwork embeds, BUILT 2026-09-23:** `SinglePost` collects the parsed
-document's storage keys and loads them in one call, `ArtworkRepository.GetImagesByStorageKeyAsync`
-(`get_artwork_images_by_storage_keys`, keys cast to `char(32)[]` so the unique index is used),
-which returns each image with its artwork and its place on the artwork page. `PostDocumentView`
-leaves out an embed whose image is gone (or belongs to another artwork), and
-`Publishing/ArtworkEmbedView` draws the rest with `EmbedLayoutClasses`, width and height set, the
-stored blur behind, the title as alt text, and a link to `/artworks/{slug}?image={n}`. The post
-body is `flow-root` so floats stay inside it.
-
-**After that:**
-4. **Next session: the artwork embed first** (Mike, 2026-09-22: he wants to see what a custom
-   Quill embed looks like on the real case; the picker's design gets agreed before building).
-   YouTube after it, as `{ videoId, layout }` rather than Quill's built-in `video`, which stores
-   any iframe address and has no layout. Its blot can extend Quill's video blot for the iframe,
-   with its own toolbar handler turning a pasted watch or youtu.be address into the id.
-   The embeds one at a time. Each must be a Quill `BlockEmbed` blot, not an
-   inline `Embed`: the parser expects no `\n` after an embed in the middle of the document, and an
-   inline embed's line ends in one, which would add a blank paragraph after every embed.
-5. `/posts`, the public list, then "Mentioned in" on the artwork page. Never render post content
-   with `MarkupString`.
-
-**Decided in discussion (2026-09-22):**
-- No bUnit. The logic lives in the parser, which is tested. Playwright for .NET (not Cypress, which
-  is JavaScript-only) is the candidate if the editor flow ever needs a test, once it works.
-- Pasting is safe by construction. Quill turns pasted HTML into Delta ops in the browser and
-  keeps only whitelisted formats. The server only ever reads Delta JSON. The parser validates a
-  hand-made Delta, and Razor escapes the output.
-- The parser is `partial` only because `[GeneratedRegex]` generates the method bodies.
-
-**Editor: Quill 2.** It ships a single prebuilt file for `wwwroot/lib`, so the repo still has no
-Node toolchain. It's locked down in two places. The toolbar shows only our buttons, and the
-`formats` whitelist makes the editor drop anything else, including pasted formatting.
-
-**Allowed formats:** bold, italic, underline, link, header (H2/H3), bullet and ordered lists,
-blockquote, plus three custom embeds. No colours for now.
-
-**Storage:** the Quill Delta is stored as `jsonb`. The server parses it into typed blocks, and
-Razor components render them. Anything the parser doesn't know is dropped, so no HTML sanitizer
-is needed. Delta is a flat list
-of ops, not a tree: block formats (header, list) sit on the `\n` that ends a line, and consecutive
-list lines must be grouped into one `<ul>`/`<ol>`.
-
-**Embeds.** Each stores ids and choices only, never markup:
-- `artshop-artwork` stores `{ artworkId, storageKey, size: small|medium, layout }` and points at one of an
-  artwork's existing images. Small and medium map onto the 160/400 variants. The renderer reads the
-  current title, slug and image at render time. If the artwork has been deleted, the embed
-  disappears. If visitors can't see it, the image still shows but isn't a link.
-- `postImage` stores `{ postImageId, size, layout }`: an image uploaded into the post itself. It
-  goes through the existing image pipeline (variants and blur), stored in `post_images`, not
-  `artwork_images`.
-- `artshop-youtube` stores `{ videoId, layout }` and renders a `youtube-nocookie.com` iframe.
-- Our own format and embed names carry an `artshop-` prefix (Mike, 2026-09-23), so nobody mistakes
-  them for Quill's. The keys inside an embed's value aren't prefixed.
-- `layout` is one of `EmbedLayoutNames` for every embed. Floats collapse to full width on
-  narrow screens.
-
-**Schema (BUILT 2026-09-22, `0003_CreatePosts.sql`, `Procedures/Posts/`, `PostRepository`):**
-- `posts`: id, title, slug (unique; follows the title like a series slug, and a clash is
-  refused as `NameAlreadyInUseException`), body `jsonb` (a CHECK requires an `ops` array),
-  published_at, created_at, updated_at. There is no status column: a NULL `published_at` is a
-  draft. Visitors see `published_at <= now()`, so scheduling later needs only a date picker.
-  Saving a published post keeps its date; unpublishing clears it.
-- `post_and_artworks_junction (post_id, artwork_id)`: both keys cascade on delete. The
-  `set_post_artworks` function rebuilds it from the stored body with a jsonpath
-  (`$.ops[*].insert."artshop-artwork".artworkId`, numbers only), so it can't disagree with the body. An embed of an artwork
-  deleted in the meantime is skipped.
-- `post_images` is not built yet. It comes with the uploaded-image embed and needs the orphan
-  sweeper to know about it.
-
-**Reading the body (BUILT 2026-09-22):** `PostDocumentParser.Parse` turns the Delta into a
-`PostDocument` of typed blocks (`Domain/Publishing/PostDocument.cs`): paragraphs, h2/h3, quotes,
-grouped lists, artwork and YouTube embeds. Anything it doesn't know is dropped. Links must be
-http, https or mailto. Storage keys and video ids are checked against their exact shape. Razor
-components will render the blocks, so Blazor escapes the text and artwork embeds can reuse
-`TileImage`. No bUnit, so the components get checked in the browser. The SQL jsonpath and the
-parser agree that an `artworkId` counts only as a whole number an int can hold.
-
-**Editing:** the page stays static SSR. The editor is a custom element inside the `<EditForm>` and
-writes the Delta JSON into a hidden input on submit. The artwork picker calls a small JSON endpoint
-over `ArtworkSearch`. Post images upload over XHR, like the artwork uploader.
-
-**Pages:** `/admin/posts` (list), `/admin/posts/new`, `/admin/posts/{id}/edit` (delete lives here),
-`/posts` (public index, newest first, paged), `/posts/{slug}`, a "Mentioned in" section on the
-artwork page (published posts only), and a nav link. Details get decided as each page is built.
-
-**Build order:** schema, then the repository and tests, then the Delta renderer and its tests, then
-the admin list and the edit page with a plain-text editor, then the custom embeds one at a time
-(youtube first, as the simplest), then the public pages and "Mentioned in".
+**Video embed.** `artshop-video` stores `{ provider, videoId, hash?, layout }`, where `provider` is
+`youtube` or `vimeo` and `hash` is the second part of an unlisted Vimeo link. The parser checks each
+part's exact shape and drops the video otherwise (`VideoEmbedBlock` over `YouTubeVideo` /
+`VimeoVideo`). `VideoPlayerUrls` builds the player addresses, `youtube-nocookie.com` and Vimeo with
+`dnt=1`, and hands the editor templates with placeholders.
+- A video fills the column, or is 400px (a medium artwork's width) with text wrapped beside it
+  (`EmbedLayoutClasses.VideoFor`). So its toolbar has Full width / Wrap left / Wrap right, not
+  left and right on a line of their own.
+- In the editor, the live player sits under a transparent cover, so a click opens the toolbar.
+- The toolbar shows the video's own page as a link (opens a new tab) and **Change video**, which
+  opens the address dialog with that link filled in and selected, and keeps the layout.
+  `VideoUrls` builds both the player and the page addresses. Not an editable field in the toolbar:
+  it sits inside the post's form, where Enter would submit the post.
+- `VideoAddressDialog` is outside the post's `<form>`, in a `method="dialog"` form of its own, so
+  Enter in its field can never submit the post. The editor finds it by id when opening it. Its
+  script reads watch, `youtu.be`, `shorts/`, `embed/`, `live/`, `vimeo.com/{id}[/{hash}]`,
+  channel and showcase links and `player.vimeo.com/video/{id}?h=`, and says so when it can't.
+- The public iframe sets `referrerpolicy="strict-origin-when-cross-origin"`: YouTube's player
+  refuses to play without a referrer.
 
 # Todo: interactive image upload on the add-artwork form
 
