@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  [Parameter, EditorRequired]
+  public PostListItem Post { get; set; } = default!;
+
+  private string? Excerpt => PostExcerpt.From(PostDocumentParser.Parse(Post.Body));
+}
+
+@* The title links to the post. The excerpt is cut to a few lines here, whatever the screen's width *@
+<li class="mb-8">
+  <h2 class="text-xl break-words"><a href="@PageUrls.Post(Post.Slug)" class="underline">@Post.Title.Value</a></h2>
+  <p class="mb-1 text-sm text-gray-500"><LocalDate Moment="Post.PublishedAt" /></p>
+  @if (Excerpt is { } excerpt)
+  {
+    <p class="line-clamp-3 break-words">@excerpt</p>
+  }
+</li>

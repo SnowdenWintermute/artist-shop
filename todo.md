@@ -31,16 +31,24 @@ day's second session:
   `EmbedFigure.razor.js`; every embed on the page now has a `srcset` (up to 2x, or every width when
   it opens the lightbox). Worth a browser check: an artwork image upload on the edit page, a bulk
   upload, a post image upload, and the Video dialog on nonsense.
-- Then `/posts`: agree the page with Mike first (what each entry shows, how many per page).
+- `/posts` is built (see item 1 below); worth a browser look, and at the paging once there are more than 10 posts.
 
 **Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
 `/posts/{slug}` page, the unsaved-edit backup, and the artwork, video and uploaded image embeds.
 
 ## After that
 
-1. `/posts`, the public list (newest first, paged), then a nav link.
-2. "Mentioned in" on the artwork page, from `post_and_artworks_junction`, published posts only
-   (`PostRepository.GetPublishedMentioningArtworkAsync` exists).
+1. **Built 2026-09-24** (uncommitted): `/posts`, headed "Blog", with a Blog nav link after Home.
+   Decided with Mike: title, date and a plain-text excerpt (`PostExcerpt`, 300 characters on a
+   whole word, clamped to 3 lines), published posts only, 10 per page
+   (`ArtistShopLimits.BlogPageSize`) with ← Newer / Older →. `ArtworkListPaging` became the
+   shared `Components/Lists/PageLinks`.
+   `tools/seed-blog-posts/seed.cs` adds 25 filler posts a few days apart for the paging (`--clean`
+   removes them); they're in the dev database now. `GetPublishedAsync` is gone, and
+   `get_post_list` lost its published-only flag.
+2. **Built 2026-09-24** (uncommitted): "Mentioned in" on the artwork page (`ArtworkMentions`),
+   below the description, one row per published post with its date, newest first. Chosen by Mike
+   over a row in the details list.
 3. **Built 2026-09-24**, checked by Mike in the browser: the uploaded-image embed, `artshop-image`.
    Decided with Mike:
    - Same upload pipeline and storage keys as artwork images, but **no table**: the embed's Delta

@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Database.Repositories;
 
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using Dapper;
@@ -59,20 +60,34 @@ public class PostRepository(NpgsqlDataSource dataSource)
         return row?.ToPost();
     }
 
-    public Task<List<PostSummary>> GetAllAsync() => GetListAsync(onlyPublished: false);
-
-    public Task<List<PostSummary>> GetPublishedAsync() => GetListAsync(onlyPublished: true);
-
-    private async Task<List<PostSummary>> GetListAsync(bool onlyPublished)
+    // drafts included, for the admin list
+    public async Task<List<PostSummary>> GetAllAsync()
     {
         await using var connection = dataSource.CreateConnection();
 
-        var rows = await connection.QueryAsync<PostSummaryRow>(
-            "SELECT * FROM get_post_list(@OnlyPublished)",
-            new { OnlyPublished = onlyPublished }
-        );
+        var rows = await connection.QueryAsync<PostSummaryRow>("SELECT * FROM get_post_list()");
 
         return [.. rows.Select(row => row.ToPostSummary())];
+    }
+
+    // the count rides on the rows, so a page past the end carries none; the page sends a page
+    // number past the end back to the first page
+    public async Task<PostListPage> GetPublishedPageAsync(int pageNumber)
+    {
+        await using var connection = dataSource.CreateConnection();
+
+        var pageSize = ArtistShopLimits.BlogPageSize;
+
+        var rows = (
+            await connection.QueryAsync<PostListRow>(
+                "SELECT * FROM get_published_post_page(@Offset, @PageSize)",
+                new { Offset = (pageNumber - 1) * pageSize, PageSize = pageSize }
+            )
+        ).ToList();
+
+        var totalCount = rows.Count is 0 ? 0 : rows[0].TotalCount;
+
+        return new PostListPage([.. rows.Select(row => row.ToPostListItem())], totalCount, pageNumber, pageSize);
     }
 
     public async Task<List<PostSummary>> GetPublishedMentioningArtworkAsync(ArtworkId artworkId)
@@ -194,6 +209,25 @@ public class PostRepository(NpgsqlDataSource dataSource)
                 new PostSlug(Slug),
                 PublishedAt is DateTime publishedAt ? new DateTimeOffset(publishedAt) : null,
                 new DateTimeOffset(UpdatedAt)
+            );
+    }
+
+    private sealed class PostListRow
+    {
+        public required int Id { get; init; }
+        public required string Title { get; init; }
+        public required string Slug { get; init; }
+        public required string Body { get; init; }
+        public required DateTime PublishedAt { get; init; }
+        public required int TotalCount { get; init; }
+
+        public PostListItem ToPostListItem() =>
+            new(
+                new PostId(Id),
+                new PostTitle(Title),
+                new PostSlug(Slug),
+                new PostBody(Body),
+                new DateTimeOffset(PublishedAt)
             );
     }
 }

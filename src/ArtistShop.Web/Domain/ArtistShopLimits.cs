@@ -25,5 +25,7 @@ public static class ArtistShopLimits
 
     public const int ArtworkListPageSize = 25;
 
+    public const int BlogPageSize = 10;
+
     public const int PostTitleMaximumLength = 200;
 }

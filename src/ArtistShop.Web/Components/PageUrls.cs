@@ -23,6 +23,8 @@ public static class PageUrls
 
     public static string EditPost(PostId id) => $"/admin/posts/{id.Value}/edit";
 
+    public const string Blog = "/posts";
+
     public static string Post(PostSlug slug) => $"/posts/{slug.Value}";
 
     // the post editor's artwork picker, which runs in a frame: the list, then one artwork's

@@ -1,0 +1,58 @@
+@inject NavigationManager NavigationManager
+
+@code {
+  // the query parameter every paged list keeps its page number in
+  public const string PageKey = "page";
+
+  // anything below the first page is the first page, so a hand-edited link lands somewhere real
+  public static int ReadPageNumber(string? value) =>
+    int.TryParse(value, out var pageNumber) && pageNumber > 1 ? pageNumber : 1;
+
+  [Parameter, EditorRequired]
+  public int PageNumber { get; set; }
+
+  [Parameter, EditorRequired]
+  public int PageCount { get; set; }
+
+  // a newest-first list reads better as Newer and Older
+  [Parameter]
+  public string PreviousText { get; set; } = "← Previous";
+
+  [Parameter]
+  public string NextText { get; set; } = "Next →";
+
+  // every other query parameter stays in the address as it is; the first page drops the
+  // parameter instead of spelling out page=1
+  private string UrlFor(int pageNumber) =>
+    NavigationManager.GetUriWithQueryParameter(PageKey, pageNumber <= 1 ? null : (int?)pageNumber);
+
+  private bool IsOnLastPage => PageNumber == PageCount;
+  private bool IsOnFirstPage => PageNumber == 1;
+}
+
+@if (PageCount > 1)
+{
+  @* a span where there is no page to go to: a grayed anchor is still reachable by keyboard,
+     and following it lands on an empty page past the end *@
+  <nav class="flex items-center gap-4 text-sm" aria-label="Pages">
+    @if (IsOnFirstPage)
+    {
+      <span class="text-gray-400">@PreviousText</span>
+    }
+    else
+    {
+      <a href="@UrlFor(PageNumber - 1)">@PreviousText</a>
+    }
+
+    <span>Page @PageNumber of @PageCount</span>
+
+    @if (IsOnLastPage)
+    {
+      <span class="text-gray-400">@NextText</span>
+    }
+    else
+    {
+      <a href="@UrlFor(PageNumber + 1)">@NextText</a>
+    }
+  </nav>
+}

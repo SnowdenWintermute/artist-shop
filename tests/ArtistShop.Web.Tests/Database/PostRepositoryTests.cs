@@ -1,5 +1,6 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using System.Globalization;
@@ -173,15 +174,45 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task PublishedListLeavesOutDrafts()
+    public async Task BlogPageIsNewestFirstWithoutDrafts()
     {
+        var olderId = await AddPostAsync(TextOnlyBody, PostStatus.Published);
+        var newerId = await AddPostAsync(TextOnlyBody, PostStatus.Published);
         var draftId = await AddPostAsync(TextOnlyBody, PostStatus.Draft);
-        var publishedId = await AddPostAsync(TextOnlyBody, PostStatus.Published);
 
-        var published = (await _posts.GetPublishedAsync()).Select(post => post.Id).ToList();
+        var page = await _posts.GetPublishedPageAsync(pageNumber: 1);
+        var ids = page.Items.Select(post => post.Id).ToList();
 
-        Assert.Contains(publishedId, published);
-        Assert.DoesNotContain(draftId, published);
+        Assert.Equal(new[] { newerId, olderId }, ids.Take(2));
+        Assert.DoesNotContain(draftId, ids);
+    }
+
+    [Fact]
+    public async Task BlogPagesHoldAPageSizeEachAndCountThemAll()
+    {
+        for (var index = 0; index <= ArtistShopLimits.BlogPageSize; index += 1)
+        {
+            await AddPostAsync(TextOnlyBody, PostStatus.Published);
+        }
+
+        var first = await _posts.GetPublishedPageAsync(pageNumber: 1);
+        var second = await _posts.GetPublishedPageAsync(pageNumber: 2);
+
+        Assert.Equal(ArtistShopLimits.BlogPageSize, first.Items.Count);
+        Assert.NotEmpty(second.Items);
+        Assert.Empty(first.Items.Select(post => post.Id).Intersect(second.Items.Select(post => post.Id)));
+        Assert.True(first.PageCount >= 2);
+    }
+
+    [Fact]
+    public async Task BlogPagePastTheEndIsEmpty()
+    {
+        await AddPostAsync(TextOnlyBody, PostStatus.Published);
+
+        var page = await _posts.GetPublishedPageAsync(pageNumber: 100_000);
+
+        Assert.Empty(page.Items);
+        Assert.Equal(0, page.TotalCount);
     }
 
     [Fact]

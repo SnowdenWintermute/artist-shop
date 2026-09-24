@@ -1,5 +1,6 @@
 @page "/series/{slug}"
 @using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Utilities
@@ -11,7 +12,7 @@
   [Parameter]
   public string Slug { get; set; } = default!;
 
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.PageKey)]
+  [SupplyParameterFromQuery(Name = PageLinks.PageKey)]
   private string? PageValue { get; set; }
 
   private LoadedSeries? _loaded;
@@ -48,7 +49,7 @@
       HasImages: true,
       IsForSale: null,
       Sort: ArtworkListSort.SeriesOrder,
-      PageNumber: ArtworkListQuery.ReadPage(PageValue)
+      PageNumber: PageLinks.ReadPageNumber(PageValue)
     );
 }
 
@@ -79,7 +80,7 @@
       </div>
 
       <div class="flex justify-end">
-        <ArtworkListPaging Page="loaded.Artworks" />
+        <PageLinks PageNumber="loaded.Artworks.PageNumber" PageCount="loaded.Artworks.PageCount" />
       </div>
     }
   </main>

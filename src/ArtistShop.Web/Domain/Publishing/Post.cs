@@ -59,3 +59,11 @@ public record PostSummary(
     DateTimeOffset? PublishedAt,
     DateTimeOffset UpdatedAt
 );
+
+// a post on the public blog list, with its body for the excerpt
+public record PostListItem(PostId Id, PostTitle Title, PostSlug Slug, PostBody Body, DateTimeOffset PublishedAt);
+
+public record PostListPage(IReadOnlyList<PostListItem> Items, int TotalCount, int PageNumber, int PageSize)
+{
+    public int PageCount => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+}

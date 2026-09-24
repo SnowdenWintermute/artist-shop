@@ -1,0 +1,25 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  // published only, newest first, as the repository hands them over
+  [Parameter, EditorRequired]
+  public IReadOnlyList<PostSummary> Posts { get; set; } = default!;
+}
+
+@* The posts that show this artwork, each a row like the panel's products *@
+<section>
+  <h2 class="mb-2 text-sm text-gray-500">Mentioned in</h2>
+  <ul>
+    @foreach (var post in Posts)
+    {
+      <li @key="post.Id" class="flex justify-between gap-4 border-b py-2">
+        <a href="@PageUrls.Post(post.Slug)" class="underline">@post.Title.Value</a>
+        @if (post.PublishedAt is { } publishedAt)
+        {
+          <span class="shrink-0 text-sm text-gray-500"><LocalDate Moment="publishedAt" /></span>
+        }
+      </li>
+    }
+  </ul>
+</section>

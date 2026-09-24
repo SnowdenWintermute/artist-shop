@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Search
@@ -44,7 +45,7 @@
   private string? SaleValue { get; set; }
   [SupplyParameterFromQuery(Name = ArtworkListQuery.SortKey)]
   private string? SortValue { get; set; }
-  [SupplyParameterFromQuery(Name = ArtworkListQuery.PageKey)]
+  [SupplyParameterFromQuery(Name = PageLinks.PageKey)]
   private string? PageValue { get; set; }
 
   private LoadedArtworkList? _loaded;
@@ -73,7 +74,7 @@
     if (artworks.Items.Count == 0 && filter.PageNumber > 1)
     {
       NavigationManager.NavigateTo(
-        NavigationManager.GetUriWithQueryParameter(ArtworkListQuery.PageKey, (int?)null)
+        NavigationManager.GetUriWithQueryParameter(PageLinks.PageKey, (int?)null)
       );
       return;
     }
@@ -99,12 +100,12 @@
   <div class="flex justify-between items-center  mb-2">
     <span class="text-sm">@CountText.Of(loaded.Artworks.TotalCount, "artwork")</span>
 
-    <ArtworkListPaging Page="loaded.Artworks" />
+    <PageLinks PageNumber="loaded.Artworks.PageNumber" PageCount="loaded.Artworks.PageCount" />
   </div>
 
   <ArtworkListRows Items="loaded.Artworks.Items" RowHref="RowHref" />
 
   <div class="flex justify-end">
-    <ArtworkListPaging Page="loaded.Artworks" />
+    <PageLinks PageNumber="loaded.Artworks.PageNumber" PageCount="loaded.Artworks.PageCount" />
   </div>
 }

@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Components.Forms;
+using ArtistShop.Web.Components.Lists;
 using ArtistShop.Web.Domain.Catalog;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
@@ -16,7 +17,6 @@ public static class ArtworkListQuery
     public const string ImagesKey = "images";
     public const string SaleKey = "sale";
     public const string SortKey = "sort";
-    public const string PageKey = "page";
 
     public static ArtworkListFilter Read(
         int[]? typeIds,
@@ -41,7 +41,7 @@ public static class ArtworkListQuery
             YesNoSelect.Read(images),
             YesNoSelect.Read(sale),
             ReadSort(sort, seriesId),
-            ReadPage(page)
+            PageLinks.ReadPageNumber(page)
         );
     }
 
@@ -59,16 +59,12 @@ public static class ArtworkListQuery
             images: query.GetValueOrDefault(ImagesKey),
             sale: query.GetValueOrDefault(SaleKey),
             sort: query.GetValueOrDefault(SortKey),
-            page: query.GetValueOrDefault(PageKey)
+            page: query.GetValueOrDefault(PageLinks.PageKey)
         );
     }
 
     private static int[] Ids(StringValues values) =>
         [.. values.Select(value => int.TryParse(value, out var id) ? id : (int?)null).OfType<int>()];
-
-    // anything below the first page is the first page, so a hand-edited link lands somewhere real
-    public static int ReadPage(string? value) =>
-        int.TryParse(value, out var pageNumber) && pageNumber > 1 ? pageNumber : 1;
 
     private static ArtworkListSort ReadSort(string? value, SeriesId? seriesId) =>
         value switch

@@ -1,12 +1,16 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Commerce
+@using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Identity
 @using ArtistShop.Web.Utilities
 
 @code {
   [Parameter, EditorRequired]
   public Artwork Artwork { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<PostSummary> Mentions { get; set; } = default!;
 
   // nothing is for sale on the site yet, so a price is a label. Sold work keeps its row
   // without its price
@@ -101,6 +105,11 @@
   @if (Artwork.Description is { } description)
   {
     @* whitespace-pre-line keeps the artist's own line breaks without letting a long line overflow *@
-    <p class="whitespace-pre-line">@description</p>
+    <p class="mb-6 whitespace-pre-line">@description</p>
+  }
+
+  @if (Mentions.Count > 0)
+  {
+    <ArtworkMentions Posts="Mentions" />
   }
 </div>
