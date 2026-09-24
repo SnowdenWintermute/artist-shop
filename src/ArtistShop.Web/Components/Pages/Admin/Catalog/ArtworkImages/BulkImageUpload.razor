@@ -62,15 +62,22 @@
       return;
     }
 
-    _module = await JS.InvokeAsync<IJSObjectReference>(
-      "import",
-      "./Components/Pages/Admin/Catalog/ArtworkImages/BulkImageUpload.razor.js"
-    );
+    // the page closed before the uploader started, so nothing will be dropped on it
+    try
+    {
+      _module = await JS.InvokeAsync<IJSObjectReference>(
+        "import",
+        "./Components/Pages/Admin/Catalog/ArtworkImages/BulkImageUpload.razor.js"
+      );
 
-    _selfReference = DotNetObjectReference.Create(this);
+      _selfReference = DotNetObjectReference.Create(this);
 
-    _uploader = await _module.InvokeAsync<IJSObjectReference>(
-      "createBulkUploader", _zone, _selfReference, MaximumFiles);
+      _uploader = await _module.InvokeAsync<IJSObjectReference>(
+        "createBulkUploader", _zone, _selfReference, MaximumFiles);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
   }
 
   [JSInvokable]
@@ -188,18 +195,32 @@
     _isUploading = true;
     _percentComplete = 0;
 
-    await _uploader.InvokeVoidAsync(
-      "upload",
-      _files.Where(file => file.Outcome is BulkImageOutcome.WillAttach).Select(file => file.Id),
-      typeId
-    );
+    // the page closed, taking the files with it
+    try
+    {
+      await _uploader.InvokeVoidAsync(
+        "upload",
+        _files.Where(file => file.Outcome is BulkImageOutcome.WillAttach).Select(file => file.Id),
+        typeId
+      );
+    }
+    catch (JSDisconnectedException)
+    {
+    }
   }
 
   private async Task StopUploadAsync()
   {
-    if (_uploader is not null)
+    // the page closed, which stopped the uploads anyway
+    try
     {
-      await _uploader.InvokeVoidAsync("stop");
+      if (_uploader is not null)
+      {
+        await _uploader.InvokeVoidAsync("stop");
+      }
+    }
+    catch (JSDisconnectedException)
+    {
     }
   }
 
@@ -263,10 +284,18 @@
       return [];
     }
 
-    await using var metadata = await _uploader.InvokeAsync<IJSStreamReference>("metadata");
-    await using var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes);
+    // the page closed while the files were being read, so there is no one left to show them to
+    try
+    {
+      await using var metadata = await _uploader.InvokeAsync<IJSStreamReference>("metadata");
+      await using var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes);
 
-    return await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
+      return await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
+    }
+    catch (JSDisconnectedException)
+    {
+      return [];
+    }
   }
 
   // "/Seascapes/1990s/sunset.jpg" is two folders deep; a loose file is none

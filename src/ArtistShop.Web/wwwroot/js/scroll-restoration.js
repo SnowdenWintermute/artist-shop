@@ -5,8 +5,9 @@
 // A new visit by an ordinary link still starts at the top; a link marked data-restores-scroll, such
 // as the artwork picker's Back links, returns to where that page was left too.
 //
-// Needed because neither side handles it (checked 2026-09-24, .NET 10.0.11). Blazor closed its
-// issue leaving Back to the browser: https://github.com/dotnet/aspnetcore/issues/51646 (PR #60296).
+// Needed because neither side handles it (checked 2026-09-24, .NET 10.0.11 and 11.0 RC1). Blazor
+// closed its issue leaving Back to the browser: https://github.com/dotnet/aspnetcore/issues/51646
+// (PR #60296).
 // The browser restores once, against the page still showing, and clamps it to that page's height:
 // https://bugzilla.mozilla.org/show_bug.cgi?id=1442958. If either is fixed, this can go
 
@@ -69,7 +70,8 @@ Blazor.addEventListener("enhancedload", () => {
 
   if (restoresOnLoad) {
     restoresOnLoad = false;
-    // a frame later, after Blazor has scrolled a page reached by a link to the top
+    // Blazor scrolls a page reached by a link to the top just before this event (.NET 11), so
+    // this comes after it; the frame's wait also covered .NET 10, which scrolled at the click
     requestAnimationFrame(restore);
   }
 });

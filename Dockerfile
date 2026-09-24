@@ -7,7 +7,9 @@
 # Two stages: the SDK image (large) builds the app, and only the published output is copied into
 # the much smaller runtime image.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# exact release-candidate tags until .NET 11 is released in November, so a new RC is a
+# deliberate change rather than whatever the moving 11.0 tag points at
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100-rc.1 AS build
 
 # the Tailwind CLI isn't in the repo (it's gitignored), so the build downloads the same version
 # that dev uses; check it with `./tailwindcss --help` when upgrading
@@ -27,8 +29,13 @@ RUN dotnet restore src/ArtistShop.Web/ArtistShop.Web.csproj
 COPY src/ src/
 RUN dotnet publish src/ArtistShop.Web/ArtistShop.Web.csproj --configuration Release --no-restore --output /app
 
-# Ubuntu-based (glibc), which the bundled libvips needs; an Alpine (musl) image would not load it
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+# the folders the volumes mount over, made here because the runtime image has no shell to make them
+RUN mkdir -p /volume-folders/images /volume-folders/aspnet/DataProtection-Keys
+
+# Chiseled Ubuntu: only what .NET needs, with no shell or package manager. glibc, which the bundled
+# libvips needs; an Alpine (musl) image would not load it. The -extra variant, because it carries
+# ICU, which DatabaseCollationComparer's culture comparison and the slugs' Normalize rely on
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1-resolute-chiseled-extra AS runtime
 
 # see env.sh: fewer glibc memory pools, so libvips doesn't fragment memory
 ENV MALLOC_ARENA_MAX=2
@@ -36,17 +43,17 @@ ENV MALLOC_ARENA_MAX=2
 # uploaded originals and variants live on a volume mounted here, not inside the image
 ENV ImageStorage__RootPath=/data/images
 
-# The image runs as the non-root "app" user. A named volume copies the ownership of the folder it
-# is mounted over, so creating these here as "app" makes the volumes writable. The second folder is
-# where ASP.NET Core keeps the keys that sign login cookies and antiforgery tokens; without a volume
-# there, every redeploy would log everyone out.
-RUN mkdir -p /data/images /home/app/.aspnet/DataProtection-Keys \
-    && chown -R app:app /data/images /home/app/.aspnet
+# The image runs as the non-root "app" user, APP_UID (1654). A named volume copies the ownership of
+# the folder it is mounted over, so these are copied in owned by that user, which makes the volumes
+# writable. The second folder is where ASP.NET Core keeps the keys that sign login cookies and
+# antiforgery tokens; without a volume there, every redeploy would log everyone out.
+COPY --from=build --chown=$APP_UID:$APP_UID /volume-folders/images /data/images
+COPY --from=build --chown=$APP_UID:$APP_UID /volume-folders/aspnet /home/app/.aspnet
 
 WORKDIR /app
 COPY --from=build /app .
 
-USER app
+USER $APP_UID
 
 # the .NET images listen on 8080 by default; a reverse proxy in front handles HTTPS
 EXPOSE 8080

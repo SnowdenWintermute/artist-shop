@@ -80,9 +80,9 @@
   // form's own validation messages instead of after them
   private async Task CheckAsync()
   {
-    var isValid = Check.EditContext.Validate();
+    var isValid = await Check.EditContext.ValidateAsync();
 
-    // after Validate, which clears the messages added here last time
+    // after ValidateAsync, which clears the messages added here last time
     if (AsksForLengthUnit && Check.LengthUnit is null)
     {
       Check.AddLengthUnitRequiredError();

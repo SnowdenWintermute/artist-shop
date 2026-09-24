@@ -6,7 +6,7 @@
 //
 // On a server with Docker but no .NET SDK, from the repo root:
 //
-//   docker run --rm -e MALLOC_ARENA_MAX=2 -v "$PWD":/repo -w /repo mcr.microsoft.com/dotnet/sdk:10.0 \
+//   docker run --rm -e MALLOC_ARENA_MAX=2 -v "$PWD":/repo -w /repo mcr.microsoft.com/dotnet/sdk:11.0.100-rc.1 \
 //     dotnet run tools/measure-image-memory/measure.cs -- /repo/path/to/photo.jpg
 //
 // Use real photos: a portrait phone photo (it carries an EXIF rotation tag, the most expensive case

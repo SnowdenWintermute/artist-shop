@@ -17,9 +17,16 @@
       return;
     }
 
-    _module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Interop/TabReturnWatcher.razor.js");
-    _selfReference = DotNetObjectReference.Create(this);
-    _watcher = await _module.InvokeAsync<IJSObjectReference>("watchTabReturn", _selfReference);
+    // the page closed before the watcher started, so there is nothing to watch
+    try
+    {
+      _module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Interop/TabReturnWatcher.razor.js");
+      _selfReference = DotNetObjectReference.Create(this);
+      _watcher = await _module.InvokeAsync<IJSObjectReference>("watchTabReturn", _selfReference);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
   }
 
   [JSInvokable]

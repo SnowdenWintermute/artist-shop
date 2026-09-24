@@ -38,30 +38,51 @@
       return;
     }
 
-    _module = await JS.InvokeAsync<IJSObjectReference>(
-      "import",
-      "./Components/Forms/FileUpload/FileDropZone.razor.js"
-    );
+    // the page closed before the uploader started, so nothing will be dropped on it
+    try
+    {
+      _module = await JS.InvokeAsync<IJSObjectReference>(
+        "import",
+        "./Components/Forms/FileUpload/FileDropZone.razor.js"
+      );
 
-    _selfReference = DotNetObjectReference.Create(this);
+      _selfReference = DotNetObjectReference.Create(this);
 
-    _uploader = await _module.InvokeAsync<IJSObjectReference>(
-      "createUploader", _fileInput, _selfReference, UploadUrl);
+      _uploader = await _module.InvokeAsync<IJSObjectReference>(
+        "createUploader", _fileInput, _selfReference, UploadUrl);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
   }
 
   public async Task UploadAsync(string id)
   {
-    if (_uploader is not null)
+    // the page closed, taking the file with it
+    try
     {
-      await _uploader.InvokeVoidAsync("upload", id);
+      if (_uploader is not null)
+      {
+        await _uploader.InvokeVoidAsync("upload", id);
+      }
+    }
+    catch (JSDisconnectedException)
+    {
     }
   }
 
   public async Task ForgetAsync(string id)
   {
-    if (_uploader is not null)
+    // the page closed, so the browser has already let go of the file
+    try
     {
-      await _uploader.InvokeVoidAsync("forget", id);
+      if (_uploader is not null)
+      {
+        await _uploader.InvokeVoidAsync("forget", id);
+      }
+    }
+    catch (JSDisconnectedException)
+    {
     }
   }
 

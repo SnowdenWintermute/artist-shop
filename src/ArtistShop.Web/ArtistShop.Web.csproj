@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ArtistShop.Web</RootNamespace>
@@ -33,6 +33,8 @@
     <PackageReference Include="BlazorBlueprint.Primitives" Version="3.16.1" />
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="dbup-postgresql" Version="7.0.1" />
+    <!-- EF Core and Identity stay on 10.0 under .NET 11 RC1: Npgsql's EF provider 11.0.0-rc.1 pins
+         an EF Core build nuget.org doesn't have (npgsql/efcore.pg#3913). Move these to 11 with it -->
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.11">

@@ -36,6 +36,22 @@ day's second session:
 **Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
 `/posts/{slug}` page, the unsaved-edit backup, and the artwork, video and uploaded image embeds.
 
+## .NET 11 (moved to RC1 on 2026-09-24, uncommitted)
+
+Moved for the enhanced-navigation fix (dotnet/aspnetcore#64015: .NET 10 scrolled to the top at the
+click, before the new page arrived; Mike saw it fixed in the browser). Builds, 431 tests pass;
+not yet deployed. Docker tags are pinned to the RC1 ones.
+- EF Core, Identity and Npgsql's EF provider stay on 10.0 until npgsql/efcore.pg#3913 is fixed (its
+  11.0.0-rc.1 pins an EF Core build nuget.org doesn't have). Move them, and the pinned tags, at RC2
+  or GA (November).
+- The 11 SDK's new warnings are fixed: `ValidateAsync` in `Login.razor` and `ImportArtworks.razor`,
+  and the JS interop calls BL0016 flagged catch `JSDisconnectedException` (only that, so real
+  JavaScript errors still surface).
+- The runtime image is now `aspnet:11.0.0-rc.1-resolute-chiseled-extra`: no shell or package
+  manager, ICU included (the collation comparer and slugs need it), 218 MB built. Checked with the
+  rehearsal compose: login, an upload, both volumes owned by 1654, login kept across a restart.
+  No `docker exec … sh` into the app container any more.
+
 ## After that
 
 1. **Built 2026-09-24** (uncommitted): `/posts`, headed "Blog", with a Blog nav link after Home.

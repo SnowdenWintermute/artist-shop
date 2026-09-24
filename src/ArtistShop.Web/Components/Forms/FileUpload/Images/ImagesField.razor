@@ -42,9 +42,16 @@
     var isFirstFile = _files.Count is 0;
 
     _files.Add(new SelectedImage(file.Id, file.Name, file.Size));
-    if (isFirstFile && SuggestNameInto is not null && _module is not null)
+    // the page closed, so there is no name field left to fill in
+    try
     {
-      await _module.InvokeVoidAsync("fillInputIfEmpty", SuggestNameInto, FileNameStringUtils.NameFromFileName(file.Name));
+      if (isFirstFile && SuggestNameInto is not null && _module is not null)
+      {
+        await _module.InvokeVoidAsync("fillInputIfEmpty", SuggestNameInto, FileNameStringUtils.NameFromFileName(file.Name));
+      }
+    }
+    catch (JSDisconnectedException)
+    {
     }
   }
 
@@ -119,12 +126,19 @@
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
-    if (firstRender)
+    // the page closed before the script loaded; it only ever fills in a field on the page
+    try
     {
-      _module = await JS.InvokeAsync<IJSObjectReference>(
-        "import",
-        "./Components/Forms/FileUpload/Images/ImagesField.razor.js"
-      );
+      if (firstRender)
+      {
+        _module = await JS.InvokeAsync<IJSObjectReference>(
+          "import",
+          "./Components/Forms/FileUpload/Images/ImagesField.razor.js"
+        );
+      }
+    }
+    catch (JSDisconnectedException)
+    {
     }
   }
 
