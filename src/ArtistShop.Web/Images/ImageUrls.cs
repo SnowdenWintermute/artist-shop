@@ -6,7 +6,7 @@ namespace ArtistShop.Web.Images;
 // service) changes only this file
 public static class ImageUrls
 {
-    // Program.cs serves the variants folder at this path
+    // VariantEndpoints serves the current site's variants at this path
     public const string VariantsRequestPath = "/media";
 
     public static string Variant(string storageKey, int imageWidth, int wantedWidth, ImageVariantFormat format) =>

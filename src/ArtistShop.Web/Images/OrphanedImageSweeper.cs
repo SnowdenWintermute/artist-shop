@@ -14,9 +14,6 @@ public sealed record OrphanedImageSweepSettings
 }
 
 public class OrphanedImageSweeper(
-    ImageStorage imageStorage,
-    ArtworkImageRepository imageRepository,
-    PostRepository postRepository,
     OrphanedImageSweepSettings settings,
     TimeProvider timeProvider,
     // labels messages about this class with the class's
@@ -24,11 +21,17 @@ public class OrphanedImageSweeper(
     ILogger<OrphanedImageSweeper> logger
 )
 {
-    public async Task SweepAsync()
+    // One site: its image folder against its own database, so another site's files are never
+    // candidates, and never compared with a database that doesn't know them
+    public async Task SweepAsync(
+        ImageStorage imageStorage,
+        ArtworkImageRepository imageRepository,
+        PostRepository postRepository
+    )
     {
         var uploadedBefore = timeProvider.GetUtcNow() - settings.GracePeriod;
 
-        var candidateKeys = FindStorageKeysUploadedBefore(uploadedBefore);
+        var candidateKeys = FindStorageKeysUploadedBefore(imageStorage, uploadedBefore);
 
         if (candidateKeys.Count is 0)
         {
@@ -71,7 +74,7 @@ public class OrphanedImageSweeper(
         }
     }
 
-    private List<string> FindStorageKeysUploadedBefore(DateTimeOffset uploadedBefore)
+    private static List<string> FindStorageKeysUploadedBefore(ImageStorage imageStorage, DateTimeOffset uploadedBefore)
     {
         var storageKeys = new List<string>();
 

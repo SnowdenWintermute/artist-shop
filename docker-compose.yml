@@ -3,8 +3,10 @@ services:
     image: postgres:18
     container_name: artist-shop-postgres
     environment:
-      # compose reads POSTGRES_PASSWORD from .env for this substitution
+      # compose reads both from .env for this substitution. The superuser's is yours; the app's
+      # is only read by postgres-init/create-app-role.sh
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_APP_PASSWORD=${POSTGRES_APP_PASSWORD}
     ports:
       # 5432 and 5433 on this machine belong to speed-dungeon's and snowauth's Postgres
       - 5434:5432
@@ -12,6 +14,8 @@ services:
       # The postgres:18 image keeps its data in a versioned folder under /var/lib/postgresql, and
       # mounting the parent is what lets a later major-version upgrade sit alongside the old data
       - artist-shop-postgres_data:/var/lib/postgresql
+      # makes the app's login role when the volume is first set up
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # -h 127.0.0.1 asks over TCP on purpose: while the image initialises a new volume it runs a
       # temporary server that only answers on the local socket, and a socket check would call

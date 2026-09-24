@@ -7,7 +7,7 @@
 # read them in production too -- only the thing setting the variables differs.
 
 if [[ ! -f .env ]]; then
-  echo "error: .env not found. Copy .env.example and set POSTGRES_PASSWORD." >&2
+  echo "error: .env not found. Copy .env.example and set its passwords." >&2
   return 1
 fi
 
@@ -15,12 +15,14 @@ set -a
 . ./.env
 set +a
 
-export ConnectionStrings__ArtistShop="Host=localhost;Port=5434;Database=artist_shop;Username=postgres;Password=$POSTGRES_PASSWORD"
+# the app logs in as its own role, which postgres-init/create-app-role.sh makes; POSTGRES_PASSWORD
+# is the superuser's, for psql by hand only
+export ConnectionStrings__ArtistShop="Host=localhost;Port=5434;Database=artist_shop;Username=artist_shop_app;Password=$POSTGRES_APP_PASSWORD"
 # glibc's allocator gives each thread its own memory pool, and libvips's threads fragment them until
 # memory looks leaked. Two pools is what imgproxy, sharp and Mastodon recommend; production needs it too
 export MALLOC_ARENA_MAX=2
 
-export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=artist_shop_identity;Username=postgres;Password=$POSTGRES_PASSWORD"
+export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=artist_shop_identity;Username=artist_shop_app;Password=$POSTGRES_APP_PASSWORD"
 
 # the account IdentitySeeder makes an admin; production sets the same two variables
 export Admin__Email="mike@example.com"

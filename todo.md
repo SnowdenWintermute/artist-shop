@@ -1498,57 +1498,77 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
 ## Multi-tenancy notes (design started 2026-09-24)
 
 **Decided with Mike, 2026-09-24:**
-- One Postgres cluster: a database per shop, plus the shared identity database. Accounts are
+- **Words:** the tenant is a **site** in code (`SiteId`, `CurrentSite`), "website" in text people
+  read: an artist's portfolio and blog, and later their shop. "Shop" is only the selling part.
+- One Postgres cluster: a database per site, plus the shared identity database. Accounts are
   platform-wide, for customers and admins alike.
-- A shop has one **owner** (can delete the shop and add admins) and any number of **admins** (edit
-  content only). An account may administer several shops. Identity roles are global, so shop rights
-  are a membership `(user, shop, role)`, not `RoleNames.Admin`. If the owner deletes their account,
-  their shop goes too.
-- **Which shop:** an exact host name → shop lookup, so platform subdomains
+- A site has one **owner** (can delete the site and add admins) and any number of **admins** (edit
+  content only). An account may administer several sites. Identity roles are global, so site rights
+  are a membership `(user, site, role)`, not `RoleNames.Admin`. If the owner deletes their account,
+  their site goes too.
+- **Which site:** an exact host name → site lookup, so platform subdomains
   (`shop1.mikesilverman.net`) and custom domains (`alicepaints.com`, `shop.bobart.com`) work the same.
-  Unknown host → 404. Cookies stay host-only: a customer signs in on each shop separately.
+  Unknown host → 404. Cookies stay host-only: a customer signs in on each site separately.
 - **Sign-up for now:** a code Mike hands out, which works only if it was issued, and is deleted
   once used. It expires, and can carry settings such as the storage quota. A random code, stored
   hashed in the platform database, made on a platform-operator dashboard in the production app
   (no signing). Real sign-up with billing and a free tier comes later, with abuse of the free tier
   as its own design.
-- **Hosts:** a new shop gets `name.artistshop.com` (reserved names such as `www`, `admin`, `api`,
+- **Hosts:** a new site gets `name.artistshop.com` (reserved names such as `www`, `admin`, `api`,
   `mail` are never handed out). A custom domain is set up by the artist at their DNS provider (or
-  by Mike, by separate agreement), and for now Mike adds it to the shop's hosts by hand. One host is
-  a shop's main one; the others redirect to it. A host belongs to exactly one shop, since it's how a
-  request finds its shop. So once artists add their own domains, a DNS TXT check is needed: without
+  by Mike, by separate agreement), and for now Mike adds it to the site's hosts by hand. One host is
+  a site's main one; the others redirect to it. A host belongs to exactly one site, since it's how a
+  request finds its site. So once artists add their own domains, a DNS TXT check is needed: without
   it, someone could list a domain whose owner has pointed it here but not yet added it, or one left
-  pointing here after its shop closed ("subdomain takeover").
-- **Platform host** (`artistshop.com` itself, not a shop): what the product is, sign-up, "my shops".
-- **Platform database**, a third one, holding shops, hosts, memberships and sign-up codes. Dapper and
+  pointing here after its site closed ("subdomain takeover").
+- **Platform host** (`artistshop.com` itself, not a site): what the product is, sign-up, "my sites".
+- **Platform database**, a third one, holding sites, hosts, memberships and sign-up codes. Dapper and
   plain SQL, not EF.
-- **Owner:** exactly one per shop, and ownership can be handed to one of its admins. Deleting a shop
+- **Owner:** exactly one per site, and ownership can be handed to one of its admins. Deleting a site
   or an owner's account has a 30-day grace period before anything is erased, tested with
   `FakeTimeProvider` (already a test dependency).
-- **Image processing between shops:** shops take turns when several are uploading at once; one
-  shop alone gets every slot. Not needed for test shops.
+- **Image processing between sites:** sites take turns when several are uploading at once; one
+  site alone gets every slot. Not needed for test sites.
 - **Payments (far future):** Stripe or similar, paid straight to the artist, with no fee taken by the
   platform. Artists pay a subscription. An artist sees the email and shipping address on their own
-  shop's orders only.
-- **Storage:** image files get a per-shop prefix before a second shop database exists (see the
-  sweeper note below), and each shop has a storage quota.
-- **Connections:** short `Connection Idle Lifetime` and a small `Maximum Pool Size` per shop first;
+  site's orders only.
+- **Storage:** image files get a per-site prefix before a second site database exists (see the
+  sweeper note below), and each site has a storage quota.
+- **Connections:** short `Connection Idle Lifetime` and a small `Maximum Pool Size` per site first;
   PgBouncer if measuring shows that isn't enough; raising `max_connections` last.
-- Deferred: per-shop running of backups, sweeps and export (schema updates can run for every shop at
-  startup while there are only test shops); fair sharing of image processing between shops; anything
-  across all shops, such as a shared gallery.
+- Deferred: per-site running of backups, sweeps and export (schema updates can run for every site at
+  startup while there are only test sites); fair sharing of image processing between sites; anything
+  across all sites, such as a shared gallery.
 
 - Production's current content doesn't carry over: it can be deleted, and the spreadsheet import
   brings it back.
 
 **Build order (draft, from Claude):**
-1. A Postgres role for the app with `CREATEDB`, instead of `postgres`.
-2. Image storage with a per-shop prefix, and the sweeper run per shop. Before a second shop exists.
-3. The platform database and host lookup: finding the shop from the request's host, a cached
-   `NpgsqlDataSource` per shop with the pool settings above, schema updates for every shop at
-   startup, `AllowedHosts` removed, today's catalog as the first shop. `shop1.localhost` in dev.
-4. Shop membership replaces `RoleNames.Admin`; `IdentitySeeder` makes the platform operator.
-5. The platform host: landing page, sign-up with a code, "my shops".
+1. **Done 2026-09-24 (uncommitted):** the app logs in as `artist_shop_app` (`LOGIN CREATEDB`, not a
+   superuser), made by `postgres-init/create-app-role.sh`, which the postgres image runs only on an
+   empty volume. New secret `POSTGRES_APP_PASSWORD` (dev `.env`, the VPS's
+   `.artist-site-postgres-env`); `POSTGRES_PASSWORD` is now for psql by hand only. Dev was reset
+   (`down -v`, `content/images` emptied): re-import the spreadsheet, and rerun
+   `tools/seed-blog-posts/seed.cs` if the filler posts are wanted. Checked: fresh volume makes the
+   role, 432 tests pass, the app creates both databases and owns every table. **VPS still to do:**
+   copy `postgres-init/` beside the compose file, add the app password to both env files as the
+   compose header says, and start from a fresh volume (its content can go).
+2. **Done 2026-09-24 (uncommitted):** each site's images are in `content/images/sites/<SiteId>/`
+   (`ImageStorage.ForSite`; `ImageStorage` is one site's storage, scoped from the new
+   `CurrentSite`). `/media/<key>/<file>` is now `VariantEndpoints`, serving the current site's
+   folder, since the static files middleware serves one folder for everyone; same week-long
+   caching, 304s work, and only `<width>.avif|webp` names are served. The sweeper takes one site's
+   storage and repositories, and `OrphanedImageSweepService` loops over the sites, each in its own
+   try. Until step 3, `SingleSite.Id` (1) is the only site: step 3 replaces its uses (the
+   `CurrentSite` registration, the sweep's list and the startup `CreateFolders`). Checked in the
+   running app: an upload lands in `sites/1/`, `/media` serves it (200, 304, HEAD), bad names 404.
+   441 tests. Also fixed: `Blog.razor` was missing the `@using` for `LinkPreview`, so `/posts` had
+   no link preview (the build's only warning, RZ10012).
+3. The platform database and host lookup: finding the site from the request's host, a cached
+   `NpgsqlDataSource` per site with the pool settings above, schema updates for every site at
+   startup, `AllowedHosts` removed, today's catalog as the first site. `shop1.localhost` in dev.
+4. Site membership replaces `RoleNames.Admin`; `IdentitySeeder` makes the platform operator.
+5. The platform host: landing page, sign-up with a code, "my sites".
 6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
    grace period.
 7. Custom domains and their certificates.

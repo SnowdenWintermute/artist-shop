@@ -6,6 +6,7 @@ using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Publishing;
 using ArtistShop.Web.Search;
+using ArtistShop.Web.Sites;
 using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
@@ -13,7 +14,6 @@ using DbUp;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +44,15 @@ var imageStorageRootPath = Path.GetFullPath(
     )
 );
 
-builder.Services.AddSingleton(new ImageStorage(imageStorageRootPath));
+var imageStorageSettings = new ImageStorageSettings(imageStorageRootPath);
+builder.Services.AddSingleton(imageStorageSettings);
+
+// until the platform database lists the sites and a request's host picks one, every request is for
+// the one site there is
+builder.Services.AddScoped(_ => new CurrentSite(SingleSite.Id));
+builder.Services.AddScoped(services =>
+    ImageStorage.ForSite(imageStorageSettings, services.GetRequiredService<CurrentSite>().Id)
+);
 
 // refuse libvips file readers that aren't built to handle hostile files
 // full name needed: "NetVips" alone means the namespace, and the setting lives on the NetVips class inside it
@@ -67,8 +75,9 @@ builder.Services.AddSingleton(
     new ImageProcessingLimiter(imageProcessingCapacity, imageProcessingSettings.BusyRetryAfter)
 );
 
-builder.Services.AddSingleton<ImageProcessor>();
-builder.Services.AddSingleton<ImageUploadStore>();
+// scoped, since they work in the current site's folder; the limiter above is shared by every site
+builder.Services.AddScoped<ImageProcessor>();
+builder.Services.AddScoped<ImageUploadStore>();
 builder.Services.AddImageUploadRateLimiter();
 
 // reads from appsettings.json, environment variables or any other configuration source
@@ -77,7 +86,7 @@ var orphanedImageSweepSettings = ValidatedSettings.Read<OrphanedImageSweepSettin
     "OrphanedImageSweep"
 );
 builder.Services.AddSingleton(orphanedImageSweepSettings);
-builder.Services.AddScoped<OrphanedImageSweeper>();
+builder.Services.AddSingleton<OrphanedImageSweeper>();
 
 // hosted service
 builder.Services.AddHostedService<OrphanedImageSweepService>();
@@ -147,9 +156,7 @@ EnsureDatabase.For.PostgresqlDatabase(shopConnectionString);
 var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
 schemaMigrator.Upgrade(shopConnectionString);
 
-var imageStorage = app.Services.GetRequiredService<ImageStorage>();
-Directory.CreateDirectory(imageStorage.Originals);
-Directory.CreateDirectory(imageStorage.Variants);
+ImageStorage.ForSite(imageStorageSettings, SingleSite.Id).CreateFolders();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -172,18 +179,6 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-app.UseStaticFiles(
-    new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(imageStorage.Variants),
-        RequestPath = ImageUrls.VariantsRequestPath,
-        // an address here never gets different bytes (each upload has a new storage key), so
-        // browsers may keep a variant for a week without asking again
-        OnPrepareResponse = context =>
-            context.Context.Response.Headers.CacheControl = "public, max-age=604800, immutable",
-    }
-);
-
 app.UseAntiforgery();
 
 app.UseRateLimiter();
@@ -196,6 +191,7 @@ app.MapAdditionalIdentityEndpoints();
 
 // image endpoints
 app.MapImageUploadEndpoints();
+app.MapVariantEndpoints();
 
 // post editor endpoints
 app.MapVideoLinkEndpoints();

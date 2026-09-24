@@ -2,6 +2,7 @@ using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Domain.Publishing;
+using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Tests.Database;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +18,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
     private readonly TestDatabaseFixture _database;
     private readonly DirectoryInfo _storageRoot;
+    private readonly ImageStorageSettings _storageSettings;
     private readonly ImageStorage _imageStorage;
     private readonly ImageUploadStore _uploadStore;
     private readonly FakeTimeProvider _time;
@@ -29,23 +31,15 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _database = database;
 
         _storageRoot = Directory.CreateTempSubdirectory("artist-shop-tests-");
-        _imageStorage = new ImageStorage(_storageRoot.FullName);
-        _uploadStore = new ImageUploadStore(
-            _imageStorage,
-            new ImageProcessor(_imageStorage),
-            TestImageProcessing.CreateAmpleLimiter(),
-            TestImageProcessing.Settings
-        );
-        Directory.CreateDirectory(_imageStorage.Originals);
-        Directory.CreateDirectory(_imageStorage.Variants);
+        _storageSettings = new ImageStorageSettings(_storageRoot.FullName);
+        _imageStorage = ImageStorage.ForSite(_storageSettings, new SiteId(1));
+        _uploadStore = UploadStoreFor(_imageStorage);
+        _imageStorage.CreateFolders();
 
         var startTime = DateTimeOffset.UtcNow;
         _time = new FakeTimeProvider(startTime);
 
         _sweeper = new OrphanedImageSweeper(
-            _imageStorage,
-            new ArtworkImageRepository(database.DataSource),
-            new PostRepository(database.DataSource),
             new OrphanedImageSweepSettings { GracePeriod = GracePeriod, Interval = TimeSpan.FromDays(1) },
             _time,
             NullLogger<OrphanedImageSweeper>.Instance
@@ -61,7 +55,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         var storageKey = await UploadImageAsync();
 
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
-        await _sweeper.SweepAsync();
+        await SweepAsync();
 
         Assert.False(_imageStorage.OriginalExists(storageKey));
         Assert.False(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
@@ -73,7 +67,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         var storageKey = await UploadImageAsync();
 
         _time.Advance(GracePeriod - TimeSpan.FromMinutes(1));
-        await _sweeper.SweepAsync();
+        await SweepAsync();
 
         Assert.True(_imageStorage.OriginalExists(storageKey));
         Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
@@ -86,7 +80,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await AddPaintingReferencing(storageKey);
 
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
-        await _sweeper.SweepAsync();
+        await SweepAsync();
 
         Assert.True(_imageStorage.OriginalExists(storageKey));
         Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
@@ -107,7 +101,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         );
 
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
-        await _sweeper.SweepAsync();
+        await SweepAsync();
 
         Assert.True(_imageStorage.OriginalExists(storageKey));
         Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
@@ -120,12 +114,45 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         File.WriteAllText(strayFilePath, "not an upload");
 
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
-        await _sweeper.SweepAsync();
+        await SweepAsync();
 
         Assert.True(File.Exists(strayFilePath));
     }
 
-    private async Task<string> UploadImageAsync()
+    // A second site shares the test database, since there is one database per test run. Its
+    // orphan is never looked at, because a sweep only reads its own site's folder
+    [Fact]
+    public async Task LeavesAnotherSitesFilesAlone()
+    {
+        var otherSiteStorage = ImageStorage.ForSite(_storageSettings, new SiteId(2));
+        otherSiteStorage.CreateFolders();
+        var otherSiteKey = await UploadImageAsync(UploadStoreFor(otherSiteStorage));
+
+        _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
+        await SweepAsync();
+
+        Assert.True(otherSiteStorage.OriginalExists(otherSiteKey));
+        Assert.True(Directory.Exists(otherSiteStorage.VariantDirectory(otherSiteKey)));
+    }
+
+    private Task SweepAsync() =>
+        _sweeper.SweepAsync(
+            _imageStorage,
+            new ArtworkImageRepository(_database.DataSource),
+            new PostRepository(_database.DataSource)
+        );
+
+    private static ImageUploadStore UploadStoreFor(ImageStorage imageStorage) =>
+        new(
+            imageStorage,
+            new ImageProcessor(imageStorage),
+            TestImageProcessing.CreateAmpleLimiter(),
+            TestImageProcessing.Settings
+        );
+
+    private Task<string> UploadImageAsync() => UploadImageAsync(_uploadStore);
+
+    private static async Task<string> UploadImageAsync(ImageUploadStore uploadStore)
     {
         // NetVips can create an image from nothing. Black, 800 by 600, 3 colour channels (red,
         // green, blue) like a real photo: wide enough to get variants
@@ -134,7 +161,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
         // TestContext.Current.CancellationToken is cancelled if the test run is stopped or times
         // out; xUnit's analyzer asks for it wherever a method accepts a cancellation token
-        var stored = await _uploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
+        var stored = await uploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
         return stored.StorageKey;
     }
 

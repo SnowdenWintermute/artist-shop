@@ -1,9 +1,23 @@
 namespace ArtistShop.Web.Images;
 
-public class ImageStorage(string rootPath)
+using System.Globalization;
+using ArtistShop.Web.Domain.Sites;
+
+// One site's images, in a folder of its own, so nothing that works on one site's files (the sweep,
+// a quota, erasing a closed site) can reach another's
+public class ImageStorage(string siteRootPath)
 {
-    public string Originals { get; } = Path.Combine(rootPath, "originals");
-    public string Variants { get; } = Path.Combine(rootPath, "variants");
+    public static ImageStorage ForSite(ImageStorageSettings settings, SiteId siteId) =>
+        new(Path.Combine(settings.RootPath, "sites", siteId.Value.ToString(CultureInfo.InvariantCulture)));
+
+    public string Originals { get; } = Path.Combine(siteRootPath, "originals");
+    public string Variants { get; } = Path.Combine(siteRootPath, "variants");
+
+    public void CreateFolders()
+    {
+        Directory.CreateDirectory(Originals);
+        Directory.CreateDirectory(Variants);
+    }
 
     public string OriginalPath(string storageKey) => Path.Combine(Originals, storageKey);
 
