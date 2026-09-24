@@ -32,52 +32,65 @@ public static class ImageUploadEndpoints
     private const string UnreadableImageMessage =
         "We couldn't read this file as an image. It may be damaged, or in a format we don't support.";
 
+    public const string ArtworkImageUploadPath = "/admin/uploads/artwork-image";
+
     // the post editor's script sends its images here
     public const string PostImageUploadPath = "/admin/uploads/post-image";
 
     public static void MapImageUploadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints
-            .MapPost("/admin/uploads", UploadArtworkImageAsync)
+            .MapPost(
+                ArtworkImageUploadPath,
+                (
+                    IFormFile file, // binds the form field named "file", the names must match
+                    ImageUploadStore imageUploadStore,
+                    HttpResponse response,
+                    ILoggerFactory loggerFactory,
+                    CancellationToken cancellationToken
+                ) =>
+                    UploadAsync(
+                        file,
+                        ImageVariants.MinimumSourceWidth,
+                        imageUploadStore,
+                        response,
+                        loggerFactory,
+                        cancellationToken
+                    )
+            )
+            .AsImageUpload();
+
+        endpoints.MapPost("/admin/uploads/artwork-image-by-name", UploadAndAttachByNameAsync).AsImageUpload();
+
+        endpoints
+            .MapPost(
+                PostImageUploadPath,
+                (
+                    IFormFile file, // as above
+                    ImageUploadStore imageUploadStore,
+                    HttpResponse response,
+                    ILoggerFactory loggerFactory,
+                    CancellationToken cancellationToken
+                ) =>
+                    UploadAsync(
+                        file,
+                        ImageVariants.MinimumPostImageWidth,
+                        imageUploadStore,
+                        response,
+                        loggerFactory,
+                        cancellationToken
+                    )
+            )
+            .AsImageUpload();
+    }
+
+    // what every image upload endpoint needs: admin only, rate limited, with room for one image
+    private static RouteHandlerBuilder AsImageUpload(this RouteHandlerBuilder endpoint) =>
+        endpoint
             // replaces Kestrel's default 30 MB limit for this endpoint only
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
             .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
             .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
-
-        endpoints
-            .MapPost("/admin/uploads/artwork-image-by-name", UploadAndAttachByNameAsync)
-            .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
-            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
-            .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
-
-        endpoints
-            .MapPost(PostImageUploadPath, UploadPostImageAsync)
-            .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
-            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
-            .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
-    }
-
-    private static Task<
-        Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
-    > UploadArtworkImageAsync(
-        IFormFile file, // binds the form field named "file", the names must match
-        ImageUploadStore imageUploadStore,
-        HttpResponse response,
-        ILoggerFactory loggerFactory,
-        CancellationToken cancellationToken
-    ) =>
-        UploadAsync(file, ImageVariants.MinimumSourceWidth, imageUploadStore, response, loggerFactory, cancellationToken);
-
-    private static Task<
-        Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
-    > UploadPostImageAsync(
-        IFormFile file,
-        ImageUploadStore imageUploadStore,
-        HttpResponse response,
-        ILoggerFactory loggerFactory,
-        CancellationToken cancellationToken
-    ) =>
-        UploadAsync(file, ImageVariants.MinimumPostImageWidth, imageUploadStore, response, loggerFactory, cancellationToken);
 
     private static async Task<
         Results<Ok<ImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>

@@ -1,5 +1,6 @@
+import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
+
 const UPLOAD_URL = "/admin/uploads/artwork-image-by-name";
-const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
 
 // a courtesy to the server, which has its own limits and doesn't trust this number
 const CONCURRENT_UPLOADS = 4;
@@ -23,8 +24,8 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
   /** @type {{ id: string, path: string, size: number, type: string }[]} */
   let collectedMetadata = [];
 
-  /** @type {Map<string, XMLHttpRequest>} */
-  const inFlightRequests = new Map();
+  /** @type {Map<string, () => void>} */
+  const inFlightAborts = new Map();
   /** @type {string[]} */
   let queue = [];
   /** bytes of files whose response has arrived */
@@ -157,49 +158,24 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     );
   }
 
-  function antiforgeryToken() {
-    const input = document.querySelector(
-      `input[name="${REQUEST_VERIFICATION_TOKEN_INPUT_NAME}"]`
-    );
-    return input instanceof HTMLInputElement ? input.value : "";
-  }
-
   /**
-   * one request, resolved however it ends. A network error arrives as status 0
+   * one request, resolved however it ends: null when Stop aborted it
    * @param {string} id
    * @param {File} file
    */
   function sendOnce(id, file) {
-    return new Promise((resolve) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("artworkTypeId", String(artworkTypeId));
-      formData.append(REQUEST_VERIFICATION_TOKEN_INPUT_NAME, antiforgeryToken());
-
-      const request = new XMLHttpRequest();
-      inFlightRequests.set(id, request);
-
-      request.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          loadedByFile.set(id, event.loaded);
-          reportProgress(false);
-        }
-      });
-
-      // "loadend" fires exactly once after load, error, abort or timeout
-      request.addEventListener("loadend", () => {
-        inFlightRequests.delete(id);
-        resolve({
-          status: request.status,
-          text: request.responseText,
-          contentType: request.getResponseHeader("Content-Type") ?? "",
-          retryAfter: request.getResponseHeader("Retry-After"),
-        });
-      });
-
-      request.open("POST", UPLOAD_URL);
-      request.send(formData);
+    const { finished, abort } = sendUpload({
+      url: UPLOAD_URL,
+      file,
+      fields: { artworkTypeId: String(artworkTypeId) },
+      onProgress: (loaded) => {
+        loadedByFile.set(id, loaded);
+        reportProgress(false);
+      },
     });
+    inFlightAborts.set(id, abort);
+
+    return finished.finally(() => inFlightAborts.delete(id));
   }
 
   /**
@@ -221,17 +197,6 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
-  /** @param {{ status: number, text: string, contentType: string }} response */
-  function errorMessageFrom(response) {
-    // an unhandled exception answers with a whole HTML page; only a short plain message is ours
-    const isPlainMessage =
-      response.contentType.startsWith("text/plain") && response.text.length <= 300;
-
-    return isPlainMessage
-      ? response.text
-      : `The upload failed (${response.status || "no answer from the server"}).`;
-  }
-
   /** @param {string} id */
   async function uploadFile(id) {
     const file = collectedFiles.get(id);
@@ -243,7 +208,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
       const response = await sendOnce(id, file);
 
       // a stopped run leaves the file as it was, so pressing Upload again picks it up
-      if (isStopped) {
+      if (response === null || isStopped) {
         return;
       }
 
@@ -255,7 +220,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
 
       if (!RETRYABLE_STATUSES.includes(response.status) || attempt === MAXIMUM_ATTEMPTS) {
         finish(id, file.size);
-        notify("OnFileFailed", id, errorMessageFrom(response));
+        notify("OnFileFailed", id, uploadErrorMessage(response));
         return;
       }
 
@@ -333,9 +298,8 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     isStopped = true;
     queue = [];
 
-    // copy the keys first, since aborting removes them from inFlightRequests as we iterate
-    for (const id of [...inFlightRequests.keys()]) {
-      inFlightRequests.get(id)?.abort();
+    for (const abort of inFlightAborts.values()) {
+      abort();
     }
   }
 

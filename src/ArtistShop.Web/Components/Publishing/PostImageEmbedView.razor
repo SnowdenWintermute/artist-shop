@@ -9,13 +9,8 @@
   // lightbox would otherwise just blow up the same file
   public static bool OpensLightbox(PostImageEmbedBlock embed) =>
     embed.OpensLightbox && ImageVariants.LargestWidthFor(embed.Width) > ImageVariants.EmbedWidth(embed.Size);
-
-  private string? LightboxSourceSet =>
-    OpensLightbox(Embed)
-      ? ImageUrls.SourceSet(Embed.StorageKey, Embed.Width, ImageVariants.MainImageWidth, ImageVariantFormat.Avif)
-      : null;
 }
 
-<EmbedFigure Layout="Embed.Layout" Size="Embed.Size" Src="@ImageUrls.PostImageVariant(Embed.StorageKey, Embed.Width, Embed.Size)"
-             Alt="@Embed.Alt" ImageWidth="Embed.Width" ImageHeight="Embed.Height" BlurDataUri="@Embed.BlurDataUri"
-             Caption="@Embed.Caption" Href="@null" LightboxSourceSet="@LightboxSourceSet" />
+<EmbedFigure Layout="Embed.Layout" Size="Embed.Size" StorageKey="@Embed.StorageKey" Alt="@Embed.Alt"
+             ImageWidth="Embed.Width" ImageHeight="Embed.Height" BlurDataUri="@Embed.BlurDataUri"
+             Caption="@Embed.Caption" Href="@null" OpensLightbox="OpensLightbox(Embed)" />

@@ -6,7 +6,9 @@
     "lib": ["esnext", "dom", "dom.iterable"],
     "checkJs": true,
     "strict": true,
-    "noEmit": true
+    "noEmit": true,
+    // the address a script imports /js/ modules by, as the browser serves wwwroot
+    "paths": { "/js/*": ["./wwwroot/js/*"] }
   },
   "include": ["Components/**/*.js", "wwwroot/**/*.js", "globals.d.ts"],
   "exclude": ["wwwroot/lib"]

@@ -47,7 +47,7 @@ export class VideoAddressDialog extends HTMLElement {
   async #submit(event) {
     event.preventDefault();
 
-    const { dialog, field, submitButton, notAVideo, failed } = this.#parts();
+    const { dialog, field, submitButton, notAVideo, failed, videoLinkUrl } = this.#parts();
     const onChosen = this.#onChosen;
 
     // Enter again while the link is being read
@@ -62,7 +62,7 @@ export class VideoAddressDialog extends HTMLElement {
     let source;
 
     try {
-      source = await this.#readLink(field.value);
+      source = await this.#readLink(videoLinkUrl, field.value);
     } catch {
       failed.hidden = false;
       return;
@@ -90,19 +90,15 @@ export class VideoAddressDialog extends HTMLElement {
   // server can't be asked, such as a lost connection or a login that has run out, which answers
   // with a redirect to the login page
   /**
+   * @param {string} url
    * @param {string} link
    * @returns {Promise<VideoSource | null>}
    */
-  async #readLink(link) {
-    const url = this.dataset.videoLinkUrl;
-
-    if (url === undefined) {
-      throw new Error("The video address dialog is missing its link reader's address.");
-    }
-
+  async #readLink(url, link) {
     const response = await fetch(`${url}?${new URLSearchParams({ link })}`, { redirect: "error" });
 
-    if (response.status === 404) {
+    // VideoLinkEndpoints' answer for a link it can't read
+    if (response.status === 422) {
       return null;
     }
 
@@ -125,18 +121,21 @@ export class VideoAddressDialog extends HTMLElement {
     const submitButton = this.querySelector('button[type="submit"]');
     const notAVideo = this.querySelector('[data-part="not-a-video"]');
     const failed = this.querySelector('[data-part="failed"]');
+    // read here, outside #submit's try, so a missing one throws rather than showing as a failed check
+    const videoLinkUrl = this.dataset.videoLinkUrl;
 
     if (
       !(dialog instanceof HTMLDialogElement) ||
       !(field instanceof HTMLInputElement) ||
       !(submitButton instanceof HTMLButtonElement) ||
       !(notAVideo instanceof HTMLElement) ||
-      !(failed instanceof HTMLElement)
+      !(failed instanceof HTMLElement) ||
+      videoLinkUrl === undefined
     ) {
-      throw new Error("The video address dialog is missing its dialog, field, button or messages.");
+      throw new Error("The video address dialog is missing its dialog, field, button, messages or link reader's address.");
     }
 
-    return { dialog, field, submitButton, notAVideo, failed };
+    return { dialog, field, submitButton, notAVideo, failed, videoLinkUrl };
   }
 }
 

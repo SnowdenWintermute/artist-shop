@@ -2,38 +2,39 @@
 
 Claude writes the blog-post feature and Mike reviews it, as on the Postgres port.
 
-## Where this stands — 2026-09-24, second session
+## Where this stands — end of 2026-09-24
 
-**Uncommitted; builds, 413 tests pass, scripts type-check** (`npx -y -p typescript@5 tsc -p
-jsconfig.json` from `src/ArtistShop.Web`, looking only at the files touched: other files have
-older errors). Mike checked the earlier browser list and it passed. This session:
-- **Review fixes to `53d844f`:** the label comment in `PostBodyEditor.razor.js` is back on its
-  method; the caption uses `pt-1`; the wrapped video's width comes from `ImageVariants` through
-  `--wrapped-video-width`; video links are read on the server (`VideoSources`, `GET
-  /admin/video-link`, tests) rather than by the dialog's script; the `post-body-editor`
-  reconnect comment now says Blazor never moves a `data-permanent` element.
-- **The uploaded image embed, `artshop-image`**, built end to end. See item 3 below for the
-  decisions. Seen working over curl: a 120px and a 1200px upload through
-  `/admin/uploads/post-image`, post 4 saved through the form with both, and the post page
-  showing the 120px file stretched to medium and the 160 file for the small one. Mike then
-  tried the editor: Replace image left the toolbar dead (fixed), and the progress moved to a
-  placeholder box shaped like the image and into the toolbar. He was happy with the result.
+**All committed by Mike** (`4e30dbe`); 423 tests pass, and the touched scripts type-check
+(`npx -y -p typescript@5 tsc -p jsconfig.json` from `src/ArtistShop.Web`, looking only at the
+files touched: other files have older errors). Mike checked the image embed in the browser. The
+day's second session:
+- **Review fixes to `53d844f`:** video links read on the server (`VideoSources`, `GET
+  /admin/video-link`, tests), the wrapped video's width from `ImageVariants`, the caption's
+  `pt-1`, and two comments corrected.
+- **The uploaded image embed, `artshop-image`**, end to end, with upload placeholders, the
+  lightbox option, and the save check for deleted files. Decisions are under item 3 below.
+- **The lightbox was laid out at the top of the page** (`.artist-shop-lightbox` was `relative`,
+  overriding a modal's `fixed`), so opening it scrolled there and the page scrolled under it.
+  Now `fixed inset-0`, with the page's scrolling frozen while one is open. The artwork gallery
+  had the same bug.
 
-**Browser checklist** (post 4, "Claude video embed check", now starts with two uploaded images;
-delete it afterwards):
-- the Image button, one file and several; a drop into the text; a pasted screenshot
-- the placeholder box where a new image will go: its shape matching the image (a TIFF keeps
-  4:3), waiting, progress, a failure (a non-image
-  renamed .png) and Dismiss, deleting it mid-upload, typing above it while a big file uploads,
-  undo after the image lands (one step, no placeholder coming back), Save while one uploads
-- Replace image: progress in the toolbar, and the toolbar's buttons still working afterwards
-  (Mike found them dead; fixed in `PostEmbedToolbar`'s `replace`)
-- the image toolbar: alt text and its ⓘ help, caption, sizes, layouts, wrap, Replace image, undo
-- the artwork embed's toolbar still working, now on the shared `ImageEmbedControls`
-- the Video dialog on a real link and on nonsense
+**Start of next session:**
+- Post 4, "Claude video embed check", is the test post. It names two images the dev sweep
+  deleted (found the save-check bug), so it won't save until they're removed. Delete the post
+  when done with it.
+- Not yet tried in a browser: the lightbox checkbox greying out as the size changes, and
+  previous/next through a post's lightbox images.
+- Review fixes to `4e30dbe` (uncommitted, 423 tests pass): uploads share `wwwroot/js/upload-request.js`
+  (drop zone, bulk upload, post images); the artwork upload route is now
+  `/admin/uploads/artwork-image`; `VideoLinkEndpoints` and `VideoParts` moved to `Publishing/`, and
+  an unreadable link is 422; `PostImageFiles` holds the missing-file check; the editor's figure is
+  `EmbedFigure.razor.js`; every embed on the page now has a `srcset` (up to 2x, or every width when
+  it opens the lightbox). Worth a browser check: an artwork image upload on the edit page, a bulk
+  upload, a post image upload, and the Video dialog on nonsense.
+- Then `/posts`: agree the page with Mike first (what each entry shows, how many per page).
 
 **Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
-`/posts/{slug}` page, the unsaved-edit backup, the artwork embed end to end, and the video embed.
+`/posts/{slug}` page, the unsaved-edit backup, and the artwork, video and uploaded image embeds.
 
 ## After that
 

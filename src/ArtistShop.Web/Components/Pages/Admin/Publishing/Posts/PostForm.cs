@@ -54,15 +54,9 @@ public class PostForm : ServerValidatedForm, IValidatableObject
         );
     }
 
-    // The uploaded images whose files the sweep removed while they sat in an unsaved post, or in a
-    // backup restored too late. Saving would keep names of files that are gone
+    // saving would keep names of files that are gone
     public IReadOnlyList<PostImageEmbedBlock> ImagesMissingFrom(ImageStorage imageStorage) =>
-        [
-            .. PostDocumentParser
-                .Parse(ToPostBody())
-                .Blocks.OfType<PostImageEmbedBlock>()
-                .Where(image => !imageStorage.OriginalExists(image.StorageKey)),
-        ];
+        PostImageFiles.MissingFrom(PostDocumentParser.Parse(ToPostBody()), imageStorage);
 
     public void AddMissingImageErrors(IEnumerable<PostImageEmbedBlock> images)
     {

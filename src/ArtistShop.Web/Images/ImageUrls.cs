@@ -18,11 +18,6 @@ public static class ImageUrls
         $"{VariantsRequestPath}/{storageKey}/"
         + ImageVariants.FileName(ImageVariants.EmbedWidth(size), ImageVariantFormat.Avif);
 
-    // A post's own image may be narrower than the size picked, and then this is its copy at its own
-    // width, which the page stretches to the size
-    public static string PostImageVariant(string storageKey, int imageWidth, EmbedImageSize size) =>
-        Variant(storageKey, imageWidth, ImageVariants.EmbedWidth(size), ImageVariantFormat.Avif);
-
     // with placeholders for a script to put a storage key and a width in
     public static string VariantTemplate(string storageKey, string width, ImageVariantFormat format) =>
         $"{VariantsRequestPath}/{storageKey}/" + ImageVariants.FileName(width, format);

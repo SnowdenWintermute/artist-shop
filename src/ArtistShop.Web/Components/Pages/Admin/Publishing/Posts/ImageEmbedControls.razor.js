@@ -1,6 +1,6 @@
 // What the artwork embed and the uploaded image embed share: the caption, size and layout
-// controls ImageEmbedControls renders into their toolbars, and the figure each shows in the
-// editor, as EmbedFigure.razor shows it on the post page
+// controls ImageEmbedControls renders into their toolbars, and the widths their sizes are shown at
+import { readToolbarSetting } from "./PostEmbedToolbar.razor.js";
 
 /**
  * The keys every image embed's value has, whatever else its kind holds
@@ -11,47 +11,19 @@
  */
 
 /**
- * The image at the size's width, so a caption wraps under it, with a note in its place if the file
- * is gone
- * @param {object} figureParts
- * @param {string} figureParts.src
- * @param {string} figureParts.alt
- * @param {string} figureParts.width the size's width in pixels
- * @param {string | undefined} figureParts.caption
- * @param {string} figureParts.captionClass
+ * The width each size is shown at, from the toolbar's data-small-width and data-medium-width
+ * @param {HTMLElement} toolbar
  */
-export function createEmbedFigure({ src, alt, width, caption, captionClass }) {
-  const figure = document.createElement("figure");
-  figure.style.width = `${width}px`;
-  figure.style.maxWidth = "100%";
+export function readEmbedWidths(toolbar) {
+  const small = Number(readToolbarSetting(toolbar, "smallWidth"));
+  const medium = Number(readToolbarSetting(toolbar, "mediumWidth"));
 
-  const image = document.createElement("img");
-  image.src = src;
-  image.alt = alt;
-
-  // both are made now, so a failed load only switches which one shows
-  const missing = document.createElement("span");
-  missing.textContent = "This image was removed.";
-  missing.hidden = true;
-  image.addEventListener(
-    "error",
-    () => {
-      image.hidden = true;
-      missing.hidden = false;
-    },
-    { once: true }
-  );
-
-  figure.append(image, missing);
-
-  if (caption !== undefined && caption.trim() !== "") {
-    const figcaption = document.createElement("figcaption");
-    figcaption.className = captionClass;
-    figcaption.textContent = caption;
-    figure.append(figcaption);
-  }
-
-  return figure;
+  return {
+    small,
+    medium,
+    /** @param {ImageEmbedLook["size"]} size */
+    of: (size) => (size === "small" ? small : medium),
+  };
 }
 
 /**

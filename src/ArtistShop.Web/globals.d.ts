@@ -54,8 +54,8 @@ declare class Quill {
       formats?: string[];
       modules?: {
         toolbar?: { container: unknown[]; handlers?: Record<string, () => void> };
-        // a dropped or pasted file of one of mimetypes goes to handler, with where it goes
         history?: { userOnly: boolean };
+        // a dropped or pasted file of one of mimetypes goes to handler, with where it goes
         uploader?: { mimetypes: string[]; handler: (range: { index: number; length: number }, files: File[]) => void };
       };
     }

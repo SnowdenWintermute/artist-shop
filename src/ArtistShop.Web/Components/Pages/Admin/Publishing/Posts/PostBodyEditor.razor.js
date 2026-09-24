@@ -192,12 +192,12 @@ customElements.define(
               [VIDEO_EMBED]: () => addVideoEmbed(quill, videoToolbar, this.#videoAddressDialog()),
             },
           },
-          // Quill's own drop and paste handling, which hands over the files of a type it takes.
-          // Its default puts each image in the Delta as a data: address. Also only ever called
-          // once imageUploads below is set
           // Only the artist's own edits are undone. Anything else, such as an upload's placeholder
           // coming and going, is left out, and the steps kept are adjusted around it
           history: { userOnly: true },
+          // Quill's own drop and paste handling, which hands over the files of a type it takes.
+          // Its default puts each image in the Delta as a data: address. Also only ever called
+          // once imageUploads below is set
           uploader: {
             mimetypes: acceptedImageTypes(imageToolbar),
             handler: (range, files) => imageUploads.insert(range.index, files),

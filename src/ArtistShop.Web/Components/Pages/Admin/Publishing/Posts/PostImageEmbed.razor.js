@@ -6,12 +6,9 @@
 // step is the finished image. It's never saved either: the editor leaves placeholders out of
 // what it writes to the form. Imported by PostBodyEditor.razor.js; nothing here runs until an
 // editor calls it
-import {
-  REQUEST_VERIFICATION_TOKEN_INPUT_NAME,
-  antiforgeryToken,
-  uploadErrorMessage,
-} from "../../../../Forms/FileUpload/FileDropZone.razor.js";
-import { attachImageEmbedControls, createEmbedFigure } from "./ImageEmbedControls.razor.js";
+import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
+import { createEmbedFigure } from "../../../../Publishing/EmbedFigure.razor.js";
+import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
 
 // the name Quill stores it under, and the parser and get_all_post_image_storage_keys read
@@ -86,8 +83,7 @@ export function registerPostImageEmbed(toolbar) {
   const variantUrl = readToolbarSetting(toolbar, "variantUrl");
   const storageKeyPlaceholder = readToolbarSetting(toolbar, "storageKeyPlaceholder");
   const widthPlaceholder = readToolbarSetting(toolbar, "widthPlaceholder");
-  const smallWidth = Number(readToolbarSetting(toolbar, "smallWidth"));
-  const mediumWidth = Number(readToolbarSetting(toolbar, "mediumWidth"));
+  const widths = readEmbedWidths(toolbar);
   const captionClass = readToolbarSetting(toolbar, "captionClass");
   const newLayout = readToolbarSetting(toolbar, "newLayout");
   // the post page's own classes for each layout, so the editor places an embed as the page will
@@ -95,16 +91,13 @@ export function registerPostImageEmbed(toolbar) {
     JSON.parse(readToolbarSetting(toolbar, "layoutClasses"))
   );
 
-  /** @param {PostImageEmbedValue} value */
-  const sizeWidth = (value) => (value.size === "small" ? smallWidth : mediumWidth);
-
   // The file the page shows: the narrower of the size and the image itself, which
   // ImageVariants.WidthsFor makes sure exists. The page stretches a narrower one to the size
   /** @param {PostImageEmbedValue} value */
   const imageUrl = (value) =>
     variantUrl
       .replace(storageKeyPlaceholder, value.storageKey)
-      .replace(widthPlaceholder, String(Math.min(sizeWidth(value), value.width)));
+      .replace(widthPlaceholder, String(Math.min(widths.of(value.size), value.width)));
 
   const BlockEmbed = Quill.import("blots/block/embed");
 
@@ -141,7 +134,7 @@ export function registerPostImageEmbed(toolbar) {
         createEmbedFigure({
           src: imageUrl(value),
           alt: value.alt,
-          width: String(sizeWidth(value)),
+          width: widths.of(value.size),
           caption: value.caption,
           captionClass,
         })
@@ -173,7 +166,7 @@ export function registerPostImageEmbed(toolbar) {
       // the new image's width, and 4:3 until the file's own shape is known
       const box = document.createElement("div");
       box.dataset.part = "box";
-      box.style.width = `${mediumWidth}px`;
+      box.style.width = `${widths.medium}px`;
 
       const message = document.createElement("p");
       message.dataset.part = "message";
@@ -203,32 +196,23 @@ export function registerPostImageEmbed(toolbar) {
  * @param {(percent: number) => void} onProgress
  * @returns {Promise<UploadedImage>}
  */
-function uploadImage(url, file, onProgress) {
-  return new Promise((resolve, reject) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append(REQUEST_VERIFICATION_TOKEN_INPUT_NAME, antiforgeryToken());
+async function uploadImage(url, file, onProgress) {
+  const response = await sendUpload({
+    url,
+    file,
+    onProgress: (loaded, total) => onProgress(Math.round((loaded / total) * 100)),
+  }).finished;
 
-    // rather than fetch, which can't report an upload's progress
-    const request = new XMLHttpRequest();
+  // nothing here aborts an upload, so there is always a response
+  if (response === null) {
+    throw new Error("An image upload was aborted, though nothing in the editor aborts one.");
+  }
 
-    request.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    });
-    request.addEventListener("load", () => {
-      if (request.status === 200) {
-        resolve(JSON.parse(request.responseText));
-      } else {
-        reject(new Error(uploadErrorMessage(request)));
-      }
-    });
-    request.addEventListener("error", () => reject(new Error("The upload could not reach the server.")));
+  if (response.status !== 200) {
+    throw new Error(uploadErrorMessage(response));
+  }
 
-    request.open("POST", url);
-    request.send(formData);
-  });
+  return JSON.parse(response.text);
 }
 
 // The picture's size, read in the browser, or null for a file it can't show, such as most
@@ -491,18 +475,17 @@ export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, sig
     throw new Error("The image embed toolbar is missing its alt text field, its help, its upload status or its lightbox choice.");
   }
 
-  const smallWidth = Number(readToolbarSetting(toolbar, "smallWidth"));
-  const mediumWidth = Number(readToolbarSetting(toolbar, "mediumWidth"));
+  const widths = readEmbedWidths(toolbar);
   const variantWidths = readToolbarSetting(toolbar, "variantWidths").split(",").map(Number);
 
   // ImageVariants.LargestWidthFor, which the page checks too: an image narrower than the medium
   // size has a copy at its own width, and any other the widest standard one it reaches
   /** @param {number} imageWidth */
   const largestWidthFor = (imageWidth) =>
-    imageWidth < mediumWidth ? imageWidth : Math.max(...variantWidths.filter((width) => width <= imageWidth));
+    imageWidth < widths.medium ? imageWidth : Math.max(...variantWidths.filter((width) => width <= imageWidth));
 
   /** @param {PostImageEmbedValue} value */
-  const hasWiderVersion = (value) => largestWidthFor(value.width) > (value.size === "small" ? smallWidth : mediumWidth);
+  const hasWiderVersion = (value) => largestWidthFor(value.width) > widths.of(value.size);
 
   // the image a replacement upload is for, so opening the toolbar on another one hides its news
   /** @type {string | null} */

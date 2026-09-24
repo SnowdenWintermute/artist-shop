@@ -152,7 +152,7 @@
 <div class="mb-4">
   @* only the controls: the hidden inputs below must stay enabled, since a disabled input posts nothing *@
   <DisabledUntilInteractive>
-    <FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="/admin/uploads" Prompt="Drop images here"
+    <FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.ArtworkImageUploadPath" Prompt="Drop images here"
                 Accept="@ImageUploadValidation.FileInputAccept" Multiple="true" OnSelected="OnSelected" OnProgress="OnProgress" OnCompleted="OnCompleted"
                 OnFailed="OnFailed" />
   <StarredSortableList TItem="SelectedImage" Items="_files" AriaLabel="Image order" StarName="@PrimaryFieldName"

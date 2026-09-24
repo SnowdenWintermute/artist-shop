@@ -1,19 +1,4 @@
-export const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
-
-// the page's antiforgery token, which an upload sends along as a form field
-export function antiforgeryToken() {
-  const input = document.querySelector(`input[name="${REQUEST_VERIFICATION_TOKEN_INPUT_NAME}"]`);
-  return input instanceof HTMLInputElement ? input.value : "";
-}
-
-// the upload endpoints answer a turned-away file with a short plain-text message for the artist
-/** @param {XMLHttpRequest} request */
-export function uploadErrorMessage(request) {
-  const contentType = request.getResponseHeader("Content-Type") ?? "";
-  const isPlainMessage = contentType.startsWith("text/plain") && request.responseText.length <= 300;
-
-  return isPlainMessage ? request.responseText : `Upload failed (${request.status}).`;
-}
+import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
 
 /**
  * FileDropZoneFrame's script opens the picker and handles drops, so both arrive here as "change"
@@ -31,9 +16,9 @@ export function createUploader(
   /**
    * we want to track requests so they can be cancelled
    * to save bandwidth instead of letting them finish then fail
-   * @type {Map<string, XMLHttpRequest>}
+   * @type {Map<string, () => void>}
    * */
-  const inFlightRequests = new Map();
+  const inFlightAborts = new Map();
 
   /** @param {FileList} files */
   function announce(files) {
@@ -60,64 +45,41 @@ export function createUploader(
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append(REQUEST_VERIFICATION_TOKEN_INPUT_NAME, antiforgeryToken());
+    const { finished, abort } = sendUpload({
+      url: uploadUrl,
+      file,
+      onProgress: (loaded, total) => {
+        dotNetReference
+          .invokeMethodAsync("OnUploadProgress", id, Math.round((loaded / total) * 100))
+          .catch((error) => console.error("OnUploadProgress failed", error));
+      },
+    });
+    inFlightAborts.set(id, abort);
 
-    const request = new XMLHttpRequest();
-    inFlightRequests.set(id, request);
+    finished.then((response) => {
+      inFlightAborts.delete(id);
 
-    request.upload.addEventListener("progress", (event) => {
-      if (!event.lengthComputable) {
+      // aborted, by forget or dispose, so nobody is waiting for the answer
+      if (response === null) {
         return;
       }
 
-      const percentComplete = Math.round((event.loaded / event.total) * 100);
-
-      dotNetReference
-        .invokeMethodAsync("OnUploadProgress", id, percentComplete)
-        .catch((error) => console.error("OnUploadProgress failed", error));
-    });
-
-    request.addEventListener("load", () => {
-      if (request.status === 200) {
+      if (response.status === 200) {
         pendingFiles.delete(id);
         dotNetReference
-          .invokeMethodAsync(
-            "OnUploadCompleted",
-            id,
-            JSON.parse(request.responseText)
-          )
+          .invokeMethodAsync("OnUploadCompleted", id, JSON.parse(response.text))
           .catch((error) => console.error("OnUploadCompleted failed", error));
       } else {
         dotNetReference
-          .invokeMethodAsync("OnUploadFailed", id, uploadErrorMessage(request))
+          .invokeMethodAsync("OnUploadFailed", id, uploadErrorMessage(response))
           .catch((error) => console.error("OnUploadFailed failed", error));
       }
     });
-
-    // "loadend" fires exactly once after load, error, abort or timeout
-    request.addEventListener("loadend", () => {
-      inFlightRequests.delete(id);
-    });
-
-    request.addEventListener("error", () => {
-      dotNetReference
-        .invokeMethodAsync(
-          "OnUploadFailed",
-          id,
-          "The upload could not reach the server."
-        )
-        .catch((error) => console.error("OnUploadFailed failed", error));
-    });
-
-    request.open("POST", uploadUrl);
-    request.send(formData);
   }
 
   /** @param {string} id */
   function abort(id) {
-    inFlightRequests.get(id)?.abort();
+    inFlightAborts.get(id)?.();
   }
 
   fileInput.addEventListener("change", onChange);
@@ -133,10 +95,8 @@ export function createUploader(
       pendingFiles.delete(id);
     },
     dispose() {
-      // copy the keys first since we delete them from
-      // inFlightRequests as we iterate
-      for (const id of [...inFlightRequests.keys()]) {
-        abort(id);
+      for (const abort of inFlightAborts.values()) {
+        abort();
       }
       fileInput.removeEventListener("change", onChange);
       pendingFiles.clear();

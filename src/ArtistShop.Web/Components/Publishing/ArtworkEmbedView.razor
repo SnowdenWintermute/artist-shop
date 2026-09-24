@@ -1,7 +1,6 @@
 @using ArtistShop.Web.Components.Pages.Catalog
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
-@using ArtistShop.Web.Images
 
 @code {
   [Parameter, EditorRequired]
@@ -13,8 +12,8 @@
 }
 
 @* The link opens the artwork's page at this very image *@
-<EmbedFigure Layout="Embed.Layout" Size="Embed.Size" Src="@ImageUrls.EmbedVariant(Source.Image.StorageKey, Embed.Size)"
+<EmbedFigure Layout="Embed.Layout" Size="Embed.Size" StorageKey="@Source.Image.StorageKey"
              Alt="@Source.Artwork.Name.Value" ImageWidth="Source.Image.Width" ImageHeight="Source.Image.Height"
              BlurDataUri="@Source.Image.BlurDataUri" Caption="@Embed.Caption"
              Href="@ArtworkPageQuery.Url(Source.Artwork.Slug.Value, seriesSlug: null, Source.ImageNumber)"
-             LightboxSourceSet="@null" />
+             OpensLightbox="false" />

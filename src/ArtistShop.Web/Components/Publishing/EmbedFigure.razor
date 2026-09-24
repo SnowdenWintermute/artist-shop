@@ -14,7 +14,7 @@
   public EmbedImageSize Size { get; set; }
 
   [Parameter, EditorRequired]
-  public string Src { get; set; } = default!;
+  public string StorageKey { get; set; } = default!;
 
   [Parameter, EditorRequired]
   public string Alt { get; set; } = default!;
@@ -36,15 +36,33 @@
   [Parameter, EditorRequired]
   public string? Href { get; set; }
 
-  // every file there is of the image, for the lightbox a click opens to pick a wider one from.
-  // Null when a click doesn't open one
+  // a click opens the lightbox, which copies the image's srcset to pick a wider file from
   [Parameter, EditorRequired]
-  public string? LightboxSourceSet { get; set; }
+  public bool OpensLightbox { get; set; }
+
+  // sharp on a 2x screen, without a 3x phone fetching more still
+  private const int MaximumPixelRatio = 2;
 
   private int Width => ImageVariants.EmbedWidth(Size);
 
   // written on the img so the page keeps the image's room while it loads, rather than jumping
   private int Height => (int)Math.Round((double)Width * ImageHeight / ImageWidth);
+
+  // the size's own file, or the image's when it's narrower, for a browser that ignores srcset
+  private string Src => ImageUrls.Variant(StorageKey, ImageWidth, Width, ImageVariantFormat.Avif);
+
+  // Every file the browser may pick from for the screen it's on: up to the first as wide as a 2x
+  // screen needs, since there may be no variant at exactly that width. A lightbox needs them all,
+  // up to the widest it shows
+  private string SourceSet =>
+    ImageUrls.SourceSet(
+      StorageKey,
+      ImageWidth,
+      OpensLightbox
+        ? ImageVariants.MainImageWidth
+        : ImageVariants.Widths.First(width => width >= Width * MaximumPixelRatio),
+      ImageVariantFormat.Avif
+    );
 
   // the tiny blurred copy saved with the image, shown behind it until it arrives
   private string BlurStyle => BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
@@ -59,7 +77,7 @@
     {
       <a href="@Href" class="block">@Image</a>
     }
-    else if (LightboxSourceSet is not null)
+    else if (OpensLightbox)
     {
       <LightboxTrigger>@Image</LightboxTrigger>
     }
@@ -76,7 +94,7 @@
 
 @code {
   private RenderFragment Image =>
-    @<img src="@Src" srcset="@LightboxSourceSet" sizes="@(LightboxSourceSet is null ? null : $"{Width.ToString(CultureInfo.InvariantCulture)}px")"
+    @<img src="@Src" srcset="@SourceSet" sizes="@($"{Width.ToString(CultureInfo.InvariantCulture)}px")"
           alt="@Alt" width="@Width.ToString(CultureInfo.InvariantCulture)"
           height="@Height.ToString(CultureInfo.InvariantCulture)" loading="lazy"
           class="block h-auto w-full bg-cover bg-center" style="@BlurStyle" />;

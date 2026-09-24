@@ -1,10 +1,10 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
-using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Publishing;
 using ArtistShop.Web.Search;
 using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;

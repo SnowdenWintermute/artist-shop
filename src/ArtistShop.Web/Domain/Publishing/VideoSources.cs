@@ -1,25 +1,16 @@
 namespace ArtistShop.Web.Domain.Publishing;
 
 using System.Collections.Specialized;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
-
-// A video embed's value in the Delta, less its layout: what the editor stores, and what the
-// video link endpoint hands it. Hash is left out rather than null when there is none, as the
-// editor stores it
-public record VideoParts(
-    string Provider,
-    string VideoId,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Hash
-);
 
 // Which video a stored embed or a pasted link names. Every part becomes part of a player's
 // address, so each must have its site's exact shape
 public static partial class VideoSources
 {
-    private const string YouTubeProvider = "youtube";
-    private const string VimeoProvider = "vimeo";
+    // the provider names the editor stores
+    public const string YouTubeProvider = "youtube";
+    public const string VimeoProvider = "vimeo";
 
     // the pages a YouTube video is watched from, besides watch?v=, whose next part is the id
     private static readonly string[] YouTubeIdPaths = ["shorts", "embed", "live", "v"];
@@ -34,14 +25,6 @@ public static partial class VideoSources
                 when VimeoVideoIdPattern().IsMatch(id) && VimeoHashPattern().IsMatch(unlistedHash) =>
                 new VimeoVideo(id, unlistedHash),
             _ => null,
-        };
-
-    public static VideoParts ToParts(VideoSource source) =>
-        source switch
-        {
-            YouTubeVideo video => new VideoParts(YouTubeProvider, video.Id, null),
-            VimeoVideo video => new VideoParts(VimeoProvider, video.Id, video.UnlistedHash),
-            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
         };
 
     // Which video a link is to, or null if it isn't one this can read. A link pasted without its

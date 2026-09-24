@@ -1,8 +1,9 @@
 // The artwork embed: a block in a post showing one of an artwork's images. The Delta holds only
 // what PostDocumentParser reads, and the public page looks up the title and image when it renders.
 // Imported by PostBodyEditor.razor.js; nothing here runs until an editor calls it
-import { attachImageEmbedControls, createEmbedFigure } from "./ImageEmbedControls.razor.js";
-import { attachEmbedToolbar } from "./PostEmbedToolbar.razor.js";
+import { createEmbedFigure } from "../../../../Publishing/EmbedFigure.razor.js";
+import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
+import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
 
 // the name Quill stores it under, and the parser and set_post_artworks read
 export const ARTWORK_EMBED = "artshop-artwork";
@@ -37,34 +38,15 @@ function readValue(node) {
 // the first one to connect is as good as any
 /** @param {HTMLElement} toolbar */
 export function registerArtworkEmbed(toolbar) {
-  const {
-    storageKeyPlaceholder,
-    smallImageUrl,
-    mediumImageUrl,
-    smallWidth,
-    mediumWidth,
-    layoutClasses,
-    captionClass,
-  } = toolbar.dataset;
-
-  if (
-    storageKeyPlaceholder === undefined ||
-    smallImageUrl === undefined ||
-    mediumImageUrl === undefined ||
-    smallWidth === undefined ||
-    mediumWidth === undefined ||
-    layoutClasses === undefined ||
-    captionClass === undefined
-  ) {
-    throw new Error("The artwork embed toolbar is missing its image addresses, widths or classes.");
-  }
-
+  const storageKeyPlaceholder = readToolbarSetting(toolbar, "storageKeyPlaceholder");
+  const smallImageUrl = readToolbarSetting(toolbar, "smallImageUrl");
+  const mediumImageUrl = readToolbarSetting(toolbar, "mediumImageUrl");
+  const widths = readEmbedWidths(toolbar);
+  const captionClass = readToolbarSetting(toolbar, "captionClass");
   // the post page's own classes for each layout, so the editor places an embed as the page will
-  const classesByLayout = /** @type {Record<string, string>} */ (JSON.parse(layoutClasses));
-  // taken after the check above, which TypeScript doesn't carry into the class below
-  const figcaptionClass = captionClass;
-  /** @param {ArtworkEmbedValue} value */
-  const figureWidth = (value) => (value.size === "small" ? smallWidth : mediumWidth);
+  const classesByLayout = /** @type {Record<string, string>} */ (
+    JSON.parse(readToolbarSetting(toolbar, "layoutClasses"))
+  );
 
   /** @param {ArtworkEmbedValue} value */
   const imageUrl = (value) =>
@@ -96,9 +78,9 @@ export function registerArtworkEmbed(toolbar) {
       const figure = createEmbedFigure({
         src: imageUrl(value),
         alt: "",
-        width: figureWidth(value),
+        width: widths.of(value.size),
         caption: value.caption,
-        captionClass: figcaptionClass,
+        captionClass,
       });
 
       node.append(figure);
