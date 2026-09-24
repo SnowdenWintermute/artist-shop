@@ -12,6 +12,15 @@ Claude writes the blog-post feature and Mike reviews it, as on the Postgres port
   comment in `SetArtworks.sql`.
 - **Artwork captions** (Mike, 2026-09-24): an optional Caption field in the artwork embed's
   toolbar, shown under the image in the editor and on the page. See "Artwork embed" below.
+- **Scroll position on Back/Forward, site-wide** (`wwwroot/js/scroll-restoration.js`, loaded from
+  `App.razor`). Under enhanced navigation the browser restores the position when the address
+  changes, against the page still showing, so it's clamped to that page's height (Mike's console log
+  showed 5745 come back as 224.8). Blazor closed dotnet/aspnetcore#51646 leaving Back to the
+  browser; Mozilla bug 1442958 is the browser side. No library does it for Blazor (Osirion's
+  "EnhancedNavigation" only scrolls to the top). The script takes over (`scrollRestoration =
+  "manual"`), notes the position at `enhancednavigationstart`, restores at `enhancedload` after
+  Back/Forward or a `data-restores-scroll` link, and handles reloads itself. The picker's Back links
+  use it instead of their own map. Mike saw it working on the long post.
 - **The video embed, YouTube and Vimeo** (Mike, 2026-09-24): `artshop-video` replaces the parser's
   `artshop-youtube`, which no post ever stored. See "Video embed" below.
 
@@ -25,6 +34,8 @@ video. Delete it afterwards. Worth trying:
   shared one
 - on the admin artwork list and in the picker, Clear filters showing only when clearing changes
   something
+- Back and Forward keeping the scroll position: the long post, the home page's series cards, the
+  admin list, and the picker's Back links
 
 **Built so far:** the admin post list and editor (Quill 2), drafts and publishing, the public
 `/posts/{slug}` page, the unsaved-edit backup, the artwork embed end to end, and the video embed.

@@ -17,7 +17,8 @@
 <artwork-picker-page class="block">
   @if (BackHref is not null)
   {
-    <a href="@BackHref" class="mb-4 inline-block">← @BackLabel</a>
+    @* returns to where that step was scrolled, as the browser's Back would *@
+    <a href="@BackHref" class="mb-4 inline-block" data-restores-scroll>← @BackLabel</a>
   }
 
   <h1 class="mb-4 text-lg">@Heading</h1>
