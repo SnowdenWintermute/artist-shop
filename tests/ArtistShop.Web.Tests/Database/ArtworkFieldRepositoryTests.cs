@@ -6,7 +6,7 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkFieldRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly ArtworkFieldRepository _artworkFields = new(database.DataSource);
+    private readonly ArtworkFieldRepository _artworkFields = new(database.Site);
 
     [Fact]
     public async Task ListsTheSeededFieldsWithDepthUnderHeightAndWidth()

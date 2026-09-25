@@ -1,9 +1,9 @@
 DROP FUNCTION IF EXISTS add_site_with_sign_up_code;
 
--- Sign-up's one write to the platform database: uses up the code and adds the site, reached by
--- p_host and owned by p_owner_user_id, together. A function runs as one transaction, so if the host
+-- Sign-up's one write to the platform database: uses up the code and adds the site p_id, reached
+-- by p_host and owned by p_owner_user_id, together. A function runs as one transaction, so if the host
 -- is taken the code isn't used, and two sign-ups with one code can't both make a site
-CREATE FUNCTION add_site_with_sign_up_code (p_code_hash bytea, p_host text, p_owner_user_id text) RETURNS int LANGUAGE plpgsql AS $$
+CREATE FUNCTION add_site_with_sign_up_code (p_code_hash bytea, p_id int, p_host text, p_owner_user_id text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     -- deleting the row locks it, so a second sign-up with the same code waits here, then finds it gone
     DELETE FROM sign_up_codes
@@ -15,6 +15,6 @@ BEGIN
         RAISE EXCEPTION 'The sign-up code was never made, has expired, or has been used.' USING ERRCODE = 'SH016';
     END IF;
 
-    RETURN add_site (ARRAY[p_host], p_owner_user_id);
+    PERFORM add_site (p_id, ARRAY[p_host], p_owner_user_id);
 END;
 $$;

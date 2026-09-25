@@ -7,12 +7,12 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkImportCatalogSnapshotTests(TestDatabaseFixture database)
 {
-    private readonly CatalogTestData _catalog = new(database.DataSource);
-    private readonly ArtworkTypeRepository _artworkTypes = new(database.DataSource);
-    private readonly VocabularyRepository _vocabularies = new(database.DataSource);
-    private readonly SeriesRepository _series = new(database.DataSource);
-    private readonly ProductTypeRepository _productTypes = new(database.DataSource);
-    private readonly ArtworkRepository _artworks = new(database.DataSource);
+    private readonly CatalogTestData _catalog = new(database.Site);
+    private readonly ArtworkTypeRepository _artworkTypes = new(database.Site);
+    private readonly VocabularyRepository _vocabularies = new(database.Site);
+    private readonly SeriesRepository _series = new(database.Site);
+    private readonly ProductTypeRepository _productTypes = new(database.Site);
+    private readonly ArtworkRepository _artworks = new(database.Site);
 
     private Task<ArtworkImportCatalogSnapshot?> LoadAsync(ArtworkTypeId artworkTypeId) =>
         ArtworkImportCatalogSnapshot.LoadAsync(artworkTypeId, _artworkTypes, _vocabularies, _series, _productTypes, _artworks);

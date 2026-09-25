@@ -1,16 +1,5 @@
--- Postgres compares text byte by byte unless a column says otherwise. These ICU collations are how
--- a column says otherwise. Non-deterministic means two different strings can count as equal, which
--- is the point, and Postgres won't allow one as a database's default, so each column names it.
--- level2 ignores case but not accents: 'Oil' collides with 'oil', 'cafe' and 'café' stay apart
-CREATE COLLATION case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
-
--- level1 ignores accents as well, so "cafe" finds "café". Only the title search uses it, with
--- COLLATE on the comparison, and LIKE over it needs Postgres 18
-CREATE COLLATION case_and_accent_insensitive (
-    provider = icu,
-    locale = 'und-u-ks-level1',
-    deterministic = false
-);
+-- the collations named here, case_insensitive and case_and_accent_insensitive, are in the
+-- site_types schema (Platform/Scripts/0004_CreateSiteTypes.sql)
 
 CREATE TABLE artwork_types (
     -- ALWAYS refuses an id the insert supplies, as IDENTITY does without IDENTITY_INSERT

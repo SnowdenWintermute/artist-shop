@@ -15,7 +15,7 @@ public sealed class SiteAdminHandlerTests(TestDatabaseFixture database)
     [Fact]
     public async Task TheSitesOwnerMayAdministerIt()
     {
-        var siteId = await _sites.AddAsync([NewHost()], "owner");
+        var siteId = await _sites.AddNewAsync([NewHost()], "owner");
 
         Assert.True(await IsSiteAdminAsync(siteId, SignedIn("owner")));
     }
@@ -23,7 +23,7 @@ public sealed class SiteAdminHandlerTests(TestDatabaseFixture database)
     [Fact]
     public async Task AnAccountThatIsntAMemberMayNot()
     {
-        var siteId = await _sites.AddAsync([NewHost()], "owner");
+        var siteId = await _sites.AddNewAsync([NewHost()], "owner");
 
         Assert.False(await IsSiteAdminAsync(siteId, SignedIn("stranger")));
     }
@@ -32,8 +32,8 @@ public sealed class SiteAdminHandlerTests(TestDatabaseFixture database)
     [Fact]
     public async Task AnotherSitesOwnerMayNot()
     {
-        await _sites.AddAsync([NewHost()], "other-owner");
-        var siteId = await _sites.AddAsync([NewHost()], "owner");
+        await _sites.AddNewAsync([NewHost()], "other-owner");
+        var siteId = await _sites.AddNewAsync([NewHost()], "owner");
 
         Assert.False(await IsSiteAdminAsync(siteId, SignedIn("other-owner")));
     }
@@ -41,7 +41,7 @@ public sealed class SiteAdminHandlerTests(TestDatabaseFixture database)
     [Fact]
     public async Task SomeoneNotSignedInMayNot()
     {
-        var siteId = await _sites.AddAsync([NewHost()], "owner");
+        var siteId = await _sites.AddNewAsync([NewHost()], "owner");
 
         Assert.False(await IsSiteAdminAsync(siteId, new ClaimsPrincipal(new ClaimsIdentity())));
     }
@@ -49,7 +49,7 @@ public sealed class SiteAdminHandlerTests(TestDatabaseFixture database)
     [Fact]
     public async Task NobodyAdministersThePlatformAsASite()
     {
-        await _sites.AddAsync([NewHost()], "owner");
+        await _sites.AddNewAsync([NewHost()], "owner");
 
         Assert.False(await IsAdminAsync(new CurrentHost.Platform(), SignedIn("owner")));
     }

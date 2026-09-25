@@ -13,9 +13,9 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class PostRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly PostRepository _posts = new(database.DataSource);
-    private readonly ArtworkRepository _artworks = new(database.DataSource);
-    private readonly CatalogTestData _catalog = new(database.DataSource);
+    private readonly PostRepository _posts = new(database.Site);
+    private readonly ArtworkRepository _artworks = new(database.Site);
+    private readonly CatalogTestData _catalog = new(database.Site);
 
     private static readonly PostBody TextOnlyBody = new("""{"ops":[{"insert":"Hello\n"}]}""");
 

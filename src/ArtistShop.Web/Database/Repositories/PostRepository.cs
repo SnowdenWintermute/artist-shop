@@ -6,7 +6,7 @@ using ArtistShop.Web.Domain.Publishing;
 using Dapper;
 using Npgsql;
 
-public class PostRepository(NpgsqlDataSource dataSource)
+public class PostRepository(SiteDatabase database)
 {
     private const string UniqueSlugConstraint = "unique_posts_slug";
 
@@ -16,7 +16,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
     // the images uploaded into posts, which live only in the bodies, for the orphan sweep
     public async Task<HashSet<string>> GetAllImageStorageKeysAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var storageKeys = await connection.QueryAsync<string>("SELECT * FROM get_all_post_image_storage_keys()");
 
@@ -25,7 +25,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
 
     public async Task<Post?> GetAsync(PostId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var row = await connection.QuerySingleOrDefaultAsync<PostRow>(
             "SELECT * FROM get_post(@Id)",
@@ -38,7 +38,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
     // drafts included: an admin reads a draft on the page it will appear on
     public async Task<Post?> GetBySlugAsync(PostSlug slug)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var row = await connection.QuerySingleOrDefaultAsync<PostRow>(
             "SELECT * FROM get_post_by_slug(@Slug)",
@@ -50,7 +50,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
 
     public async Task<Post?> GetPublishedBySlugAsync(PostSlug slug)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var row = await connection.QuerySingleOrDefaultAsync<PostRow>(
             "SELECT * FROM get_published_post_by_slug(@Slug)",
@@ -63,7 +63,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
     // drafts included, for the admin list
     public async Task<List<PostSummary>> GetAllAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<PostSummaryRow>("SELECT * FROM get_post_list()");
 
@@ -74,7 +74,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
     // number past the end back to the first page
     public async Task<PostListPage> GetPublishedPageAsync(int pageNumber)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var pageSize = ArtistShopLimits.BlogPageSize;
 
@@ -92,7 +92,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
 
     public async Task<List<PostMention>> GetPublishedMentioningArtworkAsync(ArtworkId artworkId)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<PostMentionRow>(
             "SELECT * FROM get_published_posts_mentioning_artwork(@ArtworkId)",
@@ -106,7 +106,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
     // the body is cast in the call or the function isn't found
     public async Task<PostId> AddAsync(PostTitle title, PostSlug slug, PostBody body, PostStatus status)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -137,7 +137,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
         PostStatus status
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -166,7 +166,7 @@ public class PostRepository(NpgsqlDataSource dataSource)
 
     public async Task DeleteAsync(PostId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync("SELECT delete_post(@Id)", new { Id = id.Value });
     }

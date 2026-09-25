@@ -17,7 +17,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     public async Task FindsASiteByAnyOfItsHostsInAnyCase()
     {
         var label = Guid.NewGuid().ToString("n");
-        var siteId = await _sites.AddAsync([Host($"{label}.test"), Host($"www.{label}.test")], OwnerUserId);
+        var siteId = await _sites.AddNewAsync([Host($"{label}.test"), Host($"www.{label}.test")], OwnerUserId);
         var directory = NewDirectory();
 
         await directory.ReloadAsync();
@@ -55,7 +55,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
         await directory.ReloadAsync();
         var host = UniqueHost();
 
-        var siteId = await _sites.AddAsync([host], OwnerUserId);
+        var siteId = await _sites.AddNewAsync([host], OwnerUserId);
 
         Assert.Null(directory.Find(host.Value));
         await directory.ReloadAsync();
@@ -67,7 +67,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     public async Task RefusesASiteWithThePlatformsHost()
     {
         var host = UniqueHost();
-        await _sites.AddAsync([host], OwnerUserId);
+        await _sites.AddNewAsync([host], OwnerUserId);
         var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(host));
 
         await Assert.ThrowsAsync<InvalidOperationException>(directory.ReloadAsync);

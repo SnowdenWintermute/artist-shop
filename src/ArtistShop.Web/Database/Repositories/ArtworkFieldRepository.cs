@@ -4,11 +4,11 @@ using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
-public class ArtworkFieldRepository(NpgsqlDataSource dataSource)
+public class ArtworkFieldRepository(SiteDatabase database)
 {
     public async Task<List<ArtworkFieldDefinition>> GetAllAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<ArtworkFieldRow>(
             "SELECT * FROM get_artwork_fields()"

@@ -25,7 +25,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var main = NewHost("main");
         var other = NewHost("other");
 
-        var siteId = await _sites.AddAsync([main, other], OwnerUserId);
+        var siteId = await _sites.AddNewAsync([main, other], OwnerUserId);
 
         var hosts = (await _sites.GetHostsAsync()).Where(host => host.SiteId == siteId).OrderBy(host => host.Host.Value);
         Assert.Equivalent(new[] { new SiteHost(main, siteId, true), new SiteHost(other, siteId, false) }, hosts);
@@ -36,10 +36,10 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     public async Task RefusesAHostAnotherSiteHasAndAddsNoSite()
     {
         var taken = NewHost("taken");
-        await _sites.AddAsync([taken], OwnerUserId);
+        await _sites.AddNewAsync([taken], OwnerUserId);
         var sitesBefore = await _sites.GetIdsAsync();
 
-        await Assert.ThrowsAsync<NameAlreadyInUseException>(() => _sites.AddAsync([NewHost("new"), taken], OwnerUserId));
+        await Assert.ThrowsAsync<NameAlreadyInUseException>(() => _sites.AddNewAsync([NewHost("new"), taken], OwnerUserId));
 
         Assert.Equal(sitesBefore.Count, (await _sites.GetIdsAsync()).Count);
     }
@@ -50,7 +50,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var host = NewHost("twice");
         var sitesBefore = await _sites.GetIdsAsync();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => _sites.AddAsync([host, host], OwnerUserId));
+        await Assert.ThrowsAsync<ArgumentException>(() => _sites.AddNewAsync([host, host], OwnerUserId));
 
         Assert.Equal(sitesBefore.Count, (await _sites.GetIdsAsync()).Count);
     }
@@ -58,7 +58,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task TheSitesOwnerIsItsOnlyMember()
     {
-        var siteId = await _sites.AddAsync([NewHost("owned")], OwnerUserId);
+        var siteId = await _sites.AddNewAsync([NewHost("owned")], OwnerUserId);
 
         Assert.Equal(SiteRole.Owner, await _sites.GetMemberRoleAsync(siteId, OwnerUserId));
         Assert.Null(await _sites.GetMemberRoleAsync(siteId, "someone-else"));
@@ -68,8 +68,8 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task OwningOneSiteIsNoRoleOnAnother()
     {
-        await _sites.AddAsync([NewHost("mine")], "first-owner");
-        var other = await _sites.AddAsync([NewHost("theirs")], "second-owner");
+        await _sites.AddNewAsync([NewHost("mine")], "first-owner");
+        var other = await _sites.AddNewAsync([NewHost("theirs")], "second-owner");
 
         Assert.Null(await _sites.GetMemberRoleAsync(other, "first-owner"));
     }
@@ -80,7 +80,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddDays(1));
         var host = NewHost("signed-up");
 
-        var siteId = await _sites.AddWithSignUpCodeAsync(code, host, OwnerUserId);
+        var siteId = await _sites.AddNewWithSignUpCodeAsync(code, host, OwnerUserId);
 
         Assert.Contains(new SiteHost(host, siteId, IsMain: true), await _sites.GetHostsAsync());
         Assert.Equal(SiteRole.Owner, await _sites.GetMemberRoleAsync(siteId, OwnerUserId));
@@ -90,11 +90,11 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     public async Task AUsedSignUpCodeAddsNoSecondSite()
     {
         var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddDays(1));
-        await _sites.AddWithSignUpCodeAsync(code, NewHost("first"), OwnerUserId);
+        await _sites.AddNewWithSignUpCodeAsync(code, NewHost("first"), OwnerUserId);
         var secondHost = NewHost("second");
 
         await Assert.ThrowsAsync<SignUpCodeNotUsableException>(() =>
-            _sites.AddWithSignUpCodeAsync(code, secondHost, OwnerUserId)
+            _sites.AddNewWithSignUpCodeAsync(code, secondHost, OwnerUserId)
         );
         Assert.DoesNotContain(await _sites.GetHostsAsync(), siteHost => siteHost.Host == secondHost);
     }
@@ -106,7 +106,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var host = NewHost("expired");
 
         await Assert.ThrowsAsync<SignUpCodeNotUsableException>(() =>
-            _sites.AddWithSignUpCodeAsync(code, host, OwnerUserId)
+            _sites.AddNewWithSignUpCodeAsync(code, host, OwnerUserId)
         );
         Assert.DoesNotContain(await _sites.GetHostsAsync(), siteHost => siteHost.Host == host);
     }
@@ -114,7 +114,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task ACodeNeverMadeAddsNoSite() =>
         await Assert.ThrowsAsync<SignUpCodeNotUsableException>(() =>
-            _sites.AddWithSignUpCodeAsync(SignUpCode.New(), NewHost("never-made"), OwnerUserId)
+            _sites.AddNewWithSignUpCodeAsync(SignUpCode.New(), NewHost("never-made"), OwnerUserId)
         );
 
     // the code is used only if the site is made, so it can be tried again with another name
@@ -122,13 +122,13 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     public async Task ATakenHostLeavesTheSignUpCodeUnused()
     {
         var host = NewHost("taken");
-        await _sites.AddAsync([host], OwnerUserId);
+        await _sites.AddNewAsync([host], OwnerUserId);
         var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddDays(1));
 
         await Assert.ThrowsAsync<NameAlreadyInUseException>(() =>
-            _sites.AddWithSignUpCodeAsync(code, host, OwnerUserId)
+            _sites.AddNewWithSignUpCodeAsync(code, host, OwnerUserId)
         );
-        await _sites.AddWithSignUpCodeAsync(code, NewHost("another"), OwnerUserId);
+        await _sites.AddNewWithSignUpCodeAsync(code, NewHost("another"), OwnerUserId);
     }
 
     private async Task<SignUpCode> NewSignUpCodeAsync(DateTimeOffset expiresAt)

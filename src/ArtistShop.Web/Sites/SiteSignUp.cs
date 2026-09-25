@@ -22,6 +22,7 @@ public abstract record SiteSignUpResult
 // A new website from a sign-up code, owned by the signed-in account that asked for it
 public sealed class SiteSignUp(
     SiteRepository sites,
+    SignUpCodeRepository signUpCodes,
     SiteProvisioner provisioner,
     HostDirectory hostDirectory,
     PlatformSettings platformSettings
@@ -31,11 +32,24 @@ public sealed class SiteSignUp(
     public async Task<SiteSignUpResult> SignUpAsync(SignUpCode code, SiteName name, string ownerUserId)
     {
         var host = name.HostUnder(platformSettings.Host);
+
+        // checked before the site's schema is made, so the usual mistakes don't make one only to
+        // drop it. Adding the site checks both again, which is the check that counts
+        if (!await signUpCodes.IsUsableAsync(code))
+        {
+            return new SiteSignUpResult.CodeNotUsable();
+        }
+
+        if (hostDirectory.Find(host.Value) is not null)
+        {
+            return new SiteSignUpResult.NameTaken();
+        }
+
         SiteId siteId;
 
         try
         {
-            siteId = await sites.AddWithSignUpCodeAsync(code, host, ownerUserId);
+            siteId = await provisioner.CreateAsync(id => sites.AddWithSignUpCodeAsync(code, id, host, ownerUserId));
         }
         catch (SignUpCodeNotUsableException)
         {
@@ -46,8 +60,6 @@ public sealed class SiteSignUp(
             return new SiteSignUpResult.NameTaken();
         }
 
-        // if this fails, the site is finished at the app's next start, which prepares every site
-        provisioner.Prepare(siteId);
         await hostDirectory.ReloadAsync();
 
         return new SiteSignUpResult.Made(siteId, host);

@@ -48,6 +48,31 @@ public sealed partial class RegisterTests(TestApp app)
         Assert.True(await userManager.CheckPasswordAsync(account, TestApp.Password));
     }
 
+    // signing in and resetting the password both refuse an unconfirmed account, so registering again
+    // is how someone whose first email never came gets another link
+    [Fact]
+    public async Task AnUnconfirmedEmailGetsANewLinkToConfirmIt()
+    {
+        var email = NewEmail();
+        await RegisterAsync(email, TestApp.Password);
+
+        var response = await RegisterAsync(email, "Another-password-2");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/RegisterConfirmation", response.Headers.Location?.AbsolutePath);
+        var sent = app.Mailer.SentTo(email);
+        Assert.Equal(["Confirm your email", "Confirm your email"], sent.Select(message => message.Subject));
+
+        var confirmation = await app.ClientFor(TestApp.PlatformHost).GetStringAsync(LinkIn(sent[1].HtmlBody), TestContext.Current.CancellationToken);
+
+        Assert.Contains("Thank you for confirming your email.", confirmation);
+        using var scope = app.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var account = await userManager.FindByEmailAsync(email) ?? throw new InvalidOperationException("No account.");
+        Assert.True(account.EmailConfirmed);
+        Assert.True(await userManager.CheckPasswordAsync(account, TestApp.Password));
+    }
+
     // checked before the email is looked up, so the answer doesn't say whether it has an account
     [Fact]
     public async Task AWeakPasswordGetsTheSameAnswerForEitherEmail()

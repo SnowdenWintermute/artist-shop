@@ -49,7 +49,6 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
             "ConnectionStrings:ArtistShopIdentity",
             TestDatabaseFixture.ConnectionStringFor(TestDatabaseFixture.AppIdentityDatabaseName)
         );
-        builder.UseSetting("SiteDatabaseNamePrefix", TestDatabaseFixture.SiteDatabaseNamePrefix + "app_");
         builder.UseSetting("ImageStorage:RootPath", _imageStorageRootPath);
 
         builder.UseSetting("Platform:Host", PlatformHost);

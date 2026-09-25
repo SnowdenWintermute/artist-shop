@@ -19,6 +19,17 @@ public class SignUpCodeRepository(NpgsqlDataSource platformDataSource)
         return new SignUpCodeId(id);
     }
 
+    // unused and not expired. Sign-up asks before making the site's schema; using the code checks again
+    public async Task<bool> IsUsableAsync(SignUpCode code)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT sign_up_code_is_usable(@CodeHash)",
+            new { CodeHash = code.Hash() }
+        );
+    }
+
     public async Task<List<SignUpCodeListing>> GetAllAsync()
     {
         await using var connection = platformDataSource.CreateConnection();

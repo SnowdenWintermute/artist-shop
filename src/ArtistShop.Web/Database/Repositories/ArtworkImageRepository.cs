@@ -4,13 +4,13 @@ using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
-public class ArtworkImageRepository(NpgsqlDataSource dataSource)
+public class ArtworkImageRepository(SiteDatabase database)
 {
     // since we're using this to determine if an image exists, we
     // pick hash set
     public async Task<HashSet<string>> GetAllStorageKeysAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         // when a result set has exactly one column,
         // QueryAsync maps each row to a string, if it
@@ -29,7 +29,7 @@ public class ArtworkImageRepository(NpgsqlDataSource dataSource)
         ArtworkImage image
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -69,7 +69,7 @@ public class ArtworkImageRepository(NpgsqlDataSource dataSource)
         IReadOnlyCollection<ArtworkName> artworkNames
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {

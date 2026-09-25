@@ -33,8 +33,7 @@ builder
     );
 builder.Services.AddBlazorBlueprintPrimitives();
 
-// the platform database, which lists the sites. Each site's own database is on the same server,
-// reached with the same login (SiteDatabases)
+// the platform database, which lists the sites and holds each site's own schema (SiteDatabases)
 var platformConnectionString =
     builder.Configuration.GetConnectionString("ArtistShopPlatform")
     ?? throw new InvalidOperationException("ConnectionStrings:ArtistShopPlatform is not set.");
@@ -54,7 +53,7 @@ var imageStorageRootPath = Path.GetFullPath(
 var imageStorageSettings = new ImageStorageSettings(imageStorageRootPath);
 builder.Services.AddSingleton(imageStorageSettings);
 
-// sites: the platform database, each site's own database, and which one a request is for
+// sites: the platform's tables, each site's own schema, and which one a request is for
 const string PlatformDataSourceKey = "platform";
 // a factory rather than an instance, so the container disposes the data source when the app stops
 builder.Services.AddKeyedSingleton(PlatformDataSourceKey, (_, _) => NpgsqlDataSource.Create(platformConnectionString));
@@ -65,12 +64,18 @@ builder.Services.AddSingleton(services =>
     new SignUpCodeRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
 );
 
+// every site's schema, in the platform database and reached through one shared pool
+const string SitesDataSourceKey = "sites";
 var siteDatabaseSettings = ValidatedSettings.Read<SiteDatabaseSettings>(builder.Configuration, "SiteDatabases");
-// set only by the tests that run the whole app, so its site databases aren't dev's
-var siteDatabaseNamePrefix = builder.Configuration["SiteDatabaseNamePrefix"] ?? SiteDatabases.DatabaseNamePrefix;
-builder.Services.AddSingleton(_ =>
-    new SiteDatabases(platformConnectionString, siteDatabaseNamePrefix, siteDatabaseSettings)
+builder.Services.AddKeyedSingleton(
+    SitesDataSourceKey,
+    (_, _) => SiteDataSource.Create(platformConnectionString, siteDatabaseSettings)
 );
+builder.Services.AddSingleton(services =>
+    new SiteDatabases(services.GetRequiredKeyedService<NpgsqlDataSource>(SitesDataSourceKey))
+);
+builder.Services.AddSingleton(new SiteSchemas(platformConnectionString));
+
 // the platform's own host, where artists sign up; every other host is a site's
 var platformHost =
     HostName.Read(builder.Configuration["Platform:Host"] ?? "")
@@ -131,29 +136,29 @@ builder.Services.AddSingleton<OrphanedImageSweeper>();
 // hosted service
 builder.Services.AddHostedService<OrphanedImageSweepService>();
 
-// a site's own database
+// a site's own schema
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 
 // the database's artwork_type_id fills the ArtworkTypeId property
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-// each built on the current site's data source, so everything they read and write is that site's
-void AddSiteRepository<T>(Func<NpgsqlDataSource, T> create)
+// each built on the current site's schema, so everything they read and write is that site's
+void AddSiteRepository<T>(Func<SiteDatabase, T> create)
     where T : class =>
     builder.Services.AddScoped(services =>
         create(services.GetRequiredService<SiteDatabases>().For(services.GetRequiredService<CurrentSite>().Id))
     );
 
-AddSiteRepository(dataSource => new ArtworkRepository(dataSource));
-AddSiteRepository(dataSource => new SeriesRepository(dataSource));
-AddSiteRepository(dataSource => new ArtworkImageRepository(dataSource));
-AddSiteRepository(dataSource => new ArtworkFieldRepository(dataSource));
-AddSiteRepository(dataSource => new ArtworkTypeRepository(dataSource));
-AddSiteRepository(dataSource => new ProductTypeRepository(dataSource));
-AddSiteRepository(dataSource => new VocabularyRepository(dataSource));
-AddSiteRepository(dataSource => new VocabularyTermRepository(dataSource));
-AddSiteRepository(dataSource => new PostRepository(dataSource));
-AddSiteRepository<ArtworkSearch>(dataSource => new SqlArtworkTitleSearch(dataSource));
+AddSiteRepository(database => new ArtworkRepository(database));
+AddSiteRepository(database => new SeriesRepository(database));
+AddSiteRepository(database => new ArtworkImageRepository(database));
+AddSiteRepository(database => new ArtworkFieldRepository(database));
+AddSiteRepository(database => new ArtworkTypeRepository(database));
+AddSiteRepository(database => new ProductTypeRepository(database));
+AddSiteRepository(database => new VocabularyRepository(database));
+AddSiteRepository(database => new VocabularyTermRepository(database));
+AddSiteRepository(database => new PostRepository(database));
+AddSiteRepository<ArtworkSearch>(database => new SqlArtworkTitleSearch(database));
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -212,7 +217,7 @@ var app = builder.Build();
 /////////////////////////////
 
 EnsureDatabase.For.PostgresqlDatabase(platformConnectionString);
-SchemaMigrator.Platform.Upgrade(platformConnectionString);
+SchemaMigrator.Platform.Upgrade(platformConnectionString, "public");
 
 using (var scope = app.Services.CreateScope())
 {
@@ -225,7 +230,7 @@ using (var scope = app.Services.CreateScope())
 var siteRepository = app.Services.GetRequiredService<SiteRepository>();
 var siteProvisioner = app.Services.GetRequiredService<SiteProvisioner>();
 
-// every site's database brought up to date, and its folders made
+// every site's schema brought up to date, and its folders made
 foreach (var siteId in await siteRepository.GetIdsAsync())
 {
     siteProvisioner.Prepare(siteId);

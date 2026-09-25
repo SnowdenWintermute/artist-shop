@@ -1,5 +1,5 @@
--- The artists' websites. Each site's own data is in a database of its own, named from this id (see
--- SiteDatabases), so nothing here says which database it is
+-- The artists' websites. Each site's own data is in a schema of its own, site_<id>, named from this
+-- id (see SiteSchema), so nothing here says which schema it is
 CREATE TABLE sites (
     id int GENERATED ALWAYS AS IDENTITY,
     CONSTRAINT primary_key_sites PRIMARY KEY (id),

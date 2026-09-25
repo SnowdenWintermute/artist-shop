@@ -63,6 +63,16 @@ public sealed class AccountRegistration(UserManager<ApplicationUser> userManager
             // hashed and thrown away, so this answer takes about as long as making an account, whose
             // password is hashed as it's saved
             userManager.PasswordHasher.HashPassword(existing, password);
+
+            // Its first confirmation email may never have come, and until it's confirmed, signing in
+            // and resetting the password both refuse it, so it gets a new link. Its password stays
+            // the first one: setting this one would let anyone choose the password of an account
+            // its owner hasn't confirmed yet
+            if (!existing.EmailConfirmed)
+            {
+                await SendConfirmationLinkAsync(existing, email, hostRoot);
+                return new RegistrationResult.EmailSent();
+            }
         }
 
         await accountEmails.SendAlreadyHaveAccountAsync(

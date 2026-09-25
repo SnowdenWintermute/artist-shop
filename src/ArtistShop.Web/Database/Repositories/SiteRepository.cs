@@ -10,8 +10,17 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
 {
     private const string HostPrimaryKey = "primary_key_site_hosts";
 
-    // the first host is the site's main one. ownerUserId is Identity's id for the owner's account
-    public async Task<SiteId> AddAsync(IReadOnlyList<HostName> hosts, string ownerUserId)
+    // the next site's id, taken before its schema is made (SiteProvisioner)
+    public async Task<SiteId> ReserveIdAsync()
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        return new SiteId(await connection.ExecuteScalarAsync<int>("SELECT reserve_site_id()"));
+    }
+
+    // siteId is from ReserveIdAsync. The first host is the site's main one. ownerUserId is
+    // Identity's id for the owner's account
+    public async Task AddAsync(SiteId siteId, IReadOnlyList<HostName> hosts, string ownerUserId)
     {
         if (hosts.Count is 0)
         {
@@ -28,12 +37,15 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
 
         try
         {
-            var id = await connection.ExecuteScalarAsync<int>(
-                "SELECT add_site(@Hosts, @OwnerUserId)",
-                new { Hosts = hosts.Select(host => host.Value).ToArray(), OwnerUserId = ownerUserId }
+            await connection.ExecuteAsync(
+                "SELECT add_site(@Id, @Hosts, @OwnerUserId)",
+                new
+                {
+                    Id = siteId.Value,
+                    Hosts = hosts.Select(host => host.Value).ToArray(),
+                    OwnerUserId = ownerUserId,
+                }
             );
-
-            return new SiteId(id);
         }
         catch (PostgresException exception)
             when (SqlErrors.IsUniqueConstraintViolation(exception, HostPrimaryKey))
@@ -47,18 +59,22 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
     // Sign-up's site: uses up the code and adds the site in one transaction, so the code is only
     // used if the site is made. The code is the sign-up codes' resource, but using it is what adds
     // the site, so it can't be a separate write
-    public async Task<SiteId> AddWithSignUpCodeAsync(SignUpCode code, HostName host, string ownerUserId)
+    public async Task AddWithSignUpCodeAsync(SignUpCode code, SiteId siteId, HostName host, string ownerUserId)
     {
         await using var connection = platformDataSource.CreateConnection();
 
         try
         {
-            var id = await connection.ExecuteScalarAsync<int>(
-                "SELECT add_site_with_sign_up_code(@CodeHash, @Host, @OwnerUserId)",
-                new { CodeHash = code.Hash(), Host = host.Value, OwnerUserId = ownerUserId }
+            await connection.ExecuteAsync(
+                "SELECT add_site_with_sign_up_code(@CodeHash, @Id, @Host, @OwnerUserId)",
+                new
+                {
+                    CodeHash = code.Hash(),
+                    Id = siteId.Value,
+                    Host = host.Value,
+                    OwnerUserId = ownerUserId,
+                }
             );
-
-            return new SiteId(id);
         }
         catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.SignUpCodeNotUsable))
         {

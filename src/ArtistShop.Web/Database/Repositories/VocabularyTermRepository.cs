@@ -4,13 +4,13 @@ using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
-public class VocabularyTermRepository(NpgsqlDataSource dataSource)
+public class VocabularyTermRepository(SiteDatabase database)
 {
     private const string UniqueNameConstraint = "unique_vocabulary_terms_vocabulary_name";
 
     public async Task<List<VocabularyTermWithUsage>> GetAllWithUsageAsync(VocabularyId vocabularyId)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<VocabularyTermWithUsageRow>(
             "SELECT * FROM get_vocabulary_terms_with_usage(@VocabularyId)",
@@ -29,7 +29,7 @@ public class VocabularyTermRepository(NpgsqlDataSource dataSource)
 
     public async Task<VocabularyTermId> AddAsync(VocabularyId vocabularyId, VocabularyTermName name)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -49,7 +49,7 @@ public class VocabularyTermRepository(NpgsqlDataSource dataSource)
 
     public async Task RenameAsync(VocabularyTermId id, VocabularyTermName name)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -72,7 +72,7 @@ public class VocabularyTermRepository(NpgsqlDataSource dataSource)
 
     public async Task DeleteAsync(VocabularyTermId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync("SELECT delete_vocabulary_term(@Id)", new { Id = id.Value });
     }

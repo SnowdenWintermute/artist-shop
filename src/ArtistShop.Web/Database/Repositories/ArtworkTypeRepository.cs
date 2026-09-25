@@ -4,13 +4,13 @@ using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
-public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
+public class ArtworkTypeRepository(SiteDatabase database)
 {
     private const string UniqueNameConstraint = "unique_artwork_types_name";
 
     public async Task<List<ArtworkType>> GetAllAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<ArtworkTypeRow>("SELECT * FROM get_artwork_types()");
         return
@@ -24,7 +24,7 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
 
     public async Task<ArtworkTypeWithFields?> GetAsync(ArtworkTypeId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         // Npgsql returns one result set per statement
         await using var results = await connection.QueryMultipleAsync(
@@ -54,7 +54,7 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
 
     public async Task<ArtworkTypeArtworkCounts> CountArtworksAsync(ArtworkTypeId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         // Dapper matches the columns to the record's constructor parameters by name
         return await connection.QuerySingleAsync<ArtworkTypeArtworkCounts>(
@@ -68,7 +68,7 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
         IEnumerable<ArtworkField> fields
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
@@ -91,7 +91,7 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
         IEnumerable<ArtworkField> fields
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
         try
         {
             await connection.ExecuteAsync(
@@ -118,7 +118,7 @@ public class ArtworkTypeRepository(NpgsqlDataSource dataSource)
 
     public async Task DeleteAsync(ArtworkTypeId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
         try
         {
             await connection.ExecuteAsync("SELECT delete_artwork_type(@Id)", new { Id = id.Value });

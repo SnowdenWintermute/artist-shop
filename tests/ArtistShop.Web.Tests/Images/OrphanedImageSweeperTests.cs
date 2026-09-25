@@ -90,7 +90,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     public async Task KeepsUploadAPostNamesOlderThanGracePeriod()
     {
         var storageKey = await UploadImageAsync();
-        await new PostRepository(_database.DataSource).AddAsync(
+        await new PostRepository(_database.Site).AddAsync(
             new PostTitle($"Sweeper test post {storageKey}"),
             PostSlug.FromTitle($"Sweeper test post {storageKey}"),
             new PostBody(
@@ -138,8 +138,8 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     private Task SweepAsync() =>
         _sweeper.SweepAsync(
             _imageStorage,
-            new ArtworkImageRepository(_database.DataSource),
-            new PostRepository(_database.DataSource)
+            new ArtworkImageRepository(_database.Site),
+            new PostRepository(_database.Site)
         );
 
     private static ImageUploadStore UploadStoreFor(ImageStorage imageStorage) =>
@@ -169,7 +169,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     // procedure names and column mappings line up between C# and SQL
     private async Task AddPaintingReferencing(string storageKey)
     {
-        var catalog = new CatalogTestData(_database.DataSource);
+        var catalog = new CatalogTestData(_database.Site);
 
         await catalog.AddPaintingAsync(
             "Sweeper test painting",

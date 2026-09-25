@@ -7,9 +7,9 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly SeriesRepository _series = new(database.DataSource);
-    private readonly ArtworkRepository _artworks = new(database.DataSource);
-    private readonly CatalogTestData _catalog = new(database.DataSource);
+    private readonly SeriesRepository _series = new(database.Site);
+    private readonly ArtworkRepository _artworks = new(database.Site);
+    private readonly CatalogTestData _catalog = new(database.Site);
 
     private Task<SeriesId> AddNamedSeriesAsync(string name) =>
         _series.AddAsync(new SeriesName(name), SeriesSlug.FromName(name));

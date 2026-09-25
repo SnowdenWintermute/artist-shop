@@ -45,12 +45,12 @@ public class OrphanedImageSweepService(
             // each site on its own, so one failing doesn't stop the rest being swept
             try
             {
-                var dataSource = siteDatabases.For(siteId);
+                var database = siteDatabases.For(siteId);
 
                 await sweeper.SweepAsync(
                     ImageStorage.ForSite(storageSettings, siteId),
-                    new ArtworkImageRepository(dataSource),
-                    new PostRepository(dataSource)
+                    new ArtworkImageRepository(database),
+                    new PostRepository(database)
                 );
             }
             catch (Exception exception)

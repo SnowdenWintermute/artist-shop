@@ -4,11 +4,11 @@ using ArtistShop.Web.Domain.Commerce;
 using Dapper;
 using Npgsql;
 
-public class ProductTypeRepository(NpgsqlDataSource dataSource)
+public class ProductTypeRepository(SiteDatabase database)
 {
     public async Task<List<ProductType>> GetAllAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<ProductTypeRow>("SELECT * FROM get_product_types()");
         return

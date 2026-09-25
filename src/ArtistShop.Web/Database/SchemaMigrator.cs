@@ -8,7 +8,7 @@ using DbUp.Helpers;
 // an edited one always takes effect. Each kind of database has its own folders
 public class SchemaMigrator(string scriptsFolder, string proceduresFolder)
 {
-    // a site's own database: its catalog and posts
+    // a site's own schema: its catalog and posts
     public static readonly SchemaMigrator Site = new(".Database.Scripts.", ".Database.Procedures.");
 
     // the platform database: the sites and their hosts
@@ -17,10 +17,13 @@ public class SchemaMigrator(string scriptsFolder, string proceduresFolder)
         ".Database.Platform.Procedures."
     );
 
-    public void Upgrade(string connectionString)
+    // schema is where the list of migrations already run is kept: public for the platform, and a
+    // site's own schema for a site, so each site has its own list. Named here, since otherwise DbUp
+    // takes the connection string's whole Search Path as one schema's name, and makes it
+    public void Upgrade(string connectionString, string schema)
     {
         var migrations = DeployChanges
-            .To.PostgresqlDatabase(connectionString)
+            .To.PostgresqlDatabase(connectionString, schema)
             .WithScriptsEmbeddedInAssembly(typeof(SchemaMigrator).Assembly, IsMigration)
             .WithTransactionPerScript()
             .LogToConsole()
@@ -29,7 +32,7 @@ public class SchemaMigrator(string scriptsFolder, string proceduresFolder)
         Run(migrations);
 
         var procedures = DeployChanges
-            .To.PostgresqlDatabase(connectionString)
+            .To.PostgresqlDatabase(connectionString, schema)
             .WithScriptsEmbeddedInAssembly(typeof(SchemaMigrator).Assembly, IsProcedure)
             .WithTransactionPerScript()
             .JournalTo(new NullJournal())

@@ -5,13 +5,13 @@ using ArtistShop.Web.Utilities;
 using Dapper;
 using Npgsql;
 
-public class VocabularyRepository(NpgsqlDataSource dataSource)
+public class VocabularyRepository(SiteDatabase database)
 {
     private const string UniqueNameConstraint = "unique_vocabularies_name";
 
     public async Task<List<Vocabulary>> GetAllAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<VocabularyRow>("SELECT * FROM get_vocabularies()");
 
@@ -20,7 +20,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
 
     public async Task<List<Vocabulary>> GetAllWithoutArtworkTypesAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<VocabularyRow>(
             "SELECT * FROM get_vocabularies_without_artwork_types()"
@@ -38,7 +38,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
 
     private async Task<List<VocabularyWithTerms>> GetAllWithTermsAsync(int? artworkTypeId)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<VocabularyWithTermRow>(
             "SELECT * FROM get_vocabularies_with_terms(@ArtworkTypeId)",
@@ -77,7 +77,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
     {
         int[] artworkTypeIdList = [.. artworkTypeIds.Select(id => id.Value)];
 
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
@@ -96,7 +96,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
 
     public async Task<VocabularyWithArtworkTypes?> GetAsync(VocabularyId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await using var results = await connection.QueryMultipleAsync(
             """
@@ -124,7 +124,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
 
     public async Task<VocabularyUsage> CountUsageAsync(VocabularyId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await using var results = await connection.QueryMultipleAsync(
             """
@@ -156,7 +156,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
     {
         int[] artworkTypeIdList = [.. artworkTypeIds.Select(artworkTypeId => artworkTypeId.Value)];
 
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
         try
         {
             // ExecuteAsync: for calls whose result nobody reads
@@ -184,7 +184,7 @@ public class VocabularyRepository(NpgsqlDataSource dataSource)
 
     public async Task DeleteAsync(VocabularyId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync("SELECT delete_vocabulary(@Id)", new { Id = id.Value });
     }

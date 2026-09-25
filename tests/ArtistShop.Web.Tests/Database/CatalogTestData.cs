@@ -1,3 +1,4 @@
+using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
@@ -5,13 +6,13 @@ using Npgsql;
 
 namespace ArtistShop.Web.Tests.Database;
 
-public class CatalogTestData(NpgsqlDataSource dataSource)
+public class CatalogTestData(SiteDatabase database)
 {
-    private readonly ArtworkTypeRepository _artworkTypes = new(dataSource);
-    private readonly VocabularyRepository _vocabularies = new(dataSource);
-    private readonly VocabularyTermRepository _terms = new(dataSource);
-    private readonly ArtworkRepository _artworks = new(dataSource);
-    private readonly SeriesRepository _series = new(dataSource);
+    private readonly ArtworkTypeRepository _artworkTypes = new(database);
+    private readonly VocabularyRepository _vocabularies = new(database);
+    private readonly VocabularyTermRepository _terms = new(database);
+    private readonly ArtworkRepository _artworks = new(database);
+    private readonly SeriesRepository _series = new(database);
 
     public async Task<ArtworkTypeId> GetTypeIdAsync(string name) =>
         (await _artworkTypes.GetAllAsync()).Single(type => type.Name.Value == name).Id;

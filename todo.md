@@ -1,10 +1,71 @@
-# Next: Mike's check of multi-tenancy step 5c (register, email, sign-up), then 5d (see "Multi-tenancy notes" near the end)
+# Next: commit the switch to a schema per site (browser check passed), then 5d (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25, step 5c built (reworked)
+## Where this stands — 2026-09-25, schema per site built
 
-**Uncommitted, 542 tests pass; Mike's browser check passed.** 5c as first built took an email and password on `/signup`, which
+**Uncommitted, 545 tests pass; Mike's browser check passed (2026-09-25).** Committed before it: 5c is `6edf69c`, and the schema-per-site
+decision is `74cf711`. Nothing is deployed.
+
+**Settled with Mike before building:** the site schemas live in the platform database; Identity
+stays a database of its own for now; the app sets `search_path` as it opens a connection rather
+than qualifying each call; the shared types go in a `site_types` schema.
+
+**What changed:**
+- **Platform `Scripts/0004_CreateSiteTypes.sql`** makes `site_types`: the three composite input
+  types, and the two collations as well, since a collation belongs to a schema just as a type does
+  and one of the types uses one. The site scripts lost their collations and their `0002`
+  (`0003_CreatePosts` is now `0002`); nothing is deployed, so that's an edit, not a migration.
+- **A site is the schema `site_<id>`** (`Database/SiteSchema.cs`). `SiteSchemas.Migrate` makes it and
+  runs its migrations with `Search Path=site_<id>, site_types` and pooling off (each site's string
+  differs, and Npgsql keeps a pool per string). DbUp's journal is in the site's schema.
+- **One pool for every site** (`SiteDataSource`, keyed `"sites"` in `Program.cs`): the platform's
+  connection string with `Search Path=site_types` and `MaximumPoolSize` 20 (was 5 per site; 20 is
+  the plan's figure). `SiteDatabase.OpenConnectionAsync` opens from it and sets `search_path` to
+  the site's schema. Repositories take a `SiteDatabase`; their SQL is unchanged.
+- **A forgotten schema fails loudly:** Npgsql wipes session settings as a connection returns to the
+  pool, which puts `search_path` back to `site_types`, where no site function is. Tested
+  (`SiteProvisionerTests.AConnectionOpenedWithoutASiteFindsNoSitesFunctions`); with
+  `NoResetOnClose` on, that test fails, so it guards what it says.
+- **Not done: pinning each function's `search_path`.** The plan had it to guard a schema-qualified
+  call made with another site's `search_path`; nothing qualifies calls, and a pinned function can't
+  be inlined, so it cost something for nothing.
+- **A site is made ready before its row is added** (Mike's idea): `SiteProvisioner.CreateAsync`
+  reserves an id (`reserve_site_id`), makes the schema and folders, then adds the row (`add_site`
+  or `add_site_with_sign_up_code`, both now taking the id); on any failure it drops the schema. So a
+  listed site is always ready, and a failed sign-up leaves its code unused. Sign-up first checks
+  the code (`sign_up_code_is_usable`) and the name (`HostDirectory`) without writing, so the usual
+  mistakes don't make a schema only to drop it. Tested
+  (`SiteProvisionerTests.ASiteThatCantBeAddedLeavesNoSchema`).
+- **Gotcha found while testing in dev:** DbUp 7 reads `Search Path` from the connection string and
+  takes the whole value as one schema's name, so it made an empty schema called
+  `site_1, site_types`. `SchemaMigrator.Upgrade` now names the schema to DbUp. The tests didn't
+  catch this; only dev's schema list showed it.
+- Checked: Npgsql doesn't load each table's own type unless told to (`LoadTableComposites` is off
+  by default), so the worry about loading tens of thousands of types at startup doesn't apply.
+- The tests use one database (`artist_shop_tests`) for the platform, `site_types` and a site schema
+  of their own; `TestApp` keeps its own platform database. The `SiteDatabaseNamePrefix` setting is
+  gone. The platform tests add rows with `SiteRepositoryTestExtensions`.
+- **Dev was reset:** its five site databases (all empty but three filler posts on site 2) and its
+  platform database were dropped, so the sign-up codes went too. Site 1 was made again with
+  `tools/add-site` (`site1.localhost`) and answers.
+
+**Mike's browser check (passed 2026-09-25):** `./dev.sh`, then `http://site1.localhost:5176` and its admin; make a code
+on `/operator`, sign up for a new site on `http://localhost:5176/signup` and reach its admin; try a
+used code and a taken name.
+
+**Fixed 2026-09-25 while reviewing 5c, also uncommitted:** registering again with an email whose
+account was never confirmed sent "You already have an account", whose sign-in and reset links both
+refuse an unconfirmed account. It now sends a new confirmation link (`AccountRegistration`), with a
+test in `RegisterTests`.
+
+**Then 5d**, "My sites". Deferred: a profanity filter on site names; choosing the email provider
+(at deploy); dropping orphan schemas (a crash between making a schema and adding its row leaves
+one, harmless since ids aren't reused).
+
+## Earlier: step 5c built (reworked), 2026-09-25
+
+**Committed by Mike (`6edf69c`), 542 tests; Mike's browser check passed.** 5c as first built took an email and password on `/signup`, which
 told anyone holding a code whether an email had an account (Mike). Reworked the same day: real
 email, a register page that never says whether an email has an account, and `/signup` behind
 sign-in. Details under step 5c in the build order. Checked by Claude: the whole-app tests, and one
@@ -1620,7 +1681,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
 - Production's current content doesn't carry over: it can be deleted, and the spreadsheet import
   brings it back.
 
-**Schema per site (decided with Mike, 2026-09-25; not built):**
+**Schema per site (decided with Mike, 2026-09-25; built the same day, see "Where this stands" at the top for what changed from this draft):**
 - **Why:** a Postgres connection is bound to one database, so a database per site means a
   connection pool per site: each site up to 5 connections, and Postgres allows 100 in all, so about
   20 busy sites could take every one, each connection a server process of several MB. PgBouncer
@@ -1656,6 +1717,16 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
     `DROP SCHEMA … CASCADE`. The tests' site databases become schemas; `tools/add-site` and the
     blog seeder follow. Nothing is deployed and dev data can go, so nothing is migrated: dev drops
     its `artist_shop_site_*` databases.
+  - **Sign-up makes the schema before it uses the code** (Mike, 2026-09-25). Today
+    `SiteSignUp` adds the site (using the code) and then runs `Prepare`, so if `Prepare` fails the
+    code is gone, the host isn't loaded until a restart, and trying again says the name is taken.
+    New order: check the code and name without writing (so the usual mistakes don't make and drop a
+    schema); take the id with `nextval` on the sites sequence; make and migrate `site_<id>`; then
+    `add_site_with_sign_up_code` with that id uses the code and adds the row in one transaction.
+    If making the schema fails, or the code or name was taken in the meantime, drop the schema:
+    nothing is used up and the person can try again. A crash between the schema and the row leaves
+    an orphan schema, harmless since ids aren't reused; a startup sweep can drop them. A site row
+    then only exists for a ready site, so the startup loop just runs new migrations.
 
 **Build order (draft, from Claude):**
 1. **Done 2026-09-24 (`a26f072`):** the app logs in as `artist_shop_app` (`LOGIN CREATEDB`, not a

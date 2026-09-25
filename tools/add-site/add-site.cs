@@ -1,4 +1,4 @@
-// Adds a site to the dev platform database: its hosts, its owner, its own database and its image
+// Adds a site to the dev platform database: its hosts, its owner, its own schema and its image
 // folders. Run from the repo root after `. ./env.sh`, with the app started at least once on the
 // current code, since that is what makes the platform database:
 //
@@ -85,15 +85,9 @@ if (owner is null)
 }
 
 await using var platformDataSource = NpgsqlDataSource.Create(platformConnectionString);
-await using var siteDatabases = new SiteDatabases(
-    platformConnectionString,
-    SiteDatabases.DatabaseNamePrefix,
-    new SiteDatabaseSettings { MaximumPoolSize = 1, ConnectionIdleLifetime = TimeSpan.FromSeconds(10) }
-);
-
 var provisioner = new SiteProvisioner(
     new SiteRepository(platformDataSource),
-    siteDatabases,
+    new SiteSchemas(platformConnectionString),
     new ImageStorageSettings(Path.GetFullPath(ImageStorageRoot))
 );
 

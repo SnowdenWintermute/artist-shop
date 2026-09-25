@@ -8,12 +8,12 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly CatalogTestData _catalog = new(database.DataSource);
-    private readonly SeriesRepository _series = new(database.DataSource);
-    private readonly VocabularyTermRepository _terms = new(database.DataSource);
-    private readonly ArtworkRepository _artworks = new(database.DataSource);
-    private readonly ProductTypeRepository _productTypes = new(database.DataSource);
-    private readonly ArtworkImageRepository _images = new(database.DataSource);
+    private readonly CatalogTestData _catalog = new(database.Site);
+    private readonly SeriesRepository _series = new(database.Site);
+    private readonly VocabularyTermRepository _terms = new(database.Site);
+    private readonly ArtworkRepository _artworks = new(database.Site);
+    private readonly ProductTypeRepository _productTypes = new(database.Site);
+    private readonly ArtworkImageRepository _images = new(database.Site);
 
     [Fact]
     public async Task NumbersTheSlugWhenItIsTaken()

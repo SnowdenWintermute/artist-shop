@@ -6,7 +6,7 @@ using ArtistShop.Web.Domain.Commerce;
 using Dapper;
 using Npgsql;
 
-public class ArtworkRepository(NpgsqlDataSource dataSource)
+public class ArtworkRepository(SiteDatabase database)
 {
     // what our artwork functions RAISE when a choice changed while the form was open
     private static readonly string[] CatalogChangedErrors =
@@ -57,9 +57,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         IReadOnlyList<ArtworkCatalogAddition> artworkCatalogAdditions
     )
     {
-        await using var connection = dataSource.CreateConnection();
-        // Dapper opens a closed connection by itself, but a transaction needs it open first
-        await connection.OpenAsync();
+        await using var connection = await database.OpenConnectionAsync();
         await using var transaction = connection.BeginTransaction();
 
         try
@@ -159,7 +157,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         bool onlyArtworksWithImages
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var row = await connection.QuerySingleOrDefaultAsync<ArtworkNeighboursRow>(
             "SELECT * FROM get_artwork_neighbours_in_series(@SeriesId, @ArtworkId, @OnlyArtworksWithImages)",
@@ -184,7 +182,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
 
     public async Task<List<string>> GetNamesOfTypeAsync(ArtworkTypeId artworkTypeId)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var names = await connection.QueryAsync<string>(
             "SELECT * FROM get_artwork_names(@ArtworkTypeId)",
@@ -205,7 +203,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
             return [];
         }
 
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<ImageWithArtworkRow>(
             "SELECT * FROM get_artwork_images_by_storage_keys(@StorageKeys)",
@@ -227,7 +225,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
     {
         int? id;
 
-        await using (var connection = dataSource.CreateConnection())
+        await using (var connection = await database.OpenConnectionAsync())
         {
             id = await connection.QuerySingleAsync<int?>(
                 "SELECT get_artwork_id_by_slug(@Slug)",
@@ -244,7 +242,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
         IReadOnlyList<ArtworkId>? searchMatches
     )
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var pageSize = ArtistShopLimits.ArtworkListPageSize;
 
@@ -297,7 +295,7 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
     // the slug comes back because the function decides it: a rename can land on a numbered one
     public async Task<ArtworkSlug> UpdateAsync(ArtworkCatalogUpdate artworkCatalogUpdate)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -348,14 +346,14 @@ public class ArtworkRepository(NpgsqlDataSource dataSource)
     // ON DELETE CASCADE. The image files wait for OrphanedImageSweeper
     public async Task DeleteAsync(ArtworkId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync("SELECT delete_artwork(@Id)", new { Id = id.Value });
     }
 
     private async Task<Artwork?> GetAsync(int id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await using var results = await connection.QueryMultipleAsync(
             """

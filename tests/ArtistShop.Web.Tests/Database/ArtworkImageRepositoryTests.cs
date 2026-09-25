@@ -8,9 +8,9 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly ArtworkImageRepository _images = new(database.DataSource);
-    private readonly ArtworkRepository _artworks = new(database.DataSource);
-    private readonly CatalogTestData _catalog = new(database.DataSource);
+    private readonly ArtworkImageRepository _images = new(database.Site);
+    private readonly ArtworkRepository _artworks = new(database.Site);
+    private readonly CatalogTestData _catalog = new(database.Site);
 
     private async Task<Artwork> GetExistingAsync(ArtworkId id) =>
         await _artworks.GetByIdAsync(id) ?? throw new InvalidOperationException("The artwork is missing.");

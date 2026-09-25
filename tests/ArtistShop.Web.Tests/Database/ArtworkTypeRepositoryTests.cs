@@ -8,10 +8,10 @@ namespace ArtistShop.Web.Tests.Database;
 [Collection(DatabaseCollection.Name)]
 public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
 {
-    private readonly CatalogTestData _catalog = new(database.DataSource);
-    private readonly ArtworkTypeRepository _artworkTypes = new(database.DataSource);
-    private readonly ArtworkRepository _artworks = new(database.DataSource);
-    private readonly VocabularyRepository _vocabularies = new(database.DataSource);
+    private readonly CatalogTestData _catalog = new(database.Site);
+    private readonly ArtworkTypeRepository _artworkTypes = new(database.Site);
+    private readonly ArtworkRepository _artworks = new(database.Site);
+    private readonly VocabularyRepository _vocabularies = new(database.Site);
 
     // test classes share the database in parallel, so names must not collide
     private static ArtworkTypeName UniqueName() => new($"Type {Guid.NewGuid():n}");

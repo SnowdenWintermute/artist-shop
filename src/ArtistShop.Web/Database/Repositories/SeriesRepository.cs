@@ -4,7 +4,7 @@ using ArtistShop.Web.Domain.Catalog;
 using Dapper;
 using Npgsql;
 
-public class SeriesRepository(NpgsqlDataSource dataSource)
+public class SeriesRepository(SiteDatabase database)
 {
     private const string UniqueNameConstraint = "unique_series_name";
     private const string UniqueSlugConstraint = "unique_series_slug";
@@ -17,7 +17,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task<List<Series>> GetAllAsync()
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<SeriesRow>("SELECT * FROM get_all_series()");
 
@@ -42,7 +42,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task<Series?> GetBySlugAsync(string slug)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var row = await connection.QuerySingleOrDefaultAsync<SeriesRow>(
             "SELECT * FROM get_series_by_slug(@Slug)",
@@ -56,7 +56,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     private async Task<List<SeriesWithCover>> GetWithCoversAsync(bool onlyArtworksWithImages)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<SeriesWithCoverRow>(
             "SELECT * FROM get_series_with_covers(@OnlyArtworksWithImages)",
@@ -90,7 +90,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task<SeriesWithArtworks?> GetAsync(SeriesId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await using var results = await connection.QueryMultipleAsync(
             """
@@ -184,7 +184,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task<SeriesId> AddAsync(SeriesName name, SeriesSlug slug)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -203,7 +203,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task RenameAsync(SeriesId id, SeriesName name, SeriesSlug slug)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -230,7 +230,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task ReorderAsync(IReadOnlyList<SeriesId> ids)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -248,14 +248,14 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task DeleteAsync(SeriesId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync("SELECT delete_series(@Id)", new { Id = id.Value });
     }
 
     public async Task ReorderArtworksAsync(SeriesId id, IReadOnlyList<ArtworkId> artworkIds)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -277,7 +277,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task SetCoverAsync(SeriesId id, ArtworkId artworkId)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         try
         {
@@ -297,7 +297,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task ClearCoverAsync(SeriesId id)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync(
             "SELECT clear_series_cover(@SeriesId)",
@@ -307,7 +307,7 @@ public class SeriesRepository(NpgsqlDataSource dataSource)
 
     public async Task RemoveArtworksAsync(SeriesId id, IEnumerable<ArtworkId> artworkIds)
     {
-        await using var connection = dataSource.CreateConnection();
+        await using var connection = await database.OpenConnectionAsync();
 
         await connection.ExecuteAsync(
             "SELECT remove_artworks_from_series(@SeriesId, @ArtworkIds)",

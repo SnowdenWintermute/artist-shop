@@ -22,6 +22,7 @@ using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Sites;
+using Npgsql;
 
 const string SlugPrefix = "filler-post-";
 const int DaysApart = 3;
@@ -59,14 +60,13 @@ if (string.IsNullOrEmpty(platformConnectionString))
     return 1;
 }
 
-// the site's own database, found as the app finds it; one connection is all this needs
-await using var siteDatabases = new SiteDatabases(
+// the site's own schema, found as the app finds it; one connection is all this needs
+await using var sitesDataSource = SiteDataSource.Create(
     platformConnectionString,
-    SiteDatabases.DatabaseNamePrefix,
     new SiteDatabaseSettings { MaximumPoolSize = 1, ConnectionIdleLifetime = TimeSpan.FromSeconds(10) }
 );
-var dataSource = siteDatabases.For(siteId);
-var posts = new PostRepository(dataSource);
+var siteDatabase = new SiteDatabases(sitesDataSource).For(siteId);
+var posts = new PostRepository(siteDatabase);
 
 var existing = (await posts.GetAllAsync()).Where(post => post.Slug.Value.StartsWith(SlugPrefix)).ToList();
 
@@ -151,7 +151,8 @@ for (var number = 1; number <= count; number += 1)
 
     // Publishing stamps the post with now. Written here directly, since nothing in the app sets a
     // date: the highest number is the newest, yesterday, and each one before it DaysApart older
-    await using var command = dataSource.CreateCommand("UPDATE posts SET published_at = $1 WHERE id = $2");
+    await using var connection = await siteDatabase.OpenConnectionAsync();
+    await using var command = new NpgsqlCommand("UPDATE posts SET published_at = $1 WHERE id = $2", connection);
     command.Parameters.AddWithValue(DateTime.UtcNow.AddDays(-1 - (count - number) * DaysApart));
     command.Parameters.AddWithValue(id.Value);
     await command.ExecuteNonQueryAsync();
