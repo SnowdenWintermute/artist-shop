@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Database.Repositories;
 
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Domain.Sites;
 using Dapper;
 using Npgsql;
@@ -40,6 +41,33 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
             // the whole function is one statement's transaction, so the new site is gone too.
             // Which of the hosts clashed isn't said, so all of them are named
             throw new NameAlreadyInUseException(string.Join(", ", hosts.Select(host => host.Value)));
+        }
+    }
+
+    // Sign-up's site: uses up the code and adds the site in one transaction, so the code is only
+    // used if the site is made. The code is the sign-up codes' resource, but using it is what adds
+    // the site, so it can't be a separate write
+    public async Task<SiteId> AddWithSignUpCodeAsync(SignUpCode code, HostName host, string ownerUserId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        try
+        {
+            var id = await connection.ExecuteScalarAsync<int>(
+                "SELECT add_site_with_sign_up_code(@CodeHash, @Host, @OwnerUserId)",
+                new { CodeHash = code.Hash(), Host = host.Value, OwnerUserId = ownerUserId }
+            );
+
+            return new SiteId(id);
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.SignUpCodeNotUsable))
+        {
+            throw new SignUpCodeNotUsableException();
+        }
+        catch (PostgresException exception)
+            when (SqlErrors.IsUniqueConstraintViolation(exception, HostPrimaryKey))
+        {
+            throw new NameAlreadyInUseException(host.Value);
         }
     }
 

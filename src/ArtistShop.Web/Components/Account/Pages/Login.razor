@@ -4,12 +4,14 @@
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
 
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject CurrentHost CurrentHost
 
 <PageTitle>Log in</PageTitle>
 
@@ -58,6 +60,13 @@
             <p>
               <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
             </p>
+            @* accounts are made on the platform, for now *@
+            @if (CurrentHost is CurrentHost.Platform)
+            {
+              <p>
+                <a href="@PageUrls.Register">Make an account</a>
+              </p>
+            }
           </div>
         </EditForm>
       </section>

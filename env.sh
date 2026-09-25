@@ -25,11 +25,6 @@ export MALLOC_ARENA_MAX=2
 
 export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=artist_shop_identity;Username=artist_shop_app;Password=$POSTGRES_APP_PASSWORD"
 
-# the account that owns the first site, made with this password if it doesn't exist; read only
-# while there are no sites. The first site's hosts are in appsettings.Development.json
-export FirstSite__OwnerEmail="mike@example.com"
-export FirstSite__OwnerPassword="$DEV_OWNER_PASSWORD"
-
 # the account that runs the platform and makes sign-up codes, made with this password if it
 # doesn't exist; production sets the same two in its web env file
 export Platform__OperatorEmail="mike@example.com"

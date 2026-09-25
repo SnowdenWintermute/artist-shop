@@ -12,9 +12,14 @@
 
 <h1>Confirm email</h1>
 <StatusMessage Message="@statusMessage" />
+@if (confirmed)
+{
+    <p><a class="underline" href="Account/Login">Sign in</a></p>
+}
 
 @code {
     private string? statusMessage;
+    private bool confirmed;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -43,6 +48,7 @@
         {
             var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
             var result = await UserManager.ConfirmEmailAsync(user, code);
+            confirmed = result.Succeeded;
             statusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
         }
     }

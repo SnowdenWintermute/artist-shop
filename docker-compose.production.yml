@@ -18,14 +18,17 @@
 #   .artist-shop-web-env:
 #     ConnectionStrings__ArtistShopPlatform=Host=artist-shop-postgres;Database=artist_shop_platform;Username=artist_shop_app;Password=<app password>
 #     ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=artist_shop_app;Password=<app password>
-#     FirstSite__OwnerEmail=<email>
-#     FirstSite__OwnerPassword=<password>
-#   The first boot makes the first site, owned by that account (made with that password if it
-#   doesn't exist). Both lines are read only while there are no sites, so they can go after it.
 #     Platform__OperatorEmail=<email>
 #     Platform__OperatorPassword=<password>
 #   The account that runs the platform and makes sign-up codes, checked at every boot. The password
-#   is only read to make the account, so that line can go once it exists.
+#   is only read to make the account, so that line can go once it exists. Sites are made by
+#   signing up at the platform's /signup with a code from its /operator page.
+#     Email__Host=<the provider's SMTP server>
+#     Email__Port=587
+#     Email__Username=<login>
+#     Email__Password=<password>
+#   The provider isn't chosen yet (todo.md); the app won't start without these. The domain needs
+#   the provider's SPF and DKIM DNS records, or the mail is taken for spam.
 #
 # Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, one CPU, 2 GB of swap, and
 # about 485 MB available once the old pm2 apps were stopped.
@@ -45,9 +48,10 @@ services:
             # (UseKnownHosts), so a forged Host header can't end up in the absolute addresses the
             # app builds from it (link previews, and password-reset links once email exists)
             - Platform__Host=artshop.mikesilverman.net
-            # The first site's hosts, used only while the platform database has no sites, until
-            # sign-up replaces it (multi-tenancy step 5c in todo.md). Needs the wildcard DNS record
-            - FirstSite__Hosts__0=site1.artshop.mikesilverman.net
+            # who the app's email comes from; the server and its login are in the env file
+            - Email__Security=StartTls
+            - Email__FromAddress=noreply@artshop.mikesilverman.net
+            - Email__FromName=Artist websites
             # the app is only reachable through nginx, which sends X-Forwarded-Proto and
             # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's
             # address

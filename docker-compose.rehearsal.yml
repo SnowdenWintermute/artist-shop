@@ -26,18 +26,21 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       # the VPS names its own domains here; see docker-compose.production.yml
       - Platform__Host=localhost
-      - FirstSite__Hosts__0=site1.localhost
       # the app is only reachable through nginx, which sends X-Forwarded-Proto and
       # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's address
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
       - ConnectionStrings__ArtistShopPlatform=Host=artist-shop-postgres;Database=artist_shop_platform;Username=artist_shop_app;Password=${POSTGRES_APP_PASSWORD}
       - ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=artist_shop_app;Password=${POSTGRES_APP_PASSWORD}
-      # the first site's owner, read only while there are no sites (docker-compose.production.yml)
-      - FirstSite__OwnerEmail=mike@example.com
-      - FirstSite__OwnerPassword=${DEV_OWNER_PASSWORD}
       # the platform's operator, checked at every boot (docker-compose.production.yml)
       - Platform__OperatorEmail=mike@example.com
       - Platform__OperatorPassword=${DEV_OWNER_PASSWORD}
+      # email goes to the rehearsal's own Mailpit, shown at http://localhost:8026; the VPS names
+      # its provider (docker-compose.production.yml)
+      - Email__Host=artist-shop-mailpit
+      - Email__Port=1025
+      - Email__Security=None
+      - Email__FromAddress=noreply@localhost
+      - Email__FromName=Artist websites (rehearsal)
       # How much of mem_limit .NET may put on its own heap. It has to be larger than the image
       # budget below or the app refuses to start. Read as hexadecimal: 0x2D is 45, so 45% of
       # 768 MB is 345 MB
@@ -90,6 +93,12 @@ services:
       timeout: 5s
       retries: 20
 
+  artist-shop-mailpit:
+    image: axllent/mailpit
+    container_name: artist-shop-rehearsal-mailpit
+    ports:
+      # dev's Mailpit has 8025
+      - 8026:8025
 volumes:
   artist-shop-images:
   artist-shop-data-protection-keys:

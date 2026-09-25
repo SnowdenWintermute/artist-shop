@@ -24,5 +24,13 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
+  # catches every email the app sends in dev, and shows them at http://localhost:8025
+  artist-shop-mailpit:
+    image: axllent/mailpit
+    container_name: artist-shop-mailpit
+    ports:
+      # SMTP, which appsettings.Development.json's Email settings name
+      - 1025:1025
+      - 8025:8025
 volumes:
   artist-shop-postgres_data:

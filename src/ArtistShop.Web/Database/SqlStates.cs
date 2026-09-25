@@ -53,4 +53,7 @@ public static class SqlStates
 
     // UpdatePost
     public const string PostNoLongerExists = "SH015";
+
+    // AddSiteWithSignUpCode, in the platform database
+    public const string SignUpCodeNotUsable = "SH016";
 }

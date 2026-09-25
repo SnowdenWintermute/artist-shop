@@ -41,6 +41,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- sends email over SMTP, so the provider is only a setting -->
+    <PackageReference Include="MailKit" Version="4.18.0" />
     <PackageReference Include="NetVips" Version="3.2.0" />
     <PackageReference Include="NetVips.Native.linux-x64" Version="8.18.6" />
     <PackageReference Include="Npgsql" Version="10.0.3" />

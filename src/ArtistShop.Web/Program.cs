@@ -2,6 +2,7 @@ using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Email;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
@@ -82,6 +83,7 @@ builder.Services.AddSingleton(services =>
     )
 );
 builder.Services.AddSingleton<SiteProvisioner>();
+builder.Services.AddScoped<SiteSignUp>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(CurrentHost.From);
@@ -185,7 +187,13 @@ builder
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+// email: to Mailpit in dev, to the provider production's settings name
+var emailSettings = ValidatedSettings.Read<EmailSettings>(builder.Configuration, "Email");
+builder.Services.AddSingleton(emailSettings);
+builder.Services.AddSingleton<Mailer, SmtpMailer>();
+builder.Services.AddSingleton<AccountEmails>();
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(services => services.GetRequiredService<AccountEmails>());
+builder.Services.AddScoped<AccountRegistration>();
 
 // site rights come from site membership in the platform database, not Identity's roles, which are
 // the same on every site. Scoped, since the handler asks about the current site
@@ -216,16 +224,6 @@ using (var scope = app.Services.CreateScope())
 
 var siteRepository = app.Services.GetRequiredService<SiteRepository>();
 var siteProvisioner = app.Services.GetRequiredService<SiteProvisioner>();
-
-// Until sign-up creates sites (multi-tenancy step 5 in todo.md), the first one is made here, with
-// the hosts and owner configuration names
-if ((await siteRepository.GetIdsAsync()).Count is 0)
-{
-    using var scope = app.Services.CreateScope();
-    var owner = await FirstSiteOwner.FindOrCreateAsync(scope.ServiceProvider);
-
-    await siteProvisioner.CreateAsync(FirstSiteHosts(app.Configuration), owner.Id);
-}
 
 // every site's database brought up to date, and its folders made
 foreach (var siteId in await siteRepository.GetIdsAsync())
@@ -278,21 +276,3 @@ app.MapVariantEndpoints();
 app.MapVideoLinkEndpoints();
 
 app.Run();
-
-// FirstSite:Hosts, the first its main host
-static List<HostName> FirstSiteHosts(IConfiguration configuration)
-{
-    var values = configuration.GetSection("FirstSite:Hosts").Get<string[]>() ?? [];
-
-    if (values.Length is 0)
-    {
-        throw new InvalidOperationException("There are no sites yet, and FirstSite:Hosts names no hosts to make one with.");
-    }
-
-    return
-    [
-        .. values.Select(value =>
-            HostName.Read(value) ?? throw new InvalidOperationException($"FirstSite:Hosts has \"{value}\", which isn't a host name.")
-        ),
-    ];
-}

@@ -1,5 +1,6 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Tests.Database;
 
@@ -9,6 +10,7 @@ namespace ArtistShop.Web.Tests.Sites;
 public sealed class SiteRepositoryTests(TestDatabaseFixture database)
 {
     private readonly SiteRepository _sites = new(database.PlatformDataSource);
+    private readonly SignUpCodeRepository _codes = new(database.PlatformDataSource);
 
     // an Identity user id; the platform database doesn't check it names an account
     private const string OwnerUserId = "test-owner";
@@ -70,5 +72,69 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var other = await _sites.AddAsync([NewHost("theirs")], "second-owner");
 
         Assert.Null(await _sites.GetMemberRoleAsync(other, "first-owner"));
+    }
+
+    [Fact]
+    public async Task ASignUpCodeAddsASiteOwnedByTheAccountAndIsUsedUp()
+    {
+        var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddDays(1));
+        var host = NewHost("signed-up");
+
+        var siteId = await _sites.AddWithSignUpCodeAsync(code, host, OwnerUserId);
+
+        Assert.Contains(new SiteHost(host, siteId, IsMain: true), await _sites.GetHostsAsync());
+        Assert.Equal(SiteRole.Owner, await _sites.GetMemberRoleAsync(siteId, OwnerUserId));
+    }
+
+    [Fact]
+    public async Task AUsedSignUpCodeAddsNoSecondSite()
+    {
+        var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddDays(1));
+        await _sites.AddWithSignUpCodeAsync(code, NewHost("first"), OwnerUserId);
+        var secondHost = NewHost("second");
+
+        await Assert.ThrowsAsync<SignUpCodeNotUsableException>(() =>
+            _sites.AddWithSignUpCodeAsync(code, secondHost, OwnerUserId)
+        );
+        Assert.DoesNotContain(await _sites.GetHostsAsync(), siteHost => siteHost.Host == secondHost);
+    }
+
+    [Fact]
+    public async Task AnExpiredSignUpCodeAddsNoSite()
+    {
+        var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddMinutes(-1));
+        var host = NewHost("expired");
+
+        await Assert.ThrowsAsync<SignUpCodeNotUsableException>(() =>
+            _sites.AddWithSignUpCodeAsync(code, host, OwnerUserId)
+        );
+        Assert.DoesNotContain(await _sites.GetHostsAsync(), siteHost => siteHost.Host == host);
+    }
+
+    [Fact]
+    public async Task ACodeNeverMadeAddsNoSite() =>
+        await Assert.ThrowsAsync<SignUpCodeNotUsableException>(() =>
+            _sites.AddWithSignUpCodeAsync(SignUpCode.New(), NewHost("never-made"), OwnerUserId)
+        );
+
+    // the code is used only if the site is made, so it can be tried again with another name
+    [Fact]
+    public async Task ATakenHostLeavesTheSignUpCodeUnused()
+    {
+        var host = NewHost("taken");
+        await _sites.AddAsync([host], OwnerUserId);
+        var code = await NewSignUpCodeAsync(DateTimeOffset.UtcNow.AddDays(1));
+
+        await Assert.ThrowsAsync<NameAlreadyInUseException>(() =>
+            _sites.AddWithSignUpCodeAsync(code, host, OwnerUserId)
+        );
+        await _sites.AddWithSignUpCodeAsync(code, NewHost("another"), OwnerUserId);
+    }
+
+    private async Task<SignUpCode> NewSignUpCodeAsync(DateTimeOffset expiresAt)
+    {
+        var code = SignUpCode.New();
+        await _codes.AddAsync(code, "a test", expiresAt);
+        return code;
     }
 }

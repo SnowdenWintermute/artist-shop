@@ -22,6 +22,14 @@ public static class PageUrls
     // on the platform's host
     public const string Operator = "/operator";
 
+    // on the platform's host
+    public const string SignUp = "/signup";
+
+    // on the platform's host
+    public const string Register = "/Account/Register";
+
+    public const string RegisterConfirmation = "/Account/RegisterConfirmation";
+
     public const string NewPost = "/admin/posts/new";
 
     public static string EditPost(PostId id) => $"/admin/posts/{id.Value}/edit";

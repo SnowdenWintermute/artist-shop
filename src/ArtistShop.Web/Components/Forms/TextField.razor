@@ -14,17 +14,21 @@
   // for an island that reacts to the text as it's typed, like a Save button enabled by a change
   [Parameter]
   public bool UpdatesPerKeystroke { get; set; }
+
+  // any other attributes, such as type="password" or autocomplete, go on the input
+  [Parameter(CaptureUnmatchedValues = true)]
+  public Dictionary<string, object>? InputAttributes { get; set; }
 }
 
 <FieldLayout Label="@Label" ValueExpression="ValueExpression" Context="elementId">
   @if (UpdatesPerKeystroke)
   {
-    <InputTextPerKeystroke class="artist-shop-field-input" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
+    <InputTextPerKeystroke @attributes="InputAttributes" class="artist-shop-field-input" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
                            ValueExpression="ValueExpression" />
   }
   else
   {
-    <InputText class="artist-shop-field-input" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
+    <InputText @attributes="InputAttributes" class="artist-shop-field-input" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
                ValueExpression="ValueExpression" />
   }
 </FieldLayout>

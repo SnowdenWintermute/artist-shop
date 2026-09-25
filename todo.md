@@ -1,10 +1,34 @@
-# Next: multi-tenancy step 5c, sign-up with a code (see "Multi-tenancy notes" near the end)
+# Next: Mike's check of multi-tenancy step 5c (register, email, sign-up), then 5d (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25, review of steps 4, 5a and 5b
+## Where this stands — 2026-09-25, step 5c built (reworked)
 
-**Uncommitted, 508 tests pass.** A review of the last session's work (steps 4, 5a and 5b, all
+**Uncommitted, 542 tests pass; Mike's browser check passed.** 5c as first built took an email and password on `/signup`, which
+told anyone holding a code whether an email had an account (Mike). Reworked the same day: real
+email, a register page that never says whether an email has an account, and `/signup` behind
+sign-in. Details under step 5c in the build order. Checked by Claude: the whole-app tests, and one
+real email through MailKit to Mailpit.
+
+**Mike's browser check:** restart `dev.sh` (the running app predates these changes; it starts
+Mailpit with Postgres, or `docker compose up -d artist-shop-mailpit`). Then on
+`http://localhost:5176`:
+1. Log in page → "Make an account" → register a new email. It lands on "Check your email"; the
+   email is at `http://localhost:8025`. Its link confirms the account; sign in.
+2. Register `mike@example.com` again: the same "Check your email" page, and Mailpit has "You
+   already have an account" instead.
+3. Make a code on `/operator` (as the operator), then as the new account go to `/signup`: code and
+   name only. It lands on the new site's sign-in, then its empty admin.
+4. `/signup` when signed out goes to the log in page.
+
+**Then 5d**, "My sites". Deferred: a profanity filter on site names (Mike, 2026-09-25: later; the
+popular library, Profanity.Detector, matches substrings and refused 429 of the 9,474 most common
+English words, so it would be a list of our own, blocked anywhere for unambiguous words and only as
+a whole hyphen-separated part for short ones); choosing the email provider (at deploy).
+
+## Earlier: review of steps 4, 5a and 5b, 2026-09-25
+
+**Committed by Mike (`107470c`), 508 tests.** A review of the last session's work (steps 4, 5a and 5b, all
 committed by Mike: `1b6a222`, `721591c`, `82d22da`) found no bugs in them; it changed:
 - `HostDirectory.ReloadAsync` runs one at a time (a `SemaphoreSlim`, .NET's lock that can be held
   across an `await`). Without it, two sign-ups at once could leave the newer site's host out of
@@ -1688,11 +1712,43 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
      (note, 1-90 days, default 14) shows a new code once, after a redirect that carries it in an
      encrypted cookie (`MadeSignUpCodeCookie`, added in the review); an interactive table of unused codes with Revoke behind a `ConfirmDialog`. The
      platform nav shows Operator to the operator.
-   - 5c. `/signup` on the platform: code, email, password, and the site's name, which becomes
-     `name.<platform host>` (3-30 lowercase letters, digits and hyphens; reserved names such as
-     `www`, `admin`, `api`, `mail`). Makes the account, then uses the code and adds the site in one
-     platform-database function. Marks the email confirmed, since each code goes to a person Mike
-     chose; **real email sending comes right after step 5.** Replaces `FirstSite:*`.
+   - **5c. Built 2026-09-25 (uncommitted), reworked the same day:** the first version asked
+     `/signup` for an email and password, making or reusing the account, which told anyone with a
+     code whether an email had an account (a wrong password or a weak one returned before the code
+     was used, so one code allowed any number of guesses). Now:
+     - **Email** (brought forward from after step 5): `Email/`. `Mailer`, with `SmtpMailer`
+       (MailKit, one connection per email) in the app and a capturing fake in `TestApp`.
+       `EmailSettings` from `Email:*` (Host, Port, Security, Username/Password together or not at
+       all, FromAddress, FromName); the app won't start without them. Dev and the rehearsal send to
+       Mailpit (docker-compose.yml, `http://localhost:8025`; the rehearsal's at 8026). The
+       provider is undecided: production's compose header lists the env lines, and the domain will
+       need its SPF and DKIM records. `AccountEmails` replaces `IdentityNoOpEmailSender`.
+     - **Register** at `/Account/Register`, platform only (`Pages/Platform/Register/`), linked
+       from the platform's log in page. `AccountRegistration` (`Identity/`) answers the same for
+       any email: Identity's password rules first, for every email; a new email gets an
+       unconfirmed account and a confirmation link; an email with an account gets "You already
+       have an account" with sign-in and reset links, and its password is hashed and thrown away
+       so both take about as long. Either way the page redirects to "Check your email". Identity's
+       own leak stays: the lockout page only appears for an account that exists.
+     - **`/signup`** needs a signed-in account (`[Authorize]`), which becomes the owner, and asks
+       only for the code and the website name. `SiteName` (`Domain/Sites`): 3-30 of a-z, digits and
+       hyphens, lowercased as typed, no hyphen first or last, not `--` as the third and fourth
+       characters (DNS's `xn--` names), and a reserved list (www, admin, api, mail and the like).
+       The site's one host is `name.<Platform:Host>`. `SiteSignUp`: `add_site_with_sign_up_code`
+       deletes the unexpired code and calls `add_site` in one transaction (`SH016` when the code
+       can't be used; a taken host rolls back and keeps the code), then `SiteProvisioner.Prepare`
+       and `HostDirectory.ReloadAsync`. If `Prepare` fails the person sees the error page and the
+       site is finished at the next startup, but is a 404 until then. Success redirects to the new
+       site's `/Account/Login?ReturnUrl=/admin` (cookies are per host). Boundary: the function
+       lives with the sites (`SiteRepository.AddWithSignUpCodeAsync`) but deletes a sign-up code,
+       since using the code is what adds the site.
+     - **`FirstSite:*` is gone**: startup makes no site, `FirstSiteOwner` is deleted, and `TestApp`
+       makes its site itself. `TextField` passes other attributes (`type`, `autocomplete`) to its
+       input. `ConfirmEmail` links to sign in once confirmed.
+     - Tests: `SiteNameTests`, the new repository function, `App/SignUpTests` and
+       `App/RegisterTests`, posting the real forms (`TestApp.PostFormAsync`, `SignedInClientAsync`).
+     - **VPS:** drop the web env file's `FirstSite__*` lines and add the `Email__*` ones; the first
+       site is made by registering, then signing up with a code from `/operator`.
    - 5d. "My sites": the sites an account owns or administers, linking to each main host.
    **Production subdomains** need a wildcard DNS record at Namecheap and a wildcard certificate,
    which Let's Encrypt only issues through DNS-01. Namecheap's API only opens for accounts past a

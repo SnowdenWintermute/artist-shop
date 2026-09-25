@@ -1,0 +1,56 @@
+@page "/Account/Register"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@attribute [ServedOn(HostTypes.Platform)]
+@inject AccountRegistration AccountRegistration
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromForm(FormName = "register")]
+  private RegisterForm Input { get; set; } = default!;
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task RegisterAsync()
+  {
+    var result = await AccountRegistration.RegisterAsync(
+      Input.TrimmedEmail,
+      Unwrap.Value(Input.Password),
+      new Uri(NavigationManager.BaseUri)
+    );
+
+    switch (result)
+    {
+      // a redirect, so refreshing the browser doesn't send another email
+      case RegistrationResult.EmailSent:
+        NavigationManager.NavigateTo(PageUrls.RegisterConfirmation);
+        break;
+      case RegistrationResult.PasswordRefused refused:
+        Input.AddPasswordErrors(refused.Errors);
+        break;
+      case RegistrationResult.EmailRefused refused:
+        Input.AddEmailErrors(refused.Errors);
+        break;
+      default:
+        throw new InvalidOperationException($"{result.GetType().Name} isn't a registration result.");
+    }
+  }
+}
+
+<PageTitle>Make an account</PageTitle>
+
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Make an account</h1>
+
+  <EditForm EditContext="Input.EditContext" FormName="register" OnValidSubmit="RegisterAsync" Enhance class="mb-6">
+    <DataAnnotationsValidator />
+
+    <TextField Label="Email" @bind-Value="Input.Email" type="email" autocomplete="username" />
+    <TextField Label="Password" @bind-Value="Input.Password" type="password" autocomplete="new-password" />
+    <TextField Label="Password again" @bind-Value="Input.ConfirmPassword" type="password" autocomplete="new-password" />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Make account</ButtonBasic>
+  </EditForm>
+</AdminPanel>
