@@ -11,9 +11,12 @@ using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
 using DbUp;
+using ArtistShop.Web.Domain.Sites;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,9 +31,11 @@ builder
     );
 builder.Services.AddBlazorBlueprintPrimitives();
 
-var shopConnectionString =
-    builder.Configuration.GetConnectionString("ArtistShop")
-    ?? throw new InvalidOperationException("ConnectionStrings:ArtistShop is not set.");
+// the platform database, which lists the sites. Each site's own database is on the same server,
+// reached with the same login (SiteDatabases)
+var platformConnectionString =
+    builder.Configuration.GetConnectionString("ArtistShopPlatform")
+    ?? throw new InvalidOperationException("ConnectionStrings:ArtistShopPlatform is not set.");
 
 var identityConnectionString =
     builder.Configuration.GetConnectionString("ArtistShopIdentity")
@@ -47,9 +52,25 @@ var imageStorageRootPath = Path.GetFullPath(
 var imageStorageSettings = new ImageStorageSettings(imageStorageRootPath);
 builder.Services.AddSingleton(imageStorageSettings);
 
-// until the platform database lists the sites and a request's host picks one, every request is for
-// the one site there is
-builder.Services.AddScoped(_ => new CurrentSite(SingleSite.Id));
+// sites: the platform database, each site's own database, and which one a request is for
+const string PlatformDataSourceKey = "platform";
+// a factory rather than an instance, so the container disposes the data source when the app stops
+builder.Services.AddKeyedSingleton(PlatformDataSourceKey, (_, _) => NpgsqlDataSource.Create(platformConnectionString));
+builder.Services.AddSingleton(services =>
+    new SiteRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
+
+var siteDatabaseSettings = ValidatedSettings.Read<SiteDatabaseSettings>(builder.Configuration, "SiteDatabases");
+builder.Services.AddSingleton(_ =>
+    new SiteDatabases(platformConnectionString, SiteDatabases.DatabaseNamePrefix, siteDatabaseSettings)
+);
+builder.Services.AddSingleton<SiteHostDirectory>();
+builder.Services.AddSingleton<SiteProvisioner>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped(CurrentSite.From);
+builder.Services.AddScoped<CircuitHandler, SiteCircuitStart>();
+
 builder.Services.AddScoped(services =>
     ImageStorage.ForSite(imageStorageSettings, services.GetRequiredService<CurrentSite>().Id)
 );
@@ -91,26 +112,29 @@ builder.Services.AddSingleton<OrphanedImageSweeper>();
 // hosted service
 builder.Services.AddHostedService<OrphanedImageSweepService>();
 
-// domain database
-builder.Services.AddSingleton<SchemaMigrator>();
-
-// a factory rather than an instance, so the container disposes the data source, and the pool of
-// connections it holds, when the app shuts down
-builder.Services.AddSingleton(_ => ShopDataSource.Create(shopConnectionString));
+// a site's own database
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 
 // the database's artwork_type_id fills the ArtworkTypeId property
 DefaultTypeMap.MatchNamesWithUnderscores = true;
-builder.Services.AddScoped<ArtworkRepository>();
-builder.Services.AddScoped<SeriesRepository>();
-builder.Services.AddScoped<ArtworkImageRepository>();
-builder.Services.AddScoped<ArtworkFieldRepository>();
-builder.Services.AddScoped<ArtworkTypeRepository>();
-builder.Services.AddScoped<ProductTypeRepository>();
-builder.Services.AddScoped<VocabularyRepository>();
-builder.Services.AddScoped<VocabularyTermRepository>();
-builder.Services.AddScoped<PostRepository>();
-builder.Services.AddScoped<ArtworkSearch, SqlArtworkTitleSearch>();
+
+// each built on the current site's data source, so everything they read and write is that site's
+void AddSiteRepository<T>(Func<NpgsqlDataSource, T> create)
+    where T : class =>
+    builder.Services.AddScoped(services =>
+        create(services.GetRequiredService<SiteDatabases>().For(services.GetRequiredService<CurrentSite>().Id))
+    );
+
+AddSiteRepository(dataSource => new ArtworkRepository(dataSource));
+AddSiteRepository(dataSource => new SeriesRepository(dataSource));
+AddSiteRepository(dataSource => new ArtworkImageRepository(dataSource));
+AddSiteRepository(dataSource => new ArtworkFieldRepository(dataSource));
+AddSiteRepository(dataSource => new ArtworkTypeRepository(dataSource));
+AddSiteRepository(dataSource => new ProductTypeRepository(dataSource));
+AddSiteRepository(dataSource => new VocabularyRepository(dataSource));
+AddSiteRepository(dataSource => new VocabularyTermRepository(dataSource));
+AddSiteRepository(dataSource => new PostRepository(dataSource));
+AddSiteRepository<ArtworkSearch>(dataSource => new SqlArtworkTitleSearch(dataSource));
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -151,12 +175,26 @@ var app = builder.Build();
 
 /////////////////////////////
 
-EnsureDatabase.For.PostgresqlDatabase(shopConnectionString);
+EnsureDatabase.For.PostgresqlDatabase(platformConnectionString);
+SchemaMigrator.Platform.Upgrade(platformConnectionString);
 
-var schemaMigrator = app.Services.GetRequiredService<SchemaMigrator>();
-schemaMigrator.Upgrade(shopConnectionString);
+var siteRepository = app.Services.GetRequiredService<SiteRepository>();
+var siteProvisioner = app.Services.GetRequiredService<SiteProvisioner>();
 
-ImageStorage.ForSite(imageStorageSettings, SingleSite.Id).CreateFolders();
+// Until sign-up creates sites (multi-tenancy step 5 in todo.md), the first one is made here, with
+// the hosts configuration names
+if ((await siteRepository.GetIdsAsync()).Count is 0)
+{
+    await siteProvisioner.CreateAsync(FirstSiteHosts(app.Configuration));
+}
+
+// every site's database brought up to date, and its folders made
+foreach (var siteId in await siteRepository.GetIdsAsync())
+{
+    siteProvisioner.Prepare(siteId);
+}
+
+await app.Services.GetRequiredService<SiteHostDirectory>().ReloadAsync();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -170,6 +208,10 @@ Console.WriteLine("Database initialization completed.");
 Console.WriteLine($"Image processing capacity: {imageProcessingCapacity}");
 
 // Configure the HTTP request pipeline.
+
+// first, so a host no site has is turned away before anything else runs
+app.UseSiteHosts();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -197,3 +239,21 @@ app.MapVariantEndpoints();
 app.MapVideoLinkEndpoints();
 
 app.Run();
+
+// FirstSite:Hosts, the first its main host
+static List<HostName> FirstSiteHosts(IConfiguration configuration)
+{
+    var values = configuration.GetSection("FirstSite:Hosts").Get<string[]>() ?? [];
+
+    if (values.Length is 0)
+    {
+        throw new InvalidOperationException("There are no sites yet, and FirstSite:Hosts names no hosts to make one with.");
+    }
+
+    return
+    [
+        .. values.Select(value =>
+            HostName.Read(value) ?? throw new InvalidOperationException($"FirstSite:Hosts has \"{value}\", which isn't a host name.")
+        ),
+    ];
+}

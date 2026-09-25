@@ -5,6 +5,7 @@
 //   dotnet run tools/seed-blog-posts/seed.cs                  25 published posts, three days apart
 //   dotnet run tools/seed-blog-posts/seed.cs -- --count 40
 //   dotnet run tools/seed-blog-posts/seed.cs -- --clean       deletes them again
+//   dotnet run tools/seed-blog-posts/seed.cs -- --site 2      into site 2 (site 1 otherwise)
 //
 // Every filler post's slug starts with "filler-post-", which is how --clean finds them and how a
 // second run skips the ones already there. Their dates go back from yesterday, so real posts
@@ -19,12 +20,15 @@ using System.Text.Json;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
+using ArtistShop.Web.Domain.Sites;
+using ArtistShop.Web.Sites;
 
 const string SlugPrefix = "filler-post-";
 const int DaysApart = 3;
 
 var count = 25;
 var clean = false;
+var siteId = new SiteId(1);
 
 for (var index = 0; index < args.Length; index += 1)
 {
@@ -32,6 +36,10 @@ for (var index = 0; index < args.Length; index += 1)
     {
         case "--count" when index + 1 < args.Length && int.TryParse(args[index + 1], out var parsed) && parsed > 0:
             count = parsed;
+            index += 1;
+            break;
+        case "--site" when index + 1 < args.Length && int.TryParse(args[index + 1], out var site) && site > 0:
+            siteId = new SiteId(site);
             index += 1;
             break;
         case "--clean":
@@ -43,15 +51,21 @@ for (var index = 0; index < args.Length; index += 1)
     }
 }
 
-var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ArtistShop");
+var platformConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ArtistShopPlatform");
 
-if (string.IsNullOrEmpty(connectionString))
+if (string.IsNullOrEmpty(platformConnectionString))
 {
-    Console.Error.WriteLine("ConnectionStrings__ArtistShop isn't set. Run `. ./env.sh` first.");
+    Console.Error.WriteLine("ConnectionStrings__ArtistShopPlatform isn't set. Run `. ./env.sh` first.");
     return 1;
 }
 
-await using var dataSource = ShopDataSource.Create(connectionString);
+// the site's own database, found as the app finds it; one connection is all this needs
+await using var siteDatabases = new SiteDatabases(
+    platformConnectionString,
+    SiteDatabases.DatabaseNamePrefix,
+    new SiteDatabaseSettings { MaximumPoolSize = 1, ConnectionIdleLifetime = TimeSpan.FromSeconds(10) }
+);
+var dataSource = siteDatabases.For(siteId);
 var posts = new PostRepository(dataSource);
 
 var existing = (await posts.GetAllAsync()).Where(post => post.Slug.Value.StartsWith(SlugPrefix)).ToList();

@@ -3,12 +3,12 @@ namespace ArtistShop.Web.Images;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Sites;
-using Npgsql;
 
 public class OrphanedImageSweepService(
     OrphanedImageSweeper sweeper,
     ImageStorageSettings storageSettings,
-    NpgsqlDataSource dataSource,
+    SiteRepository siteRepository,
+    SiteDatabases siteDatabases,
     OrphanedImageSweepSettings settings,
     TimeProvider timeProvider,
     ILogger<OrphanedImageSweepService> logger
@@ -28,14 +28,25 @@ public class OrphanedImageSweepService(
 
     private async Task SweepOnceAsync()
     {
-        // until the platform database lists the sites, the one site, in the one database
-        SiteId[] siteIds = [SingleSite.Id];
+        List<SiteId> siteIds;
+
+        try
+        {
+            siteIds = await siteRepository.GetIdsAsync();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Orphaned image sweep couldn't read the list of sites");
+            return;
+        }
 
         foreach (var siteId in siteIds)
         {
             // each site on its own, so one failing doesn't stop the rest being swept
             try
             {
+                var dataSource = siteDatabases.For(siteId);
+
                 await sweeper.SweepAsync(
                     ImageStorage.ForSite(storageSettings, siteId),
                     new ArtworkImageRepository(dataSource),

@@ -2,8 +2,8 @@ namespace ArtistShop.Web.Database;
 
 using Npgsql;
 
-// the app and the tests both build their data source here, so both know the composite types
-public static class ShopDataSource
+// a site database's data source, for the app and the tests alike, so both know the composite types
+public static class SiteDataSource
 {
     public static NpgsqlDataSource Create(string connectionString)
     {

@@ -16,7 +16,7 @@
 #     POSTGRES_PASSWORD=<superuser password, never given to the app>
 #     POSTGRES_APP_PASSWORD=<app password>
 #   .artist-shop-web-env:
-#     ConnectionStrings__ArtistShop=Host=artist-shop-postgres;Database=artist_shop;Username=artist_shop_app;Password=<app password>
+#     ConnectionStrings__ArtistShopPlatform=Host=artist-shop-postgres;Database=artist_shop_platform;Username=artist_shop_app;Password=<app password>
 #     ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=artist_shop_app;Password=<app password>
 #     Admin__Email=<email>
 #     Admin__Password=<first boot only>
@@ -36,11 +36,11 @@ services:
             - .artist-shop-web-env
         environment:
             - ASPNETCORE_ENVIRONMENT=Production
-            # requests naming any other host get a 400, so a forged Host header can't end up in the
-            # absolute addresses the app builds from it (link previews, and password-reset links
-            # once email exists). Tenants on their own domains will replace this with a lookup of
-            # the host in the tenant registry, which rejects unknown hosts itself
-            - AllowedHosts=artshop.mikesilverman.net
+            # The first site's hosts, used only while the platform database has no sites. A request
+            # for a host no site has gets a 404 (UseSiteHosts), so a forged Host header can't end
+            # up in the absolute addresses the app builds from it (link previews, and
+            # password-reset links once email exists)
+            - FirstSite__Hosts__0=artshop.mikesilverman.net
             # the app is only reachable through nginx, which sends X-Forwarded-Proto and
             # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's
             # address

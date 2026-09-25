@@ -1564,9 +1564,35 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    running app: an upload lands in `sites/1/`, `/media` serves it (200, 304, HEAD), bad names 404.
    441 tests. Also fixed: `Blog.razor` was missing the `@using` for `LinkPreview`, so `/posts` had
    no link preview (the build's only warning, RZ10012).
-3. The platform database and host lookup: finding the site from the request's host, a cached
-   `NpgsqlDataSource` per site with the pool settings above, schema updates for every site at
-   startup, `AllowedHosts` removed, today's catalog as the first site. `shop1.localhost` in dev.
+3. **Built 2026-09-24 (uncommitted); Mike's browser check passed** (a series made on site 2 wasn't
+   on site 1, blogs separate, uploads on both shown separately on the home pages and in the admin): the platform database
+   `artist_shop_platform` (`sites`, `site_hosts`; scripts in `Database/Platform/`, run by
+   `SchemaMigrator.Platform`) and one database per site, `artist_shop_site_<id>`, named from the id
+   by `SiteDatabases`, which also caches a data source per site (pool settings in `SiteDatabases`
+   in appsettings.json). `ConnectionStrings__ArtistShop` became `ConnectionStrings__ArtistShopPlatform`.
+   `UseSiteHosts` answers a host no site has with a plain 404, first in the pipeline;
+   `SiteHostDirectory` holds every host in memory (reloaded at startup, and by the app after it
+   changes hosts). `CurrentSite.From` reads the request's host; `SiteCircuitStart`, a circuit
+   handler, makes a circuit's `CurrentSite` as the circuit starts, while its request is still there.
+   Every site repository is registered on the current site's data source (`AddSiteRepository` in
+   Program.cs). Startup creates site 1 from `FirstSite:Hosts` when there are no sites (until step 5
+   removes it), then brings every site's database up to date (`SiteProvisioner.Prepare`).
+   `AllowedHosts` is gone from compose. Tools: `tools/add-site/add-site.cs -- --host …` (restart the
+   app after), and the blog seeder takes `--site`. Tests make their site databases as
+   `artist_shop_tests_site_*`, dropped at the start of each run. 459 tests.
+   **Checked with curl, two sites in dev** (`site1.localhost` and `localhost` are site 1,
+   `site2.localhost` is site 2): each lists only its own posts, a site 2 post is 404 on site 1,
+   unknown hosts and bare IP addresses are 404, a login on one site isn't one on the other, an
+   upload on site 2 lands in `sites/2/` and only site 2 serves it.
+   **Mike's browser check** (the part curl can't do: live connections): run `dev.sh`, log in on
+   `http://site2.localhost:5176`, add a series (or a vocabulary term) in the admin, then check it
+   isn't on `http://site1.localhost:5176`'s admin. Both pages are interactive, so this proves a
+   circuit finds its site. Then an upload and a save on each.
+   **VPS:** the web env file's `ConnectionStrings__ArtistShop` line becomes
+   `ConnectionStrings__ArtistShopPlatform=…Database=artist_shop_platform…`, and compose's
+   `FirstSite__Hosts__0` replaces `AllowedHosts` (both in docker-compose.production.yml).
+   Later: procedures are re-created in every site's database at every startup, fine for a few sites
+   but slow for hundreds.
 4. Site membership replaces `RoleNames.Admin`; `IdentitySeeder` makes the platform operator.
 5. The platform host: landing page, sign-up with a code, "my sites".
 6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
