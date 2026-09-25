@@ -2,22 +2,27 @@
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Platform
+@using Microsoft.AspNetCore.DataProtection
 @inject SignUpCodeRepository SignUpCodeRepository
 @inject TimeProvider TimeProvider
+@inject NavigationManager NavigationManager
+@inject IDataProtectionProvider DataProtectionProvider
 
 @code {
-  // the page reloads its list, which it read before this form's post was handled
-  [Parameter, EditorRequired]
-  public EventCallback OnMade { get; set; }
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
 
   [SupplyParameterFromForm(FormName = "make-sign-up-code")]
   private SignUpCodeForm Input { get; set; } = default!;
 
-  // shown once, in the response to the post that made it: only its hash is kept. Not a redirect
-  // like the other add forms, which would lose it
+  // shown once, on the page the redirect after making it loads: only its hash is kept
   private SignUpCode? _madeCode;
 
-  protected override void OnInitialized() => Input ??= new();
+  protected override void OnInitialized()
+  {
+    Input ??= new();
+    _madeCode = MadeSignUpCodeCookie.Take(HttpContext, DataProtectionProvider);
+  }
 
   private async Task MakeAsync()
   {
@@ -29,9 +34,9 @@
       TimeProvider.GetUtcNow().AddDays(Input.DaysValid)
     );
 
-    _madeCode = code;
-    Input = new();
-    await OnMade.InvokeAsync();
+    MadeSignUpCodeCookie.Keep(HttpContext, DataProtectionProvider, code);
+    // redirect to this same page: the list reloads, and refreshing the browser won't make another code
+    NavigationManager.NavigateTo(NavigationManager.Uri);
   }
 }
 

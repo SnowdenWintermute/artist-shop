@@ -65,15 +65,22 @@ builder.Services.AddSingleton(services =>
 );
 
 var siteDatabaseSettings = ValidatedSettings.Read<SiteDatabaseSettings>(builder.Configuration, "SiteDatabases");
+// set only by the tests that run the whole app, so its site databases aren't dev's
+var siteDatabaseNamePrefix = builder.Configuration["SiteDatabaseNamePrefix"] ?? SiteDatabases.DatabaseNamePrefix;
 builder.Services.AddSingleton(_ =>
-    new SiteDatabases(platformConnectionString, SiteDatabases.DatabaseNamePrefix, siteDatabaseSettings)
+    new SiteDatabases(platformConnectionString, siteDatabaseNamePrefix, siteDatabaseSettings)
 );
 // the platform's own host, where artists sign up; every other host is a site's
 var platformHost =
     HostName.Read(builder.Configuration["Platform:Host"] ?? "")
     ?? throw new InvalidOperationException("Platform:Host isn't a host name.");
 builder.Services.AddSingleton(new PlatformSettings(platformHost));
-builder.Services.AddSingleton<HostDirectory>();
+builder.Services.AddSingleton(services =>
+    new HostDirectory(
+        services.GetRequiredService<SiteRepository>().GetHostsAsync,
+        services.GetRequiredService<PlatformSettings>()
+    )
+);
 builder.Services.AddSingleton<SiteProvisioner>();
 
 builder.Services.AddHttpContextAccessor();

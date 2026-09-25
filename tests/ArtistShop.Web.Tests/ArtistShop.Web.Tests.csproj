@@ -14,6 +14,9 @@
     <PackageReference Include="xunit.v3" Version="4.0.1" />
     <!-- FakeTimeProvider -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+    <!-- WebApplicationFactory: runs the whole app in the test process, answering requests without
+    a network port. The same version as the ASP.NET Core runtime the app runs on -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0-rc.1.26425.128" />
   </ItemGroup>
 
   <ItemGroup>

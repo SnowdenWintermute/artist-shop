@@ -11,10 +11,8 @@
 @code {
   private List<SignUpCodeListing> _codes = [];
 
-  protected override Task OnInitializedAsync() => LoadCodesAsync();
-
   // newest first, so a code just made is at the top
-  private async Task LoadCodesAsync() =>
+  protected override async Task OnInitializedAsync() =>
     _codes = [.. (await SignUpCodeRepository.GetAllAsync()).OrderByDescending(code => code.CreatedAt)];
 }
 
@@ -23,7 +21,7 @@
 <AdminPanel>
   <h1 class="mb-4 text-xl">Sign-up codes</h1>
 
-  <MakeSignUpCodeForm OnMade="LoadCodesAsync" />
+  <MakeSignUpCodeForm />
 
   <h2 class="mb-2 text-lg">Unused codes</h2>
   <SignUpCodeTable @rendermode="InteractiveServer" Codes="_codes" />

@@ -2,17 +2,38 @@
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25 (steps 4, 5a and 5b)
+## Where this stands — 2026-09-25, review of steps 4, 5a and 5b
 
-Step 4 (`1b6a222`) and 5a are committed by Mike; 5b is uncommitted, 489 tests pass, and Mike's
-browser check of it passed. The session reviewed step 1–3's work, built step 4 (site memberships),
-designed step 5 as 5a-5d, and built 5a (the platform host) and 5b (the operator and sign-up codes).
-Details under steps 4 and 5 in the build order. Dev: the platform at `localhost` (Mike is its
+**Uncommitted, 508 tests pass.** A review of the last session's work (steps 4, 5a and 5b, all
+committed by Mike: `1b6a222`, `721591c`, `82d22da`) found no bugs in them; it changed:
+- `HostDirectory.ReloadAsync` runs one at a time (a `SemaphoreSlim`, .NET's lock that can be held
+  across an `await`). Without it, two sign-ups at once could leave the newer site's host out of
+  memory until a restart. `HostDirectory` now takes the loading function
+  (`SiteRepository.GetHostsAsync`) rather than the repository, so
+  `AnEarlierReloadDoesntUndoALaterOne` can hold one load part way through; that test fails with the
+  lock taken out.
+- Tests that run the whole app: `tests/.../App/TestApp.cs`, ASP.NET's `WebApplicationFactory`
+  (package `Microsoft.AspNetCore.Mvc.Testing`), with its own databases
+  (`artist_shop_tests_app_platform`, `artist_shop_tests_app_identity`, sites
+  `artist_shop_tests_site_app_*`, all dropped at the start of each run) and hosts `platform.test`
+  and `site1.test`. `HostRoutingTests` covers unknown hosts, `ServedOn` for pages and endpoints, and
+  the host being checked before sign-in; `PlatformOperatorTests` covers `SyncAsync`. For this the
+  app reads a new optional setting, `SiteDatabaseNamePrefix` (only the tests set it).
+- "Make code" redirects after its post, like the other add forms, so a browser refresh can't make
+  a second code. The code rides the redirect in a cookie encrypted with Data Protection
+  (`MadeSignUpCodeCookie`: path `/operator`, one minute, deleted once read).
+- Notes added under the build order ("Follow-ups from the 2026-09-25 review"): operator role
+  removal and Identity's cookies, expired codes, and site subdomains being "same-site" with the
+  platform.
+
+**Mike's browser check:** make a code on `http://localhost:5176/operator`: it shows once; refresh
+the page and it's gone, with no second code in the list.
+
+**Then 5c**, sign-up with a code. The design is under step 5; settle the failure case (account
+made, site not) and the name rules with Mike before building. 5c is the first caller of
+`HostDirectory.ReloadAsync` after startup. Dev: the platform at `localhost` (Mike is its
 operator), site 1 at `site1.localhost`, site 2 at `site2.localhost` (filler posts), both owned by
 `mike@example.com`.
-
-**Start of next session: 5c**, sign-up with a code. The design is under step 5; settle the
-failure case (account made, site not) and the name rules with Mike before building.
 
 ## Where this stands — end of 2026-09-24 (multi-tenancy session)
 
@@ -1639,7 +1660,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    **VPS:** the web env file's `Admin__Email` / `Admin__Password` become `FirstSite__OwnerEmail` /
    `FirstSite__OwnerPassword` (docker-compose.production.yml's header); start from a fresh volume.
 5. The platform host, in four parts (agreed 2026-09-25), each checked in the browser before the next:
-   - **5a. Done 2026-09-25 (uncommitted):** one app routing by host, as Rails' host constraints do,
+   - **5a. Done 2026-09-25 (`721591c`):** one app routing by host, as Rails' host constraints do,
      rather than a second app for the platform (a second .NET process costs 100-200 MB on the 2 GB
      VPS). `Platform:Host` (dev `localhost`, production `artshop.mikesilverman.net`; dev site 1 is
      now only `site1.localhost`). `HostDirectory` (was `SiteHostDirectory`) finds a request's
@@ -1656,7 +1677,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
      asks for `IAuthorizationService` (`AuthorizeRouteView` does, on every page), so a
      `CurrentSite` in its constructor threw on the platform. Checked with curl on all hosts and by
      Mike in the browser.
-   - **5b. Done 2026-09-25 (uncommitted), checked by Mike in the browser:** `PlatformOperator`, an
+   - **5b. Done 2026-09-25 (`82d22da`), checked by Mike in the browser:** `PlatformOperator`, an
      Identity role; `PlatformOperator.SyncAsync` at every startup gives it to the account
      `Platform:OperatorEmail` names (made with `Platform:OperatorPassword` if missing; both env
      secrets) and takes it from anyone else. Account making is shared as `SeededAccounts`.
@@ -1664,8 +1685,8 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
      of four; reading ignores hyphens, spaces and case; SHA-256 of the bytes is stored),
      `sign_up_codes` (platform migration 0003: hash, required note saying who it's for, expiry),
      `SignUpCodeRepository`. `/operator` (`Pages/Platform/Operator/`), platform only: a static form
-     (note, 1-90 days, default 14) shows a new code once in its own response rather than
-     redirecting; an interactive table of unused codes with Revoke behind a `ConfirmDialog`. The
+     (note, 1-90 days, default 14) shows a new code once, after a redirect that carries it in an
+     encrypted cookie (`MadeSignUpCodeCookie`, added in the review); an interactive table of unused codes with Revoke behind a `ConfirmDialog`. The
      platform nav shows Operator to the operator.
    - 5c. `/signup` on the platform: code, email, password, and the site's name, which becomes
      `name.<platform host>` (3-30 lowercase letters, digits and hyphens; reserved names such as
@@ -1681,6 +1702,32 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
 6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
    grace period.
 7. Custom domains and their certificates.
+
+**Follow-ups from the 2026-09-25 review (From Claude):**
+- **Taking the operator role away isn't immediate.** Identity keeps no sessions on the server: the
+  sign-in cookie is the session (the account's claims, roles included, encrypted with Data
+  Protection), so there's nothing to delete. Every 30 minutes by default
+  (`SecurityStampValidatorOptions.ValidationInterval`) the cookie's security stamp is compared with
+  the account's: a different stamp signs the person out, the same one rebuilds the claims, which is
+  when a changed role shows up. Circuits recheck on the same interval
+  (`IdentityRevalidatingAuthenticationStateProvider`). `RemoveFromRoleAsync` doesn't change the
+  stamp, so after `PlatformOperator.SyncAsync` takes the role away, the old account keeps it for up
+  to 30 minutes. `UpdateSecurityStampAsync` on that account would sign it out at the next check.
+  Mike wants to learn how Identity works before deciding.
+- **Expired sign-up codes are never deleted.** 5c's "use a code" function refuses expired codes;
+  clearing old rows (on the operator page, or a periodic job) comes later.
+- **Site subdomains are "same-site" with the platform.** `name.artshop.mikesilverman.net` and
+  `artshop.mikesilverman.net` share the registrable domain `mikesilverman.net`, so browsers treat
+  them as one site: `SameSite` cookies are sent on requests from a site's page to the platform, and
+  a script on a site's page could set cookies for `.artshop.mikesilverman.net` that the platform
+  would then receive ("cookie tossing"). Today artists can't put script on a page: Blazor
+  HTML-encodes every value, nothing renders raw HTML (no `MarkupString`), video embeds are built
+  from a parsed YouTube/Vimeo id, and uploads are re-encoded to AVIF/WebP. The risk arrives with
+  raw HTML, SVG uploads, custom CSS/JS or themes, or an encoding bug. The usual fix is what
+  GitHub does (`github.com` vs `github.io`): sites under a different registrable domain from the
+  platform, or the sites' parent domain added to the Public Suffix List. Decide at deploy, with
+  the wildcard DNS record, before real artists have subdomains; a Content-Security-Policy header is
+  worth adding either way.
 
 ### Earlier notes (2026-09-17, written for SQL Server; the Postgres port has happened since)
 

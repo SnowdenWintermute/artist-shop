@@ -25,7 +25,22 @@ public class TestDatabaseFixture : IAsyncLifetime
     public string PlatformConnectionString { get; }
     public NpgsqlDataSource PlatformDataSource { get; }
 
+    // the databases of the whole app that TestApp runs, dropped at the start of each run with the
+    // others. Its site databases share SiteDatabaseNamePrefix, so they're dropped too
+    public const string AppPlatformDatabaseName = "artist_shop_tests_app_platform";
+    public const string AppIdentityDatabaseName = "artist_shop_tests_app_identity";
+
     public TestDatabaseFixture()
+    {
+        ConnectionString = ConnectionStringFor(DatabaseName);
+        DataSource = SiteDataSource.Create(ConnectionString);
+
+        PlatformConnectionString = ConnectionStringFor(PlatformDatabaseName);
+        PlatformDataSource = NpgsqlDataSource.Create(PlatformConnectionString);
+    }
+
+    // a database on development's server, with its login
+    public static string ConnectionStringFor(string databaseName)
     {
         var developmentConnectionString =
             Environment.GetEnvironmentVariable("ConnectionStrings__ArtistShopPlatform")
@@ -33,18 +48,7 @@ public class TestDatabaseFixture : IAsyncLifetime
                 "ConnectionStrings__ArtistShopPlatform is not set. Run `source env.sh` before `dotnet test`."
             );
 
-        // same server and login as development, but separate databases
-        ConnectionString = new NpgsqlConnectionStringBuilder(developmentConnectionString)
-        {
-            Database = DatabaseName,
-        }.ConnectionString;
-        DataSource = SiteDataSource.Create(ConnectionString);
-
-        PlatformConnectionString = new NpgsqlConnectionStringBuilder(developmentConnectionString)
-        {
-            Database = PlatformDatabaseName,
-        }.ConnectionString;
-        PlatformDataSource = NpgsqlDataSource.Create(PlatformConnectionString);
+        return new NpgsqlConnectionStringBuilder(developmentConnectionString) { Database = databaseName }.ConnectionString;
     }
 
     // IAsyncLifetime exists because constructors can't be async. xUnit calls this
@@ -66,7 +70,7 @@ public class TestDatabaseFixture : IAsyncLifetime
         DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
 
-    // the two above, and every site database a previous run made
+    // the ones above, and every site database a previous run made
     private async Task DropTestDatabasesAsync()
     {
         // the database being dropped can't be the one we're connected to, and every Postgres
@@ -87,7 +91,14 @@ public class TestDatabaseFixture : IAsyncLifetime
         // FORCE disconnects other sessions, which would otherwise block the drop. A database name
         // is an identifier, not a value, so it can't be a parameter; these come from the constants
         // above and from names that match their prefix
-        foreach (var name in (string[])[DatabaseName, PlatformDatabaseName, .. siteDatabaseNames])
+        foreach (var name in (string[])
+            [
+                DatabaseName,
+                PlatformDatabaseName,
+                AppPlatformDatabaseName,
+                AppIdentityDatabaseName,
+                .. siteDatabaseNames,
+            ])
         {
             await connection.ExecuteAsync($"DROP DATABASE IF EXISTS {name} WITH (FORCE);");
         }

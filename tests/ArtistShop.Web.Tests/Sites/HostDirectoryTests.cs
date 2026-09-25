@@ -30,7 +30,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     public async Task FindsThePlatformByItsHostInAnyCase()
     {
         var platformHost = UniqueHost();
-        var directory = new HostDirectory(_sites, new PlatformSettings(platformHost));
+        var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(platformHost));
 
         await directory.ReloadAsync();
 
@@ -68,13 +68,38 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     {
         var host = UniqueHost();
         await _sites.AddAsync([host], OwnerUserId);
-        var directory = new HostDirectory(_sites, new PlatformSettings(host));
+        var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(host));
 
         await Assert.ThrowsAsync<InvalidOperationException>(directory.ReloadAsync);
     }
 
+    // Two sign-ups at once: the earlier reload read the hosts before the second site was added, and
+    // its read finishes last. It mustn't put back the list without that site
+    [Fact]
+    public async Task AnEarlierReloadDoesntUndoALaterOne()
+    {
+        var host = UniqueHost();
+        var siteId = new SiteId(1);
+        var earlierRead = new TaskCompletionSource<List<SiteHost>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reads = 0;
+        var directory = new HostDirectory(
+            () =>
+                Interlocked.Increment(ref reads) is 1
+                    ? earlierRead.Task
+                    : Task.FromResult<List<SiteHost>>([new SiteHost(host, siteId, IsMain: true)]),
+            new PlatformSettings(UniqueHost())
+        );
+
+        var earlier = directory.ReloadAsync();
+        var later = directory.ReloadAsync();
+        earlierRead.SetResult([]);
+        await Task.WhenAll(earlier, later);
+
+        Assert.Equal(new CurrentHost.Site(siteId), directory.Find(host.Value));
+    }
+
     // a platform host of its own, since every test shares the platform test database
-    private HostDirectory NewDirectory() => new(_sites, new PlatformSettings(UniqueHost()));
+    private HostDirectory NewDirectory() => new(_sites.GetHostsAsync, new PlatformSettings(UniqueHost()));
 
     private static HostName UniqueHost() => Host($"{Guid.NewGuid():n}.test");
 
