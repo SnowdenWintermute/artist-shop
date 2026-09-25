@@ -138,14 +138,7 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         // Dapper turns the smallint into the enum value with that number
         public required SiteRole Role { get; init; }
 
-        // the table's CHECK keeps every host lowercase, which is all Read changes
-        public MemberSite ToMemberSite() =>
-            new(
-                new SiteId(SiteId),
-                HostName.Read(MainHost)
-                    ?? throw new InvalidOperationException($"site_hosts holds \"{MainHost}\", which isn't a host name."),
-                Role
-            );
+        public MemberSite ToMemberSite() => new(new SiteId(SiteId), ReadStoredHost(MainHost), Role);
     }
 
     private sealed class SiteHostRow
@@ -154,12 +147,10 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         public required int SiteId { get; init; }
         public required bool IsMain { get; init; }
 
-        // the table's CHECK keeps every host lowercase, which is all Read changes
-        public SiteHost ToSiteHost() =>
-            new(
-                HostName.Read(Host) ?? throw new InvalidOperationException($"site_hosts holds \"{Host}\", which isn't a host name."),
-                new SiteId(SiteId),
-                IsMain
-            );
+        public SiteHost ToSiteHost() => new(ReadStoredHost(Host), new SiteId(SiteId), IsMain);
     }
+
+    // every stored host was written from a HostName's Value, so reading it back changes nothing
+    private static HostName ReadStoredHost(string host) =>
+        HostName.Read(host) ?? throw new InvalidOperationException($"site_hosts holds \"{host}\", which isn't a host name.");
 }

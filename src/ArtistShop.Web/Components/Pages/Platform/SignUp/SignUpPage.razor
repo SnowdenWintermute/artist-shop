@@ -1,8 +1,8 @@
 @page "/signup"
-@using System.Security.Claims
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [ServedOn(HostTypes.Platform)]
@@ -24,12 +24,7 @@
 
   private async Task SignUpAsync()
   {
-    // Identity keeps the account's id in this claim; [Authorize] means there is one
-    var ownerUserId =
-      HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
-      ?? throw new InvalidOperationException("A signed-in account has no id.");
-
-    var result = await SiteSignUp.SignUpAsync(Input.ToCode(), Input.ToSiteName(), ownerUserId);
+    var result = await SiteSignUp.SignUpAsync(Input.ToCode(), Input.ToSiteName(), HttpContext.User.RequiredUserId());
 
     switch (result)
     {

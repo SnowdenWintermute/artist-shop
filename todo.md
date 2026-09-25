@@ -1,11 +1,45 @@
-# Next: Mike reviews 5d, "My websites" (built, uncommitted), then step 6 (see "Multi-tenancy notes" near the end)
+# Next: multi-tenancy step 6, owner features (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25, 5d built
+## Where this stands — end of 2026-09-25
 
-**Uncommitted, 550 tests pass.** The schema-per-site switch before it is committed (`c9cf08f`),
-browser check passed.
+**All committed by Mike:** the schema per site (`c9cf08f`) and 5d, "My websites" (`61f312a`),
+both browser-checked. 550 tests. Nothing is deployed.
+
+**Start of next session: step 6, owner features.** Three parts: inviting admins, handing over
+ownership, and deleting a site with its 30-day grace period. Already decided (multi-tenancy notes):
+one owner per site, any number of admins who edit content only; memberships live in the platform's
+`site_members` (role 1 owner, 2 admin; a unique index allows one owner per site); ownership goes
+only to one of the site's admins; deleting a site or an owner's account waits 30 days before
+anything is erased, tested with `FakeTimeProvider`; an owner who deletes their account takes their
+sites with them. Design the pages with Mike before writing routes. Questions to settle first:
+1. **Order.** Invites first is likely: the other two need an admin to exist, and the site_members
+   table has no way to add one yet (`add_site` only adds the owner).
+2. **Where an owner manages admins:** a page in the site's own admin (`/admin/…` on the site's
+   host, behind a new owner-only policy next to `SitePolicies.Admin`), or on the platform beside
+   My websites.
+3. **Invites:** an emailed link with a random token stored hashed, as sign-up codes are; how long
+   it lasts; revoking one; what happens when the email has no account yet (register, confirm,
+   then accept), and whether an invite is tied to the email or to whoever holds the link. Removing
+   an admin, and an admin leaving a site.
+4. **Deleting a site:** what visitors and admins see during the 30 days (a 404, or a "closed"
+   page), whether the owner can undo it, what runs at the end (`DROP SCHEMA … CASCADE`, the image
+   folders, the hosts) and what runs it (a background service like the orphaned image sweep). A
+   freed host can be signed up for again, which is the subdomain takeover risk noted in the
+   multi-tenancy notes for custom domains.
+5. **Deleting an account:** Identity's own "Delete personal data" page exists but doesn't know
+   about sites; it would need to start the grace period for the account's owned sites and remove
+   its admin memberships.
+
+Deferred still: a profanity filter on site names; choosing the email provider (at deploy);
+dropping orphan schemas; the review follow-ups under the multi-tenancy notes (operator role
+removal isn't immediate, expired codes never deleted, subdomains are "same-site" with the
+platform); one sign-in across subdomain sites via the cookie's domain (not decided).
+
+## Earlier: 5d, "My websites", 2026-09-25 (committed `61f312a`)
+
+**Committed by Mike (`61f312a`), 550 tests; browser check passed.**
 
 **Agreed with Mike:** a "My websites" page on the platform, a table, and sign-up lands there rather
 than on the new site's sign-in. An account is platform-wide (one Identity user), so the platform
@@ -1905,7 +1939,10 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    `*.artshop.mikesilverman.net` server name. Decide at deploy.
 6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
    grace period.
-7. Custom domains and their certificates.
+7. Custom domains and their certificates. (From Claude, 2026-09-25) Changing a site's main host
+   must clear the old `is_main` and set the new one in one transaction: the partial unique index
+   forces clearing first, and `get_member_sites` joins on `is_main`, so a site left with no main
+   host silently drops out of "My websites".
 
 **Follow-ups from the 2026-09-25 review (From Claude):**
 - **Taking the operator role away isn't immediate.** Identity keeps no sessions on the server: the

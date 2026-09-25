@@ -40,14 +40,6 @@ public static class PageUrls
     private static string OnSite(string platformBaseUri, HostName siteHost, string path) =>
         new UriBuilder(platformBaseUri) { Host = siteHost.Value, Path = path }.Uri.AbsoluteUri;
 
-    public static string SiteAdminSignIn(string platformBaseUri, HostName siteHost) =>
-        new UriBuilder(platformBaseUri)
-        {
-            Host = siteHost.Value,
-            Path = "/Account/Login",
-            Query = "ReturnUrl=%2Fadmin",
-        }.Uri.AbsoluteUri;
-
     // on the platform's host
     public const string Register = "/Account/Register";
 
