@@ -21,7 +21,9 @@ Mailpit with Postgres, or `docker compose up -d artist-shop-mailpit`). Then on
    name only. It lands on the new site's sign-in, then its empty admin.
 4. `/signup` when signed out goes to the log in page.
 
-**Then 5d**, "My sites". Deferred: a profanity filter on site names (Mike, 2026-09-25: later; the
+**Then**: the switch to a schema per site with one shared connection pool (decided with Mike
+2026-09-25, not built; "Schema per site" in the multi-tenancy notes), and 5d, "My sites"; which
+first is Mike's call. Deferred: a profanity filter on site names (Mike, 2026-09-25: later; the
 popular library, Profanity.Detector, matches substrings and refused 429 of the 9,474 most common
 English words, so it would be a list of our own, blocked anywhere for unambiguous words and only as
 a whole hyphen-separated part for short ones); choosing the email provider (at deploy).
@@ -1574,8 +1576,9 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
 **Decided with Mike, 2026-09-24:**
 - **Words:** the tenant is a **site** in code (`SiteId`, `CurrentSite`), "website" in text people
   read: an artist's portfolio and blog, and later their shop. "Shop" is only the selling part.
-- One Postgres cluster: a database per site, plus the shared identity database. Accounts are
-  platform-wide, for customers and admins alike.
+- One Postgres cluster, plus the shared identity database. Accounts are platform-wide, for
+  customers and admins alike. ~~A database per site~~: replaced 2026-09-25 by **a schema per site
+  in one database, with one shared connection pool**; see "Schema per site" below.
 - A site has one **owner** (can delete the site and add admins) and any number of **admins** (edit
   content only). An account may administer several sites. Identity roles are global, so site rights
   are a membership `(user, site, role)`, not `RoleNames.Admin`. If the owner deletes their account,
@@ -1608,14 +1611,51 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
   site's orders only.
 - **Storage:** image files get a per-site prefix before a second site database exists (see the
   sweeper note below), and each site has a storage quota.
-- **Connections:** short `Connection Idle Lifetime` and a small `Maximum Pool Size` per site first;
-  PgBouncer if measuring shows that isn't enough; raising `max_connections` last.
+- **Connections:** ~~a small pool per site~~: replaced 2026-09-25 by one pool shared by every site
+  (see "Schema per site" below).
 - Deferred: per-site running of backups, sweeps and export (schema updates can run for every site at
   startup while there are only test sites); fair sharing of image processing between sites; anything
   across all sites, such as a shared gallery.
 
 - Production's current content doesn't carry over: it can be deleted, and the spreadsheet import
   brings it back.
+
+**Schema per site (decided with Mike, 2026-09-25; not built):**
+- **Why:** a Postgres connection is bound to one database, so a database per site means a
+  connection pool per site: each site up to 5 connections, and Postgres allows 100 in all, so about
+  20 busy sites could take every one, each connection a server process of several MB. PgBouncer
+  pools per database too. In one database, one pool (say 20) serves every site. Also: each
+  database carries its own copy of Postgres's system catalogs, about 9 MB of dev's 9.4 MB site
+  database, so 500 sites would be about 4.7 GB mostly of that; one backup instead of one per site;
+  queries across sites become possible (a shared gallery). Measured 2026-09-25: a site is 16
+  tables, 68 tables-plus-indexes and 63 functions, so 500 schemas are about 34,000 relations and
+  31,500 functions, which Postgres handles; trouble is reported around ten times that.
+- **Not chosen:** a site id on every row. It only pays off in the thousands of tenants, would change
+  all 16 tables, 63 functions and 72 repository calls, and brings back the risk a forgotten filter
+  leaks one artist's data into another's.
+- **Tradeoffs accepted:** one busy site can take the whole shared pool, where today each site is
+  capped at 5. A per-site cap in the app (as `ImageProcessingLimiter` does for images) is the fix,
+  built when measuring shows it's needed. A connection that has served many sites keeps their
+  catalog entries in memory, so connections get bigger as they get fewer. Isolation is unchanged:
+  choosing the right schema per request, as the right database is chosen today.
+- **The 2 GB VPS is a testing ground** (Mike): a bigger one comes once a few users pay. Size for 2 GB
+  now, but don't choose designs only to squeeze into it.
+- **Shape (draft, from Claude; settle details before building):**
+  - Site schemas `site_<id>` live in one database, probably the platform database, so everything
+    but Identity is one database. Open: whether Identity joins it as a schema too.
+  - Migrations and functions run once per schema, as they run per database today: DbUp with the
+    schema first in `Search Path`, its own journal table in that schema. After the functions are
+    made, each is pinned to its schema (`ALTER FUNCTION … SET search_path = site_<id>`) in one loop,
+    so none of the 63 files changes.
+  - The app calls a site's functions through the shared data source, either by qualifying each
+    call (`site_12.get_posts()`) or by setting `search_path` as a connection is taken from the pool.
+    Which one is open; either way, a call that forgets the schema finds no function in `public`
+    and fails loudly rather than reading another site.
+  - `SiteDatabases` becomes the shared data source plus the site's schema name.
+    `SiteProvisioner.Prepare` makes a schema rather than a database. Deleting a site becomes
+    `DROP SCHEMA … CASCADE`. The tests' site databases become schemas; `tools/add-site` and the
+    blog seeder follow. Nothing is deployed and dev data can go, so nothing is migrated: dev drops
+    its `artist_shop_site_*` databases.
 
 **Build order (draft, from Claude):**
 1. **Done 2026-09-24 (`a26f072`):** the app logs in as `artist_shop_app` (`LOGIN CREATEDB`, not a
