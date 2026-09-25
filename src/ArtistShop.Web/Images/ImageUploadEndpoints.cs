@@ -2,7 +2,7 @@ using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
-using ArtistShop.Web.Identity;
+using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using NetVips;
@@ -89,7 +89,7 @@ public static class ImageUploadEndpoints
         endpoint
             // replaces Kestrel's default 30 MB limit for this endpoint only
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
-            .RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin))
+            .RequireAuthorization(SitePolicies.Admin)
             .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
 
     private static async Task<

@@ -2,7 +2,7 @@ namespace ArtistShop.Web.Publishing;
 
 using System.Text.Json.Serialization;
 using ArtistShop.Web.Domain.Publishing;
-using ArtistShop.Web.Identity;
+using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 // A video embed's value in the Delta, less its layout: what the editor stores, and what the
@@ -20,7 +20,7 @@ public static class VideoLinkEndpoints
     public const string Path = "/admin/video-link";
 
     public static void MapVideoLinkEndpoints(this IEndpointRouteBuilder endpoints) =>
-        endpoints.MapGet(Path, Read).RequireAuthorization(policy => policy.RequireRole(RoleNames.Admin));
+        endpoints.MapGet(Path, Read).RequireAuthorization(SitePolicies.Admin);
 
     public static VideoParts ToParts(VideoSource source) =>
         source switch

@@ -8,11 +8,11 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Commerce
-@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Imports
+@using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = RoleNames.Admin)]
+@attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject ArtworkTypeRepository ArtworkTypeRepository
 @inject VocabularyRepository VocabularyRepository
 @inject SeriesRepository SeriesRepository

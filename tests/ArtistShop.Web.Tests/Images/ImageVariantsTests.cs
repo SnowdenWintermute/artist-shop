@@ -76,4 +76,23 @@ public sealed class ImageVariantsTests
             ImageUrls.Variant("0123abcd", imageWidth: 600, wantedWidth: 800, ImageVariantFormat.Webp)
         );
     }
+
+    // the endpoint that serves variants reads back the names ImageProcessor writes
+    [Theory]
+    [InlineData(ImageVariantFormat.Avif)]
+    [InlineData(ImageVariantFormat.Webp)]
+    public void ReadsBackTheFormatOfAVariantsFileName(ImageVariantFormat format)
+    {
+        Assert.Equal(format, ImageVariants.ReadFileName(ImageVariants.FileName(800, format)));
+    }
+
+    [Theory]
+    [InlineData("800.png")]
+    [InlineData("800.AVIF")]
+    [InlineData("avif")]
+    [InlineData("large.avif")]
+    public void ReadsNoFormatFromAnyOtherName(string fileName)
+    {
+        Assert.Null(ImageVariants.ReadFileName(fileName));
+    }
 }

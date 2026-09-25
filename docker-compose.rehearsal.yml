@@ -31,10 +31,9 @@ services:
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
       - ConnectionStrings__ArtistShopPlatform=Host=artist-shop-postgres;Database=artist_shop_platform;Username=artist_shop_app;Password=${POSTGRES_APP_PASSWORD}
       - ConnectionStrings__ArtistShopIdentity=Host=artist-shop-postgres;Database=artist_shop_identity;Username=artist_shop_app;Password=${POSTGRES_APP_PASSWORD}
-      # IdentitySeeder makes this account an admin on every boot, and reads the password only to
-      # create it, so the password line can go once the first boot has made the account
-      - Admin__Email=mike@example.com
-      - Admin__Password=${DEV_ADMIN_PASSWORD}
+      # the first site's owner, read only while there are no sites (docker-compose.production.yml)
+      - FirstSite__OwnerEmail=mike@example.com
+      - FirstSite__OwnerPassword=${DEV_OWNER_PASSWORD}
       # How much of mem_limit .NET may put on its own heap. It has to be larger than the image
       # budget below or the app refuses to start. Read as hexadecimal: 0x2D is 45, so 45% of
       # 768 MB is 345 MB

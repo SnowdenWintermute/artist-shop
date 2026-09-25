@@ -3,9 +3,9 @@
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
-@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = RoleNames.Admin)]
+@attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject PostRepository PostRepository
 
 @code {

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using ArtistShop.Web.Domain.Publishing;
 
 namespace ArtistShop.Web.Images;
@@ -10,10 +11,8 @@ public enum ImageVariantFormat : byte
 }
 
 // the resized copies ImageProcessor writes for every upload, and how they are named
-public static class ImageVariants
+public static partial class ImageVariants
 {
-    // @TODO once frontend gallery grid exists, measure the size of the elements
-    // and derive these values from it
     public static readonly int[] Widths = [160, 400, 800, 1600];
 
     // the narrowest image worth keeping for an artwork, not the narrowest variant: the admin
@@ -51,11 +50,46 @@ public static class ImageVariants
 
     // takes a placeholder for a script to put a width in, as well as a width
     public static string FileName(string width, ImageVariantFormat format) =>
+        $"{width}.{Extension(format)}";
+
+    // the format of one of FileName's names, such as 800.avif; null for any other name
+    public static ImageVariantFormat? ReadFileName(string fileName)
+    {
+        var match = FileNamePattern().Match(fileName);
+
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        foreach (var format in Enum.GetValues<ImageVariantFormat>())
+        {
+            if (Extension(format) == match.Groups["extension"].Value)
+            {
+                return format;
+            }
+        }
+
+        return null;
+    }
+
+    public static string ContentType(ImageVariantFormat format) =>
         format switch
         {
-            ImageVariantFormat.Avif => $"{width}.avif",
-            ImageVariantFormat.Webp => $"{width}.webp",
+            ImageVariantFormat.Avif => "image/avif",
+            ImageVariantFormat.Webp => "image/webp",
         };
+
+    private static string Extension(ImageVariantFormat format) =>
+        format switch
+        {
+            ImageVariantFormat.Avif => "avif",
+            ImageVariantFormat.Webp => "webp",
+        };
+
+    // \z rather than $, which also allows a trailing line break
+    [GeneratedRegex(@"\A[0-9]+\.(?<extension>[a-z]+)\z")]
+    private static partial Regex FileNamePattern();
 
     // Variants are never upscaled, so an image only has the widths up to its own. One narrower
     // than the medium embed, which only a post takes, also gets a copy at its own width, so an
@@ -80,7 +114,9 @@ public static class ImageVariants
         if (existingWidths.Length is 0)
         {
             // ImageProcessor turns away images narrower than the smallest variant
-            throw new InvalidOperationException($"An image {imageWidth} pixels wide has no variants.");
+            throw new InvalidOperationException(
+                $"An image {imageWidth} pixels wide has no variants."
+            );
         }
 
         return existingWidths.LastOrDefault(width => width <= wantedWidth, existingWidths[0]);

@@ -10,11 +10,14 @@ public sealed class SiteHostDirectoryTests(TestDatabaseFixture database)
 {
     private readonly SiteRepository _sites = new(database.PlatformDataSource);
 
+    // an Identity user id; the platform database doesn't check it names an account
+    private const string OwnerUserId = "test-owner";
+
     [Fact]
     public async Task FindsASiteByAnyOfItsHostsInAnyCase()
     {
         var label = Guid.NewGuid().ToString("n");
-        var siteId = await _sites.AddAsync([Host($"{label}.test"), Host($"www.{label}.test")]);
+        var siteId = await _sites.AddAsync([Host($"{label}.test"), Host($"www.{label}.test")], OwnerUserId);
         var directory = new SiteHostDirectory(_sites);
 
         await directory.ReloadAsync();
@@ -41,7 +44,7 @@ public sealed class SiteHostDirectoryTests(TestDatabaseFixture database)
         await directory.ReloadAsync();
         var host = Host($"{Guid.NewGuid():n}.test");
 
-        var siteId = await _sites.AddAsync([host]);
+        var siteId = await _sites.AddAsync([host], OwnerUserId);
 
         Assert.Null(directory.FindSite(host.Value));
         await directory.ReloadAsync();

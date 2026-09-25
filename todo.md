@@ -1,8 +1,39 @@
-# Next: multi-tenancy design (in progress; see "Multi-tenancy notes" near the end)
+# Next: multi-tenancy step 5, the platform host (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — end of 2026-09-24
+## Where this stands — 2026-09-25 (step 4 session)
+
+**Uncommitted**, 472+ tests pass, Mike's browser check passed, including a non-member's access
+denied page. The session reviewed step 1–3's work (favicon follows the browser's theme, duplicate
+hosts refused, variant file names read in `ImageVariants`, `SiteHost` in its own file) and built
+step 4, site memberships; details under step 4 in the build order. Dev was reset: site 1
+(`site1.localhost`, `localhost`) and site 2 (`site2.localhost`, filler posts), both owned by
+`mike@example.com`.
+
+**Start of next session: step 5.** Agree its design first: the platform host itself (which host,
+what it shows), sign-up codes (hashed, expiring, made on an operator dashboard), the platform
+operator role that dashboard needs (a global Identity role, deferred from step 4; the operator has
+no automatic access to sites' admin), and "my sites".
+
+## Where this stands — end of 2026-09-24 (multi-tenancy session)
+
+**All committed by Mike** (`9c56bea`), 459 tests. The session reviewed the previous one's work
+(fixes in `1705adf`), designed multi-tenancy with Mike (decisions and the 7-step build order are in
+"Multi-tenancy notes"), and built steps 1–3: the app's own Postgres role, per-site image folders,
+and the platform database with one database per site, found by host. Mike's browser check of two
+sites in dev passed. Dev now has site 1 (`site1.localhost`, `localhost`, empty) and site 2
+(`site2.localhost`, 3 filler posts, a series, uploads). Nothing deployed: the VPS needs steps 1
+and 3's notes applied together, from a fresh Postgres volume.
+
+**Start of next session: step 4.** Agree its design with Mike before building. Open questions:
+memberships `(user, site, role)` in the platform database (Identity's user id, no foreign key
+across databases); owner vs admin checks replacing `RoleNames.Admin` on every admin page and
+endpoint; what the platform operator is (Mike's global role, replacing the seeded admin) and what it
+may do before step 5's dashboard; what `IdentitySeeder` becomes; and how the first site gets its
+owner while startup still creates it.
+
+## Earlier: end of the blog sessions, 2026-09-24
 
 **All committed by Mike** (`75f4182`); 431 tests pass. Since `4e30dbe`: review fixes to the image
 embed, "Mentioned in" on the artwork page, the public `/posts` list (headed Blog) with its filler-post
@@ -1544,7 +1575,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
   brings it back.
 
 **Build order (draft, from Claude):**
-1. **Done 2026-09-24 (uncommitted):** the app logs in as `artist_shop_app` (`LOGIN CREATEDB`, not a
+1. **Done 2026-09-24 (`a26f072`):** the app logs in as `artist_shop_app` (`LOGIN CREATEDB`, not a
    superuser), made by `postgres-init/create-app-role.sh`, which the postgres image runs only on an
    empty volume. New secret `POSTGRES_APP_PASSWORD` (dev `.env`, the VPS's
    `.artist-site-postgres-env`); `POSTGRES_PASSWORD` is now for psql by hand only. Dev was reset
@@ -1553,7 +1584,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    role, 432 tests pass, the app creates both databases and owns every table. **VPS still to do:**
    copy `postgres-init/` beside the compose file, add the app password to both env files as the
    compose header says, and start from a fresh volume (its content can go).
-2. **Done 2026-09-24 (uncommitted):** each site's images are in `content/images/sites/<SiteId>/`
+2. **Done 2026-09-24 (`a26f072`):** each site's images are in `content/images/sites/<SiteId>/`
    (`ImageStorage.ForSite`; `ImageStorage` is one site's storage, scoped from the new
    `CurrentSite`). `/media/<key>/<file>` is now `VariantEndpoints`, serving the current site's
    folder, since the static files middleware serves one folder for everyone; same week-long
@@ -1564,7 +1595,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    running app: an upload lands in `sites/1/`, `/media` serves it (200, 304, HEAD), bad names 404.
    441 tests. Also fixed: `Blog.razor` was missing the `@using` for `LinkPreview`, so `/posts` had
    no link preview (the build's only warning, RZ10012).
-3. **Built 2026-09-24 (uncommitted); Mike's browser check passed** (a series made on site 2 wasn't
+3. **Done 2026-09-24 (`9c56bea`); Mike's browser check passed** (a series made on site 2 wasn't
    on site 1, blogs separate, uploads on both shown separately on the home pages and in the admin): the platform database
    `artist_shop_platform` (`sites`, `site_hosts`; scripts in `Database/Platform/`, run by
    `SchemaMigrator.Platform`) and one database per site, `artist_shop_site_<id>`, named from the id
@@ -1593,7 +1624,22 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    `FirstSite__Hosts__0` replaces `AllowedHosts` (both in docker-compose.production.yml).
    Later: procedures are re-created in every site's database at every startup, fine for a few sites
    but slow for hundreds.
-4. Site membership replaces `RoleNames.Admin`; `IdentitySeeder` makes the platform operator.
+4. **Done 2026-09-25 (uncommitted):** `site_members (site_id, user_id, role)` in the platform
+   database (`Platform/Scripts/0002`), Identity's user id with no foreign key, `SiteRole` Owner 1 /
+   Admin 2, at most one owner per site (partial unique index). `add_site` takes the owner and
+   inserts them in the same function, so no site is without one. `SitePolicies.Admin`
+   (`Sites/SiteAdminAuthorization.cs`) passes for either role on the current site, asking
+   `SiteRepository.GetMemberRoleAsync` on every check (no caching); every admin page, the Edit
+   links, both admin endpoints, `SinglePost`'s drafts and the nav's Admin link use it. `RoleNames`
+   and the Admin role are gone (removed from the dev identity database too). A signed-in
+   non-member gets Identity's `/Account/AccessDenied` page: the pages are static SSR, so the
+   authorization middleware turns them away before `Routes.razor`'s `NotAuthorized` ever renders.
+   `IdentitySeeder` became `FirstSiteOwner`, called only while there are no sites; its settings are
+   `FirstSite:OwnerEmail` / `FirstSite:OwnerPassword` (dev `.env`'s `DEV_OWNER_PASSWORD`).
+   `add-site` needs `--owner <email>`. The platform operator role moved to step 5, with the
+   dashboard that needs it. Not yet: an Owner-only policy (step 6 is its first use).
+   **VPS:** the web env file's `Admin__Email` / `Admin__Password` become `FirstSite__OwnerEmail` /
+   `FirstSite__OwnerPassword` (docker-compose.production.yml's header); start from a fresh volume.
 5. The platform host: landing page, sign-up with a code, "my sites".
 6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
    grace period.

@@ -5,12 +5,14 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
-@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Images
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
 @inject PostRepository PostRepository
 @inject ImageStorage ImageStorage
 @inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
+@inject IAuthorizationService AuthorizationService
 
 @code {
   [Parameter]
@@ -34,7 +36,8 @@
 
     // an admin reads a draft here before publishing it. To a visitor, a draft is the same
     // "not found" as a slug nobody has
-    var post = user.IsInRole(RoleNames.Admin)
+    var isAdmin = (await AuthorizationService.AuthorizeAsync(user, SitePolicies.Admin)).Succeeded;
+    var post = isAdmin
       ? await PostRepository.GetBySlugAsync(slug)
       : await PostRepository.GetPublishedBySlugAsync(slug);
 
@@ -74,7 +77,7 @@
       <h1 class="flex items-center justify-between text-3xl">
         @* min-w-0, since a flex item otherwise won't shrink below its longest word *@
         <span class="min-w-0 break-words">@loaded.Post.Title.Value</span>
-        <AuthorizeView Roles="@RoleNames.Admin">
+        <AuthorizeView Policy="@SitePolicies.Admin">
           <Authorized>
             <a class="text-base underline" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
           </Authorized>

@@ -3,9 +3,9 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = RoleNames.Admin)]
+@attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject ArtworkRepository ArtworkRepository
 @inject NavigationManager NavigationManager
 

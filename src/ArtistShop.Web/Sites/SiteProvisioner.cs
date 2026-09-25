@@ -14,10 +14,10 @@ public class SiteProvisioner(
     ImageStorageSettings imageStorageSettings
 )
 {
-    // the first host is the site's main one
-    public async Task<SiteId> CreateAsync(IReadOnlyList<HostName> hosts)
+    // the first host is the site's main one. ownerUserId is Identity's id for the owner's account
+    public async Task<SiteId> CreateAsync(IReadOnlyList<HostName> hosts, string ownerUserId)
     {
-        var siteId = await siteRepository.AddAsync(hosts);
+        var siteId = await siteRepository.AddAsync(hosts, ownerUserId);
         Prepare(siteId);
         return siteId;
     }

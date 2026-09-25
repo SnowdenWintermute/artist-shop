@@ -25,6 +25,7 @@ export MALLOC_ARENA_MAX=2
 
 export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=artist_shop_identity;Username=artist_shop_app;Password=$POSTGRES_APP_PASSWORD"
 
-# the account IdentitySeeder makes an admin; production sets the same two variables
-export Admin__Email="mike@example.com"
-export Admin__Password="$DEV_ADMIN_PASSWORD"
+# the account that owns the first site, made with this password if it doesn't exist; read only
+# while there are no sites. The first site's hosts are in appsettings.Development.json
+export FirstSite__OwnerEmail="mike@example.com"
+export FirstSite__OwnerPassword="$DEV_OWNER_PASSWORD"

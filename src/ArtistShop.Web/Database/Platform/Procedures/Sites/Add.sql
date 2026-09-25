@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS add_site;
 
--- A new site reached by p_hosts, the first of them its main host
-CREATE FUNCTION add_site (p_hosts text[]) RETURNS int LANGUAGE plpgsql AS $$
+-- A new site reached by p_hosts, the first of them its main host, and owned by p_owner_user_id
+CREATE FUNCTION add_site (p_hosts text[], p_owner_user_id text) RETURNS int LANGUAGE plpgsql AS $$
 DECLARE
     new_id int;
 BEGIN
@@ -19,6 +19,12 @@ BEGIN
         site_host.position = 1
     FROM
         unnest(p_hosts) WITH ORDINALITY AS site_host (host, position);
+
+    -- in the same function, so there is never a site without an owner
+    INSERT INTO
+        site_members (site_id, user_id, role)
+    VALUES
+        (new_id, p_owner_user_id, 1);
 
     RETURN new_id;
 END;

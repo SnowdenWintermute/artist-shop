@@ -15,6 +15,9 @@ public sealed class SiteProvisionerTests : IAsyncDisposable
     private readonly SiteDatabases _siteDatabases;
     private readonly SiteProvisioner _provisioner;
 
+    // an Identity user id; the platform database doesn't check it names an account
+    private const string OwnerUserId = "test-owner";
+
     public SiteProvisionerTests(TestDatabaseFixture database)
     {
         _storageSettings = new ImageStorageSettings(_storageRoot.FullName);
@@ -35,7 +38,7 @@ public sealed class SiteProvisionerTests : IAsyncDisposable
     [Fact]
     public async Task ANewSiteHasItsOwnDatabaseAndFolders()
     {
-        var siteId = await _provisioner.CreateAsync([NewHost()]);
+        var siteId = await _provisioner.CreateAsync([NewHost()], OwnerUserId);
 
         // an empty, up-to-date site database: its functions are there to be called
         Assert.Empty(await new PostRepository(_siteDatabases.For(siteId)).GetAllAsync());
@@ -49,8 +52,8 @@ public sealed class SiteProvisionerTests : IAsyncDisposable
     [Fact]
     public async Task SitesKeepTheirDataApart()
     {
-        var first = await _provisioner.CreateAsync([NewHost()]);
-        var second = await _provisioner.CreateAsync([NewHost()]);
+        var first = await _provisioner.CreateAsync([NewHost()], OwnerUserId);
+        var second = await _provisioner.CreateAsync([NewHost()], OwnerUserId);
 
         await new PostRepository(_siteDatabases.For(first)).AddAsync(
             new PostTitle("Only on the first site"),
@@ -66,7 +69,7 @@ public sealed class SiteProvisionerTests : IAsyncDisposable
     [Fact]
     public async Task PreparingASiteAgainChangesNothing()
     {
-        var siteId = await _provisioner.CreateAsync([NewHost()]);
+        var siteId = await _provisioner.CreateAsync([NewHost()], OwnerUserId);
 
         _provisioner.Prepare(siteId);
 

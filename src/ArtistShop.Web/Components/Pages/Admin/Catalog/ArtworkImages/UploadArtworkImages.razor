@@ -1,7 +1,7 @@
 @page "/admin/catalog/artworks/images"
-@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = RoleNames.Admin)]
+@attribute [Authorize(Policy = SitePolicies.Admin)]
 
 @code {
   [SupplyParameterFromQuery(Name = "type")]

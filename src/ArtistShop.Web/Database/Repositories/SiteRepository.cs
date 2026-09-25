@@ -4,17 +4,23 @@ using ArtistShop.Web.Domain.Sites;
 using Dapper;
 using Npgsql;
 
-// The platform database's list of sites and their hosts, not any one site's own data
+// The platform database's list of sites, their hosts and their members, not any one site's own data
 public class SiteRepository(NpgsqlDataSource platformDataSource)
 {
     private const string HostPrimaryKey = "primary_key_site_hosts";
 
-    // the first host is the site's main one
-    public async Task<SiteId> AddAsync(IReadOnlyList<HostName> hosts)
+    // the first host is the site's main one. ownerUserId is Identity's id for the owner's account
+    public async Task<SiteId> AddAsync(IReadOnlyList<HostName> hosts, string ownerUserId)
     {
         if (hosts.Count is 0)
         {
             throw new ArgumentException("A site needs at least one host.", nameof(hosts));
+        }
+
+        // caught here, since the database would report it as a host another site has
+        if (hosts.Distinct().Count() != hosts.Count)
+        {
+            throw new ArgumentException("A site's hosts are listed more than once.", nameof(hosts));
         }
 
         await using var connection = platformDataSource.CreateConnection();
@@ -22,8 +28,8 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         try
         {
             var id = await connection.ExecuteScalarAsync<int>(
-                "SELECT add_site(@Hosts)",
-                new { Hosts = hosts.Select(host => host.Value).ToArray() }
+                "SELECT add_site(@Hosts, @OwnerUserId)",
+                new { Hosts = hosts.Select(host => host.Value).ToArray(), OwnerUserId = ownerUserId }
             );
 
             return new SiteId(id);
@@ -53,6 +59,18 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         var rows = await connection.QueryAsync<SiteHostRow>("SELECT * FROM get_site_hosts()");
 
         return [.. rows.Select(row => row.ToSiteHost())];
+    }
+
+    // null when the user isn't one of the site's members
+    public async Task<SiteRole?> GetMemberRoleAsync(SiteId siteId, string userId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        // Dapper turns the smallint into the enum value with that number
+        return await connection.QuerySingleOrDefaultAsync<SiteRole?>(
+            "SELECT * FROM get_site_member_role(@SiteId, @UserId)",
+            new { SiteId = siteId.Value, UserId = userId }
+        );
     }
 
     private sealed class SiteHostRow

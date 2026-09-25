@@ -17,5 +17,3 @@ public sealed record HostName
         return Uri.CheckHostName(host) is UriHostNameType.Dns ? new HostName(host) : null;
     }
 }
-
-public record SiteHost(HostName Host, SiteId SiteId, bool IsMain);
