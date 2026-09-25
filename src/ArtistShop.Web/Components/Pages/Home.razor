@@ -1,29 +1,15 @@
 @page "/"
-@using ArtistShop.Web.Components.Pages.Catalog
-@using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain.Catalog
-@inject SeriesRepository SeriesRepository
+@using ArtistShop.Web.Components.Pages.Platform
+@using ArtistShop.Web.Sites
+@attribute [ServedOn(HostTypes.Platform | HostTypes.Site)]
+@inject CurrentHost CurrentHost
 
-@code {
-  // the page renders once before its first await finishes, so what it draws is set together
-  // or not at all
-  private IReadOnlyList<SeriesWithCover>? _series;
-
-  protected override async Task OnInitializedAsync() =>
-    _series = await SeriesRepository.GetVisibleWithCoversAsync();
-}
-
-<PageTitle>Home</PageTitle>
-
-@if (_series is { } series)
+@* the one address that is a page on both types of host, and a different page on each *@
+@if (CurrentHost is CurrentHost.Platform)
 {
-  <main class="mx-auto max-w-[1200px] p-4">
-    @* one section among others to come, so the artist's name and anything else above it
-       can be added without touching the grid *@
-    <section>
-      <h1 class="mb-4">Series</h1>
-
-      <SeriesGrid Series="series" />
-    </section>
-  </main>
+  <PlatformHome />
+}
+else
+{
+  <SiteHome />
 }

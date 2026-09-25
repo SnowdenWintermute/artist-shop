@@ -65,12 +65,18 @@ var siteDatabaseSettings = ValidatedSettings.Read<SiteDatabaseSettings>(builder.
 builder.Services.AddSingleton(_ =>
     new SiteDatabases(platformConnectionString, SiteDatabases.DatabaseNamePrefix, siteDatabaseSettings)
 );
-builder.Services.AddSingleton<SiteHostDirectory>();
+// the platform's own host, where artists sign up; every other host is a site's
+var platformHost =
+    HostName.Read(builder.Configuration["Platform:Host"] ?? "")
+    ?? throw new InvalidOperationException("Platform:Host isn't a host name.");
+builder.Services.AddSingleton(new PlatformSettings(platformHost));
+builder.Services.AddSingleton<HostDirectory>();
 builder.Services.AddSingleton<SiteProvisioner>();
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped(CurrentHost.From);
 builder.Services.AddScoped(CurrentSite.From);
-builder.Services.AddScoped<CircuitHandler, SiteCircuitStart>();
+builder.Services.AddScoped<CircuitHandler, HostCircuitStart>();
 
 builder.Services.AddScoped(services =>
     ImageStorage.ForSite(imageStorageSettings, services.GetRequiredService<CurrentSite>().Id)
@@ -214,15 +220,15 @@ foreach (var siteId in await siteRepository.GetIdsAsync())
     siteProvisioner.Prepare(siteId);
 }
 
-await app.Services.GetRequiredService<SiteHostDirectory>().ReloadAsync();
+await app.Services.GetRequiredService<HostDirectory>().ReloadAsync();
 
 Console.WriteLine("Database initialization completed.");
 Console.WriteLine($"Image processing capacity: {imageProcessingCapacity}");
 
 // Configure the HTTP request pipeline.
 
-// first, so a host no site has is turned away before anything else runs
-app.UseSiteHosts();
+// first, so a host that's neither the platform's nor a site's is turned away before anything else runs
+app.UseKnownHosts();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -232,6 +238,14 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+app.UseServedOnHosts();
+
+// called here rather than left for ASP.NET to add, which it does at the start of the pipeline:
+// SitePolicies.Admin asks about the current site, so it must only run once the page is known to be
+// a site's
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseAntiforgery();
 

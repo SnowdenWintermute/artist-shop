@@ -1,0 +1,29 @@
+@* a site's home page, which Home shows at / on a site's host *@
+@using ArtistShop.Web.Components.Pages.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject SeriesRepository SeriesRepository
+
+@code {
+  // the page renders once before its first await finishes, so what it draws is set together
+  // or not at all
+  private IReadOnlyList<SeriesWithCover>? _series;
+
+  protected override async Task OnInitializedAsync() =>
+    _series = await SeriesRepository.GetVisibleWithCoversAsync();
+}
+
+<PageTitle>Home</PageTitle>
+
+@if (_series is { } series)
+{
+  <main class="mx-auto max-w-[1200px] p-4">
+    @* one section among others to come, so the artist's name and anything else above it
+       can be added without touching the grid *@
+    <section>
+      <h1 class="mb-4">Series</h1>
+
+      <SeriesGrid Series="series" />
+    </section>
+  </main>
+}

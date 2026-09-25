@@ -1,20 +1,19 @@
-# Next: multi-tenancy step 5, the platform host (see "Multi-tenancy notes" near the end)
+# Next: multi-tenancy step 5b, operator and sign-up codes (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25 (step 4 session)
+## Where this stands — 2026-09-25 (steps 4 and 5a)
 
-**Uncommitted**, 472+ tests pass, Mike's browser check passed, including a non-member's access
-denied page. The session reviewed step 1–3's work (favicon follows the browser's theme, duplicate
-hosts refused, variant file names read in `ImageVariants`, `SiteHost` in its own file) and built
-step 4, site memberships; details under step 4 in the build order. Dev was reset: site 1
-(`site1.localhost`, `localhost`) and site 2 (`site2.localhost`, filler posts), both owned by
+**Step 4 committed by Mike (`1b6a222`); 5a uncommitted**, 479 tests pass. The session reviewed step
+1–3's work (favicon follows the browser's theme, duplicate hosts refused, variant file names read in
+`ImageVariants`, `SiteHost` in its own file), built step 4 (site memberships; Mike's browser check
+passed, including a non-member's access denied page), designed step 5 as 5a-5d, and built 5a (the
+platform host, checked with curl, and by Mike in the browser: signing in on the platform, and saving
+on a site's interactive admin page). Details under steps 4 and 5 in the build order. Dev: the platform at
+`localhost`, site 1 at `site1.localhost`, site 2 at `site2.localhost` (filler posts), both owned by
 `mike@example.com`.
 
-**Start of next session: step 5.** Agree its design first: the platform host itself (which host,
-what it shows), sign-up codes (hashed, expiring, made on an operator dashboard), the platform
-operator role that dashboard needs (a global Identity role, deferred from step 4; the operator has
-no automatic access to sites' admin), and "my sites".
+**Start of next session: 5b**, the operator role and sign-up codes. The design is under step 5.
 
 ## Where this stands — end of 2026-09-24 (multi-tenancy session)
 
@@ -1624,7 +1623,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    `FirstSite__Hosts__0` replaces `AllowedHosts` (both in docker-compose.production.yml).
    Later: procedures are re-created in every site's database at every startup, fine for a few sites
    but slow for hundreds.
-4. **Done 2026-09-25 (uncommitted):** `site_members (site_id, user_id, role)` in the platform
+4. **Done 2026-09-25 (`1b6a222`):** `site_members (site_id, user_id, role)` in the platform
    database (`Platform/Scripts/0002`), Identity's user id with no foreign key, `SiteRole` Owner 1 /
    Admin 2, at most one owner per site (partial unique index). `add_site` takes the owner and
    inserts them in the same function, so no site is without one. `SitePolicies.Admin`
@@ -1640,7 +1639,38 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
    dashboard that needs it. Not yet: an Owner-only policy (step 6 is its first use).
    **VPS:** the web env file's `Admin__Email` / `Admin__Password` become `FirstSite__OwnerEmail` /
    `FirstSite__OwnerPassword` (docker-compose.production.yml's header); start from a fresh volume.
-5. The platform host: landing page, sign-up with a code, "my sites".
+5. The platform host, in four parts (agreed 2026-09-25), each checked in the browser before the next:
+   - **5a. Done 2026-09-25 (uncommitted):** one app routing by host, as Rails' host constraints do,
+     rather than a second app for the platform (a second .NET process costs 100-200 MB on the 2 GB
+     VPS). `Platform:Host` (dev `localhost`, production `artshop.mikesilverman.net`; dev site 1 is
+     now only `site1.localhost`). `HostDirectory` (was `SiteHostDirectory`) finds a request's
+     `CurrentHost`, `.Platform` or `.Site(id)`, and refuses to load if a site has the platform's
+     host; `CurrentSite` comes from it and throws on the platform. `[ServedOn(HostTypes...)]`: pages
+     without it are a site's, other endpoints serve every host unless marked (`/media`, uploads and
+     video links are site-only). `UseKnownHosts` (bare 404 for an unknown host) runs first;
+     `UseServedOnHosts` 404s a page on the wrong type of host, after the status code pages so it
+     shows Not Found. `UseAuthentication`/`UseAuthorization` are now called explicitly after both,
+     since ASP.NET otherwise adds them at the start of the pipeline, before the host is known. `/`
+     is `Home`, showing `SiteHome` or `PlatformHome`; `NotFound`, `Error` and the Account pages
+     serve both; `MainLayout` shows `PlatformNavMenu` on the platform. `SiteAdminHandler` takes
+     `CurrentHost`, not `CurrentSite`: Blazor makes every authorization handler whenever a page
+     asks for `IAuthorizationService` (`AuthorizeRouteView` does, on every page), so a
+     `CurrentSite` in its constructor threw on the platform. Checked with curl on all hosts and by
+     Mike in the browser.
+   - 5b. The `PlatformOperator` Identity role (moved here from step 4), and an `/operator` page on the
+     platform: make a code with an expiry (shown once), list unused codes, revoke. `sign_up_codes`
+     stores a SHA-256 hash (a 128-bit random code needs no slow hash); using a code deletes it.
+   - 5c. `/signup` on the platform: code, email, password, and the site's name, which becomes
+     `name.<platform host>` (3-30 lowercase letters, digits and hyphens; reserved names such as
+     `www`, `admin`, `api`, `mail`). Makes the account, then uses the code and adds the site in one
+     platform-database function. Marks the email confirmed, since each code goes to a person Mike
+     chose; **real email sending comes right after step 5.** Replaces `FirstSite:*`.
+   - 5d. "My sites": the sites an account owns or administers, linking to each main host.
+   **Production subdomains** need a wildcard DNS record at Namecheap and a wildcard certificate,
+   which Let's Encrypt only issues through DNS-01. Namecheap's API only opens for accounts past a
+   threshold (about $50 balance or spend, or 20 domains) and whitelisted IPs; otherwise a CNAME for
+   `_acme-challenge.artshop.mikesilverman.net` to an acme-dns service avoids it. nginx then needs a
+   `*.artshop.mikesilverman.net` server name. Decide at deploy.
 6. Owner features: inviting admins (needs real email), handing over ownership, deletion with its
    grace period.
 7. Custom domains and their certificates.

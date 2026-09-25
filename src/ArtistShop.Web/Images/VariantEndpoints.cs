@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Images;
 
+using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 // Serves the current site's variants at ImageUrls.VariantsRequestPath. An endpoint rather than the
@@ -12,11 +13,13 @@ public static class VariantEndpoints
     private const string CacheControl = "public, max-age=604800, immutable";
 
     public static void MapVariantEndpoints(this IEndpointRouteBuilder endpoints) =>
-        endpoints.MapMethods(
-            $"{ImageUrls.VariantsRequestPath}/{{storageKey}}/{{fileName}}",
-            [HttpMethods.Get, HttpMethods.Head],
-            Serve
-        );
+        endpoints
+            .MapMethods(
+                $"{ImageUrls.VariantsRequestPath}/{{storageKey}}/{{fileName}}",
+                [HttpMethods.Get, HttpMethods.Head],
+                Serve
+            )
+            .WithMetadata(new ServedOnAttribute(HostTypes.Site));
 
     public static Results<PhysicalFileHttpResult, NotFound> Serve(
         string storageKey,

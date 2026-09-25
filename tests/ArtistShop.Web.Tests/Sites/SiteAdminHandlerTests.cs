@@ -46,12 +46,23 @@ public sealed class SiteAdminHandlerTests(TestDatabaseFixture database)
         Assert.False(await IsSiteAdminAsync(siteId, new ClaimsPrincipal(new ClaimsIdentity())));
     }
 
-    private async Task<bool> IsSiteAdminAsync(SiteId siteId, ClaimsPrincipal user)
+    [Fact]
+    public async Task NobodyAdministersThePlatformAsASite()
+    {
+        await _sites.AddAsync([NewHost()], "owner");
+
+        Assert.False(await IsAdminAsync(new CurrentHost.Platform(), SignedIn("owner")));
+    }
+
+    private Task<bool> IsSiteAdminAsync(SiteId siteId, ClaimsPrincipal user) =>
+        IsAdminAsync(new CurrentHost.Site(siteId), user);
+
+    private async Task<bool> IsAdminAsync(CurrentHost host, ClaimsPrincipal user)
     {
         var requirement = new SiteAdminRequirement();
         var context = new AuthorizationHandlerContext([requirement], user, resource: null);
 
-        await new SiteAdminHandler(new CurrentSite(siteId), _sites).HandleAsync(context);
+        await new SiteAdminHandler(host, _sites).HandleAsync(context);
 
         return context.HasSucceeded;
     }

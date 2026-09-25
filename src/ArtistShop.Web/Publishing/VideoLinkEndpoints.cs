@@ -20,7 +20,10 @@ public static class VideoLinkEndpoints
     public const string Path = "/admin/video-link";
 
     public static void MapVideoLinkEndpoints(this IEndpointRouteBuilder endpoints) =>
-        endpoints.MapGet(Path, Read).RequireAuthorization(SitePolicies.Admin);
+        endpoints
+            .MapGet(Path, Read)
+            .RequireAuthorization(SitePolicies.Admin)
+            .WithMetadata(new ServedOnAttribute(HostTypes.Site));
 
     public static VideoParts ToParts(VideoSource source) =>
         source switch

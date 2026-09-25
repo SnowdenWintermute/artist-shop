@@ -36,11 +36,14 @@ services:
             - .artist-shop-web-env
         environment:
             - ASPNETCORE_ENVIRONMENT=Production
-            # The first site's hosts, used only while the platform database has no sites. A request
-            # for a host no site has gets a 404 (UseSiteHosts), so a forged Host header can't end
-            # up in the absolute addresses the app builds from it (link previews, and
-            # password-reset links once email exists)
-            - FirstSite__Hosts__0=artshop.mikesilverman.net
+            # The platform's own host, where artists sign up; each site has a subdomain of it. A
+            # request for a host that's neither the platform's nor a site's gets a 404
+            # (UseKnownHosts), so a forged Host header can't end up in the absolute addresses the
+            # app builds from it (link previews, and password-reset links once email exists)
+            - Platform__Host=artshop.mikesilverman.net
+            # The first site's hosts, used only while the platform database has no sites, until
+            # sign-up replaces it (multi-tenancy step 5c in todo.md). Needs the wildcard DNS record
+            - FirstSite__Hosts__0=site1.artshop.mikesilverman.net
             # the app is only reachable through nginx, which sends X-Forwarded-Proto and
             # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's
             # address

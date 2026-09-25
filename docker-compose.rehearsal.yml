@@ -24,8 +24,9 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      # the VPS names its own domain here; see docker-compose.production.yml
-      - FirstSite__Hosts__0=localhost
+      # the VPS names its own domains here; see docker-compose.production.yml
+      - Platform__Host=localhost
+      - FirstSite__Hosts__0=site1.localhost
       # the app is only reachable through nginx, which sends X-Forwarded-Proto and
       # X-Forwarded-For. This makes the app trust them, so it sees https and the visitor's address
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true

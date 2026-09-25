@@ -1,8 +1,17 @@
-﻿@inherits LayoutComponentBase
+﻿@using ArtistShop.Web.Sites
+@inherits LayoutComponentBase
+@inject CurrentHost CurrentHost
 
 <div class="h-dvh flex flex-col">
   <div class="">
-    <NavMenu />
+    @if (CurrentHost is CurrentHost.Platform)
+    {
+      <PlatformNavMenu />
+    }
+    else
+    {
+      <NavMenu />
+    }
   </div>
 
   <div class="w-full bg-theme-recessed flex flex-1 flex-col">

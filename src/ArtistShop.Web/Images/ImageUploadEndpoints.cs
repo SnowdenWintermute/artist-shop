@@ -90,6 +90,7 @@ public static class ImageUploadEndpoints
             // replaces Kestrel's default 30 MB limit for this endpoint only
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadValidation.MaximumRequestBytes))
             .RequireAuthorization(SitePolicies.Admin)
+            .WithMetadata(new ServedOnAttribute(HostTypes.Site))
             .RequireRateLimiting(ImageUploadRateLimiting.PolicyName);
 
     private static async Task<
