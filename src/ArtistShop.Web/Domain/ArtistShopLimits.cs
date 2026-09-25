@@ -28,4 +28,7 @@ public static class ArtistShopLimits
     public const int BlogPageSize = 10;
 
     public const int PostTitleMaximumLength = 200;
+
+    // sign_up_codes.note
+    public const int SignUpCodeNoteMaximumLength = 200;
 }

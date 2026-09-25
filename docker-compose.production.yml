@@ -22,6 +22,10 @@
 #     FirstSite__OwnerPassword=<password>
 #   The first boot makes the first site, owned by that account (made with that password if it
 #   doesn't exist). Both lines are read only while there are no sites, so they can go after it.
+#     Platform__OperatorEmail=<email>
+#     Platform__OperatorPassword=<password>
+#   The account that runs the platform and makes sign-up codes, checked at every boot. The password
+#   is only read to make the account, so that line can go once it exists.
 #
 # Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, one CPU, 2 GB of swap, and
 # about 485 MB available once the old pm2 apps were stopped.

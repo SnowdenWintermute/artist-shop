@@ -29,3 +29,8 @@ export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=
 # while there are no sites. The first site's hosts are in appsettings.Development.json
 export FirstSite__OwnerEmail="mike@example.com"
 export FirstSite__OwnerPassword="$DEV_OWNER_PASSWORD"
+
+# the account that runs the platform and makes sign-up codes, made with this password if it
+# doesn't exist; production sets the same two in its web env file
+export Platform__OperatorEmail="mike@example.com"
+export Platform__OperatorPassword="$DEV_OWNER_PASSWORD"

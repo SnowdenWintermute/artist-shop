@@ -19,6 +19,9 @@ public static class PageUrls
 
     public const string PostList = "/admin/posts";
 
+    // on the platform's host
+    public const string Operator = "/operator";
+
     public const string NewPost = "/admin/posts/new";
 
     public static string EditPost(PostId id) => $"/admin/posts/{id.Value}/edit";

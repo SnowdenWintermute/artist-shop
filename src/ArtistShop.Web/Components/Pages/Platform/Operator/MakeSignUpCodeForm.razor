@@ -1,0 +1,52 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Platform
+@inject SignUpCodeRepository SignUpCodeRepository
+@inject TimeProvider TimeProvider
+
+@code {
+  // the page reloads its list, which it read before this form's post was handled
+  [Parameter, EditorRequired]
+  public EventCallback OnMade { get; set; }
+
+  [SupplyParameterFromForm(FormName = "make-sign-up-code")]
+  private SignUpCodeForm Input { get; set; } = default!;
+
+  // shown once, in the response to the post that made it: only its hash is kept. Not a redirect
+  // like the other add forms, which would lose it
+  private SignUpCode? _madeCode;
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task MakeAsync()
+  {
+    var code = SignUpCode.New();
+
+    await SignUpCodeRepository.AddAsync(
+      code,
+      Input.TrimmedNote,
+      TimeProvider.GetUtcNow().AddDays(Input.DaysValid)
+    );
+
+    _madeCode = code;
+    Input = new();
+    await OnMade.InvokeAsync();
+  }
+}
+
+<EditForm EditContext="Input.EditContext" FormName="make-sign-up-code" OnValidSubmit="MakeAsync" Enhance class="mb-6">
+  <DataAnnotationsValidator />
+
+  <TextField Label="For" @bind-Value="Input.Note" />
+  <NumberField Label="@($"Expires in days (1 to {SignUpCodeForm.MaximumDaysValid})")" @bind-Value="Input.DaysValid" />
+  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Make code</ButtonBasic>
+</EditForm>
+
+@if (_madeCode is { } madeCode)
+{
+  <div class="mb-6 border p-3">
+    <p class="mb-2 font-mono text-lg">@madeCode.Text</p>
+    <p>Copy it now: it won't be shown again.</p>
+  </div>
+}

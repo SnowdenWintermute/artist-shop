@@ -1,19 +1,18 @@
-# Next: multi-tenancy step 5b, operator and sign-up codes (see "Multi-tenancy notes" near the end)
+# Next: multi-tenancy step 5c, sign-up with a code (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25 (steps 4 and 5a)
+## Where this stands — 2026-09-25 (steps 4, 5a and 5b)
 
-**Step 4 committed by Mike (`1b6a222`); 5a uncommitted**, 479 tests pass. The session reviewed step
-1–3's work (favicon follows the browser's theme, duplicate hosts refused, variant file names read in
-`ImageVariants`, `SiteHost` in its own file), built step 4 (site memberships; Mike's browser check
-passed, including a non-member's access denied page), designed step 5 as 5a-5d, and built 5a (the
-platform host, checked with curl, and by Mike in the browser: signing in on the platform, and saving
-on a site's interactive admin page). Details under steps 4 and 5 in the build order. Dev: the platform at
-`localhost`, site 1 at `site1.localhost`, site 2 at `site2.localhost` (filler posts), both owned by
+Step 4 (`1b6a222`) and 5a are committed by Mike; 5b is uncommitted, 489 tests pass, and Mike's
+browser check of it passed. The session reviewed step 1–3's work, built step 4 (site memberships),
+designed step 5 as 5a-5d, and built 5a (the platform host) and 5b (the operator and sign-up codes).
+Details under steps 4 and 5 in the build order. Dev: the platform at `localhost` (Mike is its
+operator), site 1 at `site1.localhost`, site 2 at `site2.localhost` (filler posts), both owned by
 `mike@example.com`.
 
-**Start of next session: 5b**, the operator role and sign-up codes. The design is under step 5.
+**Start of next session: 5c**, sign-up with a code. The design is under step 5; settle the
+failure case (account made, site not) and the name rules with Mike before building.
 
 ## Where this stands — end of 2026-09-24 (multi-tenancy session)
 
@@ -1657,9 +1656,17 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
      asks for `IAuthorizationService` (`AuthorizeRouteView` does, on every page), so a
      `CurrentSite` in its constructor threw on the platform. Checked with curl on all hosts and by
      Mike in the browser.
-   - 5b. The `PlatformOperator` Identity role (moved here from step 4), and an `/operator` page on the
-     platform: make a code with an expiry (shown once), list unused codes, revoke. `sign_up_codes`
-     stores a SHA-256 hash (a 128-bit random code needs no slow hash); using a code deletes it.
+   - **5b. Done 2026-09-25 (uncommitted), checked by Mike in the browser:** `PlatformOperator`, an
+     Identity role; `PlatformOperator.SyncAsync` at every startup gives it to the account
+     `Platform:OperatorEmail` names (made with `Platform:OperatorPassword` if missing; both env
+     secrets) and takes it from anyone else. Account making is shared as `SeededAccounts`.
+     `PlatformPolicies.Operator` requires the role. `SignUpCode` (16 random bytes as hex in groups
+     of four; reading ignores hyphens, spaces and case; SHA-256 of the bytes is stored),
+     `sign_up_codes` (platform migration 0003: hash, required note saying who it's for, expiry),
+     `SignUpCodeRepository`. `/operator` (`Pages/Platform/Operator/`), platform only: a static form
+     (note, 1-90 days, default 14) shows a new code once in its own response rather than
+     redirecting; an interactive table of unused codes with Revoke behind a `ConfirmDialog`. The
+     platform nav shows Operator to the operator.
    - 5c. `/signup` on the platform: code, email, password, and the site's name, which becomes
      `name.<platform host>` (3-30 lowercase letters, digits and hyphens; reserved names such as
      `www`, `admin`, `api`, `mail`). Makes the account, then uses the code and adds the site in one

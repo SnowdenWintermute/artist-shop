@@ -35,6 +35,9 @@ services:
       # the first site's owner, read only while there are no sites (docker-compose.production.yml)
       - FirstSite__OwnerEmail=mike@example.com
       - FirstSite__OwnerPassword=${DEV_OWNER_PASSWORD}
+      # the platform's operator, checked at every boot (docker-compose.production.yml)
+      - Platform__OperatorEmail=mike@example.com
+      - Platform__OperatorPassword=${DEV_OWNER_PASSWORD}
       # How much of mem_limit .NET may put on its own heap. It has to be larger than the image
       # budget below or the app refuses to start. Read as hexadecimal: 0x2D is 45, so 45% of
       # 768 MB is 345 MB

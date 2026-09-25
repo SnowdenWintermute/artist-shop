@@ -60,6 +60,9 @@ builder.Services.AddKeyedSingleton(PlatformDataSourceKey, (_, _) => NpgsqlDataSo
 builder.Services.AddSingleton(services =>
     new SiteRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
 );
+builder.Services.AddSingleton(services =>
+    new SignUpCodeRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
 
 var siteDatabaseSettings = ValidatedSettings.Read<SiteDatabaseSettings>(builder.Configuration, "SiteDatabases");
 builder.Services.AddSingleton(_ =>
@@ -185,7 +188,8 @@ builder
     .AddPolicy(
         SitePolicies.Admin,
         policy => policy.RequireAuthenticatedUser().AddRequirements(new SiteAdminRequirement())
-    );
+    )
+    .AddPolicy(PlatformPolicies.Operator, policy => policy.RequireRole(PlatformOperator.RoleName));
 
 /////////////////////////////
 var app = builder.Build();
@@ -195,10 +199,12 @@ var app = builder.Build();
 EnsureDatabase.For.PostgresqlDatabase(platformConnectionString);
 SchemaMigrator.Platform.Upgrade(platformConnectionString);
 
-// creates the identity database too, if it isn't there yet
 using (var scope = app.Services.CreateScope())
 {
+    // creates the identity database too, if it isn't there yet
     await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+
+    await PlatformOperator.SyncAsync(scope.ServiceProvider);
 }
 
 var siteRepository = app.Services.GetRequiredService<SiteRepository>();

@@ -1,0 +1,43 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Domain.Platform
+@inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<SignUpCodeListing> Codes { get; set; } = default!;
+
+  private SignUpCodeListing? _codeToRevoke;
+
+  // re-renders the static page, which passes the updated codes back in
+  private void RefreshPage() => NavigationManager.Refresh();
+}
+
+<DisabledUntilInteractive>
+  @if (Codes.Count == 0)
+  {
+    <p>No unused codes.</p>
+  }
+  else
+  {
+    <DataTable Items="Codes" Headings="@(new[] { "For", "Made", "Expires", "" })">
+      <Row Context="signUpCode">
+        <DataTableCell>@signUpCode.Note</DataTableCell>
+        <DataTableCell><LocalDate Moment="signUpCode.CreatedAt" /></DataTableCell>
+        <DataTableCell>
+          <LocalDate Moment="signUpCode.ExpiresAt" />
+          @if (signUpCode.IsExpiredAt(TimeProvider.GetUtcNow()))
+          {
+            <span class="text-gray-500">(expired)</span>
+          }
+        </DataTableCell>
+        <DataTableCell Class="text-right">
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerText" @onclick="() => _codeToRevoke = signUpCode">Revoke</ButtonBasic>
+        </DataTableCell>
+      </Row>
+    </DataTable>
+  }
+
+  <RevokeSignUpCodeDialog @bind-Code="_codeToRevoke" OnRevoked="RefreshPage" />
+</DisabledUntilInteractive>

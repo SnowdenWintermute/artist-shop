@@ -1,0 +1,43 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Platform
+@inject SignUpCodeRepository SignUpCodeRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public SignUpCodeListing? Code { get; set; }
+  [Parameter]
+  public EventCallback<SignUpCodeListing?> CodeChanged { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnRevoked { get; set; }
+
+  private bool _isRevoking;
+
+  private Task HandleOpenChanged(bool open) =>
+    open || _isRevoking ? Task.CompletedTask : CodeChanged.InvokeAsync(null);
+
+  private async Task RevokeAsync(SignUpCodeListing code)
+  {
+    _isRevoking = true;
+
+    try
+    {
+      await SignUpCodeRepository.DeleteAsync(code.Id);
+      await OnRevoked.InvokeAsync();
+    }
+    finally
+    {
+      _isRevoking = false;
+    }
+
+    await CodeChanged.InvokeAsync(null);
+  }
+}
+
+@if (Code is { } code)
+{
+  <ConfirmDialog Open="true" OpenChanged="HandleOpenChanged" Title="@($"Revoke the code for {code.Note}?")"
+                 ConfirmLabel="Revoke" OnConfirm="() => RevokeAsync(code)" IsWorking="_isRevoking">
+    Nobody will be able to sign up with it.
+  </ConfirmDialog>
+}
