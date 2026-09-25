@@ -31,4 +31,7 @@ public static class ArtistShopLimits
 
     // sign_up_codes.note
     public const int SignUpCodeNoteMaximumLength = 200;
+
+    // site_invites.email: the longest address email allows
+    public const int EmailMaximumLength = 254;
 }

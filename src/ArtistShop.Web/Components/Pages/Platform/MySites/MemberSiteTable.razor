@@ -1,0 +1,46 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@inject SiteRepository SiteRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<MemberSite> Sites { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string UserId { get; set; } = default!;
+
+  private async Task LeaveAsync(MemberSite site)
+  {
+    await SiteRepository.RemoveAdminAsync(site.SiteId, UserId);
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+}
+
+@* each host has its own sign-in cookie, so signing in here doesn't reach the websites *@
+<p class="mb-4">
+  Each website has its own sign-in. If Manage asks you to sign in, use this same email and password.
+</p>
+
+<DataTable Items="Sites" Headings="@(new[] { "Address", "Role", "" })" Class="mb-4">
+  <Row Context="site">
+    <DataTableCell>
+      <a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, site.MainHost)">@site.MainHost.Value</a>
+    </DataTableCell>
+    <DataTableCell>@site.Role</DataTableCell>
+    <DataTableCell Class="text-right">
+      <div class="flex justify-end gap-4">
+        <a class="underline" href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">Manage</a>
+        @* an owner hands the website over or deletes it instead *@
+        @if (site.Role is SiteRole.Admin)
+        {
+          <ConfirmFormDialog OpenLabel="Leave" Title="@($"Leave {site.MainHost.Value}?")" ConfirmLabel="Leave"
+                             FormName="@($"leave-site-{site.SiteId.Value}")" OnConfirm="() => LeaveAsync(site)">
+            You won't be able to edit it any more. Its owner can invite you again.
+          </ConfirmFormDialog>
+        }
+      </div>
+    </DataTableCell>
+  </Row>
+</DataTable>

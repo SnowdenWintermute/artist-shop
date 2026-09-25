@@ -1,0 +1,62 @@
+@page "/admin/admins"
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Policy = SitePolicies.Owner)]
+@inject SiteRepository SiteRepository
+@inject SiteInviteRepository SiteInviteRepository
+@inject UserManager<ApplicationUser> UserManager
+@inject CurrentSite CurrentSite
+
+@code {
+  private List<AdminListing> _members = [];
+  private List<SiteInvite> _invites = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    var members = await SiteRepository.GetMembersAsync(CurrentSite.Id);
+    var userIds = members.Select(member => member.UserId).ToList();
+    // accounts are in the identity database, so their emails are looked up separately
+    var emails = await UserManager
+      .Users.Where(user => userIds.Contains(user.Id))
+      .ToDictionaryAsync(user => user.Id, user => user.Email);
+
+    // the owner first, then admins by email
+    _members =
+    [
+      .. members
+        .Select(member => new AdminListing(
+          member.UserId,
+          emails.GetValueOrDefault(member.UserId)
+            ?? throw new InvalidOperationException($"Member {member.UserId} has no account or no email."),
+          member.Role
+        ))
+        .OrderBy(member => member.Role)
+        .ThenBy(member => member.Email),
+    ];
+
+    _invites = [.. (await SiteInviteRepository.GetForSiteAsync(CurrentSite.Id)).OrderBy(invite => invite.Email.Value)];
+  }
+}
+
+<PageTitle>Admins</PageTitle>
+
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Admins</h1>
+  <p class="mb-4">Admins can edit this website's artworks and posts. Only you, its owner, can invite or remove them.</p>
+
+  <AdminTable Members="_members" />
+
+  <h2 class="mb-2 text-lg">Invitations</h2>
+  <InviteTable Invites="_invites" />
+
+  <h2 class="mb-2 text-lg">Invite an admin</h2>
+  <p class="mb-4">
+    They'll get an email. They accept on My websites, signed in with that email, within @SiteInvite.DaysValid days.
+  </p>
+  <InviteAdminForm Members="_members" />
+</AdminPanel>

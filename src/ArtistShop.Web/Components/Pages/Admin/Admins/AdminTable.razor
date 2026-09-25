@@ -1,0 +1,35 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Sites
+@inject SiteRepository SiteRepository
+@inject CurrentSite CurrentSite
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<AdminListing> Members { get; set; } = default!;
+
+  private async Task RemoveAsync(AdminListing member)
+  {
+    await SiteRepository.RemoveAdminAsync(CurrentSite.Id, member.UserId);
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+}
+
+<DataTable Items="Members" Headings="@(new[] { "Email", "Role", "" })" Class="mb-6">
+  <Row Context="member">
+    <DataTableCell>@member.Email</DataTableCell>
+    <DataTableCell>@member.Role</DataTableCell>
+    <DataTableCell Class="text-right">
+      @if (member.Role is SiteRole.Admin)
+      {
+        <ConfirmFormDialog OpenLabel="Remove" Title="@($"Remove {member.Email}?")" ConfirmLabel="Remove"
+                           FormName="@($"remove-admin-{member.UserId}")" OnConfirm="() => RemoveAsync(member)">
+          They won't be able to edit this website any more. You can invite them again.
+        </ConfirmFormDialog>
+      }
+    </DataTableCell>
+  </Row>
+</DataTable>

@@ -130,6 +130,37 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         return [.. rows.Select(row => row.ToMemberSite())];
     }
 
+    public async Task<List<SiteMember>> GetMembersAsync(SiteId siteId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        var rows = await connection.QueryAsync<SiteMemberRow>(
+            "SELECT * FROM get_site_members(@SiteId)",
+            new { SiteId = siteId.Value }
+        );
+
+        return [.. rows.Select(row => new SiteMember(row.UserId, row.Role))];
+    }
+
+    // an owner removing an admin, or an admin leaving. Never removes the owner
+    public async Task RemoveAdminAsync(SiteId siteId, string userId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync(
+            "SELECT remove_site_admin(@SiteId, @UserId)",
+            new { SiteId = siteId.Value, UserId = userId }
+        );
+    }
+
+    private sealed class SiteMemberRow
+    {
+        public required string UserId { get; init; }
+
+        // Dapper turns the smallint into the enum value with that number
+        public required SiteRole Role { get; init; }
+    }
+
     private sealed class MemberSiteRow
     {
         public required int SiteId { get; init; }
@@ -150,7 +181,8 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         public SiteHost ToSiteHost() => new(ReadStoredHost(Host), new SiteId(SiteId), IsMain);
     }
 
-    // every stored host was written from a HostName's Value, so reading it back changes nothing
-    private static HostName ReadStoredHost(string host) =>
+    // Every stored host was written from a HostName's Value, so reading it back changes nothing.
+    // Internal for the other repositories that read site_hosts in their joins
+    internal static HostName ReadStoredHost(string host) =>
         HostName.Read(host) ?? throw new InvalidOperationException($"site_hosts holds \"{host}\", which isn't a host name.");
 }

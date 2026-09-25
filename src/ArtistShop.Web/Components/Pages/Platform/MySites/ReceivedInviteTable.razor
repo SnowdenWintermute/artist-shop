@@ -1,0 +1,52 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain
+@using ArtistShop.Web.Domain.Sites
+@inject SiteInviteRepository SiteInviteRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ReceivedInvite> Invites { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string UserId { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EmailAddress Email { get; set; } = default!;
+
+  // one that expired or was revoked since the page loaded adds nobody; the reloaded page leaves it out
+  private async Task AcceptAsync(ReceivedInvite invite)
+  {
+    await SiteInviteRepository.AcceptAsync(invite.SiteId, Email, UserId);
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+
+  private async Task DeclineAsync(ReceivedInvite invite)
+  {
+    await SiteInviteRepository.DeleteAsync(invite.SiteId, Email);
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+}
+
+<h2 class="mb-2 text-lg">Invitations</h2>
+
+<DataTable Items="Invites" Headings="@(new[] { "Website", "Expires", "" })" Class="mb-6">
+  <Row Context="invite">
+    <DataTableCell>@invite.MainHost.Value</DataTableCell>
+    <DataTableCell><LocalDate Moment="invite.ExpiresAt" /></DataTableCell>
+    <DataTableCell Class="text-right">
+      <div class="flex justify-end gap-2">
+        <form method="post" @formname="@($"accept-invite-{invite.SiteId.Value}")" @onsubmit="() => AcceptAsync(invite)"
+              data-enhance>
+          <AntiforgeryToken />
+          <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Accept</ButtonBasic>
+        </form>
+        <form method="post" @formname="@($"decline-invite-{invite.SiteId.Value}")" @onsubmit="() => DeclineAsync(invite)"
+              data-enhance>
+          <AntiforgeryToken />
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline">Decline</ButtonBasic>
+        </form>
+      </div>
+    </DataTableCell>
+  </Row>
+</DataTable>

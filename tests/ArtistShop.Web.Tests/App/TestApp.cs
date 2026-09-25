@@ -1,4 +1,5 @@
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
@@ -31,6 +32,10 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
 
     // every email the app sends, kept rather than sent
     public CapturingMailer Mailer { get; } = new();
+
+    private SiteId? _firstSiteId;
+
+    public SiteId FirstSiteId => _firstSiteId ?? throw new InvalidOperationException("The first site isn't made yet.");
 
     private readonly string _imageStorageRootPath = Path.Combine(
         Path.GetTempPath(),
@@ -74,7 +79,7 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         SeededAccounts.ThrowIfFailed(await userManager.CreateAsync(owner, Password), "Creating the first site's owner");
 
         var host = HostName.Read(FirstSiteHost) ?? throw new InvalidOperationException("Not a host.");
-        await Services.GetRequiredService<SiteProvisioner>().CreateAsync([host], owner.Id);
+        _firstSiteId = await Services.GetRequiredService<SiteProvisioner>().CreateAsync([host], owner.Id);
         await Services.GetRequiredService<HostDirectory>().ReloadAsync();
     }
 
@@ -88,6 +93,32 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
                 .CreateAsync(new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true }, Password),
             "Making the account"
         );
+        return email;
+    }
+
+    // Identity's id for the account with this email
+    public async Task<string> UserIdAsync(string email)
+    {
+        using var scope = Services.CreateScope();
+        var account =
+            await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByEmailAsync(email)
+            ?? throw new InvalidOperationException($"{email} has no account.");
+        return account.Id;
+    }
+
+    // a new account, invited to the first site and accepted, as My websites accepts; its email
+    public async Task<string> MakeFirstSiteAdminAsync()
+    {
+        var email = await MakeAccountAsync();
+        var address = EmailAddress.Read(email) ?? throw new InvalidOperationException("Not an email address.");
+        var invites = Services.GetRequiredService<SiteInviteRepository>();
+
+        await invites.AddAsync(FirstSiteId, address, DateTimeOffset.UtcNow.AddDays(1));
+        if (!await invites.AcceptAsync(FirstSiteId, address, await UserIdAsync(email)))
+        {
+            throw new InvalidOperationException("The invitation wasn't accepted.");
+        }
+
         return email;
     }
 

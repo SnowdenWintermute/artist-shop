@@ -1,0 +1,48 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Sites
+@inject SiteInviteRepository SiteInviteRepository
+@inject CurrentSite CurrentSite
+@inject TimeProvider TimeProvider
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<SiteInvite> Invites { get; set; } = default!;
+
+  private async Task RevokeAsync(SiteInvite invite)
+  {
+    await SiteInviteRepository.DeleteAsync(CurrentSite.Id, invite.Email);
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+}
+
+@if (Invites.Count == 0)
+{
+  <p class="mb-6">No invitations waiting.</p>
+}
+else
+{
+  <DataTable Items="Invites" Headings="@(new[] { "Email", "Expires", "" })" Class="mb-6">
+    <Row Context="invite">
+      <DataTableCell>@invite.Email.Value</DataTableCell>
+      <DataTableCell>
+        <LocalDate Moment="invite.ExpiresAt" />
+        @if (invite.IsExpiredAt(TimeProvider.GetUtcNow()))
+        {
+          <span class="text-gray-500">(expired)</span>
+        }
+      </DataTableCell>
+      <DataTableCell Class="text-right">
+        <ConfirmFormDialog OpenLabel="Revoke" Title="@($"Revoke the invitation for {invite.Email.Value}?")"
+                           ConfirmLabel="Revoke" FormName="@($"revoke-invite-{invite.Email.Value}")"
+                           OnConfirm="() => RevokeAsync(invite)">
+          They won't be able to accept it. You can invite them again.
+        </ConfirmFormDialog>
+      </DataTableCell>
+    </Row>
+  </DataTable>
+}

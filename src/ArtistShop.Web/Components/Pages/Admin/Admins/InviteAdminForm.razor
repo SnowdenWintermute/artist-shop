@@ -1,0 +1,60 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Email
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@inject SiteInviteRepository SiteInviteRepository
+@inject SiteEmails SiteEmails
+@inject CurrentSite CurrentSite
+@inject PlatformSettings PlatformSettings
+@inject TimeProvider TimeProvider
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<AdminListing> Members { get; set; } = default!;
+
+  [SupplyParameterFromForm(FormName = "invite-admin")]
+  private InviteForm Input { get; set; } = default!;
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task InviteAsync()
+  {
+    var email = Input.ToEmail();
+
+    // accounts' emails are compared as invitations keep them
+    if (Members.Any(member => EmailAddress.Read(member.Email) == email))
+    {
+      Input.AddAlreadyMemberError();
+      return;
+    }
+
+    await SiteInviteRepository.AddAsync(CurrentSite.Id, email, TimeProvider.GetUtcNow().AddDays(SiteInvite.DaysValid));
+
+    // other hosts redirect to the main one, so the request's host is the site's main host
+    var site = HostName.Read(HttpContext.Request.Host.Host) ?? throw new InvalidOperationException("The request has no host.");
+    await SiteEmails.SendInviteAsync(
+      email,
+      Unwrap.Value(HttpContext.User.Identity?.Name),
+      site,
+      PageUrls.PlatformMySites(NavigationManager.BaseUri, PlatformSettings.Host)
+    );
+
+    // redirect to this same page: the list reloads, and refreshing the browser won't post again
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+}
+
+<EditForm EditContext="Input.EditContext" FormName="invite-admin" OnValidSubmit="InviteAsync" Enhance>
+  <DataAnnotationsValidator />
+
+  <TextField Label="Email" @bind-Value="Input.Email" type="email" autocomplete="off" />
+  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Invite</ButtonBasic>
+</EditForm>

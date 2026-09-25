@@ -2,35 +2,76 @@
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — end of 2026-09-25
+## Where this stands — 2026-09-25, step 6a (invites) built
 
-**All committed by Mike:** the schema per site (`c9cf08f`) and 5d, "My websites" (`61f312a`),
-both browser-checked. 550 tests. Nothing is deployed.
+**Uncommitted, 577 tests pass, not browser-checked yet.** Committed before it: the schema per site
+(`c9cf08f`), 5d "My websites" (`61f312a`) and its review fixes (`3f928e8`). Nothing is deployed.
 
-**Start of next session: step 6, owner features.** Three parts: inviting admins, handing over
-ownership, and deleting a site with its 30-day grace period. Already decided (multi-tenancy notes):
-one owner per site, any number of admins who edit content only; memberships live in the platform's
-`site_members` (role 1 owner, 2 admin; a unique index allows one owner per site); ownership goes
-only to one of the site's admins; deleting a site or an owner's account waits 30 days before
-anything is erased, tested with `FakeTimeProvider`; an owner who deletes their account takes their
-sites with them. Design the pages with Mike before writing routes. Questions to settle first:
-1. **Order.** Invites first is likely: the other two need an admin to exist, and the site_members
-   table has no way to add one yet (`add_site` only adds the owner).
-2. **Where an owner manages admins:** a page in the site's own admin (`/admin/…` on the site's
-   host, behind a new owner-only policy next to `SitePolicies.Admin`), or on the platform beside
-   My websites.
-3. **Invites:** an emailed link with a random token stored hashed, as sign-up codes are; how long
-   it lasts; revoking one; what happens when the email has no account yet (register, confirm,
-   then accept), and whether an invite is tied to the email or to whoever holds the link. Removing
-   an admin, and an admin leaving a site.
-4. **Deleting a site:** what visitors and admins see during the 30 days (a 404, or a "closed"
-   page), whether the owner can undo it, what runs at the end (`DROP SCHEMA … CASCADE`, the image
-   folders, the hosts) and what runs it (a background service like the orphaned image sweep). A
-   freed host can be signed up for again, which is the subdomain takeover risk noted in the
-   multi-tenancy notes for custom domains.
-5. **Deleting an account:** Identity's own "Delete personal data" page exists but doesn't know
-   about sites; it would need to start the grace period for the account's owned sites and remove
-   its admin memberships.
+**Built (decisions 2 and 3 below):**
+- **Platform database:** `site_invites` (script 0005; `(site_id, email)` key, lowercase email,
+  `expires_at`), functions in `Procedures/SiteInvites/` (`accept_site_invite` uses up the
+  invitation and adds the admin in one transaction, false when expired or gone), and
+  `get_site_members` and `remove_site_admin` (deletes role 2 rows only, so never the owner).
+- **`SiteInviteRepository`**; `SiteRepository` gained `GetMembersAsync` and `RemoveAdminAsync`.
+  `EmailAddress` (Domain) trims and lowercases; `SiteInvite.DaysValid` is 7.
+- **Authorization:** `SiteAdminHandler` became `SiteRoleHandler` with a `SiteRoleRequirement`
+  naming the roles allowed; `SitePolicies.Owner` joins `Admin` (`Sites/SiteAuthorization.cs`).
+- **Admins page** `/admin/admins` (`Pages/Admin/Admins/`), owner only, linked from the dashboard
+  for owners: members with Remove, invitations with Revoke, and an invite form that refuses a
+  current member and sends `SiteEmails.SendInviteAsync` linking to My websites on the platform.
+- **My websites:** Invitations for the account's email (read from `UserManager`, not the cookie)
+  with Accept and Decline; Leave on admin rows.
+- **No islands.** `ConfirmFormDialog` (Dialogs) is `ConfirmDialog` for static pages: a
+  `ModalDialog` opened by its own button (`ReopenLabel` + `StartsClosed`; `ModalDialog` gained
+  `ReopenVariant` and `ReopenLayoutClass`) holding a plain `<form>` whose `@formname` includes
+  the row's id. Blazor routes each post to that row's form (tested). The confirm forms aren't
+  enhanced: after an enhanced post removes a row, the next row's elements would take over the
+  open dialog.
+
+**Browser check for Mike:** the Remove/Revoke/Leave buttons sit in table cells with the wrapper
+as `contents`; the dialogs open, Cancel and Escape close them; an invitation email arrives in
+Mailpit and its link reaches My websites; accepting shows the site with Manage and Leave.
+
+**Next after review: 6b, handing over ownership**, then 6c deleting a site, 6d deleting an account.
+
+**Next: step 6, owner features. Decided with Mike, 2026-09-25.** Already decided before
+(multi-tenancy notes): one owner per site, any number of admins who edit content only; memberships
+live in the platform's `site_members` (role 1 owner, 2 admin; a unique index allows one owner per
+site); ownership goes only to one of the site's admins; 30-day grace periods tested with
+`FakeTimeProvider`. Most actions below ask first in a `ConfirmDialog` (as the operator page's
+Revoke does), so the pages that have them hold an interactive island, like `SignUpCodeTable`.
+
+1. **Order:** invites (with removing an admin and leaving a site) → handing over ownership →
+   deleting a site → deleting an account. Each needs the one before it.
+2. **Admins page** at `/admin/admins` on the site's own host, behind a new owner-only
+   `SitePolicies.Owner`. Lists the members (owner, admins with Remove), pending invitations (with
+   Revoke, and when each expires) and an invite form taking an email. Removing takes effect on the
+   admin's next request, since `SiteAdminHandler` asks every time. **Leaving** is on My websites (a
+   Leave button on an admin's row), since it's about the account and needs no sign-in on the site.
+   An owner can't leave: they hand the site over or delete it.
+3. **Invites are tied to an email, with no token.** A platform row `(site, email, invited_at,
+   expires_at)`, lasting 7 days; inviting the same email again replaces it. The email says who
+   invited them to which site and links to My websites, which lists "Invitations" for the signed-in
+   account's email with Accept and Decline. This is safe because `RequireConfirmedAccount` is on:
+   nobody reaches My websites as that email without confirming it, so a forwarded link grants
+   nothing. Someone with no account registers with that email, confirms, signs in, and the invite
+   is waiting. Deferred: a per-site limit on invites sent, before open sign-up (an owner can make
+   the server email any address).
+4. **Deleting a site:** the owner types the site's name to confirm. For 30 days every host of the
+   site is a 404, to visitors and admins alike; the hosts stay taken; My websites shows "Deleting
+   on <date>" and the owner gets "Keep this website". At the end a daily background service (like
+   the orphaned image sweep) runs `DROP SCHEMA IF EXISTS … CASCADE`, removes the image folders,
+   then deletes the `sites` row (its hosts and members go with it). Every step can run again, so a
+   crash partway is finished next time. Freed subdomains can be signed up for again; custom domains
+   are only added by hand, so takeover isn't a concern yet.
+5. **Deleting an account** (Identity's "Delete personal data" page) puts every site the account owns
+   into its 30-day grace period and removes the account's admin memberships on other sites. The
+   account itself is deleted at once, as Identity does now, and there's no reinstating: the page
+   warns that it's permanent and takes their websites with it. The owned sites' own member rows
+   (the owner's and their admins') stay until the site is erased, when the `sites` row's
+   `ON DELETE CASCADE` removes them, so no membership outlives its site. Order: the platform
+   changes first, then the Identity delete, since they're two databases: if the delete then fails,
+   the account still exists and can keep its sites.
 
 Deferred still: a profanity filter on site names; choosing the email provider (at deploy);
 dropping orphan schemas; the review follow-ups under the multi-tenancy notes (operator role

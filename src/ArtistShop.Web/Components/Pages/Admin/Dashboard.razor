@@ -39,6 +39,14 @@
            ActiveClass="underline">
     Posts
   </NavLink>
+  <AuthorizeView Policy="@SitePolicies.Owner">
+    <Authorized>
+      <NavLink class="font-sans text-xl text-theme-base hover:text-theme-hovered" href="@PageUrls.SiteAdmins"
+               ActiveClass="underline">
+        Admins
+      </NavLink>
+    </Authorized>
+  </AuthorizeView>
   @foreach (var artworkType in _artworkTypes)
   {
     <NavLink class="font-sans text-xl text-theme-base hover:text-theme-hovered"

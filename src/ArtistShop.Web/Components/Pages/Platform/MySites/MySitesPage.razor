@@ -1,26 +1,45 @@
 @page "/sites"
-@using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Sites
 @using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
 @attribute [ServedOn(HostTypes.Platform)]
 @attribute [Authorize]
 @inject SiteRepository SiteRepository
-@inject NavigationManager NavigationManager
+@inject SiteInviteRepository SiteInviteRepository
+@inject UserManager<ApplicationUser> UserManager
 
 @code {
   [CascadingParameter]
   private HttpContext HttpContext { get; set; } = default!;
 
+  private string _userId = "";
+  private EmailAddress? _email;
   private List<MemberSite> _sites = [];
+  private List<ReceivedInvite> _invites = [];
 
   protected override async Task OnInitializedAsync()
   {
-    var sites = await SiteRepository.GetForMemberAsync(HttpContext.User.RequiredUserId());
+    // Read from the account rather than the sign-in cookie, which can hold an email since changed.
+    // Signing in needs a confirmed email, and a new one only replaces it once confirmed, so this
+    // is an address the person has shown they receive
+    var account =
+      await UserManager.GetUserAsync(HttpContext.User)
+      ?? throw new InvalidOperationException("A signed-in account wasn't found.");
+    _userId = account.Id;
+    _email =
+      EmailAddress.Read(Unwrap.Value(account.Email))
+      ?? throw new InvalidOperationException($"Account {account.Id}'s email isn't an email address.");
 
+    var sites = await SiteRepository.GetForMemberAsync(_userId);
     _sites = [.. sites.OrderBy(site => site.MainHost.Value)];
+
+    var invites = await SiteInviteRepository.GetForEmailAsync(_email);
+    _invites = [.. invites.OrderBy(invite => invite.MainHost.Value)];
   }
 }
 
@@ -35,22 +54,12 @@
   }
   else
   {
-    @* each host has its own sign-in cookie, so signing in here doesn't reach the websites *@
-    <p class="mb-4">
-      Each website has its own sign-in. If Manage asks you to sign in, use this same email and password.
-    </p>
+    <MemberSiteTable Sites="_sites" UserId="@_userId" />
+  }
 
-    <DataTable Items="_sites" Headings="@(new[] { "Address", "Role", "" })" Class="mb-4">
-      <Row Context="site">
-        <DataTableCell>
-          <a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, site.MainHost)">@site.MainHost.Value</a>
-        </DataTableCell>
-        <DataTableCell>@site.Role</DataTableCell>
-        <DataTableCell Class="text-right">
-          <a class="underline" href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">Manage</a>
-        </DataTableCell>
-      </Row>
-    </DataTable>
+  @if (_invites.Count > 0 && _email is { } email)
+  {
+    <ReceivedInviteTable Invites="_invites" UserId="@_userId" Email="email" />
   }
 
   <p>Have a sign-up code? <a class="underline" href="@PageUrls.SignUp">Make a website</a>.</p>

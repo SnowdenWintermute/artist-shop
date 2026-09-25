@@ -1,5 +1,6 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Tests.Database;
@@ -143,6 +144,38 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var site = Assert.Single(await _sites.GetForMemberAsync(owner));
 
         Assert.Equal(new MemberSite(siteId, main, SiteRole.Owner), site);
+    }
+
+    [Fact]
+    public async Task ASitesMembersAreListedWithTheirRoles()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("members")], OwnerUserId);
+        await AddAdminAsync(siteId, "admin");
+
+        var members = await _sites.GetMembersAsync(siteId);
+
+        Assert.Equivalent(new[] { new SiteMember(OwnerUserId, SiteRole.Owner), new SiteMember("admin", SiteRole.Admin) }, members);
+    }
+
+    [Fact]
+    public async Task RemovingAnAdminNeverRemovesTheOwner()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("removing")], OwnerUserId);
+        await AddAdminAsync(siteId, "admin");
+
+        await _sites.RemoveAdminAsync(siteId, "admin");
+        await _sites.RemoveAdminAsync(siteId, OwnerUserId);
+
+        Assert.Equal(new SiteMember(OwnerUserId, SiteRole.Owner), Assert.Single(await _sites.GetMembersAsync(siteId)));
+    }
+
+    // as an accepted invitation makes one
+    private async Task AddAdminAsync(SiteId siteId, string userId)
+    {
+        var invites = new SiteInviteRepository(database.PlatformDataSource);
+        var email = EmailAddress.Read($"{Guid.NewGuid():n}@example.com") ?? throw new InvalidOperationException("Not an email address.");
+        await invites.AddAsync(siteId, email, DateTimeOffset.UtcNow.AddDays(1));
+        await invites.AcceptAsync(siteId, email, userId);
     }
 
     private async Task<SignUpCode> NewSignUpCodeAsync(DateTimeOffset expiresAt)

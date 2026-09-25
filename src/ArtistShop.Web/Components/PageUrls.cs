@@ -29,16 +29,23 @@ public static class PageUrls
     // on the platform's host
     public const string MySites = "/sites";
 
+    // on a site's host, for its owner
+    public const string SiteAdmins = "/admin/admins";
+
     // A site's home page and its admin, on the platform page's scheme and port (5176 in dev). Being
     // signed in on the platform doesn't sign anyone in there: each host has its own cookie, so the
     // admin sends someone not signed in on that site to its sign-in first
-    public static string SiteHome(string platformBaseUri, HostName siteHost) => OnSite(platformBaseUri, siteHost, "/");
+    public static string SiteHome(string platformBaseUri, HostName siteHost) => OnHost(platformBaseUri, siteHost, "/");
 
     public static string SiteAdmin(string platformBaseUri, HostName siteHost) =>
-        OnSite(platformBaseUri, siteHost, "/admin");
+        OnHost(platformBaseUri, siteHost, "/admin");
 
-    private static string OnSite(string platformBaseUri, HostName siteHost, string path) =>
-        new UriBuilder(platformBaseUri) { Host = siteHost.Value, Path = path }.Uri.AbsoluteUri;
+    // My websites from a site's page, such as in an invitation's email
+    public static string PlatformMySites(string siteBaseUri, HostName platformHost) =>
+        OnHost(siteBaseUri, platformHost, MySites);
+
+    private static string OnHost(string baseUri, HostName host, string path) =>
+        new UriBuilder(baseUri) { Host = host.Value, Path = path }.Uri.AbsoluteUri;
 
     // on the platform's host
     public const string Register = "/Account/Register";

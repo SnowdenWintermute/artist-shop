@@ -63,6 +63,9 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton(services =>
     new SignUpCodeRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
 );
+builder.Services.AddSingleton(services =>
+    new SiteInviteRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
 
 // every site's schema, in the platform database and reached through one shared pool
 const string SitesDataSourceKey = "sites";
@@ -199,15 +202,21 @@ builder.Services.AddSingleton<Mailer, SmtpMailer>();
 builder.Services.AddSingleton<AccountEmails>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(services => services.GetRequiredService<AccountEmails>());
 builder.Services.AddScoped<AccountRegistration>();
+builder.Services.AddSingleton<SiteEmails>();
 
 // site rights come from site membership in the platform database, not Identity's roles, which are
 // the same on every site. Scoped, since the handler asks about the current site
-builder.Services.AddScoped<IAuthorizationHandler, SiteAdminHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, SiteRoleHandler>();
 builder
     .Services.AddAuthorizationBuilder()
     .AddPolicy(
         SitePolicies.Admin,
-        policy => policy.RequireAuthenticatedUser().AddRequirements(new SiteAdminRequirement())
+        policy =>
+            policy.RequireAuthenticatedUser().AddRequirements(new SiteRoleRequirement([SiteRole.Owner, SiteRole.Admin]))
+    )
+    .AddPolicy(
+        SitePolicies.Owner,
+        policy => policy.RequireAuthenticatedUser().AddRequirements(new SiteRoleRequirement([SiteRole.Owner]))
     )
     .AddPolicy(PlatformPolicies.Operator, policy => policy.RequireRole(PlatformOperator.RoleName));
 
