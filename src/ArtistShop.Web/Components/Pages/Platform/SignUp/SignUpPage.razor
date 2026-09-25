@@ -33,8 +33,9 @@
 
     switch (result)
     {
-      case SiteSignUpResult.Made made:
-        NavigationManager.NavigateTo(SiteSignInUrl(made.Host));
+      // the new site is listed there, with how to sign in to it
+      case SiteSignUpResult.Made:
+        NavigationManager.NavigateTo(PageUrls.MySites);
         break;
       case SiteSignUpResult.CodeNotUsable:
         Input.AddCodeNotUsableError();
@@ -46,16 +47,6 @@
         throw new InvalidOperationException($"{result.GetType().Name} isn't a sign-up result.");
     }
   }
-
-  // The new site's sign-in page, going on to its admin, on this page's scheme and port (5176 in
-  // dev). Being signed in here doesn't sign anyone in there: each host has its own cookie
-  private string SiteSignInUrl(HostName host) =>
-    new UriBuilder(NavigationManager.BaseUri)
-    {
-      Host = host.Value,
-      Path = "/Account/Login",
-      Query = "ReturnUrl=%2Fadmin",
-    }.Uri.AbsoluteUri;
 }
 
 <PageTitle>Make your website</PageTitle>
@@ -64,8 +55,7 @@
   <h1 class="mb-4 text-xl">Make your website</h1>
   <p class="mb-4">It will belong to @HttpContext.User.Identity?.Name.</p>
 
-  @* not enhanced: success leaves for another host, which a full page load reaches most simply *@
-  <EditForm EditContext="Input.EditContext" FormName="sign-up" OnValidSubmit="SignUpAsync" class="mb-6">
+  <EditForm EditContext="Input.EditContext" FormName="sign-up" OnValidSubmit="SignUpAsync" Enhance class="mb-6">
     <DataAnnotationsValidator />
 
     <TextField Label="Sign-up code" @bind-Value="Input.Code" autocomplete="off" />

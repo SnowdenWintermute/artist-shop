@@ -4,6 +4,7 @@ using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.ArtworkPicker;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
+using ArtistShop.Web.Domain.Sites;
 
 namespace ArtistShop.Web.Components;
 
@@ -24,6 +25,28 @@ public static class PageUrls
 
     // on the platform's host
     public const string SignUp = "/signup";
+
+    // on the platform's host
+    public const string MySites = "/sites";
+
+    // A site's home page and its admin, on the platform page's scheme and port (5176 in dev). Being
+    // signed in on the platform doesn't sign anyone in there: each host has its own cookie, so the
+    // admin sends someone not signed in on that site to its sign-in first
+    public static string SiteHome(string platformBaseUri, HostName siteHost) => OnSite(platformBaseUri, siteHost, "/");
+
+    public static string SiteAdmin(string platformBaseUri, HostName siteHost) =>
+        OnSite(platformBaseUri, siteHost, "/admin");
+
+    private static string OnSite(string platformBaseUri, HostName siteHost, string path) =>
+        new UriBuilder(platformBaseUri) { Host = siteHost.Value, Path = path }.Uri.AbsoluteUri;
+
+    public static string SiteAdminSignIn(string platformBaseUri, HostName siteHost) =>
+        new UriBuilder(platformBaseUri)
+        {
+            Host = siteHost.Value,
+            Path = "/Account/Login",
+            Query = "ReturnUrl=%2Fadmin",
+        }.Uri.AbsoluteUri;
 
     // on the platform's host
     public const string Register = "/Account/Register";

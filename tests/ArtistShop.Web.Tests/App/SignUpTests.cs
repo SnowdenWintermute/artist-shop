@@ -14,7 +14,7 @@ namespace ArtistShop.Web.Tests.App;
 public sealed class SignUpTests(TestApp app)
 {
     [Fact]
-    public async Task SigningUpMakesASiteForTheSignedInAccountAndSendsItToTheSitesSignIn()
+    public async Task SigningUpMakesASiteForTheSignedInAccountAndSendsItToMyWebsites()
     {
         var email = await app.MakeAccountAsync();
         var name = NewName();
@@ -22,7 +22,7 @@ public sealed class SignUpTests(TestApp app)
         var response = await SignUpAsync(email, await app.MakeSignUpCodeAsync(), name);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal($"http://{name}.{TestApp.PlatformHost}/Account/Login?ReturnUrl=%2Fadmin", response.Headers.Location?.AbsoluteUri);
+        Assert.Equal("/sites", response.Headers.Location?.AbsolutePath);
         var home = await app.ClientFor($"{name}.{TestApp.PlatformHost}").GetAsync("/", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, home.StatusCode);
         Assert.Equal(SiteRole.Owner, await RoleAsync(name, email));

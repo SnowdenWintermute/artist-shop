@@ -117,6 +117,37 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
+    // every site the user is a member of, in no particular order
+    public async Task<List<MemberSite>> GetForMemberAsync(string userId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        var rows = await connection.QueryAsync<MemberSiteRow>(
+            "SELECT * FROM get_member_sites(@UserId)",
+            new { UserId = userId }
+        );
+
+        return [.. rows.Select(row => row.ToMemberSite())];
+    }
+
+    private sealed class MemberSiteRow
+    {
+        public required int SiteId { get; init; }
+        public required string MainHost { get; init; }
+
+        // Dapper turns the smallint into the enum value with that number
+        public required SiteRole Role { get; init; }
+
+        // the table's CHECK keeps every host lowercase, which is all Read changes
+        public MemberSite ToMemberSite() =>
+            new(
+                new SiteId(SiteId),
+                HostName.Read(MainHost)
+                    ?? throw new InvalidOperationException($"site_hosts holds \"{MainHost}\", which isn't a host name."),
+                Role
+            );
+    }
+
     private sealed class SiteHostRow
     {
         public required string Host { get; init; }

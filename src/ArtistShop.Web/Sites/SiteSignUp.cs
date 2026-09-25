@@ -11,7 +11,7 @@ public abstract record SiteSignUpResult
     // only the ones below
     private SiteSignUpResult() { }
 
-    public sealed record Made(SiteId SiteId, HostName Host) : SiteSignUpResult;
+    public sealed record Made : SiteSignUpResult;
 
     // never made, expired, used or revoked
     public sealed record CodeNotUsable : SiteSignUpResult;
@@ -45,11 +45,9 @@ public sealed class SiteSignUp(
             return new SiteSignUpResult.NameTaken();
         }
 
-        SiteId siteId;
-
         try
         {
-            siteId = await provisioner.CreateAsync(id => sites.AddWithSignUpCodeAsync(code, id, host, ownerUserId));
+            await provisioner.CreateAsync(id => sites.AddWithSignUpCodeAsync(code, id, host, ownerUserId));
         }
         catch (SignUpCodeNotUsableException)
         {
@@ -62,6 +60,6 @@ public sealed class SiteSignUp(
 
         await hostDirectory.ReloadAsync();
 
-        return new SiteSignUpResult.Made(siteId, host);
+        return new SiteSignUpResult.Made();
     }
 }

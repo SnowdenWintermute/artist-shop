@@ -131,6 +131,20 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         await _sites.AddNewWithSignUpCodeAsync(code, NewHost("another"), OwnerUserId);
     }
 
+    // the sites the account is a member of, each by its main host, and no one else's
+    [Fact]
+    public async Task AMembersSitesAreListedByTheirMainHosts()
+    {
+        var owner = $"owner-{Guid.NewGuid():n}";
+        var main = NewHost("listed");
+        var siteId = await _sites.AddNewAsync([main, NewHost("other-host")], owner);
+        await _sites.AddNewAsync([NewHost("someone-elses")], "someone-else");
+
+        var site = Assert.Single(await _sites.GetForMemberAsync(owner));
+
+        Assert.Equal(new MemberSite(siteId, main, SiteRole.Owner), site);
+    }
+
     private async Task<SignUpCode> NewSignUpCodeAsync(DateTimeOffset expiresAt)
     {
         var code = SignUpCode.New();

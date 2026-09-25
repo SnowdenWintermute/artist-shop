@@ -1,0 +1,60 @@
+@page "/sites"
+@using System.Security.Claims
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [ServedOn(HostTypes.Platform)]
+@attribute [Authorize]
+@inject SiteRepository SiteRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  private List<MemberSite> _sites = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    // Identity keeps the account's id in this claim; [Authorize] means there is one
+    var userId =
+      HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+      ?? throw new InvalidOperationException("A signed-in account has no id.");
+
+    _sites = [.. (await SiteRepository.GetForMemberAsync(userId)).OrderBy(site => site.MainHost.Value)];
+  }
+}
+
+<PageTitle>My websites</PageTitle>
+
+<AdminPanel>
+  <h1 class="mb-4 text-xl">My websites</h1>
+
+  @if (_sites.Count == 0)
+  {
+    <p class="mb-4">You don't have a website yet.</p>
+  }
+  else
+  {
+    @* each host has its own sign-in cookie, so signing in here doesn't reach the websites *@
+    <p class="mb-4">
+      Each website has its own sign-in. If Manage asks you to sign in, use this same email and password.
+    </p>
+
+    <DataTable Items="_sites" Headings="@(new[] { "Address", "Role", "" })" Class="mb-4">
+      <Row Context="site">
+        <DataTableCell>
+          <a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, site.MainHost)">@site.MainHost.Value</a>
+        </DataTableCell>
+        <DataTableCell>@site.Role</DataTableCell>
+        <DataTableCell Class="text-right">
+          <a class="underline" href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">Manage</a>
+        </DataTableCell>
+      </Row>
+    </DataTable>
+  }
+
+  <p>Have a sign-up code? <a class="underline" href="@PageUrls.SignUp">Make a website</a>.</p>
+</AdminPanel>

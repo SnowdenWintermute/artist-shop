@@ -1,8 +1,45 @@
-# Next: commit the switch to a schema per site (browser check passed), then 5d (see "Multi-tenancy notes" near the end)
+# Next: Mike reviews 5d, "My websites" (built, uncommitted), then step 6 (see "Multi-tenancy notes" near the end)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25, schema per site built
+## Where this stands — 2026-09-25, 5d built
+
+**Uncommitted, 550 tests pass.** The schema-per-site switch before it is committed (`c9cf08f`),
+browser check passed.
+
+**Agreed with Mike:** a "My websites" page on the platform, a table, and sign-up lands there rather
+than on the new site's sign-in. An account is platform-wide (one Identity user), so the platform
+session can list its sites from `site_members`; only the sign-in cookie is per host, so the page
+says each website has its own sign-in with the same email and password.
+
+**What changed:**
+- **`/sites`** (`Pages/Platform/MySites/MySitesPage.razor`), platform only, `[Authorize]`: address
+  (links to the site's home), role, and Manage (the site's `/admin`, which sends anyone not signed in there to its sign-in first; Mike, 2026-09-25).
+  Sorted by address on the page; none says "You don't have a website yet." Both list and empty
+  state link to `/signup`.
+- **"My websites"** in the platform's top bar for anyone signed in (`PlatformNavMenu`).
+- **Data:** `get_member_sites(user_id)` (site id, main host, role) and
+  `SiteRepository.GetForMemberAsync`, returning `MemberSite` (`Domain/Sites`).
+- **Links:** `PageUrls.SiteHome` and `PageUrls.SiteAdmin` build a site's address on the platform
+  page's scheme and port; they replace `SignUpPage`'s own sign-in link.
+- **Sign-up** redirects to `/sites`; its form is now enhanced like the others, since success no
+  longer leaves for another host. `SiteSignUpResult.Made` carries nothing now.
+- Tests: `App/MySitesTests`, a repository test, and the sign-up test's redirect.
+- Seen while testing, not new: the whole-app tests log "An error occurred using the connection to
+  database 'artist_shop_tests_app_identity'": EF's first connection to the Identity database the
+  run just dropped, before it makes it. Present on the committed code too.
+
+**Mike's browser check:** `./dev.sh`, sign in on `http://localhost:5176`, then "My websites" in the
+bar: `site1.localhost` as Owner, its address opens its home, Manage opens its admin (its sign-in first
+if you aren't signed in there). Sign up for another website with a code from `/operator`: it lands on My websites with the
+new site listed. An account with no websites sees the empty message. **Passed (Mike, 2026-09-25)**; Manage then
+changed from the site's sign-in to its `/admin`, at Mike's request.
+
+**Later, noted for Mike (not decided):** one sign-in for the platform and every subdomain site by
+setting the cookie's domain to `.artshop.mikesilverman.net`; it wouldn't reach custom domains
+(step 7).
+
+## Earlier: schema per site built, 2026-09-25 (committed `c9cf08f`)
 
 **Uncommitted, 545 tests pass; Mike's browser check passed (2026-09-25).** Committed before it: 5c is `6edf69c`, and the schema-per-site
 decision is `74cf711`. Nothing is deployed.
@@ -1860,7 +1897,7 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
        `App/RegisterTests`, posting the real forms (`TestApp.PostFormAsync`, `SignedInClientAsync`).
      - **VPS:** drop the web env file's `FirstSite__*` lines and add the `Email__*` ones; the first
        site is made by registering, then signing up with a code from `/operator`.
-   - 5d. "My sites": the sites an account owns or administers, linking to each main host.
+   - 5d. **Built 2026-09-25:** "My websites" at `/sites`, the sites an account owns or administers, linking to each main host (see the top of this file).
    **Production subdomains** need a wildcard DNS record at Namecheap and a wildcard certificate,
    which Let's Encrypt only issues through DNS-01. Namecheap's API only opens for accounts past a
    threshold (about $50 balance or spend, or 20 domains) and whitelisted IPs; otherwise a CNAME for
