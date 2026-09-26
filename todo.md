@@ -1,13 +1,29 @@
-# Next: multi-tenancy step 6, owner features (see "Multi-tenancy notes" near the end)
+# Next: multi-tenancy step 6b, handing over ownership (see "Where this stands" below)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-25, step 6a (invites) built
+## Where this stands — end of 2026-09-26: 6a (invites) done, 6b (handing over ownership) next
 
-**Uncommitted, 577 tests pass, not browser-checked yet.** Committed before it: the schema per site
+**Committed by Mike:** 6a, invites (`2c4ae26`), browser-checked. Before it: the schema per site
 (`c9cf08f`), 5d "My websites" (`61f312a`) and its review fixes (`3f928e8`). Nothing is deployed.
 
-**Built (decisions 2 and 3 below):**
+**Uncommitted at hand-off:**
+- **Claude, 577 tests pass, needs one browser click-through:** the confirm button is no longer
+  part of `ConfirmFormDialog`. Mike found a button and a dialog as one component confusing and
+  hard to style. Now `ModalDialog` has an `Id`, `ConfirmFormDialog` is only the dialog (always
+  starts closed), and each row renders its own `ButtonBasic` with `data-opens-dialog="<id>"`,
+  which a page-wide click listener in `ModalDialog.razor.js` opens. The `ReopenVariant` and
+  `ReopenLayoutClass` parameters from 6a are gone. Check that Remove, Revoke and Leave open their
+  dialogs and that Cancel and Escape close them.
+- **Mike's own, in progress:** `text-left` on `ModalDialog`'s `<dialog>` (it sits in a
+  right-aligned cell), the Manage link on My websites styled as a bordered button (Leave, now a
+  `DangerText` button beside it, may want matching), `ArtworkThumbnail.razor`,
+  `ArtworkListRows.razor`.
+- The test runs log "An error occurred using the connection to database
+  'artist_shop_tests_app_identity'" though every test passes; probably Identity's startup check
+  before the fixture recreates the database, not confirmed to predate 6a.
+
+**What 6a built** (decisions 2 and 3 below):
 - **Platform database:** `site_invites` (script 0005; `(site_id, email)` key, lowercase email,
   `expires_at`), functions in `Procedures/SiteInvites/` (`accept_site_invite` uses up the
   invitation and adds the admin in one transaction, false when expired or gone), and
@@ -19,27 +35,38 @@ Claude writes features and Mike reviews them, as on the Postgres port and the bl
 - **Admins page** `/admin/admins` (`Pages/Admin/Admins/`), owner only, linked from the dashboard
   for owners: members with Remove, invitations with Revoke, and an invite form that refuses a
   current member and sends `SiteEmails.SendInviteAsync` linking to My websites on the platform.
-- **My websites:** Invitations for the account's email (read from `UserManager`, not the cookie)
-  with Accept and Decline; Leave on admin rows.
-- **No islands.** `ConfirmFormDialog` (Dialogs) is `ConfirmDialog` for static pages: a
-  `ModalDialog` opened by its own button (`ReopenLabel` + `StartsClosed`; `ModalDialog` gained
-  `ReopenVariant` and `ReopenLayoutClass`) holding a plain `<form>` whose `@formname` includes
-  the row's id. Blazor routes each post to that row's form (tested). The confirm forms aren't
-  enhanced: after an enhanced post removes a row, the next row's elements would take over the
-  open dialog.
+- **My websites:** Invitations for the account's email (read from `UserManager`, not the cookie,
+  which can hold an email since changed) with Accept and Decline; Leave on admin rows.
+- **No islands.** Confirmations use `ConfirmFormDialog` holding a plain `<form>` whose
+  `@formname` includes the row's id; Blazor routes each post to that row's form (tested). The
+  confirm forms aren't enhanced: after an enhanced post removes a row, the next row's elements
+  would take over the open dialog. Accept and Decline are enhanced forms with no dialog.
+- **Tests:** `SiteAdminsTests`, `MySitesTests`, `SiteInviteRepositoryTests`,
+  `SiteRoleHandlerTests`, `EmailAddressTests`; `TestApp` gained `FirstSiteId`, `UserIdAsync` and
+  `MakeFirstSiteAdminAsync`.
 
-**Browser check for Mike:** the Remove/Revoke/Leave buttons sit in table cells with the wrapper
-as `contents`; the dialogs open, Cancel and Escape close them; an invitation email arrives in
-Mailpit and its link reaches My websites; accepting shows the site with Manage and Leave.
-
-**Next after review: 6b, handing over ownership**, then 6c deleting a site, 6d deleting an account.
+**Start of next session: 6b, handing over ownership.** Already decided: ownership goes only to one
+of the site's admins. Design the page with Mike before writing it. Claude's suggestions, not yet
+agreed:
+1. **Where:** a "Make owner" button on an admin's row of the Admins page, with a
+   `ConfirmFormDialog` that says the current owner loses owner rights.
+2. **Immediate, or accepted by the new owner first?** Immediate is simplest. Accepting first
+   means nobody is handed a site (and later its deletion) without agreeing; it would work like an
+   invitation shown on My websites.
+3. **The old owner becomes an admin** rather than leaving, so they can still help, and can
+   leave from My websites.
+4. **Database:** one function swaps the two roles in a transaction. `unique_site_members_owner`
+   allows one owner, so the old owner is demoted before the new one is promoted.
+5. **Email** the new owner (and perhaps the old one) that it happened, via `SiteEmails`.
+6. After it, the old owner is still on the Admins page, which is now forbidden to them:
+   redirect them to the dashboard rather than to Access denied.
 
 **Next: step 6, owner features. Decided with Mike, 2026-09-25.** Already decided before
 (multi-tenancy notes): one owner per site, any number of admins who edit content only; memberships
 live in the platform's `site_members` (role 1 owner, 2 admin; a unique index allows one owner per
 site); ownership goes only to one of the site's admins; 30-day grace periods tested with
-`FakeTimeProvider`. Most actions below ask first in a `ConfirmDialog` (as the operator page's
-Revoke does), so the pages that have them hold an interactive island, like `SignUpCodeTable`.
+`FakeTimeProvider`. Most actions below ask first in a confirmation dialog: on static pages
+`ConfirmFormDialog` with no island (see 6a above).
 
 1. **Order:** invites (with removing an admin and leaving a site) → handing over ownership →
    deleting a site → deleting an account. Each needs the one before it.

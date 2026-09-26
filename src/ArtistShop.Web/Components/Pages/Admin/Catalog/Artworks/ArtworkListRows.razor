@@ -29,7 +29,9 @@ else
                Class="artist-shop-fades-while-loading">
       <Row Context="item">
         <DataTableCell>
-          <ArtworkThumbnail Image="item.PrimaryImage" Class="size-20" />
+          <a href="@RowHref(item)" class="border block w-fit">
+            <ArtworkThumbnail Image="item.PrimaryImage" Class="size-20" />
+          </a>
         </DataTableCell>
 
         <DataTableCell>

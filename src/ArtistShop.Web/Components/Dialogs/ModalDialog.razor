@@ -22,19 +22,16 @@
   // islands only: Escape does nothing while this is true, e.g. while saving
   [Parameter]
   public bool KeepOpen { get; set; }
-  // static pages only: a button left on the page that opens the dialog again after it's closed, or
-  // opens it the first time with StartsClosed
+  // static pages only: a button left on the page that opens the dialog again after it's closed
   [Parameter]
   public string? ReopenLabel { get; set; }
-  [Parameter]
-  public ButtonVariant ReopenVariant { get; set; } = ButtonVariant.Outline;
-  // the wrapper's classes while ReopenLabel shows a button, e.g. "contents" in a table cell
-  [Parameter]
-  public string ReopenLayoutClass { get; set; } = "mb-4 block";
   // static pages only: rendered closed, for a script to open with showModal, such as the post
-  // editor's artwork picker
+  // editor's artwork picker, or a button with data-opens-dialog set to Id
   [Parameter]
   public bool StartsClosed { get; set; }
+  // the <dialog>'s id, for a data-opens-dialog button
+  [Parameter]
+  public string? Id { get; set; }
   // extra panel classes, like a border. Not padding or display: .artist-shop-modal isn't in a
   // tailwind layer, so it wins over utility classes that set the same thing
   [Parameter]
@@ -55,17 +52,17 @@
 
 @* <modal-dialog> is defined in ModalDialog.razor.js, loaded on every page. Without a reopen button it
    has nothing to lay out ("contents"), since an open modal sits above the page *@
-<modal-dialog class="@(ReopenLabel is null ? "contents" : ReopenLayoutClass)" data-starts-closed="@StartsClosed">
+<modal-dialog class="@(ReopenLabel is null ? "contents" : "mb-4 block")" data-starts-closed="@StartsClosed">
   @if (ReopenLabel is not null)
   {
-    <ButtonBasic type="button" Variant="ReopenVariant" data-modal-dialog="open">@ReopenLabel</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-modal-dialog="open">@ReopenLabel</ButtonBasic>
   }
 
   @* close fires however the dialog closed. data-keep-open: a bool attribute is only rendered while
      true, and the script then cancels Escape. Not @oncancel:preventDefault, which the compiler emitted
      as a literal attribute name that the browser rejects *@
-  <dialog @attributes="AdditionalAttributes" aria-labelledby="@_titleId"
-          class="artist-shop-modal @WidthClass @Class" data-keep-open="@KeepOpen" @onclose="OnClose">
+  <dialog @attributes="AdditionalAttributes" id="@Id" aria-labelledby="@_titleId"
+          class="artist-shop-modal text-left @WidthClass @Class" data-keep-open="@KeepOpen" @onclose="OnClose">
     <h2 id="@_titleId" class="mb-4 shrink-0 text-lg">@Title</h2>
 
     @* the title always shows; content that should scroll uses min-h-0 and overflow-y-auto inside this

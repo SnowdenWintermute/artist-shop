@@ -37,9 +37,12 @@ else
         }
       </DataTableCell>
       <DataTableCell Class="text-right">
-        <ConfirmFormDialog OpenLabel="Revoke" Title="@($"Revoke the invitation for {invite.Email.Value}?")"
-                           ConfirmLabel="Revoke" FormName="@($"revoke-invite-{invite.Email.Value}")"
-                           OnConfirm="() => RevokeAsync(invite)">
+        <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@($"revoke-invite-{invite.Email.Value}-dialog")">
+          Revoke
+        </ButtonBasic>
+        <ConfirmFormDialog Id="@($"revoke-invite-{invite.Email.Value}-dialog")"
+                           Title="@($"Revoke the invitation for {invite.Email.Value}?")" ConfirmLabel="Revoke"
+                           FormName="@($"revoke-invite-{invite.Email.Value}")" OnConfirm="() => RevokeAsync(invite)">
           They won't be able to accept it. You can invite them again.
         </ConfirmFormDialog>
       </DataTableCell>

@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
@@ -31,12 +32,17 @@
     <DataTableCell>@site.Role</DataTableCell>
     <DataTableCell Class="text-right">
       <div class="flex justify-end gap-4">
-        <a class="underline" href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">Manage</a>
+        <a class="p-2 h-10 leading-0 border flex items-center justify-center"
+           href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">Manage</a>
         @* an owner hands the website over or deletes it instead *@
         @if (site.Role is SiteRole.Admin)
         {
-          <ConfirmFormDialog OpenLabel="Leave" Title="@($"Leave {site.MainHost.Value}?")" ConfirmLabel="Leave"
-                             FormName="@($"leave-site-{site.SiteId.Value}")" OnConfirm="() => LeaveAsync(site)">
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@($"leave-site-{site.SiteId.Value}-dialog")">
+            Leave
+          </ButtonBasic>
+          <ConfirmFormDialog Id="@($"leave-site-{site.SiteId.Value}-dialog")" Title="@($"Leave {site.MainHost.Value}?")"
+                             ConfirmLabel="Leave" FormName="@($"leave-site-{site.SiteId.Value}")"
+                             OnConfirm="() => LeaveAsync(site)">
             You won't be able to edit it any more. Its owner can invite you again.
           </ConfirmFormDialog>
         }

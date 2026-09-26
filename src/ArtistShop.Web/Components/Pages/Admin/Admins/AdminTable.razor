@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
@@ -25,8 +26,12 @@
     <DataTableCell Class="text-right">
       @if (member.Role is SiteRole.Admin)
       {
-        <ConfirmFormDialog OpenLabel="Remove" Title="@($"Remove {member.Email}?")" ConfirmLabel="Remove"
-                           FormName="@($"remove-admin-{member.UserId}")" OnConfirm="() => RemoveAsync(member)">
+        <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@($"remove-admin-{member.UserId}-dialog")">
+          Remove
+        </ButtonBasic>
+        <ConfirmFormDialog Id="@($"remove-admin-{member.UserId}-dialog")" Title="@($"Remove {member.Email}?")"
+                           ConfirmLabel="Remove" FormName="@($"remove-admin-{member.UserId}")"
+                           OnConfirm="() => RemoveAsync(member)">
           They won't be able to edit this website any more. You can invite them again.
         </ConfirmFormDialog>
       }

@@ -1,4 +1,20 @@
 // Firefox ESR 140 has no invoker commands (command/commandfor), so the buttons are handled here
+
+// A button anywhere on the page with data-opens-dialog="<id>" opens the <dialog> with that id. On the
+// document, so it outlives enhanced navigation, which replaces the page's elements
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const id = event.target.closest("[data-opens-dialog]")?.getAttribute("data-opens-dialog");
+  const dialog = id ? document.getElementById(id) : null;
+
+  if (dialog instanceof HTMLDialogElement && !dialog.open) {
+    dialog.showModal();
+  }
+});
+
 customElements.define(
   "modal-dialog",
   class extends HTMLElement {

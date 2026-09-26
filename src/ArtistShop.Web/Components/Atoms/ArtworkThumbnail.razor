@@ -13,7 +13,4 @@
   public string Class { get; set; } = "size-10";
 }
 
-@* the admin's own size, so the lists and the upload rows don't each name a width. shrink-0
-   belongs here rather than in TileImage: these rows are flex, and the title beside a thumbnail
-   would otherwise squeeze it. A tile in a grid has no such parent *@
-<TileImage Image="Image" BoxClass="@($"{Class} shrink-0")" MaximumWidth="ImageVariants.AdminThumbnailWidth" />
+<TileImage Image="Image" BoxClass="@($"{Class}")" MaximumWidth="ImageVariants.AdminThumbnailWidth" />
