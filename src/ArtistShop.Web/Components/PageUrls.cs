@@ -46,6 +46,9 @@ public static class PageUrls
     public static string SiteAdmin(string platformBaseUri, HostName siteHost) =>
         OnHost(platformBaseUri, siteHost, AdminDashboard);
 
+    // the platform's home from a site's page
+    public static string PlatformHome(string siteBaseUri, HostName platformHost) => OnHost(siteBaseUri, platformHost, "/");
+
     // My websites from a site's page, such as in an invitation's email
     public static string PlatformMySites(string siteBaseUri, HostName platformHost) =>
         OnHost(siteBaseUri, platformHost, MySites);

@@ -1,8 +1,8 @@
-# Next: multi-tenancy step 6d, deleting an account (see "Where this stands" below)
+# Next: multi-tenancy step 6d (deleting an account) built, awaiting review (see "Where this stands" below)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-26: 6a–6b committed, 6c (deleting a site) built, 6d (deleting an account) next
+## Where this stands — 2026-09-26: 6a–6c committed, 6d (deleting an account) built
 
 **Committed by Mike:** 6a, invites (`2c4ae26`), browser-checked. Before it: the schema per site
 (`c9cf08f`), 5d "My websites" (`61f312a`) and its review fixes (`3f928e8`). Nothing is deployed.
@@ -13,29 +13,30 @@ Claude writes features and Mike reviews them, as on the Postgres port and the bl
 on the Admins page, immediate, the old owner becoming an admin, `hand_over_site`, both owners
 emailed. The platform's address is spelled out as link text wherever "My websites" was unclear.
 
-**Uncommitted: 6c, deleting a site. Claude, 595 tests pass, needs a browser click-through.**
-Decided with Mike 2026-09-26: deleting is on its own platform page reached from My websites, and
-the owner and every admin are emailed.
-- **Migration 0006:** `sites.erase_at` (NULL unless deleted). `schedule_site_deletion` and
-  `keep_site` check the caller is the owner; `get_site_hosts` leaves out deleted sites, so their
-  hosts are a plain 404 (`UseKnownHosts`); `get_member_sites` returns `erase_at`; invitations to a
-  deleted site are hidden and can't be accepted. Sign-up's early name check misses a deleted
-  site's hosts, but adding the site refuses them, since `site_hosts` still has them.
-- **`/sites/{id}/delete`** (`Pages/Platform/DeleteSite/`): owner only, while online, else 404. The
-  owner types the main host (any case). `SiteDeletions` (Sites) schedules, reloads `HostDirectory`
-  and emails; `KeepAsync` undoes it and reloads. `SiteDeletion.GraceDays` is 30.
-- **My websites:** a deleted site shows "(deleting on <date>)" without a link; its owner gets
-  "Keep this website" (an enhanced form, no dialog) in place of Manage and Delete; admins keep
-  Leave. Delete is a `DangerOutline` `LinkButton`, matching Leave.
-- **`SiteEraser`** + daily `SiteEraseService`: drops the schema, deletes the image folder
-  (`ImageStorage.DeleteAll`), then `erase_site` deletes the row (hosts, members and invitations
-  cascade). Row last, so a crash partway is finished next run.
-- **`SiteMemberAccounts`** (item 5 of the review, now with two callers): a site's members with
-  their Identity emails. `AdminListing` became `Domain/Sites/SiteMemberAccount`.
-- Tests: `SiteRepositoryTests` (5), `SiteInviteRepositoryTests` (1), `SiteEraserTests` (3, real
-  schema and folders, `FakeTimeProvider`), `SiteDeletionTests` (4, app).
-- Check: Delete from My websites, a wrong address, the site's host 404ing, Keep, both emails.
-- Not done: no email when a site is kept; admins who were told it's going aren't told it stayed.
+**Committed by Mike:** 6c, deleting a site (`5c5045d`): `/sites/{id}/delete` from My websites,
+`sites.erase_at`, a 30-day grace period with Keep, `SiteEraser` daily, `SiteMemberAccounts`.
+
+**Uncommitted: 6d, deleting an account. Claude, 602 tests pass; browser-checked by Mike 2026-09-26 (owner from their own website lands on the platform; from another website, back on that one).**
+Decided with Mike 2026-09-26:
+- **Identity's "Delete personal data" page stays on every host**, since customers (later) sign in
+  on artists' own domains and shouldn't be sent to the platform. The websites never mention the
+  platform except where an account is made or deleted, which say it's a **PictureCord** account
+  (new `Platform:Name` in appsettings.json, on `PlatformSettings`), so deleting one isn't the first
+  anyone hears that it spans websites. Mike may change this when the shop is designed: Shopify
+  keeps customer accounts per store and its cross-store Shop account is a separate, opt-in brand.
+- The page lists the websites the account owns (going offline, erased on a date, and nobody can
+  keep them) and those it's an admin of. The password is still the only confirmation.
+- `Identity/AccountDeletion`: owned websites not already deleting get `schedule_site_deletion`
+  and their admins `SendOwnerAccountDeletedToAdminAsync`; admin memberships removed; hosts
+  reloaded; then Identity's delete; then `AccountEmails.SendAccountDeletedAsync` to the account's
+  address, listing both. Owned websites' member rows stay until erased (decision 5), so
+  `SiteMemberAccounts` throws for them, but it's only used on websites that are online.
+- Afterwards: the current host's home, or the platform's home when the current host is a website
+  that just went offline (`PageUrls.PlatformHome`).
+- `EmailDates.Text` is the date format both email classes share. Register (platform only for
+  now) says "It's a PictureCord account".
+- Tests: `AccountDeletionTests` (6); `TestApp.AddAdminAsync(siteId, email)`.
+- Check: delete an owner's account from their own website's host, an admin's, a plain account's.
 
 **What 6a built** (decisions 2 and 3 below):
 - **Platform database:** `site_invites` (script 0005; `(site_id, email)` key, lowercase email,
@@ -59,8 +60,7 @@ the owner and every admin are emailed.
   `SiteRoleHandlerTests`, `EmailAddressTests`; `TestApp` gained `FirstSiteId`, `UserIdAsync` and
   `MakeFirstSiteAdminAsync`.
 
-**Next session: 6d, deleting an account** (decision 5 below). Design the page with Mike first;
-it builds on `SiteDeletions` for the sites the account owns.
+**Next:** step 6 is done once 6d is reviewed. Pick the next piece of work with Mike.
 
 **Next: step 6, owner features. Decided with Mike, 2026-09-25.** Already decided before
 (multi-tenancy notes): one owner per site, any number of admins who edit content only; memberships

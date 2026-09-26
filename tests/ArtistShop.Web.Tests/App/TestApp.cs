@@ -125,6 +125,13 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
     public async Task<string> MakeAdminAsync(SiteId siteId)
     {
         var email = await MakeAccountAsync();
+        await AddAdminAsync(siteId, email);
+        return email;
+    }
+
+    // the account with this email invited to the site and accepted
+    public async Task AddAdminAsync(SiteId siteId, string email)
+    {
         var address = EmailAddress.Read(email) ?? throw new InvalidOperationException("Not an email address.");
         var invites = Services.GetRequiredService<SiteInviteRepository>();
 
@@ -133,8 +140,6 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         {
             throw new InvalidOperationException("The invitation wasn't accepted.");
         }
-
-        return email;
     }
 
     // a new code, as the operator page makes one

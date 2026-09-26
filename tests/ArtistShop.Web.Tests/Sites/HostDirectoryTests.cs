@@ -32,7 +32,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     public async Task FindsThePlatformByItsHostInAnyCase()
     {
         var platformHost = UniqueHost();
-        var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(platformHost));
+        var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(platformHost, "PictureCord"));
 
         await directory.ReloadAsync();
 
@@ -70,7 +70,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     {
         var host = UniqueHost();
         await _sites.AddNewAsync([host], OwnerUserId);
-        var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(host));
+        var directory = new HostDirectory(_sites.GetHostsAsync, new PlatformSettings(host, "PictureCord"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(directory.ReloadAsync);
     }
@@ -89,7 +89,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
                 Interlocked.Increment(ref reads) is 1
                     ? earlierRead.Task
                     : Task.FromResult<List<SiteHost>>([new SiteHost(host, siteId, IsMain: true)]),
-            new PlatformSettings(UniqueHost())
+            new PlatformSettings(UniqueHost(), "PictureCord")
         );
 
         var earlier = directory.ReloadAsync();
@@ -101,7 +101,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     }
 
     // a platform host of its own, since every test shares the platform test database
-    private HostDirectory NewDirectory() => new(_sites.GetHostsAsync, new PlatformSettings(UniqueHost()));
+    private HostDirectory NewDirectory() => new(_sites.GetHostsAsync, new PlatformSettings(UniqueHost(), "PictureCord"));
 
     private static HostName UniqueHost() => Host($"{Guid.NewGuid():n}.test");
 

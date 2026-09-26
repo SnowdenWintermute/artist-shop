@@ -2,9 +2,19 @@
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
 
 @inject UserManager<ApplicationUser> UserManager
+@inject AccountDeletion AccountDeletion
+@inject SiteRepository SiteRepository
+@inject PlatformSettings PlatformSettings
+@inject CurrentHost CurrentHost
+@inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
@@ -19,6 +29,32 @@
     <p>
         <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
     </p>
+    @* the one place a website says it's part of the platform: the account is the platform's *@
+    <p class="mb-4">
+        This is your @PlatformSettings.Name account. It signs you in on every @PlatformSettings.Name website,
+        so deleting it closes it on all of them.
+    </p>
+    @if (ownedSites.Count > 0)
+    {
+        <p>These websites are yours. They go offline now, and are erased with all their artworks, posts and
+            images on the date shown. Nobody can keep them once your account is gone:</p>
+        <ul class="mb-4 list-disc pl-6">
+            @foreach (var site in ownedSites)
+            {
+                <li>@site.MainHost.Value, on <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /></li>
+            }
+        </ul>
+    }
+    @if (adminSites.Count > 0)
+    {
+        <p>You'll no longer be an admin of:</p>
+        <ul class="mb-4 list-disc pl-6">
+            @foreach (var site in adminSites)
+            {
+                <li>@site.MainHost.Value</li>
+            }
+        </ul>
+    }
 </div>
 
 <div>
@@ -41,6 +77,8 @@
     private string? message;
     private ApplicationUser? user;
     private bool requirePassword;
+    private List<MemberSite> ownedSites = [];
+    private List<MemberSite> adminSites = [];
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -59,6 +97,10 @@
             return;
         }
         requirePassword = await UserManager.HasPasswordAsync(user);
+
+        var sites = (await SiteRepository.GetForMemberAsync(user.Id)).OrderBy(site => site.MainHost.Value).ToList();
+        ownedSites = [.. sites.Where(site => site.Role is SiteRole.Owner)];
+        adminSites = [.. sites.Where(site => site.Role is SiteRole.Admin)];
     }
 
     private async Task OnValidSubmitAsync()
@@ -75,18 +117,22 @@
             return;
         }
 
-        var result = await UserManager.DeleteAsync(user);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException("Unexpected error occurred deleting user.");
-        }
+        var deletedSites = await AccountDeletion.DeleteAsync(user);
 
         await SignInManager.SignOutAsync();
 
         var userId = await UserManager.GetUserIdAsync(user);
         Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
 
-        RedirectManager.RedirectToCurrentPage();
+        // this host's home, unless it's a website that just went offline, which would be a 404
+        if (CurrentHost is CurrentHost.Site site && deletedSites.Any(deleted => deleted.SiteId == site.Id))
+        {
+            NavigationManager.NavigateTo(PageUrls.PlatformHome(NavigationManager.BaseUri, PlatformSettings.Host));
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/");
+        }
     }
 
     private sealed class InputModel

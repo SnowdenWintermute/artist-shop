@@ -83,7 +83,10 @@ builder.Services.AddSingleton(new SiteSchemas(platformConnectionString));
 var platformHost =
     HostName.Read(builder.Configuration["Platform:Host"] ?? "")
     ?? throw new InvalidOperationException("Platform:Host isn't a host name.");
-builder.Services.AddSingleton(new PlatformSettings(platformHost));
+var platformName = builder.Configuration["Platform:Name"] is { Length: > 0 } name
+    ? name
+    : throw new InvalidOperationException("Platform:Name isn't set.");
+builder.Services.AddSingleton(new PlatformSettings(platformHost, platformName));
 builder.Services.AddSingleton(services =>
     new HostDirectory(
         services.GetRequiredService<SiteRepository>().GetHostsAsync,
@@ -208,6 +211,7 @@ builder.Services.AddSingleton<Mailer, SmtpMailer>();
 builder.Services.AddSingleton<AccountEmails>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(services => services.GetRequiredService<AccountEmails>());
 builder.Services.AddScoped<AccountRegistration>();
+builder.Services.AddScoped<AccountDeletion>();
 builder.Services.AddSingleton<SiteEmails>();
 
 // site rights come from site membership in the platform database, not Identity's roles, which are

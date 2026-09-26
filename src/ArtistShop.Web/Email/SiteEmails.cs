@@ -1,6 +1,5 @@
 namespace ArtistShop.Web.Email;
 
-using System.Globalization;
 using System.Text.Encodings.Web;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Sites;
@@ -66,7 +65,7 @@ public sealed class SiteEmails(Mailer mailer)
             new EmailMessage(
                 to.Value,
                 $"You deleted {site.Value}",
-                $"<p>{HtmlEncoder.Default.Encode(site.Value)} is offline, and on {DateText(eraseAt)} it will be erased "
+                $"<p>{HtmlEncoder.Default.Encode(site.Value)} is offline, and on {EmailDates.Text(eraseAt)} it will be erased "
                     + "along with all associated assets.</p>"
                     + $"<p>Until then you can keep it at <a href=\"{HtmlEncoder.Default.Encode(mySitesLink)}\">"
                     + $"{HtmlEncoder.Default.Encode(mySitesLink)}</a>.</p>"
@@ -84,12 +83,20 @@ public sealed class SiteEmails(Mailer mailer)
                 to.Value,
                 $"{site.Value} was deleted",
                 $"<p>{HtmlEncoder.Default.Encode(owner.Value)} deleted {HtmlEncoder.Default.Encode(site.Value)}. It's "
-                    + $"offline, and on {DateText(eraseAt)} it will be erased with all its artworks, posts and images, "
+                    + $"offline, and on {EmailDates.Text(eraseAt)} it will be erased with all its artworks, posts and images, "
                     + "unless its owner keeps it.</p>"
             )
         );
 
-    // as LocalDate first writes it; an email can't learn the reader's time zone
-    private static string DateText(DateTimeOffset moment) =>
-        $"{moment.UtcDateTime.ToString("d MMM yyyy", CultureInfo.InvariantCulture)} (UTC)";
+    // the owner deleted their account, which takes their websites with it; nobody can keep them now
+    public Task SendOwnerAccountDeletedToAdminAsync(EmailAddress to, EmailAddress owner, HostName site, DateTimeOffset eraseAt) =>
+        mailer.SendAsync(
+            new EmailMessage(
+                to.Value,
+                $"{site.Value} was deleted",
+                $"<p>{HtmlEncoder.Default.Encode(owner.Value)} deleted their account, and with it "
+                    + $"{HtmlEncoder.Default.Encode(site.Value)}. It's offline, and on {EmailDates.Text(eraseAt)} it will be "
+                    + "erased with all its artworks, posts and images.</p>"
+            )
+        );
 }

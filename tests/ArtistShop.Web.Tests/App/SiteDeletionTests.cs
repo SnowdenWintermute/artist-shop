@@ -7,12 +7,11 @@ namespace ArtistShop.Web.Tests.App;
 [Collection(TestAppCollection.Name)]
 public sealed class SiteDeletionTests(TestApp app)
 {
-    // the address in any case, as a host is; every member is emailed
+    // the address in any case, as a host is
     [Fact]
-    public async Task DeletingTakesTheWebsiteOfflineAndEmailsItsMembers()
+    public async Task DeletingTakesTheWebsiteOffline()
     {
         var site = await app.MakeSiteAsync();
-        var admin = await app.MakeAdminAsync(site.Id);
         var client = await OwnerClientAsync(site);
 
         var response = await DeleteAsync(client, site, site.Host.ToUpperInvariant());
@@ -21,6 +20,17 @@ public sealed class SiteDeletionTests(TestApp app)
         Assert.Equal("/sites", response.Headers.Location?.AbsolutePath);
         Assert.Equal(HttpStatusCode.NotFound, await HomeStatusAsync(site));
         Assert.Contains("deleting on", await ReadAsync(client, "/sites"));
+    }
+
+    // the owner with where to keep it, and each admin with who deleted it
+    [Fact]
+    public async Task DeletingEmailsTheWebsitesMembers()
+    {
+        var site = await app.MakeSiteAsync();
+        var admin = await app.MakeAdminAsync(site.Id);
+
+        await DeleteAsync(await OwnerClientAsync(site), site, site.Host);
+
         Assert.Contains(
             $"href=\"http://{TestApp.PlatformHost}/sites\"",
             Assert.Single(app.Mailer.SentTo(site.OwnerEmail)).HtmlBody
