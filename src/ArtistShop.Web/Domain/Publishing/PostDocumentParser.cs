@@ -16,7 +16,21 @@ public static partial class PostDocumentParser
     private const string PostImageEmbedName = "artshop-image";
     private const string VideoEmbedName = "artshop-video";
 
-    public static PostDocument Parse(PostBody body)
+    public static PostDocument Parse(PostBody body) => Read(body, droppedLinks: []);
+
+    // The links Parse drops, each once, in the order they appear: anything but a page on this site,
+    // http, https or mailto, such as "#section" (headings have no ids to jump to) or "javascript:".
+    // Saving refuses a post with any, so none disappears without a word. Found by the same walk as
+    // Parse, so the two can't disagree
+    public static List<string> LinksDropped(PostBody body)
+    {
+        var droppedLinks = new List<string>();
+        Read(body, droppedLinks);
+        return [.. droppedLinks.Distinct()];
+    }
+
+    // each link it drops is added to droppedLinks
+    private static PostDocument Read(PostBody body, List<string> droppedLinks)
     {
         using var document = JsonDocument.Parse(body.Json);
         var blocks = new List<PostBlock>();
@@ -45,7 +59,7 @@ public static partial class PostDocumentParser
 
             if (insert.ValueKind is JsonValueKind.String)
             {
-                AddText(blocks, line, insert.GetString() ?? "", attributes);
+                AddText(blocks, line, insert.GetString() ?? "", attributes, droppedLinks);
             }
             else if (insert.ValueKind is JsonValueKind.Object && ReadEmbed(insert) is { } embed)
             {
@@ -69,41 +83,12 @@ public static partial class PostDocumentParser
         return new PostDocument(blocks);
     }
 
-    // The links Parse would drop, each once, in the order they appear: anything but a page on this
-    // site, http, https or mailto, such as "#section" (headings have no ids to jump to) or
-    // "javascript:". Saving refuses a post with any, so none disappears without a word
-    public static List<string> LinksDropped(PostBody body)
-    {
-        using var document = JsonDocument.Parse(body.Json);
-
-        if (
-            !document.RootElement.TryGetProperty("ops", out var ops)
-            || ops.ValueKind is not JsonValueKind.Array
-        )
-        {
-            return [];
-        }
-
-        return
-        [
-            .. ops.EnumerateArray()
-                .Where(op => op.ValueKind is JsonValueKind.Object)
-                .Select(op =>
-                    op.TryGetProperty("attributes", out var attributes) && attributes.ValueKind is JsonValueKind.Object
-                        ? GetString(attributes, "link")
-                        : null
-                )
-                .OfType<string>()
-                .Where(link => SafeLink(link) is null)
-                .Distinct(),
-        ];
-    }
-
     private static void AddText(
         List<PostBlock> blocks,
         List<PostText> line,
         string text,
-        JsonElement? attributes
+        JsonElement? attributes,
+        List<string> droppedLinks
     )
     {
         var segments = text.Split('\n');
@@ -118,13 +103,21 @@ public static partial class PostDocumentParser
 
             if (segments[index].Length > 0)
             {
+                var link = GetString(attributes, "link");
+                var safeLink = SafeLink(link);
+
+                if (link is not null && safeLink is null)
+                {
+                    droppedLinks.Add(link);
+                }
+
                 line.Add(
                     new PostText(
                         segments[index],
                         IsTrue(attributes, "bold"),
                         IsTrue(attributes, "italic"),
                         IsTrue(attributes, "underline"),
-                        SafeLink(GetString(attributes, "link"))
+                        safeLink
                     )
                 );
             }

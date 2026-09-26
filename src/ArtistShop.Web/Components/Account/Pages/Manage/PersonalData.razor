@@ -17,7 +17,8 @@
         <p>
             <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
         </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
+        @* data-downloads: the page stays put, so its button mustn't go busy with nothing to clear it *@
+        <form action="Account/Manage/DownloadPersonalData" method="post" data-downloads>
             <AntiforgeryToken />
             <button class="" type="submit">Download</button>
         </form>

@@ -36,7 +36,7 @@ public sealed class SiteEmails(Mailer mailer)
                 to.Value,
                 $"You now own {site.Value}",
                 $"<p>{HtmlEncoder.Default.Encode(oldOwner.Value)} transferred ownership of {HtmlEncoder.Default.Encode(site.Value)} "
-                    + " to you.</p>"
+                    + "to you.</p>"
             )
         );
 

@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Email;
 
 using System.Text.Encodings.Web;
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Utilities;
@@ -58,14 +59,14 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
     // signed in as them. deletedSites are the ones it owned, each with when it's erased; leftSites
     // the ones it was an admin of
     public Task SendAccountDeletedAsync(
-        string email,
+        EmailAddress email,
         string platformName,
         IReadOnlyList<MemberSite> deletedSites,
         IReadOnlyList<MemberSite> leftSites
     ) =>
         mailer.SendAsync(
             new EmailMessage(
-                email,
+                email.Value,
                 $"Your {platformName} account was deleted",
                 $"<p>Your {HtmlEncoder.Default.Encode(platformName)} account was deleted, so it no longer signs you in "
                     + "on any website.</p>"

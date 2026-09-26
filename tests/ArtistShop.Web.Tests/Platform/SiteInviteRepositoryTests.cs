@@ -109,7 +109,7 @@ public sealed class SiteInviteRepositoryTests(TestDatabaseFixture database)
         Assert.False(await _invites.AcceptAsync(siteId, email, "new-admin"));
         Assert.Null(await _sites.GetMemberRoleAsync(siteId, "new-admin"));
 
-        await _sites.KeepAsync(siteId, "owner");
+        await _sites.KeepAsync(siteId, "owner", DateTimeOffset.UtcNow);
         Assert.Single(await _invites.GetForEmailAsync(email));
     }
 

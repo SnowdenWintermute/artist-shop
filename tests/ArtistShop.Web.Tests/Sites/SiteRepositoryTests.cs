@@ -214,7 +214,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         var deleting = Assert.Single(await _sites.GetForMemberAsync(OwnerUserId), site => site.SiteId == siteId);
         Assert.Equal(eraseAt.ToUnixTimeMilliseconds(), deleting.EraseAt?.ToUnixTimeMilliseconds());
 
-        Assert.True(await _sites.KeepAsync(siteId, OwnerUserId));
+        Assert.True(await _sites.KeepAsync(siteId, OwnerUserId, DateTimeOffset.UtcNow));
 
         Assert.Contains(new SiteHost(host, siteId, true), await _sites.GetHostsAsync());
         Assert.False(Assert.Single(await _sites.GetForMemberAsync(OwnerUserId), site => site.SiteId == siteId).IsBeingDeleted);
@@ -231,7 +231,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         Assert.Contains(siteId, (await _sites.GetHostsAsync()).Select(siteHost => siteHost.SiteId));
 
         Assert.True(await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt));
-        Assert.False(await _sites.KeepAsync(siteId, "admin"));
+        Assert.False(await _sites.KeepAsync(siteId, "admin", DateTimeOffset.UtcNow));
         Assert.DoesNotContain(siteId, (await _sites.GetHostsAsync()).Select(siteHost => siteHost.SiteId));
     }
 
@@ -244,7 +244,20 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt);
 
         Assert.False(await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt.AddDays(1)));
-        Assert.False(await _sites.KeepAsync(await _sites.AddNewAsync([NewHost("online")], OwnerUserId), OwnerUserId));
+        Assert.False(await _sites.KeepAsync(await _sites.AddNewAsync([NewHost("online")], OwnerUserId), OwnerUserId, DateTimeOffset.UtcNow));
+    }
+
+    // SiteEraser may be partway through it, and keeping it then would put a site with no schema online
+    [Fact]
+    public async Task ASiteDueForErasingCantBeKept()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("too-late")], OwnerUserId);
+        var eraseAt = DateTimeOffset.UtcNow.AddDays(SiteDeletion.GraceDays);
+        await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt);
+
+        Assert.False(await _sites.KeepAsync(siteId, OwnerUserId, eraseAt));
+        Assert.Contains(siteId, await _sites.GetDueForErasingAsync(eraseAt));
+        Assert.True(await _sites.KeepAsync(siteId, OwnerUserId, eraseAt.AddSeconds(-1)));
     }
 
     [Fact]

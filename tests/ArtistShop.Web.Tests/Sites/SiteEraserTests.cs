@@ -66,7 +66,7 @@ public sealed class SiteEraserTests : IDisposable
     {
         var siteId = await NewSiteAsync();
         await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, SiteDeletion.EraseAt(_time.GetUtcNow()));
-        await _sites.KeepAsync(siteId, OwnerUserId);
+        await _sites.KeepAsync(siteId, OwnerUserId, _time.GetUtcNow());
 
         _time.Advance(TimeSpan.FromDays(SiteDeletion.GraceDays + 1));
         await _eraser.EraseDueAsync();

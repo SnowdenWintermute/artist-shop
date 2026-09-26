@@ -196,15 +196,20 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
-    // Puts a site being deleted back online. False when ownerUserId isn't its owner or it isn't
-    // being deleted, so nothing changed
-    public async Task<bool> KeepAsync(SiteId siteId, string ownerUserId)
+    // Puts a site being deleted back online. False when ownerUserId isn't its owner, it isn't being
+    // deleted, or it's due for erasing by now, so nothing changed
+    public async Task<bool> KeepAsync(SiteId siteId, string ownerUserId, DateTimeOffset now)
     {
         await using var connection = platformDataSource.CreateConnection();
 
         return await connection.ExecuteScalarAsync<bool>(
-            "SELECT keep_site(@SiteId, @OwnerUserId)",
-            new { SiteId = siteId.Value, OwnerUserId = ownerUserId }
+            "SELECT keep_site(@SiteId, @OwnerUserId, @Now)",
+            new
+            {
+                SiteId = siteId.Value,
+                OwnerUserId = ownerUserId,
+                Now = now,
+            }
         );
     }
 

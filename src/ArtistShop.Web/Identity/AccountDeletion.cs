@@ -12,7 +12,8 @@ using Microsoft.AspNetCore.Identity;
 // period, which nobody can end now, and it stops being an admin of the rest. The platform changes
 // come first, since it's a different database: if Identity's delete then fails, the account still
 // exists and its owner can keep their websites. Only once it's gone are its owner rows removed, so
-// no member row names an account that doesn't exist
+// no member row names an account that doesn't exist, and anyone emailed, since the emails say it's
+// gone and nobody can keep its websites
 public sealed class AccountDeletion(
     UserManager<ApplicationUser> userManager,
     SiteRepository siteRepository,
@@ -33,6 +34,8 @@ public sealed class AccountDeletion(
         var memberships = await siteRepository.GetForMemberAsync(account.Id);
         var eraseAt = SiteDeletion.EraseAt(timeProvider.GetUtcNow());
 
+        var adminsToTell = new List<(EmailAddress Admin, HostName Site)>();
+
         // one already being deleted keeps its date, and its admins were told then
         foreach (var site in memberships.Where(site => site.Role is SiteRole.Owner && !site.IsBeingDeleted))
         {
@@ -41,10 +44,7 @@ public sealed class AccountDeletion(
 
             if (await siteRepository.ScheduleDeletionAsync(site.SiteId, account.Id, eraseAt))
             {
-                foreach (var admin in admins)
-                {
-                    await siteEmails.SendOwnerAccountDeletedToAdminAsync(admin.Email, email, site.MainHost, eraseAt);
-                }
+                adminsToTell.AddRange(admins.Select(admin => (admin.Email, site.MainHost)));
             }
         }
 
@@ -70,7 +70,12 @@ public sealed class AccountDeletion(
 
         await siteRepository.RemoveDeletedSitesOwnerAsync(account.Id);
 
-        await accountEmails.SendAccountDeletedAsync(email.Value, platformSettings.Name, deletedSites, leftSites);
+        foreach (var (admin, site) in adminsToTell)
+        {
+            await siteEmails.SendOwnerAccountDeletedToAdminAsync(admin, email, site, eraseAt);
+        }
+
+        await accountEmails.SendAccountDeletedAsync(email, platformSettings.Name, deletedSites, leftSites);
 
         return deletedSites;
     }

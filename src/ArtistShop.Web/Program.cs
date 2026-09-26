@@ -97,7 +97,6 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton<SiteProvisioner>();
 builder.Services.AddScoped<SiteSignUp>();
 builder.Services.AddScoped<SiteMemberAccounts>();
-builder.Services.AddScoped<ContentSecurityNonce>();
 builder.Services.AddScoped<SiteDeletions>();
 
 builder.Services.AddHttpContextAccessor();
@@ -252,7 +251,13 @@ using (var scope = app.Services.CreateScope())
 var siteRepository = app.Services.GetRequiredService<SiteRepository>();
 var siteProvisioner = app.Services.GetRequiredService<SiteProvisioner>();
 
-await siteProvisioner.RemoveUnlistedAsync();
+foreach (var siteId in await siteProvisioner.FindUnlistedAsync())
+{
+    app.Logger.LogWarning(
+        "Site {SiteId} has a schema or image folders but isn't listed; remove them by hand if nothing is using them",
+        siteId.Value
+    );
+}
 
 // every site's schema brought up to date, and its folders made
 foreach (var siteId in await siteRepository.GetIdsAsync())

@@ -19,8 +19,8 @@ public class SiteProvisioner(
 
     // The site is made ready before addSite adds its row to the platform database, so a site that's
     // listed is always ready, and if anything fails its schema and folders are removed and nothing,
-    // such as a sign-up code, is used up. A crash in between leaves them for
-    // RemoveUnlistedAsync at the next startup
+    // such as a sign-up code, is used up. A crash in between leaves them, and FindUnlistedAsync
+    // reports them at the next startup
     public async Task<SiteId> CreateAsync(Func<SiteId, Task> addSite)
     {
         var siteId = await siteRepository.ReserveIdAsync();
@@ -40,22 +40,21 @@ public class SiteProvisioner(
         return siteId;
     }
 
-    // Schemas and image folders of sites that aren't listed: left by a sign-up that crashed after
-    // making them. Only at startup, before any request, since a sign-up in progress has them
-    // before its site is listed
-    public async Task RemoveUnlistedAsync()
+    // The sites with a schema or image folders but no row, most likely left by a sign-up that
+    // crashed after making them. Found for someone to look at and remove by hand, never removed
+    // here: a sign-up in progress on another instance, such as during a deploy, has them before
+    // its site is listed, and a GetIdsAsync that ever left sites out would take their content with it
+    public async Task<List<SiteId>> FindUnlistedAsync()
     {
         var listed = (await siteRepository.GetIdsAsync()).ToHashSet();
 
-        foreach (var siteId in (await siteSchemas.GetSiteIdsAsync()).Where(siteId => !listed.Contains(siteId)))
-        {
-            await siteSchemas.DropAsync(siteId);
-        }
-
-        foreach (var siteId in ImageStorage.SiteIdsWithFolders(imageStorageSettings).Where(siteId => !listed.Contains(siteId)))
-        {
-            ImageStorage.ForSite(imageStorageSettings, siteId).DeleteAll();
-        }
+        return
+        [
+            .. (await siteSchemas.GetSiteIdsAsync())
+                .Concat(ImageStorage.SiteIdsWithFolders(imageStorageSettings))
+                .Where(siteId => !listed.Contains(siteId))
+                .Distinct(),
+        ];
     }
 
     // Safe to run again, and run at every startup for every site, so a new migration reaches every

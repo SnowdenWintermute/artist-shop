@@ -1,5 +1,5 @@
 ﻿@inject IWebHostEnvironment Env
-@inject ArtistShop.Web.Security.ContentSecurityNonce ContentSecurityNonce
+@using ArtistShop.Web.Security
 <!DOCTYPE html>
 <html lang="en">
 
@@ -14,7 +14,7 @@
      Its fingerprint only moves on a build, which is also the only thing that regenerates it *@
   <link rel="stylesheet" href="@Assets["ArtistShop.Web.styles.css"]" />
   @* the page's one inline script, allowed by the Content-Security-Policy header's nonce *@
-  <ImportMap nonce="@ContentSecurityNonce.Value" />
+  <ImportMap nonce="@ContentSecurityNonce.Of(HttpContext)" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <HeadOutlet />
 </head>
@@ -29,7 +29,7 @@
   <script src="@Assets["Components/Dialogs/ModalDialog.razor.js"]" type="module"></script>
   <script src="@Assets["Components/Forms/SubmitOnChange.razor.js"]" type="module"></script>
   <script src="@Assets["Components/Layout/LoadingIndicator.razor.js"]" type="module"></script>
-  <script src="@Assets["js/enhanced-form-submit.js"]" type="module"></script>
+  <script src="@Assets["js/static-form-submit.js"]" type="module"></script>
   <script src="@Assets["js/arrow-key-links.js"]" type="module"></script>
   <script src="@Assets["js/scroll-restoration.js"]" type="module"></script>
   <script src="@Assets["Components/Catalog/TileImage.razor.js"]" type="module"></script>
@@ -54,6 +54,9 @@
 
 @code
 {
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
   // Assets fingerprints app.css from the bytes it saw at build time, and hot reload never builds,
   // so in development that url is wrong in both directions: it stays frozen while the tailwind
   // watcher rewrites app.css underneath it, and when something does force a build it moves, leaving

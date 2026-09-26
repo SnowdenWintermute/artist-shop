@@ -42,10 +42,11 @@ public sealed class SiteDeletions(
         return true;
     }
 
-    // False when ownerUserId isn't the owner or it isn't being deleted, so nothing changed
+    // False when ownerUserId isn't the owner, it isn't being deleted, or its erase date has come, so
+    // nothing changed
     public async Task<bool> KeepAsync(SiteId siteId, string ownerUserId)
     {
-        if (!await siteRepository.KeepAsync(siteId, ownerUserId))
+        if (!await siteRepository.KeepAsync(siteId, ownerUserId, timeProvider.GetUtcNow()))
         {
             return false;
         }

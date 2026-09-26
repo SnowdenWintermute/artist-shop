@@ -106,16 +106,9 @@
   @apply mb-1 block text-sm;
 }
 
-/* the clicked button goes quiet and spins where the artist is already looking, instead of
-   an indicator somewhere else on the page */
-.artist-shop-button-spinner {
-  display: none;
-}
-
-button[data-busy] > .artist-shop-button-spinner {
-  display: inline-block;
-}
-
+/* the clicked button goes quiet, and ButtonBasic spins where the artist is already looking,
+   instead of an indicator somewhere else on the page. Here rather than in ButtonBasic, so a plain
+   <button> on Identity's pages goes quiet too */
 button[data-busy] {
   @apply pointer-events-none opacity-60;
 }

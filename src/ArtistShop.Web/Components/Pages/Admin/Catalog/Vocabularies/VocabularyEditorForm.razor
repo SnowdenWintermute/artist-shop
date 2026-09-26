@@ -16,6 +16,10 @@
 
   private readonly VocabularyForm _form = new();
   private bool _isSaving;
+
+  // only when Save itself was clicked; a dialog's confirm button spins for the saves and deletes
+  // it starts
+  private bool SaveButtonBusy => _isSaving && !_unselectDialogOpen && !_deleteDialogOpen;
   // keys the notice, so each save draws a new one, visible until the first edit hides it
   private int _saveCount;
   private bool _unselectDialogOpen;
@@ -113,7 +117,8 @@
     }
 
     <div class="flex justify-between">
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@(_isSaving || (Loaded is not null && !_form.HasChanges))">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="SaveButtonBusy"
+                   disabled="@(_isSaving || (Loaded is not null && !_form.HasChanges))">
         @(Loaded is null ? "Create vocabulary" : "Save")
       </ButtonBasic>
 

@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Sites
 @using ArtistShop.Web.Email
+@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
 @inject SiteRepository SiteRepository
 @inject SiteEmails SiteEmails
@@ -14,10 +15,13 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<SiteMemberAccount> Members { get; set; } = default!;
 
-  // the page is the owner's only, so this is who's signed in
-  private SiteMemberAccount Owner =>
-    Members.FirstOrDefault(member => member.Role is SiteRole.Owner)
-    ?? throw new InvalidOperationException($"Site {CurrentSite.Id.Value} has no owner.");
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  // who's signed in, so hand_over_site checks that they're the owner rather than trusting this list
+  private SiteMemberAccount SignedInMember =>
+    Members.FirstOrDefault(member => member.UserId == HttpContext.User.RequiredUserId())
+    ?? throw new InvalidOperationException($"The signed-in account isn't a member of site {CurrentSite.Id.Value}.");
 
   private async Task RemoveAsync(SiteMemberAccount member)
   {
@@ -29,7 +33,7 @@
   // the admin left since the page loaded; the reloaded page leaves them out
   private async Task HandOverAsync(SiteMemberAccount member)
   {
-    var owner = Owner;
+    var owner = SignedInMember;
 
     if (!await SiteRepository.HandOverAsync(CurrentSite.Id, owner.UserId, member.UserId))
     {

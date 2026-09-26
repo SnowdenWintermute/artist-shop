@@ -6,6 +6,7 @@
 @using ArtistShop.Web.Sites
 @inject SiteRepository SiteRepository
 @inject SiteDeletions SiteDeletions
+@inject TimeProvider TimeProvider
 @inject NavigationManager NavigationManager
 
 @code {
@@ -52,7 +53,8 @@
     <DataTableCell>@site.Role</DataTableCell>
     <DataTableCell Class="text-right">
       <div class="flex justify-end gap-4">
-        @if (site.Role is SiteRole.Owner && site.IsBeingDeleted)
+        @* past its erase date it's waiting for SiteEraser, and can't be kept *@
+        @if (site.Role is SiteRole.Owner && site.CanStillBeKept(TimeProvider.GetUtcNow()))
         {
           <form method="post" @formname="@($"keep-site-{site.SiteId.Value}")" @onsubmit="() => KeepAsync(site)"
                 data-enhance>

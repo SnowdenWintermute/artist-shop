@@ -1,8 +1,46 @@
-# Next: multi-tenancy step 6d (deleting an account) built, awaiting review (see "Where this stands" below)
+# Next: the dev hot reload 403 on site hosts, then step 7 (custom domains) or the catalog's open items
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-26: 6a–6c committed, 6d (deleting an account) built
+## Where this stands — 2026-09-26: step 6 done and reviewed
+
+**Review of the 2026-09-26 work done; its fixes browser-checked (a 404 page's console shows no CSP
+error), 609 tests, to be committed by Mike.** The fixes: the CSP nonce lives on the HttpContext and
+the header is set as the response starts (404 pages had a mismatched nonce, 500 pages none);
+`keep_site` takes `p_now` and refuses once `erase_at` has come, with Keep hidden then; startup only
+logs unlisted schemas and folders (`FindUnlistedAsync`), never removes them, as a deploy's
+overlapping instance or a filtered `get_site_ids` would take live content with them;
+`AccountDeletion` emails only after Identity's delete; `LinksDropped` shares `Parse`'s walk;
+hand-over uses the signed-in member.
+
+**Busy buttons keep their size, browser-checked 2026-09-26, uncommitted.** Every button that goes busy
+behaves the same: its label turns invisible, still holding the button's size, and a spinner shows
+over its middle; no "Saving..." text swaps.
+- `ButtonBasic`: label and spinner in a `relative` wrapper span (not on the button, since the
+  lightbox passes `absolute`), shown by `group-data-busy:` variants; `app.css` keeps only the
+  `button[data-busy]` fade, for Identity's plain `<button>`s. `Busy` parameter for islands.
+- Islands: `ConfirmDialog`'s confirm (so every dialog that saves or deletes), the rename dialogs,
+  and the artwork type and vocabulary editors' Save (`SaveButtonBusy`: only while no dialog is open,
+  as a dialog's confirm spins for the saves and deletes it starts; Enter spins it too).
+- `wwwroot/js/static-form-submit.js` (was `enhanced-form-submit.js`) marks every static form's
+  submitter: enhanced ones at once, cleared on `enhancedload`; plain ones only if nobody cancelled
+  the post once every listener has seen it (Blazor cancels an island's; both render as
+  `method="post"`, so the markup can't tell them apart), cleared on a bfcache `pageshow`. A form
+  with `data-downloads` (Identity's personal data download) is never marked.
+
+The reviewed commits, oldest first:
+- `edcf16f` 6a review fixes (one id per confirm row, `ModalDialog` without `ReopenLabel`,
+  `LinkButton`/`ButtonStyles`, `CurrentSite.MainHost`, inviter from the account) and 6b, handing
+  over ownership.
+- `5c5045d` 6c, deleting a site (`sites.erase_at`, `/sites/{id}/delete`, `SiteDeletions`,
+  `SiteEraser`, `SiteMemberAccounts`).
+- `fbcebe5` 6d, deleting an account (`AccountDeletion`, `Platform:Name` "PictureCord", the platform's
+  address as link text in place of "My websites").
+- `c7d1156` the follow-ups: owner rows removed after an account's deletion, expired codes and
+  invitations deleted after 30 days (`PlatformCleanupService`), `#…` links refused on save, the
+  Content-Security-Policy header, the Floating UI import fix and the toolbar hidden until placed.
+Everything below is browser-checked by Mike. Nothing is deployed. Next: the dev hot reload 403 on
+site hosts (below), and step 7 (custom domains) or the catalog's open items.
 
 **Committed by Mike:** 6a, invites (`2c4ae26`), browser-checked. Before it: the schema per site
 (`c9cf08f`), 5d "My websites" (`61f312a`) and its review fixes (`3f928e8`). Nothing is deployed.
@@ -16,7 +54,7 @@ emailed. The platform's address is spelled out as link text wherever "My website
 **Committed by Mike:** 6c, deleting a site (`5c5045d`): `/sites/{id}/delete` from My websites,
 `sites.erase_at`, a 30-day grace period with Keep, `SiteEraser` daily, `SiteMemberAccounts`.
 
-**Uncommitted: 6d, deleting an account. Claude, 602 tests pass; browser-checked by Mike 2026-09-26 (owner from their own website lands on the platform; from another website, back on that one).**
+**Committed by Mike (`fbcebe5`): 6d, deleting an account, 602 tests; browser-checked 2026-09-26 (owner from their own website lands on the platform; from another website, back on that one).**
 Decided with Mike 2026-09-26:
 - **Identity's "Delete personal data" page stays on every host**, since customers (later) sign in
   on artists' own domains and shouldn't be sent to the platform. The websites never mention the
@@ -60,7 +98,7 @@ Decided with Mike 2026-09-26:
   `SiteRoleHandlerTests`, `EmailAddressTests`; `TestApp` gained `FirstSiteId`, `UserIdAsync` and
   `MakeFirstSiteAdminAsync`.
 
-**Built 2026-09-26, uncommitted, 607 tests pass; needs a browser check (below).** Agreed with Mike
+**Built 2026-09-26, committed by Mike (`c7d1156`), 607 tests; browser-checked.** Agreed with Mike
 the same day (6d browser-checked):
 1. **A website whose owner deleted their account:** remove the owner's member row once Identity has
    deleted the account, so every member row has an account (changes a detail of decision 5; the
