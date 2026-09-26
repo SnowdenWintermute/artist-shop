@@ -20,10 +20,7 @@ public sealed partial class ContentSecurityPolicyTests(TestApp app)
         var nonce = Assert.Single(NonceSource().Matches(policy)).Groups[1].Value;
         Assert.Contains("script-src 'self' 'nonce-", policy);
         Assert.Contains("frame-ancestors 'self'", policy);
-        Assert.Contains(
-            $"nonce=\"{nonce}\"",
-            await first.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)
-        );
+        Assert.Contains($"nonce=\"{nonce}\"", await DecodedBodyAsync(first));
         Assert.DoesNotContain(nonce, string.Join(";", second.Headers.GetValues("Content-Security-Policy")));
     }
 
@@ -38,11 +35,12 @@ public sealed partial class ContentSecurityPolicyTests(TestApp app)
         var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
         var nonce = Assert.Single(NonceSource().Matches(policy)).Groups[1].Value;
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Contains(
-            $"nonce=\"{nonce}\"",
-            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)
-        );
+        Assert.Contains($"nonce=\"{nonce}\"", await DecodedBodyAsync(response));
     }
+
+    // as a browser reads the attribute: a base64 nonce's "+" is written as &#x2B;
+    private static async Task<string> DecodedBodyAsync(HttpResponseMessage response) =>
+        WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
 
     [GeneratedRegex("'nonce-([^']+)'")]
     private static partial Regex NonceSource();

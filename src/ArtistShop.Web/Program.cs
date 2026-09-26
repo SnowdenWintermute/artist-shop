@@ -240,9 +240,11 @@ var app = builder.Build();
 EnsureDatabase.For.PostgresqlDatabase(platformConnectionString);
 SchemaMigrator.Platform.Upgrade(platformConnectionString, "public");
 
+// made here rather than by MigrateAsync, which logs its failed connection to a missing database as an error
+EnsureDatabase.For.PostgresqlDatabase(identityConnectionString);
+
 using (var scope = app.Services.CreateScope())
 {
-    // creates the identity database too, if it isn't there yet
     await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
 
     await PlatformOperator.SyncAsync(scope.ServiceProvider);
