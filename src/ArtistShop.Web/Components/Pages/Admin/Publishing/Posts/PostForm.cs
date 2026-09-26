@@ -71,6 +71,20 @@ public class PostForm : ServerValidatedForm, IValidatableObject
         }
     }
 
+    // the page would drop these, so they're refused rather than lost
+    public IReadOnlyList<string> LinksDropped() => PostDocumentParser.LinksDropped(ToPostBody());
+
+    public void AddDroppedLinkErrors(IEnumerable<string> links)
+    {
+        foreach (var link in links)
+        {
+            AddServerError(
+                nameof(Body),
+                $"The link \"{link}\" won't work. A link has to start with https://, http://, mailto: or / (a page on this website)."
+            );
+        }
+    }
+
     public PostTitle ToPostTitle() => new(Unwrap.Value(Title).Trim());
 
     public PostSlug ToPostSlug() => PostSlug.FromTitle(Unwrap.Value(Title));

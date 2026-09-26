@@ -46,6 +46,14 @@ public class SignUpCodeRepository(NpgsqlDataSource platformDataSource)
         await connection.ExecuteAsync("SELECT delete_sign_up_code(@Id)", new { Id = id.Value });
     }
 
+    // the codes that expired before this moment
+    public async Task DeleteExpiredBeforeAsync(DateTimeOffset before)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync("SELECT delete_expired_sign_up_codes(@Before)", new { Before = before });
+    }
+
     // Npgsql reads a timestamptz as a DateTime in UTC, which is what these hold
     private sealed class SignUpCodeRow
     {

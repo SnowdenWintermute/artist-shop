@@ -29,6 +29,14 @@ public class SiteInviteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
+    // every site's invitations that expired before this moment
+    public async Task DeleteExpiredBeforeAsync(DateTimeOffset before)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync("SELECT delete_expired_site_invites(@Before)", new { Before = before });
+    }
+
     // expired or not, in no particular order
     public async Task<List<SiteInvite>> GetForSiteAsync(SiteId siteId)
     {

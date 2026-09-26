@@ -1,6 +1,8 @@
 using System.Net;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
+using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -55,6 +57,21 @@ public sealed class AccountDeletionTests(TestApp app)
         Assert.Contains(site.OwnerEmail, toAdmin);
         Assert.Contains("deleted their account", toAdmin);
         Assert.Contains(site.Host, Assert.Single(app.Mailer.SentTo(site.OwnerEmail)).HtmlBody);
+    }
+
+    // once the account is gone, so no member row names an account that doesn't exist; the website
+    // keeps its admins, with their emails, until it's erased
+    [Fact]
+    public async Task DeletingAnOwnersAccountLeavesTheirWebsiteWithNoOwner()
+    {
+        var site = await app.MakeSiteAsync();
+        var admin = await app.MakeAdminAsync(site.Id);
+
+        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), TestApp.Password);
+
+        using var scope = app.Services.CreateScope();
+        var member = Assert.Single(await scope.ServiceProvider.GetRequiredService<SiteMemberAccounts>().GetAsync(site.Id));
+        Assert.Equal((admin, SiteRole.Admin), (member.Email.Value, member.Role));
     }
 
     // their memberships of other websites go, and those websites stay online

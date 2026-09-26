@@ -8,7 +8,24 @@ using ArtistShop.Web.Domain.Sites;
 public class ImageStorage(string siteRootPath)
 {
     public static ImageStorage ForSite(ImageStorageSettings settings, SiteId siteId) =>
-        new(Path.Combine(settings.RootPath, "sites", siteId.Value.ToString(CultureInfo.InvariantCulture)));
+        new(Path.Combine(SitesFolder(settings), siteId.Value.ToString(CultureInfo.InvariantCulture)));
+
+    // every site that has a folder, whether or not it's listed
+    public static List<SiteId> SiteIdsWithFolders(ImageStorageSettings settings) =>
+        Directory.Exists(SitesFolder(settings))
+            ?
+            [
+                .. Directory
+                    .EnumerateDirectories(SitesFolder(settings))
+                    .Select(path => SiteIdFromFolderName(Path.GetFileName(path)))
+                    .OfType<SiteId>(),
+            ]
+            : [];
+
+    private static string SitesFolder(ImageStorageSettings settings) => Path.Combine(settings.RootPath, "sites");
+
+    private static SiteId? SiteIdFromFolderName(string name) =>
+        int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? new SiteId(id) : null;
 
     public string Originals { get; } = Path.Combine(siteRootPath, "originals");
     public string Variants { get; } = Path.Combine(siteRootPath, "variants");

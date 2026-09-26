@@ -69,6 +69,36 @@ public static partial class PostDocumentParser
         return new PostDocument(blocks);
     }
 
+    // The links Parse would drop, each once, in the order they appear: anything but a page on this
+    // site, http, https or mailto, such as "#section" (headings have no ids to jump to) or
+    // "javascript:". Saving refuses a post with any, so none disappears without a word
+    public static List<string> LinksDropped(PostBody body)
+    {
+        using var document = JsonDocument.Parse(body.Json);
+
+        if (
+            !document.RootElement.TryGetProperty("ops", out var ops)
+            || ops.ValueKind is not JsonValueKind.Array
+        )
+        {
+            return [];
+        }
+
+        return
+        [
+            .. ops.EnumerateArray()
+                .Where(op => op.ValueKind is JsonValueKind.Object)
+                .Select(op =>
+                    op.TryGetProperty("attributes", out var attributes) && attributes.ValueKind is JsonValueKind.Object
+                        ? GetString(attributes, "link")
+                        : null
+                )
+                .OfType<string>()
+                .Where(link => SafeLink(link) is null)
+                .Distinct(),
+        ];
+    }
+
     private static void AddText(
         List<PostBlock> blocks,
         List<PostText> line,

@@ -1,4 +1,5 @@
 ﻿@inject IWebHostEnvironment Env
+@inject ArtistShop.Web.Security.ContentSecurityNonce ContentSecurityNonce
 <!DOCTYPE html>
 <html lang="en">
 
@@ -12,7 +13,8 @@
   @* every .razor.css compiles into this one bundle; without it scoped styles are silently ignored.
      Its fingerprint only moves on a build, which is also the only thing that regenerates it *@
   <link rel="stylesheet" href="@Assets["ArtistShop.Web.styles.css"]" />
-  <ImportMap />
+  @* the page's one inline script, allowed by the Content-Security-Policy header's nonce *@
+  <ImportMap nonce="@ContentSecurityNonce.Value" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <HeadOutlet />
 </head>

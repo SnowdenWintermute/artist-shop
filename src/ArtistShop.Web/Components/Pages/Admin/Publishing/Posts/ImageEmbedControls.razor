@@ -6,26 +6,30 @@
 
 @* applied as it's typed. No name, so the form never posts it; the toolbar's script keeps Enter
    from submitting the post *@
-<label class="flex w-full items-center gap-2">
-  <span class="shrink-0">Caption</span>
+<label class="flex items-center ">
+  <span class="shrink-0 mr-2">Caption</span>
   <input type="text" autocomplete="off" placeholder="Optional" class="artist-shop-field-input min-w-0 flex-1"
          data-part="caption" />
 </label>
-<div class="flex gap-1" role="group" aria-label="Size">
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" data-size="small" aria-pressed="false">Small</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" data-size="medium" aria-pressed="false">Medium</ButtonBasic>
-</div>
-@* An alignment button names its layout on a line of its own, and the one with text wrapped
+<div class="flex items-center">
+  <div class="flex gap-1" role="group" aria-label="Size">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" data-size="small"
+                 aria-pressed="false">Small</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" data-size="medium"
+                 aria-pressed="false">Medium</ButtonBasic>
+  </div>
+  @* An alignment button names its layout on a line of its own, and the one with text wrapped
    around it, if it has one. Wrap text switches between the two *@
-<div class="flex gap-1" role="group" aria-label="Layout">
+  <div class="flex gap-1" role="group" aria-label="Layout">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass"
+                 aria-pressed="false" data-layout="@EmbedLayoutNames.Of(EmbedLayout.Left)"
+                 data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">Left</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass"
+                 aria-pressed="false" data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">Centre</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass"
+                 aria-pressed="false" data-layout="@EmbedLayoutNames.Of(EmbedLayout.Right)"
+                 data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">Right</ButtonBasic>
+  </div>
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-               data-layout="@EmbedLayoutNames.Of(EmbedLayout.Left)"
-               data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">Left</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-               data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">Centre</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-               data-layout="@EmbedLayoutNames.Of(EmbedLayout.Right)"
-               data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">Right</ButtonBasic>
+               data-action="wrap">Wrap text</ButtonBasic>
 </div>
-<ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-             data-action="wrap">Wrap text</ButtonBasic>

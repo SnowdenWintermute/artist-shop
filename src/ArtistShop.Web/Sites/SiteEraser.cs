@@ -35,25 +35,3 @@ public sealed class SiteEraser(
         }
     }
 }
-
-// runs SiteEraser at startup and then once a day
-public sealed class SiteEraseService(SiteEraser eraser, TimeProvider timeProvider, ILogger<SiteEraseService> logger)
-    : BackgroundService
-{
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromDays(1), timeProvider);
-
-        do
-        {
-            try
-            {
-                await eraser.EraseDueAsync();
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(exception, "Couldn't read which sites are due for erasing");
-            }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
-    }
-}

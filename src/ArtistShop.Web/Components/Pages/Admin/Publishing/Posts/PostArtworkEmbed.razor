@@ -11,14 +11,12 @@
 
 @* The artwork embed's toolbar. PostArtworkEmbed.razor.js defines the embed. The toolbar carries the
    image addresses and widths because the server is what knows them *@
-<PostEmbedToolbar data-part="artwork-embed-toolbar"
-                  data-storage-key-placeholder="@StorageKeyPlaceholder"
+<PostEmbedToolbar data-part="artwork-embed-toolbar" data-storage-key-placeholder="@StorageKeyPlaceholder"
                   data-small-image-url="@ImageUrls.EmbedVariant(StorageKeyPlaceholder, EmbedImageSize.Small)"
                   data-medium-image-url="@ImageUrls.EmbedVariant(StorageKeyPlaceholder, EmbedImageSize.Medium)"
                   data-small-width="@ImageVariants.EmbedWidth(EmbedImageSize.Small).ToString(CultureInfo.InvariantCulture)"
                   data-medium-width="@ImageVariants.EmbedWidth(EmbedImageSize.Medium).ToString(CultureInfo.InvariantCulture)"
-                  data-layout-classes="@PostEmbedToolbar.LayoutClasses"
-                  data-caption-class="@EmbedFigure.CaptionClass">
+                  data-layout-classes="@PostEmbedToolbar.LayoutClasses" data-caption-class="@EmbedFigure.CaptionClass">
   <ImageEmbedControls />
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="change-image">Change image</ButtonBasic>
 </PostEmbedToolbar>

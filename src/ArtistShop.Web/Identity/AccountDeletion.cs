@@ -11,8 +11,8 @@ using Microsoft.AspNetCore.Identity;
 // Deletes an account, which is the whole platform's: the websites it owns go into their grace
 // period, which nobody can end now, and it stops being an admin of the rest. The platform changes
 // come first, since it's a different database: if Identity's delete then fails, the account still
-// exists and its owner can keep their websites. The websites' own member rows for it stay until
-// they're erased
+// exists and its owner can keep their websites. Only once it's gone are its owner rows removed, so
+// no member row names an account that doesn't exist
 public sealed class AccountDeletion(
     UserManager<ApplicationUser> userManager,
     SiteRepository siteRepository,
@@ -67,6 +67,8 @@ public sealed class AccountDeletion(
         {
             throw new InvalidOperationException($"Identity didn't delete account {account.Id}.");
         }
+
+        await siteRepository.RemoveDeletedSitesOwnerAsync(account.Id);
 
         await accountEmails.SendAccountDeletedAsync(email.Value, platformSettings.Name, deletedSites, leftSites);
 

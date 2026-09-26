@@ -68,9 +68,12 @@
   {
     var missingImages = Input.ImagesMissingFrom(ImageStorage);
 
-    if (missingImages.Count > 0)
+    var droppedLinks = Input.LinksDropped();
+
+    if (missingImages.Count > 0 || droppedLinks.Count > 0)
     {
       Input.AddMissingImageErrors(missingImages);
+      Input.AddDroppedLinkErrors(droppedLinks);
       return;
     }
 

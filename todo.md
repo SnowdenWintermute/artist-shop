@@ -60,7 +60,46 @@ Decided with Mike 2026-09-26:
   `SiteRoleHandlerTests`, `EmailAddressTests`; `TestApp` gained `FirstSiteId`, `UserIdAsync` and
   `MakeFirstSiteAdminAsync`.
 
-**Next:** step 6 is done once 6d is reviewed. Pick the next piece of work with Mike.
+**Built 2026-09-26, uncommitted, 607 tests pass; needs a browser check (below).** Agreed with Mike
+the same day (6d browser-checked):
+1. **A website whose owner deleted their account:** remove the owner's member row once Identity has
+   deleted the account, so every member row has an account (changes a detail of decision 5; the
+   website is owner-less for its grace period, which only a site being deleted may be).
+2. **Leftover schemas and folders from failed sign-ups:** removed at startup, when no sign-up can be
+   halfway; sign-up's failure path also deletes the folders it made.
+3. **Expired sign-up codes and invitations:** deleted 30 days after expiring by the daily job, and
+   owners and the operator can already delete them by hand (Revoke).
+4. **`#…` links in posts:** saving refuses any link the parser would drop, saying why.
+5. **Same-site cookies:** websites get their own registrable domain at deploy (as github.io), and a
+   Content-Security-Policy header now.
+
+What was built:
+- 1: `remove_deleted_sites_owner` after Identity's delete (`AccountDeletion`), so if that delete
+  fails the account still owns, and can keep, its websites.
+- 2: `SiteProvisioner.RemoveUnlistedAsync` at startup, before `Prepare` (dev had empty
+  `content/images/sites/4` and `5` from two failed sign-ups on 2026-09-25; the next start removes
+  them). `CreateAsync`'s failure path deletes the folders too.
+- 3: `ExpiredRowCleanup` (30 days, `KeptAfterExpiring`); `SiteEraseService` became
+  `PlatformCleanupService`, running it and `SiteEraser` daily, each in its own try.
+- 4: `PostDocumentParser.LinksDropped`; `PostEditor` refuses to save with "The link "…" won't
+  work. A link has to start with https://, http://, mailto: or / (a page on this website)."
+- 5: `Security/ContentSecurityPolicy.cs`: `script-src 'self'` plus a per-request nonce, which
+  `<ImportMap>` carries (its only inline script); inline styles allowed; frames for the artwork
+  picker and the two video players; `frame-ancestors 'self'`. In development `connect-src` adds
+  dotnet watch's refresh websocket (`ASPNETCORE_AUTO_RELOAD_WS_ENDPOINT`). The nav bar's dead
+  `onclick` (clicked a `.navbar-toggler` that no longer exists) is gone.
+- **Browser check, 2026-09-26 (Mike):** the only inline-script violation was a browser extension's
+  (gone in a private window). It turned up a real bug: `PostEmbedToolbar` passed `Assets[…]`'s
+  "lib/…" address straight to `import()`, which reads it as a bare module name, so Floating UI
+  never loaded and the toolbar sat mid-screen; fixed with `new URL(src, document.baseURI)`. The
+  toolbar is now hidden until placed, so it no longer flashes where it last was.
+- **Open, dev only:** dotnet watch's refresh websocket answers 403 on a site's host
+  (`site4.localhost`), so hot reload may only reach `localhost`. The policy isn't the cause (it
+  allows the connection). Unknown whether it worked on site hosts before.
+- **Browser check:** with the console open, click through a site's home, an artwork, a post with a
+  video, the post editor (Quill, image upload, artwork picker), the admin lists and dialogs, sign-in
+  with a passkey, and a hot reload: any "Content-Security-Policy" error means the policy needs a
+  source. Saving a post with a `#…` link should show the error.
 
 **Next: step 6, owner features. Decided with Mike, 2026-09-25.** Already decided before
 (multi-tenancy notes): one owner per site, any number of admins who edit content only; memberships
@@ -101,7 +140,7 @@ site); ownership goes only to one of the site's admins; 30-day grace periods tes
    changes first, then the Identity delete, since they're two databases: if the delete then fails,
    the account still exists and can keep its sites.
 
-Deferred still: a profanity filter on site names; choosing the email provider (at deploy);
+Deferred still: choosing the email provider (at deploy);
 dropping orphan schemas; the review follow-ups under the multi-tenancy notes (operator role
 removal isn't immediate, expired codes never deleted, subdomains are "same-site" with the
 platform); one sign-in across subdomain sites via the cookie's domain (not decided).
@@ -1283,7 +1322,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
 - Whether `/admin/uploads` gets the per-user token bucket too (probably yes).
 - Multi-tenancy: see "Multi-tenancy notes" at the end of this file.
 
-- [ ] CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
+- [x] (Done: `/admin/catalog/artworks/import`, confirmed 2026-09-26.) CSV of the artist's spreadsheet creates shop items with no images. Decided 2026-09-13:
       one CSV per item type; fixed header names the artist must use (no column mapping); a header
       must be a known field (`title`, `price`, …), `series`, or the name of an existing vocabulary
       that applies to the item type; an unknown term name rejects the file, while an unknown
@@ -1529,7 +1568,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
           exclusively, mostly, or at least one. No schema change: count the junction rows per
           `ShopItems.ShopItemTypeId`. The open questions are what "mostly" means (a share? the most
           common type?) and whether the artist can override it. Deferred.
-- [ ] Term and series pickers on the add-artwork form — BUILT 2026-09-15. A `CheckboxGroupField` per
+- [x] Term and series pickers on the add-artwork form — BUILT 2026-09-15. A `CheckboxGroupField` per
       vocabulary that applies to paintings, and one for series (in the artist's order); existing terms
       and series only. The groups are the `TermAndSeriesPickers` island, which reloads its options when
       the tab becomes visible again, so a term or series created in another tab appears without losing
@@ -1550,7 +1589,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
 - [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series
-- [ ] **Edit painting — PAUSED 2026-09-16 for step 10, where it becomes "Edit artwork".** Decisions
+- [x] (Superseded by Edit artwork, below.) **Edit painting — PAUSED 2026-09-16 for step 10, where it becomes "Edit artwork".** Decisions
       from 2026-09-15 below; step 10 revises the slug rule and the form class.
       - **The slug follows the name**, like a series. Mike: leaving the old name in the web address is
         weird, and editing usually happens a few times early in a painting's life and then never. Warn
@@ -1568,7 +1607,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
         painting for edit. Watch the sibling `@key` rule and that a `[SupplyParameterFromForm]` model
         needs exactly one public constructor.
 - [x] Split the drop zone's look from its behaviour so the static CSV form reuses it (see the CSV build order)
-- [ ] Bulk image matching, build order (design above, 2026-09-17):
+- [x] (Done: `/admin/catalog/artworks/images`; the format check in step 1 is its own item below.) Bulk image matching, build order (design above, 2026-09-17):
       1. DONE 2026-09-17: `NetVips.NetVips.BlockUntrusted = true;` in `Program.cs`. Not yet checked:
          upload a JPEG, PNG, WebP, AVIF and TIFF to confirm they still work
       2. DONE 2026-09-17: `dbo.AttachPrimaryImageToImagelessArtworkByName` (`Procedures/Artworks/AttachPrimaryImageToImagelessByName.sql`),
@@ -1610,9 +1649,9 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       7. DONE 2026-09-18: the page at `/admin/catalog/artworks/images`, island, depth rule,
          duplicate names through `DatabaseCollationComparer`, pre-check, bar + spinner, report.
          Still to do: the CSV import page's success state should link to it
-- [ ] **Browse artworks — next.** Nothing lists them yet, so the only way to see what the CSV import
+- [x] (Done: `/admin/catalog/artworks`.) **Browse artworks — next.** Nothing lists them yet, so the only way to see what the CSV import
       and the image upload produced is the database
-- [ ] Edit artwork page (step 10), the only way to add a second image
+- [x] Edit artwork page (step 10), the only way to add a second image
 
 ## 10. Artwork restructure — in progress (CSV import in step 9 was taken first, 2026-09-16)
 
@@ -1719,6 +1758,8 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       - public page is `/artworks/{slug}`; the public nav's "Paintings" page is still the placeholder
 - [x] Work type admin under `/admin/catalog/types` (2026-09-16): add, rename, delete when unused, and
       tick the type's fields. Vocabularies keep ticking their types on the vocabulary page
+- [ ] Upload a JPEG, PNG, WebP, AVIF and TIFF to check they still work with
+      `NetVips.BlockUntrusted = true` (bulk image matching, step 1; never checked)
 - [ ] Products island: rows with product type, label, price, edition size and stock; with edition size 1,
       stock is for sale (1) or sold (0).
       The page passes the product types as a record-wrapped list, per the island parameter rule.
@@ -1730,12 +1771,14 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
       into `dbo.CheckArtworkChoicesAreCurrent` and give `UpdateArtwork` a `@Products` parameter, so
       the two forms can't drift on which stale choices they refuse. It sits in `AddArtwork` today
       only because the CSV import is the one caller that sends products
-- [ ] Add artwork: the artist picks the type first, then `/admin/catalog/artworks/add?type={id}`.
+- [ ] Add artwork saves the products island's rows in the same transaction (waits on the products
+      island). The rest of this item is built: the type-first page `/admin/catalog/artworks/add?type={id}`.
+      Add artwork: the artist picks the type first, then `/admin/catalog/artworks/add?type={id}`.
       The static page renders only that type's fields and vocabularies, so no island has to react
       to a type dropdown. `TermAndSeriesPickers` takes the type id instead of assuming paintings.
       The products island's rows are inserted into `Products` in the same transaction. After adding,
       the message links to both the public page and the edit page
-- [ ] Public page `/artworks/{slug}` replaces `/paintings/{slug}`, with an "Edit" link for admins;
+- [x] Public page `/artworks/{slug}` replaces `/paintings/{slug}`, with an "Edit" link for admins;
       dashboard nav updated
 - [x] Edit artwork (2026-09-19: fields, terms, series, images and delete; products wait on the
       products island). Built as described below, with one addition: a duration input, because the
@@ -1754,9 +1797,9 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
         public constructor. Keep the property named `Input`: the pickers hardcode
         `Input.VocabularyTermIds` and `Input.SeriesIds`
       - Editing images: done in the same session, see below
-- [ ] CSV import (step 9) is per work type: the artist picks the type on the import page, and the
+- [x] CSV import (step 9) is per work type: the artist picks the type on the import page, and the
       known headers are that type's fields and vocabularies, plus series, price and sold
-- [ ] Next: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page.
+- [x] (Done, with the type page linking to it.) Next: admin artworks list under `/admin/catalog/artworks`, with filters, linking to each edit page.
       Once it exists, the artwork type page's "Used by N artworks, so it can't be deleted" should link
       to it filtered by that type (`ArtworkTypeEditorForm.razor`)
 

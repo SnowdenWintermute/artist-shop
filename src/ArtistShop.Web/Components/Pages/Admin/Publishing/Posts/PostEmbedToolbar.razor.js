@@ -7,9 +7,11 @@
 /** @type {Promise<FloatingUi> | null} */
 let floatingUiLoaded = null;
 
+// src is Assets' address, relative to the page's <base> ("lib/…"), which import() would read as a
+// bare module name and refuse, so it's made a full address first
 /** @param {string} src */
 function loadFloatingUi(src) {
-  floatingUiLoaded ??= import(src);
+  floatingUiLoaded ??= import(new URL(src, document.baseURI).href);
   return floatingUiLoaded;
 }
 
@@ -80,7 +82,18 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
 
   /** @param {HTMLElement} node */
   async function follow(node) {
-    const { computePosition, autoUpdate, offset, flip, shift } = await floatingUi;
+    /** @type {FloatingUi} */
+    let loaded;
+
+    try {
+      loaded = await floatingUi;
+    } catch (error) {
+      // shown where the browser puts a popover, mid-screen, rather than not at all
+      toolbar.style.visibility = "";
+      throw error;
+    }
+
+    const { computePosition, autoUpdate, offset, flip, shift } = loaded;
 
     // closed, or moved to another embed, while Floating UI was loading
     if (embed !== node) {
@@ -97,8 +110,15 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
         strategy: "fixed",
         middleware: [offset(8), flip(), shift({ padding: 8 })],
       });
+
+      // a placing that began before the toolbar moved to another embed
+      if (embed !== node) {
+        return;
+      }
+
       toolbar.style.left = `${x}px`;
       toolbar.style.top = `${y}px`;
+      toolbar.style.visibility = "";
     });
   }
 
@@ -106,6 +126,13 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
   function open(node) {
     embed = node;
     kind.show(kind.readValue(node));
+
+    // hidden until it's placed under this embed; otherwise it shows for a moment where it last
+    // was, under another embed or, the first time, mid-screen. Hidden still takes up its size,
+    // which placing it needs
+    toolbar.style.visibility = "hidden";
+    stopFollowing?.();
+    stopFollowing = null;
 
     if (!toolbar.matches(":popover-open")) {
       toolbar.showPopover();

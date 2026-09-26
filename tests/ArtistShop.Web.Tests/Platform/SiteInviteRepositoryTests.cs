@@ -113,6 +113,21 @@ public sealed class SiteInviteRepositoryTests(TestDatabaseFixture database)
         Assert.Single(await _invites.GetForEmailAsync(email));
     }
 
+    [Fact]
+    public async Task DeletingExpiredInvitationsKeepsThoseExpiringLater()
+    {
+        var (siteId, _) = await NewSiteAsync();
+        var now = DateTimeOffset.UtcNow;
+        var old = NewEmail();
+        var recent = NewEmail();
+        await _invites.AddAsync(siteId, old, now.AddDays(-31));
+        await _invites.AddAsync(siteId, recent, now.AddDays(-1));
+
+        await _invites.DeleteExpiredBeforeAsync(now.AddDays(-30));
+
+        Assert.Equal(recent, Assert.Single(await _invites.GetForSiteAsync(siteId)).Email);
+    }
+
     private async Task<(SiteId SiteId, HostName Main)> NewSiteAsync()
     {
         var main = HostName.Read($"{Guid.NewGuid():n}.test") ?? throw new InvalidOperationException("Not a host.");

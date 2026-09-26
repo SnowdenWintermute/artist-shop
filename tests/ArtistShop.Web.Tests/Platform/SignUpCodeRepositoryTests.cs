@@ -32,6 +32,20 @@ public sealed class SignUpCodeRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task DeletingExpiredCodesKeepsThoseExpiringLater()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var old = await _codes.AddAsync(SignUpCode.New(), "long expired", now.AddDays(-31));
+        var recent = await _codes.AddAsync(SignUpCode.New(), "just expired", now.AddDays(-1));
+
+        await _codes.DeleteExpiredBeforeAsync(now.AddDays(-30));
+
+        var ids = (await _codes.GetAllAsync()).Select(code => code.Id).ToList();
+        Assert.DoesNotContain(old, ids);
+        Assert.Contains(recent, ids);
+    }
+
+    [Fact]
     public void AListedCodeIsExpiredFromItsExpiryOn()
     {
         var expiresAt = new DateTimeOffset(2030, 1, 2, 0, 0, 0, TimeSpan.Zero);

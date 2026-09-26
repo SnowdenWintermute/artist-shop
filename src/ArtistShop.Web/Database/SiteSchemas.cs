@@ -29,6 +29,16 @@ public sealed class SiteSchemas(string platformConnectionString)
         SchemaMigrator.Site.Upgrade(connectionString, SiteSchema.Name(siteId));
     }
 
+    // every site schema there is, whether or not its site is listed
+    public async Task<List<SiteId>> GetSiteIdsAsync()
+    {
+        await using var connection = new NpgsqlConnection(platformConnectionString);
+
+        var names = await connection.QueryAsync<string>("SELECT schema_name FROM information_schema.schemata");
+
+        return [.. names.Select(SiteSchema.IdFromName).OfType<SiteId>()];
+    }
+
     // the schema and everything in it
     public async Task DropAsync(SiteId siteId)
     {

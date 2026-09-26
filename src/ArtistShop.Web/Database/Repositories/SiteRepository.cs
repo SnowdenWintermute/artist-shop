@@ -153,6 +153,15 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
+    // After the account was deleted: its owner rows on the sites being deleted, which it owned. Those
+    // sites have no owner for the rest of their grace period
+    public async Task RemoveDeletedSitesOwnerAsync(string userId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync("SELECT remove_deleted_sites_owner(@UserId)", new { UserId = userId });
+    }
+
     // The admin becomes the owner and the owner an admin. False when ownerUserId isn't the owner or
     // adminUserId isn't an admin, such as after they left, so nothing changed
     public async Task<bool> HandOverAsync(SiteId siteId, string ownerUserId, string adminUserId)

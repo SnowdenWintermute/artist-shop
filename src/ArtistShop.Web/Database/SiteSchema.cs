@@ -9,7 +9,16 @@ public static class SiteSchema
     // the collations and input types every site's schema uses (Platform/Scripts/0004_CreateSiteTypes.sql)
     public const string TypesSchema = "site_types";
 
-    public static string Name(SiteId siteId) => $"site_{siteId.Value.ToString(CultureInfo.InvariantCulture)}";
+    private const string NamePrefix = "site_";
+
+    public static string Name(SiteId siteId) => $"{NamePrefix}{siteId.Value.ToString(CultureInfo.InvariantCulture)}";
+
+    // the site whose schema this is, or null for any other schema, such as site_types
+    public static SiteId? IdFromName(string schemaName) =>
+        schemaName.StartsWith(NamePrefix, StringComparison.Ordinal)
+        && int.TryParse(schemaName.AsSpan(NamePrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            ? new SiteId(id)
+            : null;
 
     // the site's own schema first, where its tables and functions are made and then found, then the
     // types they share

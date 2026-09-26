@@ -158,6 +158,7 @@ public class PostDocumentParserTests
     [InlineData(@"/\example.com")]
     [InlineData("/\t/example.com")]
     [InlineData("relative")]
+    [InlineData("#section")]
     public void DropsOtherLinksButKeepsTheirText(string link)
     {
         var blocks = Parse(
@@ -166,6 +167,33 @@ public class PostDocumentParserTests
 
         Assert.Equal([Plain("here")], Assert.IsType<ParagraphBlock>(Assert.Single(blocks)).Text);
     }
+
+    // what saving refuses, so no link disappears without a word; each once, in order
+    [Fact]
+    public void ListsTheLinksItWouldDrop()
+    {
+        var body = new PostBody(
+            """
+            {"ops":[
+                {"insert":"a","attributes":{"link":"#section"}},
+                {"insert":"b","attributes":{"link":"https://example.com"}},
+                {"insert":"c","attributes":{"link":"javascript:alert(1)"}},
+                {"insert":"d","attributes":{"link":"#section"}},
+                {"insert":"\n"}
+            ]}
+            """
+        );
+
+        Assert.Equal(["#section", "javascript:alert(1)"], PostDocumentParser.LinksDropped(body));
+    }
+
+    [Fact]
+    public void ListsNoLinksForAPostWhoseLinksAllWork() =>
+        Assert.Empty(
+            PostDocumentParser.LinksDropped(
+                new PostBody("""{"ops":[{"insert":"a","attributes":{"link":"/artworks/x"}},{"insert":"\n"}]}""")
+            )
+        );
 
     [Fact]
     public void DropsFormatsItDoesNotKnow()

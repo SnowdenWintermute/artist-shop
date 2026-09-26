@@ -8,6 +8,7 @@ using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Publishing;
 using ArtistShop.Web.Search;
+using ArtistShop.Web.Security;
 using ArtistShop.Web.Sites;
 using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
@@ -96,6 +97,7 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton<SiteProvisioner>();
 builder.Services.AddScoped<SiteSignUp>();
 builder.Services.AddScoped<SiteMemberAccounts>();
+builder.Services.AddScoped<ContentSecurityNonce>();
 builder.Services.AddScoped<SiteDeletions>();
 
 builder.Services.AddHttpContextAccessor();
@@ -144,9 +146,10 @@ builder.Services.AddSingleton<OrphanedImageSweeper>();
 // hosted service
 builder.Services.AddHostedService<OrphanedImageSweepService>();
 
-// deleted sites, once their grace period is over
+// deleted sites once their grace period is over, and expired rows
 builder.Services.AddSingleton<SiteEraser>();
-builder.Services.AddHostedService<SiteEraseService>();
+builder.Services.AddSingleton<ExpiredRowCleanup>();
+builder.Services.AddHostedService<PlatformCleanupService>();
 
 // a site's own schema
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
@@ -249,6 +252,8 @@ using (var scope = app.Services.CreateScope())
 var siteRepository = app.Services.GetRequiredService<SiteRepository>();
 var siteProvisioner = app.Services.GetRequiredService<SiteProvisioner>();
 
+await siteProvisioner.RemoveUnlistedAsync();
+
 // every site's schema brought up to date, and its folders made
 foreach (var siteId in await siteRepository.GetIdsAsync())
 {
@@ -264,6 +269,7 @@ Console.WriteLine($"Image processing capacity: {imageProcessingCapacity}");
 
 // first, so a host that's neither the platform's nor a site's is turned away before anything else runs
 app.UseKnownHosts();
+app.UseContentSecurityPolicy();
 
 if (!app.Environment.IsDevelopment())
 {
