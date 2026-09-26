@@ -1,0 +1,11 @@
+@code {
+  [Parameter, EditorRequired]
+  public string Href { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<li class="mb-2 last:mb-0">
+  <a href="@Href" class="hover:text-theme-hovered">@ChildContent</a>
+</li>

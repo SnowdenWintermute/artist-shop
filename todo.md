@@ -4,6 +4,23 @@ Claude writes features and Mike reviews them, as on the Postgres port and the bl
 
 ## Where this stands — 2026-09-26: step 6 done and reviewed
 
+**Identity pages and admin dashboard styled, 2026-09-26, uncommitted, not browser-checked.** Every
+Account page sits in `AdminPanel` with `TextField`/`CheckboxField`/`ButtonBasic`, as Register does;
+`ManageLayout` puts the manage links in `AdminPanel`'s section nav. New shared pieces: `Notice`
+(`NoticeVariant`, which `StatusMessage` renders through) and `Panel` (the white box, now inside
+`AdminPanel` too). The dashboard (`Pages/Admin/Dashboard/`) has Catalog, Artworks (a GET form whose
+type select feeds Add, Import and Upload images buttons by `formaction`), Publishing and, for the
+owner, Website boxes. `ExternalLoginPicker` renders nothing with no providers set up.
+Passkeys hidden (Mike, 2026-09-26): a passkey belongs to the host it was made on, since
+`IdentityPasskeyOptions.ServerDomain` is unset, so each website would need its own. The Login button,
+the account nav link and the Passkeys/RenamePasskey pages are gone (restore from git);
+`PasskeySubmit`, its script, its endpoints and the schema's passkey table stay.
+Two-factor hidden too (Mike, 2026-09-26, "worry about this later"): the account nav link, the
+TwoFactorAuthentication, EnableAuthenticator, Disable2fa, GenerateRecoveryCodes and
+ResetAuthenticator pages and `ShowRecoveryCodes` are gone (restore from git). LoginWith2fa and
+LoginWithRecoveryCode stay, reached only by an account with two-factor on. Bringing it back wants a
+QR code drawn from the page's `data-url` (the `otpauth://` link) and a try with a real phone.
+
 **Review of the 2026-09-26 work done; its fixes browser-checked (a 404 page's console shows no CSP
 error), 609 tests, to be committed by Mike.** The fixes: the CSP nonce lives on the HttpContext and
 the header is set as the response starts (404 pages had a mismatched nonce, 500 pages none);

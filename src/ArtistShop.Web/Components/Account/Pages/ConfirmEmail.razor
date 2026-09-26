@@ -10,12 +10,14 @@
 
 <PageTitle>Confirm email</PageTitle>
 
-<h1>Confirm email</h1>
-<StatusMessage Message="@statusMessage" />
-@if (confirmed)
-{
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Confirm email</h1>
+  <StatusMessage Message="@statusMessage" />
+  @if (confirmed)
+  {
     <p><a class="underline" href="Account/Login">Sign in</a></p>
-}
+  }
+</AdminPanel>
 
 @code {
     private string? statusMessage;

@@ -11,27 +11,21 @@
 
 <PageTitle>Recovery code verification</PageTitle>
 
-<h1>Recovery code verification</h1>
-<hr />
-<StatusMessage Message="@message" />
-<p>
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Recovery code verification</h1>
+  <StatusMessage Message="@message" />
+  <p class="mb-4">
     You have requested to log in with a recovery code. This login will not be remembered until you provide
     an authenticator app code at log in or disable 2FA and log in again.
-</p>
-<div class="">
-    <div class="">
-        <EditForm Model="Input" FormName="login-with-recovery-code" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="" role="alert" />
-            <div class="">
-                <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="" autocomplete="off" placeholder="RecoveryCode" />
-                <label for="Input.RecoveryCode" class="">Recovery Code</label>
-                <ValidationMessage For="() => Input.RecoveryCode" class="" />
-            </div>
-            <button type="submit" class="">Log in</button>
-        </EditForm>
-    </div>
-</div>
+  </p>
+
+  <EditForm Model="Input" FormName="login-with-recovery-code" OnValidSubmit="OnValidSubmitAsync" method="post">
+    <DataAnnotationsValidator />
+
+    <TextField Label="Recovery code" @bind-Value="Input.RecoveryCode" autocomplete="off" />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Log in</ButtonBasic>
+  </EditForm>
+</AdminPanel>
 
 @code {
     private string? message;

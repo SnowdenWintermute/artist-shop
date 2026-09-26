@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Components.Tables
 
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
@@ -11,54 +12,38 @@
 
 <PageTitle>Manage your external logins</PageTitle>
 
+<h1 class="mb-4 text-xl">External logins</h1>
 <StatusMessage />
 @if (currentLogins?.Count > 0)
 {
-    <h3>Registered Logins</h3>
-    <table class="">
-        <tbody>
-            @foreach (var login in currentLogins)
-            {
-                <tr>
-                    <td>@login.ProviderDisplayName</td>
-                    <td>
-                        @if (showRemoveButton)
-                        {
-                            <form @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="OnSubmitAsync" method="post">
-                                <AntiforgeryToken />
-                                <div>
-                                    <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
-                                    <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
-                                    <button type="submit" class="" title="Remove this @login.ProviderDisplayName login from your account">Remove</button>
-                                </div>
-                            </form>
-                        }
-                        else
-                        {
-                            @: &nbsp;
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <DataTable Items="@currentLogins.ToList()" Headings="@(new[] { "Service", "" })" Class="mb-6">
+        <Row Context="login">
+            <DataTableCell>@login.ProviderDisplayName</DataTableCell>
+            <DataTableCell Class="text-right">
+                @if (showRemoveButton)
+                {
+                    <form @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="OnSubmitAsync" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
+                        <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
+                        <ButtonBasic type="submit" Variant="ButtonVariant.DangerText"
+                                     title="@($"Remove this {login.ProviderDisplayName} login from your account")">Remove</ButtonBasic>
+                    </form>
+                }
+            </DataTableCell>
+        </Row>
+    </DataTable>
 }
 @if (otherLogins?.Count > 0)
 {
-    <h4>Add another service to log in.</h4>
-    <hr />
-    <form class="" action="Account/Manage/LinkExternalLogin" method="post">
+    <h2 class="mb-2 text-lg">Add another service to log in</h2>
+    <form action="Account/Manage/LinkExternalLogin" method="post" class="flex flex-wrap gap-2">
         <AntiforgeryToken />
-        <div>
-            <p>
-                @foreach (var provider in otherLogins)
-                {
-                    <button type="submit" class="" name="Provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
-                        @provider.DisplayName
-                    </button>
-                }
-            </p>
-        </div>
+        @foreach (var provider in otherLogins)
+        {
+            <ButtonBasic type="submit" Variant="ButtonVariant.Outline" name="Provider" value="@provider.Name"
+                         title="@($"Log in using your {provider.DisplayName} account")">@provider.DisplayName</ButtonBasic>
+        }
     </form>
 }
 

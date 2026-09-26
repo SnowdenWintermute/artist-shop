@@ -6,26 +6,23 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Personal Data</PageTitle>
+<PageTitle>Personal data</PageTitle>
 
 <StatusMessage />
-<h3>Personal Data</h3>
+<h1 class="mb-4 text-xl">Personal data</h1>
 
-<div class="">
-    <div class="">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
-        <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-        </p>
-        @* data-downloads: the page stays put, so its button mustn't go busy with nothing to clear it *@
-        <form action="Account/Manage/DownloadPersonalData" method="post" data-downloads>
-            <AntiforgeryToken />
-            <button class="" type="submit">Download</button>
-        </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="">Delete</a>
-        </p>
-    </div>
+<p class="mb-4">Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
+<Notice Variant="NoticeVariant.Error">
+    <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+</Notice>
+
+<div class="flex flex-wrap gap-2">
+    @* data-downloads: the page stays put, so its button mustn't go busy with nothing to clear it *@
+    <form action="Account/Manage/DownloadPersonalData" method="post" data-downloads>
+        <AntiforgeryToken />
+        <ButtonBasic type="submit" Variant="ButtonVariant.Outline">Download</ButtonBasic>
+    </form>
+    <LinkButton href="Account/Manage/DeletePersonalData" Variant="ButtonVariant.DangerOutline">Delete</LinkButton>
 </div>
 
 @code {

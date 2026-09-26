@@ -11,38 +11,26 @@
 
 <PageTitle>Two-factor authentication</PageTitle>
 
-<h1>Two-factor authentication</h1>
-<hr />
-<StatusMessage Message="@message" />
-<p>Your login is protected with an authenticator app. Enter your authenticator code below.</p>
-<div class="">
-    <div class="">
-        <EditForm Model="Input" FormName="login-with-2fa" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
-            <input type="hidden" name="RememberMe" value="@RememberMe" />
-            <DataAnnotationsValidator />
-            <ValidationSummary class="" role="alert" />
-            <div class="">
-                <InputText @bind-Value="Input.TwoFactorCode" id="Input.TwoFactorCode" class="" autocomplete="off" />
-                <label for="Input.TwoFactorCode" class="">Authenticator code</label>
-                <ValidationMessage For="() => Input.TwoFactorCode" class="" />
-            </div>
-            <div class="">
-                <label for="remember-machine" class="">
-                    <InputCheckbox @bind-Value="Input.RememberMachine" />
-                    Remember this machine
-                </label>
-            </div>
-            <div>
-                <button type="submit" class="">Log in</button>
-            </div>
-        </EditForm>
-    </div>
-</div>
-<p>
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Two-factor authentication</h1>
+  <StatusMessage Message="@message" />
+  <p class="mb-4">Your login is protected with an authenticator app. Enter your authenticator code below.</p>
+
+  <EditForm Model="Input" FormName="login-with-2fa" OnValidSubmit="OnValidSubmitAsync" method="post" class="mb-6">
+    <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+    <input type="hidden" name="RememberMe" value="@RememberMe" />
+    <DataAnnotationsValidator />
+
+    <TextField Label="Authenticator code" @bind-Value="Input.TwoFactorCode" autocomplete="one-time-code" inputmode="numeric" />
+    <CheckboxField Label="Remember this machine" @bind-Value="Input.RememberMachine" />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Log in</ButtonBasic>
+  </EditForm>
+
+  <p class="text-sm">
     Don't have access to your authenticator device? You can
-    <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl">log in with a recovery code</a>.
-</p>
+    <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl" class="underline">log in with a recovery code</a>.
+  </p>
+</AdminPanel>
 
 @code {
     private string? message;

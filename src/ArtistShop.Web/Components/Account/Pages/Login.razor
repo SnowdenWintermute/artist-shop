@@ -15,70 +15,32 @@
 
 <PageTitle>Log in</PageTitle>
 
-<h1>Log in</h1>
-<div class="">
-  <div class="">
-    <section>
-      <StatusMessage Message="@errorMessage" />
-      <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
-        <DataAnnotationsValidator />
-        <h2>Use a local account to log in.</h2>
-        <hr />
-        <ValidationSummary class="" role="alert" />
-        <div class="">
-          <InputText @bind-Value="Input.Email" id="Input.Email" class="" autocomplete="username webauthn"
-                     aria-required="true" placeholder="name@example.com" />
-          <label for="Input.Email" class="">Email</label>
-          <ValidationMessage For="() => Input.Email" class="" />
-        </div>
-        <div class="">
-          <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class=""
-                     autocomplete="current-password" aria-required="true" placeholder="password" />
-          <label for="Input.Password" class="">Password</label>
-          <ValidationMessage For="() => Input.Password" class="" />
-        </div>
-        <div class="">
-          <label class="">
-            <InputCheckbox @bind-Value="Input.RememberMe" class="" />
-            Remember me
-          </label>
-        </div>
-        <div>
-          <button type="submit" class="">Log in</button>
-        </div>
-        <hr />
-        <div class="">
-          <span class="">OR</span>
-          <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="">Log
-            in with a passkey</PasskeySubmit>
-          </div>
-          <hr />
-          <div>
-            <p>
-              <a href="Account/ForgotPassword">Forgot your password?</a>
-            </p>
-            <p>
-              <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
-            </p>
-            @* accounts are made on the platform, for now *@
-            @if (CurrentHost is CurrentHost.Platform)
-            {
-              <p>
-                <a href="@PageUrls.Register">Make an account</a>
-              </p>
-            }
-          </div>
-        </EditForm>
-      </section>
-    </div>
-    <div class="">
-      <section>
-        <h3>Use another service to log in.</h3>
-        <hr />
-        <ExternalLoginPicker />
-      </section>
-    </div>
-  </div>
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Log in</h1>
+  <StatusMessage Message="@errorMessage" />
+
+  <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login" class="mb-6">
+    <DataAnnotationsValidator />
+
+    <TextField Label="Email" @bind-Value="Input.Email" type="email" autocomplete="username" />
+    <TextField Label="Password" @bind-Value="Input.Password" type="password" autocomplete="current-password" />
+    <CheckboxField Label="Remember me" @bind-Value="Input.RememberMe" />
+
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Log in</ButtonBasic>
+  </EditForm>
+
+  <ul class="mb-6 text-sm last:mb-0">
+    <li class="mb-1"><a href="Account/ForgotPassword" class="underline">Forgot your password?</a></li>
+    <li class="mb-1"><a href="Account/ResendEmailConfirmation" class="underline">Resend email confirmation</a></li>
+    @* accounts are made on the platform, for now *@
+    @if (CurrentHost is CurrentHost.Platform)
+    {
+      <li><a href="@PageUrls.Register" class="underline">Make an account</a></li>
+    }
+  </ul>
+
+  <ExternalLoginPicker />
+</AdminPanel>
 
 @code {
   private string? errorMessage;

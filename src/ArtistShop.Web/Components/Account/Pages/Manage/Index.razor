@@ -10,23 +10,15 @@
 
 <PageTitle>Profile</PageTitle>
 
-<h3>Profile</h3>
+<h1 class="mb-4 text-xl">Profile</h1>
 <StatusMessage />
 
-<div class="">
-    <div class="">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="" role="alert" />
-            <div class="">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="" />
-            </div>
-            <button type="submit" class="">Save</button>
-        </EditForm>
-    </div>
-</div>
+<EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+    <DataAnnotationsValidator />
+
+    <TextField Label="Phone number" @bind-Value="Input.PhoneNumber" type="tel" autocomplete="tel" />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Save</ButtonBasic>
+</EditForm>
 
 @code {
     private ApplicationUser? user;

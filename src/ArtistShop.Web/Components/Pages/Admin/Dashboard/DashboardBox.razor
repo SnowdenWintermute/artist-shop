@@ -1,0 +1,12 @@
+@code {
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<Panel>
+  <h2 class="mb-4 text-lg">@Title</h2>
+  @ChildContent
+</Panel>

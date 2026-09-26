@@ -1,0 +1,25 @@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  [Parameter]
+  public NoticeVariant Variant { get; set; }
+
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+  private string VariantClass =>
+    Variant switch
+    {
+      NoticeVariant.Info => "",
+      NoticeVariant.Success => "border-green-600 text-green-700",
+      NoticeVariant.Error => "border-red-600 text-red-600",
+    };
+}
+
+@* a message set apart from the page around it, like a warning or the outcome of a form *@
+<div @attributes="AdditionalAttributes" class="@ClassNames.Join("mb-4 border bg-theme-recessed p-3 text-sm last:mb-0", VariantClass)">
+  @ChildContent
+</div>

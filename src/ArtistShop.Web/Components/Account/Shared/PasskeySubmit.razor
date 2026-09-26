@@ -1,7 +1,8 @@
-﻿@using Microsoft.AspNetCore.Antiforgery
+﻿@using ArtistShop.Web.Components.Atoms
+@using Microsoft.AspNetCore.Antiforgery
 @inject IServiceProvider Services
 
-<button type="submit" name="__passkeySubmit" @attributes="AdditionalAttributes">@ChildContent</button>
+<ButtonBasic type="submit" name="__passkeySubmit" Variant="Variant" @attributes="AdditionalAttributes">@ChildContent</ButtonBasic>
 <passkey-submit
     operation="@Operation"
     name="@Name"
@@ -27,8 +28,11 @@
     [Parameter]
     public string? EmailName { get; set; }
 
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+
     [Parameter]
-    public RenderFragment? ChildContent { get; set; }
+    public ButtonVariant Variant { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IDictionary<string, object>? AdditionalAttributes { get; set; }

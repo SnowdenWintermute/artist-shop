@@ -12,46 +12,38 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Manage email</PageTitle>
+<PageTitle>Email</PageTitle>
 
-<h3>Manage email</h3>
+<h1 class="mb-4 text-xl">Email</h1>
+<StatusMessage Message="@message" />
 
-<StatusMessage Message="@message"/>
-<div class="">
-    <div class="">
-        <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
-            <AntiforgeryToken />
-        </form>
-        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="" role="alert" />
-            @if (isEmailConfirmed)
-            {
-                <div class="">
-                    <input type="text" value="@email" id="email" class="" placeholder="Enter your email" disabled />
-                    <div class="">
-                        <span class="">✓</span>
-                    </div>
-                    <label for="email" class="">Email</label>
-                </div>
-            }
-            else
-            {
-                <div class="">
-                    <input type="text" value="@email" id="email" class="" placeholder="Enter your email" disabled />
-                    <label for="email" class="">Email</label>
-                    <button type="submit" class="" form="send-verification-form">Send verification email</button>
-                </div>
-            }
-            <div class="">
-                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="" autocomplete="email" aria-required="true" placeholder="Enter a new email" />
-                <label for="Input.NewEmail" class="">New email</label>
-                <ValidationMessage For="() => Input.NewEmail" class="" />
-            </div>
-            <button type="submit" class="">Change email</button>
-        </EditForm>
+<form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+    <AntiforgeryToken />
+</form>
+
+<div class="mb-4">
+    <span class="artist-shop-field-label">Current email</span>
+    <div class="flex flex-wrap items-center gap-4">
+        <span>@email</span>
+        @if (isEmailConfirmed)
+        {
+            <span class="text-sm text-green-700">✓ Confirmed</span>
+        }
+        else
+        {
+            <ButtonBasic type="submit" form="send-verification-form" Variant="ButtonVariant.Outline">
+                Send verification email
+            </ButtonBasic>
+        }
     </div>
 </div>
+
+<EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+    <DataAnnotationsValidator />
+
+    <TextField Label="New email" @bind-Value="Input.NewEmail" type="email" autocomplete="email" />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Change email</ButtonBasic>
+</EditForm>
 
 @code {
     private string? message;

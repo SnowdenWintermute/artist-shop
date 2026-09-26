@@ -1,0 +1,15 @@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // for what the box doesn't cover, like a grid cell's layout
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+@* the white box admin content sits in *@
+<div class="@ClassNames.Join("border bg-white p-4", Class)">
+  @ChildContent
+</div>

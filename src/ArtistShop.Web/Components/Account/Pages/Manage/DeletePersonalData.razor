@@ -19,26 +19,26 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
 
-<PageTitle>Delete Personal Data</PageTitle>
+<PageTitle>Delete personal data</PageTitle>
 
 <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
+<h1 class="mb-4 text-xl">Delete personal data</h1>
 
-<div class="" role="alert">
-    <p>
+<Notice Variant="NoticeVariant.Error" role="alert">
+    <p class="mb-2">
         <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
     </p>
     @* the one place a website says it's part of the platform: the account is the platform's *@
-    <p class="mb-4">
+    <p class="mb-2 last:mb-0">
         This is your @PlatformSettings.Name account. It signs you in on every @PlatformSettings.Name website,
         so deleting it closes it on all of them.
     </p>
     @if (ownedSites.Count > 0)
     {
-        <p>These websites are yours. They go offline now, and are erased with all their artworks, posts and
+        <p class="mb-1">These websites are yours. They go offline now, and are erased with all their artworks, posts and
             images on the date shown. Nobody can keep them once your account is gone:</p>
-        <ul class="mb-4 list-disc pl-6">
+        <ul class="mb-2 list-disc pl-6 last:mb-0">
             @foreach (var site in ownedSites)
             {
                 <li>@site.MainHost.Value, on <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /></li>
@@ -47,31 +47,25 @@
     }
     @if (adminSites.Count > 0)
     {
-        <p>You'll no longer be an admin of:</p>
-        <ul class="mb-4 list-disc pl-6">
+        <p class="mb-1">You'll no longer be an admin of:</p>
+        <ul class="list-disc pl-6">
             @foreach (var site in adminSites)
             {
                 <li>@site.MainHost.Value</li>
             }
         </ul>
     }
-</div>
+</Notice>
 
-<div>
-    <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
-        <DataAnnotationsValidator />
-        <ValidationSummary class="" role="alert" />
-        @if (requirePassword)
-        {
-            <div class="">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="Input.Password" class="">Password</label>
-                <ValidationMessage For="() => Input.Password" class="" />
-            </div>
-        }
-        <button class="" type="submit">Delete data and close my account</button>
-    </EditForm>
-</div>
+<EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
+    <DataAnnotationsValidator />
+
+    @if (requirePassword)
+    {
+        <TextField Label="Password" @bind-Value="Input.Password" type="password" autocomplete="current-password" />
+    }
+    <ButtonBasic type="submit" Variant="ButtonVariant.Danger">Delete data and close my account</ButtonBasic>
+</EditForm>
 
 @code {
     private string? message;

@@ -5,10 +5,13 @@
   // links between the pages of one section, shown above the panel
   [Parameter]
   public RenderFragment? SectionNav { get; set; }
+
+  // one width for every admin page, so the panel doesn't jump as the artist moves between them.
+  // Public for the dashboard, whose boxes sit side by side instead of in one panel
+  public const string WidthClass = "mx-auto max-w-[900px]";
 }
 
-@* one width for every admin page, so the panel doesn't jump as the artist moves between them *@
-<div class="mx-auto max-w-[900px]">
+<div class="@WidthClass">
   @if (SectionNav is not null)
   {
     <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
@@ -16,7 +19,7 @@
     </nav>
   }
 
-  <div class="border bg-white p-4">
+  <Panel>
     @ChildContent
-  </div>
+  </Panel>
 </div>

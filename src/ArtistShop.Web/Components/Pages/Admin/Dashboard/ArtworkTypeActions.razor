@@ -1,0 +1,39 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkType> ArtworkTypes { get; set; } = default!;
+}
+
+@* A GET form, so each button goes to its own page with the chosen type in the address, as
+   ?type=3: formaction is the address a button submits to, in place of the form's own *@
+<form method="get" data-enhance>
+  <label class="mb-4 block">
+    <span class="artist-shop-field-label">Artwork type</span>
+    <select name="type" class="artist-shop-field-input w-full">
+      @foreach (var artworkType in ArtworkTypes)
+      {
+        <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
+      }
+    </select>
+  </label>
+
+  <div class="flex flex-wrap gap-2">
+    <ButtonBasic type="submit" formaction="/admin/catalog/artworks/add" Variant="ButtonVariant.Outline">
+      Add one
+    </ButtonBasic>
+    <ButtonBasic type="submit" formaction="/admin/catalog/artworks/import" Variant="ButtonVariant.Outline">
+      <span class="flex items-center gap-2">
+        <img src="@Assets["icons/csv.svg"]" alt="" class="size-5" />
+        Import
+      </span>
+    </ButtonBasic>
+    <ButtonBasic type="submit" formaction="/admin/catalog/artworks/images" Variant="ButtonVariant.Outline">
+      <span class="flex items-center gap-2">
+        <img src="@Assets["icons/folder-open.svg"]" alt="" class="size-5" />
+        Upload images
+      </span>
+    </ButtonBasic>
+  </div>
+</form>

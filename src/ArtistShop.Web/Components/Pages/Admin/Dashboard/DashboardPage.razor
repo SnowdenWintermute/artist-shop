@@ -1,0 +1,66 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@page "/admin"
+@inject ArtworkTypeRepository ArtworkTypeRepository
+
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+@code {
+  private List<ArtworkType> _artworkTypes = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _artworkTypes = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
+  }
+}
+
+<PageTitle>Admin</PageTitle>
+
+<main class="@AdminPanel.WidthClass">
+  <h1 class="mb-4 text-xl">Admin</h1>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <DashboardBox Title="Catalog">
+      <ul>
+        <DashboardLink Href="/admin/catalog/vocabularies/new">Vocabularies</DashboardLink>
+        <DashboardLink Href="/admin/catalog/series">Series</DashboardLink>
+        <DashboardLink Href="/admin/catalog/types/new">Artwork types</DashboardLink>
+      </ul>
+    </DashboardBox>
+
+    <DashboardBox Title="Artworks">
+      <ul class="mb-4">
+        <DashboardLink Href="@PageUrls.ArtworkList">All artworks</DashboardLink>
+      </ul>
+      @if (_artworkTypes.Count == 0)
+      {
+        <p class="text-sm">
+          Adding artworks starts with an <a href="/admin/catalog/types/new" class="underline">artwork type</a>.
+        </p>
+      }
+      else
+      {
+        <ArtworkTypeActions ArtworkTypes="_artworkTypes" />
+      }
+    </DashboardBox>
+
+    <DashboardBox Title="Publishing">
+      <ul>
+        <DashboardLink Href="@PageUrls.PostList">Posts</DashboardLink>
+      </ul>
+    </DashboardBox>
+
+    <AuthorizeView Policy="@SitePolicies.Owner">
+      <Authorized>
+        <DashboardBox Title="Website">
+          <ul>
+            <DashboardLink Href="@PageUrls.SiteAdmins">Admins</DashboardLink>
+          </ul>
+        </DashboardBox>
+      </Authorized>
+    </AuthorizeView>
+  </div>
+</main>

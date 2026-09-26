@@ -1,9 +1,10 @@
-﻿@if (!string.IsNullOrEmpty(DisplayMessage))
+﻿@using ArtistShop.Web.Components.Atoms
+
+@if (!string.IsNullOrEmpty(DisplayMessage))
 {
-    var statusMessageClass = DisplayMessage.StartsWith("Error") ? "text-red-400" : "text-green-600";
-    <div class="@statusMessageClass" role="alert">
+    <Notice Variant="@(DisplayMessage.StartsWith("Error") ? NoticeVariant.Error : NoticeVariant.Success)" role="alert">
         @DisplayMessage
-    </div>
+    </Notice>
 }
 
 @code {
