@@ -1,0 +1,87 @@
+@page "/sites/{Id:int}/delete"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [ServedOn(HostTypes.Platform)]
+@attribute [Authorize]
+@inject SiteRepository SiteRepository
+@inject SiteDeletions SiteDeletions
+@inject PlatformSettings PlatformSettings
+@inject TimeProvider TimeProvider
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  [Parameter]
+  public int Id { get; set; }
+
+  [SupplyParameterFromForm(FormName = "delete-site")]
+  private DeleteSiteForm Input { get; set; } = default!;
+
+  private MemberSite? _site;
+
+  // For its owner only, while it's online. Anyone else, and an id with no site, finds no such page,
+  // so it doesn't say which sites exist
+  protected override async Task OnInitializedAsync()
+  {
+    Input ??= new();
+
+    _site = (await SiteRepository.GetForMemberAsync(HttpContext.User.RequiredUserId())).Find(site =>
+      site.SiteId.Value == Id && site.Role is SiteRole.Owner && !site.IsBeingDeleted
+    );
+
+    if (_site is null)
+    {
+      NavigationManager.NotFound();
+    }
+  }
+
+  private async Task DeleteAsync(MemberSite site)
+  {
+    if (!Input.Names(site.MainHost))
+    {
+      Input.AddWrongAddressError();
+      return;
+    }
+
+    // false only if it changed since the page loaded; My websites shows how it stands
+    await SiteDeletions.DeleteAsync(
+      site,
+      HttpContext.User.RequiredUserId(),
+      PageUrls.PlatformMySites(NavigationManager.BaseUri, PlatformSettings.Host)
+    );
+    NavigationManager.NavigateTo(PageUrls.MySites);
+  }
+}
+
+@if (_site is { } site)
+{
+  <PageTitle>Delete @site.MainHost.Value</PageTitle>
+
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Delete @site.MainHost.Value</h1>
+    <p class="mb-4">
+      It goes offline now for everyone, admins included. On
+      <LocalDate Moment="SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /> it's erased with all its artworks, posts
+      and images. Until then you can keep it from <a class="underline" href="@PageUrls.MySites">My websites</a>.
+    </p>
+
+    <EditForm EditContext="Input.EditContext" FormName="delete-site" OnValidSubmit="() => DeleteAsync(site)" Enhance
+              class="mb-6">
+      <DataAnnotationsValidator />
+
+      <TextField Label="@($"To confirm, type its address: {site.MainHost.Value}")" @bind-Value="Input.Address"
+                 autocomplete="off" />
+      <div class="flex gap-4">
+        <ButtonBasic type="submit" Variant="ButtonVariant.Danger">Delete website</ButtonBasic>
+        <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.MySites">Cancel</LinkButton>
+      </div>
+    </EditForm>
+  </AdminPanel>
+}

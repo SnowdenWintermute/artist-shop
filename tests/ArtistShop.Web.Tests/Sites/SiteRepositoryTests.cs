@@ -143,7 +143,7 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
 
         var site = Assert.Single(await _sites.GetForMemberAsync(owner));
 
-        Assert.Equal(new MemberSite(siteId, main, SiteRole.Owner), site);
+        Assert.Equal(new MemberSite(siteId, main, SiteRole.Owner, EraseAt: null), site);
     }
 
     [Fact]
@@ -198,6 +198,80 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         Assert.False(await _sites.HandOverAsync(siteId, fromUserId, toUserId));
 
         Assert.Equivalent(before, await _sites.GetMembersAsync(siteId));
+    }
+
+    // offline, so its hosts aren't found, but still listed for its members with when it's erased
+    [Fact]
+    public async Task DeletingTakesASiteOfflineUntilItsKept()
+    {
+        var host = NewHost("deleting");
+        var siteId = await _sites.AddNewAsync([host], OwnerUserId);
+        var eraseAt = DateTimeOffset.UtcNow.AddDays(SiteDeletion.GraceDays);
+
+        Assert.True(await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt));
+
+        Assert.DoesNotContain(await _sites.GetHostsAsync(), siteHost => siteHost.SiteId == siteId);
+        var deleting = Assert.Single(await _sites.GetForMemberAsync(OwnerUserId), site => site.SiteId == siteId);
+        Assert.Equal(eraseAt.ToUnixTimeMilliseconds(), deleting.EraseAt?.ToUnixTimeMilliseconds());
+
+        Assert.True(await _sites.KeepAsync(siteId, OwnerUserId));
+
+        Assert.Contains(new SiteHost(host, siteId, true), await _sites.GetHostsAsync());
+        Assert.False(Assert.Single(await _sites.GetForMemberAsync(OwnerUserId), site => site.SiteId == siteId).IsBeingDeleted);
+    }
+
+    [Fact]
+    public async Task OnlyTheOwnerDeletesOrKeepsASite()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("only-owner")], OwnerUserId);
+        await AddAdminAsync(siteId, "admin");
+        var eraseAt = DateTimeOffset.UtcNow.AddDays(SiteDeletion.GraceDays);
+
+        Assert.False(await _sites.ScheduleDeletionAsync(siteId, "admin", eraseAt));
+        Assert.Contains(siteId, (await _sites.GetHostsAsync()).Select(siteHost => siteHost.SiteId));
+
+        Assert.True(await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt));
+        Assert.False(await _sites.KeepAsync(siteId, "admin"));
+        Assert.DoesNotContain(siteId, (await _sites.GetHostsAsync()).Select(siteHost => siteHost.SiteId));
+    }
+
+    // deleting again would start the grace period over
+    [Fact]
+    public async Task DeletingASiteAlreadyBeingDeletedChangesNothing()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("twice")], OwnerUserId);
+        var eraseAt = DateTimeOffset.UtcNow.AddDays(SiteDeletion.GraceDays);
+        await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt);
+
+        Assert.False(await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt.AddDays(1)));
+        Assert.False(await _sites.KeepAsync(await _sites.AddNewAsync([NewHost("online")], OwnerUserId), OwnerUserId));
+    }
+
+    [Fact]
+    public async Task ASiteIsDueForErasingOnceItsTimeHasCome()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("due")], OwnerUserId);
+        var eraseAt = DateTimeOffset.UtcNow.AddDays(SiteDeletion.GraceDays);
+        await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, eraseAt);
+
+        Assert.DoesNotContain(siteId, await _sites.GetDueForErasingAsync(eraseAt.AddSeconds(-1)));
+        Assert.Contains(siteId, await _sites.GetDueForErasingAsync(eraseAt));
+    }
+
+    [Fact]
+    public async Task ErasingRemovesOnlyASiteBeingDeleted()
+    {
+        var online = await _sites.AddNewAsync([NewHost("online")], OwnerUserId);
+        var deleting = await _sites.AddNewAsync([NewHost("deleting")], OwnerUserId);
+        await _sites.ScheduleDeletionAsync(deleting, OwnerUserId, DateTimeOffset.UtcNow);
+
+        await _sites.EraseAsync(online);
+        await _sites.EraseAsync(deleting);
+
+        var ids = await _sites.GetIdsAsync();
+        Assert.Contains(online, ids);
+        Assert.DoesNotContain(deleting, ids);
+        Assert.Empty(await _sites.GetMembersAsync(deleting));
     }
 
     // as an accepted invitation makes one

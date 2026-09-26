@@ -19,6 +19,15 @@ public class ImageStorage(string siteRootPath)
         Directory.CreateDirectory(Variants);
     }
 
+    // every image the site has, when it's erased. Nothing happens if it's already gone
+    public void DeleteAll()
+    {
+        if (Directory.Exists(siteRootPath))
+        {
+            Directory.Delete(siteRootPath, recursive: true);
+        }
+    }
+
     public string OriginalPath(string storageKey) => Path.Combine(Originals, storageKey);
 
     public string VariantDirectory(string storageKey) => Path.Combine(Variants, storageKey);

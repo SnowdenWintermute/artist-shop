@@ -20,7 +20,7 @@
   private HttpContext HttpContext { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public IReadOnlyList<AdminListing> Members { get; set; } = default!;
+  public IReadOnlyList<SiteMemberAccount> Members { get; set; } = default!;
 
   [SupplyParameterFromForm(FormName = "invite-admin")]
   private InviteForm Input { get; set; } = default!;

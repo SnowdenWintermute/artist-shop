@@ -96,6 +96,23 @@ public sealed class SiteInviteRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(kept, Assert.Single(await _invites.GetForSiteAsync(siteId)).Email);
     }
 
+    // the site is offline, so the invitation leads nowhere; kept, it's back
+    [Fact]
+    public async Task AnInvitationToADeletedSiteIsHiddenAndIsntAccepted()
+    {
+        var (siteId, _) = await NewSiteAsync();
+        var email = NewEmail();
+        await _invites.AddAsync(siteId, email, Tomorrow);
+        await _sites.ScheduleDeletionAsync(siteId, "owner", Tomorrow);
+
+        Assert.Empty(await _invites.GetForEmailAsync(email));
+        Assert.False(await _invites.AcceptAsync(siteId, email, "new-admin"));
+        Assert.Null(await _sites.GetMemberRoleAsync(siteId, "new-admin"));
+
+        await _sites.KeepAsync(siteId, "owner");
+        Assert.Single(await _invites.GetForEmailAsync(email));
+    }
+
     private async Task<(SiteId SiteId, HostName Main)> NewSiteAsync()
     {
         var main = HostName.Read($"{Guid.NewGuid():n}.test") ?? throw new InvalidOperationException("Not a host.");

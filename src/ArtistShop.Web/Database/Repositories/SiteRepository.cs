@@ -170,6 +170,54 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
+    // Takes the site offline until eraseAt, when SiteEraser erases it. False when ownerUserId isn't
+    // its owner or it's already being deleted, so nothing changed
+    public async Task<bool> ScheduleDeletionAsync(SiteId siteId, string ownerUserId, DateTimeOffset eraseAt)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT schedule_site_deletion(@SiteId, @OwnerUserId, @EraseAt)",
+            new
+            {
+                SiteId = siteId.Value,
+                OwnerUserId = ownerUserId,
+                EraseAt = eraseAt,
+            }
+        );
+    }
+
+    // Puts a site being deleted back online. False when ownerUserId isn't its owner or it isn't
+    // being deleted, so nothing changed
+    public async Task<bool> KeepAsync(SiteId siteId, string ownerUserId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT keep_site(@SiteId, @OwnerUserId)",
+            new { SiteId = siteId.Value, OwnerUserId = ownerUserId }
+        );
+    }
+
+    // the sites whose erase_at has come by now, in no particular order
+    public async Task<List<SiteId>> GetDueForErasingAsync(DateTimeOffset now)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        var ids = await connection.QueryAsync<int>("SELECT * FROM get_sites_due_for_erasing(@Now)", new { Now = now });
+
+        return [.. ids.Select(id => new SiteId(id))];
+    }
+
+    // The last step of erasing: the row, with its hosts, members and invitations. Does nothing to a
+    // site that isn't being deleted
+    public async Task EraseAsync(SiteId siteId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync("SELECT erase_site(@SiteId)", new { SiteId = siteId.Value });
+    }
+
     private sealed class SiteMemberRow
     {
         public required string UserId { get; init; }
@@ -186,7 +234,16 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         // Dapper turns the smallint into the enum value with that number
         public required SiteRole Role { get; init; }
 
-        public MemberSite ToMemberSite() => new(new SiteId(SiteId), ReadStoredHost(MainHost), Role);
+        // Npgsql reads a timestamptz as a DateTime in UTC
+        public required DateTime? EraseAt { get; init; }
+
+        public MemberSite ToMemberSite() =>
+            new(
+                new SiteId(SiteId),
+                ReadStoredHost(MainHost),
+                Role,
+                EraseAt is { } eraseAt ? new DateTimeOffset(eraseAt) : null
+            );
     }
 
     private sealed class SiteHostRow

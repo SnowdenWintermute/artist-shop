@@ -12,14 +12,14 @@
 
 @code {
   [Parameter, EditorRequired]
-  public IReadOnlyList<AdminListing> Members { get; set; } = default!;
+  public IReadOnlyList<SiteMemberAccount> Members { get; set; } = default!;
 
   // the page is the owner's only, so this is who's signed in
-  private AdminListing Owner =>
+  private SiteMemberAccount Owner =>
     Members.FirstOrDefault(member => member.Role is SiteRole.Owner)
     ?? throw new InvalidOperationException($"Site {CurrentSite.Id.Value} has no owner.");
 
-  private async Task RemoveAsync(AdminListing member)
+  private async Task RemoveAsync(SiteMemberAccount member)
   {
     await SiteRepository.RemoveAdminAsync(CurrentSite.Id, member.UserId);
     NavigationManager.NavigateTo(NavigationManager.Uri);
@@ -27,7 +27,7 @@
 
   // Afterwards this page is the new owner's only, so the old owner goes to the dashboard. False when
   // the admin left since the page loaded; the reloaded page leaves them out
-  private async Task HandOverAsync(AdminListing member)
+  private async Task HandOverAsync(SiteMemberAccount member)
   {
     var owner = Owner;
 

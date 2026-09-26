@@ -1,15 +1,23 @@
 DROP FUNCTION IF EXISTS accept_site_invite;
 
 -- Uses up p_email's unexpired invitation to the site and makes p_user_id one of its admins, in one
--- transaction. False when there was no such invitation, so nobody was added. A member already
--- keeps their role
+-- transaction. False when there was no such invitation, or the site is being deleted, so nobody was
+-- added. A member already keeps their role
 CREATE FUNCTION accept_site_invite (p_site_id int, p_email text, p_user_id text) RETURNS boolean LANGUAGE plpgsql AS $$
 BEGIN
     DELETE FROM site_invites
     WHERE
         site_id = p_site_id
         AND email = p_email
-        AND expires_at > clock_timestamp();
+        AND expires_at > clock_timestamp()
+        AND site_id IN (
+            SELECT
+                site.id
+            FROM
+                sites AS site
+            WHERE
+                site.erase_at IS NULL
+        );
 
     IF NOT FOUND THEN
         RETURN false;

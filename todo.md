@@ -1,35 +1,41 @@
-# Next: multi-tenancy step 6c, deleting a site (see "Where this stands" below)
+# Next: multi-tenancy step 6d, deleting an account (see "Where this stands" below)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — 2026-09-26: 6a (invites) and 6b (handing over ownership) done, 6c (deleting a site) next
+## Where this stands — 2026-09-26: 6a–6b committed, 6c (deleting a site) built, 6d (deleting an account) next
 
 **Committed by Mike:** 6a, invites (`2c4ae26`), browser-checked. Before it: the schema per site
 (`c9cf08f`), 5d "My websites" (`61f312a`) and its review fixes (`3f928e8`). Nothing is deployed.
 
 **Committed by Mike since:** the confirm button moved out of `ConfirmFormDialog` (`617dd5a`).
 
-**Uncommitted, browser-checked by Mike:** Claude's review fixes on 6a (in the same working tree as 6b): `ConfirmFormDialog`'s
-`Id` is its form name, `ModalDialog` lost `ReopenLabel`, a `LinkButton` atom (classes shared via
-`ButtonStyles`), and `CurrentHost.Site`/`CurrentSite` carry `MainHost` (nothing redirects a site's
-other hosts to its main one). Test runs still log "An error occurred using the connection to
-database 'artist_shop_tests_app_identity'" though every test passes; not investigated.
+**Committed by Mike:** the 6a review fixes and 6b, handing over ownership (`edcf16f`): "Make owner"
+on the Admins page, immediate, the old owner becoming an admin, `hand_over_site`, both owners
+emailed. The platform's address is spelled out as link text wherever "My websites" was unclear.
 
-**Uncommitted: 6b, handing over ownership. Claude, 582 tests pass, needs a browser click-through.**
-Decided with Mike 2026-09-26: it takes effect as soon as the owner confirms (no acceptance by the
-new owner), and the old owner becomes an admin.
-- "Make owner" (Outline, beside Remove) on each admin's row of the Admins page, with a
-  `ConfirmFormDialog`. Afterwards the old owner goes to the dashboard (`PageUrls.AdminDashboard`),
-  since the Admins page is now forbidden to them.
-- `hand_over_site` (`Procedures/SiteMembers/HandOver.sql`) locks the admin's row, demotes the
-  owner, then promotes the admin (the unique owner index allows one at a time); false when the
-  caller isn't the owner or the other isn't an admin. `SiteRepository.HandOverAsync`.
-- `SiteEmails` emails the new owner and the old one. Both addresses come from the Admins page's
-  member list, so the members-with-emails service planned for 6b wasn't needed.
-- Tests: `SiteRepositoryTests` (swap, and three refusals), `SiteAdminsTests` on a site of its own
-  via the new `TestApp.MakeSiteAsync`/`MakeAdminAsync(siteId)`.
-- Check: Make owner opens its dialog, the dashboard hides Admins afterwards, and the new owner
-  (signed in on that site) sees the Admins page. Emails show in the dev mail catcher.
+**Uncommitted: 6c, deleting a site. Claude, 595 tests pass, needs a browser click-through.**
+Decided with Mike 2026-09-26: deleting is on its own platform page reached from My websites, and
+the owner and every admin are emailed.
+- **Migration 0006:** `sites.erase_at` (NULL unless deleted). `schedule_site_deletion` and
+  `keep_site` check the caller is the owner; `get_site_hosts` leaves out deleted sites, so their
+  hosts are a plain 404 (`UseKnownHosts`); `get_member_sites` returns `erase_at`; invitations to a
+  deleted site are hidden and can't be accepted. Sign-up's early name check misses a deleted
+  site's hosts, but adding the site refuses them, since `site_hosts` still has them.
+- **`/sites/{id}/delete`** (`Pages/Platform/DeleteSite/`): owner only, while online, else 404. The
+  owner types the main host (any case). `SiteDeletions` (Sites) schedules, reloads `HostDirectory`
+  and emails; `KeepAsync` undoes it and reloads. `SiteDeletion.GraceDays` is 30.
+- **My websites:** a deleted site shows "(deleting on <date>)" without a link; its owner gets
+  "Keep this website" (an enhanced form, no dialog) in place of Manage and Delete; admins keep
+  Leave. Delete is a `DangerOutline` `LinkButton`, matching Leave.
+- **`SiteEraser`** + daily `SiteEraseService`: drops the schema, deletes the image folder
+  (`ImageStorage.DeleteAll`), then `erase_site` deletes the row (hosts, members and invitations
+  cascade). Row last, so a crash partway is finished next run.
+- **`SiteMemberAccounts`** (item 5 of the review, now with two callers): a site's members with
+  their Identity emails. `AdminListing` became `Domain/Sites/SiteMemberAccount`.
+- Tests: `SiteRepositoryTests` (5), `SiteInviteRepositoryTests` (1), `SiteEraserTests` (3, real
+  schema and folders, `FakeTimeProvider`), `SiteDeletionTests` (4, app).
+- Check: Delete from My websites, a wrong address, the site's host 404ing, Keep, both emails.
+- Not done: no email when a site is kept; admins who were told it's going aren't told it stayed.
 
 **What 6a built** (decisions 2 and 3 below):
 - **Platform database:** `site_invites` (script 0005; `(site_id, email)` key, lowercase email,
@@ -53,8 +59,8 @@ new owner), and the old owner becomes an admin.
   `SiteRoleHandlerTests`, `EmailAddressTests`; `TestApp` gained `FirstSiteId`, `UserIdAsync` and
   `MakeFirstSiteAdminAsync`.
 
-**Next session: 6c, deleting a site.** Design the page with Mike first (decision list below:
-30-day grace period, `FakeTimeProvider` in tests).
+**Next session: 6d, deleting an account** (decision 5 below). Design the page with Mike first;
+it builds on `SiteDeletions` for the sites the account owns.
 
 **Next: step 6, owner features. Decided with Mike, 2026-09-25.** Already decided before
 (multi-tenancy notes): one owner per site, any number of admins who edit content only; memberships

@@ -32,6 +32,9 @@ public static class PageUrls
     // on the platform's host
     public const string MySites = "/sites";
 
+    // on the platform's host, for the site's owner
+    public static string DeleteSite(SiteId id) => $"/sites/{id.Value}/delete";
+
     // on a site's host, for its owner
     public const string SiteAdmins = "/admin/admins";
 

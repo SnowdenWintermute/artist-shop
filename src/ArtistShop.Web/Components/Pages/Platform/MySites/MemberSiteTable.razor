@@ -3,7 +3,9 @@
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Sites
 @inject SiteRepository SiteRepository
+@inject SiteDeletions SiteDeletions
 @inject NavigationManager NavigationManager
 
 @code {
@@ -17,6 +19,13 @@
     await SiteRepository.RemoveAdminAsync(site.SiteId, UserId);
     NavigationManager.NavigateTo(NavigationManager.Uri);
   }
+
+  // false when it was erased or kept since the page loaded; the reloaded page shows how it stands
+  private async Task KeepAsync(MemberSite site)
+  {
+    await SiteDeletions.KeepAsync(site.SiteId, UserId);
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
 }
 
 @* each host has its own sign-in cookie, so signing in here doesn't reach the websites *@
@@ -27,17 +36,44 @@
 <DataTable Items="Sites" Headings="@(new[] { "Address", "Role", "" })" Class="mb-4">
   <Row Context="site">
     <DataTableCell>
-      <a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, site.MainHost)">@site.MainHost.Value</a>
+      @* a site being deleted is offline, so there's nothing to link to *@
+      @if (site.EraseAt is { } eraseAt)
+      {
+        @site.MainHost.Value
+        <span class="text-red-600"> (deleting on
+          <LocalDate Moment="eraseAt" />)
+        </span>
+      }
+      else
+      {
+        <a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, site.MainHost)">@site.MainHost.Value</a>
+      }
     </DataTableCell>
     <DataTableCell>@site.Role</DataTableCell>
     <DataTableCell Class="text-right">
       <div class="flex justify-end gap-4">
-        <LinkButton Variant="ButtonVariant.Outline"
-                    href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">
-          Manage
-        </LinkButton>
+        @if (site.Role is SiteRole.Owner && site.IsBeingDeleted)
+        {
+          <form method="post" @formname="@($"keep-site-{site.SiteId.Value}")" @onsubmit="() => KeepAsync(site)"
+                data-enhance>
+            <AntiforgeryToken />
+            <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Keep this website</ButtonBasic>
+          </form>
+        }
+        else if (!site.IsBeingDeleted)
+        {
+          <LinkButton Variant="ButtonVariant.Outline"
+                      href="@PageUrls.SiteAdmin(NavigationManager.BaseUri, site.MainHost)">
+            Manage
+          </LinkButton>
+        }
+
         @* an owner hands the website over or deletes it instead *@
-        @if (site.Role is SiteRole.Admin)
+        @if (site.Role is SiteRole.Owner && !site.IsBeingDeleted)
+        {
+          <LinkButton Variant="ButtonVariant.Danger" href="@PageUrls.DeleteSite(site.SiteId)">Delete</LinkButton>
+        }
+        else if (site.Role is SiteRole.Admin)
         {
           var dialogId = $"leave-site-{site.SiteId.Value}";
           <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@dialogId">Leave

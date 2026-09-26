@@ -92,6 +92,8 @@ builder.Services.AddSingleton(services =>
 );
 builder.Services.AddSingleton<SiteProvisioner>();
 builder.Services.AddScoped<SiteSignUp>();
+builder.Services.AddScoped<SiteMemberAccounts>();
+builder.Services.AddScoped<SiteDeletions>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(CurrentHost.From);
@@ -138,6 +140,10 @@ builder.Services.AddSingleton<OrphanedImageSweeper>();
 
 // hosted service
 builder.Services.AddHostedService<OrphanedImageSweepService>();
+
+// deleted sites, once their grace period is over
+builder.Services.AddSingleton<SiteEraser>();
+builder.Services.AddHostedService<SiteEraseService>();
 
 // a site's own schema
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());

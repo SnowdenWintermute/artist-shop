@@ -1,46 +1,26 @@
 @page "/admin/admins"
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Sites
-@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.EntityFrameworkCore
 @attribute [Authorize(Policy = SitePolicies.Owner)]
-@inject SiteRepository SiteRepository
+@inject SiteMemberAccounts SiteMemberAccounts
 @inject SiteInviteRepository SiteInviteRepository
-@inject UserManager<ApplicationUser> UserManager
 @inject CurrentSite CurrentSite
 @inject PlatformSettings PlatformSettings
 @inject NavigationManager NavigationManager
 
 @code {
-  private List<AdminListing> _members = [];
+  private List<SiteMemberAccount> _members = [];
   private List<SiteInvite> _invites = [];
   private string _mySitesLink = "";
 
   protected override async Task OnInitializedAsync()
   {
-    var members = await SiteRepository.GetMembersAsync(CurrentSite.Id);
-    var userIds = members.Select(member => member.UserId).ToList();
-    // accounts are in the identity database, so their emails are looked up separately
-    var emails = await UserManager
-      .Users.Where(user => userIds.Contains(user.Id))
-      .ToDictionaryAsync(user => user.Id, user => user.Email);
-
     // the owner first, then admins by email
     _members =
     [
-      .. members
-        .Select(member => new AdminListing(
-          member.UserId,
-          EmailAddress.Read(
-            emails.GetValueOrDefault(member.UserId)
-              ?? throw new InvalidOperationException($"Member {member.UserId} has no account or no email.")
-          ) ?? throw new InvalidOperationException($"Member {member.UserId}'s email isn't an email address."),
-          member.Role
-        ))
+      .. (await SiteMemberAccounts.GetAsync(CurrentSite.Id))
         .OrderBy(member => member.Role)
         .ThenBy(member => member.Email.Value),
     ];

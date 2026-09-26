@@ -34,7 +34,8 @@ public sealed class SiteSignUp(
         var host = name.HostUnder(platformSettings.Host);
 
         // checked before the site's schema is made, so the usual mistakes don't make one only to
-        // drop it. Adding the site checks both again, which is the check that counts
+        // drop it. Adding the site checks both again, which is the check that counts: the directory
+        // leaves out a deleted site's hosts, which stay taken until it's erased
         if (!await signUpCodes.IsUsableAsync(code))
         {
             return new SiteSignUpResult.CodeNotUsable();
