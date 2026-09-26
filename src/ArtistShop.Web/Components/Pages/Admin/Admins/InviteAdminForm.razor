@@ -1,16 +1,18 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Sites
 @using ArtistShop.Web.Email
+@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.Identity
 @inject SiteInviteRepository SiteInviteRepository
 @inject SiteEmails SiteEmails
 @inject CurrentSite CurrentSite
 @inject PlatformSettings PlatformSettings
 @inject TimeProvider TimeProvider
+@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
 
 @code {
@@ -29,8 +31,7 @@
   {
     var email = Input.ToEmail();
 
-    // accounts' emails are compared as invitations keep them
-    if (Members.Any(member => EmailAddress.Read(member.Email) == email))
+    if (Members.Any(member => member.Email == email))
     {
       Input.AddAlreadyMemberError();
       return;
@@ -38,12 +39,14 @@
 
     await SiteInviteRepository.AddAsync(CurrentSite.Id, email, TimeProvider.GetUtcNow().AddDays(SiteInvite.DaysValid));
 
-    // other hosts redirect to the main one, so the request's host is the site's main host
-    var site = HostName.Read(HttpContext.Request.Host.Host) ?? throw new InvalidOperationException("The request has no host.");
+    // from the account rather than the sign-in cookie, which can hold an email since changed
+    var inviter =
+      await UserManager.GetUserAsync(HttpContext.User)
+      ?? throw new InvalidOperationException("A signed-in account wasn't found.");
     await SiteEmails.SendInviteAsync(
       email,
-      Unwrap.Value(HttpContext.User.Identity?.Name),
-      site,
+      Unwrap.Value(inviter.Email),
+      CurrentSite.MainHost,
       PageUrls.PlatformMySites(NavigationManager.BaseUri, PlatformSettings.Host)
     );
 

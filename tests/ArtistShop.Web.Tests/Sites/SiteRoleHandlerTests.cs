@@ -71,8 +71,9 @@ public sealed class SiteRoleHandlerTests(TestDatabaseFixture database)
         Assert.False(await IsAllowedAsync(Admin, new CurrentHost.Platform(), SignedIn("owner")));
     }
 
+    // the handler reads only the site's id, so any main host will do
     private Task<bool> IsAllowedAsync(SiteRoleRequirement requirement, SiteId siteId, ClaimsPrincipal user) =>
-        IsAllowedAsync(requirement, new CurrentHost.Site(siteId), user);
+        IsAllowedAsync(requirement, new CurrentHost.Site(siteId, NewHost()), user);
 
     private async Task<bool> IsAllowedAsync(SiteRoleRequirement requirement, CurrentHost host, ClaimsPrincipal user)
     {

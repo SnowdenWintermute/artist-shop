@@ -23,6 +23,7 @@
 @code {
   private const string CheckFormName = "check-artwork-import";
   private const string ConfirmFormName = "confirm-artwork-import";
+  private const string ReviewDialogId = "artwork-import-review";
 
   // two forms on one page: FormName decides which property a post fills in
   [SupplyParameterFromForm(FormName = CheckFormName)]
@@ -281,7 +282,11 @@
 
       @if (_plan is not null)
       {
-        <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" ReopenLabel="Show the review">
+        @* the review opens by itself; this opens it again after it's closed *@
+        <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" data-opens-dialog="@ReviewDialogId">
+          Show the review
+        </ButtonBasic>
+        <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
           @if (_catalogChangedSinceReview)
           {
             <p class="mb-4 shrink-0 text-red-400">

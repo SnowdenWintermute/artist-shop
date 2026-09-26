@@ -55,11 +55,7 @@ customElements.define(
         return;
       }
 
-      const action = event.target.closest("[data-modal-dialog]")?.getAttribute("data-modal-dialog");
-
-      if (action === "open") {
-        this.#open();
-      } else if (action === "close") {
+      if (event.target.closest("[data-modal-dialog]")?.getAttribute("data-modal-dialog") === "close") {
         this.#dialog()?.close();
       }
     }

@@ -12,7 +12,8 @@ public abstract record CurrentHost
 
     public sealed record Platform : CurrentHost;
 
-    public sealed record Site(SiteId Id) : CurrentHost;
+    // MainHost is the site's own, whichever of its hosts the request came in on
+    public sealed record Site(SiteId Id, HostName MainHost) : CurrentHost;
 
     public HostTypes Type =>
         this switch

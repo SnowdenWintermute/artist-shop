@@ -1,8 +1,8 @@
 @using ArtistShop.Web.Components.Atoms
 
 @* ConfirmDialog for a static page, holding a form that its confirm button posts. It starts closed: a
-   button with data-opens-dialog set to Id opens it. Id and FormName must be unique on the page, so
-   one in a table's row includes the row's id.
+   button with data-opens-dialog set to Id opens it. Id is the form's name too, so the button and the
+   dialog share one string. It must be unique on the page, so one in a table's row includes the row's id.
    Not enhanced: an enhanced post patches the page in place, and when a row is gone afterwards the
    rows below it take over its elements, the open dialog among them. A full load starts closed *@
 
@@ -13,8 +13,6 @@
   public string Title { get; set; } = default!;
   [Parameter, EditorRequired]
   public string ConfirmLabel { get; set; } = default!;
-  [Parameter, EditorRequired]
-  public string FormName { get; set; } = default!;
   [Parameter, EditorRequired]
   public EventCallback OnConfirm { get; set; }
   [Parameter, EditorRequired]
@@ -28,7 +26,7 @@
              aria-describedby="@_descriptionId">
   <div id="@_descriptionId" class="mb-6">@ChildContent</div>
 
-  <form method="post" @formname="@FormName" @onsubmit="OnConfirm">
+  <form method="post" @formname="@Id" @onsubmit="OnConfirm">
     <AntiforgeryToken />
     <ModalDialogActions>
       <ModalCloseButton Label="Cancel" />

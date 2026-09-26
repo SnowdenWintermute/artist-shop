@@ -13,17 +13,19 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
     // an Identity user id; the platform database doesn't check it names an account
     private const string OwnerUserId = "test-owner";
 
+    // with the site's main host, whichever host was asked for
     [Fact]
     public async Task FindsASiteByAnyOfItsHostsInAnyCase()
     {
         var label = Guid.NewGuid().ToString("n");
-        var siteId = await _sites.AddNewAsync([Host($"{label}.test"), Host($"www.{label}.test")], OwnerUserId);
+        var mainHost = Host($"{label}.test");
+        var siteId = await _sites.AddNewAsync([mainHost, Host($"www.{label}.test")], OwnerUserId);
         var directory = NewDirectory();
 
         await directory.ReloadAsync();
 
-        Assert.Equal(new CurrentHost.Site(siteId), directory.Find($"{label}.test"));
-        Assert.Equal(new CurrentHost.Site(siteId), directory.Find($"WWW.{label.ToUpperInvariant()}.test"));
+        Assert.Equal(new CurrentHost.Site(siteId, mainHost), directory.Find($"{label}.test"));
+        Assert.Equal(new CurrentHost.Site(siteId, mainHost), directory.Find($"WWW.{label.ToUpperInvariant()}.test"));
     }
 
     [Fact]
@@ -59,7 +61,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
 
         Assert.Null(directory.Find(host.Value));
         await directory.ReloadAsync();
-        Assert.Equal(new CurrentHost.Site(siteId), directory.Find(host.Value));
+        Assert.Equal(new CurrentHost.Site(siteId, host), directory.Find(host.Value));
     }
 
     // the platform would take every request for it, so the site could never be reached
@@ -95,7 +97,7 @@ public sealed class HostDirectoryTests(TestDatabaseFixture database)
         earlierRead.SetResult([]);
         await Task.WhenAll(earlier, later);
 
-        Assert.Equal(new CurrentHost.Site(siteId), directory.Find(host.Value));
+        Assert.Equal(new CurrentHost.Site(siteId, host), directory.Find(host.Value));
     }
 
     // a platform host of its own, since every test shares the platform test database

@@ -21,6 +21,8 @@ public sealed class SiteAdminsTests(TestApp app)
 
         Assert.Contains(TestApp.FirstSiteOwnerEmail, page);
         Assert.Contains(admin, page);
+        // where an invited admin accepts, spelled out, since they may not know the platform's address
+        Assert.Contains($">http://{TestApp.PlatformHost}/sites</a>", page);
     }
 
     [Fact]
@@ -43,7 +45,8 @@ public sealed class SiteAdminsTests(TestApp app)
         Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
     }
 
-    // the address is kept as invitations keep it, and the email links to My websites on the platform
+    // the address is kept as invitations keep it, and the email names the site and links to My websites
+    // on the platform
     [Fact]
     public async Task InvitingEmailsTheAddressAndListsTheInvitation()
     {
@@ -54,8 +57,9 @@ public sealed class SiteAdminsTests(TestApp app)
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         var sent = Assert.Single(app.Mailer.SentTo(email));
-        Assert.Contains($"href=\"http://{TestApp.PlatformHost}/sites\"", sent.HtmlBody);
+        Assert.Contains($"href=\"http://{TestApp.PlatformHost}/sites\">http://{TestApp.PlatformHost}/sites</a>", sent.HtmlBody);
         Assert.Contains(TestApp.FirstSiteOwnerEmail, sent.HtmlBody);
+        Assert.Contains(TestApp.FirstSiteHost, sent.Subject);
         Assert.Contains(email, await ReadAsync(client));
     }
 
@@ -95,6 +99,30 @@ public sealed class SiteAdminsTests(TestApp app)
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.DoesNotContain(await invites.GetForSiteAsync(app.FirstSiteId), invite => invite.Email == email);
+    }
+
+    // Both are emailed, and the old owner, now an admin, goes to the dashboard since this page is
+    // the owner's only. On a site of its own, since the other tests need the first site's owner
+    [Fact]
+    public async Task MakingAnAdminTheOwnerSwapsTheirRoles()
+    {
+        var site = await app.MakeSiteAsync();
+        var admin = await app.MakeAdminAsync(site.Id);
+        var adminUserId = await app.UserIdAsync(admin);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await TestApp.PostFormAsync(client, Path, $"hand-over-{adminUserId}", []);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/admin", response.Headers.Location?.AbsolutePath);
+        var sites = app.Services.GetRequiredService<SiteRepository>();
+        Assert.Equal(SiteRole.Owner, await sites.GetMemberRoleAsync(site.Id, adminUserId));
+        Assert.Equal(SiteRole.Admin, await sites.GetMemberRoleAsync(site.Id, await app.UserIdAsync(site.OwnerEmail)));
+        Assert.Contains(site.OwnerEmail, Assert.Single(app.Mailer.SentTo(admin)).HtmlBody);
+        Assert.Contains(admin, Assert.Single(app.Mailer.SentTo(site.OwnerEmail)).HtmlBody);
+
+        var adminsPage = await client.GetAsync(Path, TestContext.Current.CancellationToken);
+        Assert.Equal("/Account/AccessDenied", adminsPage.Headers.Location?.AbsolutePath);
     }
 
     private Task<HttpClient> OwnerClientAsync() => app.SignedInClientAsync(TestApp.FirstSiteHost, TestApp.FirstSiteOwnerEmail);

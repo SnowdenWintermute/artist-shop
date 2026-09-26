@@ -1,27 +1,35 @@
-# Next: multi-tenancy step 6b, handing over ownership (see "Where this stands" below)
+# Next: multi-tenancy step 6c, deleting a site (see "Where this stands" below)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
-## Where this stands — end of 2026-09-26: 6a (invites) done, 6b (handing over ownership) next
+## Where this stands — 2026-09-26: 6a (invites) and 6b (handing over ownership) done, 6c (deleting a site) next
 
 **Committed by Mike:** 6a, invites (`2c4ae26`), browser-checked. Before it: the schema per site
 (`c9cf08f`), 5d "My websites" (`61f312a`) and its review fixes (`3f928e8`). Nothing is deployed.
 
-**Uncommitted at hand-off:**
-- **Claude, 577 tests pass, needs one browser click-through:** the confirm button is no longer
-  part of `ConfirmFormDialog`. Mike found a button and a dialog as one component confusing and
-  hard to style. Now `ModalDialog` has an `Id`, `ConfirmFormDialog` is only the dialog (always
-  starts closed), and each row renders its own `ButtonBasic` with `data-opens-dialog="<id>"`,
-  which a page-wide click listener in `ModalDialog.razor.js` opens. The `ReopenVariant` and
-  `ReopenLayoutClass` parameters from 6a are gone. Check that Remove, Revoke and Leave open their
-  dialogs and that Cancel and Escape close them.
-- **Mike's own, in progress:** `text-left` on `ModalDialog`'s `<dialog>` (it sits in a
-  right-aligned cell), the Manage link on My websites styled as a bordered button (Leave, now a
-  `DangerText` button beside it, may want matching), `ArtworkThumbnail.razor`,
-  `ArtworkListRows.razor`.
-- The test runs log "An error occurred using the connection to database
-  'artist_shop_tests_app_identity'" though every test passes; probably Identity's startup check
-  before the fixture recreates the database, not confirmed to predate 6a.
+**Committed by Mike since:** the confirm button moved out of `ConfirmFormDialog` (`617dd5a`).
+
+**Uncommitted, browser-checked by Mike:** Claude's review fixes on 6a (in the same working tree as 6b): `ConfirmFormDialog`'s
+`Id` is its form name, `ModalDialog` lost `ReopenLabel`, a `LinkButton` atom (classes shared via
+`ButtonStyles`), and `CurrentHost.Site`/`CurrentSite` carry `MainHost` (nothing redirects a site's
+other hosts to its main one). Test runs still log "An error occurred using the connection to
+database 'artist_shop_tests_app_identity'" though every test passes; not investigated.
+
+**Uncommitted: 6b, handing over ownership. Claude, 582 tests pass, needs a browser click-through.**
+Decided with Mike 2026-09-26: it takes effect as soon as the owner confirms (no acceptance by the
+new owner), and the old owner becomes an admin.
+- "Make owner" (Outline, beside Remove) on each admin's row of the Admins page, with a
+  `ConfirmFormDialog`. Afterwards the old owner goes to the dashboard (`PageUrls.AdminDashboard`),
+  since the Admins page is now forbidden to them.
+- `hand_over_site` (`Procedures/SiteMembers/HandOver.sql`) locks the admin's row, demotes the
+  owner, then promotes the admin (the unique owner index allows one at a time); false when the
+  caller isn't the owner or the other isn't an admin. `SiteRepository.HandOverAsync`.
+- `SiteEmails` emails the new owner and the old one. Both addresses come from the Admins page's
+  member list, so the members-with-emails service planned for 6b wasn't needed.
+- Tests: `SiteRepositoryTests` (swap, and three refusals), `SiteAdminsTests` on a site of its own
+  via the new `TestApp.MakeSiteAsync`/`MakeAdminAsync(siteId)`.
+- Check: Make owner opens its dialog, the dashboard hides Admins afterwards, and the new owner
+  (signed in on that site) sees the Admins page. Emails show in the dev mail catcher.
 
 **What 6a built** (decisions 2 and 3 below):
 - **Platform database:** `site_invites` (script 0005; `(site_id, email)` key, lowercase email,
@@ -45,21 +53,8 @@ Claude writes features and Mike reviews them, as on the Postgres port and the bl
   `SiteRoleHandlerTests`, `EmailAddressTests`; `TestApp` gained `FirstSiteId`, `UserIdAsync` and
   `MakeFirstSiteAdminAsync`.
 
-**Start of next session: 6b, handing over ownership.** Already decided: ownership goes only to one
-of the site's admins. Design the page with Mike before writing it. Claude's suggestions, not yet
-agreed:
-1. **Where:** a "Make owner" button on an admin's row of the Admins page, with a
-   `ConfirmFormDialog` that says the current owner loses owner rights.
-2. **Immediate, or accepted by the new owner first?** Immediate is simplest. Accepting first
-   means nobody is handed a site (and later its deletion) without agreeing; it would work like an
-   invitation shown on My websites.
-3. **The old owner becomes an admin** rather than leaving, so they can still help, and can
-   leave from My websites.
-4. **Database:** one function swaps the two roles in a transaction. `unique_site_members_owner`
-   allows one owner, so the old owner is demoted before the new one is promoted.
-5. **Email** the new owner (and perhaps the old one) that it happened, via `SiteEmails`.
-6. After it, the old owner is still on the Admins page, which is now forbidden to them:
-   redirect them to the dashboard rather than to Access denied.
+**Next session: 6c, deleting a site.** Design the page with Mike first (decision list below:
+30-day grace period, `FakeTimeProvider` in tests).
 
 **Next: step 6, owner features. Decided with Mike, 2026-09-25.** Already decided before
 (multi-tenancy notes): one owner per site, any number of admins who edit content only; memberships

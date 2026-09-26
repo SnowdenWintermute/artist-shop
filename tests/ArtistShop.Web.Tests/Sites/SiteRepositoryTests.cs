@@ -169,6 +169,37 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(new SiteMember(OwnerUserId, SiteRole.Owner), Assert.Single(await _sites.GetMembersAsync(siteId)));
     }
 
+    [Fact]
+    public async Task HandingOverSwapsTheOwnerAndTheAdmin()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("handing-over")], OwnerUserId);
+        await AddAdminAsync(siteId, "admin");
+
+        Assert.True(await _sites.HandOverAsync(siteId, OwnerUserId, "admin"));
+
+        Assert.Equivalent(
+            new[] { new SiteMember(OwnerUserId, SiteRole.Admin), new SiteMember("admin", SiteRole.Owner) },
+            await _sites.GetMembersAsync(siteId)
+        );
+    }
+
+    // such as an admin who left, or a second hand-over by an owner who already handed the site over
+    [Theory]
+    [InlineData(OwnerUserId, "not-a-member")]
+    [InlineData("admin", OwnerUserId)]
+    [InlineData("other-admin", "admin")]
+    public async Task HandingOverFromOtherThanTheOwnerOrToOtherThanAnAdminChangesNothing(string fromUserId, string toUserId)
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("not-handing-over")], OwnerUserId);
+        await AddAdminAsync(siteId, "admin");
+        await AddAdminAsync(siteId, "other-admin");
+        var before = await _sites.GetMembersAsync(siteId);
+
+        Assert.False(await _sites.HandOverAsync(siteId, fromUserId, toUserId));
+
+        Assert.Equivalent(before, await _sites.GetMembersAsync(siteId));
+    }
+
     // as an accepted invitation makes one
     private async Task AddAdminAsync(SiteId siteId, string userId)
     {

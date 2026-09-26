@@ -18,6 +18,9 @@ public static class PageUrls
 
     public static string EditArtwork(ArtworkId id) => $"/admin/catalog/artworks/{id.Value}/edit";
 
+    // on a site's host
+    public const string AdminDashboard = "/admin";
+
     public const string PostList = "/admin/posts";
 
     // on the platform's host
@@ -38,7 +41,7 @@ public static class PageUrls
     public static string SiteHome(string platformBaseUri, HostName siteHost) => OnHost(platformBaseUri, siteHost, "/");
 
     public static string SiteAdmin(string platformBaseUri, HostName siteHost) =>
-        OnHost(platformBaseUri, siteHost, "/admin");
+        OnHost(platformBaseUri, siteHost, AdminDashboard);
 
     // My websites from a site's page, such as in an invitation's email
     public static string PlatformMySites(string siteBaseUri, HostName platformHost) =>

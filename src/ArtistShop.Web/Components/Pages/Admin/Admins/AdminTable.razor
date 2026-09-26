@@ -3,8 +3,10 @@
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Email
 @using ArtistShop.Web.Sites
 @inject SiteRepository SiteRepository
+@inject SiteEmails SiteEmails
 @inject CurrentSite CurrentSite
 @inject NavigationManager NavigationManager
 
@@ -12,25 +14,56 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<AdminListing> Members { get; set; } = default!;
 
+  // the page is the owner's only, so this is who's signed in
+  private AdminListing Owner =>
+    Members.FirstOrDefault(member => member.Role is SiteRole.Owner)
+    ?? throw new InvalidOperationException($"Site {CurrentSite.Id.Value} has no owner.");
+
   private async Task RemoveAsync(AdminListing member)
   {
     await SiteRepository.RemoveAdminAsync(CurrentSite.Id, member.UserId);
     NavigationManager.NavigateTo(NavigationManager.Uri);
   }
+
+  // Afterwards this page is the new owner's only, so the old owner goes to the dashboard. False when
+  // the admin left since the page loaded; the reloaded page leaves them out
+  private async Task HandOverAsync(AdminListing member)
+  {
+    var owner = Owner;
+
+    if (!await SiteRepository.HandOverAsync(CurrentSite.Id, owner.UserId, member.UserId))
+    {
+      NavigationManager.NavigateTo(NavigationManager.Uri);
+      return;
+    }
+
+    await SiteEmails.SendHandedOverToNewOwnerAsync(member.Email, owner.Email, CurrentSite.MainHost);
+    await SiteEmails.SendHandedOverToOldOwnerAsync(owner.Email, member.Email, CurrentSite.MainHost);
+    NavigationManager.NavigateTo(PageUrls.AdminDashboard);
+  }
 }
 
 <DataTable Items="Members" Headings="@(new[] { "Email", "Role", "" })" Class="mb-6">
   <Row Context="member">
-    <DataTableCell>@member.Email</DataTableCell>
+    <DataTableCell>@member.Email.Value</DataTableCell>
     <DataTableCell>@member.Role</DataTableCell>
     <DataTableCell Class="text-right">
       @if (member.Role is SiteRole.Admin)
       {
-        <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@($"remove-admin-{member.UserId}-dialog")">
-          Remove
-        </ButtonBasic>
-        <ConfirmFormDialog Id="@($"remove-admin-{member.UserId}-dialog")" Title="@($"Remove {member.Email}?")"
-                           ConfirmLabel="Remove" FormName="@($"remove-admin-{member.UserId}")"
+        var handOverDialogId = $"hand-over-{member.UserId}";
+        var removeDialogId = $"remove-admin-{member.UserId}";
+        <div class="flex justify-end gap-4">
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-opens-dialog="@handOverDialogId">
+            Make owner
+          </ButtonBasic>
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@removeDialogId">Remove</ButtonBasic>
+        </div>
+        <ConfirmFormDialog Id="@handOverDialogId" Title="@($"Make {member.Email.Value} the owner?")"
+                           ConfirmLabel="Make owner" OnConfirm="() => HandOverAsync(member)">
+          They'll be able to invite and remove admins, and you'll become an admin. Only they can make you
+          the owner again.
+        </ConfirmFormDialog>
+        <ConfirmFormDialog Id="@removeDialogId" Title="@($"Remove {member.Email.Value}?")" ConfirmLabel="Remove"
                            OnConfirm="() => RemoveAsync(member)">
           They won't be able to edit this website any more. You can invite them again.
         </ConfirmFormDialog>

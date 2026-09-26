@@ -12,7 +12,8 @@ public sealed class HostDirectory(Func<Task<List<SiteHost>>> loadSiteHosts, Plat
 {
     // replaced whole rather than changed, so a request reading it sees the old hosts or the new,
     // never half of each. volatile, so every thread sees the replacement
-    private volatile FrozenDictionary<HostName, SiteHost> _siteHosts = FrozenDictionary<HostName, SiteHost>.Empty;
+    private volatile FrozenDictionary<HostName, CurrentHost.Site> _siteHosts =
+        FrozenDictionary<HostName, CurrentHost.Site>.Empty;
 
     // one reload at a time. Otherwise a reload that read the hosts before a new site was added could
     // finish after the reload that read them since, and put back the list without it
@@ -34,7 +35,18 @@ public sealed class HostDirectory(Func<Task<List<SiteHost>>> loadSiteHosts, Plat
                 );
             }
 
-            _siteHosts = siteHosts.ToFrozenDictionary(siteHost => siteHost.Host);
+            var mainHosts = siteHosts
+                .Where(siteHost => siteHost.IsMain)
+                .ToDictionary(siteHost => siteHost.SiteId, siteHost => siteHost.Host);
+
+            _siteHosts = siteHosts.ToFrozenDictionary(
+                siteHost => siteHost.Host,
+                siteHost => new CurrentHost.Site(
+                    siteHost.SiteId,
+                    mainHosts.GetValueOrDefault(siteHost.SiteId)
+                        ?? throw new InvalidOperationException($"Site {siteHost.SiteId.Value} has no main host.")
+                )
+            );
         }
         finally
         {
@@ -55,6 +67,6 @@ public sealed class HostDirectory(Func<Task<List<SiteHost>>> loadSiteHosts, Plat
             return new CurrentHost.Platform();
         }
 
-        return _siteHosts.TryGetValue(host, out var siteHost) ? new CurrentHost.Site(siteHost.SiteId) : null;
+        return _siteHosts.GetValueOrDefault(host);
     }
 }

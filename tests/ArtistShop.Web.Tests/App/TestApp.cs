@@ -106,15 +106,30 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         return account.Id;
     }
 
-    // a new account, invited to the first site and accepted, as My websites accepts; its email
-    public async Task<string> MakeFirstSiteAdminAsync()
+    // a site of its own, owned by a new account, for a test that changes who owns it
+    public async Task<TestSite> MakeSiteAsync()
+    {
+        var ownerEmail = await MakeAccountAsync();
+        var host = $"{Guid.NewGuid():n}.test";
+        var siteId = await Services
+            .GetRequiredService<SiteProvisioner>()
+            .CreateAsync([HostName.Read(host) ?? throw new InvalidOperationException("Not a host.")], await UserIdAsync(ownerEmail));
+        await Services.GetRequiredService<HostDirectory>().ReloadAsync();
+
+        return new TestSite(siteId, host, ownerEmail);
+    }
+
+    public Task<string> MakeFirstSiteAdminAsync() => MakeAdminAsync(FirstSiteId);
+
+    // a new account, invited to the site and accepted, as My websites accepts; its email
+    public async Task<string> MakeAdminAsync(SiteId siteId)
     {
         var email = await MakeAccountAsync();
         var address = EmailAddress.Read(email) ?? throw new InvalidOperationException("Not an email address.");
         var invites = Services.GetRequiredService<SiteInviteRepository>();
 
-        await invites.AddAsync(FirstSiteId, address, DateTimeOffset.UtcNow.AddDays(1));
-        if (!await invites.AcceptAsync(FirstSiteId, address, await UserIdAsync(email)))
+        await invites.AddAsync(siteId, address, DateTimeOffset.UtcNow.AddDays(1));
+        if (!await invites.AcceptAsync(siteId, address, await UserIdAsync(email)))
         {
             throw new InvalidOperationException("The invitation wasn't accepted.");
         }
@@ -196,6 +211,8 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         }
     }
 }
+
+public sealed record TestSite(SiteId Id, string Host, string OwnerEmail);
 
 // Every test class that runs the app shares one, since they'd otherwise each migrate the same
 // databases at once

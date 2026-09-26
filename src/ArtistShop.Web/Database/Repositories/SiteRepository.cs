@@ -153,6 +153,23 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
+    // The admin becomes the owner and the owner an admin. False when ownerUserId isn't the owner or
+    // adminUserId isn't an admin, such as after they left, so nothing changed
+    public async Task<bool> HandOverAsync(SiteId siteId, string ownerUserId, string adminUserId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT hand_over_site(@SiteId, @OwnerUserId, @AdminUserId)",
+            new
+            {
+                SiteId = siteId.Value,
+                OwnerUserId = ownerUserId,
+                AdminUserId = adminUserId,
+            }
+        );
+    }
+
     private sealed class SiteMemberRow
     {
         public required string UserId { get; init; }

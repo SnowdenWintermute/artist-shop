@@ -22,7 +22,7 @@
 
 @if (Invites.Count == 0)
 {
-  <p class="mb-6">No invitations waiting.</p>
+  <p class="mb-6">No invitations pending.</p>
 }
 else
 {
@@ -37,12 +37,12 @@ else
         }
       </DataTableCell>
       <DataTableCell Class="text-right">
-        <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@($"revoke-invite-{invite.Email.Value}-dialog")">
-          Revoke
-        </ButtonBasic>
-        <ConfirmFormDialog Id="@($"revoke-invite-{invite.Email.Value}-dialog")"
-                           Title="@($"Revoke the invitation for {invite.Email.Value}?")" ConfirmLabel="Revoke"
-                           FormName="@($"revoke-invite-{invite.Email.Value}")" OnConfirm="() => RevokeAsync(invite)">
+        @{
+          var dialogId = $"revoke-invite-{invite.Email.Value}";
+        }
+        <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@dialogId">Revoke</ButtonBasic>
+        <ConfirmFormDialog Id="@dialogId" Title="@($"Revoke the invitation for {invite.Email.Value}?")"
+                           ConfirmLabel="Revoke" OnConfirm="() => RevokeAsync(invite)">
           They won't be able to accept it. You can invite them again.
         </ConfirmFormDialog>
       </DataTableCell>

@@ -1,11 +1,9 @@
-@using ArtistShop.Web.Components.Atoms
-
 @* The one modal for every page. It opens as soon as it's rendered, so render it only while it should
    show: inside @if (open) in an island, or when there's something to show on a static page.
    On a static page it has to arrive as a new <modal-dialog> element, which is what runs the script that
    opens it: rendering it only when there's something to show gives that for free, whether the page was
    loaded whole or patched in by an enhanced post. An element already on the page is updated in place
-   and never reopens, which is what ReopenLabel is for *@
+   and never reopens: to open it again, give it an Id and render a button with data-opens-dialog *@
 
 @code {
   [Parameter, EditorRequired]
@@ -22,9 +20,6 @@
   // islands only: Escape does nothing while this is true, e.g. while saving
   [Parameter]
   public bool KeepOpen { get; set; }
-  // static pages only: a button left on the page that opens the dialog again after it's closed
-  [Parameter]
-  public string? ReopenLabel { get; set; }
   // static pages only: rendered closed, for a script to open with showModal, such as the post
   // editor's artwork picker, or a button with data-opens-dialog set to Id
   [Parameter]
@@ -50,14 +45,9 @@
     };
 }
 
-@* <modal-dialog> is defined in ModalDialog.razor.js, loaded on every page. Without a reopen button it
-   has nothing to lay out ("contents"), since an open modal sits above the page *@
-<modal-dialog class="@(ReopenLabel is null ? "contents" : "mb-4 block")" data-starts-closed="@StartsClosed">
-  @if (ReopenLabel is not null)
-  {
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-modal-dialog="open">@ReopenLabel</ButtonBasic>
-  }
-
+@* <modal-dialog> is defined in ModalDialog.razor.js, loaded on every page. It has nothing to lay out
+   ("contents"), since an open modal sits above the page *@
+<modal-dialog class="contents" data-starts-closed="@StartsClosed">
   @* close fires however the dialog closed. data-keep-open: a bool attribute is only rendered while
      true, and the script then cancels Escape. Not @oncancel:preventDefault, which the compiler emitted
      as a literal attribute name that the browser rejects *@
