@@ -75,6 +75,22 @@ public sealed class SiteAdminsTests(TestApp app)
         Assert.Empty(app.Mailer.SentTo(admin));
     }
 
+    // refused before the invitation is kept, so no row is left that no email told anyone about
+    [Fact]
+    public async Task OverTheEmailLimitNoInvitationIsMade()
+    {
+        var email = $"{Guid.NewGuid():n}@example.com";
+        var client = await OwnerClientAsync();
+        app.EmailSendLimit.Refuse(email);
+
+        var response = await InviteAsync(client, email);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Try again in a minute.", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(app.Mailer.SentTo(email));
+        Assert.DoesNotContain(email, await ReadAsync(client));
+    }
+
     // each row's dialog posts a form named for that row
     [Fact]
     public async Task RemovingAnAdminTakesTheirMembership()

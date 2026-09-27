@@ -1,4 +1,4 @@
-# Next: Mike reviews the auth review's fixes (below, all uncommitted), then an AWS email provider (SES) for production with a limit on how often the app sends email, then the dev hot reload 403 on site hosts, step 7 or the catalog's open items
+# Next: Mike reviews the email send limit (below, uncommitted), then the dev hot reload 403 on site hosts, step 7 or the catalog's open items
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -149,12 +149,22 @@ with a test that fails without its fix:
   way in can't be removed, a Google-only account's first password by the link, the operator role's
   removal signing out.
 
-**Open: limit how often the app sends email** (Mike, 2026-09-27: needs its own careful design,
-before or with SES). Register, Forgot password and the account page's Password box each email any
-address on every submit, so someone can flood an inbox and spend the sending reputation SES
-judges the domain by. To weigh: per address and per client IP, what the page answers when limited
-(it mustn't say whether the address has an account), and whether the limit lives in memory or the
-database (one app instance for now).
+**SES set up by Mike, 2026-09-27.** us-east-1, identity `mikesilverman.net` with MAIL FROM
+`mail.mikesilverman.net` (DNS at Mike's domain provider), SMTP login from an IAM user in the VPS's
+web env file, production access requested. No code change: `SmtpMailer` sends through SES's SMTP.
+
+**Email send limit, built 2026-09-27, uncommitted, 684 tests.** Register, Forgot password, the account
+page's Password box and admin invitations ask `EmailSendLimit` before emailing an address typed in;
+notices that follow something done (deletions, handovers) aren't limited. `RateLimitedEmailSendLimit`
+chains three of .NET's sliding-window limiters, in memory: per requester 10 an hour (the signed-in
+account, else the client IP, an IPv6 one by its /64), per address 1 a minute and 5 an hour. The
+requester's limit comes first, so a refusal there doesn't use up the address's. Register and Forgot
+password answer the same when limited; the Password box and the invite form say to try again in a
+minute, and a refused invite keeps no invitation. Tests swap in `RefusingEmailSendLimit` (refuses
+the addresses a test names); `EmailSendLimitTests` covers the limits' keys and order. Left as is:
+anyone can use up an address's 5 an hour, keeping its owner from a reset link for up to an hour
+(Mike chose an hour over a day for this, and 30 per requester so a shared IP rarely hits it). If
+abuse shows up: Cloudflare Turnstile on the two signed-out forms.
 
 **Open for step 7 (custom domains): a website's owner could collect sign-ins.** The platform's
 `/Account/SignInTo` sends a code, with no click asked, to any host `HostDirectory` knows. Today every

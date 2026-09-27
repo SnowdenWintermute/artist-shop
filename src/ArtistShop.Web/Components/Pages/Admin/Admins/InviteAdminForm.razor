@@ -9,6 +9,7 @@
 @using Microsoft.AspNetCore.Identity
 @inject SiteInviteRepository SiteInviteRepository
 @inject SiteEmails SiteEmails
+@inject EmailSendLimit EmailSendLimit
 @inject CurrentSite CurrentSite
 @inject PlatformSettings PlatformSettings
 @inject TimeProvider TimeProvider
@@ -34,6 +35,13 @@
     if (Members.Any(member => member.Email == email))
     {
       Input.AddAlreadyMemberError();
+      return;
+    }
+
+    // before the invitation is kept, so a refused one leaves nothing behind
+    if (!EmailSendLimit.TryTake(email.Value, EmailSendLimit.RequesterOf(HttpContext)))
+    {
+      Input.AddEmailLimitError();
       return;
     }
 

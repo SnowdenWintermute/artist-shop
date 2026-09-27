@@ -230,6 +230,7 @@ builder
 var emailSettings = ValidatedSettings.Read<EmailSettings>(builder.Configuration, "Email");
 builder.Services.AddSingleton(emailSettings);
 builder.Services.AddSingleton<Mailer, SmtpMailer>();
+builder.Services.AddSingleton<EmailSendLimit, RateLimitedEmailSendLimit>();
 builder.Services.AddSingleton<AccountEmails>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(services => services.GetRequiredService<AccountEmails>());
 builder.Services.AddScoped<AccountRegistration>();

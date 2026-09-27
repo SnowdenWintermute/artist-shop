@@ -14,7 +14,8 @@ public abstract record RegistrationResult
     // only the ones below
     private RegistrationResult() { }
 
-    // an email is on its way, whether the address had an account or not
+    // an email is on its way, whether the address had an account or not, unless EmailSendLimit
+    // refused it
     public sealed record EmailSent : RegistrationResult;
 
     // Identity refuses the address itself, such as for a character it doesn't allow. No account
@@ -52,19 +53,28 @@ public sealed record RegistrationLink(string Email, string? ReturnUrl);
 public sealed class AccountRegistration(
     UserManager<ApplicationUser> userManager,
     AccountEmails accountEmails,
+    EmailSendLimit emailSendLimit,
     IDataProtectionProvider dataProtection
 )
 {
     public static readonly TimeSpan LinkLifetime = TimeSpan.FromHours(24);
 
-    // hostRoot is this host's address, such as https://artshop.mikesilverman.net/, for the links
-    public async Task<RegistrationResult> RegisterAsync(string email, string? returnUrl, Uri hostRoot)
+    // hostRoot is this host's address, such as https://artshop.mikesilverman.net/, for the links;
+    // requester is EmailSendLimit.RequesterOf the request
+    public async Task<RegistrationResult> RegisterAsync(string email, string? returnUrl, Uri hostRoot, string requester)
     {
         var emailErrors = await EmailErrorsAsync(email);
 
         if (emailErrors.Count > 0)
         {
             return new RegistrationResult.EmailRefused(emailErrors);
+        }
+
+        // over the limit, nothing is sent but the page answers the same, so it can't be used to learn
+        // that someone else just asked for that address
+        if (!emailSendLimit.TryTake(email, requester))
+        {
+            return new RegistrationResult.EmailSent();
         }
 
         if (await userManager.FindByEmailAsync(email) is not { EmailConfirmed: true })

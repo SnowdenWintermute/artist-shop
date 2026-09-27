@@ -73,6 +73,38 @@ public sealed partial class PasswordTests(TestApp app)
         Assert.Contains($"http://{TestApp.PlatformHost}/Account/ResetPassword?code=", WebUtility.HtmlDecode(sent.HtmlBody));
     }
 
+    [Fact]
+    public async Task OverTheEmailLimitForgotPasswordSendsNothingButAnswersTheSame()
+    {
+        var email = await app.MakeAccountAsync();
+        app.EmailSendLimit.Refuse(email);
+
+        var response = await TestApp.PostFormAsync(
+            app.ClientFor(TestApp.PlatformHost),
+            "/Account/ForgotPassword",
+            "forgot-password",
+            new() { ["Input.Email"] = email }
+        );
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/ForgotPasswordConfirmation", response.Headers.Location?.AbsolutePath);
+        Assert.Empty(app.Mailer.SentTo(email));
+    }
+
+    // the account's owner knows their own address, so the box says plainly
+    [Fact]
+    public async Task OverTheEmailLimitThePasswordBoxSendsNothingAndSaysSo()
+    {
+        var email = await app.MakeAccountAsync();
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, email);
+        app.EmailSendLimit.Refuse(email);
+
+        await TestApp.PostFormAsync(client, "/Account/Manage", "email-password-link", []);
+
+        Assert.Empty(app.Mailer.SentTo(email));
+        Assert.Contains("Try again in a minute.", await client.GetStringAsync("/Account/Manage", TestContext.Current.CancellationToken));
+    }
+
     // changing a password or an email from a signed-in browser alone isn't possible, and the account
     // page's tabs are one page now
     [Theory]

@@ -24,4 +24,7 @@ public class InviteForm : ServerValidatedForm, IValidatableObject
 
     public void AddAlreadyMemberError() =>
         AddServerError(nameof(Email), "This account already helps run this website.");
+
+    public void AddEmailLimitError() =>
+        AddServerError(nameof(Email), "We've emailed this address very recently. Try again in a minute.");
 }

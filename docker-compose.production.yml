@@ -23,12 +23,14 @@
 #   The account that runs the platform and makes sign-up codes, checked at every boot. The password
 #   is only read to make the account, so that line can go once it exists. Sites are made by
 #   signing up at the platform's /signup with a code from its /operator page.
-#     Email__Host=<the provider's SMTP server>
+#     Email__Host=email-smtp.us-east-1.amazonaws.com
 #     Email__Port=587
-#     Email__Username=<login>
-#     Email__Password=<password>
-#   The provider isn't chosen yet (todo.md); the app won't start without these. The domain needs
-#   the provider's SPF and DKIM DNS records, or the mail is taken for spam.
+#     Email__Username=<SES SMTP user name>
+#     Email__Password=<SES SMTP password>
+#   Amazon SES in us-east-1; the app won't start without these. The login is an IAM user made by
+#   SES's "Create SMTP credentials", and only works in that region. SES's verified identity is
+#   mikesilverman.net (DKIM records, MAIL FROM domain mail.mikesilverman.net), which covers the
+#   From address's subdomain below.
 #     Authentication__Google__ClientId=<client id>
 #     Authentication__Google__ClientSecret=<client secret>
 #   Google sign-in's OAuth client. Its authorized redirect URI is

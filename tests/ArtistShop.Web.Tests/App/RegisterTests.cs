@@ -202,6 +202,20 @@ public sealed partial class RegisterTests(TestApp app)
         Assert.Contains($"http://{TestApp.PlatformHost}/Account/ForgotPassword", sent.HtmlBody);
     }
 
+    // the page can't be used to learn that someone else just asked for the address
+    [Fact]
+    public async Task OverTheEmailLimitNothingIsSentButThePageAnswersTheSame()
+    {
+        var email = NewEmail();
+        app.EmailSendLimit.Refuse(email);
+
+        var response = await RegisterAsync(email);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/RegisterConfirmation", response.Headers.Location?.AbsolutePath);
+        Assert.Empty(app.Mailer.SentTo(email));
+    }
+
     // accounts are made on the platform, for now
     [Theory]
     [InlineData("/Account/Register")]

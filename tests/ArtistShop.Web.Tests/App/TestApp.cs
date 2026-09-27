@@ -34,6 +34,9 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
     // every email the app sends, kept rather than sent
     public CapturingMailer Mailer { get; } = new();
 
+    // the tests each use addresses of their own, so refusing by address keeps them apart
+    public RefusingEmailSendLimit EmailSendLimit { get; } = new();
+
     private SiteId? _firstSiteId;
 
     public SiteId FirstSiteId => _firstSiteId ?? throw new InvalidOperationException("The first site isn't made yet.");
@@ -70,6 +73,7 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<Mailer>(Mailer);
+            services.AddSingleton<EmailSendLimit>(EmailSendLimit);
             services.AddTransient<IStartupFilter, FakeGoogle>();
         });
     }
