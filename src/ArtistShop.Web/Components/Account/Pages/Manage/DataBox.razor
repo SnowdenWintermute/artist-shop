@@ -1,0 +1,9 @@
+<DashboardBox Title="Your data">
+  <p class="mb-4 text-sm">Everything your account holds about you, as a file.</p>
+
+  @* data-downloads: the page stays put, so its button mustn't go busy with nothing to clear it *@
+  <form action="Account/Manage/DownloadPersonalData" method="post" data-downloads>
+    <AntiforgeryToken />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Outline">Download</ButtonBasic>
+  </form>
+</DashboardBox>

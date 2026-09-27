@@ -1,8 +1,10 @@
 namespace ArtistShop.Web.Identity;
 
-using System.Text;
-using System.Text.Encodings.Web;
+using System.Security.Cryptography;
+using System.Text.Json;
+using ArtistShop.Web.Components;
 using ArtistShop.Web.Email;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -15,102 +17,167 @@ public abstract record RegistrationResult
     // an email is on its way, whether the address had an account or not
     public sealed record EmailSent : RegistrationResult;
 
-    // Identity's password rules refuse it
-    public sealed record PasswordRefused(IReadOnlyList<IdentityError> Errors) : RegistrationResult;
-
     // Identity refuses the address itself, such as for a character it doesn't allow. No account
     // can have such an address, so saying so gives nothing away
     public sealed record EmailRefused(IReadOnlyList<IdentityError> Errors) : RegistrationResult;
 }
 
-// Makes an account, answering the same whether the email already has one or not, so the register
-// page can't be used to find out who has an account. A new address gets a link to confirm it; one
-// that has an account gets an email saying so, with links to sign in and reset the password
-public sealed class AccountRegistration(UserManager<ApplicationUser> userManager, AccountEmails accountEmails)
+// what AccountRegistration.CreateAccountAsync did
+public abstract record AccountCreationResult
 {
-    // hostRoot is this host's address, such as https://artshop.mikesilverman.net/, for the links
-    public async Task<RegistrationResult> RegisterAsync(string email, string password, Uri hostRoot)
-    {
-        // before looking the email up, so a weak password gets the same answer either way
-        var passwordErrors = await PasswordErrorsAsync(password);
+    // only the ones below
+    private AccountCreationResult() { }
 
-        if (passwordErrors.Count > 0)
+    public sealed record Created(ApplicationUser User) : AccountCreationResult;
+
+    // the link was used already, or the email got an account some other way since it was sent
+    public sealed record AlreadyExists : AccountCreationResult;
+
+    // Identity's password rules refuse it
+    public sealed record PasswordRefused(IReadOnlyList<IdentityError> Errors) : AccountCreationResult;
+}
+
+// What the emailed link carries: the address it was sent to, and the page to go to once the account
+// is made. ReturnUrl is only ever a path on the platform's host (LocalUrl.OrNull)
+public sealed record RegistrationLink(string Email, string? ReturnUrl);
+
+// Makes accounts in two steps, so no account exists until its email is proven. Registering asks only
+// for an email and sends a link; the account is made, already confirmed, when that link's page is
+// given a password. The link is signed and expires, so nothing is stored while it's on its way, and
+// nobody can set the password of an address they can't read. Registering answers the same whether
+// the email has an account or not, so the register page can't be used to find out who has one. An
+// unconfirmed account, made before accounts waited for their email, counts as none: signing in and
+// resetting its password both refuse it, and whoever chose its password never proved the address,
+// so the link replaces that password and confirms it
+public sealed class AccountRegistration(
+    UserManager<ApplicationUser> userManager,
+    AccountEmails accountEmails,
+    IDataProtectionProvider dataProtection
+)
+{
+    public static readonly TimeSpan LinkLifetime = TimeSpan.FromHours(24);
+
+    // hostRoot is this host's address, such as https://artshop.mikesilverman.net/, for the links
+    public async Task<RegistrationResult> RegisterAsync(string email, string? returnUrl, Uri hostRoot)
+    {
+        var emailErrors = await EmailErrorsAsync(email);
+
+        if (emailErrors.Count > 0)
         {
-            return new RegistrationResult.PasswordRefused(passwordErrors);
+            return new RegistrationResult.EmailRefused(emailErrors);
         }
 
-        var existing = await userManager.FindByEmailAsync(email);
-
-        if (existing is null)
+        if (await userManager.FindByEmailAsync(email) is not { EmailConfirmed: true })
         {
-            var user = new ApplicationUser { UserName = email, Email = email };
-            var creation = await userManager.CreateAsync(user, password);
-
-            if (creation.Succeeded)
-            {
-                await SendConfirmationLinkAsync(user, email, hostRoot);
-                return new RegistrationResult.EmailSent();
-            }
-
-            // someone registered the same email between the lookup and here
-            if (!creation.Errors.Any(error => error.Code is "DuplicateEmail" or "DuplicateUserName"))
-            {
-                return new RegistrationResult.EmailRefused([.. creation.Errors]);
-            }
+            await accountEmails.SendChoosePasswordLinkAsync(
+                email,
+                ChoosePasswordLink(new RegistrationLink(email, returnUrl), hostRoot),
+                LinkLifetime
+            );
         }
         else
         {
-            // hashed and thrown away, so this answer takes about as long as making an account, whose
-            // password is hashed as it's saved
-            userManager.PasswordHasher.HashPassword(existing, password);
-
-            // Its first confirmation email may never have come, and until it's confirmed, signing in
-            // and resetting the password both refuse it, so it gets a new link. Its password stays
-            // the first one: setting this one would let anyone choose the password of an account
-            // its owner hasn't confirmed yet
-            if (!existing.EmailConfirmed)
-            {
-                await SendConfirmationLinkAsync(existing, email, hostRoot);
-                return new RegistrationResult.EmailSent();
-            }
+            await accountEmails.SendAlreadyHaveAccountAsync(
+                email,
+                new Uri(hostRoot, PageUrls.Login).AbsoluteUri,
+                new Uri(hostRoot, PageUrls.ForgotPassword).AbsoluteUri
+            );
         }
-
-        await accountEmails.SendAlreadyHaveAccountAsync(
-            email,
-            new Uri(hostRoot, "Account/Login").AbsoluteUri,
-            new Uri(hostRoot, "Account/ForgotPassword").AbsoluteUri
-        );
 
         return new RegistrationResult.EmailSent();
     }
 
-    // the rules only look at the password, not the account, so a new account stands in for one
-    private async Task<List<IdentityError>> PasswordErrorsAsync(string password)
+    // null when it was altered, has expired, or was made with a key since retired
+    public RegistrationLink? ReadLink(string? token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<RegistrationLink>(Protector().Unprotect(token));
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<bool> HasConfirmedAccountAsync(RegistrationLink link) =>
+        await userManager.FindByEmailAsync(link.Email) is { EmailConfirmed: true };
+
+    public async Task<AccountCreationResult> CreateAccountAsync(RegistrationLink link, string password)
+    {
+        if (await userManager.FindByEmailAsync(link.Email) is { } existing)
+        {
+            return existing.EmailConfirmed
+                ? new AccountCreationResult.AlreadyExists()
+                : await ConfirmUnconfirmedAsync(existing, password);
+        }
+
+        // opening the link proved the address, so the account starts out confirmed
+        var user = new ApplicationUser { UserName = link.Email, Email = link.Email, EmailConfirmed = true };
+        var creation = await userManager.CreateAsync(user, password);
+
+        if (creation.Succeeded)
+        {
+            return new AccountCreationResult.Created(user);
+        }
+
+        if (creation.Errors.Any(IsDuplicate))
+        {
+            return new AccountCreationResult.AlreadyExists();
+        }
+
+        return new AccountCreationResult.PasswordRefused([.. creation.Errors]);
+    }
+
+    // Replaces the password by a reset, which checks it against Identity's rules before changing
+    // anything and gives the account a new security stamp
+    private async Task<AccountCreationResult> ConfirmUnconfirmedAsync(ApplicationUser user, string password)
+    {
+        var reset = await userManager.ResetPasswordAsync(user, await userManager.GeneratePasswordResetTokenAsync(user), password);
+
+        if (!reset.Succeeded)
+        {
+            return new AccountCreationResult.PasswordRefused([.. reset.Errors]);
+        }
+
+        user.EmailConfirmed = true;
+        SeededAccounts.ThrowIfFailed(await userManager.UpdateAsync(user), "Confirming the email");
+
+        return new AccountCreationResult.Created(user);
+    }
+
+    // Identity's rules for the account's user name and email, which are both the address. An address
+    // that has an account passes here, so this answer doesn't say whether it has one
+    private async Task<List<IdentityError>> EmailErrorsAsync(string email)
     {
         var errors = new List<IdentityError>();
+        var user = new ApplicationUser { UserName = email, Email = email };
 
-        foreach (var validator in userManager.PasswordValidators)
+        foreach (var validator in userManager.UserValidators)
         {
-            var result = await validator.ValidateAsync(userManager, new ApplicationUser(), password);
-            errors.AddRange(result.Errors);
+            var result = await validator.ValidateAsync(userManager, user);
+            errors.AddRange(result.Errors.Where(error => !IsDuplicate(error)));
         }
 
         return errors;
     }
 
-    // as ResendEmailConfirmation builds it, for Account/ConfirmEmail
-    private async Task SendConfirmationLinkAsync(ApplicationUser user, string email, Uri hostRoot)
-    {
-        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-        var link = QueryHelpers.AddQueryString(
-            new Uri(hostRoot, "Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, string?>
-            {
-                ["userId"] = user.Id,
-                ["code"] = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token)),
-            }
+    private static bool IsDuplicate(IdentityError error) => error.Code is "DuplicateEmail" or "DuplicateUserName";
+
+    private string ChoosePasswordLink(RegistrationLink link, Uri hostRoot) =>
+        QueryHelpers.AddQueryString(
+            new Uri(hostRoot, PageUrls.ChoosePassword).AbsoluteUri,
+            "token",
+            Protector().Protect(JsonSerializer.Serialize(link), LinkLifetime)
         );
 
-        await accountEmails.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(link));
-    }
+    // the purpose keeps these apart from anything else the app signs; time-limited ones carry their
+    // expiry inside, and Unprotect refuses them after it
+    private ITimeLimitedDataProtector Protector() =>
+        dataProtection.CreateProtector("ArtistShop.RegistrationLink").ToTimeLimitedDataProtector();
 }

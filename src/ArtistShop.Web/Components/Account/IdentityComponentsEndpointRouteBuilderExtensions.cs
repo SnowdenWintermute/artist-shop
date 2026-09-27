@@ -7,9 +7,12 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
+using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account.Pages;
 using ArtistShop.Web.Components.Account.Pages.Manage;
+using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
+using ArtistShop.Web.Sites;
 
 namespace Microsoft.AspNetCore.Routing;
 
@@ -39,13 +42,47 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
 
             var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
             return TypedResults.Challenge(properties, [provider]);
-        });
+        })
+            // Google returns only to the platform's /signin-google
+            .WithMetadata(new ServedOnAttribute(HostTypes.Platform));
+
+        // The platform's step of signing in on a website (SiteSignIns): signing in here first if need
+        // be, as RequireAuthorization sends the browser to Login and back, then on to the website
+        // with a code. A 404 for a host that isn't a website's, so a code only ever goes to one
+        accountGroup.MapGet("/SignInTo", async (
+            HttpContext context,
+            [FromServices] SiteSignIns siteSignIns,
+            [FromServices] UserManager<ApplicationUser> userManager,
+            [FromQuery] string site,
+            [FromQuery] string nonce) =>
+        {
+            var authentication = await context.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+            var userId = userManager.GetUserId(context.User) ?? throw new InvalidOperationException("SignInTo ran for nobody.");
+            var sessionId =
+                context.User.FindFirstValue(DatabaseTicketStore.SessionIdClaimType)
+                ?? throw new InvalidOperationException("A platform sign-in has no session id.");
+            var isPersistent = authentication.Properties?.IsPersistent ?? false;
+
+            if (await siteSignIns.MakeCodeAsync(userId, sessionId, site, nonce, isPersistent) is not { } code
+                || HostName.Read(site) is not { } siteHost)
+            {
+                return Results.NotFound();
+            }
+
+            var platformBaseUri = UriHelper.BuildAbsolute(context.Request.Scheme, context.Request.Host);
+            return Results.Redirect(PageUrls.SiteHandoffWithCode(platformBaseUri, siteHost, code));
+        })
+            .RequireAuthorization()
+            .WithMetadata(new ServedOnAttribute(HostTypes.Platform));
 
         accountGroup.MapPost("/Logout", async (
             ClaimsPrincipal user,
             [FromServices] SignInManager<ApplicationUser> signInManager,
+            [FromServices] DatabaseTicketStore ticketStore,
             [FromForm] string returnUrl) =>
         {
+            // every sign-in in this browser, the platform's and each website's, not only this host's
+            await ticketStore.EndBrowserAsync(user);
             await signInManager.SignOutAsync();
             return TypedResults.LocalRedirect($"~/{returnUrl}");
         });
@@ -90,23 +127,6 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         });
 
         var manageGroup = accountGroup.MapGroup("/Manage").RequireAuthorization();
-
-        manageGroup.MapPost("/LinkExternalLogin", async (
-            HttpContext context,
-            [FromServices] SignInManager<ApplicationUser> signInManager,
-            [FromForm] string provider) =>
-        {
-            // Clear the existing external cookie to ensure a clean login process
-            await context.SignOutAsync(IdentityConstants.ExternalScheme);
-
-            var redirectUrl = UriHelper.BuildRelative(
-                context.Request.PathBase,
-                "/Account/Manage/ExternalLogins",
-                QueryString.Create("Action", ExternalLogins.LinkLoginCallbackAction));
-
-            var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl, signInManager.UserManager.GetUserId(context.User));
-            return TypedResults.Challenge(properties, [provider]);
-        });
 
         var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
         var downloadLogger = loggerFactory.CreateLogger("DownloadPersonalData");

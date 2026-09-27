@@ -27,14 +27,17 @@ public sealed class PlatformOperatorTests(TestApp app)
     {
         using var scope = app.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var email = $"{Guid.NewGuid():n}@example.com";
-        var other = new ApplicationUser { UserName = email, Email = email };
-        SeededAccounts.ThrowIfFailed(await userManager.CreateAsync(other, TestApp.Password), "Creating the account");
+        var email = await app.MakeAccountAsync();
+        var other = await userManager.FindByEmailAsync(email) ?? throw new InvalidOperationException("No account.");
         SeededAccounts.ThrowIfFailed(await userManager.AddToRoleAsync(other, PlatformOperator.RoleName), "Adding the role");
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, email);
 
         await PlatformOperator.SyncAsync(scope.ServiceProvider);
 
         Assert.False(await userManager.IsInRoleAsync(other, PlatformOperator.RoleName));
+        // a sign-in's claims hold its roles, so one that kept going would keep the role
+        var signedOut = await client.GetAsync("/sites", TestContext.Current.CancellationToken);
+        Assert.Equal("/Account/Login", signedOut.Headers.Location?.AbsolutePath);
         var operatorAccount = await userManager.FindByEmailAsync(TestApp.OperatorEmail);
         Assert.NotNull(operatorAccount);
         Assert.True(await userManager.IsInRoleAsync(operatorAccount, PlatformOperator.RoleName));

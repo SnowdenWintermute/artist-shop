@@ -39,10 +39,19 @@ public sealed class ServedOnAttributeTests
 
     // what ASP.NET reads for the real pages: their attributes as the endpoint's metadata
     [Fact]
-    public void TheAccountPagesAndHomeServeEveryHost()
+    public void HomeAndLoginServeEveryHost()
     {
         Assert.Equal(HostTypes.Platform | HostTypes.Site, ServedOnOf(typeof(Home)));
-        Assert.Equal(HostTypes.Platform | HostTypes.Site, ServedOnOf(typeof(Web.Components.Account.Pages.Login)));
+        Assert.Equal(HostTypes.Platform | HostTypes.Site, ServedOnOf(typeof(Web.Components.Account.EveryHost.Login)));
+    }
+
+    // signing in and the account's own pages are the platform's; a website only receives the handoff
+    [Fact]
+    public void TheOtherAccountPagesServeOneKindOfHost()
+    {
+        Assert.Equal(HostTypes.Platform, ServedOnOf(typeof(Web.Components.Account.Pages.ForgotPassword)));
+        Assert.Equal(HostTypes.Platform, ServedOnOf(typeof(Web.Components.Account.Pages.Manage.Index)));
+        Assert.Equal(HostTypes.Site, ServedOnOf(typeof(Web.Components.Account.OnWebsites.Handoff)));
     }
 
     private static HostTypes ServedOnOf(Type page) =>

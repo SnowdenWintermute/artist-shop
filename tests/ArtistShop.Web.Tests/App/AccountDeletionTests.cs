@@ -8,18 +8,17 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-// Identity's "Delete personal data" page, served on every host, since an account is the whole
-// platform's. Owners are on sites of their own, since the other tests need the first site online
+// Deleting an account from its page's Delete account box, on the platform, since an account is the
+// whole platform's. Owners are on sites of their own, since the other tests need the first site online
 [Collection(TestAppCollection.Name)]
 public sealed class AccountDeletionTests(TestApp app)
 {
-    private const string Path = "/Account/Manage/DeletePersonalData";
+    private const string Path = "/Account/Manage";
 
-    // the one place a website says it's part of the platform
     [Fact]
     public async Task ThePageSaysTheAccountIsThePlatforms()
     {
-        var client = await app.SignedInClientAsync(TestApp.FirstSiteHost, await app.MakeAccountAsync());
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, await app.MakeAccountAsync());
 
         var page = await (await client.GetAsync(Path, TestContext.Current.CancellationToken)).Content.ReadAsStringAsync(
             TestContext.Current.CancellationToken
@@ -28,17 +27,16 @@ public sealed class AccountDeletionTests(TestApp app)
         Assert.Contains("This is your PictureCord account.", page);
     }
 
-    // a customer, a member of no website, goes back to the home of the website they were on
     [Fact]
     public async Task DeletingAnAccountWithNoWebsitesDeletesOnlyTheAccount()
     {
         var email = await app.MakeAccountAsync();
-        var client = await app.SignedInClientAsync(TestApp.FirstSiteHost, email);
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, email);
 
-        var response = await DeleteAsync(client, TestApp.Password);
+        var response = await DeleteAsync(client, email);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal($"http://{TestApp.FirstSiteHost}/", response.Headers.Location?.AbsoluteUri);
+        Assert.Equal($"http://{TestApp.PlatformHost}/", response.Headers.Location?.AbsoluteUri);
         Assert.False(await HasAccountAsync(email));
         Assert.Contains("Your PictureCord account was deleted", Assert.Single(app.Mailer.SentTo(email)).Subject);
     }
@@ -49,7 +47,7 @@ public sealed class AccountDeletionTests(TestApp app)
         var site = await app.MakeSiteAsync();
         var admin = await app.MakeAdminAsync(site.Id);
 
-        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), TestApp.Password);
+        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), site.OwnerEmail);
 
         Assert.False(await HasAccountAsync(site.OwnerEmail));
         Assert.Equal(HttpStatusCode.NotFound, await HomeStatusAsync(site.Host));
@@ -67,7 +65,7 @@ public sealed class AccountDeletionTests(TestApp app)
         var site = await app.MakeSiteAsync();
         var admin = await app.MakeAdminAsync(site.Id);
 
-        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), TestApp.Password);
+        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), site.OwnerEmail);
 
         using var scope = app.Services.CreateScope();
         var member = Assert.Single(await scope.ServiceProvider.GetRequiredService<SiteMemberAccounts>().GetAsync(site.Id));
@@ -81,39 +79,39 @@ public sealed class AccountDeletionTests(TestApp app)
         var email = await app.MakeFirstSiteAdminAsync();
         var userId = await app.UserIdAsync(email);
 
-        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, email), TestApp.Password);
+        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, email), email);
 
         Assert.Null(await app.Services.GetRequiredService<SiteRepository>().GetMemberRoleAsync(app.FirstSiteId, userId));
         Assert.Equal(HttpStatusCode.OK, await HomeStatusAsync(TestApp.FirstSiteHost));
         Assert.Contains(TestApp.FirstSiteHost, Assert.Single(app.Mailer.SentTo(email)).HtmlBody);
     }
 
-    // its own home would be a 404 now
+    // a website's account link goes to the platform's
     [Fact]
-    public async Task DeletingFromAWebsiteThatWentOfflineGoesToThePlatform()
+    public async Task ThePageIsNotFoundOnAWebsite()
     {
-        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(TestApp.FirstSiteHost, await app.MakeAccountAsync());
 
-        var response = await DeleteAsync(await app.SignedInClientAsync(site.Host, site.OwnerEmail), TestApp.Password);
+        var response = await client.GetAsync(Path, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal($"http://{TestApp.PlatformHost}/", response.Headers.Location?.AbsoluteUri);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // typing the email is the confirmation; no password is asked, so an account with none can go too
     [Fact]
-    public async Task AWrongPasswordDeletesNothing()
+    public async Task TheWrongEmailDeletesNothing()
     {
         var site = await app.MakeSiteAsync();
 
-        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), "Wrong-password-1");
+        await DeleteAsync(await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail), "someone-else@example.com");
 
         Assert.True(await HasAccountAsync(site.OwnerEmail));
         Assert.Equal(HttpStatusCode.OK, await HomeStatusAsync(site.Host));
         Assert.Empty(app.Mailer.SentTo(site.OwnerEmail));
     }
 
-    private static Task<HttpResponseMessage> DeleteAsync(HttpClient client, string password) =>
-        TestApp.PostFormAsync(client, Path, "delete-user", new() { ["Input.Password"] = password });
+    private static Task<HttpResponseMessage> DeleteAsync(HttpClient client, string typedEmail) =>
+        TestApp.PostFormAsync(client, Path, "delete-account", new() { ["TypedEmail"] = typedEmail });
 
     private async Task<HttpStatusCode> HomeStatusAsync(string host) =>
         (await app.ClientFor(host).GetAsync("/", TestContext.Current.CancellationToken)).StatusCode;

@@ -1,0 +1,17 @@
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+
+@inject PlatformSettings PlatformSettings
+
+@code {
+  [Parameter, EditorRequired]
+  public ApplicationUser Account { get; set; } = default!;
+}
+
+@* the one place a website says it's part of the platform, besides deleting: the account is the platform's *@
+<DashboardBox Title="Account">
+  <p class="mb-2">@Account.Email</p>
+  <p class="text-sm">
+    Your @PlatformSettings.Name account. It signs you in on every @PlatformSettings.Name website.
+  </p>
+</DashboardBox>

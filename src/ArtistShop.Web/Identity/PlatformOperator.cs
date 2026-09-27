@@ -44,6 +44,12 @@ public static class PlatformOperator
                     await userManager.RemoveFromRoleAsync(user, RoleName),
                     $"Removing {user.Email} from the operator role"
                 );
+
+                // roles are kept in a sign-in's claims, so its sign-ins end rather than keep the role
+                SeededAccounts.ThrowIfFailed(
+                    await userManager.UpdateSecurityStampAsync(user),
+                    $"Signing {user.Email} out"
+                );
             }
         }
 

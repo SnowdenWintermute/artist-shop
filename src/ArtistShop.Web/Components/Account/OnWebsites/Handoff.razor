@@ -1,0 +1,53 @@
+@page "/Account/Handoff"
+
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using ArtistShop.Web.Identity
+
+@inject SiteSignIns SiteSignIns
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+
+@* The website's last step of signing in (SiteSignIns): trades the platform's code for this host's own
+   sign-in and goes back to the page that asked. Only shows anything when that fails *@
+
+@* Only once it has failed: the page first renders while the code is still being checked, and once
+   signed in, that render is what goes out behind the redirect *@
+@if (_failed)
+{
+  <PageTitle>Signing in didn't work</PageTitle>
+
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Signing in didn't work</h1>
+    <p>
+      It may have taken too long, been started in another browser or tab, or its link been used already.
+      <a href="@PageUrls.Login" class="underline">Try again</a>.
+    </p>
+  </AdminPanel>
+}
+
+@code {
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  [SupplyParameterFromQuery]
+  private string? Code { get; set; }
+
+  private bool _failed;
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (await SiteSignIns.UseCodeAsync(HttpContext, Code) is not { } handoff)
+    {
+      _failed = true;
+      return;
+    }
+
+    // part of the platform's sign-in, so logging out of either ends both (DatabaseTicketStore)
+    var properties = new AuthenticationProperties { IsPersistent = handoff.IsPersistent };
+    properties.Items[DatabaseTicketStore.ParentIdItem] = handoff.PlatformSessionId;
+
+    await SignInManager.SignInAsync(handoff.Account, properties);
+    NavigationManager.NavigateTo(handoff.ReturnUrl ?? "/");
+  }
+}

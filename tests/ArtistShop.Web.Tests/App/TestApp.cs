@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
@@ -59,11 +60,18 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         builder.UseSetting("Platform:Host", PlatformHost);
         builder.UseSetting("Platform:OperatorEmail", OperatorEmail);
         builder.UseSetting("Platform:OperatorPassword", Password);
+        // never used to reach Google: no test follows the redirect there
+        builder.UseSetting("Authentication:Google:ClientId", "test-client-id");
+        builder.UseSetting("Authentication:Google:ClientSecret", "test-client-secret");
 
         // the migrations log every script, which buries the test results
         builder.UseSetting("Logging:LogLevel:Default", "Warning");
 
-        builder.ConfigureTestServices(services => services.AddSingleton<Mailer>(Mailer));
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<Mailer>(Mailer);
+            services.AddTransient<IStartupFilter, FakeGoogle>();
+        });
     }
 
     public async ValueTask InitializeAsync()
@@ -91,6 +99,20 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         SeededAccounts.ThrowIfFailed(
             await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
                 .CreateAsync(new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true }, Password),
+            "Making the account"
+        );
+        return email;
+    }
+
+    // An account with TestApp.Password whose email was never confirmed, as registering made them before
+    // accounts waited for their email; its email
+    public async Task<string> MakeUnconfirmedAccountAsync()
+    {
+        var email = $"{Guid.NewGuid():n}@example.com";
+        using var scope = Services.CreateScope();
+        SeededAccounts.ThrowIfFailed(
+            await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
+                .CreateAsync(new ApplicationUser { UserName = email, Email = email }, Password),
             "Making the account"
         );
         return email;
@@ -162,13 +184,31 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
             }
         );
 
-    // a client on the host, signed in there with the account's email and TestApp.Password
+    // a client on the host, signed in there with the account's email and TestApp.Password. On a
+    // website that's as a browser does it: signed in on the platform, then handed back
     public async Task<HttpClient> SignedInClientAsync(string host, string email)
+    {
+        var client = await SignedInOnPlatformClientAsync(host, email);
+
+        if (host != PlatformHost)
+        {
+            var landed = await FollowSiteSignInAsync(client, "/Account/Login");
+            if (landed.StatusCode is not System.Net.HttpStatusCode.Redirect)
+            {
+                throw new InvalidOperationException($"The handoff to {host} didn't sign {email} in: {landed.StatusCode}.");
+            }
+        }
+
+        return client;
+    }
+
+    // a client on the host, signed in on the platform only: on a website, not yet handed back there
+    public async Task<HttpClient> SignedInOnPlatformClientAsync(string host, string email)
     {
         var client = ClientFor(host);
         var response = await PostFormAsync(
             client,
-            "/Account/Login",
+            $"http://{PlatformHost}/Account/Login",
             "login",
             new() { ["Input.Email"] = email, ["Input.Password"] = Password }
         );
@@ -179,6 +219,102 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         }
 
         return client;
+    }
+
+    // From a website's page that sends the client to sign in, through the platform and back: the
+    // handoff's answer, a redirect to where it started once signed in. The client must be signed in
+    // on the platform, or the platform's answer is its own Login
+    public static async Task<HttpResponseMessage> FollowSiteSignInAsync(HttpClient client, string path)
+    {
+        var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        // the website's Login, then the platform's SignInTo, then the website's Handoff
+        for (var step = 0; step < 2; step++)
+        {
+            response = await client.GetAsync(
+                response.Headers.Location ?? throw new InvalidOperationException($"{path} stopped at {response.StatusCode}."),
+                TestContext.Current.CancellationToken
+            );
+        }
+
+        return response;
+    }
+
+    // The sign-in cookie of a new sign-in on the host, as "name=value", for a test that replays a copy
+    // of it after that sign-in has ended. client is signed in with that same cookie
+    public async Task<(HttpClient Client, string Cookie)> SignInWithCookieAsync(string host, string email)
+    {
+        var client = ClientFor(host);
+        var response = await PostFormAsync(
+            client,
+            "/Account/Login",
+            "login",
+            new() { ["Input.Email"] = email, ["Input.Password"] = Password }
+        );
+        var cookie = response
+            .Headers.GetValues("Set-Cookie")
+            .Single(header => header.StartsWith(".AspNetCore.Identity.Application=", StringComparison.Ordinal))
+            .Split(';')[0];
+
+        return (client, cookie);
+    }
+
+    // a client on the host that sends only this cookie, and keeps none it's given
+    public HttpClient ClientWithCookie(string host, string cookie)
+    {
+        var client = CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                BaseAddress = new Uri($"http://{host}"),
+                AllowAutoRedirect = false,
+                HandleCookies = false,
+            }
+        );
+        client.DefaultRequestHeaders.Add("Cookie", cookie);
+        return client;
+    }
+
+    // the layout's Logout button on the client's own host
+    public static Task<HttpResponseMessage> SignOutAsync(HttpClient client) =>
+        SignOutAsync(client, client.BaseAddress?.Host ?? throw new InvalidOperationException("The client has no host."));
+
+    // the layout's Logout button on the host, from its home page, which every host has
+    public static async Task<HttpResponseMessage> SignOutAsync(HttpClient client, string host)
+    {
+        var page = await client.GetStringAsync($"http://{host}/", TestContext.Current.CancellationToken);
+
+        return await client.PostAsync(
+            $"http://{host}/Account/Logout",
+            new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["ReturnUrl"] = "",
+                    ["__RequestVerificationToken"] = AntiforgeryToken().Match(page).Groups["token"].Value,
+                }
+            ),
+            TestContext.Current.CancellationToken
+        );
+    }
+
+    // Signing in on the platform with Google, as though back from Google with this login: the
+    // callback's answer, a redirect to /sites once signed in
+    public static async Task<HttpResponseMessage> SignInWithGoogleAsync(HttpClient client, FakeGoogleLogin login)
+    {
+        var fakeGoogle = QueryHelpers.AddQueryString(
+            $"http://{PlatformHost}{FakeGoogle.Path}",
+            new Dictionary<string, string?>
+            {
+                ["email"] = login.Email,
+                ["googleId"] = login.GoogleId,
+                ["emailVerified"] = login.EmailVerified ? "true" : "false",
+            }
+        );
+        (await client.GetAsync(fakeGoogle, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+
+        return await client.GetAsync(
+            $"http://{PlatformHost}/Account/ExternalLogin?Action=LoginCallback&ReturnUrl=%2Fsites",
+            TestContext.Current.CancellationToken
+        );
     }
 
     // Loads the page for its form's antiforgery token, then posts the form, as a browser does. The

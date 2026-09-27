@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.AspNetCore.WebUtilities;
 using ArtistShop.Web.Components.Catalog;
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.ArtworkPicker;
@@ -53,6 +54,29 @@ public static class PageUrls
     public static string PlatformMySites(string siteBaseUri, HostName platformHost) =>
         OnHost(siteBaseUri, platformHost, MySites);
 
+    // on a website's host: where the platform sends a browser with its sign-in code (SiteSignIns)
+    public const string SiteHandoff = "/Account/Handoff";
+
+    // on the platform's host
+    public const string SiteSignIn = "/Account/SignInTo";
+
+    // the platform's step of signing in on the website at siteHost, from that website's page
+    public static string PlatformSiteSignIn(string siteBaseUri, HostName platformHost, string siteHost, string nonce) =>
+        QueryHelpers.AddQueryString(
+            OnHost(siteBaseUri, platformHost, SiteSignIn),
+            new Dictionary<string, string?> { ["site"] = siteHost, ["nonce"] = nonce }
+        );
+
+    // the website's handoff, from the platform's page
+    public static string SiteHandoffWithCode(string platformBaseUri, HostName siteHost, string code) =>
+        QueryHelpers.AddQueryString(OnHost(platformBaseUri, siteHost, SiteHandoff), "code", code);
+
+    // the account page, from a website's page
+    public static string PlatformAccount(string siteBaseUri, HostName platformHost) =>
+        OnHost(siteBaseUri, platformHost, AccountPage);
+
+    public const string AccountPage = "/Account/Manage";
+
     private static string OnHost(string baseUri, HostName host, string path) =>
         new UriBuilder(baseUri) { Host = host.Value, Path = path }.Uri.AbsoluteUri;
 
@@ -60,6 +84,15 @@ public static class PageUrls
     public const string Register = "/Account/Register";
 
     public const string RegisterConfirmation = "/Account/RegisterConfirmation";
+
+    // on the platform's host, from the link Register emails
+    public const string ChoosePassword = "/Account/ChoosePassword";
+
+    public const string Login = "/Account/Login";
+
+    public const string ForgotPassword = "/Account/ForgotPassword";
+
+    public const string ResetPassword = "/Account/ResetPassword";
 
     public const string NewPost = "/admin/posts/new";
 

@@ -1,23 +1,34 @@
 @using ArtistShop.Web.Components.Atoms
 @using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Google
 @using Microsoft.AspNetCore.Identity
 @using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject CurrentHost CurrentHost
 
-@* nothing when no other service is set up, which is so far always *@
+@* Only on the platform: Google returns only to the platform's /signin-google, the one address
+   registered with it *@
 @if (externalLogins.Length > 0)
 {
   <section class="border-t pt-4">
-    <h2 class="mb-2 text-sm">Or log in with</h2>
     <form action="Account/PerformExternalLogin" method="post" class="flex flex-wrap gap-2">
       <AntiforgeryToken />
       <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
       @foreach (var provider in externalLogins)
       {
-        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" name="provider" value="@provider.Name"
-                     title="@($"Log in using your {provider.DisplayName} account")">@provider.DisplayName</ButtonBasic>
+        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" name="provider" value="@provider.Name">
+          <span class="flex items-center gap-2">
+            @* Google's own logo and wording, as its branding rules ask *@
+            @if (provider.Name == GoogleDefaults.AuthenticationScheme)
+            {
+              <img src="@Assets["icons/google-logo.svg"]" alt="" class="size-5" />
+            }
+            Sign in with @provider.DisplayName
+          </span>
+        </ButtonBasic>
       }
     </form>
   </section>
@@ -31,6 +42,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
+        if (CurrentHost is CurrentHost.Platform)
+        {
+            externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
+        }
     }
 }

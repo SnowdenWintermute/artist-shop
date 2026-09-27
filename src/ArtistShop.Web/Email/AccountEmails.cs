@@ -40,8 +40,21 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
             )
         );
 
+    // Sent when someone registers with an email that has no account; the account is made when the
+    // link's page is given a password. The link isn't encoded yet
+    public Task SendChoosePasswordLinkAsync(string email, string choosePasswordLink, TimeSpan linkLifetime) =>
+        mailer.SendAsync(
+            new EmailMessage(
+                email,
+                "Finish making your account",
+                $"<p>Finish making your account by <a href=\"{HtmlEncoder.Default.Encode(choosePasswordLink)}\">choosing a password</a>. "
+                    + $"The link works for {linkLifetime.TotalHours:0} hours.</p>"
+                    + "<p>If you didn't ask for an account, ignore this email: none is made until the link is used.</p>"
+            )
+        );
+
     // Sent when someone registers with an email that already has an account, in place of a
-    // confirmation link, so the register page answers the same either way and never says which
+    // link to choose a password, so the register page answers the same either way and never says which
     // emails have accounts. The links aren't encoded yet
     public Task SendAlreadyHaveAccountAsync(string email, string signInLink, string resetLink) =>
         mailer.SendAsync(

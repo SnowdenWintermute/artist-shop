@@ -1,0 +1,7 @@
+@using ArtistShop.Web.Components.Account.Shared
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@attribute [ExcludeFromInteractiveRouting]
+@* the cookie's LoginPath and AccessDeniedPath, which a website's admin pages send to on its own host *@
+@attribute [ServedOn(HostTypes.Platform | HostTypes.Site)]

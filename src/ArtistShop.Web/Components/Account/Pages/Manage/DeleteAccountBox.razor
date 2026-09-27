@@ -1,0 +1,109 @@
+@using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Identity
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AccountDeletion AccountDeletion
+@inject SiteRepository SiteRepository
+@inject PlatformSettings PlatformSettings
+@inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<DeleteAccountBox> Logger
+
+@* Typing the account's email is only to be sure they mean it, not proof of anything: someone who has
+   lost their inbox can still delete their account. So no password or emailed link is asked *@
+
+@code {
+  private const string DialogId = "delete-account";
+
+  [Parameter, EditorRequired]
+  public ApplicationUser Account { get; set; } = default!;
+
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  [SupplyParameterFromForm(FormName = DialogId)]
+  private string? TypedEmail { get; set; }
+
+  private List<MemberSite> _ownedSites = [];
+  private List<MemberSite> _adminSites = [];
+
+  private string Email => Account.Email ?? throw new InvalidOperationException($"Account {Account.Id} has no email.");
+
+  protected override async Task OnInitializedAsync()
+  {
+    var sites = (await SiteRepository.GetForMemberAsync(Account.Id)).OrderBy(site => site.MainHost.Value).ToList();
+    _ownedSites = [.. sites.Where(site => site.Role is SiteRole.Owner)];
+    _adminSites = [.. sites.Where(site => site.Role is SiteRole.Admin)];
+  }
+
+  private async Task DeleteAsync()
+  {
+    // the browser's pattern checks this too; here for a post that skips the browser
+    if (!string.Equals(TypedEmail?.Trim(), Email, StringComparison.OrdinalIgnoreCase))
+    {
+      RedirectManager.RedirectToCurrentPageWithStatus("Error: the email typed wasn't your account's, so nothing was deleted.", HttpContext);
+      return;
+    }
+
+    await AccountDeletion.DeleteAsync(Account);
+
+    await SignInManager.SignOutAsync();
+    Logger.LogInformation("Account {UserId} deleted itself.", Account.Id);
+
+    NavigationManager.NavigateTo("/");
+  }
+}
+
+<DashboardBox Title="Delete account">
+  <p class="mb-4 text-sm">
+    Deletes your @PlatformSettings.Name account on every website. Websites you own go offline and are erased.
+  </p>
+
+  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DialogId">Delete account</ButtonBasic>
+</DashboardBox>
+
+<ConfirmFormDialog Id="@DialogId" Title="Delete your account?" ConfirmLabel="Delete account" OnConfirm="DeleteAsync">
+  <ChildContent>
+    <p class="mb-2">
+      This is your @PlatformSettings.Name account. It signs you in on every @PlatformSettings.Name website, so
+      deleting it closes it on all of them. It can't be undone.
+    </p>
+    @if (_ownedSites.Count > 0)
+    {
+      <p class="mb-1">These websites are yours. They go offline now, and are erased with all their artworks, posts and
+        images on the date shown. Nobody can keep them once your account is gone:</p>
+      <ul class="mb-2 list-disc pl-6 last:mb-0">
+        @foreach (var site in _ownedSites)
+        {
+          <li>@site.MainHost.Value, on <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /></li>
+        }
+      </ul>
+    }
+    @if (_adminSites.Count > 0)
+    {
+      <p class="mb-1">You'll no longer be an admin of:</p>
+      <ul class="list-disc pl-6">
+        @foreach (var site in _adminSites)
+        {
+          <li>@site.MainHost.Value</li>
+        }
+      </ul>
+    }
+  </ChildContent>
+  <Fields>
+    @* pattern: the browser won't submit until it matches. Identity allows only letters, digits and
+       -._@+ in an account's name, its email, and Regex.Escape's \. and \+ are escapes a pattern accepts *@
+    <div class="mb-4">
+      <label class="artist-shop-field-label" for="delete-account-email">Type your email, @Email, to confirm</label>
+      <input id="delete-account-email" name="@nameof(TypedEmail)" type="text" class="artist-shop-field-input" required
+             autocomplete="off" pattern="@Regex.Escape(Email)" title="Your account's email, @Email" />
+    </div>
+  </Fields>
+</ConfirmFormDialog>

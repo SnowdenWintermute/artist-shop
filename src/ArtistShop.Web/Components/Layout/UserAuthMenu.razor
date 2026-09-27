@@ -1,8 +1,18 @@
+@using ArtistShop.Web.Sites
+
 @inject NavigationManager NavigationManager
+@inject CurrentHost CurrentHost
+@inject PlatformSettings PlatformSettings
+
+@code {
+  // the account page is the platform's, whichever host this is
+  private string AccountUrl =>
+    CurrentHost is CurrentHost.Site ? PageUrls.PlatformAccount(NavigationManager.BaseUri, PlatformSettings.Host) : PageUrls.AccountPage;
+}
 
 <AuthorizeView>
   <Authorized>
-    <a href="Account/Manage">@context.User.Identity?.Name</a>
+    <a href="@AccountUrl">@context.User.Identity?.Name</a>
     <form action="Account/Logout" method="post">
       <AntiforgeryToken />
       <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />

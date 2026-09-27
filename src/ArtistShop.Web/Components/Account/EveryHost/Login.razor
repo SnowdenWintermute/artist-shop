@@ -3,6 +3,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
 @using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
 
@@ -12,35 +13,40 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject CurrentHost CurrentHost
+@inject SiteSignIns SiteSignIns
+@inject PlatformSettings PlatformSettings
 
-<PageTitle>Log in</PageTitle>
+@* The one sign-in page, on the platform. On a website, whose admin pages send here, it only sends the
+   browser to the platform to sign in and come back (SiteSignIns) *@
 
-<AdminPanel>
-  <h1 class="mb-4 text-xl">Log in</h1>
-  <StatusMessage Message="@errorMessage" />
+@* NavigateTo doesn't stop a static page (BlazorDisableThrowNavigationException), so on a website,
+   which only redirects, nothing is rendered *@
+@if (CurrentHost is CurrentHost.Platform)
+{
+  <PageTitle>Log in</PageTitle>
 
-  <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login" class="mb-6">
-    <DataAnnotationsValidator />
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Log in</h1>
+    <StatusMessage Message="@errorMessage" />
 
-    <TextField Label="Email" @bind-Value="Input.Email" type="email" autocomplete="username" />
-    <TextField Label="Password" @bind-Value="Input.Password" type="password" autocomplete="current-password" />
-    <CheckboxField Label="Remember me" @bind-Value="Input.RememberMe" />
+    <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login" class="mb-6">
+      <DataAnnotationsValidator />
 
-    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Log in</ButtonBasic>
-  </EditForm>
+      <TextField Label="Email" @bind-Value="Input.Email" type="email" autocomplete="username" />
+      <TextField Label="Password" @bind-Value="Input.Password" type="password" autocomplete="current-password" />
+      <CheckboxField Label="Remember me" @bind-Value="Input.RememberMe" />
 
-  <ul class="mb-6 text-sm last:mb-0">
-    <li class="mb-1"><a href="Account/ForgotPassword" class="underline">Forgot your password?</a></li>
-    <li class="mb-1"><a href="Account/ResendEmailConfirmation" class="underline">Resend email confirmation</a></li>
-    @* accounts are made on the platform, for now *@
-    @if (CurrentHost is CurrentHost.Platform)
-    {
-      <li><a href="@PageUrls.Register" class="underline">Make an account</a></li>
-    }
-  </ul>
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Log in</ButtonBasic>
+    </EditForm>
 
-  <ExternalLoginPicker />
-</AdminPanel>
+    <ul class="mb-6 text-sm last:mb-0">
+      <li class="mb-1"><a href="Account/ForgotPassword" class="underline">Forgot your password?</a></li>
+      <li><a href="@RegisterUrl" class="underline">Make an account</a></li>
+    </ul>
+
+    <ExternalLoginPicker />
+  </AdminPanel>
+}
 
 @code {
   private string? errorMessage;
@@ -55,8 +61,18 @@
   [SupplyParameterFromQuery]
   private string? ReturnUrl { get; set; }
 
+  // so making an account comes back to the page that sent them to sign in
+  private string RegisterUrl =>
+    ReturnUrl is null ? PageUrls.Register : QueryHelpers.AddQueryString(PageUrls.Register, "returnUrl", ReturnUrl);
+
   protected override async Task OnInitializedAsync()
   {
+    if (CurrentHost is CurrentHost.Site)
+    {
+      NavigationManager.NavigateTo(SiteSignIns.Start(HttpContext, ReturnUrl, NavigationManager.BaseUri, PlatformSettings.Host));
+      return;
+    }
+
     Input ??= new();
 
     editContext = new EditContext(Input);

@@ -18,6 +18,10 @@
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 
+  // inputs posted with the confirm, such as a typed confirmation; above the buttons
+  [Parameter]
+  public RenderFragment? Fields { get; set; }
+
   private readonly string _descriptionId = $"confirm-description-{Guid.NewGuid():n}";
 }
 
@@ -28,6 +32,7 @@
 
   <form method="post" @formname="@Id" @onsubmit="OnConfirm">
     <AntiforgeryToken />
+    @Fields
     <ModalDialogActions>
       <ModalCloseButton Label="Cancel" />
       <ButtonBasic type="submit" Variant="ButtonVariant.Danger">@ConfirmLabel</ButtonBasic>

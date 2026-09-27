@@ -1,0 +1,82 @@
+@using Microsoft.AspNetCore.Identity
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Utilities
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+
+@* No way to add a login here: a signed-in browser alone could then give someone else's Google account a
+   way in that outlasts a password reset. Signing in with Google adds its login to the account with
+   the same verified email (ExternalAccounts) *@
+
+@code {
+  [Parameter, EditorRequired]
+  public ApplicationUser Account { get; set; } = default!;
+
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  // from whichever login's form was posted, each named for its provider
+  [SupplyParameterFromForm]
+  private string? LoginProvider { get; set; }
+
+  [SupplyParameterFromForm]
+  private string? ProviderKey { get; set; }
+
+  private IList<UserLoginInfo> _logins = [];
+
+  // the last way in can't go: with no password, removing the only login would lock the account
+  private bool _canRemove;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _logins = await UserManager.GetLoginsAsync(Account);
+    _canRemove = await UserManager.HasPasswordAsync(Account) || _logins.Count > 1;
+  }
+
+  private async Task RemoveAsync()
+  {
+    if (!_canRemove)
+    {
+      return;
+    }
+
+    var result = await UserManager.RemoveLoginAsync(Account, Unwrap.Value(LoginProvider), Unwrap.Value(ProviderKey));
+    if (!result.Succeeded)
+    {
+      RedirectManager.RedirectToCurrentPageWithStatus("Error: the login wasn't removed.", HttpContext);
+      return;
+    }
+
+    await SignInManager.RefreshSignInAsync(Account);
+    RedirectManager.RedirectToCurrentPageWithStatus("The login was removed.", HttpContext);
+  }
+}
+
+<DashboardBox Title="Google">
+  @if (_logins.Count == 0)
+  {
+    <p class="text-sm">Not linked. Signing in with Google as @Account.Email links it.</p>
+  }
+  else
+  {
+    @foreach (var login in _logins)
+    {
+      <form method="post" @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="RemoveAsync" class="mb-2 flex items-center justify-between gap-2 last:mb-0">
+        <AntiforgeryToken />
+        <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
+        <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
+        <span class="text-sm">Signs in with @login.ProviderDisplayName.</span>
+        @if (_canRemove)
+        {
+          <ButtonBasic type="submit" Variant="ButtonVariant.DangerText">Remove</ButtonBasic>
+        }
+      </form>
+    }
+    @if (!_canRemove)
+    {
+      <p class="text-sm">To remove it, first give the account a password.</p>
+    }
+  }
+</DashboardBox>

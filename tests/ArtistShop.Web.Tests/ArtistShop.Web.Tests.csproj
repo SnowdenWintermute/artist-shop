@@ -10,6 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The app's BlazorDisableThrowNavigationException, which only reaches the app's own
+      runtimeconfig. The tests run the app in this process, so without it NavigateTo would throw and
+      end a page early here while the real app carries on rendering it -->
+    <RuntimeHostConfigurationOption Include="Microsoft.AspNetCore.Components.Endpoints.NavigationManager.DisableThrowNavigationException" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- includes xUnit's own Microsoft Testing Platform support; nothing else is needed to run -->
     <PackageReference Include="xunit.v3" Version="4.0.1" />
     <!-- FakeTimeProvider -->

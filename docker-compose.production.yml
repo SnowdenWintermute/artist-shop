@@ -29,6 +29,10 @@
 #     Email__Password=<password>
 #   The provider isn't chosen yet (todo.md); the app won't start without these. The domain needs
 #   the provider's SPF and DKIM DNS records, or the mail is taken for spam.
+#     Authentication__Google__ClientId=<client id>
+#     Authentication__Google__ClientSecret=<client secret>
+#   Google sign-in's OAuth client. Its authorized redirect URI is
+#   https://artshop.mikesilverman.net/signin-google; the app won't start without these.
 #
 # Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, one CPU, 2 GB of swap, and
 # about 485 MB available once the old pm2 apps were stopped.

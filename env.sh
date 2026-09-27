@@ -29,3 +29,8 @@ export ConnectionStrings__ArtistShopIdentity="Host=localhost;Port=5434;Database=
 # doesn't exist; production sets the same two in its web env file
 export Platform__OperatorEmail="mike@example.com"
 export Platform__OperatorPassword="$DEV_OWNER_PASSWORD"
+
+# Google sign-in's OAuth client, from the Google Cloud console; production sets the same two in its
+# web env file
+export Authentication__Google__ClientId="$GOOGLE_CLIENT_ID"
+export Authentication__Google__ClientSecret="$GOOGLE_CLIENT_SECRET"

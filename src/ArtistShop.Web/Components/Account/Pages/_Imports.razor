@@ -3,5 +3,6 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 @attribute [ExcludeFromInteractiveRouting]
-@* an account is for every site and the platform alike, so every host signs in *@
-@attribute [ServedOn(HostTypes.Platform | HostTypes.Site)]
+@* Signing in, and everything about an account, happens on the platform: a website sends the browser
+   there to sign in (SiteSignIns). Login and AccessDenied, which every host needs, are in EveryHost *@
+@attribute [ServedOn(HostTypes.Platform)]

@@ -14,6 +14,8 @@ using ArtistShop.Web.Utilities;
 using BlazorBlueprint.Primitives.Extensions;
 using Dapper;
 using DbUp;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -194,6 +196,24 @@ builder
     })
     .AddIdentityCookies();
 
+// Google only returns to the platform's /signin-google, the one address registered with it, so only
+// the platform's sign-in offers it (ExternalLoginPicker)
+var googleSettings = ValidatedSettings.Read<GoogleSettings>(builder.Configuration, "Authentication:Google");
+builder
+    .Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = googleSettings.ClientId;
+        options.ClientSecret = googleSettings.ClientSecret;
+        options.ClaimActions.MapCustomJson(ExternalAccounts.EmailVerifiedClaimType, ExternalAccounts.ReadGoogleEmailVerified);
+    });
+
+// sign-ins as rows in the identity database, so one can be ended at once (DatabaseTicketStore)
+builder.Services.AddSingleton<DatabaseTicketStore>();
+builder
+    .Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
+    .Configure<DatabaseTicketStore>((options, store) => options.SessionStore = store);
+
 builder
     .Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -203,7 +223,7 @@ builder
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddSignInManager()
+    .AddSignInManager<ApplicationSignInManager>()
     .AddDefaultTokenProviders();
 
 // email: to Mailpit in dev, to the provider production's settings name
@@ -213,6 +233,9 @@ builder.Services.AddSingleton<Mailer, SmtpMailer>();
 builder.Services.AddSingleton<AccountEmails>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(services => services.GetRequiredService<AccountEmails>());
 builder.Services.AddScoped<AccountRegistration>();
+builder.Services.AddScoped<PasswordResetLinks>();
+builder.Services.AddScoped<ExternalAccounts>();
+builder.Services.AddScoped<SiteSignIns>();
 builder.Services.AddScoped<AccountDeletion>();
 builder.Services.AddSingleton<SiteEmails>();
 

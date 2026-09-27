@@ -1,10 +1,173 @@
-# Next: the dev hot reload 403 on site hosts, then step 7 (custom domains) or the catalog's open items
+# Next: Mike reviews the auth review's fixes (below, all uncommitted), then an AWS email provider (SES) for production with a limit on how often the app sends email, then the dev hot reload 403 on site hosts, step 7 or the catalog's open items
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
+## Auth rework, agreed 2026-09-27
+
+**Handed off 2026-09-27: steps 1–4 are built, 662 tests, all uncommitted.** Mike browser-checked
+registration, sessions, Google sign-in, the one-page account page, and website sign-in and logout
+through the platform. Next session: review the whole day's diff with Mike, then choose and wire up
+AWS SES as production's email provider (`Email__*` settings, SPF/DKIM records; the app won't start
+in production without them). Also open: a Google-only account's first password comes only by the
+Password box's emailed link; passkeys could return now that only the platform signs anyone in.
+
+Order: (1) no account until its email is confirmed, (2) sessions stored in Postgres (cookie
+`SessionStore`), then go through everything that should end sessions: sign out, password change and
+reset, email change, account deletion (site rights are already read per request by
+`SiteRoleHandler`, so ownership and admin changes need nothing), (3) Google on the platform: account
+from Google's verified email, linked automatically to an existing account, (4) websites sign in
+through the platform (one Google callback there, then a handoff to the website; consider OpenIddict).
+
+**(1) done 2026-09-27, uncommitted, 617 tests, not browser-checked.** Register asks only for an
+email and sends a link (`AccountRegistration`); the link carries the email and Login's return address,
+signed and expiring after 24 hours with Data Protection, so nothing is stored meanwhile. Its page,
+`/Account/ChoosePassword`, makes the account already confirmed, signs in and goes to the return
+address (only a path on this host, `LocalUrl.OrNull`) or My websites. Registering an address you
+can't read now leaves nothing behind. ResendEmailConfirmation and its Login link are gone.
+`ConfirmEmail` stays for Manage/Email's "send verification email" and ExternalLogin, which step 3
+rewrites. Browser check: register at `http://localhost:5176/Account/Register`, follow the link in
+Mailpit, choose a password; open the link again ("already have an account"); from a page that sent you
+to Login, "Make an account" should come back to it.
+
+**(2) done 2026-09-27, uncommitted, 625 tests, not browser-checked.** `DatabaseTicketStore` is the
+Identity cookie's `SessionStore`: each sign-in is a `UserSessions` row in the identity database
+(identity database), and the cookie holds only its random key. A row is read only while it
+hasn't expired and its `SecurityStamp` matches the account's, so every Identity change that renews
+the stamp (password change, reset and set, email change, removed login, 2FA and passkey changes)
+signs out every browser at once, with no code in those pages; the page making the change signs its
+own browser in again, which renews its row with the new stamp (the handler renews an existing key
+rather than storing a new one). Signing out deletes the row; deleting an account cascades. Audit
+result: only `PlatformOperator.SyncAsync` needed a change (removing the role now renews the stamp,
+since roles live in the ticket's claims); site rights are read per request. Interactive circuits
+check their row every minute (was the stamp every 30). The daily `PlatformCleanupService` deletes
+expired and stale rows. Everyone signed in before this is signed out once. Not built: a "sign out
+everywhere" button (would be `UpdateSecurityStampAsync` then a fresh sign-in) or a list of sign-ins.
+
+**Password by emailed link only, email change off (Mike, 2026-09-27), uncommitted, 630 tests.**
+Manage → Password (`/Account/Manage/Password`) has one button that emails a reset link
+(`PasswordResetLinks`, shared with Forgot password); the reset page takes the new password and signs
+out everywhere. ChangePassword and SetPassword are gone, so a signed-in browser alone can't change the
+password; the link also gives a password to an account without one (Google, step 3). Manage → Email
+and ConfirmEmailChange are gone (restore from git): the new address alone confirmed a change, so a
+signed-in browser could move the account to another inbox. Bringing it back wants a confirmation
+from the current address first.
+
+**(3) Google on the platform, done 2026-09-27, uncommitted, 641 tests, not browser-checked.** Package
+`Microsoft.AspNetCore.Authentication.Google` 10.0.11; `GoogleSettings` from `Authentication:Google`
+(env.sh maps `.env`'s `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`; **production's web env file needs
+both before the next deploy, or the app won't start**). Redirect URIs registered with Google:
+`https://artshop.mikesilverman.net/signin-google` and `http://localhost:5176/signin-google`. Only the
+platform offers it (`ExternalLoginPicker`, `PerformExternalLogin` is `ServedOn(Platform)`), until
+step 4. `ExternalLogin.razor` no longer has a form: it signs in by the login, or `ExternalAccounts`
+puts the login on the account with Google's verified email (claim `email_verified`, read from either
+spelling Google uses), or a new confirmed account with no password; an unverified email is refused.
+An unconfirmed account (from before step 1) loses its password when linked. Manage → External logins
+can only remove logins now: adding one from a signed-in browser would give someone else's Google a way
+in that outlasts a password reset. Open: a Google-only account deletes itself with no password asked
+(template's `DeletePersonalData`), and signs in on a website only after setting a password through
+Manage → Password, until step 4. Browser check: `./dev.sh` (restart for the new env), Log in on
+`http://localhost:5176` → Google, with a new address and with an existing account's address.
+Mike signed in with Google in the browser, 2026-09-27.
+
+**Account page is one page, 2026-09-27, uncommitted, 645 tests, not browser-checked.** `/Account/Manage`
+is a grid of `DashboardBox`es (moved to Atoms), one component each in `Account/Pages/Manage/`, each
+handling its own form: Account (email, "a PictureCord account"), Password (emailed link), Google
+(remove only, and only while a password or another login remains), Your data (download), Delete
+account. The tabs (`ManageLayout`, `ManageNavMenu`), the phone number, and the Password, External
+logins, Personal data and Delete personal data pages are gone. Deleting (Mike's design) is a
+`ConfirmFormDialog` (new optional `Fields` slot) where the account's email must be typed: the input's
+`pattern` holds the submit back in the browser and the handler checks it again. No password or
+emailed link, since someone who lost their inbox must still be able to delete. Browser check: the
+boxes' layout, the Delete dialog opening, its button refusing until the email is typed.
+Mike checked these, 2026-09-27. The Google button has Mike's `icons/google-logo.svg` and says "Sign
+in with Google".
+
+**(4) All sign-in on the platform, built ourselves (Mike chose this over OpenIddict), 2026-09-27,
+uncommitted, 658 tests (one fails on Mike's in-progress PlatformHome heading), not browser-checked.**
+`SiteSignIns`: a website's Login (`Account/EveryHost/Login.razor`, which branches on the host) sets
+an encrypted cookie on its host (nonce and return path, 15 minutes, `Path=/Account/Handoff`, Lax)
+and sends the browser to the platform's `/Account/SignInTo?site=&nonce=` (endpoint,
+RequireAuthorization, so it signs in there first if need be). That makes a `SiteSignInCodes` row
+(identity database: code hash, account, host, nonce, remember-me,
+1 minute) for a host `HostDirectory` knows as a website's, else 404, and redirects to the website's
+`/Account/Handoff?code=` (`Account/OnWebsites/Handoff.razor`), which deletes the row first (single
+use), checks host, expiry and the cookie's nonce (stops login CSRF), signs in and returns. Every
+other account page is platform-only now (`Account/Pages/_Imports` is `ServedOn(Platform)`); Login
+and AccessDenied are in `Account/EveryHost`. The layout's account link goes to the platform's
+account page from a website. `TestApp.SignedInClientAsync` on a website goes through the handoff;
+`SignedInOnPlatformClientAsync` and `FollowSiteSignInAsync` are new. Signing out is per host, and
+with the platform still signed in, a website's Log in signs straight back in. Passkeys could come
+back now: only the platform's host signs anyone in. Browser check: sign in from
+`http://site1.localhost:5176/admin` while signed out everywhere, with a password and with Google;
+then again once signed in on the platform (no form). Fixed after Mike's first try: a website's Login crashed
+(EditForm with no EditContext) because `NavigateTo` doesn't end a static page here
+(`BlazorDisableThrowNavigationException`); the tests missed it since that switch only reached the
+app's runtimeconfig, so the test csproj now sets it too (`RuntimeHostConfigurationOption`). Sites 1–3
+in the dev database are being deleted (Mike's deletion testing), so they're 404; site4.localhost is
+online.
+
+**Logging out ends every sign-in in the browser (Mike, 2026-09-27), uncommitted, 662 tests.** Mike
+found that logging out on a website left the platform signed in, so the website's Log in signed
+straight back in. A website's `UserSessions` row now has `ParentId`, the platform sign-in it was
+handed over from (carried by the code's `PlatformSessionId` and the sign-in's
+`AuthenticationProperties` item), with a cascading foreign key; Logout calls
+`DatabaseTicketStore.EndBrowserAsync`, which deletes the platform row (or the row itself), taking
+every website's with it. Renewing a website's sign-in extends the platform's expiry so it can't
+lapse first. Other devices stay signed in.
+
+**Today's three identity migrations folded into one, `AddSessionsAndWebsiteSignIns` (Mike,
+2026-09-27).** The dev identity and platform databases were dropped and `content/images/sites`
+emptied for it; startup makes both databases again and the operator account, and websites are made
+again with a code from `/operator` and `/signup`.
+
+Mike, 2026-09-27, thinking aloud: perhaps only website admins will need accounts, and the shop
+may serve customers without one.
+
+**Reviewed with Mike, 2026-09-27; fixes uncommitted, 674 tests.** Found by probe tests, each now
+with a test that fails without its fix:
+- Signing in while another account was signed in left the browser signed in as nobody (Login,
+  ChoosePassword, Google, a website's handoff): the cookie handler renews the row the request came
+  with, and the row kept the other account's id. `ApplicationSignInManager` (registered by
+  `AddSignInManager<…>`) signs out first when the account differs, so a new row and key are made;
+  `RenewAsync` also only writes a ticket into its own account's row.
+- A website in use didn't keep the platform sign-in alive: the platform's cookie handler checks the
+  ticket's own expiry, not the row's, then removes the row and every website's with it.
+  `RetrieveAsync` now gives the ticket the row's `ExpiresAt`.
+- The site admin dashboard rendered raw `<DashboardBox>` tags (its `@using` was missed in the move to
+  Atoms; the build's RZ10012 warning was real).
+- A handoff now checks the platform sign-in that made its code is still live
+  (`DatabaseTicketStore.IsLiveAsync(id)`): one ended meanwhile was a 500 (foreign key) when deleted,
+  or lived on in the website's after a new stamp.
+- Accounts left unconfirmed from before step 1 were stuck (Login and Forgot password refuse them,
+  ChoosePassword said "already have an account"). Registering now sends them the ChoosePassword link,
+  which replaces the password by a reset and confirms the email.
+- `IdentityRevalidatingAuthenticationStateProvider` only asks `IsLiveAsync`, which covers the stamp.
+- Handoff's "didn't work" text went out in the body of every successful redirect (the page renders
+  at its first await), so the refusal tests passed whatever happened. It shows only once failed now,
+  and the tests also require a 200.
+- New tests: the Google callback end to end (`FakeGoogle` stands in for Google's handler), the last
+  way in can't be removed, a Google-only account's first password by the link, the operator role's
+  removal signing out.
+
+**Open: limit how often the app sends email** (Mike, 2026-09-27: needs its own careful design,
+before or with SES). Register, Forgot password and the account page's Password box each email any
+address on every submit, so someone can flood an inbox and spend the sending reputation SES
+judges the domain by. To weigh: per address and per client IP, what the page answers when limited
+(it mustn't say whether the address has an account), and whether the limit lives in memory or the
+database (one app instance for now).
+
+**Open for step 7 (custom domains): a website's owner could collect sign-ins.** The platform's
+`/Account/SignInTo` sends a code, with no click asked, to any host `HostDirectory` knows. Today every
+such host is served by this app, but a custom domain's DNS is its owner's: pointed at their own
+server, the handoff's code goes there, and with a nonce cookie they got by asking this app for their
+host's Login, they could trade it here for a sign-in on their website as whoever followed their
+link, seeing that person's email. Before custom domains: ask for a click on the platform when the
+account isn't a member of the website, or only hand codes to hosts whose DNS is checked (the TXT
+check below) and currently resolves here.
+
 ## Where this stands — 2026-09-26: step 6 done and reviewed
 
-**Identity pages and admin dashboard styled, 2026-09-26, uncommitted, not browser-checked.** Every
+**Identity pages and admin dashboard styled, committed by Mike (`adc0e41`), 2026-09-26.** Every
 Account page sits in `AdminPanel` with `TextField`/`CheckboxField`/`ButtonBasic`, as Register does;
 `ManageLayout` puts the manage links in `AdminPanel`'s section nav. New shared pieces: `Notice`
 (`NoticeVariant`, which `StatusMessage` renders through) and `Panel` (the white box, now inside
@@ -20,6 +183,14 @@ TwoFactorAuthentication, EnableAuthenticator, Disable2fa, GenerateRecoveryCodes 
 ResetAuthenticator pages and `ShowRecoveryCodes` are gone (restore from git). LoginWith2fa and
 LoginWithRecoveryCode stay, reached only by an account with two-factor on. Bringing it back wants a
 QR code drawn from the page's `data-url` (the `otpauth://` link) and a try with a real phone.
+
+**Test output cleaned up, committed by Mike (`06a8bce`).** The CSP tests were failing about a third of
+the time: a base64 nonce's "+" is written into the page as `&#x2B;`, so they now HTML-decode the body
+first, as a browser does. The `fail: …Database.Connection[20004]` line in every run (EF's
+`MigrateAsync` probing a missing identity database, which the test fixture drops) is gone: Program.cs
+now makes the identity database with `EnsureDatabase`, like the platform one. Left as is: every run's
+`HttpsRedirectionMiddleware[3]` "Failed to determine the https port" warning, since the test server
+and production behind nginx both see plain http, and nginx does the redirect.
 
 **Review of the 2026-09-26 work done; its fixes browser-checked (a 404 page's console shows no CSP
 error), 609 tests, to be committed by Mike.** The fixes: the CSP nonce lives on the HttpContext and
@@ -1896,7 +2067,9 @@ Discussed 2026-09-16. A postcard or print isn't an artwork but is made from one.
   a site's main one; the others redirect to it. A host belongs to exactly one site, since it's how a
   request finds its site. So once artists add their own domains, a DNS TXT check is needed: without
   it, someone could list a domain whose owner has pointed it here but not yet added it, or one left
-  pointing here after its site closed ("subdomain takeover").
+  pointing here after its site closed ("subdomain takeover"). **(From Claude, 2026-09-27)** A custom
+  domain's owner could also collect sign-in codes from the platform's `/Account/SignInTo`; see
+  "Open for step 7" under the auth rework.
 - **Platform host** (`artistshop.com` itself, not a site): what the product is, sign-up, "my sites".
 - **Platform database**, a third one, holding sites, hosts, memberships and sign-up codes. Dapper and
   plain SQL, not EF.
