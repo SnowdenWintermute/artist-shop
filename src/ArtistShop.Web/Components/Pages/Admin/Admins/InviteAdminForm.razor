@@ -39,7 +39,7 @@
     }
 
     // before the invitation is kept, so a refused one leaves nothing behind
-    if (!EmailSendLimit.TryTake(email.Value, EmailSendLimit.RequesterOf(HttpContext)))
+    if (!EmailSendLimit.TryTake(email.Value, Requester.Of(HttpContext)))
     {
       Input.AddEmailLimitError();
       return;

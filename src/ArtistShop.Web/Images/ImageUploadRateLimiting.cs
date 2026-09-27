@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using System.Threading.RateLimiting;
+using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Images;
 
@@ -50,8 +50,9 @@ public static class ImageUploadRateLimiting
 
     // authentication runs ahead of this middleware, so the claim is there for a signed-in artist;
     // the address keeps anonymous requests from sharing one bucket
-    private static string UploaderKey(HttpContext httpContext) =>
-        httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? httpContext.Connection.RemoteIpAddress?.ToString()
-        ?? "unknown";
+    private static string UploaderKey(HttpContext httpContext)
+    {
+        var requester = Requester.Of(httpContext);
+        return requester.AccountId ?? requester.Address;
+    }
 }

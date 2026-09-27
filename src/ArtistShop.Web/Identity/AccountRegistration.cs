@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Email;
+using ArtistShop.Web.Utilities;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
@@ -14,9 +15,11 @@ public abstract record RegistrationResult
     // only the ones below
     private RegistrationResult() { }
 
-    // an email is on its way, whether the address had an account or not, unless EmailSendLimit
-    // refused it
+    // an email is on its way, whether the address had an account or not
     public sealed record EmailSent : RegistrationResult;
+
+    // EmailSendLimit refused the email, so nothing was sent
+    public sealed record Limited : RegistrationResult;
 
     // Identity refuses the address itself, such as for a character it doesn't allow. No account
     // can have such an address, so saying so gives nothing away
@@ -60,8 +63,8 @@ public sealed class AccountRegistration(
     public static readonly TimeSpan LinkLifetime = TimeSpan.FromHours(24);
 
     // hostRoot is this host's address, such as https://artshop.mikesilverman.net/, for the links;
-    // requester is EmailSendLimit.RequesterOf the request
-    public async Task<RegistrationResult> RegisterAsync(string email, string? returnUrl, Uri hostRoot, string requester)
+    // requester is who asked
+    public async Task<RegistrationResult> RegisterAsync(string email, string? returnUrl, Uri hostRoot, Requester requester)
     {
         var emailErrors = await EmailErrorsAsync(email);
 
@@ -70,11 +73,9 @@ public sealed class AccountRegistration(
             return new RegistrationResult.EmailRefused(emailErrors);
         }
 
-        // over the limit, nothing is sent but the page answers the same, so it can't be used to learn
-        // that someone else just asked for that address
         if (!emailSendLimit.TryTake(email, requester))
         {
-            return new RegistrationResult.EmailSent();
+            return new RegistrationResult.Limited();
         }
 
         if (await userManager.FindByEmailAsync(email) is not { EmailConfirmed: true })

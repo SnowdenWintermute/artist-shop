@@ -86,7 +86,7 @@ public sealed class SiteAdminsTests(TestApp app)
         var response = await InviteAsync(client, email);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Try again in a minute.", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("Try again in a while.", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Empty(app.Mailer.SentTo(email));
         Assert.DoesNotContain(email, await ReadAsync(client));
     }

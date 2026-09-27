@@ -102,7 +102,34 @@ public sealed partial class PasswordTests(TestApp app)
         await TestApp.PostFormAsync(client, "/Account/Manage", "email-password-link", []);
 
         Assert.Empty(app.Mailer.SentTo(email));
-        Assert.Contains("Try again in a minute.", await client.GetStringAsync("/Account/Manage", TestContext.Current.CancellationToken));
+        Assert.Contains("Try again in a while.", await client.GetStringAsync("/Account/Manage", TestContext.Current.CancellationToken));
+    }
+
+    // signed out, only the address the request came from is counted
+    [Fact]
+    public async Task ForgotPasswordCountsNoAccountAgainstTheLimit()
+    {
+        var email = await app.MakeAccountAsync();
+
+        await TestApp.PostFormAsync(
+            app.ClientFor(TestApp.PlatformHost),
+            "/Account/ForgotPassword",
+            "forgot-password",
+            new() { ["Input.Email"] = email }
+        );
+
+        Assert.Null(Assert.Single(app.EmailSendLimit.RequestersFor(email)).AccountId);
+    }
+
+    [Fact]
+    public async Task ThePasswordBoxCountsTheAccountAgainstTheLimit()
+    {
+        var email = await app.MakeAccountAsync();
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, email);
+
+        await TestApp.PostFormAsync(client, "/Account/Manage", "email-password-link", []);
+
+        Assert.Equal(await app.UserIdAsync(email), Assert.Single(app.EmailSendLimit.RequestersFor(email)).AccountId);
     }
 
     // changing a password or an email from a signed-in browser alone isn't possible, and the account

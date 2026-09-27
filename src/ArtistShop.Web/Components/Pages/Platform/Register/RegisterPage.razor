@@ -1,7 +1,6 @@
 @page "/Account/Register"
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
-@using ArtistShop.Web.Email
 @using ArtistShop.Web.Identity
 @using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
@@ -29,13 +28,15 @@
       Input.TrimmedEmail,
       LocalUrl.OrNull(ReturnUrl),
       new Uri(NavigationManager.BaseUri),
-      EmailSendLimit.RequesterOf(HttpContext)
+      Requester.Of(HttpContext)
     );
 
     switch (result)
     {
-      // a redirect, so refreshing the browser doesn't send another email
+      // a redirect, so refreshing the browser doesn't send another email. Limited answers the same,
+      // so the page can't be used to learn that someone else just asked for that address
       case RegistrationResult.EmailSent:
+      case RegistrationResult.Limited:
         NavigationManager.NavigateTo(PageUrls.RegisterConfirmation);
         break;
       case RegistrationResult.EmailRefused refused:

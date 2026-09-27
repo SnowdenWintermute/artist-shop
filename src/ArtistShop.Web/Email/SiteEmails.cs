@@ -5,7 +5,7 @@ using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Sites;
 
 // The emails about being a member of a website. The links aren't encoded yet
-public sealed class SiteEmails(Mailer mailer)
+public sealed class SiteEmails(EmailQueue emailQueue)
 {
     public Task SendInviteAsync(
         EmailAddress to,
@@ -13,7 +13,7 @@ public sealed class SiteEmails(Mailer mailer)
         HostName site,
         string mySitesLink
     ) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 to.Value,
                 $"You're invited to help administer {site.Value}",
@@ -31,7 +31,7 @@ public sealed class SiteEmails(Mailer mailer)
         EmailAddress oldOwner,
         HostName site
     ) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 to.Value,
                 $"You now own {site.Value}",
@@ -46,7 +46,7 @@ public sealed class SiteEmails(Mailer mailer)
         EmailAddress newOwner,
         HostName site
     ) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 to.Value,
                 $"You handed {site.Value} over",
@@ -61,7 +61,7 @@ public sealed class SiteEmails(Mailer mailer)
         DateTimeOffset eraseAt,
         string mySitesLink
     ) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 to.Value,
                 $"You deleted {site.Value}",
@@ -78,7 +78,7 @@ public sealed class SiteEmails(Mailer mailer)
         HostName site,
         DateTimeOffset eraseAt
     ) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 to.Value,
                 $"{site.Value} was deleted",
@@ -90,7 +90,7 @@ public sealed class SiteEmails(Mailer mailer)
 
     // the owner deleted their account, which takes their websites with it; nobody can keep them now
     public Task SendOwnerAccountDeletedToAdminAsync(EmailAddress to, EmailAddress owner, HostName site, DateTimeOffset eraseAt) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 to.Value,
                 $"{site.Value} was deleted",

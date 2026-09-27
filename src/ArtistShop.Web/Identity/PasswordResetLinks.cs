@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Email;
+using ArtistShop.Web.Utilities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -17,9 +18,8 @@ public sealed class PasswordResetLinks(
 )
 {
     // hostRoot is this host's address, such as https://artshop.mikesilverman.net/, for the link;
-    // requester is EmailSendLimit.RequesterOf the request. False when the limit refused it and
-    // nothing was sent
-    public async Task<bool> SendAsync(ApplicationUser user, Uri hostRoot, string requester)
+    // requester is who asked. False when the limit refused it and nothing was sent
+    public async Task<bool> SendAsync(ApplicationUser user, Uri hostRoot, Requester requester)
     {
         var email = await userManager.GetEmailAsync(user) ?? throw new InvalidOperationException($"Account {user.Id} has no email.");
 

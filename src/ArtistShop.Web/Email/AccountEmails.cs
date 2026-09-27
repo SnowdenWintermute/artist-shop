@@ -9,10 +9,10 @@ using Microsoft.AspNetCore.Identity;
 
 // The emails about an account. Identity's pages call the first three, handing over links they have
 // already HTML-encoded
-public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
+public sealed class AccountEmails(EmailQueue emailQueue) : IEmailSender<ApplicationUser>
 {
     public Task SendConfirmationLinkAsync(ApplicationUser user, string email, string confirmationLink) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 email,
                 "Confirm your email",
@@ -22,7 +22,7 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
         );
 
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 email,
                 "Reset your password",
@@ -32,7 +32,7 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
         );
 
     public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 email,
                 "Reset your password",
@@ -43,7 +43,7 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
     // Sent when someone registers with an email that has no account; the account is made when the
     // link's page is given a password. The link isn't encoded yet
     public Task SendChoosePasswordLinkAsync(string email, string choosePasswordLink, TimeSpan linkLifetime) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 email,
                 "Finish making your account",
@@ -57,7 +57,7 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
     // link to choose a password, so the register page answers the same either way and never says which
     // emails have accounts. The links aren't encoded yet
     public Task SendAlreadyHaveAccountAsync(string email, string signInLink, string resetLink) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 email,
                 "You already have an account",
@@ -77,7 +77,7 @@ public sealed class AccountEmails(Mailer mailer) : IEmailSender<ApplicationUser>
         IReadOnlyList<MemberSite> deletedSites,
         IReadOnlyList<MemberSite> leftSites
     ) =>
-        mailer.SendAsync(
+        emailQueue.EnqueueAsync(
             new EmailMessage(
                 email.Value,
                 $"Your {platformName} account was deleted",

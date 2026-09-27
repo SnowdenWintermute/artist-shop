@@ -1,7 +1,5 @@
-using System.Net;
-using System.Security.Claims;
 using ArtistShop.Web.Email;
-using Microsoft.AspNetCore.Http;
+using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Tests.Email;
 
@@ -13,9 +11,33 @@ public sealed class EmailSendLimitTests
     {
         using var limit = new RateLimitedEmailSendLimit();
 
-        Assert.True(limit.TryTake("someone@example.com", "address:192.0.2.1"));
-        Assert.False(limit.TryTake(" Someone@Example.com", "address:192.0.2.2"));
-        Assert.True(limit.TryTake("someone-else@example.com", "address:192.0.2.1"));
+        Assert.True(limit.TryTake("someone@example.com", SignedOut("192.0.2.1")));
+        Assert.False(limit.TryTake(" Someone@Example.com", SignedOut("192.0.2.2")));
+        Assert.True(limit.TryTake("someone-else@example.com", SignedOut("192.0.2.1")));
+    }
+
+    [Fact]
+    public void GmailAddressesThatDifferOnlyByDotsShareALimit()
+    {
+        using var limit = new RateLimitedEmailSendLimit();
+
+        Assert.True(limit.TryTake("j.smith@gmail.com", SignedOut("192.0.2.1")));
+        Assert.False(limit.TryTake("jsmith@googlemail.com", SignedOut("192.0.2.2")));
+        // other providers can treat dots as part of the name
+        Assert.True(limit.TryTake("j.smith@example.com", SignedOut("192.0.2.1")));
+        Assert.True(limit.TryTake("jsmith@example.com", SignedOut("192.0.2.1")));
+    }
+
+    [Fact]
+    public void AddressesThatDifferOnlyByAPlusTagShareALimit()
+    {
+        using var limit = new RateLimitedEmailSendLimit();
+
+        Assert.True(limit.TryTake("someone@example.com", SignedOut("192.0.2.1")));
+        Assert.False(limit.TryTake("someone+shop@example.com", SignedOut("192.0.2.2")));
+        // with Gmail's dots too
+        Assert.True(limit.TryTake("some.one+shop@gmail.com", SignedOut("192.0.2.1")));
+        Assert.False(limit.TryTake("someone@gmail.com", SignedOut("192.0.2.2")));
     }
 
     // and the refused try doesn't count against the address
@@ -26,29 +48,40 @@ public sealed class EmailSendLimitTests
 
         for (var i = 0; i < 30; i++)
         {
-            Assert.True(limit.TryTake($"{i}@example.com", "address:192.0.2.1"));
+            Assert.True(limit.TryTake($"{i}@example.com", SignedOut("192.0.2.1")));
         }
 
-        Assert.False(limit.TryTake("30@example.com", "address:192.0.2.1"));
-        Assert.True(limit.TryTake("30@example.com", "address:192.0.2.2"));
+        Assert.False(limit.TryTake("30@example.com", SignedOut("192.0.2.1")));
+        Assert.True(limit.TryTake("30@example.com", SignedOut("192.0.2.2")));
+    }
+
+    // so making more accounts doesn't earn more emails
+    [Fact]
+    public void SigningInDoesNotEscapeTheAddressLimit()
+    {
+        using var limit = new RateLimitedEmailSendLimit();
+
+        for (var i = 0; i < 30; i++)
+        {
+            Assert.True(limit.TryTake($"{i}@example.com", new Requester("192.0.2.1", $"account-{i}")));
+        }
+
+        Assert.False(limit.TryTake("30@example.com", new Requester("192.0.2.1", "account-30")));
+        Assert.False(limit.TryTake("30@example.com", SignedOut("192.0.2.1")));
     }
 
     [Fact]
-    public void ASignedInRequesterIsTheirAccount()
+    public void AnAccountIsRefusedAfterThirtyAddressesFromAnyAddress()
     {
-        var httpContext = Request("192.0.2.1");
-        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "account-1")], "test"));
+        using var limit = new RateLimitedEmailSendLimit();
 
-        Assert.Equal("account:account-1", EmailSendLimit.RequesterOf(httpContext));
+        for (var i = 0; i < 30; i++)
+        {
+            Assert.True(limit.TryTake($"{i}@example.com", new Requester($"192.0.2.{i}", "account-1")));
+        }
+
+        Assert.False(limit.TryTake("30@example.com", new Requester("192.0.2.30", "account-1")));
     }
 
-    [Theory]
-    [InlineData("192.0.2.1", "address:192.0.2.1")]
-    [InlineData("::ffff:192.0.2.1", "address:192.0.2.1")]
-    [InlineData("2001:db8:1:2:3:4:5:6", "address:2001:db8:1:2::/64")]
-    public void ASignedOutRequesterIsTheirAddress(string address, string requester) =>
-        Assert.Equal(requester, EmailSendLimit.RequesterOf(Request(address)));
-
-    private static DefaultHttpContext Request(string address) =>
-        new() { Connection = { RemoteIpAddress = IPAddress.Parse(address) } };
+    private static Requester SignedOut(string address) => new(address, null);
 }

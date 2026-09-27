@@ -73,6 +73,7 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<Mailer>(Mailer);
+            services.AddSingleton<EmailQueue>(new ImmediateEmailQueue(Mailer));
             services.AddSingleton<EmailSendLimit>(EmailSendLimit);
             services.AddTransient<IStartupFilter, FakeGoogle>();
         });

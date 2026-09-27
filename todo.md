@@ -1,4 +1,4 @@
-# Next: Mike reviews the email send limit (below, uncommitted), then the dev hot reload 403 on site hosts, step 7 or the catalog's open items
+# Next: Mike reviews the email limit fixes and the email queue (below, uncommitted), then the dev hot reload 403 on site hosts, step 7 or the catalog's open items
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -148,6 +148,36 @@ with a test that fails without its fix:
 - New tests: the Google callback end to end (`FakeGoogle` stands in for Google's handler), the last
   way in can't be removed, a Google-only account's first password by the link, the operator role's
   removal signing out.
+
+**Reviewed 2026-09-27, fixes uncommitted, 693 tests.** The limit was committed as `6a684e3`; the
+review found and fixed: a signed-in request counted only its account, so each confirmed account
+earned 30 more emails an hour from one address (now `Requester` holds both and each has a limit);
+Gmail addresses differing by dots, and any differing by a +tag, had separate limits; "Try again in
+a minute" was wrong after an hourly limit ("in a while"); the invite message said why ("We can't email this address just now");
+`RegistrationResult.Limited`; `Requester` shared with image uploads, which gains the /64 grouping;
+the test fake records who asked. **Email is queued**: `AccountEmails` and `SiteEmails` hand it to
+`EmailQueue`; the app's is `ChannelEmailQueue` (in memory), sent by the `EmailQueueSender` background
+service through `Mailer`, which logs a failed send and sends what's left on shutdown. Pages no longer
+wait on SES, so the timing leak and the 500 on a refused address are gone. Chosen over Hangfire
+(durable, retries, but reset links stored in its tables), Coravel (in memory, polls every 30 s),
+TickerQ (EF Core) and Quartz; swapping means another `EmailQueue`. TestApp's `ImmediateEmailQueue`
+sends at once. Mike to check in Mailpit that dev email still arrives. Kept for later consideration:
+- **Invitations could keep their own per-recipient limit**, so an owner can't learn that someone
+  just asked for a register or reset email (the vaguer message still shows the address is limited),
+  nor use up an address's 5 an hour and hold back its reset link. Minor: owners need a sign-up code,
+  and Register from a few addresses can already use up that allowance.
+- **No overall cap of our own.** SES's sending quota is one, but reaching it blocks all mail, and
+  bounce and complaint rates hurt the account before it's reached. Rather than a cap, perhaps SES
+  bounce and complaint notifications to SNS with an email alert (console setup, no code).
+
+**Handed off 2026-09-27: SES and the email send limit, 684 tests, all uncommitted.** Next session
+reviews the diff for mistakes before Mike commits. Worth checking: the limit is taken in each of the
+four places before anything is kept or sent (`AccountRegistration.RegisterAsync` after Identity's
+email check, `PasswordResetLinks.SendAsync`, `InviteAdminForm` before `SiteInviteRepository.AddAsync`);
+Register and Forgot password answer the same when limited; `RequesterOf` behind nginx (it relies on
+`ASPNETCORE_FORWARDEDHEADERS_ENABLED`, or every visitor is nginx's address and shares one bucket);
+the chained limiters' order and disposal; the Password box's message in the browser. Production
+access to SES was requested and not yet answered; until then only verified addresses get mail.
 
 **SES set up by Mike, 2026-09-27.** us-east-1, identity `mikesilverman.net` with MAIL FROM
 `mail.mikesilverman.net` (DNS at Mike's domain provider), SMTP login from an IAM user in the VPS's
