@@ -38,4 +38,15 @@ public static class ArtworkImportHeaders
         [Title, Description, DateCreated, Height, Width, Depth, Duration, Series, Price, Sold, EditionSize, Stock],
         ImportNames.Comparer
     );
+
+    // A header starting with this always names a vocabulary, so one called "series" can still have a
+    // column. Without it, a header that is one of All means the import's own column
+    public const string VocabularyPrefix = "vocabulary:";
+
+    // the header a vocabulary's column needs: its name, with the prefix only when the name alone would
+    // be read as something else
+    public static string ForVocabulary(string vocabularyName) =>
+        All.Contains(vocabularyName) || vocabularyName.StartsWith(VocabularyPrefix, StringComparison.OrdinalIgnoreCase)
+            ? $"{VocabularyPrefix}{vocabularyName}"
+            : vocabularyName;
 }

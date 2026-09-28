@@ -32,7 +32,10 @@ LibreOffice and European Excel split on them. Also fixed: `ChannelEmailQueue.Com
 Then: posts as one HTML file each with images beside it, then links to Export from delete-website and
 My websites during the grace period.
 
-**Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately.
+**Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and
+vocabulary planners share one skeleton (parse, find columns, count names, skip blank and repeated rows);
+decide then whether to pull it out. Once the export's design settles, the Export page should say exactly
+what each download includes and leaves out (for now it points to the README).
 
 ## Auth rework, agreed 2026-09-27
 

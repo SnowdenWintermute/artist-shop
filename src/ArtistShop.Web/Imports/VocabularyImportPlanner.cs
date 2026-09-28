@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text.Json;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
@@ -16,12 +14,12 @@ public static class VocabularyImportHeaders
 }
 
 // What importing a row adds. ExistingId is null for a new vocabulary; for one that exists, Name is
-// its own spelling, and only the types and terms it doesn't have yet are listed
+// its own spelling, and the added types and terms are only the ones it doesn't have yet
 public record VocabularyImportChange(
     int RowNumber,
     VocabularyName Name,
     VocabularyId? ExistingId,
-    IReadOnlyList<ArtworkTypeId> ExistingArtworkTypeIds,
+    IReadOnlyList<ArtworkType> ExistingArtworkTypes,
     IReadOnlyList<ArtworkType> AddedArtworkTypes,
     IReadOnlyList<VocabularyTermName> AddedTerms
 );
@@ -36,8 +34,7 @@ public record VocabularyImportPlan(
 
     public int ChangeCount => Changes.Count;
 
-    public string Fingerprint() =>
-        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(this)));
+    public string Fingerprint() => ImportPlanFingerprint.Of(this);
 }
 
 // Turns a CSV of vocabularies into what importing it would add, without touching the database. It
@@ -140,7 +137,7 @@ public static class VocabularyImportPlanner
                     row.RowNumber,
                     new VocabularyName(name),
                     ExistingId: null,
-                    ExistingArtworkTypeIds: [],
+                    ExistingArtworkTypes: [],
                     types,
                     [.. terms.Select(term => new VocabularyTermName(term))]
                 ));
@@ -159,7 +156,12 @@ public static class VocabularyImportPlanner
                 continue;
             }
 
-            changes.Add(new VocabularyImportChange(row.RowNumber, existing.Name, existing.Id, existing.ArtworkTypeIds, addedTypes, addedTerms));
+            var existingTypes = snapshot.Types
+                .Where(type => existing.ArtworkTypeIds.Contains(type.Id))
+                .Select(type => new ArtworkType(type.Id, type.Name))
+                .ToList();
+
+            changes.Add(new VocabularyImportChange(row.RowNumber, existing.Name, existing.Id, existingTypes, addedTypes, addedTerms));
         }
 
         return new VocabularyImportPlan(changes, skippedRows, errors);
@@ -185,7 +187,7 @@ public static class VocabularyImportPlanner
 
                 if (change.AddedArtworkTypes.Count > 0)
                 {
-                    await vocabularyRepository.UpdateAsync(id, change.Name, [.. change.ExistingArtworkTypeIds, .. addedTypeIds]);
+                    await vocabularyRepository.UpdateAsync(id, change.Name, [.. change.ExistingArtworkTypes.Select(type => type.Id), .. addedTypeIds]);
                 }
             }
             else

@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text.Json;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
@@ -26,8 +24,7 @@ public record ArtworkTypeImportPlan(
 
     public int ChangeCount => Additions.Count;
 
-    public string Fingerprint() =>
-        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(this)));
+    public string Fingerprint() => ImportPlanFingerprint.Of(this);
 }
 
 // Turns a CSV of artwork types into the types importing it would add, without touching the database.

@@ -1,6 +1,7 @@
 @page "/admin/catalog/types/import"
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
@@ -14,19 +15,22 @@
   [SupplyParameterFromQuery(Name = "imported")]
   private int? ImportedCount { get; set; }
 
-  // loaded with each plan, and kept for the review's field names
-  private CatalogSetupSnapshot? _snapshot;
+  // for the column help and the review
+  private List<ArtworkFieldDefinition> _fields = [];
 
-  private async Task<ArtworkTypeImportPlan> PlanAsync(string csvText, char listSeparator)
-  {
-    _snapshot = await CatalogSetupSnapshot.LoadAsync(ArtworkFieldRepository, ArtworkTypeRepository, VocabularyRepository);
-    return ArtworkTypeImportPlanner.Plan(csvText, listSeparator, _snapshot);
-  }
+  protected override async Task OnInitializedAsync() => _fields = await ArtworkFieldRepository.GetAllAsync();
+
+  private async Task<ArtworkTypeImportPlan> PlanAsync(string csvText, char listSeparator) =>
+    ArtworkTypeImportPlanner.Plan(
+      csvText,
+      listSeparator,
+      await CatalogSetupSnapshot.LoadAsync(ArtworkFieldRepository, ArtworkTypeRepository, VocabularyRepository)
+    );
 
   private Task ApplyAsync(ArtworkTypeImportPlan plan) => ArtworkTypeImportPlanner.ApplyAsync(plan, ArtworkTypeRepository);
 
   private string FieldNames(ArtworkTypeImportAddition addition) =>
-    string.Join(", ", Unwrap.Value(_snapshot).Fields.Where(field => addition.Fields.Contains(field.Field)).Select(field => field.Name));
+    string.Join(", ", _fields.Where(field => addition.Fields.Contains(field.Field)).Select(field => field.Name));
 }
 
 <PageTitle>Import artwork types</PageTitle>
@@ -40,8 +44,8 @@
       <ColumnsHelp>
         <p class="mb-4 text-sm">
           One row per type. Columns: <code>@ArtworkTypeImportHeaders.ArtworkType</code>, the type's name, and
-          <code>@ArtworkTypeImportHeaders.Fields</code>, the fields it has, from Date created, Height and width,
-          Depth and Duration. A type that already exists is skipped, so its fields don't change.
+          <code>@ArtworkTypeImportHeaders.Fields</code>, the fields it has, from
+          @string.Join(", ", _fields.Select(field => field.Name)). A type that already exists is skipped, so its fields don't change.
         </p>
       </ColumnsHelp>
       <Review Context="plan">

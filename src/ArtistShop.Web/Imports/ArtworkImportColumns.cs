@@ -61,22 +61,32 @@ public record ArtworkImportColumns(
                 continue;
             }
 
-            var isKnownHeader = ArtworkImportHeaders.All.Contains(header);
-            var vocabulary = snapshot.AllVocabularies.FirstOrDefault(vocabulary =>
-                ImportNames.Comparer.Equals(vocabulary.Name.Value, header)
-            );
+            var isPrefixed = header.StartsWith(ArtworkImportHeaders.VocabularyPrefix, StringComparison.OrdinalIgnoreCase);
 
-            if (isKnownHeader && vocabulary is not null)
-            {
-                AddError(header, "A vocabulary has the same name as this import column. Rename the vocabulary.");
-            }
-            else if (isKnownHeader)
+            if (!isPrefixed && ArtworkImportHeaders.All.Contains(header))
             {
                 knownColumns[header] = index;
+                continue;
             }
-            else if (vocabulary is null)
+
+            var vocabularyName = isPrefixed ? header[ArtworkImportHeaders.VocabularyPrefix.Length..].Trim() : header;
+            var vocabulary = snapshot.AllVocabularies.FirstOrDefault(vocabulary =>
+                ImportNames.Comparer.Equals(vocabulary.Name.Value, vocabularyName)
+            );
+
+            if (vocabulary is null)
             {
-                AddError(header, "This isn't a column the import knows, or the name of a vocabulary.");
+                AddError(
+                    header,
+                    isPrefixed
+                        ? $"There's no vocabulary called \"{vocabularyName}\"."
+                        : "This isn't a column the import knows, or the name of a vocabulary."
+                );
+            }
+            else if (vocabularyColumns.Any(column => column.Vocabulary.Id == vocabulary.Id))
+            {
+                // "Medium" and "vocabulary:Medium" are different headers for the same vocabulary
+                AddError(header, "This vocabulary already has a column.");
             }
             else if (snapshot.TypeVocabularies.FirstOrDefault(typeVocabulary => typeVocabulary.Id == vocabulary.Id) is { } typeVocabulary)
             {

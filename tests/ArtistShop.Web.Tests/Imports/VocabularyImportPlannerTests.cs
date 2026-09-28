@@ -40,7 +40,7 @@ public sealed class VocabularyImportPlannerTests
         Assert.Equal(MediumId, change.ExistingId);
         // its own spelling, so adding types doesn't rename it
         Assert.Equal(new VocabularyName("Medium"), change.Name);
-        Assert.Equal([Painting.Id], change.ExistingArtworkTypeIds);
+        Assert.Equal([Painting.Id], change.ExistingArtworkTypes.Select(type => type.Id));
         Assert.Equal([Sculpture.Id], change.AddedArtworkTypes.Select(type => type.Id));
         Assert.Equal([new VocabularyTermName("Bronze")], change.AddedTerms);
     }

@@ -1,7 +1,6 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
-@using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Utilities
@@ -57,7 +56,6 @@
   private bool _catalogChangedSinceReview;
   private bool _reviewLost;
 
-  private static string CheckFieldName(string property) => $"{nameof(Check)}.{property}";
   private static string ConfirmFieldName(string property) => $"{nameof(Confirm)}.{property}";
 
   protected override void OnInitialized()
@@ -69,40 +67,11 @@
   private async Task CheckAsync()
   {
     var isValid = await Check.EditContext.ValidateAsync();
-    var csvText = await ReadCheckedFileAsync();
+    var csvText = await Check.ReadCheckedFileAsync();
 
     if (isValid && csvText is not null)
     {
       await ReviewAsync(csvText, Unwrap.Value(Check.ListSeparator));
-    }
-  }
-
-  // the newly chosen file, or else the one kept from an earlier check; null once an error is added
-  private async Task<string?> ReadCheckedFileAsync()
-  {
-    if (Check.ChosenFile is not { } file)
-    {
-      if (Check.KeptCsvText is null)
-      {
-        Check.AddFileError("Choose a CSV file.");
-      }
-
-      return Check.KeptCsvText;
-    }
-
-    // a new file replaces the kept one even when it can't be read
-    Check.ForgetKeptFile();
-
-    switch (await ImportFileText.ReadAsync(file))
-    {
-      case ImportFileText.Read read:
-        Check.KeepFile(file.FileName, read.Text);
-        return read.Text;
-      case ImportFileText.Refused refused:
-        Check.AddFileError(refused.Problem);
-        return null;
-      default:
-        throw new InvalidOperationException("An import file is either read or refused.");
     }
   }
 
@@ -161,14 +130,7 @@
           enctype="multipart/form-data" Enhance class="mb-4">
   <DataAnnotationsValidator />
 
-  <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))" ValueExpression="() => Check.File"
-                 Prompt="Drop a CSV file here" Accept=".csv,text/csv" KeptFileName="@Check.KeptFileName" />
-
-  @if (Check.KeptCsvText is not null)
-  {
-    <input type="hidden" name="@CheckFieldName(nameof(Check.KeptCsvText))" value="@Check.KeptCsvText" />
-    <input type="hidden" name="@CheckFieldName(nameof(Check.KeptFileName))" value="@Check.KeptFileName" />
-  }
+  <ImportFileFields Form="Check" FormPropertyName="@nameof(Check)" />
 
   <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
 

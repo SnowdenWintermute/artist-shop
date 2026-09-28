@@ -75,7 +75,8 @@ public static class CatalogExportArchive
         {ArtworksFolder}/
           One CSV file per artwork type that has artworks, with a row for each artwork. The columns are the
           ones the artwork import reads: {ArtworkImportHeaders.Title}, {ArtworkImportHeaders.Description}, the fields the type has, {ArtworkImportHeaders.Series}, and a
-          column for each vocabulary that applies to the type.
+          column for each vocabulary that applies to the type. A vocabulary whose name is also one of
+          those columns, like "{ArtworkImportHeaders.Series}", is written "{ArtworkImportHeaders.VocabularyPrefix}{ArtworkImportHeaders.Series}".
           - Height, width and depth are in centimetres.
           - Dates are yyyy, yyyy-MM or yyyy-MM-dd, depending on how much of the date is known.
           - Durations are h:mm:ss, or m:ss under an hour.

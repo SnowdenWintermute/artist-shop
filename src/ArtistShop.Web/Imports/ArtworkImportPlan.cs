@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text.Json;
 using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Imports;
@@ -34,6 +32,5 @@ public record ArtworkImportPlan(
 
     // a short text that changes whenever anything in the plan does, so a confirm can tell whether
     // the plan it rebuilt is the one the artist reviewed
-    public string Fingerprint() =>
-        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(this)));
+    public string Fingerprint() => ImportPlanFingerprint.Of(this);
 }

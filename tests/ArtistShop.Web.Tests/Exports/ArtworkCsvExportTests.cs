@@ -104,6 +104,17 @@ public sealed class ArtworkCsvExportTests
     }
 
     [Fact]
+    public void AVocabularyNamedLikeAColumnIsPrefixed()
+    {
+        var screenshot = new ArtworkTypeWithFields(new ArtworkTypeId(2), new ArtworkTypeName("Screenshot"), []);
+        var seriesVocabulary = new VocabularySetup(new VocabularyId(4), new VocabularyName("Series"), [screenshot.Id], []);
+
+        var csv = ArtworkCsvExport.ForType(screenshot, [seriesVocabulary], [], ';');
+
+        Assert.Equal("title,description,series,vocabulary:Series\r\n", csv);
+    }
+
+    [Fact]
     public void TheListSeparatorIsOneNoNameContains()
     {
         var separator = ArtworkCsvExport.ChooseListSeparator(["Night; Day", "Ink | wash", "Plain"]);

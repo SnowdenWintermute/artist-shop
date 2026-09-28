@@ -1,0 +1,23 @@
+@using ArtistShop.Web.Components.Forms.FileUpload
+
+@* an import check form's file drop, and the hidden fields that carry the last file read *@
+
+@code {
+  [Parameter, EditorRequired]
+  public IImportFileForm Form { get; set; } = default!;
+
+  // the form's property name on the page, which posted field names start with
+  [Parameter, EditorRequired]
+  public string FormPropertyName { get; set; } = default!;
+
+  private string FieldName(string property) => $"{FormPropertyName}.{property}";
+}
+
+<FileDropField Label="CSV file" Name="@FieldName(nameof(Form.File))" ValueExpression="() => Form.File"
+               Prompt="Drop a CSV file here" Accept=".csv,text/csv" KeptFileName="@Form.KeptFileName" />
+
+@if (Form.KeptCsvText is not null)
+{
+  <input type="hidden" name="@FieldName(nameof(Form.KeptCsvText))" value="@Form.KeptCsvText" />
+  <input type="hidden" name="@FieldName(nameof(Form.KeptFileName))" value="@Form.KeptFileName" />
+}

@@ -52,9 +52,6 @@ public static class ArtworkCsvExport
     {
         var fields = type.Fields;
 
-        string? List(IEnumerable<string> names) =>
-            names.Any() ? string.Join($"{listSeparator} ", names) : null;
-
         // the import refuses a column for a field the type doesn't have
         List<(string Header, Func<Artwork, string?> Value)> columns =
         [
@@ -86,16 +83,17 @@ public static class ArtworkCsvExport
             ));
         }
 
-        columns.Add((ArtworkImportHeaders.Series, artwork => List(artwork.Series.Select(series => series.Name.Value))));
+        columns.Add((ArtworkImportHeaders.Series, artwork => ImportLists.Join(artwork.Series.Select(series => series.Name.Value), listSeparator)));
 
         foreach (var vocabulary in vocabularies.OrderBy(vocabulary => vocabulary.Name.Value, ImportNames.Comparer))
         {
             columns.Add((
-                vocabulary.Name.Value,
-                artwork => List(
+                ArtworkImportHeaders.ForVocabulary(vocabulary.Name.Value),
+                artwork => ImportLists.Join(
                     artwork.VocabularyTerms
                         .Where(term => term.VocabularyId == vocabulary.Id)
-                        .Select(term => term.Name.Value)
+                        .Select(term => term.Name.Value),
+                    listSeparator
                 )
             ));
         }

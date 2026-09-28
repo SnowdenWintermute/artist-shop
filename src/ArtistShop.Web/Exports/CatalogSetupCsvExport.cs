@@ -24,7 +24,7 @@ public static class CatalogSetupCsvExport
                 .Where(field => type.Fields.Contains(field.Field))
                 .Select(field => field.Name);
 
-            csv.AddRow([type.Name.Value, List(fieldNames, listSeparator)]);
+            csv.AddRow([type.Name.Value, ImportLists.Join(fieldNames, listSeparator)]);
         }
 
         return csv.ToString();
@@ -43,12 +43,9 @@ public static class CatalogSetupCsvExport
                 .Order(ImportNames.Comparer);
             var termNames = vocabulary.Terms.Select(term => term.Name.Value).Order(ImportNames.Comparer);
 
-            csv.AddRow([vocabulary.Name.Value, List(typeNames, listSeparator), List(termNames, listSeparator)]);
+            csv.AddRow([vocabulary.Name.Value, ImportLists.Join(typeNames, listSeparator), ImportLists.Join(termNames, listSeparator)]);
         }
 
         return csv.ToString();
     }
-
-    private static string? List(IEnumerable<string> names, char listSeparator) =>
-        names.Any() ? string.Join($"{listSeparator} ", names) : null;
 }

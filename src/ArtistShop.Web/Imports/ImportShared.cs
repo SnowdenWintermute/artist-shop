@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Imports;
@@ -24,6 +26,10 @@ public static class ImportLists
     // the names in one cell, trimmed, without blanks or repeats
     public static List<string> Split(string text, char separator) =>
         [.. text.Split(separator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Distinct(ImportNames.Comparer)];
+
+    // what Split reads back; null for no names, so the cell is blank
+    public static string? Join(IEnumerable<string> names, char separator) =>
+        names.Any() ? string.Join($"{separator} ", names) : null;
 }
 
 public enum ImportSkipReason : byte
@@ -47,6 +53,13 @@ public interface IImportPlan
     // a short text that changes whenever anything in the plan does, so a confirm can tell whether
     // the plan it rebuilt is the one the artist reviewed
     string Fingerprint();
+}
+
+public static class ImportPlanFingerprint
+{
+    // generic, so the plan's own type is serialized, with every property it has
+    public static string Of<TPlan>(TPlan plan) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(plan)));
 }
 
 public static class ImportColumns

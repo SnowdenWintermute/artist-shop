@@ -262,6 +262,39 @@ public sealed class ArtworkImportPlannerTests
         Assert.Empty(plan.Additions);
     }
 
+    // a vocabulary may share a name with an import column; the prefix picks it out
+    [Fact]
+    public void APrefixedHeaderNamesAVocabularyThatSharesAColumnsName()
+    {
+        var seriesVocabularyId = new VocabularyId(4);
+        var seriesVocabularyName = new VocabularyName("Series");
+        var blue = new VocabularyTerm(new VocabularyTermId(41), new VocabularyTermName("Blue"), seriesVocabularyId, seriesVocabularyName);
+        var snapshot = Snapshot(PaintingFields) with
+        {
+            AllVocabularies = [new Vocabulary(seriesVocabularyId, seriesVocabularyName)],
+            TypeVocabularies = [new VocabularyWithTerms(seriesVocabularyId, seriesVocabularyName, [blue])],
+        };
+
+        var plan = ArtworkImportPlanner.Plan("title,series,vocabulary:Series\nDawn,Gardens,Blue\n", OneOfAKindInInches, snapshot);
+
+        Assert.Empty(plan.Errors);
+        var addition = Assert.Single(plan.Additions).Addition;
+        Assert.Equal([Gardens.Id], addition.SeriesIds);
+        Assert.Equal([blue.Id], addition.VocabularyTermIds);
+    }
+
+    [Fact]
+    public void APrefixedHeaderMustNameAVocabulary()
+    {
+        AssertError(PlanPaintings("title,vocabulary:Nope\nDawn,x\n"), 1, "vocabulary:Nope");
+    }
+
+    [Fact]
+    public void AVocabularyCanHaveOnlyOneColumn()
+    {
+        AssertError(PlanPaintings("title,Medium,vocabulary:medium\nDawn,Oil,Oil\n"), 1, "vocabulary:medium");
+    }
+
     [Fact]
     public void NeedsATitleColumn()
     {

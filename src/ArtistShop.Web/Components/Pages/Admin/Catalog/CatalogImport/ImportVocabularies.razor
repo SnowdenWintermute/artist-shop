@@ -25,9 +25,6 @@
   private Task ApplyAsync(VocabularyImportPlan plan) =>
     VocabularyImportPlanner.ApplyAsync(plan, VocabularyRepository, VocabularyTermRepository);
 
-  private static string TypeNames(VocabularyImportChange change) =>
-    string.Join(", ", change.AddedArtworkTypes.Select(type => type.Name.Value));
-
   private static string TermNames(VocabularyImportChange change) =>
     string.Join(", ", change.AddedTerms.Select(term => term.Value));
 }
@@ -63,7 +60,7 @@
           {
             <div class="mb-6">
               <h3 class="mb-1">To add</h3>
-              <DataTable Items="plan.Changes" Headings="@(new[] { "Row", "Vocabulary", "Now applies to", "New terms" })"
+              <DataTable Items="plan.Changes" Headings="@(new[] { "Row", "Vocabulary", "Applies to", "New terms" })"
                          Class="text-sm" RowClass="align-top" StickyHeadings>
                 <Row Context="change">
                   <DataTableCell>@change.RowNumber</DataTableCell>
@@ -74,7 +71,16 @@
                       <span class="text-green-600">(new)</span>
                     }
                   </DataTableCell>
-                  <DataTableCell>@TypeNames(change)</DataTableCell>
+                  <DataTableCell>
+                    @foreach (var (index, type) in change.ExistingArtworkTypes.Concat(change.AddedArtworkTypes).Index())
+                    {
+                      <span>@(index > 0 ? ", " : "")@type.Name.Value</span>
+                      @if (change.AddedArtworkTypes.Contains(type))
+                      {
+                        <span class="text-green-600"> (new)</span>
+                      }
+                    }
+                  </DataTableCell>
                   <DataTableCell>@TermNames(change)</DataTableCell>
                 </Row>
               </DataTable>

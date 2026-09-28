@@ -66,8 +66,15 @@
 
     @foreach (var vocabulary in TypeVocabularies)
     {
-      <dt class="font-mono">@vocabulary.Name.Value</dt>
-      <dd>Names of existing terms, separated by the list separator.</dd>
+      var header = ArtworkImportHeaders.ForVocabulary(vocabulary.Name.Value);
+      <dt class="font-mono">@header</dt>
+      <dd>
+        Names of existing terms, separated by the list separator.
+        @if (header != vocabulary.Name.Value)
+        {
+          <text>Starts with @ArtworkImportHeaders.VocabularyPrefix, since @vocabulary.Name.Value alone is one of the columns above.</text>
+        }
+      </dd>
     }
   </dl>
 </details>

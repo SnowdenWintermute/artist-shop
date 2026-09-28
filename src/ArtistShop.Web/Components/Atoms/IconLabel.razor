@@ -1,0 +1,15 @@
+@* a button's or link's text with a decorative icon before it *@
+
+@code {
+  // a path under wwwroot, like "icons/csv.svg"
+  [Parameter, EditorRequired]
+  public string Icon { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<span class="flex items-center gap-2">
+  <img src="@Assets[Icon]" alt="" class="size-5" />
+  @ChildContent
+</span>
