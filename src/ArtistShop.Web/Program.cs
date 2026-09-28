@@ -153,6 +153,8 @@ builder.Services.AddSingleton<SiteEraser>();
 builder.Services.AddSingleton<ExpiredRowCleanup>();
 builder.Services.AddHostedService<PlatformCleanupService>();
 
+builder.Services.AddSingleton<ImageExportLock>();
+
 // a site's own schema
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 

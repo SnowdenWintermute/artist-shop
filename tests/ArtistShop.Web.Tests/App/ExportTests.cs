@@ -6,6 +6,7 @@ using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Exports;
+using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
 using ArtistShop.Web.Sites;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,105 @@ public sealed class ExportTests(TestApp app)
             [$"{CatalogExportArchive.ArtworksFolder}/Painting.csv"],
             files.Keys.Where(path => path.StartsWith($"{CatalogExportArchive.ArtworksFolder}/"))
         );
+    }
+
+    [Fact]
+    public async Task AnAdminDownloadsATypesImagesNamedAfterTheirArtworks()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = Catalog(site.Id);
+        var painting = await TypeIdAsync(catalog, "Painting");
+        var gardens = await catalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+        byte[] tiff = [(byte)'I', (byte)'I', 0x2A, 0, 4, 5, 6];
+        await catalog.Artworks.AddManyAsync(
+            [
+                Addition(
+                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                    images: [await SaveOriginalAsync(site.Id, jpeg), await SaveOriginalAsync(site.Id, tiff)]
+                ),
+                // in its own download
+                Addition(
+                    painting, "Rose", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [gardens], products: [],
+                    images: [await SaveOriginalAsync(site.Id, jpeg)]
+                ),
+            ]
+        );
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var response = await client.GetAsync($"{ExportEndpoints.ImagesPath}?type={painting.Value}", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/zip", response.Content.Headers.ContentType?.MediaType);
+        Assert.StartsWith($"{site.Host}-images-Painting-", response.Content.Headers.ContentDisposition?.FileNameStar);
+        Assert.Equal(["no"], response.Headers.GetValues("X-Accel-Buffering"));
+
+        var files = await ReadZipAsync(response, ReadBytesAsync);
+        Assert.Equal(["Painting/Dawn (2).tiff", "Painting/Dawn.jpg"], files.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(jpeg, files["Painting/Dawn.jpg"]);
+        Assert.Equal(tiff, files["Painting/Dawn (2).tiff"]);
+    }
+
+    [Fact]
+    public async Task DownloadAllHoldsEveryTypeAndSeriesInOneFolder()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = Catalog(site.Id);
+        var painting = await TypeIdAsync(catalog, "Painting");
+        var sculpture = await TypeIdAsync(catalog, "Sculpture");
+        var gardens = await catalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        byte[] png = [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        await catalog.Artworks.AddManyAsync(
+            [
+                Addition(
+                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                    images: [await SaveOriginalAsync(site.Id, png)]
+                ),
+                Addition(
+                    painting, "Rose", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [gardens], products: [],
+                    images: [await SaveOriginalAsync(site.Id, png)]
+                ),
+                Addition(
+                    sculpture, "Stone", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                    images: [await SaveOriginalAsync(site.Id, png)]
+                ),
+            ]
+        );
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await client.GetAsync(ExportEndpoints.AllImagesPath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Matches($@"^{System.Text.RegularExpressions.Regex.Escape(site.Host)}-images-\d{{4}}-\d{{2}}-\d{{2}}\.zip$", response.Content.Headers.ContentDisposition?.FileNameStar);
+        var files = await ReadZipAsync(response, ReadBytesAsync);
+        Assert.Equal(["Painting/Dawn.png", "Painting/Gardens/Rose.png", "Sculpture/Stone.png"], files.Keys.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task ASecondImageDownloadWaitsForTheFirst()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = Catalog(site.Id);
+        var painting = await TypeIdAsync(catalog, "Painting");
+        await catalog.Artworks.AddAsync(
+            Addition(
+                painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                images: [await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF])]
+            )
+        );
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+        var url = $"{ExportEndpoints.ImagesPath}?type={painting.Value}";
+
+        HttpResponseMessage response;
+        using (app.Services.GetRequiredService<ImageExportLock>().TryAcquire(site.Id))
+        {
+            response = await client.GetAsync(url, TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(ExportEndpoints.ImageExportRunningMessage, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        // and once it has finished
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(url, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -166,7 +266,8 @@ public sealed class ExportTests(TestApp app)
         TimeSpan? duration,
         IReadOnlyList<VocabularyTermId> termIds,
         IReadOnlyList<SeriesId> seriesIds,
-        IReadOnlyList<ProductAddition> products
+        IReadOnlyList<ProductAddition> products,
+        IReadOnlyList<ArtworkImage>? images = null
     ) =>
         new(
             typeId,
@@ -176,7 +277,7 @@ public sealed class ExportTests(TestApp app)
             DateCreated: null,
             dimensions,
             duration,
-            Images: [],
+            Images: images ?? [],
             MainImageIndex: 0,
             termIds,
             seriesIds,
@@ -208,6 +309,19 @@ public sealed class ExportTests(TestApp app)
         );
     }
 
+    // an original on the site's disk, as an upload leaves it
+    private async Task<ArtworkImage> SaveOriginalAsync(SiteId siteId, byte[] bytes)
+    {
+        var storageKey = Guid.NewGuid().ToString("N");
+        await File.WriteAllBytesAsync(
+            ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId).OriginalPath(storageKey),
+            bytes,
+            TestContext.Current.CancellationToken
+        );
+
+        return new ArtworkImage(storageKey, OriginalFileName: null, Width: 10, Height: 10, BlurDataUri: null);
+    }
+
     private static Task<CatalogSetupSnapshot> SetupAsync(SiteCatalog catalog) =>
         CatalogSetupSnapshot.LoadAsync(catalog.Fields, catalog.Types, catalog.Vocabularies);
 
@@ -236,18 +350,34 @@ public sealed class ExportTests(TestApp app)
 
     // each file by its path inside the zip's one folder, which is named after the download, so
     // unzipping it doesn't scatter files wherever it's unzipped
-    private static async Task<Dictionary<string, string>> ReadZipAsync(HttpResponseMessage response)
+    private static Task<Dictionary<string, string>> ReadZipAsync(HttpResponseMessage response) =>
+        ReadZipAsync(response, ReadTextAsync);
+
+    private static async Task<string> ReadTextAsync(Stream stream)
+    {
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<byte[]> ReadBytesAsync(Stream stream)
+    {
+        using var bytes = new MemoryStream();
+        await stream.CopyToAsync(bytes, TestContext.Current.CancellationToken);
+        return bytes.ToArray();
+    }
+
+    private static async Task<Dictionary<string, T>> ReadZipAsync<T>(HttpResponseMessage response, Func<Stream, Task<T>> read)
     {
         var folder = $"{Path.GetFileNameWithoutExtension(response.Content.Headers.ContentDisposition?.FileNameStar)}/";
         await using var stream = await response.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken);
         using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
-        var files = new Dictionary<string, string>();
+        var files = new Dictionary<string, T>();
 
         foreach (var entry in zip.Entries)
         {
             Assert.StartsWith(folder, entry.FullName);
-            using var reader = new StreamReader(entry.Open());
-            files[entry.FullName[folder.Length..]] = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+            await using var entryStream = entry.Open();
+            files[entry.FullName[folder.Length..]] = await read(entryStream);
         }
 
         return files;

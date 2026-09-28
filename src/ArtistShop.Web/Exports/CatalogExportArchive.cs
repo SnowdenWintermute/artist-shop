@@ -91,7 +91,8 @@ public static class CatalogExportArchive
 
         Not included
           The order of series and of the artworks in them, series covers, and the order of each
-          artwork's images or which one is shown first.
+          artwork's images or which one is shown first. The images are separate downloads on the
+          Export page.
 
         Importing into another website here
           Import in this order, with the list separator set to "{listSeparator}" each time:

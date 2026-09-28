@@ -1,4 +1,4 @@
-# Next: the site export's image downloads (handoff below), later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
+# Next: the site export's blog posts (handoff below), later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -16,20 +16,25 @@ writes): formula cells get a `'` that the import removes, and cells with `;` or 
 LibreOffice and European Excel split on them. Also fixed: `ChannelEmailQueue.Complete` uses `TryComplete`
 (the TestApp shutdown flake).
 
-**Next session: the original images.** Agreed with Mike:
-- One zip per artwork type and series ("Painting (no series)" for none), listed on the Export page with
-  image counts and sizes read from disk; each zip holds one folder named like the download, as the catalog
-  zip does, with `Type/Series/Title.ext` inside, the layout the bulk image uploader reads.
-- Streamed straight into the response, never built on disk. Per-entry compression: store JPEG, PNG, WebP
-  and AVIF, deflate TIFF, with the format read from the file's bytes, not its name.
-- Names: `Title.ext`, extra images `Title (2).ext`; the slug when two artworks share a title in one folder
-  or the title isn't a portable file name (`ExportFileNames.IsPortable`). An artwork in several series
-  goes in its first (`get_all_artwork_series` returns them in the site's series order).
-- One image download at a time per site; a second gets "another export is running". Send
-  `X-Accel-Buffering: no` so nginx doesn't buffer to disk. `ArtworkRepository.GetAllAsync` already
-  returns every artwork's images in order.
-- The page warns that image order and which image is primary aren't kept.
-Then: posts as one HTML file each with images beside it, then links to Export from delete-website and
+**Image downloads built 2026-09-28, uncommitted, 764 tests; Mike downloaded all (74 MB) in Firefox.** The Export page has
+"Download all" (`/admin/export/images/all`, every part in one `<host>-images-<date>/` folder; Zip64 checked
+past 4 GB) above one download per artwork type and first series ("no series" last), with image counts
+and sizes from disk; `GET /admin/export/images?type=&series=` streams the zip into the response (`ImageExportArchive`, async
+`ZipArchive` since ASP.NET refuses sync writes) with `X-Accel-Buffering: no`. `ImageExportPlan` is pure:
+`Type/Series/Title`, `Title (2)` for extra images, the slug when the title isn't portable or any of the
+artwork's file names collide (ignoring case) with another's in the folder. `ExportImageFormat` reads
+the format from the first bytes (JPEG/PNG/WebP/AVIF stored, TIFF deflated; unknown falls back to the
+uploaded name's extension). `ImageExportLock` (singleton) allows one image download per site; a second
+gets a 409 text page (so the link has no `download` attribute; `Content-Disposition: attachment` still
+downloads; Mike is fine with the bare page, since it should be rare). No `Content-Length` (it's streamed), so
+browsers show bytes so far but no percentage; left as is (Mike, 2026-09-28): an exact length would mean storing
+TIFF too and matching .NET's zip header layout byte for byte. Found while building: the bulk upload
+only attaches a first image to an imageless artwork by title, so `(2)` files and slug-named files come
+back unmatched, and it takes the `Type` folder, not the zip's top folder (depth limit 2); the page says
+so. Browser check: `/admin/export` with a few artworks with images, download one, unzip, drop its Type
+folder on a new site's bulk upload.
+**Next session: the blog posts.** As agreed: one HTML file per post with its images beside it, plus an
+index. Then links to Export from delete-website and
 My websites during the grace period.
 
 **Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and

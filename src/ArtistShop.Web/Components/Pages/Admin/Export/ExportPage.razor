@@ -1,9 +1,15 @@
 @page "/admin/export"
+@using System.Globalization
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Exports
+@using ArtistShop.Web.Images
 @using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject ArtworkRepository ArtworkRepository
+@inject ImageStorage ImageStorage
 
 <PageTitle>Export your website</PageTitle>
 
@@ -13,7 +19,7 @@
     Download all images and data on your website. The README in each download says what's included and what isn't.
   </p>
 
-  <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div>
       <h2 class="mb-1 text-lg">Artworks and products</h2>
       <p class="text-sm">
@@ -26,4 +32,78 @@
       Download
     </LinkButton>
   </div>
+
+  <h2 class="mb-1 text-lg">Images</h2>
+  <p class="mb-2 text-sm">
+    The original of every artwork image, in a folder for each artwork type and series. Each image is named after its
+    artwork's title, and an artwork's other images get (2), (3) and so on. An artwork in several series is in its
+    first series' folder. Download them all at once, or one series at a time if a large download keeps failing
+    partway. One image download at a time.
+  </p>
+  <p class="mb-4 text-sm">
+    Not kept: the order of each artwork's images or which one is shown first. The bulk image upload matches only
+    the first image of each artwork, by its title; the others, and artworks named by their web address because
+    their titles repeat or can't be file names, are added by hand.
+  </p>
+
+  @if (_parts.Count == 0)
+  {
+    <p class="text-sm">No artwork has an image yet.</p>
+  }
+  else
+  {
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div>All images</div>
+        <div class="text-sm">@ImageCount(_parts.Sum(part => part.Size.Count)), @Size(_parts.Sum(part => part.Size.Bytes))
+        </div>
+      </div>
+      @* no download attribute, as below *@
+      <LinkButton Variant="ButtonVariant.Outline" href="@ExportEndpoints.AllImagesPath" data-enhance-nav="false">
+        Download all
+      </LinkButton>
+    </div>
+
+    <div class="h-0.5 my-2 bg-theme-base w-full"></div>
+    <h3 class="">Download images by series</h3>
+    <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download a series' images</p>
+
+    <ul>
+      @foreach (var part in _parts)
+      {
+        <li class="mb-2 flex flex-wrap items-center justify-between gap-4" @key="ExportEndpoints.ImagesUrl(part.Part)">
+          <div>
+            <div>@part.Part.Type.Name.Value — @(part.Part.Series?.Name.Value ?? "no series")</div>
+            <div class="text-sm">@ImageCount(part.Size.Count), @Size(part.Size.Bytes)</div>
+          </div>
+          @* no download attribute, so a refusal ("another download is running") shows as a page
+             rather than a failed download; the zip still downloads *@
+          <LinkButton Variant="ButtonVariant.Outline" href="@ExportEndpoints.ImagesUrl(part.Part)" data-enhance-nav="false">
+            Download
+          </LinkButton>
+        </li>
+      }
+    </ul>
+  }
 </AdminPanel>
+
+@code {
+  private List<(ImageExportPart Part, (int Count, long Bytes) Size)> _parts = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _parts =
+    [
+      .. ImageExportPlan
+        .Parts(await ArtworkRepository.GetAllAsync())
+        .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
+    ];
+  }
+
+  private static string ImageCount(int count) => count == 1 ? "1 image" : $"{count} images";
+
+  private static string Size(long bytes) =>
+    bytes >= 1024L * Units.BytesPerMebibyte
+      ? $"{(bytes / (1024.0 * Units.BytesPerMebibyte)).ToString("0.0", CultureInfo.InvariantCulture)} GB"
+      : $"{Math.Max(1, (long)Math.Round((double)bytes / Units.BytesPerMebibyte))} MB";
+}
