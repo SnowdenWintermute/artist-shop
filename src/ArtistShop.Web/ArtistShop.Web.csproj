@@ -48,7 +48,7 @@
     <PackageReference Include="NetVips.Native.linux-x64" Version="8.18.6" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-    <PackageReference Include="Sylvan.Data.Csv" Version="1.4.4" />
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="Database/**/*.sql" />

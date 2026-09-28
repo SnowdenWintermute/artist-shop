@@ -1,10 +1,20 @@
 namespace ArtistShop.Web.Imports;
 
-using Sylvan.Data.Csv;
+using System.Globalization;
+using CsvHelper;
+using CsvHelper.Configuration;
 
-// the only file that knows which CSV library we use
+// with CsvText, the only files that know which CSV library we use
 public class CsvTable
 {
+    // what CsvText puts a ' in front of, so a spreadsheet doesn't run the cell as a formula. The
+    // import takes it off again. \n too, since \r becomes \n before parsing
+    private static readonly char[] EscapedFormulaStarts =
+    [
+        .. new CsvConfiguration(CultureInfo.InvariantCulture).InjectionCharacters,
+        '\n',
+    ];
+
     private CsvTable(IReadOnlyList<string> headers, IReadOnlyList<CsvRow> rows)
     {
         Headers = headers;
@@ -23,64 +33,71 @@ public class CsvTable
     {
         text = text.ReplaceLineEndings("\n");
 
-        // Sylvan throws on a file with no header row
-        if (string.IsNullOrWhiteSpace(text))
+        var configuration = new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            // guessing could read a semicolon file as valid
+            DetectDelimiter = false,
+            // kept, so Row counts them as a spreadsheet counts its rows
+            IgnoreBlankLines = false,
+            BadDataFound = arguments =>
+            {
+                // a quote inside a cell that isn't quoted, like 12" x 16", is read as it is. A cell that
+                // starts with one and doesn't end cleanly is broken
+                if (arguments.Field.StartsWith('"'))
+                {
+                    throw new MalformedCsvException(
+                        arguments.Context.Parser?.Row ?? throw new InvalidOperationException("A parser's bad data has no parser."),
+                        "isn't valid CSV, often a quote that is never closed"
+                    );
+                }
+            },
+        };
+
+        using var parser = new CsvParser(new StringReader(text), configuration);
+
+        if (!parser.Read())
         {
             return new CsvTable([], []);
         }
 
-        try
+        List<string> headers = [.. Cells(parser)];
+        var rows = new List<CsvRow>();
+
+        while (parser.Read())
         {
-            // setting the delimiter turns off Sylvan's guessing, which could read a semicolon file as valid
-            using var reader = CsvDataReader.Create(new StringReader(text), new CsvDataReaderOptions { Delimiter = ',' });
+            // Row counts the header as 1 and a cell's line breaks not at all, as a spreadsheet does
+            var rowNumber = parser.Row;
+            var cells = Cells(parser);
 
-            List<string> headers =
-            [
-                .. Enumerable.Range(0, reader.FieldCount).Select(index => reader.GetName(index).Trim()),
-            ];
-            var rows = new List<CsvRow>();
-
-            while (reader.Read())
+            if (cells.Skip(headers.Count).Any(cell => cell.Length > 0))
             {
-                var rowNumber = SpreadsheetRowNumber(reader.RowNumber);
-                List<string> cells =
-                [
-                    .. Enumerable.Range(0, reader.RowFieldCount).Select(index => reader.GetString(index).Trim()),
-                ];
-
-                if (cells.Skip(headers.Count).Any(cell => cell.Length > 0))
-                {
-                    throw new MalformedCsvException(rowNumber, "has more cells than the header row has names");
-                }
-
-                if (cells.All(cell => cell.Length == 0))
-                {
-                    continue;
-                }
-
-                // a short row's missing cells are blank
-                var missingCellCount = Math.Max(0, headers.Count - cells.Count);
-                rows.Add(new CsvRow(rowNumber, [.. cells.Take(headers.Count), .. Enumerable.Repeat("", missingCellCount)]));
+                throw new MalformedCsvException(rowNumber, "has more cells than the header row has names");
             }
 
-            return new CsvTable(headers, rows);
+            if (cells.All(cell => cell.Length == 0))
+            {
+                continue;
+            }
+
+            // a short row's missing cells are blank
+            var missingCellCount = Math.Max(0, headers.Count - cells.Count);
+            rows.Add(new CsvRow(rowNumber, [.. cells.Take(headers.Count), .. Enumerable.Repeat("", missingCellCount)]));
         }
-        catch (CsvFormatException exception)
-        {
-            throw new MalformedCsvException(SpreadsheetRowNumber(exception.RowNumber), "isn't valid CSV, often a quote that is never closed", exception);
-        }
+
+        return new CsvTable(headers, rows);
     }
 
-    // Sylvan counts data rows from 1, with blank lines counted and a cell's line breaks not, so only
-    // the header row is missing
-    private static int SpreadsheetRowNumber(int sylvanRowNumber) => sylvanRowNumber + 1;
+    private static List<string> Cells(CsvParser parser) =>
+        [.. (parser.Record ?? []).Select(cell => WithoutFormulaEscape(cell).Trim())];
+
+    private static string WithoutFormulaEscape(string cell) =>
+        cell.Length > 1 && cell[0] == '\'' && EscapedFormulaStarts.Contains(cell[1]) ? cell[1..] : cell;
 }
 
 // RowNumber is the row a spreadsheet shows, counting the header as row 1
 public record CsvRow(int RowNumber, IReadOnlyList<string> Cells);
 
-public class MalformedCsvException(int rowNumber, string problem, Exception? innerException = null)
-    : Exception($"Row {rowNumber} {problem}.", innerException)
+public class MalformedCsvException(int rowNumber, string problem) : Exception($"Row {rowNumber} {problem}.")
 {
     public int RowNumber { get; } = rowNumber;
 

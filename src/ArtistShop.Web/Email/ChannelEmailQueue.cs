@@ -18,5 +18,7 @@ public sealed class ChannelEmailQueue : EmailQueue
             ? Task.CompletedTask
             : throw new InvalidOperationException($"The email queue is closed, so the email to {message.To} wasn't sent.");
 
-    public void Complete() => _channel.Writer.Complete();
+    // Try: the host can stop EmailQueueSender more than once while shutting down, and Complete throws
+    // on a queue that's already closed
+    public void Complete() => _channel.Writer.TryComplete();
 }

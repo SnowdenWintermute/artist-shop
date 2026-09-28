@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
@@ -27,21 +28,7 @@
 
 @* min-h-0: a flex item won't shrink below its content's height without it, so it would never scroll *@
 <div class="mb-4 min-h-0 overflow-y-auto">
-  @if (Plan.Errors.Count > 0)
-  {
-    <div class="mb-6">
-      <h3 class="mb-1 text-red-600">Problems</h3>
-      <p class="mb-2 text-sm">Nothing is imported until these are fixed in the spreadsheet. Row 1 is the header row.</p>
-      <DataTable Items="@(Plan.Errors.OrderBy(error => error.RowNumber).ToList())"
-                 Headings="@(new[] { "Row", "Column", "Problem" })" Class="text-sm" RowClass="align-top" StickyHeadings>
-        <Row Context="error">
-          <DataTableCell>@error.RowNumber</DataTableCell>
-          <DataTableCell Class="font-mono">@error.Column</DataTableCell>
-          <DataTableCell>@error.Message</DataTableCell>
-        </Row>
-      </DataTable>
-    </div>
-  }
+  <ImportProblems Errors="Plan.Errors" />
 
   @if (Plan.NewSeries.Count > 0)
   {

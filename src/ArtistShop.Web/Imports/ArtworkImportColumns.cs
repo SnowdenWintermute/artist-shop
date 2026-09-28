@@ -28,17 +28,17 @@ public record ArtworkImportColumns(
         CsvTable table,
         ArtworkImportSettings settings,
         ArtworkImportCatalogSnapshot snapshot,
-        List<ArtworkImportError> errors
+        List<ImportError> errors
     )
     {
         var errorCountBefore = errors.Count;
-        var knownColumns = new Dictionary<string, int>(ArtworkImportNames.Comparer);
+        var knownColumns = new Dictionary<string, int>(ImportNames.Comparer);
         var vocabularyColumns = new List<VocabularyColumn>();
-        var seenHeaders = new HashSet<string>(ArtworkImportNames.Comparer);
+        var seenHeaders = new HashSet<string>(ImportNames.Comparer);
         var typeName = snapshot.ArtworkType.Name.Value;
 
         void AddError(string? column, string message) =>
-            errors.Add(new ArtworkImportError(HeaderRowNumber, column, message));
+            errors.Add(new ImportError(HeaderRowNumber, column, message));
 
         for (var index = 0; index < table.Headers.Count; index += 1)
         {
@@ -63,7 +63,7 @@ public record ArtworkImportColumns(
 
             var isKnownHeader = ArtworkImportHeaders.All.Contains(header);
             var vocabulary = snapshot.AllVocabularies.FirstOrDefault(vocabulary =>
-                ArtworkImportNames.Comparer.Equals(vocabulary.Name.Value, header)
+                ImportNames.Comparer.Equals(vocabulary.Name.Value, header)
             );
 
             if (isKnownHeader && vocabulary is not null)

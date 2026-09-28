@@ -1,6 +1,38 @@
-# Next: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (email limit and queue committed; SES production access pending)
+# Next: the site export's image downloads (handoff below), later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
+
+
+## Site export ("jump ship"), 2026-09-28
+
+**Built, uncommitted, 743 tests, browser-checked by Mike.** `/admin/export` (dashboard → Website → Export)
+downloads the catalog: `<host>-catalog-<date>.zip` holding one folder of the same name with `README.txt`,
+`artworkTypes.csv`, `vocabularies.csv`, `products.csv` and `artworks/<Type>.csv` (only types with artworks).
+New add-only imports at `/admin/catalog/types/import` and `/admin/catalog/vocabularies/import` (buttons
+in the dashboard's Catalog box) share `CatalogImportPanel`; their planners and `ApplyAsync` are plain
+functions in `Imports/`, so the whole-folder migration can chain types → vocabularies → artworks without
+forms (`App/ExportTests` already does). Sylvan is replaced by CsvHelper (`CsvTable` reads, `Exports/CsvText`
+writes): formula cells get a `'` that the import removes, and cells with `;` or a tab are quoted because
+LibreOffice and European Excel split on them. Also fixed: `ChannelEmailQueue.Complete` uses `TryComplete`
+(the TestApp shutdown flake).
+
+**Next session: the original images.** Agreed with Mike:
+- One zip per artwork type and series ("Painting (no series)" for none), listed on the Export page with
+  image counts and sizes read from disk; each zip holds one folder named like the download, as the catalog
+  zip does, with `Type/Series/Title.ext` inside, the layout the bulk image uploader reads.
+- Streamed straight into the response, never built on disk. Per-entry compression: store JPEG, PNG, WebP
+  and AVIF, deflate TIFF, with the format read from the file's bytes, not its name.
+- Names: `Title.ext`, extra images `Title (2).ext`; the slug when two artworks share a title in one folder
+  or the title isn't a portable file name (`ExportFileNames.IsPortable`). An artwork in several series
+  goes in its first (`get_all_artwork_series` returns them in the site's series order).
+- One image download at a time per site; a second gets "another export is running". Send
+  `X-Accel-Buffering: no` so nginx doesn't buffer to disk. `ArtworkRepository.GetAllAsync` already
+  returns every artwork's images in order.
+- The page warns that image order and which image is primary aren't kept.
+Then: posts as one HTML file each with images beside it, then links to Export from delete-website and
+My websites during the grace period.
+
+**Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately.
 
 ## Auth rework, agreed 2026-09-27
 
@@ -1852,7 +1884,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       were updated. The pickers island adopts the options it's passed on every render (the page reads
       them fresh each request), so a failed submit drops what no longer exists; ticks stay island state,
       seeded once.
-- [ ] Someday: export the catalog to CSV plus images in folders by series, for moving the shop
+- [ ] (Catalog CSVs done 2026-09-28; images next, see the top.) Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
       the artist edits there; a CSV can't update existing paintings or add them to a series
 - [x] (Superseded by Edit artwork, below.) **Edit painting — PAUSED 2026-09-16 for step 10, where it becomes "Edit artwork".** Decisions

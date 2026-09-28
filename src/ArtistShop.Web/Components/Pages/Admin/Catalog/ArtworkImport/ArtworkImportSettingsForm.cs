@@ -20,10 +20,7 @@ public abstract class ArtworkImportSettingsForm : ServerValidatedForm
     // an attribute rather than IValidatableObject.Validate, which only runs once every attribute passes,
     // so its message would wait for the other fields to be fixed first
     [Required(ErrorMessage = "Choose a list separator.")]
-    [RegularExpression(
-        """^[^\s"]$""",
-        ErrorMessage = "Use a single character other than a quote or a space."
-    )]
+    [RegularExpression(ImportListSeparator.Pattern, ErrorMessage = ImportListSeparator.Message)]
     public string? ListSeparator { get; set; } = ";";
 
     public void CopySettingsFrom(ArtworkImportSettingsForm other)

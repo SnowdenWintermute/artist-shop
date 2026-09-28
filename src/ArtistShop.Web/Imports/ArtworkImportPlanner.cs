@@ -21,22 +21,22 @@ public static class ArtworkImportPlanner
         }
         catch (MalformedCsvException exception)
         {
-            return ArtworkImportPlan.WithErrors([new ArtworkImportError(exception.RowNumber, null, exception.Problem)]);
+            return ArtworkImportPlan.WithErrors([new ImportError(exception.RowNumber, null, exception.Problem)]);
         }
 
-        var errors = new List<ArtworkImportError>();
+        var errors = new List<ImportError>();
 
         if (ArtworkImportColumns.Find(table, settings, snapshot, errors) is not { } columns)
         {
             return ArtworkImportPlan.WithErrors(errors);
         }
 
-        var existingNames = new HashSet<string>(snapshot.TypeArtworkNames, ArtworkImportNames.Comparer);
+        var existingNames = new HashSet<string>(snapshot.TypeArtworkNames, ImportNames.Comparer);
         var titleCounts = table.Rows
             .Select(row => row.Cells[columns.Title])
             .Where(title => title.Length > 0)
-            .CountBy(title => title, ArtworkImportNames.Comparer)
-            .ToDictionary(ArtworkImportNames.Comparer);
+            .CountBy(title => title, ImportNames.Comparer)
+            .ToDictionary(ImportNames.Comparer);
 
         var additions = new List<ArtworkImportAddition>();
         var skippedRows = new List<ArtworkImportSkippedRow>();
@@ -73,7 +73,7 @@ public static class ArtworkImportPlanner
 
         var newSeriesRows = CollectNewSeriesRows(additions);
         var newSeries = newSeriesRows
-            .OrderBy(entry => entry.Key, ArtworkImportNames.Comparer)
+            .OrderBy(entry => entry.Key, ImportNames.Comparer)
             .Select(entry => new ArtworkImportNewSeries(entry.Key, entry.Value.Count))
             .ToList();
 
@@ -85,7 +85,7 @@ public static class ArtworkImportPlanner
         foreach (var collision in checks.SlugCollisions)
         {
             errors.Add(
-                new ArtworkImportError(
+                new ImportError(
                     // the row is where the name first appears, so there is somewhere to go and fix it
                     newSeriesRows[collision.Name][0],
                     ArtworkImportHeaders.Series,
@@ -103,7 +103,7 @@ public static class ArtworkImportPlanner
         IReadOnlyList<ArtworkImportAddition> additions
     )
     {
-        var rowNumbers = new Dictionary<string, List<int>>(ArtworkImportNames.Comparer);
+        var rowNumbers = new Dictionary<string, List<int>>(ImportNames.Comparer);
 
         foreach (var addition in additions)
         {
@@ -211,7 +211,7 @@ public static class ArtworkImportPlanner
         {
             foreach (var name in reader.List(index, separator))
             {
-                var term = vocabulary.Terms.FirstOrDefault(term => ArtworkImportNames.Comparer.Equals(term.Name.Value, name));
+                var term = vocabulary.Terms.FirstOrDefault(term => ImportNames.Comparer.Equals(term.Name.Value, name));
 
                 if (term is null)
                 {
@@ -243,7 +243,7 @@ public static class ArtworkImportPlanner
 
         foreach (var name in reader.List(columns.Series, separator))
         {
-            var series = allSeries.FirstOrDefault(series => ArtworkImportNames.Comparer.Equals(series.Name.Value, name));
+            var series = allSeries.FirstOrDefault(series => ImportNames.Comparer.Equals(series.Name.Value, name));
 
             if (series is not null)
             {

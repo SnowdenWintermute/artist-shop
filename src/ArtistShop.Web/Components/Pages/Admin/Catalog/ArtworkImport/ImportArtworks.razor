@@ -123,27 +123,17 @@
     // a new file replaces the kept one even when it can't be read
     Check.ForgetKeptFile();
 
-    if (file.Length > ArtworkImportLimits.FileMaximumBytes)
+    switch (await ImportFileText.ReadAsync(file))
     {
-      Check.AddFileError($"The file is over {ArtworkImportLimits.FileMaximumBytes / Units.BytesPerMebibyte} MB. Split it into smaller files.");
-      return null;
+      case ImportFileText.Read read:
+        Check.KeepFile(file.FileName, read.Text);
+        return read.Text;
+      case ImportFileText.Refused refused:
+        Check.AddFileError(refused.Problem);
+        return null;
+      default:
+        throw new InvalidOperationException("An import file is either read or refused.");
     }
-
-    string? csvText;
-
-    await using (var stream = file.OpenReadStream())
-    {
-      csvText = await Utf8Text.TryReadAsync(stream);
-    }
-
-    if (csvText is null)
-    {
-      Check.AddFileError("The file isn't UTF-8 text. In your spreadsheet, save it as \"CSV UTF-8\".");
-      return null;
-    }
-
-    Check.KeepFile(file.FileName, csvText);
-    return csvText;
   }
 
   private async Task ConfirmAsync()

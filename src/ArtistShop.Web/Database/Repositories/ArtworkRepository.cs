@@ -374,9 +374,54 @@ public class ArtworkRepository(SiteDatabase database)
             return null;
         }
 
-        var images = (await results.ReadAsync<ImageRow>()).ToList();
+        return ToArtwork(
+            row,
+            [.. await results.ReadAsync<ImageRow>()],
+            [.. await results.ReadAsync<SeriesRow>()],
+            [.. await results.ReadAsync<VocabularyTermRow>()],
+            [.. await results.ReadAsync<ProductRow>()]
+        );
+    }
 
-        var series = (await results.ReadAsync<SeriesRow>())
+    // every artwork on the site with its images, series, terms and products, for the site export
+    public async Task<List<Artwork>> GetAllAsync()
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        await using var results = await connection.QueryMultipleAsync(
+            """
+            SELECT * FROM get_all_artworks();
+            SELECT * FROM get_all_artwork_images();
+            SELECT * FROM get_all_artwork_series();
+            SELECT * FROM get_all_artwork_vocabulary_terms();
+            SELECT * FROM get_all_artwork_products();
+            """
+        );
+
+        // These Read calls MUST run in the same order as the SELECTs above
+        var rows = await results.ReadAsync<ArtworkRow>();
+        var images = (await results.ReadAsync<ImageRowWithArtworkId>()).ToLookup(image => image.ArtworkId);
+        var series = (await results.ReadAsync<SeriesRowWithArtworkId>()).ToLookup(series => series.ArtworkId);
+        var terms = (await results.ReadAsync<VocabularyTermRowWithArtworkId>()).ToLookup(term => term.ArtworkId);
+        var products = (await results.ReadAsync<ProductRowWithArtworkId>()).ToLookup(product => product.ArtworkId);
+
+        return
+        [
+            .. rows.Select(row =>
+                ToArtwork(row, [.. images[row.Id]], [.. series[row.Id]], [.. terms[row.Id]], [.. products[row.Id]])
+            ),
+        ];
+    }
+
+    private static Artwork ToArtwork(
+        ArtworkRow row,
+        List<ImageRow> images,
+        List<SeriesRow> seriesRows,
+        List<VocabularyTermRow> termRows,
+        List<ProductRow> productRows
+    )
+    {
+        var series = seriesRows
             .Select(seriesRow => new Series(
                 new SeriesId(seriesRow.Id),
                 new SeriesName(seriesRow.Name),
@@ -384,7 +429,7 @@ public class ArtworkRepository(SiteDatabase database)
             ))
             .ToList();
 
-        var vocabularyTerms = (await results.ReadAsync<VocabularyTermRow>())
+        var vocabularyTerms = termRows
             .Select(term => new VocabularyTerm(
                 new VocabularyTermId(term.Id),
                 new VocabularyTermName(term.Name),
@@ -393,7 +438,7 @@ public class ArtworkRepository(SiteDatabase database)
             ))
             .ToList();
 
-        var products = (await results.ReadAsync<ProductRow>())
+        var products = productRows
             .Select(product => new Product(
                 new ProductId(product.Id),
                 new ProductType(
@@ -485,7 +530,7 @@ public class ArtworkRepository(SiteDatabase database)
         public int? DurationSeconds { get; init; }
     }
 
-    private sealed class ImageRow
+    private class ImageRow
     {
         public required string StorageKey { get; init; }
         public string? OriginalFileName { get; init; }
@@ -508,14 +553,14 @@ public class ArtworkRepository(SiteDatabase database)
         public required int ImageNumber { get; init; }
     }
 
-    private sealed class SeriesRow
+    private class SeriesRow
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
         public required string Slug { get; init; }
     }
 
-    private sealed class VocabularyTermRow
+    private class VocabularyTermRow
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
@@ -523,7 +568,7 @@ public class ArtworkRepository(SiteDatabase database)
         public required string VocabularyName { get; init; }
     }
 
-    private sealed class ProductRow
+    private class ProductRow
     {
         public required int Id { get; init; }
         public required int ProductTypeId { get; init; }
@@ -533,6 +578,27 @@ public class ArtworkRepository(SiteDatabase database)
         public decimal? Price { get; init; }
         public int? EditionSize { get; init; }
         public required int Stock { get; init; }
+    }
+
+    // get_all_artwork_*'s rows, which say whose they are
+    private sealed class ImageRowWithArtworkId : ImageRow
+    {
+        public required int ArtworkId { get; init; }
+    }
+
+    private sealed class SeriesRowWithArtworkId : SeriesRow
+    {
+        public required int ArtworkId { get; init; }
+    }
+
+    private sealed class VocabularyTermRowWithArtworkId : VocabularyTermRow
+    {
+        public required int ArtworkId { get; init; }
+    }
+
+    private sealed class ProductRowWithArtworkId : ProductRow
+    {
+        public required int ArtworkId { get; init; }
     }
 
     private sealed class ArtworkListRow

@@ -18,12 +18,6 @@ public record ArtworkImportSettings(
     char ListSeparator
 );
 
-public static class ArtworkImportLimits
-{
-    // the review posts the text back in a form field, and ASP.NET Core refuses a field over 4 MB
-    public const int FileMaximumBytes = 1 * Units.BytesPerMebibyte;
-}
-
 // the header names a file uses; any other header must be a vocabulary's name
 public static class ArtworkImportHeaders
 {
@@ -42,12 +36,6 @@ public static class ArtworkImportHeaders
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(
         [Title, Description, DateCreated, Height, Width, Depth, Duration, Series, Price, Sold, EditionSize, Stock],
-        ArtworkImportNames.Comparer
+        ImportNames.Comparer
     );
-}
-
-public static class ArtworkImportNames
-{
-    // close to the database's case-insensitive, accent-sensitive comparison of names
-    public static readonly StringComparer Comparer = StringComparer.InvariantCultureIgnoreCase;
 }

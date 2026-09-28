@@ -90,6 +90,25 @@ public sealed class CsvTableTests
         Assert.Equal(3, exception.RowNumber);
     }
 
+    // a spreadsheet only quotes a cell with a comma, quote or line break in it, but a file typed by
+    // hand may not
+    [Fact]
+    public void ReadsAQuoteInsideAnUnquotedCell()
+    {
+        var table = CsvTable.Parse("title,size\nCanvas,12\" x 16\"\n");
+
+        Assert.Equal(["Canvas", "12\" x 16\""], Assert.Single(table.Rows).Cells);
+    }
+
+    // CsvText puts a ' in front of a cell a spreadsheet would run as a formula
+    [Fact]
+    public void TakesTheFormulaEscapeOff()
+    {
+        var table = CsvTable.Parse("title,description\n'=Sunset,'it's mine\n");
+
+        Assert.Equal(["=Sunset", "'it's mine"], Assert.Single(table.Rows).Cells);
+    }
+
     [Fact]
     public void KeepsDuplicateHeaders()
     {

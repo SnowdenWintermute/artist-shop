@@ -21,15 +21,28 @@
 <PageTitle>Admin</PageTitle>
 
 <main class="@AdminPanel.WidthClass">
-  <h1 class="mb-4 text-xl">Admin</h1>
-
   <div class="grid gap-4 sm:grid-cols-2">
     <DashboardBox Title="Catalog">
-      <ul>
+      <ul class="mb-4">
         <DashboardLink Href="/admin/catalog/vocabularies/new">Vocabularies</DashboardLink>
         <DashboardLink Href="/admin/catalog/series">Series</DashboardLink>
         <DashboardLink Href="/admin/catalog/types/new">Artwork types</DashboardLink>
       </ul>
+      @* in the order a new website needs them: types before the vocabularies that name them *@
+      <div class="flex flex-wrap gap-2">
+        <LinkButton href="@PageUrls.ArtworkTypeImport" Variant="ButtonVariant.Outline">
+          <span class="flex items-center gap-2">
+            <img src="@Assets["icons/csv.svg"]" alt="" class="size-5" />
+            Import artwork types
+          </span>
+        </LinkButton>
+        <LinkButton href="@PageUrls.VocabularyImport" Variant="ButtonVariant.Outline">
+          <span class="flex items-center gap-2">
+            <img src="@Assets["icons/csv.svg"]" alt="" class="size-5" />
+            Import vocabularies
+          </span>
+        </LinkButton>
+      </div>
     </DashboardBox>
 
     <DashboardBox Title="Artworks">
@@ -54,14 +67,15 @@
       </ul>
     </DashboardBox>
 
-    <AuthorizeView Policy="@SitePolicies.Owner">
-      <Authorized>
-        <DashboardBox Title="Website">
-          <ul>
+    <DashboardBox Title="Website">
+      <ul>
+        <AuthorizeView Policy="@SitePolicies.Owner">
+          <Authorized>
             <DashboardLink Href="@PageUrls.SiteAdmins">Admins</DashboardLink>
-          </ul>
-        </DashboardBox>
-      </Authorized>
-    </AuthorizeView>
+          </Authorized>
+        </AuthorizeView>
+        <DashboardLink Href="@PageUrls.Export">Export</DashboardLink>
+      </ul>
+    </DashboardBox>
   </div>
 </main>

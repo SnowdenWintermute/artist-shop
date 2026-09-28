@@ -1,0 +1,23 @@
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Imports
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ImportError> Errors { get; set; } = default!;
+}
+
+@if (Errors.Count > 0)
+{
+  <div class="mb-6">
+    <h3 class="mb-1 text-red-600">Problems</h3>
+    <p class="mb-2 text-sm">Nothing is imported until these are fixed in the spreadsheet. Row 1 is the header row.</p>
+    <DataTable Items="@(Errors.OrderBy(error => error.RowNumber).ToList())"
+               Headings="@(new[] { "Row", "Column", "Problem" })" Class="text-sm" RowClass="align-top" StickyHeadings>
+      <Row Context="error">
+        <DataTableCell>@error.RowNumber</DataTableCell>
+        <DataTableCell Class="font-mono">@error.Column</DataTableCell>
+        <DataTableCell>@error.Message</DataTableCell>
+      </Row>
+    </DataTable>
+  </div>
+}

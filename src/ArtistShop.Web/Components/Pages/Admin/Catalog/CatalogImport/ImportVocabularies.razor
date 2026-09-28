@@ -1,0 +1,87 @@
+@page "/admin/catalog/vocabularies/import"
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject ArtworkFieldRepository ArtworkFieldRepository
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject VocabularyRepository VocabularyRepository
+@inject VocabularyTermRepository VocabularyTermRepository
+
+@code {
+  [SupplyParameterFromQuery(Name = "imported")]
+  private int? ImportedCount { get; set; }
+
+  private async Task<VocabularyImportPlan> PlanAsync(string csvText, char listSeparator) =>
+    VocabularyImportPlanner.Plan(
+      csvText,
+      listSeparator,
+      await CatalogSetupSnapshot.LoadAsync(ArtworkFieldRepository, ArtworkTypeRepository, VocabularyRepository)
+    );
+
+  private Task ApplyAsync(VocabularyImportPlan plan) =>
+    VocabularyImportPlanner.ApplyAsync(plan, VocabularyRepository, VocabularyTermRepository);
+
+  private static string TypeNames(VocabularyImportChange change) =>
+    string.Join(", ", change.AddedArtworkTypes.Select(type => type.Name.Value));
+
+  private static string TermNames(VocabularyImportChange change) =>
+    string.Join(", ", change.AddedTerms.Select(term => term.Value));
+}
+
+<PageTitle>Import vocabularies</PageTitle>
+
+<main>
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Import vocabularies from a spreadsheet</h1>
+
+    <CatalogImportPanel TPlan="VocabularyImportPlan" ImportUrl="@PageUrls.VocabularyImport"
+                        ImportedCount="ImportedCount" Singular="vocabulary" Plural="vocabularies" PlanAsync="PlanAsync"
+                        ApplyAsync="ApplyAsync">
+      <ColumnsHelp>
+        <p class="mb-4 text-sm">
+          One row per vocabulary. Columns: <code>@VocabularyImportHeaders.Vocabulary</code>, its name,
+          <code>@VocabularyImportHeaders.ArtworkTypes</code>, the artwork types it applies to, and
+          <code>@VocabularyImportHeaders.Terms</code>, its terms. The artwork types must exist already. A vocabulary
+          that already exists gets only the types and terms it's missing; nothing is removed or renamed.
+        </p>
+      </ColumnsHelp>
+      <Review Context="plan">
+        <p class="mb-4 shrink-0">
+          @CountText.Of(plan.Changes.Count, "vocabulary", "vocabularies") to add or extend,
+          @CountText.Of(plan.SkippedRows.Count, "row") skipped, @CountText.Of(plan.Errors.Count, "problem").
+        </p>
+
+        <div class="mb-4 min-h-0 overflow-y-auto">
+          <ImportProblems Errors="plan.Errors" />
+          <ImportSkippedRows SkippedRows="plan.SkippedRows" AlreadyExistsText="Already has these types and terms" />
+
+          @if (plan.Changes.Count > 0)
+          {
+            <div class="mb-6">
+              <h3 class="mb-1">To add</h3>
+              <DataTable Items="plan.Changes" Headings="@(new[] { "Row", "Vocabulary", "Now applies to", "New terms" })"
+                         Class="text-sm" RowClass="align-top" StickyHeadings>
+                <Row Context="change">
+                  <DataTableCell>@change.RowNumber</DataTableCell>
+                  <DataTableCell>
+                    @change.Name.Value
+                    @if (change.ExistingId is null)
+                    {
+                      <span class="text-green-600">(new)</span>
+                    }
+                  </DataTableCell>
+                  <DataTableCell>@TypeNames(change)</DataTableCell>
+                  <DataTableCell>@TermNames(change)</DataTableCell>
+                </Row>
+              </DataTable>
+            </div>
+          }
+        </div>
+      </Review>
+    </CatalogImportPanel>
+  </AdminPanel>
+</main>

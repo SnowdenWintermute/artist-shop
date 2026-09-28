@@ -9,7 +9,7 @@ public class ArtworkImportConfirmForm : ArtworkImportSettingsForm
 {
     // a file within the byte limit never decodes to more characters than that
     [Required]
-    [MaxLength(ArtworkImportLimits.FileMaximumBytes)]
+    [MaxLength(ImportLimits.FileMaximumBytes)]
     public string? CsvText { get; set; }
 
     // the plan the artist reviewed; a different plan now means something changed

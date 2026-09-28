@@ -3,6 +3,7 @@ using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Email;
+using ArtistShop.Web.Exports;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
 using ArtistShop.Web.Images;
@@ -337,5 +338,8 @@ app.MapVariantEndpoints();
 
 // post editor endpoints
 app.MapVideoLinkEndpoints();
+
+// export downloads
+app.MapExportEndpoints();
 
 app.Run();

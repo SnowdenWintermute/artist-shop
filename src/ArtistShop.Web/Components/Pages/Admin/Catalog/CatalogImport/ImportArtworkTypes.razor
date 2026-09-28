@@ -1,0 +1,74 @@
+@page "/admin/catalog/types/import"
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject ArtworkFieldRepository ArtworkFieldRepository
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject VocabularyRepository VocabularyRepository
+
+@code {
+  [SupplyParameterFromQuery(Name = "imported")]
+  private int? ImportedCount { get; set; }
+
+  // loaded with each plan, and kept for the review's field names
+  private CatalogSetupSnapshot? _snapshot;
+
+  private async Task<ArtworkTypeImportPlan> PlanAsync(string csvText, char listSeparator)
+  {
+    _snapshot = await CatalogSetupSnapshot.LoadAsync(ArtworkFieldRepository, ArtworkTypeRepository, VocabularyRepository);
+    return ArtworkTypeImportPlanner.Plan(csvText, listSeparator, _snapshot);
+  }
+
+  private Task ApplyAsync(ArtworkTypeImportPlan plan) => ArtworkTypeImportPlanner.ApplyAsync(plan, ArtworkTypeRepository);
+
+  private string FieldNames(ArtworkTypeImportAddition addition) =>
+    string.Join(", ", Unwrap.Value(_snapshot).Fields.Where(field => addition.Fields.Contains(field.Field)).Select(field => field.Name));
+}
+
+<PageTitle>Import artwork types</PageTitle>
+
+<main>
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Import artwork types from a spreadsheet</h1>
+
+    <CatalogImportPanel TPlan="ArtworkTypeImportPlan" ImportUrl="@PageUrls.ArtworkTypeImport" ImportedCount="ImportedCount"
+                        Singular="artwork type" Plural="artwork types" PlanAsync="PlanAsync" ApplyAsync="ApplyAsync">
+      <ColumnsHelp>
+        <p class="mb-4 text-sm">
+          One row per type. Columns: <code>@ArtworkTypeImportHeaders.ArtworkType</code>, the type's name, and
+          <code>@ArtworkTypeImportHeaders.Fields</code>, the fields it has, from Date created, Height and width,
+          Depth and Duration. A type that already exists is skipped, so its fields don't change.
+        </p>
+      </ColumnsHelp>
+      <Review Context="plan">
+        <p class="mb-4 shrink-0">
+          @CountText.Of(plan.Additions.Count, "artwork type") to add, @CountText.Of(plan.SkippedRows.Count, "row") skipped,
+          @CountText.Of(plan.Errors.Count, "problem").
+        </p>
+
+        <div class="mb-4 min-h-0 overflow-y-auto">
+          <ImportProblems Errors="plan.Errors" />
+          <ImportSkippedRows SkippedRows="plan.SkippedRows" AlreadyExistsText="Already an artwork type" />
+
+          @if (plan.Additions.Count > 0)
+          {
+            <div class="mb-6">
+              <h3 class="mb-1">To add</h3>
+              <DataTable Items="plan.Additions" Headings="@(new[] { "Row", "Name", "Fields" })" Class="text-sm" StickyHeadings>
+                <Row Context="addition">
+                  <DataTableCell>@addition.RowNumber</DataTableCell>
+                  <DataTableCell>@addition.Name.Value</DataTableCell>
+                  <DataTableCell>@FieldNames(addition)</DataTableCell>
+                </Row>
+              </DataTable>
+            </div>
+          }
+        </div>
+      </Review>
+    </CatalogImportPanel>
+  </AdminPanel>
+</main>

@@ -22,24 +22,21 @@ public class ArtworkImportRowReader(CsvRow row)
     private static readonly decimal MinimumPrice = ParseLimit(ArtistShopLimits.MinimumPrice);
     private static readonly decimal MaximumPrice = ParseLimit(ArtistShopLimits.MaximumPrice);
 
-    private readonly List<ArtworkImportError> _errors = [];
+    private readonly List<ImportError> _errors = [];
 
     public int RowNumber => row.RowNumber;
 
-    public IReadOnlyList<ArtworkImportError> Errors => _errors;
+    public IReadOnlyList<ImportError> Errors => _errors;
 
     public void AddError(string? column, string message) =>
-        _errors.Add(new ArtworkImportError(row.RowNumber, column, message));
+        _errors.Add(new ImportError(row.RowNumber, column, message));
 
     // null for a blank cell or a column the file doesn't have
     public string? Text(int? column) =>
         column is int index && row.Cells[index].Length > 0 ? row.Cells[index] : null;
 
     public IReadOnlyList<string> List(int? column, char separator) =>
-        Text(column) is string text
-            ? [.. text.Split(separator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Distinct(ArtworkImportNames.Comparer)]
-            : [];
+        Text(column) is string text ? ImportLists.Split(text, separator) : [];
 
     public PartialDate? Date(int? column, string header)
     {

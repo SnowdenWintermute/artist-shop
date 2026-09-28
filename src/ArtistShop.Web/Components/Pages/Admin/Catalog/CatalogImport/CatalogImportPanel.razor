@@ -1,0 +1,222 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+@typeparam TPlan where TPlan : IImportPlan
+@inject NavigationManager NavigationManager
+
+@* The artwork type and vocabulary imports: check a file, review what importing it would do, confirm.
+   The same steps as the artwork import, with only a list separator to choose *@
+
+@code {
+  private const string CheckFormName = "check-catalog-import";
+  private const string ConfirmFormName = "confirm-catalog-import";
+  private const string ReviewDialogId = "catalog-import-review";
+
+  // two forms: FormName decides which property a post fills in
+  [SupplyParameterFromForm(FormName = CheckFormName)]
+  private CatalogImportCheckForm Check { get; set; } = default!;
+  [SupplyParameterFromForm(FormName = ConfirmFormName)]
+  private CatalogImportConfirmForm Confirm { get; set; } = default!;
+
+  // the page's own address, which both forms post to
+  [Parameter, EditorRequired]
+  public string ImportUrl { get; set; } = default!;
+
+  // how many were imported by the post before the redirect here, from the page's query
+  [Parameter]
+  public int? ImportedCount { get; set; }
+
+  // what's imported, as counts say it: "artwork type" and "artwork types"
+  [Parameter, EditorRequired]
+  public string Singular { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Plural { get; set; } = default!;
+
+  // plans against the catalog as it is at the time
+  [Parameter, EditorRequired]
+  public Func<string, char, Task<TPlan>> PlanAsync { get; set; } = default!;
+
+  // throws NameAlreadyInUseException or ChangedSincePageLoadException when the catalog changed since
+  // the plan was made
+  [Parameter, EditorRequired]
+  public Func<TPlan, Task> ApplyAsync { get; set; } = default!;
+
+  // the columns the file may have
+  [Parameter, EditorRequired]
+  public RenderFragment ColumnsHelp { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment<TPlan> Review { get; set; } = default!;
+
+  // set once a file has been checked
+  private TPlan? _plan;
+  private bool _catalogChangedSinceReview;
+  private bool _reviewLost;
+
+  private static string CheckFieldName(string property) => $"{nameof(Check)}.{property}";
+  private static string ConfirmFieldName(string property) => $"{nameof(Confirm)}.{property}";
+
+  protected override void OnInitialized()
+  {
+    Check ??= new();
+    Confirm ??= new();
+  }
+
+  private async Task CheckAsync()
+  {
+    var isValid = await Check.EditContext.ValidateAsync();
+    var csvText = await ReadCheckedFileAsync();
+
+    if (isValid && csvText is not null)
+    {
+      await ReviewAsync(csvText, Unwrap.Value(Check.ListSeparator));
+    }
+  }
+
+  // the newly chosen file, or else the one kept from an earlier check; null once an error is added
+  private async Task<string?> ReadCheckedFileAsync()
+  {
+    if (Check.ChosenFile is not { } file)
+    {
+      if (Check.KeptCsvText is null)
+      {
+        Check.AddFileError("Choose a CSV file.");
+      }
+
+      return Check.KeptCsvText;
+    }
+
+    // a new file replaces the kept one even when it can't be read
+    Check.ForgetKeptFile();
+
+    switch (await ImportFileText.ReadAsync(file))
+    {
+      case ImportFileText.Read read:
+        Check.KeepFile(file.FileName, read.Text);
+        return read.Text;
+      case ImportFileText.Refused refused:
+        Check.AddFileError(refused.Problem);
+        return null;
+      default:
+        throw new InvalidOperationException("An import file is either read or refused.");
+    }
+  }
+
+  private async Task ConfirmAsync()
+  {
+    // the check form wasn't posted this time, so it would otherwise show its default above the review
+    Check.ListSeparator = Confirm.ListSeparator;
+
+    var csvText = Unwrap.Value(Confirm.CsvText);
+    var listSeparator = Unwrap.Value(Confirm.ListSeparator);
+    var plan = await ReviewAsync(csvText, listSeparator);
+
+    if (plan.Fingerprint() != Confirm.Fingerprint || !plan.CanImport)
+    {
+      _catalogChangedSinceReview = true;
+      return;
+    }
+
+    try
+    {
+      await ApplyAsync(plan);
+    }
+    catch (Exception exception) when (exception is NameAlreadyInUseException or ChangedSincePageLoadException)
+    {
+      // checking again shows what changed, and what was added before the failure is skipped now
+      _catalogChangedSinceReview = true;
+      await ReviewAsync(csvText, listSeparator);
+      return;
+    }
+
+    // a redirect, so refreshing the page can't import the file twice
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["imported"] = plan.ChangeCount }));
+  }
+
+  // plans the file and sets up the confirm form to carry this plan back
+  private async Task<TPlan> ReviewAsync(string csvText, string listSeparator)
+  {
+    var plan = await PlanAsync(csvText, listSeparator[0]);
+    _plan = plan;
+    Confirm = new CatalogImportConfirmForm { CsvText = csvText, Fingerprint = plan.Fingerprint(), ListSeparator = listSeparator };
+    return plan;
+  }
+}
+
+@if (ImportedCount is int importedCount && _plan is null)
+{
+  <p class="mb-4 text-green-600">Imported @CountText.Of(importedCount, Singular, Plural).</p>
+}
+
+@ColumnsHelp
+
+@* multipart for the file; Enhance so the review arrives without a posted document the browser won't
+   redisplay on Back, as on the artwork import *@
+<EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
+          enctype="multipart/form-data" Enhance class="mb-4">
+  <DataAnnotationsValidator />
+
+  <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))" ValueExpression="() => Check.File"
+                 Prompt="Drop a CSV file here" Accept=".csv,text/csv" KeptFileName="@Check.KeptFileName" />
+
+  @if (Check.KeptCsvText is not null)
+  {
+    <input type="hidden" name="@CheckFieldName(nameof(Check.KeptCsvText))" value="@Check.KeptCsvText" />
+    <input type="hidden" name="@CheckFieldName(nameof(Check.KeptFileName))" value="@Check.KeptFileName" />
+  }
+
+  <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
+
+  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
+</EditForm>
+
+@if (_reviewLost)
+{
+  <p class="mb-4 text-red-400">The review didn't come back complete. Check the file again.</p>
+}
+
+@* rendered on every request, even with nothing to confirm: a post is matched to its form by rendering
+   the page before the handler runs. The dialog's Import button submits it through form="" *@
+<EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
+          OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data" Enhance
+          id="@ConfirmFormName">
+  <DataAnnotationsValidator />
+
+  <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
+  <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
+  <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
+</EditForm>
+
+@if (_plan is not null)
+{
+  @* the review opens by itself; this opens it again after it's closed *@
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" data-opens-dialog="@ReviewDialogId">
+    Show the review
+  </ButtonBasic>
+  <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
+    @if (_catalogChangedSinceReview)
+    {
+      <p class="mb-4 shrink-0 text-red-400">
+        The catalog changed since the last review, so nothing more was imported. This is the review as things
+        are now.
+      </p>
+    }
+
+    @Review(_plan)
+
+    <ModalDialogActions>
+      <ModalCloseButton Label="Close" />
+      @if (_plan.CanImport)
+      {
+        <ButtonBasic type="submit" form="@ConfirmFormName" Variant="ButtonVariant.Primary">
+          Import @CountText.Of(_plan.ChangeCount, Singular, Plural)
+        </ButtonBasic>
+      }
+    </ModalDialogActions>
+  </ModalDialog>
+}
