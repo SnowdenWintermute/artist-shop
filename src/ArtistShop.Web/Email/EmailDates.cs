@@ -1,10 +1,9 @@
 namespace ArtistShop.Web.Email;
 
-using System.Globalization;
+using ArtistShop.Web.Utilities;
 
 public static class EmailDates
 {
     // as LocalDate first writes it; an email can't learn the reader's time zone
-    public static string Text(DateTimeOffset moment) =>
-        $"{moment.UtcDateTime.ToString("d MMM yyyy", CultureInfo.InvariantCulture)} (UTC)";
+    public static string Text(DateTimeOffset moment) => $"{DateText.Day(moment)} (UTC)";
 }

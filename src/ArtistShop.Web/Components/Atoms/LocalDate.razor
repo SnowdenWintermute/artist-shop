@@ -1,10 +1,11 @@
 @using System.Globalization
+@using ArtistShop.Web.Utilities
 
 @code {
   [Parameter, EditorRequired]
   public DateTimeOffset Moment { get; set; }
 
-  private string UtcDateText => Moment.UtcDateTime.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+  private string UtcDateText => DateText.Day(Moment);
 
   // whole seconds: a datetime attribute and JavaScript's Date are only promised up to milliseconds,
   // and "O" writes seven digits of fraction

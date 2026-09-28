@@ -31,12 +31,14 @@ public static class ImageExportPlan
                 .Select(group => Part(group.Key.Type, group.Key.Series, [.. group])),
         ];
 
-    public static string TypeFolder(ArtworkType type) =>
+    private static string TypeFolder(ArtworkType type) =>
         ExportFileNames.IsPortable(type.Name.Value) ? type.Name.Value : $"artwork-type-{type.Id.Value}";
 
     private static ImageExportPart Part(ArtworkType type, Series? series, List<Artwork> artworks)
     {
         var typeFolder = TypeFolder(type);
+        // A slug can't match another series' name, even ignoring case: that name's slug would be
+        // the same slug, which unique_series_slug refuses
         string? seriesFolder = series is null ? null
             : ExportFileNames.IsPortable(series.Name.Value) ? series.Name.Value
             : series.Slug.Value;

@@ -1,11 +1,11 @@
 namespace ArtistShop.Web.Exports;
 
-using System.Globalization;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
 using ArtistShop.Web.Sites;
+using ArtistShop.Web.Utilities;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Net.Http.Headers;
 
@@ -23,20 +23,15 @@ public static class ExportEndpoints
 
     public static void MapExportEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints
-            .MapGet(CatalogPath, DownloadCatalogAsync)
+        // no prefix: the paths above are whole, for the page's links
+        var downloads = endpoints
+            .MapGroup("")
             .RequireAuthorization(SitePolicies.Admin)
             .WithMetadata(new ServedOnAttribute(HostTypes.Site));
 
-        endpoints
-            .MapGet(ImagesPath, DownloadImagesAsync)
-            .RequireAuthorization(SitePolicies.Admin)
-            .WithMetadata(new ServedOnAttribute(HostTypes.Site));
-
-        endpoints
-            .MapGet(AllImagesPath, DownloadAllImagesAsync)
-            .RequireAuthorization(SitePolicies.Admin)
-            .WithMetadata(new ServedOnAttribute(HostTypes.Site));
+        downloads.MapGet(CatalogPath, DownloadCatalogAsync);
+        downloads.MapGet(ImagesPath, DownloadImagesAsync);
+        downloads.MapGet(AllImagesPath, DownloadAllImagesAsync);
     }
 
     private static async Task<FileContentHttpResult> DownloadCatalogAsync(
@@ -49,7 +44,7 @@ public static class ExportEndpoints
     )
     {
         var snapshot = await CatalogSetupSnapshot.LoadAsync(artworkFieldRepository, artworkTypeRepository, vocabularyRepository);
-        var date = timeProvider.GetUtcNow().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var date = DateText.FileNameDay(timeProvider.GetUtcNow());
         var name = $"{currentSite.MainHost.Value}-catalog-{date}";
         var archive = CatalogExportArchive.Create(snapshot, await artworkRepository.GetAllAsync(), name);
 
@@ -77,7 +72,7 @@ public static class ExportEndpoints
             return TypedResults.NotFound();
         }
 
-        var date = timeProvider.GetUtcNow().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var date = DateText.FileNameDay(timeProvider.GetUtcNow());
 
         return await StreamImagesAsync(context, currentSite, imageStorage, imageExportLock, part.Entries, DownloadName(currentSite.MainHost.Value, part, date));
     }
@@ -93,7 +88,7 @@ public static class ExportEndpoints
     )
     {
         var entries = ImageExportPlan.Parts(await artworkRepository.GetAllAsync()).SelectMany(part => part.Entries);
-        var date = timeProvider.GetUtcNow().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var date = DateText.FileNameDay(timeProvider.GetUtcNow());
 
         return await StreamImagesAsync(context, currentSite, imageStorage, imageExportLock, entries, $"{currentSite.MainHost.Value}-images-{date}");
     }

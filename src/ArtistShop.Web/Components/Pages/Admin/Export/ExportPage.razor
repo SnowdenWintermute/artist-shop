@@ -55,7 +55,7 @@
     <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
       <div>
         <div>All images</div>
-        <div class="text-sm">@ImageCount(_parts.Sum(part => part.Size.Count)), @Size(_parts.Sum(part => part.Size.Bytes))
+        <div class="text-sm">@CountText.Of(_parts.Sum(part => part.Size.Count), "image"), @Size(_parts.Sum(part => part.Size.Bytes))
         </div>
       </div>
       @* no download attribute, as below *@
@@ -65,7 +65,7 @@
     </div>
 
     <div class="h-0.5 my-2 bg-theme-base w-full"></div>
-    <h3 class="">Download images by series</h3>
+    <h3 class="">Download images by type and series</h3>
     <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download a series' images</p>
 
     <ul>
@@ -74,7 +74,7 @@
         <li class="mb-2 flex flex-wrap items-center justify-between gap-4" @key="ExportEndpoints.ImagesUrl(part.Part)">
           <div>
             <div>@part.Part.Type.Name.Value — @(part.Part.Series?.Name.Value ?? "no series")</div>
-            <div class="text-sm">@ImageCount(part.Size.Count), @Size(part.Size.Bytes)</div>
+            <div class="text-sm">@CountText.Of(part.Size.Count, "image"), @Size(part.Size.Bytes)</div>
           </div>
           @* no download attribute, so a refusal ("another download is running") shows as a page
              rather than a failed download; the zip still downloads *@
@@ -99,8 +99,6 @@
         .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
     ];
   }
-
-  private static string ImageCount(int count) => count == 1 ? "1 image" : $"{count} images";
 
   private static string Size(long bytes) =>
     bytes >= 1024L * Units.BytesPerMebibyte
