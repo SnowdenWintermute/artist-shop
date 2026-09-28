@@ -54,7 +54,9 @@ public sealed class SmtpMailer(EmailSettings settings) : Mailer
         mime.From.Add(new MailboxAddress(settings.FromName, settings.FromAddress));
         mime.To.Add(MailboxAddress.Parse(message.To));
 
-        using var client = new SmtpClient();
+        // MailKit's default is 2 minutes a step, and EmailQueueSender sends one at a time, so a hung
+        // server would hold up every email behind it. In milliseconds
+        using var client = new SmtpClient { Timeout = 15_000 };
         await client.ConnectAsync(settings.Host, settings.Port, settings.Security);
 
         if (settings is { Username: { } username, Password: { } password })

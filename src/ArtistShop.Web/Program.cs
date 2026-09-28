@@ -235,7 +235,6 @@ builder.Services.AddSingleton<EmailQueue>(services => services.GetRequiredServic
 builder.Services.AddHostedService<EmailQueueSender>();
 builder.Services.AddSingleton<EmailSendLimit, RateLimitedEmailSendLimit>();
 builder.Services.AddSingleton<AccountEmails>();
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>>(services => services.GetRequiredService<AccountEmails>());
 builder.Services.AddScoped<AccountRegistration>();
 builder.Services.AddScoped<PasswordResetLinks>();
 builder.Services.AddScoped<ExternalAccounts>();

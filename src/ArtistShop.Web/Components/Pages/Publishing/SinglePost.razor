@@ -86,10 +86,14 @@
 
       @if (loaded.Post.PublishedAt is { } publishedAt)
       {
-        <p class="text-gray-500"><LocalDate Moment="publishedAt" /></p>
+        <p class="text-gray-500">
+          <LocalDate Moment="publishedAt" />
+        </p>
       }
     </div>
 
     <PostDocumentView Document="loaded.Document" ArtworkImages="loaded.ArtworkImages" />
+
+    <a href="@PageUrls.PostList" class="mb-4 inline-block">← Back to blog posts</a>
   </main>
 }

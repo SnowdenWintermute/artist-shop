@@ -40,6 +40,16 @@ public sealed class EmailSendLimitTests
         Assert.False(limit.TryTake("someone@gmail.com", SignedOut("192.0.2.2")));
     }
 
+    [Fact]
+    public void AddressesThatStartWithAPlusHaveLimitsOfTheirOwn()
+    {
+        using var limit = new RateLimitedEmailSendLimit();
+
+        Assert.True(limit.TryTake("+x@example.com", SignedOut("192.0.2.1")));
+        Assert.True(limit.TryTake("+y@example.com", SignedOut("192.0.2.1")));
+        Assert.False(limit.TryTake("+x+shop@example.com", SignedOut("192.0.2.2")));
+    }
+
     // and the refused try doesn't count against the address
     [Fact]
     public void ARequesterIsRefusedAfterThirtyAddresses()

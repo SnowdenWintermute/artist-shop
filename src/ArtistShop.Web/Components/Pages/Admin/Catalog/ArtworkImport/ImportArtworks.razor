@@ -35,6 +35,7 @@
   [SupplyParameterFromQuery(Name = "imported")]
   private int? ImportedCount { get; set; }
 
+  private List<ArtworkType> _artworkTypes = [];
   private ArtworkTypeWithFields? _type;
   private List<VocabularyWithTerms> _typeVocabularies = [];
   private List<ProductType> _productTypes = [];
@@ -56,7 +57,15 @@
     var isFreshPage = Check is null;
     Check ??= new();
     Confirm ??= new();
-    _type = TypeIdValue is int typeId ? await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(typeId)) : null;
+    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+
+    // no type yet: the page shows only the type select
+    if (TypeIdValue is not int typeId)
+    {
+      return;
+    }
+
+    _type = await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(typeId));
 
     if (_type is null)
     {
@@ -200,114 +209,144 @@
   }
 }
 
-@if (_type is not null)
-{
-  <PageTitle>Import @_type.Name.Value.ToLower() artworks</PageTitle>
+<PageTitle>Import artworks</PageTitle>
 
-  <main>
-    <AdminPanel>
-      <h1 class="mb-4 text-xl">Import @_type.Name.Value.ToLower() artworks from a spreadsheet</h1>
+<main>
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Import artworks from a spreadsheet</h1>
 
+    @* outside the forms below, since forms can't be nested. The type decides which columns and fields
+       the page asks for, so choosing one loads the page for it *@
+    <form method="get" data-enhance class="mb-4">
+      <SubmitOnChange>
+        <label class="mb-4 block">
+          <span class="artist-shop-field-label">Artwork type</span>
+          <select name="type" class="artist-shop-field-input">
+            @if (_type is null)
+            {
+              @* disabled: a select showing a disabled option sends nothing, so the address has no empty type= *@
+              <option value="" disabled selected>Choose a type</option>
+            }
+            @foreach (var artworkType in _artworkTypes)
+            {
+              <option value="@artworkType.Id.Value" selected="@(artworkType.Id.Value == TypeIdValue)">
+                @artworkType.Name.Value
+              </option>
+            }
+          </select>
+        </label>
+
+        @* app.css hides this unless the browser runs no scripts *@
+        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Change type</ButtonBasic>
+      </SubmitOnChange>
+    </form>
+
+    @if (_type is not null)
+    {
       @if (ImportedCount is int importedCount && _plan is null)
       {
         <p class="mb-4 text-green-600">Imported @CountText.Of(importedCount, "artwork").</p>
-      }
+        <a href="@PageUrls.ArtworkBulkImageUpload(_type?.Id)" class="block text-green-600 mb-2 underline">Upload matching
+          images next.</a>
+        }
 
-      <ArtworkImportColumnsHelp ArtworkType="_type" TypeVocabularies="_typeVocabularies" />
+        <ArtworkImportColumnsHelp ArtworkType="_type" TypeVocabularies="_typeVocabularies" />
 
-      @* multipart: the file needs it, and the form's size limit then applies to the text as sent.
+        @* multipart: the file needs it, and the form's size limit then applies to the text as sent.
          Enhance: an enhanced post keeps the multipart body, so the file still arrives, and it leaves
          no history entry of its own. Without it the review was a posted document, which the browser
          refuses to redisplay on Back ("Document Expired") because the antiforgery headers forbid
          storing it. The review dialog arrives with the patch that inserts it, so it still opens *@
-      <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
-                enctype="multipart/form-data" Enhance class="mb-6">
-        <DataAnnotationsValidator />
+        <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
+                  enctype="multipart/form-data" Enhance class="mb-4">
+          <DataAnnotationsValidator />
 
-        <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))" ValueExpression="() => Check.File"
-                       Prompt="Drop a CSV file here" Accept=".csv,text/csv" KeptFileName="@Check.KeptFileName" />
+          <FileDropField Label="CSV file" Name="@CheckFieldName(nameof(Check.File))" ValueExpression="() => Check.File"
+                         Prompt="Drop a CSV file here" Accept=".csv,text/csv" KeptFileName="@Check.KeptFileName" />
 
-        @if (Check.KeptCsvText is not null)
-        {
-          <input type="hidden" name="@CheckFieldName(nameof(Check.KeptCsvText))" value="@Check.KeptCsvText" />
-          <input type="hidden" name="@CheckFieldName(nameof(Check.KeptFileName))" value="@Check.KeptFileName" />
-        }
-
-        @if (AsksForLengthUnit)
-        {
-          <SelectField Label="Measurements are in" @bind-Value="Check.LengthUnit">
-            <option value="">Choose a unit</option>
-            <option value="@LengthUnit.Centimeters">Centimetres</option>
-            <option value="@LengthUnit.Inches">Inches</option>
-          </SelectField>
-        }
-
-        <SelectField Label="Each row's product" @bind-Value="Check.ProductTypeId">
-          <option value="">Choose a product type</option>
-          @foreach (var productType in _productTypes)
+          @if (Check.KeptCsvText is not null)
           {
-            <option value="@productType.Id.Value">@productType.Name.Value</option>
+            <input type="hidden" name="@CheckFieldName(nameof(Check.KeptCsvText))" value="@Check.KeptCsvText" />
+            <input type="hidden" name="@CheckFieldName(nameof(Check.KeptFileName))" value="@Check.KeptFileName" />
           }
-        </SelectField>
 
-        <CheckboxField Label="One of a kind" @bind-Value="Check.IsOneOfAKind"
-                       Hint="When checked: CSV must provide a &quot;sold&quot; column otherwise it must provide an &quot;editionSize&quot; and &quot;stock&quot; columns." />
+          @if (AsksForLengthUnit)
+          {
+            <SelectField Label="Measurements are in" @bind-Value="Check.LengthUnit">
+              <option value="">Choose a unit</option>
+              <option value="@LengthUnit.Centimeters">Centimetres</option>
+              <option value="@LengthUnit.Inches">Inches</option>
+            </SelectField>
+          }
 
-        <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
+          <SelectField Label="Each row's product" @bind-Value="Check.ProductTypeId">
+            <option value="">Choose a product type</option>
+            @foreach (var productType in _productTypes)
+            {
+              <option value="@productType.Id.Value">@productType.Name.Value</option>
+            }
+          </SelectField>
 
-        <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
-      </EditForm>
+          <CheckboxField Label="One of a kind" @bind-Value="Check.IsOneOfAKind"
+                         Hint="When checked: CSV must provide a &quot;sold&quot; column otherwise it must provide an &quot;editionSize&quot; and &quot;stock&quot; columns." />
 
-      @if (_reviewLost)
-      {
-        <p class="mb-4 text-red-400">The review didn't come back complete. Check the file again.</p>
-      }
+          <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
 
-      @* rendered on every request, even with nothing to confirm: a post is matched to its form by
+          <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
+        </EditForm>
+
+        @if (_reviewLost)
+        {
+          <p class="mb-4 text-red-400">The review didn't come back complete. Check the file again.</p>
+        }
+
+        @* rendered on every request, even with nothing to confirm: a post is matched to its form by
          rendering the page before the handler runs, when there is no review yet. The dialog's Import
          button submits it through form="" *@
-      <EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
-                OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data"
-                Enhance id="@ConfirmFormName">
-        <DataAnnotationsValidator />
+        <EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
+                  OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data" Enhance
+                  id="@ConfirmFormName">
+          <DataAnnotationsValidator />
 
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.LengthUnit))" value="@Confirm.LengthUnit" />
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ProductTypeId))" value="@Confirm.ProductTypeId" />
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))"
-               value="@Confirm.IsOneOfAKind.ToString()" />
-        <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
-      </EditForm>
+          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
+          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
+          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.LengthUnit))" value="@Confirm.LengthUnit" />
+          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ProductTypeId))" value="@Confirm.ProductTypeId" />
+          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))"
+                 value="@Confirm.IsOneOfAKind.ToString()" />
+          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
+        </EditForm>
 
-      @if (_plan is not null)
-      {
-        @* the review opens by itself; this opens it again after it's closed *@
-        <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" data-opens-dialog="@ReviewDialogId">
-          Show the review
-        </ButtonBasic>
-        <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
-          @if (_catalogChangedSinceReview)
-          {
-            <p class="mb-4 shrink-0 text-red-400">
-              The catalog changed since the last review, so nothing was imported. This is the review as things
-              are now.
-            </p>
-          }
-
-          <ArtworkImportReview Plan="_plan" ArtworkTypeName="_type.Name" />
-
-          <ModalDialogActions>
-            <ModalCloseButton Label="Close" />
-            @if (_plan.CanImport)
+        @if (_plan is not null)
+        {
+          @* the review opens by itself; this opens it again after it's closed *@
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" data-opens-dialog="@ReviewDialogId">
+            Show the review
+          </ButtonBasic>
+          <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
+            @if (_catalogChangedSinceReview)
             {
-              <ButtonBasic type="submit" form="@ConfirmFormName" Variant="ButtonVariant.Primary">
-                Import @CountText.Of(_plan.Additions.Count, "artwork")
-              </ButtonBasic>
+              <p class="mb-4 shrink-0 text-red-400">
+                The catalog changed since the last review, so nothing was imported. This is the review as things
+                are now.
+              </p>
             }
-          </ModalDialogActions>
-        </ModalDialog>
+
+            <ArtworkImportReview Plan="_plan" ArtworkTypeName="_type.Name" />
+
+            <ModalDialogActions>
+              <ModalCloseButton Label="Close" />
+              @if (_plan.CanImport)
+              {
+                <ButtonBasic type="submit" form="@ConfirmFormName" Variant="ButtonVariant.Primary">
+                  Import @CountText.Of(_plan.Additions.Count, "artwork")
+                </ButtonBasic>
+              }
+            </ModalDialogActions>
+          </ModalDialog>
+        }
       }
-    </AdminPanel>
-  </main>
-}
+      <LinkButton href="@PageUrls.ArtworkBulkImageUpload(_type?.Id)" Variant="@ButtonVariant.PrimaryOutline">Upload
+        matching images</LinkButton>
+      </AdminPanel>
+    </main>

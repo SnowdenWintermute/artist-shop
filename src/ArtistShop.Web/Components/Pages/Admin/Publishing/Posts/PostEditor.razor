@@ -35,6 +35,16 @@
     : Id is null ? "New post"
     : "Deleted post";
 
+  // markup held in a property, shown wherever @PostAddress appears; null shows nothing.
+  // It shows what was last saved, drafts included, since the artist is an admin. Edits not saved
+  // yet are kept by PostBackup and offered back on return
+  private RenderFragment? PostAddress =>
+    _post is { } post
+      ? @<p class="mb-4 text-sm text-gray-500">
+          Address: <a class="underline" href="@PageUrls.Post(post.Slug)">@PageUrls.Post(post.Slug)</a>
+        </p>
+      : null;
+
   // keyed by the post, so enhanced navigation to another post's page can't patch this island onto it
   private string DeleteKey => $"delete-{Id}";
 
@@ -131,14 +141,7 @@
         }
       </div>
 
-      @if (_post is not null)
-      {
-        @* shows what was last saved, drafts included, since the artist is an admin. Edits not saved
-           yet are kept by PostBackup and offered back on return *@
-        <p class="mb-4 text-sm text-gray-500">
-          Address: <a class="underline" href="@PageUrls.Post(_post.Slug)">@PageUrls.Post(_post.Slug)</a>
-        </p>
-      }
+      @PostAddress
 
       @if (Saved && !_formWasPosted)
       {
@@ -197,10 +200,12 @@
 
       @if (_post is not null)
       {
-        <div class="border-t pt-4">
+        <div class="border-t pt-4 mb-4">
           <DeletePostButton @rendermode="InteractiveServer" @key="DeleteKey" PostId="_post.Id" PostTitle="_post.Title" />
         </div>
       }
+
+      @PostAddress
     </AdminPanel>
   </main>
 }

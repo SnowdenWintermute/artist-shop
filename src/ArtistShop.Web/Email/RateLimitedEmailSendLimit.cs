@@ -44,7 +44,8 @@ public sealed class RateLimitedEmailSendLimit : EmailSendLimit, IDisposable
         var address = recipient.Trim().ToLowerInvariant();
         var at = address.LastIndexOf('@');
         var (name, domain) = (address[..at], address[(at + 1)..]);
-        var plus = name.IndexOf('+');
+        // from the second character: a + that starts the name is part of it, not a tag
+        var plus = name.Length > 0 ? name.IndexOf('+', 1) : -1;
         var untagged = plus >= 0 ? name[..plus] : name;
 
         return domain is "gmail.com" or "googlemail.com" ? $"{untagged.Replace(".", "")}@gmail.com" : $"{untagged}@{domain}";

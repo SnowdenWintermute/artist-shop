@@ -1,4 +1,4 @@
-# Next: Mike reviews the email limit fixes and the email queue (below, uncommitted), then the dev hot reload 403 on site hosts, step 7 or the catalog's open items
+# Next: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (email limit and queue committed; SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -149,7 +149,7 @@ with a test that fails without its fix:
   way in can't be removed, a Google-only account's first password by the link, the operator role's
   removal signing out.
 
-**Reviewed 2026-09-27, fixes uncommitted, 693 tests.** The limit was committed as `6a684e3`; the
+**Reviewed 2026-09-27, fixes committed as `7d422e9`, 693 tests.** The limit was committed as `6a684e3`; the
 review found and fixed: a signed-in request counted only its account, so each confirmed account
 earned 30 more emails an hour from one address (now `Requester` holds both and each has a limit);
 Gmail addresses differing by dots, and any differing by a +tag, had separate limits; "Try again in

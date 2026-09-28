@@ -41,7 +41,17 @@
   {
     @if (page.Items.Count == 0)
     {
-      <p>No posts yet.</p>
+      <div class="flex">
+        <p>No posts yet.</p>
+
+        <span>
+          <AuthorizeView>
+            <Authorized>
+              <span>&nbsp</span><a href="/admin/posts/new" class="underline">Create one?</a>
+            </Authorized>
+          </AuthorizeView>
+        </span>
+      </div>
     }
     else
     {

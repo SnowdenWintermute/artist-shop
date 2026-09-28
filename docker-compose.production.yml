@@ -47,6 +47,10 @@ services:
         restart: unless-stopped
         env_file:
             - .artist-shop-web-env
+        # Docker's default is 10 seconds, then it kills the app. .NET gives shutdown 30, in which
+        # EmailQueueSender sends what's still queued. Only as long as that takes: it's usually
+        # at once
+        stop_grace_period: 30s
         environment:
             - ASPNETCORE_ENVIRONMENT=Production
             # The platform's own host, where artists sign up; each site has a subdomain of it. A

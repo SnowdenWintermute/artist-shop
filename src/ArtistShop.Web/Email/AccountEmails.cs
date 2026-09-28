@@ -3,40 +3,19 @@ namespace ArtistShop.Web.Email;
 using System.Text.Encodings.Web;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Sites;
-using ArtistShop.Web.Identity;
 using ArtistShop.Web.Utilities;
-using Microsoft.AspNetCore.Identity;
 
-// The emails about an account. Identity's pages call the first three, handing over links they have
-// already HTML-encoded
-public sealed class AccountEmails(EmailQueue emailQueue) : IEmailSender<ApplicationUser>
+// The emails about an account
+public sealed class AccountEmails(EmailQueue emailQueue)
 {
-    public Task SendConfirmationLinkAsync(ApplicationUser user, string email, string confirmationLink) =>
-        emailQueue.EnqueueAsync(
-            new EmailMessage(
-                email,
-                "Confirm your email",
-                $"<p>Confirm your account by <a href=\"{confirmationLink}\">following this link</a>.</p>"
-                    + "<p>If you didn't make an account, ignore this email.</p>"
-            )
-        );
-
-    public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>
+    // the link isn't encoded yet
+    public Task SendPasswordResetLinkAsync(string email, string resetLink) =>
         emailQueue.EnqueueAsync(
             new EmailMessage(
                 email,
                 "Reset your password",
-                $"<p>Reset your password by <a href=\"{resetLink}\">following this link</a>.</p>"
+                $"<p>Reset your password by <a href=\"{HtmlEncoder.Default.Encode(resetLink)}\">following this link</a>.</p>"
                     + "<p>If you didn't ask to, ignore this email.</p>"
-            )
-        );
-
-    public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode) =>
-        emailQueue.EnqueueAsync(
-            new EmailMessage(
-                email,
-                "Reset your password",
-                $"<p>Reset your password with this code: {HtmlEncoder.Default.Encode(resetCode)}</p>"
             )
         );
 

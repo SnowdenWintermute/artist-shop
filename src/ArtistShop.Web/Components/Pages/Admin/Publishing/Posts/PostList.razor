@@ -36,8 +36,12 @@
           <DataTableCell>
             <a href="@PageUrls.EditPost(post.Id)" class="underline">@post.Title.Value</a>
           </DataTableCell>
-          <DataTableCell Class="text-sm text-gray-600"><PostStatusLabel PublishedAt="post.PublishedAt" /></DataTableCell>
-          <DataTableCell Class="text-sm text-gray-600"><LocalDate Moment="post.UpdatedAt" /></DataTableCell>
+          <DataTableCell Class="text-sm text-gray-600">
+            <PostStatusLabel PublishedAt="post.PublishedAt" />
+          </DataTableCell>
+          <DataTableCell Class="text-sm text-gray-600">
+            <LocalDate Moment="post.UpdatedAt" />
+          </DataTableCell>
         </Row>
       </DataTable>
     }

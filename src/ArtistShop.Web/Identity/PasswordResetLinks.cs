@@ -1,7 +1,6 @@
 namespace ArtistShop.Web.Identity;
 
 using System.Text;
-using System.Text.Encodings.Web;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Email;
 using ArtistShop.Web.Utilities;
@@ -13,7 +12,7 @@ using Microsoft.AspNetCore.WebUtilities;
 // to someone signed out, Manage's Password page to someone signed in
 public sealed class PasswordResetLinks(
     UserManager<ApplicationUser> userManager,
-    IEmailSender<ApplicationUser> emailSender,
+    AccountEmails accountEmails,
     EmailSendLimit emailSendLimit
 )
 {
@@ -35,7 +34,7 @@ public sealed class PasswordResetLinks(
             WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token))
         );
 
-        await emailSender.SendPasswordResetLinkAsync(user, email, HtmlEncoder.Default.Encode(link));
+        await accountEmails.SendPasswordResetLinkAsync(email, link);
         return true;
     }
 }

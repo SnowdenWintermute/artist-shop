@@ -1,11 +1,11 @@
 using System.Globalization;
-using Microsoft.AspNetCore.WebUtilities;
 using ArtistShop.Web.Components.Catalog;
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.ArtworkPicker;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace ArtistShop.Web.Components;
 
@@ -16,6 +16,12 @@ public static class PageUrls
     public static string Series(SeriesSlug slug) => $"/series/{slug.Value}";
 
     public const string ArtworkList = "/admin/catalog/artworks";
+    // with no type, the page asks for one
+    public static string ArtworkBulkImageUpload(ArtworkTypeId? typeId) =>
+        WithQuery(
+            "/admin/catalog/artworks/images",
+            ("type", typeId?.Value.ToString(CultureInfo.InvariantCulture))
+        );
 
     public static string EditArtwork(ArtworkId id) => $"/admin/catalog/artworks/{id.Value}/edit";
 
@@ -42,13 +48,15 @@ public static class PageUrls
     // A site's home page and its admin, on the platform page's scheme and port (5176 in dev). Being
     // signed in on the platform doesn't sign anyone in there: each host has its own cookie, so the
     // admin sends someone not signed in on that site to its sign-in first
-    public static string SiteHome(string platformBaseUri, HostName siteHost) => OnHost(platformBaseUri, siteHost, "/");
+    public static string SiteHome(string platformBaseUri, HostName siteHost) =>
+        OnHost(platformBaseUri, siteHost, "/");
 
     public static string SiteAdmin(string platformBaseUri, HostName siteHost) =>
         OnHost(platformBaseUri, siteHost, AdminDashboard);
 
     // the platform's home from a site's page
-    public static string PlatformHome(string siteBaseUri, HostName platformHost) => OnHost(siteBaseUri, platformHost, "/");
+    public static string PlatformHome(string siteBaseUri, HostName platformHost) =>
+        OnHost(siteBaseUri, platformHost, "/");
 
     // My websites from a site's page, such as in an invitation's email
     public static string PlatformMySites(string siteBaseUri, HostName platformHost) =>
@@ -61,15 +69,23 @@ public static class PageUrls
     public const string SiteSignIn = "/Account/SignInTo";
 
     // the platform's step of signing in on the website at siteHost, from that website's page
-    public static string PlatformSiteSignIn(string siteBaseUri, HostName platformHost, string siteHost, string nonce) =>
+    public static string PlatformSiteSignIn(
+        string siteBaseUri,
+        HostName platformHost,
+        string siteHost,
+        string nonce
+    ) =>
         QueryHelpers.AddQueryString(
             OnHost(siteBaseUri, platformHost, SiteSignIn),
             new Dictionary<string, string?> { ["site"] = siteHost, ["nonce"] = nonce }
         );
 
     // the website's handoff, from the platform's page
-    public static string SiteHandoffWithCode(string platformBaseUri, HostName siteHost, string code) =>
-        QueryHelpers.AddQueryString(OnHost(platformBaseUri, siteHost, SiteHandoff), "code", code);
+    public static string SiteHandoffWithCode(
+        string platformBaseUri,
+        HostName siteHost,
+        string code
+    ) => QueryHelpers.AddQueryString(OnHost(platformBaseUri, siteHost, SiteHandoff), "code", code);
 
     // the account page, from a website's page
     public static string PlatformAccount(string siteBaseUri, HostName platformHost) =>
@@ -78,7 +94,9 @@ public static class PageUrls
     public const string AccountPage = "/Account/Manage";
 
     private static string OnHost(string baseUri, HostName host, string path) =>
-        new UriBuilder(baseUri) { Host = host.Value, Path = path }.Uri.AbsoluteUri;
+        new UriBuilder(baseUri) { Host = host.Value, Path = path }
+            .Uri
+            .AbsoluteUri;
 
     // on the platform's host
     public const string Register = "/Account/Register";
@@ -113,12 +131,13 @@ public static class PageUrls
     // With no list query, the picker's starting list: only artworks with images, since those are
     // all it can embed. The filter shows that, and the artist can switch it off
     public static string ArtworkPickerList(ArtworkPickerTrail trail) =>
-        trail.ListQuery is { Length: > 0 } listQuery ? $"{ArtworkPicker}?{listQuery}"
-        : WithQuery(
-            ArtworkPicker,
-            (ArtworkListQuery.ImagesKey, YesNoSelect.Yes),
-            (ArtworkPickerTrail.ModeKey, trail.ModeValue)
-        );
+        trail.ListQuery is { Length: > 0 } listQuery
+            ? $"{ArtworkPicker}?{listQuery}"
+            : WithQuery(
+                ArtworkPicker,
+                (ArtworkListQuery.ImagesKey, YesNoSelect.Yes),
+                (ArtworkPickerTrail.ModeKey, trail.ModeValue)
+            );
 
     public static string ArtworkPickerImages(ArtworkId id, ArtworkPickerTrail trail) =>
         ArtworkPickerImages(id.Value.ToString(CultureInfo.InvariantCulture), trail);
@@ -131,7 +150,11 @@ public static class PageUrls
             (ArtworkPickerTrail.ListKey, trail.ListQuery)
         );
 
-    public static string ArtworkPickerChoice(ArtworkId id, string storageKey, ArtworkPickerTrail trail) =>
+    public static string ArtworkPickerChoice(
+        ArtworkId id,
+        string storageKey,
+        ArtworkPickerTrail trail
+    ) =>
         WithQuery(
             $"{ArtworkPicker}/{id.Value}",
             (ArtworkPickerImageKey, storageKey),
