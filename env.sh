@@ -15,7 +15,7 @@ set -a
 . ./.env
 set +a
 
-# the app logs in as its own role, which postgres-init/create-app-role.sh makes; POSTGRES_PASSWORD
+# the app logs in as its own role, which artist-shop-postgres-init/create-app-role.sh makes; POSTGRES_PASSWORD
 # is the superuser's, for psql by hand only
 # The platform database, which lists the sites and holds each site's own schema, site_<id>
 export ConnectionStrings__ArtistShopPlatform="Host=localhost;Port=5434;Database=artist_shop_platform;Username=artist_shop_app;Password=$POSTGRES_APP_PASSWORD"

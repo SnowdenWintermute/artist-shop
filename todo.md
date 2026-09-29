@@ -2,8 +2,64 @@
 
 ## Handoff, 2026-09-29: deploy and Resend
 
-This session reviewed and fixed the whole-website move (summary under "Site export" below: **Review done
-2026-09-29**). All of it is uncommitted, 859 tests passing; Mike commits it before the deploy work starts.
+The whole-website move is committed (97ff6e9).
+
+**Deploy checklist (worked out with Mike 2026-09-29; `nginx.conf` now holds the wildcard version, uncommitted).**
+**Steps 1-7 done 2026-09-29**: new version live on the VPS (fresh volume, role script ran, migrations applied; the
+EF `__EFMigrationsHistory` "fail" on first boot is normal). The rehearsal passed after it gained the Google settings.
+Step 3's wipe was done inside step 7. Left: 8 (smoke test) and 9 (expiry monitoring).
+Found on the VPS: a whole-website import is CPU-bound there (`docker stats` near 100%, not Mike's upload speed).
+Each image is 8 encodes (4 widths, AVIF and WebP) on one CPU. If it matters beyond one-off moves, first measure
+AVIF's share of an image's time; a bigger VPS is the other fix.
+Websites are `<name>.artshop.mikesilverman.net` (`SiteSignUp`, `HostUnder`), so DNS, nginx and TLS cover the
+subdomains. Mike added the wildcard A record `*.artshop.mikesilverman.net`. Custom domains wait for the project's
+own VPS (then consider Caddy's on-demand TLS behind an nginx SNI split, or Caddy alone).
+1. TLS, a wildcard over acme-dns (Mike chose it over Cloudflare DNS and Namecheap's API, 2026-09-29): on the VPS,
+   put joohoi's `acme-dns-auth.py` in `/etc/letsencrypt/` (it uses the public `auth.acme-dns.io`; its operator
+   could get certificates for artshop's names, accepted for this testing box), then
+   `certbot certonly --manual --manual-auth-hook /etc/letsencrypt/acme-dns-auth.py --preferred-challenges dns
+   --debug-challenges --cert-name artshop-wildcard --deploy-hook "systemctl reload nginx"
+   -d artshop.mikesilverman.net -d '*.artshop.mikesilverman.net'`. It prints a CNAME: add
+   `_acme-challenge.artshop` at Namecheap, wait for it to resolve, continue. Then `certbot renew --dry-run`.
+   **Done 2026-09-29**: certificate `artshop-wildcard` issued, dry run passed.
+   1b. CAA records at Namecheap, so the CNAME's acme-dns server (its operator, or anyone who takes it over) can't
+   get certificates for artshop's names: only our Let's Encrypt account may issue. The account URL comes from
+   `certbot show_account`. **Done 2026-09-29**: four CAA records on host `artshop`, `issue` and `issuewild` each for
+   the production account (`acct/122339528`) and the staging one (`acme-staging-v02…/acct/19553079`, from
+   `certbot show_account --server https://acme-staging-v02.api.letsencrypt.org/directory`), because `--dry-run`
+   uses staging and staging checks CAA too. The dry run passed with them in place. A
+   new Let's Encrypt account (a fresh certbot install; upgrades and restores of `/etc/letsencrypt` keep the old one)
+   needs the records changed first, or renewal is refused with an error naming the CAA record. Step 9 catches that.
+2. nginx: copy `nginx.conf` over the live one, `nginx -t`, reload. Afterwards `certbot delete --cert-name
+   artshop.mikesilverman.net` (the old single-name certificate).
+3. Wipe: `docker compose down` the two artist-shop services, remove `artist_shop_pg_volume` (the new volume runs
+   `artist-shop-postgres-init/create-app-role.sh`, which makes `artist_shop_app`) and empty `/srv/artist-shop/images` (old
+   single-shop layout; keep the folder, owned by 1654). The data protection keys volume can stay.
+4. Copy `artist-shop-postgres-init/` beside the VPS compose file (named for the app: the other apps' compose services share that folder).
+5. Env files, both `chmod 600`, replacing `.artist-shop-env` (lines in `docker-compose.production.yml`'s header):
+   `.artist-shop-postgres-env` (adds `POSTGRES_APP_PASSWORD`) and `.artist-shop-web-env` (new connection string
+   names and user, `Platform__Operator*` instead of `Admin__*`, Resend `Email__*`, `Authentication__Google__*`).
+   Google's redirect URI `https://artshop.mikesilverman.net/signin-google` is already authorized (Mike checked).
+6. VPS compose: bring over the `env_file` names, `stop_grace_period: 30s`, `Platform__Host`, the `Email__*`
+   environment lines and the `artist-shop-postgres-init` mount.
+7. Rehearse locally with `docker-compose.rehearsal.yml` (can't rehearse subdomains), then `build-and-push.sh`, pull
+   and start on the VPS.
+8. After boot: sign in as the operator, make a sign-up code at `/operator`, sign up a website, check its subdomain
+   over https, and that the sign-up email arrived through Resend. Then remove SES's DNS records and credentials.
+9. Expiry monitoring, since Let's Encrypt sends no expiry emails any more and any renewal failure (CAA, acme-dns
+   gone, CNAME lost) is otherwise silent until every site shows a certificate error: an outside check of
+   `https://artshop.mikesilverman.net` that emails at 14 days left (certbot renews at 30), such as UptimeRobot's
+   free SSL expiry alert. Optionally Cert Spotter's free alerts for certificates issued for artshop's names.
+
+The runtime image is chiseled (no shell), so no `docker exec bash`. To look inside:
+`docker run --rm -it --pid container:<web> --network container:<web> busybox sh` (files under `/proc/1/root/app`).
+Mike finds that a real drawback; the plain `aspnet:11.0.0-rc.1-resolute` image is a one-line change if it bites.
+
+**Resend: decided 2026-09-29, SMTP through the existing `SmtpMailer`, no code change.** Mike verified
+`artshop.mikesilverman.net` at Resend and has an API key. `docker-compose.production.yml`'s env comment now shows
+`smtp.resend.com`, 587, StartTls, username `resend`, API key as password. To do at deploy: put those in the VPS
+web env file, send a real email, then remove SES's DNS records and SMTP credentials. The API (idempotency keys)
+becomes worth it only if the queue ever retries. Original note:
 
 **Resend.** The app sends through `Email/SmtpMailer.cs` (MailKit) with `EmailSettings` (`Email__Host`, `Port`,
 `Security`, `Username`, `Password`, `FromAddress`, `FromName`), queued by `EmailQueueSender` with the send limit
@@ -12,7 +68,7 @@ current SMTP host, port and login before assuming). Decide with Mike: SMTP throu
 API behind `Mailer`. Also: verify the sending domain at Resend (SPF/DKIM records at Mike's domain provider; SES
 used `mail.mikesilverman.net`), then remove the SES records and credentials once Resend works.
 
-**Deploy.** The last deploy on record is 2026-09-22 (`a7e6708`, before multi-tenancy, schemas per site, the auth rework, blog,
+**Deploy (original note; the checklist above replaces it).** The last deploy on record is 2026-09-22 (`a7e6708`, before multi-tenancy, schemas per site, the auth rework, blog,
 export/import). Go through what changed for production before building: new env settings (Google sign-in, `Email__*`),
 database migrations on first boot (platform, identity, each site's schema; `0003_AddArtworkImageSha256` is new),
 `stop_grace_period: 30s` merged into the VPS compose (email queue), the image storage folders per site, and the

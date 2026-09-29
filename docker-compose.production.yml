@@ -5,8 +5,9 @@
 # conditions outside swarm.
 #
 # Before the first start, on the VPS:
-# - the postgres-init folder from the repo, beside this file. The postgres image runs its script
-#   only when it sets up an empty volume, to make the app's login role
+# - the artist-shop-postgres-init folder from the repo, beside this file, named for the app because
+#   the other apps' services share that folder. The postgres image runs its script only when it sets
+#   up an empty volume, to make the app's login role
 # - the images folder, owned by the container's app user (uid 1654 in the .NET images):
 #     mkdir -p /srv/artist-shop/images && chown 1654:1654 /srv/artist-shop/images
 # - two env files beside this file, one per container so neither sees the other's secrets, each
@@ -23,14 +24,13 @@
 #   The account that runs the platform and makes sign-up codes, checked at every boot. The password
 #   is only read to make the account, so that line can go once it exists. Sites are made by
 #   signing up at the platform's /signup with a code from its /operator page.
-#     Email__Host=email-smtp.us-east-1.amazonaws.com
+#     Email__Host=smtp.resend.com
 #     Email__Port=587
-#     Email__Username=<SES SMTP user name>
-#     Email__Password=<SES SMTP password>
-#   Amazon SES in us-east-1; the app won't start without these. The login is an IAM user made by
-#   SES's "Create SMTP credentials", and only works in that region. SES's verified identity is
-#   mikesilverman.net (DKIM records, MAIL FROM domain mail.mikesilverman.net), which covers the
-#   From address's subdomain below.
+#     Email__Username=resend
+#     Email__Password=<Resend API key>
+#   Resend over SMTP; the app won't start without these. The password is a Resend API key with
+#   sending access. Resend sends only from a verified domain: artshop.mikesilverman.net, the
+#   From address's domain below.
 #     Authentication__Google__ClientId=<client id>
 #     Authentication__Google__ClientSecret=<client secret>
 #   Google sign-in's OAuth client. Its authorized redirect URI is
@@ -56,7 +56,7 @@ services:
             # The platform's own host, where artists sign up; each site has a subdomain of it. A
             # request for a host that's neither the platform's nor a site's gets a 404
             # (UseKnownHosts), so a forged Host header can't end up in the absolute addresses the
-            # app builds from it (link previews, and password-reset links once email exists)
+            # app builds from it (link previews, and the links in its emails)
             - Platform__Host=artshop.mikesilverman.net
             # who the app's email comes from; the server and its login are in the env file
             - Email__Security=StartTls
@@ -115,7 +115,7 @@ services:
             # postgres:18 keeps its data in a versioned folder under this one, so a later major
             # version upgrade can sit beside the old data
             - artist_shop_pg_volume:/var/lib/postgresql
-            - ./postgres-init:/docker-entrypoint-initdb.d:ro
+            - ./artist-shop-postgres-init:/docker-entrypoint-initdb.d:ro
         healthcheck:
             # over TCP: while a new volume initialises, a temporary server answers only on the
             # local socket, and a socket check would call that healthy

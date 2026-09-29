@@ -5,7 +5,7 @@
 #
 # Differences from the VPS: no restart policy, so a rehearsal doesn't come back after a reboot; the
 # images live in a named volume here and in a host folder there; and the secrets come from .env
-# here and from .artist-shop-env there. The CPU limit is only here, because the VPS has one anyway.
+# here and from .artist-shop-web-env and .artist-shop-postgres-env there. The CPU limit is only here, because the VPS has one anyway.
 #
 # Memory is sized from the VPS measured on 2026-09-21: 1971 MB total, one CPU, 2 GB of swap, and
 # about 485 MB available once the old pm2 apps were stopped.
@@ -45,6 +45,10 @@ services:
       - Email__Security=None
       - Email__FromAddress=noreply@localhost
       - Email__FromName=Artist websites (rehearsal)
+      # dev's OAuth client, as in env.sh; the app won't start without it. Signing in with Google
+      # here also needs http://localhost:8089/signin-google among the client's redirect URIs
+      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       # How much of mem_limit .NET may put on its own heap. It has to be larger than the image
       # budget below or the app refuses to start. Read as hexadecimal: 0x2D is 45, so 45% of
       # 768 MB is 345 MB
@@ -82,14 +86,14 @@ services:
     command: ["postgres", "-c", "shared_buffers=64MB"]
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      # read only by postgres-init/create-app-role.sh, when the volume is first set up
+      # read only by artist-shop-postgres-init/create-app-role.sh, when the volume is first set up
       - POSTGRES_APP_PASSWORD=${POSTGRES_APP_PASSWORD}
     # not published: only the app talks to it, over the compose network
     mem_limit: 256m
     volumes:
       # see docker-compose.yml for why the parent folder is mounted
       - artist-shop-postgres_data:/var/lib/postgresql
-      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - ./artist-shop-postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # over TCP, for the reason given in docker-compose.yml
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
