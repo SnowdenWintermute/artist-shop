@@ -1,4 +1,4 @@
-# Next session: review the post download's code with Mike, then design a post format the website can import back (notes under the site export below). Then the Export links from delete-website and My websites, later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
+# Next: commit the post import (browser-checked; notes under the site export below). Then the Export links from delete-website and My websites, later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -53,25 +53,60 @@ Review fixes (2026-09-28, 768 tests): `ArtworkEmbeds.SourceOf` is the one rule f
 show, used by `PostDocumentView` and the export; the endpoint parses each body once (`ExportedPost`);
 exported dates are `<time datetime>` via `DateText.DateTimeAttribute` (shared with `LocalDate`); the
 Export page counts with `count_posts()`. No `lang` on exported pages, since a post's language isn't known. The explanation moved from `index.html` into a `README.txt` (`ExportZip.ReadmeFileName`, shared with the catalog).
-**Next session (Mike, 2026-09-28): review this code, then think about exporting posts in a form the
-website can import back.** Not designed yet. What a re-import has to solve: a post's Delta names
-uploaded images by storage key and artwork embeds by artwork id and storage key, none of which exist
-on another website. One shape to discuss: a `post.json` per post beside its HTML, holding the Delta
-with each image pointing at its file in the folder (`image-2-original.tiff`) and each artwork embed at
-the artwork's slug plus its image number, so the import uploads the files and finds the artworks
-after the catalog import. Also title, slug, draft or published and the publish date. Videos need
-nothing. The HTML stays for reading and pasting elsewhere.
-Mike's lean (2026-09-28): export the stored Delta as JSON. Reading back a tampered one is no worse
-than a save: the form already stores any `{"ops":[...]}` the browser posts (`PostBody.IsDelta` only),
-pages render only what `PostDocumentParser` keeps, and the editor filters through Quill's `formats`
-and link sanitize. The import itself must: replace every storage key with a fresh upload of the
-file in the folder (drop an embed whose file isn't there, never trust a key from the file, since it
-could name another image on the same site); remap artwork embeds by slug and image number after the
-catalog import; refuse what a save refuses (dropped links, taken titles or slugs).
-Caveat: the editor loads the raw stored Delta (`quill.setContents` in `PostBodyEditor.razor.js`), guarded
-only by Quill's `formats` and link sanitize, not our parser. An import lets someone else's file reach an
-admin's editor, so either audit the `artshop-*` blots (attributes and text only, no `innerHTML`, from
-Delta values) or have the import store a Delta rebuilt from the parsed `PostDocument`.
+**Post import built 2026-09-28, uncommitted, 786 tests; needs Mike's browser check** (below). Code:
+`PostDeltaWriter` (PostDocument to Delta, round-trip tested), `PostExportJson` (post.json in each post
+folder), `PostImportPlanner` (pure: localize, parse, plan, `Finish`), `PostImportTarget.LoadAsync`,
+`PostImporter.SaveAsync`, page `/admin/import/posts` (`ImportPosts.razor`, island `PostImportUpload`
++ `.razor.js`, `PostImportReport`), step 5 on the Import page. `add_post` takes `p_published_at`
+(`PostRepository.AddImportedAsync`). Shared now: `wwwroot/js/collect-files.js` (folder reading, was in
+the bulk uploader), retry helpers in `upload-request.js`, `CollectedFile` in `Forms/FileUpload`,
+`FileDropZoneFrame.ButtonLabel` nullable (folder-only zone), `EmbedImageSizeNames`,
+`PostDocumentParser.DroppedLinkProblem`. Changes from the design: post.json has no slug (a save
+derives it from the title, so the import does too) and artwork embeds carry slug, title and hash but
+no type: the hash already proves it's the same artwork, and a title match finds one whose slug
+changed. Uploads go one file at a time, one post at a time; .NET saves each post before the script
+moves on. Browser check: export posts on one site (artwork embed, uploaded image, video, draft), on
+another site import the catalog and images, then Import > Posts with the unzipped folder; check the
+review, import, open the posts and edit one. Also re-check the bulk image upload, whose script now
+uses the shared helpers.
+Mike browser-checked it 2026-09-29: works. Known limits, kept for now (Mike): posts imported before
+the images get pictures, not artwork links, since an artwork embed needs its image's storage key; the
+whole-site import should run CSVs, then images, then posts (the alternative, an artwork embed with no
+image chosen that shows the artwork's first image, changes the parser, editor blot and post page).
+Two artworks with the same title and the same image file link to whichever is found first (slug
+match first) rather than falling back to a picture.
+Design as agreed:
+- Format: a `post.json` in each post folder of the existing post download (one download for reading
+  and moving): `formatVersion: 1` (a version for the file's layout, so a later importer can read old
+  files; not "format", which images and Quill already use), title, slug, `publishedAt` (null for a
+  draft), and the stored Delta with this site's ids swapped out. `artshop-image`: `storageKey` becomes
+  `file` (`image-2-original.tiff`), `blur` dropped (processing makes a new one). `artshop-artwork`:
+  `artworkId` and `storageKey` become type, slug, `imageSha256` of the embedded image's original, and
+  `file` (the web copy `image-1.webp`, for the fallback). Videos unchanged.
+- Relinking artworks (Mike wants it despite the complexity): find the artwork by type and slug, then
+  hash only that artwork's originals for `imageSha256` (originals are stored as uploaded, so the
+  image download's bytes hash the same). Slug plus image number doesn't work: the image download
+  loses image order and the bulk upload attaches only a first image. No match: the embed becomes an
+  uploaded image from the web copy, alt the artwork's name, caption kept.
+- Upload: the unzipped folder through `FileDropZoneFrame`'s folder picker, as the bulk image upload
+  does, never a zip. The browser sends the `post.json` files for planning; on confirm it uploads each
+  post's files through `/admin/uploads/post-image` (the editor's own path), and the page puts the new
+  keys in and saves. A failed save leaves uploads for the orphan sweep, as in the editor.
+- Review (check, review, confirm, as the catalog imports): a taken slug or title skips the post; a
+  dropped link (anything but https, http, mailto or `/`, which a save refuses) refuses that post; a
+  broken internal link is a warning, checked against `/`, `/posts`, `/posts/{slug}`, `/series/{slug}`,
+  `/artworks/{slug}` on the target site, counting posts in the same import; each artwork embed shows
+  as relinked or picture only.
+- Apply, one post at a time (re-running skips posts already there): new storage keys in, then parse
+  and write a new Delta from the parsed `PostDocument` (a new writer, with a parse-write-parse
+  round-trip test), so the editor only loads a Delta we wrote and the `artshop-*` blots need no audit.
+  Keep the original publish date: `add_post` takes one. Editing later keeps it already
+  (`update_post` COALESCEs `published_at`; unpublishing forgets it on purpose).
+**Import page built 2026-09-28, uncommitted:** `/admin/import` (`ImportPage.razor`), linked from the
+Website box beside Export: artwork types, vocabularies, artworks, images, in the order a move needs,
+with the posts import and later the whole-site import to join it. The type and vocabulary import
+buttons left the dashboard's Catalog box; the Artworks box keeps its per-type Import and Upload
+images, which are everyday work. New `PageUrls.ArtworkImport` and `PageUrls.Import`.
 Then: links to Export from delete-website and My websites during the grace period.
 
 **Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and

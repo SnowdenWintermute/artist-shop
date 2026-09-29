@@ -78,10 +78,7 @@ public class PostForm : ServerValidatedForm, IValidatableObject
     {
         foreach (var link in links)
         {
-            AddServerError(
-                nameof(Body),
-                $"The link \"{link}\" won't work. A link has to start with https://, http://, mailto: or / (a page on this website)."
-            );
+            AddServerError(nameof(Body), PostDocumentParser.DroppedLinkProblem(link));
         }
     }
 

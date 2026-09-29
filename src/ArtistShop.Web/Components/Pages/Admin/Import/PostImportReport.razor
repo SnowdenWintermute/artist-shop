@@ -1,0 +1,94 @@
+@using ArtistShop.Web.Imports
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<PostImportItem> Items { get; set; } = default!;
+
+  // by the item's place in Items: null once imported, otherwise why it wasn't
+  [Parameter, EditorRequired]
+  public IReadOnlyDictionary<int, string?> Results { get; set; } = default!;
+
+  private enum Status
+  {
+    Imported,
+    WillAdd,
+    Failed,
+    Refused,
+    Skipped,
+  }
+
+  // what worked first, then what needs the artist to do something
+  private static readonly Status[] Order = [Status.Imported, Status.WillAdd, Status.Failed, Status.Refused, Status.Skipped];
+
+  private Status StatusOf(int index) =>
+    Results.TryGetValue(index, out var problem) ? (problem is null ? Status.Imported : Status.Failed)
+    : Items[index].Outcome switch
+    {
+      PostImportOutcome.WillAdd => Status.WillAdd,
+      PostImportOutcome.Skipped => Status.Skipped,
+      PostImportOutcome.Refused => Status.Refused,
+    };
+
+  private static string Describe(Status status) =>
+    status switch
+    {
+      Status.Imported => "Imported",
+      Status.WillAdd => "Will be imported",
+      Status.Failed => "Didn't import",
+      Status.Refused => "Can't be imported",
+      Status.Skipped => "Skipped",
+    };
+
+  // the reasons a post wasn't imported, from the plan or from the import itself
+  private IEnumerable<string> ProblemsOf(int index) =>
+    Results.TryGetValue(index, out var problem) && problem is not null ? [problem] : Items[index].Problems;
+}
+
+@foreach (var status in Order)
+{
+  var indexes = Enumerable.Range(0, Items.Count).Where(index => StatusOf(index) == status).ToList();
+
+  @if (indexes.Count > 0)
+  {
+    <div class="mb-4">
+      <h3 class="mb-1">@Describe(status): @indexes.Count</h3>
+      <ul class="text-sm">
+        @foreach (var index in indexes)
+        {
+          var item = Items[index];
+
+          <li class="mb-2">
+            <div>
+              @(item.Title?.Value ?? item.FolderName)
+              @if (item.Title is not null && item.PublishedAt is null)
+              {
+                <span class="text-gray-500"> (draft)</span>
+              }
+            </div>
+            <ul class="pl-4">
+              @foreach (var problem in ProblemsOf(index))
+              {
+                <li class="text-red-400">@problem</li>
+              }
+              @if (item.RelinkedArtworkCount > 0)
+              {
+                <li>Artwork pictures linked to their artworks on this website: @item.RelinkedArtworkCount</li>
+              }
+              @if (item.PictureOnlyArtworks.Count > 0)
+              {
+                <li>
+                  Shown as pictures without a link, since this website has no artwork with the same image:
+                  @string.Join(", ", item.PictureOnlyArtworks.Distinct())
+                </li>
+              }
+              @if (item.BrokenLinks.Count > 0)
+              {
+                <li class="text-amber-600">Links to pages that aren't on this website: @string.Join(", ", item.BrokenLinks)</li>
+              }
+            </ul>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+}

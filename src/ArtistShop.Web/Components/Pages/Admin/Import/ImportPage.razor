@@ -1,0 +1,76 @@
+@page "/admin/import"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Exports
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+<PageTitle>Import into your website</PageTitle>
+
+<AdminPanel>
+  <h1 class="mb-4 text-xl">Import into your website</h1>
+  <p class="mb-6">
+    Moving from another website here? Import in this order, from the downloads on the other website's Export page.
+    Every import only adds: something that already exists is skipped.
+  </p>
+
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">1. Artwork types</h2>
+      <p class="text-sm">Each artwork type and its fields, from <code>@CatalogExportArchive.ArtworkTypesFileName</code> in the catalog download.</p>
+    </div>
+    <LinkButton href="@PageUrls.ArtworkTypeImport" Variant="ButtonVariant.Outline">
+      <IconLabel Icon="icons/csv.svg">Import</IconLabel>
+    </LinkButton>
+  </div>
+
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">2. Vocabularies</h2>
+      <p class="text-sm">
+        Each vocabulary and its terms, from <code>@CatalogExportArchive.VocabulariesFileName</code>, after the artwork types they apply to.
+      </p>
+    </div>
+    <LinkButton href="@PageUrls.VocabularyImport" Variant="ButtonVariant.Outline">
+      <IconLabel Icon="icons/csv.svg">Import</IconLabel>
+    </LinkButton>
+  </div>
+
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">3. Artworks</h2>
+      <p class="text-sm">
+        Each file in the catalog download's <code>@CatalogExportArchive.ArtworksFolder</code> folder, one artwork type at a time.
+      </p>
+    </div>
+    <LinkButton href="@PageUrls.ArtworkImport" Variant="ButtonVariant.Outline">
+      <IconLabel Icon="icons/csv.svg">Import</IconLabel>
+    </LinkButton>
+  </div>
+
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">4. Images</h2>
+      <p class="text-sm">
+        An artwork type's folder from the image download. Each image goes to the artwork with its title; an
+        artwork's other images, named (2), (3) and so on, are added by hand.
+      </p>
+    </div>
+    <LinkButton href="@PageUrls.ArtworkBulkImageUpload(typeId: null)" Variant="ButtonVariant.Outline">
+      <IconLabel Icon="icons/folder-open.svg">Upload</IconLabel>
+    </LinkButton>
+  </div>
+
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">5. Posts</h2>
+      <p class="text-sm">
+        The whole post download, unzipped. Artwork pictures in posts link to their artworks again when the artworks
+        and their images are here.
+      </p>
+    </div>
+    <LinkButton href="@PageUrls.PostImport" Variant="ButtonVariant.Outline">
+      <IconLabel Icon="icons/folder-open.svg">Import</IconLabel>
+    </LinkButton>
+  </div>
+</AdminPanel>

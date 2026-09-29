@@ -1,0 +1,25 @@
+@page "/admin/import/posts"
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+<PageTitle>Import posts</PageTitle>
+
+<main>
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Import posts from another website</h1>
+
+    <p class="mb-4 text-sm">
+      Choose the post download from the other website's Export page, unzipped. Import its catalog and images first:
+      an artwork picture in a post links to its artwork again when this website has the artwork with the same image,
+      and is shown as a picture on its own otherwise. Posts keep their publish dates, and drafts stay drafts. A post
+      whose title is already here is skipped.
+    </p>
+
+    @* the island posts each image to an endpoint that checks the antiforgery token, and there is
+       no form on this page to carry one *@
+    <AntiforgeryToken />
+
+    <PostImportUpload />
+  </AdminPanel>
+</main>

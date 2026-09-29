@@ -1,16 +1,19 @@
-import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
+import { listenForFiles } from "/js/collect-files.js";
+import {
+  MAXIMUM_UPLOAD_ATTEMPTS,
+  isRetryable,
+  retryDelay,
+  sendUpload,
+  uploadErrorMessage,
+  wait,
+} from "/js/upload-request.js";
 
 const UPLOAD_URL = "/admin/uploads/artwork-image-by-name";
 
 // a courtesy to the server, which has its own limits and doesn't trust this number
 const CONCURRENT_UPLOADS = 4;
 
-const MAXIMUM_ATTEMPTS = 4;
-const LONGEST_RETRY_MILLISECONDS = 30000;
 const PROGRESS_INTERVAL_MILLISECONDS = 250;
-
-// the server is busy or the request was shaped out by a limit, so the same file is worth sending again
-const RETRYABLE_STATUSES = [429, 503, 504];
 
 /**
  * @param {HTMLElement} zone an element wrapping the drop zone: both "change" and "entriesdropped"
@@ -45,72 +48,6 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
       .catch((error) => console.error(`${method} failed`, error));
   }
 
-  /** @param {FileSystemEntry[]} entries */
-  async function collectEntries(entries) {
-    /** @type {{ path: string, file: File }[]} */
-    const found = [];
-
-    for (const entry of entries) {
-      await collectEntry(entry, found);
-    }
-
-    remember(found);
-  }
-
-  /**
-   * @param {FileSystemEntry} entry
-   * @param {{ path: string, file: File }[]} found
-   */
-  async function collectEntry(entry, found) {
-    // one past the cap is enough to know it was passed, and stops a runaway folder being read out
-    if (found.length > maximumFiles) {
-      return;
-    }
-
-    if (entry.isFile) {
-      found.push({ path: entry.fullPath, file: await fileOf(entry) });
-      return;
-    }
-
-    for (const child of await readAllEntries(entry.createReader())) {
-      await collectEntry(child, found);
-    }
-  }
-
-  /**
-   * readEntries hands back one batch at a time -- Chrome stops at 100 -- and an empty batch means
-   * the folder has been read to the end
-   * @param {FileSystemDirectoryReader} reader
-   * @returns {Promise<FileSystemEntry[]>}
-   */
-  function readAllEntries(reader) {
-    return new Promise((resolve, reject) => {
-      /** @type {FileSystemEntry[]} */
-      const all = [];
-
-      const readBatch = () =>
-        reader.readEntries((batch) => {
-          if (batch.length === 0) {
-            resolve(all);
-            return;
-          }
-
-          all.push(...batch);
-          readBatch();
-        }, reject);
-
-      readBatch();
-    });
-  }
-
-  /**
-   * @param {FileSystemFileEntry} entry
-   * @returns {Promise<File>}
-   */
-  function fileOf(entry) {
-    return new Promise((resolve, reject) => entry.file(resolve, reject));
-  }
-
   /** @param {{ path: string, file: File }[]} found */
   function remember(found) {
     // the zone is disabled during a run, so this is a backstop: clearing the map under the workers
@@ -137,27 +74,6 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     notify("OnFilesCollected");
   }
 
-  /** @param {Event} event */
-  function onChange(event) {
-    const input = event.target;
-    if (!(input instanceof HTMLInputElement) || input.files === null) {
-      return;
-    }
-
-    // a folder picker fills in webkitRelativePath; a file picker leaves it empty
-    remember([...input.files].map((file) => ({ path: file.webkitRelativePath || file.name, file })));
-
-    // so that choosing the same folder a second time still counts as a change
-    input.value = "";
-  }
-
-  /** @param {Event} event */
-  function onEntriesDropped(event) {
-    collectEntries(/** @type {CustomEvent} */ (event).detail).catch((error) =>
-      console.error("Reading the dropped folder failed", error)
-    );
-  }
-
   /**
    * one request, resolved however it ends: null when Stop aborted it
    * @param {string} id
@@ -178,25 +94,6 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     return finished.finally(() => inFlightAborts.delete(id));
   }
 
-  /**
-   * Retry-After says how long the server wants; without one the wait doubles each time. The
-   * random half keeps a batch of uploads from all coming back at the same moment
-   * @param {number} attempt
-   * @param {string | null} retryAfter
-   */
-  function retryDelay(attempt, retryAfter) {
-    const seconds = Number(retryAfter);
-    const wanted =
-      Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 1000 * 2 ** attempt;
-
-    return Math.min(wanted, LONGEST_RETRY_MILLISECONDS) * (0.5 + Math.random() / 2);
-  }
-
-  /** @param {number} milliseconds */
-  function wait(milliseconds) {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-  }
-
   /** @param {string} id */
   async function uploadFile(id) {
     const file = collectedFiles.get(id);
@@ -204,7 +101,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
       return;
     }
 
-    for (let attempt = 1; attempt <= MAXIMUM_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
       const response = await sendOnce(id, file);
 
       // a stopped run leaves the file as it was, so pressing Upload again picks it up
@@ -218,7 +115,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
         return;
       }
 
-      if (!RETRYABLE_STATUSES.includes(response.status) || attempt === MAXIMUM_ATTEMPTS) {
+      if (!isRetryable(response.status) || attempt === MAXIMUM_UPLOAD_ATTEMPTS) {
         finish(id, file.size);
         notify("OnFileFailed", id, uploadErrorMessage(response));
         return;
@@ -303,8 +200,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     }
   }
 
-  zone.addEventListener("change", onChange);
-  zone.addEventListener("entriesdropped", onEntriesDropped);
+  const stopListening = listenForFiles(zone, maximumFiles, remember);
 
   return {
     // .NET reads this as a stream: as one interop call it would hit SignalR's 32 KB message cap
@@ -324,8 +220,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     stop,
     dispose() {
       stop();
-      zone.removeEventListener("change", onChange);
-      zone.removeEventListener("entriesdropped", onEntriesDropped);
+      stopListening();
       collectedFiles.clear();
       collectedMetadata = [];
     },

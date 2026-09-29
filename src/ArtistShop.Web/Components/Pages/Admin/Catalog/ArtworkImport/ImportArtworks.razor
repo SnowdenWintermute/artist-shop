@@ -48,7 +48,7 @@
   private static string ConfirmFieldName(string property) => $"{nameof(Confirm)}.{property}";
 
   // both forms post here rather than to the current address, which may still say what was last imported
-  private string ImportUrl => $"/admin/catalog/artworks/import?type={TypeIdValue}";
+  private string ImportUrl => $"{PageUrls.ArtworkImport}?type={TypeIdValue}";
 
   protected override async Task OnInitializedAsync()
   {

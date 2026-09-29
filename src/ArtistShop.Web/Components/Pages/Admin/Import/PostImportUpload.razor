@@ -1,0 +1,307 @@
+@rendermode InteractiveServer
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Exports
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+@inject PostRepository PostRepository
+@inject SeriesRepository SeriesRepository
+@inject ArtworkRepository ArtworkRepository
+@inject ImageStorage ImageStorage
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@code {
+  // well past a post download: a post's folder holds its page, its post.json and its images
+  private const int MaximumFiles = 5_000;
+
+  // a backstop only, as for the bulk image upload
+  private const long MaximumMetadataBytes = MaximumFiles * 400L;
+
+  // a post's text, which is small; its images are separate files
+  private const long MaximumPostFileBytes = 5L * Units.BytesPerMebibyte;
+
+  private ElementReference _zone;
+  private IJSObjectReference? _module;
+  private IJSObjectReference? _importer;
+  private DotNetObjectReference<PostImportUpload>? _selfReference;
+
+  private bool _tooManyFiles;
+  private bool _noPostFiles;
+  private bool _isReading;
+  private bool _isImporting;
+  private List<PostImportItem> _items = [];
+
+  // by the item's place in _items: null once imported, otherwise why it wasn't
+  private Dictionary<int, string?> _results = [];
+
+  // every upload so far, by the id the script knows its file by
+  private readonly Dictionary<string, ImageUploadResult> _uploadsByFileId = [];
+
+  private int WillAddCount => _items.Count(item => item.Outcome is PostImportOutcome.WillAdd);
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    // the page closed before the importer started, so nothing will be dropped on it
+    try
+    {
+      _module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Admin/Import/PostImportUpload.razor.js");
+      _selfReference = DotNetObjectReference.Create(this);
+      _importer = await _module.InvokeAsync<IJSObjectReference>("createPostImporter", _zone, _selfReference, MaximumFiles);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  [JSInvokable]
+  public async Task OnFilesCollected()
+  {
+    _tooManyFiles = false;
+    _noPostFiles = false;
+    _items = [];
+    _results = [];
+    _uploadsByFileId.Clear();
+    _isReading = true;
+    await InvokeAsync(StateHasChanged);
+
+    // the page closed while the folder was being read, so there is no one left to show it to
+    try
+    {
+      var folders = await ReadFoldersAsync();
+      _noPostFiles = folders.Count == 0;
+
+      if (folders.Count > 0)
+      {
+        _items = [.. PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, SeriesRepository, ArtworkRepository, ImageStorage))];
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+    finally
+    {
+      _isReading = false;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnTooManyFiles()
+  {
+    _tooManyFiles = true;
+    _noPostFiles = false;
+    _items = [];
+    _results = [];
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // each post.json with the files in its own folder
+  private async Task<List<PostImportFolder>> ReadFoldersAsync()
+  {
+    if (_importer is null)
+    {
+      return [];
+    }
+
+    List<CollectedFile> files;
+
+    await using (var metadata = await _importer.InvokeAsync<IJSStreamReference>("metadata"))
+    await using (var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes))
+    {
+      files = await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
+    }
+
+    var byFolder = files.ToLookup(file => FolderOf(file.Path));
+    var folders = new List<PostImportFolder>();
+
+    foreach (var postFile in files.Where(file => NameOf(file.Path) == PostExportJson.FileName))
+    {
+      var folder = FolderOf(postFile.Path);
+
+      folders.Add(
+        new PostImportFolder(
+          NameOf(folder),
+          // one too large isn't a post.json the download wrote, and reads as unreadable
+          postFile.Size <= MaximumPostFileBytes ? await ReadTextAsync(postFile.Id) : "",
+          byFolder[folder]
+            .Where(file => file.Id != postFile.Id)
+            .ToDictionary(file => NameOf(file.Path), file => file.Id)
+        )
+      );
+    }
+
+    return folders;
+  }
+
+  private async Task<string> ReadTextAsync(string fileId)
+  {
+    await using var file = await Unwrap.Value(_importer).InvokeAsync<IJSStreamReference>("file", fileId);
+    await using var stream = await file.OpenReadStreamAsync(MaximumPostFileBytes);
+    using var reader = new StreamReader(stream);
+
+    return await reader.ReadToEndAsync();
+  }
+
+  private async Task StartImportAsync()
+  {
+    if (_importer is null)
+    {
+      return;
+    }
+
+    _isImporting = true;
+
+    // the page closed, taking the files with it
+    try
+    {
+      await _importer.InvokeVoidAsync(
+        "importPosts",
+        _items
+          .Select((item, index) => (item, index))
+          .Where(pair => pair.item.Outcome is PostImportOutcome.WillAdd && !_results.ContainsKey(pair.index))
+          .Select(pair => new { pair.index, fileIds = pair.item.FileIdsByPlaceholder.Values })
+      );
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  private async Task StopImportAsync()
+  {
+    // the page closed, which stopped the import anyway
+    try
+    {
+      if (_importer is not null)
+      {
+        await _importer.InvokeVoidAsync("stop");
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  [JSInvokable]
+  public void OnFileUploaded(string fileId, ImageUploadResult result)
+  {
+    _uploadsByFileId[fileId] = result;
+  }
+
+  [JSInvokable]
+  public async Task OnPostFailed(int index, string message)
+  {
+    _results[index] = message;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // saved before the script goes on to the next post, since it waits for this to return
+  [JSInvokable]
+  public async Task OnPostUploaded(int index)
+  {
+    if (index >= 0 && index < _items.Count)
+    {
+      _results[index] = await PostImporter.SaveAsync(_items[index], _uploadsByFileId, PostRepository, ImageStorage);
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnImportFinished()
+  {
+    _isImporting = false;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // "site-posts/spring-notes/post.json" is in "site-posts/spring-notes"; a drop's leading slash
+  // makes no difference
+  private static string FolderOf(string path)
+  {
+    var trimmed = path.Trim('/');
+    var slash = trimmed.LastIndexOf('/');
+
+    return slash < 0 ? "" : trimmed[..slash];
+  }
+
+  private static string NameOf(string path) => path.Trim('/').Split('/')[^1];
+
+  public async ValueTask DisposeAsync()
+  {
+    try
+    {
+      if (_importer is not null)
+      {
+        await _importer.InvokeVoidAsync("dispose");
+        await _importer.DisposeAsync();
+      }
+
+      if (_module is not null)
+      {
+        await _module.DisposeAsync();
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+
+    _selfReference?.Dispose();
+  }
+}
+
+<DisabledUntilInteractive>
+  @* a run holds the files it hasn't sent yet, so nothing new may be collected until it ends *@
+  <fieldset class="contents" disabled="@_isImporting">
+    <div @ref="_zone">
+      <FileDropZoneFrame Prompt="Drop the unzipped post download here" ButtonLabel="@null" DirectoryButtonLabel="Choose a folder">
+        <input type="file" webkitdirectory class="hidden" />
+      </FileDropZoneFrame>
+    </div>
+  </fieldset>
+</DisabledUntilInteractive>
+
+@if (_tooManyFiles)
+{
+  <p class="mb-4 text-red-400">That's more than @MaximumFiles files. Choose the post download's folder itself.</p>
+}
+
+@if (_noPostFiles)
+{
+  <p class="mb-4 text-red-400">
+    That folder has no @PostExportJson.FileName files. Choose the unzipped post download, which has a folder for each post.
+  </p>
+}
+
+@if (_isReading)
+{
+  <p class="mb-4 text-sm">Reading the posts…</p>
+}
+
+@if (_isImporting)
+{
+  <div class="mb-4">
+    <p class="mb-2 text-sm">Importing… @_results.Count of @WillAddCount</p>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="StopImportAsync">Stop</ButtonBasic>
+  </div>
+}
+else if (WillAddCount > _results.Count)
+{
+  <div class="mb-4">
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="StartImportAsync">
+      Import @CountText.Of(WillAddCount - _results.Count, "post")
+    </ButtonBasic>
+  </div>
+}
+
+<PostImportReport Items="_items" Results="_results" />

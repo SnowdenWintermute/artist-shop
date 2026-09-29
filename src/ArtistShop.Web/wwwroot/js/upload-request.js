@@ -86,3 +86,33 @@ export function uploadErrorMessage(response) {
 
   return isPlainMessage ? response.text : `The upload failed (${response.status}).`;
 }
+
+export const MAXIMUM_UPLOAD_ATTEMPTS = 4;
+
+const LONGEST_RETRY_MILLISECONDS = 30000;
+
+// the server is busy or the request was shaped out by a limit, so the same file is worth sending again
+const RETRYABLE_STATUSES = [429, 503, 504];
+
+/** @param {number} status */
+export function isRetryable(status) {
+  return RETRYABLE_STATUSES.includes(status);
+}
+
+/**
+ * Retry-After says how long the server wants; without one the wait doubles each time. The
+ * random half keeps a batch of uploads from all coming back at the same moment
+ * @param {number} attempt
+ * @param {string | null} retryAfter
+ */
+export function retryDelay(attempt, retryAfter) {
+  const seconds = Number(retryAfter);
+  const wanted = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 1000 * 2 ** attempt;
+
+  return Math.min(wanted, LONGEST_RETRY_MILLISECONDS) * (0.5 + Math.random() / 2);
+}
+
+/** @param {number} milliseconds */
+export function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}

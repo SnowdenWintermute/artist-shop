@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
@@ -8,7 +9,8 @@ namespace ArtistShop.Web.Exports;
 // A post and its parsed body
 public record ExportedPost(Post Post, PostDocument Document);
 
-// The post download: a README, an index page, then a folder for each post holding its page and images
+// The post download: a README, an index page, then a folder for each post holding its page, its
+// images and the post.json the post import reads
 public static class PostExportArchive
 {
     // An artwork's picture is a web copy about this wide: sharp at twice the medium embed, the
@@ -39,6 +41,7 @@ public static class PostExportArchive
             var postFolder = $"{folderName}/{post.Slug.Value}";
             var images = new Dictionary<PostBlock, PostExportImage>();
             var filesByStorageKey = new Dictionary<string, PostExportImage>();
+            var sha256ByStorageKey = new Dictionary<string, string>();
 
             foreach (var block in document.Blocks)
             {
@@ -76,6 +79,12 @@ public static class PostExportArchive
                     ? await AddOriginalAsync(zip, postFolder, name, imageStorage.OriginalPath(source.StorageKey), cancellationToken)
                     : null;
 
+                // an artwork's original is in the image download, not here, so post.json names it by its hash
+                if (!source.KeepsOriginal)
+                {
+                    sha256ByStorageKey[source.StorageKey] = await Sha256Async(imageStorage.OriginalPath(source.StorageKey), cancellationToken);
+                }
+
                 var image = new PostExportImage(fileName, originalFileName, source.Alt, source.Width, source.Height);
                 filesByStorageKey[source.StorageKey] = image;
                 images[block] = image;
@@ -85,6 +94,13 @@ public static class PostExportArchive
                 zip,
                 $"{folderName}/{PostExportHtml.PagePath(post)}",
                 PostExportHtml.Page(post, document, images, siteOrigin),
+                cancellationToken
+            );
+
+            await ExportZip.AddTextAsync(
+                zip,
+                $"{postFolder}/{PostExportJson.FileName}",
+                PostExportJson.Write(post, document, images, artworkImages, sha256ByStorageKey),
                 cancellationToken
             );
         }
@@ -129,9 +145,22 @@ public static class PostExportArchive
           - Links to pages of the website point to the website.
           - Dates are the day in UTC, so one written late in the evening may show the next day.
 
-        Not included
-          A way to import these posts into another website here. That's still to come.
+        {PostExportJson.FileName}
+          In each post's folder, the post as the post import reads it. Don't change it by hand.
+
+        Importing into another website here
+          Import the catalog and images first, so the posts' artwork pictures link to their artworks
+          again. Then choose this whole folder, unzipped, under Import > Posts. A post whose title is
+          already there is skipped, so running it again only adds what's missing.
         """;
+
+    // lower case hex, as Convert.ToHexStringLower writes it
+    public static async Task<string> Sha256Async(string path, CancellationToken cancellationToken)
+    {
+        await using var file = ExportZip.OpenFile(path);
+
+        return Convert.ToHexStringLower(await SHA256.HashDataAsync(file, cancellationToken));
+    }
 
     // KeepsOriginal is true for an image uploaded into the post
     private record ImageSource(string StorageKey, int Width, int Height, string Alt, bool KeepsOriginal);

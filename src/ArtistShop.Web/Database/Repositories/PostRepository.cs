@@ -120,22 +120,31 @@ public class PostRepository(SiteDatabase database)
         return [.. rows.Select(row => row.ToPostMention())];
     }
 
+    // a published post is dated now
+    public Task<PostId> AddAsync(PostTitle title, PostSlug slug, PostBody body, PostStatus status) =>
+        AddAsync(title, slug, body, isPublished: status is PostStatus.Published, publishedAt: null);
+
+    // the post import's, keeping the date it was published on the other website; null is a draft
+    public Task<PostId> AddImportedAsync(PostTitle title, PostSlug slug, PostBody body, DateTimeOffset? publishedAt) =>
+        AddAsync(title, slug, body, isPublished: publishedAt is not null, publishedAt);
+
     // Npgsql sends a C# string as text, and Postgres has no implicit cast from text to jsonb, so
     // the body is cast in the call or the function isn't found
-    public async Task<PostId> AddAsync(PostTitle title, PostSlug slug, PostBody body, PostStatus status)
+    private async Task<PostId> AddAsync(PostTitle title, PostSlug slug, PostBody body, bool isPublished, DateTimeOffset? publishedAt)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "SELECT add_post(@Title, @Slug, CAST(@Body AS jsonb), @IsPublished)",
+                "SELECT add_post(@Title, @Slug, CAST(@Body AS jsonb), @IsPublished, @PublishedAt)",
                 new
                 {
                     Title = title.Value,
                     Slug = slug.Value,
                     Body = body.Json,
-                    IsPublished = status is PostStatus.Published,
+                    IsPublished = isPublished,
+                    PublishedAt = publishedAt,
                 }
             );
 

@@ -23,6 +23,9 @@ public static class PageUrls
             ("type", typeId?.Value.ToString(CultureInfo.InvariantCulture))
         );
 
+    // with no type, the page asks for one
+    public const string ArtworkImport = "/admin/catalog/artworks/import";
+
     public const string ArtworkTypeImport = "/admin/catalog/types/import";
 
     public const string VocabularyImport = "/admin/catalog/vocabularies/import";
@@ -51,6 +54,12 @@ public static class PageUrls
 
     // on a site's host
     public const string Export = "/admin/export";
+
+    // on a site's host
+    public const string Import = "/admin/import";
+
+    // on a site's host
+    public const string PostImport = "/admin/import/posts";
 
     // A site's home page and its admin, on the platform page's scheme and port (5176 in dev). Being
     // signed in on the platform doesn't sign anyone in there: each host has its own cookie, so the

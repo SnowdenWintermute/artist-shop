@@ -23,20 +23,11 @@
 <main class="@AdminPanel.WidthClass">
   <div class="grid gap-4 sm:grid-cols-2">
     <DashboardBox Title="Catalog">
-      <ul class="mb-4">
+      <ul>
         <DashboardLink Href="/admin/catalog/vocabularies/new">Vocabularies</DashboardLink>
         <DashboardLink Href="/admin/catalog/series">Series</DashboardLink>
         <DashboardLink Href="/admin/catalog/types/new">Artwork types</DashboardLink>
       </ul>
-      @* in the order a new website needs them: types before the vocabularies that name them *@
-      <div class="flex flex-wrap gap-2">
-        <LinkButton href="@PageUrls.ArtworkTypeImport" Variant="ButtonVariant.Outline">
-          <IconLabel Icon="icons/csv.svg">Import artwork types</IconLabel>
-        </LinkButton>
-        <LinkButton href="@PageUrls.VocabularyImport" Variant="ButtonVariant.Outline">
-          <IconLabel Icon="icons/csv.svg">Import vocabularies</IconLabel>
-        </LinkButton>
-      </div>
     </DashboardBox>
 
     <DashboardBox Title="Artworks">
@@ -68,6 +59,7 @@
             <DashboardLink Href="@PageUrls.SiteAdmins">Admins</DashboardLink>
           </Authorized>
         </AuthorizeView>
+        <DashboardLink Href="@PageUrls.Import">Import</DashboardLink>
         <DashboardLink Href="@PageUrls.Export">Export</DashboardLink>
       </ul>
     </DashboardBox>

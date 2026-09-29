@@ -12,9 +12,9 @@ public static partial class PostDocumentParser
 {
     // the names the editor registers its embeds under. Prefixed so they can't be mistaken for, or
     // collide with, one of Quill's own formats. set_post_artworks reads the artwork one too
-    private const string ArtworkEmbedName = "artshop-artwork";
-    private const string PostImageEmbedName = "artshop-image";
-    private const string VideoEmbedName = "artshop-video";
+    public const string ArtworkEmbedName = "artshop-artwork";
+    public const string PostImageEmbedName = "artshop-image";
+    public const string VideoEmbedName = "artshop-video";
 
     public static PostDocument Parse(PostBody body) => Read(body, droppedLinks: []);
 
@@ -28,6 +28,10 @@ public static partial class PostDocumentParser
         Read(body, droppedLinks);
         return [.. droppedLinks.Distinct()];
     }
+
+    // what a save, or the post import, tells the artist about a link LinksDropped found
+    public static string DroppedLinkProblem(string link) =>
+        $"The link \"{link}\" won't work. A link has to start with https://, http://, mailto: or / (a page on this website).";
 
     // each link it drops is added to droppedLinks
     private static PostDocument Read(PostBody body, List<string> droppedLinks)
@@ -225,8 +229,7 @@ public static partial class PostDocumentParser
         return null;
     }
 
-    private static EmbedImageSize ReadSize(JsonElement embed) =>
-        GetString(embed, "size") is "small" ? EmbedImageSize.Small : EmbedImageSize.Medium;
+    private static EmbedImageSize ReadSize(JsonElement embed) => EmbedImageSizeNames.Parse(GetString(embed, "size"));
 
     // stored as typed, so the editor never trims a space from under the artist's cursor
     private static string? ReadCaption(JsonElement embed) =>

@@ -11,6 +11,7 @@ using ArtistShop.Web.Exports;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
 using ArtistShop.Web.Sites;
+using ArtistShop.Web.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
@@ -193,7 +194,9 @@ public sealed class ExportTests(TestApp app)
                 "spring-notes/image-1.webp",
                 "spring-notes/image-2-original.tiff",
                 "spring-notes/image-2.webp",
+                "spring-notes/post.json",
                 "spring-notes/spring-notes.html",
+                "unfinished/post.json",
                 "unfinished/unfinished.html",
             ],
             files.Keys.Order(StringComparer.Ordinal)
@@ -239,13 +242,99 @@ public sealed class ExportTests(TestApp app)
         var files = await ReadZipAsync(await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken));
 
         Assert.Equal(
-            ["README.txt", "index.html", "twice/image-1-original.jpg", "twice/image-1.webp", "twice/twice.html"],
+            ["README.txt", "index.html", "twice/image-1-original.jpg", "twice/image-1.webp", "twice/post.json", "twice/twice.html"],
             files.Keys.Order(StringComparer.Ordinal)
         );
         var page = files["twice/twice.html"];
         Assert.Contains("""<img src="image-1.webp" alt="First" """, page);
         Assert.Contains("""<img src="image-1.webp" alt="Again" """, page);
         Assert.DoesNotContain("Gone", page);
+    }
+
+    // Downloaded from one website and imported into another that has the same artwork, as the Import
+    // page's post import does, with the browser's uploads written straight to the new website's disk
+    [Fact]
+    public async Task ImportedPostsKeepTheirDateAndLinkToTheArtworkWithTheSameImage()
+    {
+        byte[] dawnBytes = [0xFF, 0xD8, 0xFF, 1, 2, 3];
+        var from = await app.MakeSiteAsync();
+        var fromCatalog = Catalog(from.Id);
+        var fromImage = await SaveOriginalAsync(from.Id, dawnBytes);
+        await SaveWebCopyAsync(from.Id, fromImage.StorageKey);
+        var fromDawn = await fromCatalog.Artworks.AddAsync(
+            Addition(
+                await TypeIdAsync(fromCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                images: [fromImage]
+            )
+        );
+        var upload = await SaveOriginalAsync(from.Id, [(byte)'I', (byte)'I', 0x2A, 0, 9]);
+        await SaveWebCopyAsync(from.Id, upload.StorageKey);
+        var body = new PostBody(
+            """
+            {"ops":[
+              {"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY","layout":"floatLeft","caption":"Early light"}}},
+              {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","width":10,"height":10,"alt":"A study"}}},
+              {"insert":"More at "},{"insert":"the gardens","attributes":{"link":"/series/gardens"}},{"insert":"\n"}
+            ]}
+            """
+                .Replace("ARTWORK_ID", $"{fromDawn.Id.Value}")
+                .Replace("ARTWORK_KEY", fromImage.StorageKey)
+                .Replace("UPLOAD_KEY", upload.StorageKey)
+        );
+        var fromPosts = Posts(from.Id);
+        await fromPosts.AddAsync(new PostTitle("Spring notes"), new PostSlug("spring-notes"), body, PostStatus.Published);
+        var published = (await fromPosts.GetBySlugAsync(new PostSlug("spring-notes")))?.PublishedAt;
+        Assert.NotNull(published);
+        var client = await app.SignedInClientAsync(from.Host, await app.MakeAdminAsync(from.Id));
+        var files = await ReadZipAsync(await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken), ReadBytesAsync);
+
+        var to = await app.MakeSiteAsync();
+        var toCatalog = Catalog(to.Id);
+        var toImage = await SaveOriginalAsync(to.Id, dawnBytes);
+        var toDawn = await toCatalog.Artworks.AddAsync(
+            Addition(
+                await TypeIdAsync(toCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                images: [toImage]
+            )
+        );
+        var folder = new PostImportFolder(
+            "spring-notes",
+            Encoding.UTF8.GetString(files[$"spring-notes/{PostExportJson.FileName}"]),
+            files.Keys.Where(path => path.StartsWith("spring-notes/")).ToDictionary(path => path["spring-notes/".Length..], path => path)
+        );
+        var toPosts = Posts(to.Id);
+        var toStorage = ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), to.Id);
+
+        var item = Assert.Single(
+            PostImportPlanner.Plan([folder], await PostImportTarget.LoadAsync([folder], toPosts, toCatalog.Series, toCatalog.Artworks, toStorage))
+        );
+
+        Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
+        Assert.Equal(1, item.RelinkedArtworkCount);
+        Assert.Equal(["/series/gardens"], item.BrokenLinks);
+        var fileId = Assert.Single(item.FileIdsByPlaceholder.Values);
+        Assert.Equal("spring-notes/image-2-original.tiff", fileId);
+        var uploaded = await SaveOriginalAsync(to.Id, files[fileId]);
+        var uploads = new Dictionary<string, ImageUploadResult>
+        {
+            [fileId] = new(uploaded.StorageKey, "image-2-original.tiff", 10, 10, "data:image/webp;base64,AAAA"),
+        };
+
+        Assert.Null(await PostImporter.SaveAsync(item, uploads, toPosts, toStorage));
+
+        var imported = await toPosts.GetBySlugAsync(new PostSlug("spring-notes"));
+        Assert.NotNull(imported);
+        Assert.NotNull(imported.PublishedAt);
+        Assert.Equal(DateText.DateTimeAttribute(published.Value), DateText.DateTimeAttribute(imported.PublishedAt.Value));
+        var blocks = PostDocumentParser.Parse(imported.Body).Blocks;
+        Assert.Equal(
+            new ArtworkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.FloatLeft, "Early light"),
+            blocks.OfType<ArtworkEmbedBlock>().Single()
+        );
+        var image = blocks.OfType<PostImageEmbedBlock>().Single();
+        Assert.Equal((uploaded.StorageKey, "A study"), (image.StorageKey, image.Alt));
+        // the post shows on the artwork's page, as one written here would
+        Assert.Single(await toPosts.GetPublishedMentioningArtworkAsync(toDawn.Id));
     }
 
     [Fact]
