@@ -61,6 +61,9 @@ public static class PageUrls
     // on a site's host
     public const string PostImport = "/admin/import/posts";
 
+    // on a site's host
+    public const string WebsiteImport = "/admin/import/website";
+
     // A site's home page, its admin and its Export page, on the platform page's scheme and port (5176 in dev). Being
     // signed in on the platform doesn't sign anyone in there: each host has its own cookie, so the
     // admin sends someone not signed in on that site to its sign-in first

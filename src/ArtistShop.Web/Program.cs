@@ -1,5 +1,6 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
+using ArtistShop.Web.Components.Icons;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Email;
@@ -56,6 +57,8 @@ var imageStorageRootPath = Path.GetFullPath(
 
 var imageStorageSettings = new ImageStorageSettings(imageStorageRootPath);
 builder.Services.AddSingleton(imageStorageSettings);
+
+builder.Services.AddSingleton(services => new SvgIconFiles(services.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider));
 
 // sites: the platform's tables, each site's own schema, and which one a request is for
 const string PlatformDataSourceKey = "platform";

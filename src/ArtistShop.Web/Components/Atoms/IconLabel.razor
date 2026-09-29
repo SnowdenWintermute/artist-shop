@@ -1,15 +1,21 @@
+@using ArtistShop.Web.Components.Icons
+@using ArtistShop.Web.Utilities
 @* a button's or link's text with a decorative icon before it *@
 
 @code {
-  // a path under wwwroot, like "icons/csv.svg"
+  // the path inside wwwroot/icons without ".svg", like "folder-open"
   [Parameter, EditorRequired]
   public string Icon { get; set; } = default!;
 
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
+
+  // the icon's, such as a colour other than the text's
+  [Parameter]
+  public string? Class { get; set; } = default;
 }
 
 <span class="flex items-center gap-2">
-  <img src="@Assets[Icon]" alt="" class="size-5" />
+  <SvgIcon Name="@Icon" Class="@ClassNames.Join("size-5 shrink-0", Class)" />
   @ChildContent
 </span>

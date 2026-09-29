@@ -1,12 +1,24 @@
+using System.IO.Compression;
 using ArtistShop.Web.Images;
 
 namespace ArtistShop.Web.Exports;
 
-// An image download, one part or all of them
+// An image download, one part or all of them, with images.csv saying whose each file is
 public static class ImageExportArchive
 {
-    // Each file is read from the start again after its first bytes, so this streams every original
-    // once. An original gone since the page listed it (the artwork was deleted) is left out
+    public const string ImageListFileName = "images.csv";
+
+    // images.csv's columns: the file's path inside the download's folder, its artwork, and the
+    // SHA-256 of the file, which post.json names an artwork picture by
+    public static class ImageListHeaders
+    {
+        public const string File = "file";
+        public const string ArtworkType = "artworkType";
+        public const string Title = "title";
+        public const string Slug = "slug";
+        public const string Sha256 = "sha256";
+    }
+
     public static async Task WriteAsync(
         Stream destination,
         IEnumerable<ImageExportEntry> entries,
@@ -16,6 +28,21 @@ public static class ImageExportArchive
     )
     {
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
+        await AddAsync(zip, entries, folderName, imageStorage, cancellationToken);
+    }
+
+    // Each file is read from the start again after its first bytes, so this streams every original
+    // once. An original gone since the page listed it (the artwork was deleted) is left out
+    public static async Task AddAsync(
+        ZipArchive zip,
+        IEnumerable<ImageExportEntry> entries,
+        string folderName,
+        ImageStorage imageStorage,
+        CancellationToken cancellationToken
+    )
+    {
+        var imageList = new CsvText();
+        imageList.AddRow([ImageListHeaders.File, ImageListHeaders.ArtworkType, ImageListHeaders.Title, ImageListHeaders.Slug, ImageListHeaders.Sha256]);
 
         foreach (var entry in entries)
         {
@@ -31,14 +58,13 @@ public static class ImageExportArchive
             var format = await ExportImageFormat.ReadAsync(original, cancellationToken);
             var extension = format?.Extension ?? Path.GetExtension(entry.Image.OriginalFileName) ?? "";
 
-            await ExportZip.AddFileAsync(
-                zip,
-                $"{folderName}/{entry.PathWithoutExtension}{extension}",
-                original,
-                ExportZip.CompressionFor(format),
-                cancellationToken
-            );
+            var path = $"{entry.PathWithoutExtension}{extension}";
+            var sha256 = await ExportZip.AddFileWithSha256Async(zip, $"{folderName}/{path}", original, ExportZip.CompressionFor(format), cancellationToken);
+            imageList.AddRow([path, entry.Artwork.Type.Name.Value, entry.Artwork.Name.Value, entry.Artwork.Slug.Value, sha256]);
         }
+
+        // last, since each file's hash is only known once it's been copied
+        await ExportZip.AddCsvAsync(zip, $"{folderName}/{ImageListFileName}", imageList.ToString(), cancellationToken);
     }
 
     // what the Export page lists for a download: the originals still on disk and their total size

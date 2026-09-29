@@ -31,7 +31,7 @@ public static class PostExportJson
     public const string ImageSha256Property = "imageSha256";
 
     // indented, and with accented letters as they are rather than as \u escapes, for a person reading it
-    private static readonly JsonSerializerOptions Readable = new()
+    public static readonly JsonSerializerOptions Readable = new()
     {
         WriteIndented = true,
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),

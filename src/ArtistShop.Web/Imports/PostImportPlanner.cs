@@ -15,14 +15,53 @@ namespace ArtistShop.Web.Imports;
 // name, as the id the page's script knows the file by
 public record PostImportFolder(string Name, string Json, IReadOnlyDictionary<string, string> FileIdsByName);
 
-// The website being imported into. Sha256ByStorageKey holds the hash of each image original
+// What a post's artwork picture says about its artwork on the website it came from
+public record PostArtworkReference(string? Slug, string? Title, string Sha256);
+
+// the artwork a post's artwork picture links to here, and which of its images it shows
+public record PostArtworkLink(ArtworkId ArtworkId, string StorageKey);
+
+// Where a post's artwork pictures find their artworks, and which artwork pages its links can reach.
+// The post import asks the website's own artworks; the whole-website review answers for the
+// artworks it would add as well
+public interface IPostImportArtworks
+{
+    IReadOnlySet<string> Slugs { get; }
+
+    PostArtworkLink? Find(PostArtworkReference reference);
+}
+
+// The website's artworks. Sha256ByStorageKey holds the hash of each image original
 // ArtworkImagesToHash asked for
-public record PostImportTarget(
-    IReadOnlySet<string> PostSlugs,
-    IReadOnlySet<string> SeriesSlugs,
-    IReadOnlyList<Artwork> Artworks,
-    IReadOnlyDictionary<string, string> Sha256ByStorageKey
-)
+public sealed class WebsiteArtworks(IReadOnlyList<Artwork> artworks, IReadOnlyDictionary<string, string> sha256ByStorageKey)
+    : IPostImportArtworks
+{
+    public IReadOnlySet<string> Slugs { get; } = artworks.Select(artwork => artwork.Slug.Value).ToHashSet();
+
+    // the artwork with the same slug, or failing that the same title, that has an image whose
+    // original hashes the same
+    public PostArtworkLink? Find(PostArtworkReference reference)
+    {
+        foreach (var artwork in PostImportPlanner.Candidates(reference.Slug, reference.Title, artworks))
+        {
+            foreach (var image in artwork.Images)
+            {
+                if (
+                    sha256ByStorageKey.TryGetValue(image.StorageKey, out var imageSha256)
+                    && string.Equals(imageSha256, reference.Sha256, StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    return new PostArtworkLink(artwork.Id, image.StorageKey);
+                }
+            }
+        }
+
+        return null;
+    }
+}
+
+// The website being imported into
+public record PostImportTarget(IReadOnlySet<string> PostSlugs, IReadOnlySet<string> SeriesSlugs, IPostImportArtworks Artworks)
 {
     // Hashes only the originals of artworks a post may show, rather than every image on the website
     public static async Task<PostImportTarget> LoadAsync(
@@ -47,8 +86,7 @@ public record PostImportTarget(
         return new PostImportTarget(
             (await posts.GetAllAsync()).Select(post => post.Slug.Value).ToHashSet(),
             (await series.GetAllAsync()).Select(oneSeries => oneSeries.Slug.Value).ToHashSet(),
-            artworks,
-            sha256ByStorageKey
+            new WebsiteArtworks(artworks, sha256ByStorageKey)
         );
     }
 }
@@ -100,7 +138,7 @@ public static class PostImportPlanner
         return
         [
             .. embeds
-                .SelectMany(embed => Candidates(embed, artworks))
+                .SelectMany(embed => Candidates(StringOf(embed[PostExportJson.ArtworkSlugProperty]), StringOf(embed[PostExportJson.ArtworkTitleProperty]), artworks))
                 .SelectMany(artwork => artwork.Images)
                 .Select(image => image.StorageKey)
                 .Distinct(),
@@ -348,7 +386,7 @@ public static class PostImportPlanner
             {
                 if (Relink(artwork, target) is { } found)
                 {
-                    var value = CopyLook(artwork, new JsonObject { ["artworkId"] = found.Artwork.Id.Value, ["storageKey"] = found.Image.StorageKey });
+                    var value = CopyLook(artwork, new JsonObject { ["artworkId"] = found.ArtworkId.Value, ["storageKey"] = found.StorageKey });
                     localized.Add(new JsonObject { ["insert"] = new JsonObject { [PostDocumentParser.ArtworkEmbedName] = value } });
                     relinked++;
                 }
@@ -397,45 +435,23 @@ public static class PostImportPlanner
         return to;
     }
 
-    private record ArtworkMatch(Artwork Artwork, ArtworkImage Image);
-
-    // the artwork with the same slug, or failing that the same title, that has an image whose
-    // original hashes the same
-    private static ArtworkMatch? Relink(JsonObject embed, PostImportTarget target)
-    {
-        if (StringOf(embed[PostExportJson.ImageSha256Property]) is not { } sha256)
-        {
-            return null;
-        }
-
-        foreach (var artwork in Candidates(embed, target.Artworks))
-        {
-            foreach (var image in artwork.Images)
-            {
-                if (
-                    target.Sha256ByStorageKey.TryGetValue(image.StorageKey, out var imageSha256)
-                    && string.Equals(imageSha256, sha256, StringComparison.OrdinalIgnoreCase)
+    private static PostArtworkLink? Relink(JsonObject embed, PostImportTarget target) =>
+        StringOf(embed[PostExportJson.ImageSha256Property]) is { } sha256
+            ? target.Artworks.Find(
+                new PostArtworkReference(
+                    StringOf(embed[PostExportJson.ArtworkSlugProperty]),
+                    StringOf(embed[PostExportJson.ArtworkTitleProperty]),
+                    sha256
                 )
-                {
-                    return new ArtworkMatch(artwork, image);
-                }
-            }
-        }
-
-        return null;
-    }
+            )
+            : null;
 
     // the catalog import makes a slug from the title, so an artwork whose slug was taken here has
     // another one but still its title
-    private static IEnumerable<Artwork> Candidates(JsonObject embed, IReadOnlyList<Artwork> artworks)
-    {
-        var slug = StringOf(embed[PostExportJson.ArtworkSlugProperty]);
-        var title = StringOf(embed[PostExportJson.ArtworkTitleProperty]);
-
-        return artworks
+    public static IEnumerable<Artwork> Candidates(string? slug, string? title, IReadOnlyList<Artwork> artworks) =>
+        artworks
             .Where(artwork => artwork.Slug.Value == slug || artwork.Name.Value == title)
             .OrderByDescending(artwork => artwork.Slug.Value == slug);
-    }
 
     private static IEnumerable<JsonObject> ArtworkEmbedValues(JsonArray ops) =>
         ops.OfType<JsonObject>()
@@ -451,7 +467,6 @@ public static class PostImportPlanner
             return [];
         }
 
-        var artworkSlugs = target.Artworks.Select(artwork => artwork.Slug.Value).ToHashSet();
 
         bool Works(string link)
         {
@@ -463,7 +478,7 @@ public static class PostImportPlanner
                 [] or ["posts"] => true,
                 ["posts", var slug] => target.PostSlugs.Contains(slug) || slugsInImport.Contains(slug),
                 ["series", var slug] => target.SeriesSlugs.Contains(slug),
-                ["artworks", var slug] => artworkSlugs.Contains(slug),
+                ["artworks", var slug] => target.Artworks.Slugs.Contains(slug),
                 _ => false,
             };
         }

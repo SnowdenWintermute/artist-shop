@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace ArtistShop.Web.Exports;
@@ -8,6 +9,9 @@ namespace ArtistShop.Web.Exports;
 public static class ExportZip
 {
     public const string ReadmeFileName = "README.txt";
+
+    // the byte order mark tells Excel a CSV file is UTF-8, and the imports skip it
+    public static readonly UTF8Encoding Utf8WithByteOrderMark = new(encoderShouldEmitUTF8Identifier: true);
 
     public static Task<ZipArchive> CreateAsync(Stream destination, CancellationToken cancellationToken) =>
         ZipArchive.CreateAsync(destination, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, cancellationToken);
@@ -27,10 +31,39 @@ public static class ExportZip
         await source.CopyToAsync(target, cancellationToken);
     }
 
-    public static async Task AddTextAsync(ZipArchive zip, string path, string text, CancellationToken cancellationToken)
+    // the SHA-256 of what was copied, in lower case hex, worked out on the way so the file is read once
+    public static async Task<string> AddFileWithSha256Async(
+        ZipArchive zip,
+        string path,
+        Stream source,
+        CompressionLevel compression,
+        CancellationToken cancellationToken
+    )
+    {
+        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        await using var target = await zip.CreateEntry(path, compression).OpenAsync(cancellationToken);
+        var buffer = new byte[81_920];
+        int read;
+
+        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+        {
+            sha256.AppendData(buffer, 0, read);
+            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+
+        return Convert.ToHexStringLower(sha256.GetHashAndReset());
+    }
+
+    public static Task AddTextAsync(ZipArchive zip, string path, string text, CancellationToken cancellationToken) =>
+        AddBytesAsync(zip, path, Encoding.UTF8.GetBytes(text), cancellationToken);
+
+    public static Task AddCsvAsync(ZipArchive zip, string path, string text, CancellationToken cancellationToken) =>
+        AddBytesAsync(zip, path, [.. Utf8WithByteOrderMark.GetPreamble(), .. Utf8WithByteOrderMark.GetBytes(text)], cancellationToken);
+
+    private static async Task AddBytesAsync(ZipArchive zip, string path, byte[] bytes, CancellationToken cancellationToken)
     {
         await using var target = await zip.CreateEntry(path, CompressionLevel.Optimal).OpenAsync(cancellationToken);
-        await target.WriteAsync(Encoding.UTF8.GetBytes(text), cancellationToken);
+        await target.WriteAsync(bytes, cancellationToken);
     }
 
     // already compressed formats are stored, since deflating them again costs time and saves almost

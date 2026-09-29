@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Utilities
 
@@ -32,28 +33,17 @@
 
 @foreach (var outcome in Order)
 {
-  var files = Files.Where(file => file.Outcome == outcome).ToList();
-
-  @if (files.Count > 0)
-  {
-    <div class="mb-4">
-      <h3 class="mb-1">@Describe(outcome): @files.Count</h3>
-      <ul class="text-sm">
-        @foreach (var file in files)
-        {
-          <li>
-            @file.Path
-            @foreach (var artworkId in file.ArtworkIds)
-            {
-              <a class="ml-2 underline" href="@PageUrls.EditArtwork(new ArtworkId(artworkId))">Edit artwork @artworkId</a>
-            }
-            @if (file.Error is not null)
-            {
-              <span class="text-red-400"> — @file.Error</span>
-            }
-          </li>
-        }
-      </ul>
-    </div>
-  }
+  <ReportGroup Heading="@Describe(outcome)" Items="@(Files.Where(file => file.Outcome == outcome).ToList())" Context="file">
+    <ItemContent>
+      @file.Path
+      @foreach (var artworkId in file.ArtworkIds)
+      {
+        <a class="ml-2 underline" href="@PageUrls.EditArtwork(new ArtworkId(artworkId))">Edit artwork @artworkId</a>
+      }
+      @if (file.Error is not null)
+      {
+        <span class="text-red-400"> — @file.Error</span>
+      }
+    </ItemContent>
+  </ReportGroup>
 }

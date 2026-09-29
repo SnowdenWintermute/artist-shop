@@ -3,8 +3,8 @@ using ArtistShop.Web.Imports;
 
 namespace ArtistShop.Web.Exports;
 
-// one image, at its path inside the download's folder, without the extension its bytes decide
-public record ImageExportEntry(string PathWithoutExtension, ArtworkImage Image);
+// one image of an artwork, at its path inside the download's folder, without the extension its bytes decide
+public record ImageExportEntry(string PathWithoutExtension, Artwork Artwork, ArtworkImage Image);
 
 // One image download: the originals of one artwork type's artworks in one series, or in none.
 // The folders are Type/Series/, the layout the bulk image upload reads when given the Type folder
@@ -54,7 +54,7 @@ public static class ImageExportPlan
                 .. artworks
                     .OrderBy(artwork => names[artwork], ImportNames.Comparer)
                     .SelectMany(artwork => artwork.Images.Select((image, index) =>
-                        new ImageExportEntry($"{folder}/{ImageFileName(names[artwork], index)}", image)
+                        new ImageExportEntry($"{folder}/{ImageFileName(names[artwork], index)}", artwork, image)
                     )),
             ]
         );

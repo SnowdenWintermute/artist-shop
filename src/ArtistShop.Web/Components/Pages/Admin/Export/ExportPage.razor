@@ -17,9 +17,25 @@
 <AdminPanel>
   <h1 class="mb-4 text-xl">Export your website</h1>
   <p class="mb-4">
-    Download all images and data on your website. The artwork and post downloads each have a README saying what's included and what isn't.
+    Download all images and data on your website. The artwork and post downloads each have a README saying what's
+    included and what isn't.
     Only one image or post download can run at a time.
   </p>
+
+  <div class="mb-6 flex flex-col items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">Everything</h2>
+      <p class="text-sm">
+        The artworks, images and posts below in one download, which another website here can import in one go.
+      </p>
+    </div>
+    @* no download attribute, as for the images below *@
+    <LinkButton Variant="ButtonVariant.Primary" href="@ExportEndpoints.EverythingPath" data-enhance-nav="false">
+      Download everything
+    </LinkButton>
+  </div>
+
+  <Divider Class="mb-6" />
 
   <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div>
@@ -83,7 +99,8 @@
     <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
       <div>
         <div>All images</div>
-        <div class="text-sm">@CountText.Of(_parts.Sum(part => part.Size.Count), "image"), @Size(_parts.Sum(part => part.Size.Bytes))
+        <div class="text-sm">@CountText.Of(_parts.Sum(part => part.Size.Count), "image"), @Size(_parts.Sum(part =>
+                  part.Size.Bytes))
         </div>
       </div>
       @* no download attribute, as below *@
@@ -92,7 +109,7 @@
       </LinkButton>
     </div>
 
-    <div class="h-0.5 my-2 bg-theme-base w-full"></div>
+    <Divider Class="my-2" />
     <h3 class="">Download images by type and series</h3>
     <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download a series' images</p>
 

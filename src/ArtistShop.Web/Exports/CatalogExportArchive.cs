@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Text;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Imports;
 
@@ -13,51 +12,77 @@ public static class CatalogExportArchive
     public const string ProductsFileName = "products.csv";
     public const string ArtworksFolder = "artworks";
 
-    // the byte order mark tells Excel the file is UTF-8, and the import skips it
-    private static readonly UTF8Encoding Utf8WithByteOrderMark = new(encoderShouldEmitUTF8Identifier: true);
-
-    // Everything goes in one folder, so unzipping gives a folder rather than loose files. Artworks
-    // whose type isn't in the snapshot are left out
+    // Everything goes in one folder, so unzipping gives a folder rather than loose files
     public static byte[] Create(CatalogSetupSnapshot snapshot, IReadOnlyList<Artwork> artworks, string folderName)
     {
-        var listSeparator = ArtworkCsvExport.ChooseListSeparator(
-            CatalogSetupCsvExport.ListedNames(snapshot).Concat(ArtworkCsvExport.SeriesNames(artworks))
-        );
-        var artworksByType = artworks.ToLookup(artwork => artwork.Type.Id);
-
         using var zipBytes = new MemoryStream();
 
         using (var zip = new ZipArchive(zipBytes, ZipArchiveMode.Create))
         {
-            AddText(zip, folderName, ExportZip.ReadmeFileName, Readme(listSeparator));
-            AddText(zip, folderName, ArtworkTypesFileName, CatalogSetupCsvExport.ArtworkTypes(snapshot, listSeparator));
-            AddText(zip, folderName, VocabulariesFileName, CatalogSetupCsvExport.Vocabularies(snapshot, listSeparator));
-            AddText(zip, folderName, ProductsFileName, ArtworkCsvExport.Products(artworks));
-
-            // a type with no artworks has nothing to move
-            foreach (var type in snapshot.Types.Where(type => artworksByType.Contains(type.Id)))
+            foreach (var (path, text) in Files(snapshot, artworks))
             {
-                AddText(
-                    zip,
-                    folderName,
-                    $"{ArtworksFolder}/{TypeFileName(type)}",
-                    ArtworkCsvExport.ForType(type, snapshot.VocabulariesFor(type.Id), artworksByType[type.Id], listSeparator)
-                );
+                using var entry = zip.CreateEntry($"{folderName}/{path}", CompressionLevel.Optimal).Open();
+                using var writer = new StreamWriter(entry, ExportZip.Utf8WithByteOrderMark);
+                writer.Write(text);
             }
         }
 
         return zipBytes.ToArray();
     }
 
+    // the same files, into a zip being written, as the whole-website download does
+    public static async Task AddAsync(
+        ZipArchive zip,
+        CatalogSetupSnapshot snapshot,
+        IReadOnlyList<Artwork> artworks,
+        string folderName,
+        CancellationToken cancellationToken
+    )
+    {
+        foreach (var (path, text) in Files(snapshot, artworks))
+        {
+            await ExportZip.AddCsvAsync(zip, $"{folderName}/{path}", text, cancellationToken);
+        }
+    }
+
+    // the character that separates the names in a list cell: the first one no listed name contains
+    public static char ListSeparator(CatalogSetupSnapshot snapshot, IReadOnlyList<Artwork> artworks) =>
+        ArtworkCsvExport.ChooseListSeparator(CatalogSetupCsvExport.ListedNames(snapshot).Concat(ArtworkCsvExport.SeriesNames(artworks)));
+
+    // the types that get a file in the artworks folder, each with its file's name there: a type with
+    // no artworks has nothing to move, and artworks whose type isn't in the snapshot are left out
+    public static IEnumerable<(string FileName, ArtworkTypeWithFields Type)> ArtworkFiles(
+        CatalogSetupSnapshot snapshot,
+        IReadOnlyList<Artwork> artworks
+    )
+    {
+        var typeIds = artworks.Select(artwork => artwork.Type.Id).ToHashSet();
+
+        return snapshot.Types.Where(type => typeIds.Contains(type.Id)).Select(type => (TypeFileName(type), type));
+    }
+
+    // each file's path inside the folder and its text
+    private static IEnumerable<(string Path, string Text)> Files(CatalogSetupSnapshot snapshot, IReadOnlyList<Artwork> artworks)
+    {
+        var listSeparator = ListSeparator(snapshot, artworks);
+        var artworksByType = artworks.ToLookup(artwork => artwork.Type.Id);
+
+        yield return (ExportZip.ReadmeFileName, Readme(listSeparator));
+        yield return (ArtworkTypesFileName, CatalogSetupCsvExport.ArtworkTypes(snapshot, listSeparator));
+        yield return (VocabulariesFileName, CatalogSetupCsvExport.Vocabularies(snapshot, listSeparator));
+        yield return (ProductsFileName, ArtworkCsvExport.Products(artworks));
+
+        foreach (var (fileName, type) in ArtworkFiles(snapshot, artworks))
+        {
+            yield return (
+                $"{ArtworksFolder}/{fileName}",
+                ArtworkCsvExport.ForType(type, snapshot.VocabulariesFor(type.Id), artworksByType[type.Id], listSeparator)
+            );
+        }
+    }
+
     public static string TypeFileName(ArtworkTypeWithFields type) =>
         ExportFileNames.IsPortable($"{type.Name.Value}.csv") ? $"{type.Name.Value}.csv" : $"artwork-type-{type.Id.Value}.csv";
-
-    private static void AddText(ZipArchive zip, string folderName, string path, string text)
-    {
-        using var entry = zip.CreateEntry($"{folderName}/{path}", CompressionLevel.Optimal).Open();
-        using var writer = new StreamWriter(entry, Utf8WithByteOrderMark);
-        writer.Write(text);
-    }
 
     private static string Readme(char listSeparator) =>
         $"""

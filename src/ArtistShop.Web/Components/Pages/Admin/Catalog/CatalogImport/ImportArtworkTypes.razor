@@ -1,5 +1,4 @@
 @page "/admin/catalog/types/import"
-@using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
@@ -28,9 +27,6 @@
     );
 
   private Task ApplyAsync(ArtworkTypeImportPlan plan) => ArtworkTypeImportPlanner.ApplyAsync(plan, ArtworkTypeRepository);
-
-  private string FieldNames(ArtworkTypeImportAddition addition) =>
-    string.Join(", ", _fields.Where(field => addition.Fields.Contains(field.Field)).Select(field => field.Name));
 }
 
 <PageTitle>Import artwork types</PageTitle>
@@ -49,29 +45,7 @@
         </p>
       </ColumnsHelp>
       <Review Context="plan">
-        <p class="mb-4 shrink-0">
-          @CountText.Of(plan.Additions.Count, "artwork type") to add, @CountText.Of(plan.SkippedRows.Count, "row") skipped,
-          @CountText.Of(plan.Errors.Count, "problem").
-        </p>
-
-        <div class="mb-4 min-h-0 overflow-y-auto">
-          <ImportProblems Errors="plan.Errors" />
-          <ImportSkippedRows SkippedRows="plan.SkippedRows" AlreadyExistsText="Already an artwork type" />
-
-          @if (plan.Additions.Count > 0)
-          {
-            <div class="mb-6">
-              <h3 class="mb-1">To add</h3>
-              <DataTable Items="plan.Additions" Headings="@(new[] { "Row", "Name", "Fields" })" Class="text-sm" StickyHeadings>
-                <Row Context="addition">
-                  <DataTableCell>@addition.RowNumber</DataTableCell>
-                  <DataTableCell>@addition.Name.Value</DataTableCell>
-                  <DataTableCell>@FieldNames(addition)</DataTableCell>
-                </Row>
-              </DataTable>
-            </div>
-          }
-        </div>
+        <ArtworkTypeImportReview Plan="plan" Fields="_fields" />
       </Review>
     </CatalogImportPanel>
   </AdminPanel>

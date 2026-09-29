@@ -1,0 +1,52 @@
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public VocabularyImportPlan Plan { get; set; } = default!;
+
+  private static string TermNames(VocabularyImportChange change) =>
+    string.Join(", ", change.AddedTerms.Select(term => term.Value));
+}
+
+<p class="mb-4 shrink-0">
+  @CountText.Of(Plan.Changes.Count, "vocabulary", "vocabularies") to add or extend,
+  @CountText.Of(Plan.SkippedRows.Count, "row") skipped, @CountText.Of(Plan.Errors.Count, "problem").
+</p>
+
+<div class="mb-4 min-h-0 overflow-y-auto">
+  <ImportProblems Errors="Plan.Errors" />
+  <ImportSkippedRows SkippedRows="Plan.SkippedRows" AlreadyExistsText="Already has these types and terms" />
+
+  @if (Plan.Changes.Count > 0)
+  {
+    <div class="mb-6">
+      <h3 class="mb-1">To add</h3>
+      <DataTable Items="Plan.Changes" Headings="@(new[] { "Row", "Vocabulary", "Applies to", "New terms" })"
+                 Class="text-sm" RowClass="align-top" StickyHeadings>
+        <Row Context="change">
+          <DataTableCell>@change.RowNumber</DataTableCell>
+          <DataTableCell>
+            @change.Name.Value
+            @if (change.ExistingId is null)
+            {
+              <span class="text-green-600">(new)</span>
+            }
+          </DataTableCell>
+          <DataTableCell>
+            @foreach (var (index, type) in change.ExistingArtworkTypes.Concat(change.AddedArtworkTypes).Index())
+            {
+              <span>@(index > 0 ? ", " : "")@type.Name.Value</span>
+              @if (change.AddedArtworkTypes.Contains(type))
+              {
+                <span class="text-green-600"> (new)</span>
+              }
+            }
+          </DataTableCell>
+          <DataTableCell>@TermNames(change)</DataTableCell>
+        </Row>
+      </DataTable>
+    </div>
+  }
+</div>

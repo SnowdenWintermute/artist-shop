@@ -1,0 +1,366 @@
+@rendermode InteractiveServer
+@using System.Text.Json
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Exports
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+@inject ArtworkFieldRepository ArtworkFieldRepository
+@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject VocabularyRepository VocabularyRepository
+@inject VocabularyTermRepository VocabularyTermRepository
+@inject SeriesRepository SeriesRepository
+@inject ProductTypeRepository ProductTypeRepository
+@inject ArtworkRepository ArtworkRepository
+@inject PostRepository PostRepository
+@inject ImageStorage ImageStorage
+@inject IJSRuntime JS
+@inject ILogger<WebsiteImportUpload> Logger
+@implements IAsyncDisposable
+
+@code {
+  // a website's images, its posts' folders and the catalog files, with room to spare
+  private const int MaximumFiles = 50_000;
+
+  // a backstop only, as for the bulk image upload
+  private const long MaximumMetadataBytes = MaximumFiles * 400L;
+
+  // the catalog's CSV files and images.csv, which grow with the number of artworks
+  private const long MaximumListBytes = 50L * Units.BytesPerMebibyte;
+
+  // a post's text, which is small; its images are separate files
+  private const long MaximumPostFileBytes = 5L * Units.BytesPerMebibyte;
+
+  private ElementReference _zone;
+  private IJSObjectReference? _module;
+  private IJSObjectReference? _importer;
+  private DotNetObjectReference<WebsiteImportUpload>? _selfReference;
+
+  private bool _tooManyFiles;
+  private bool _isReading;
+  private bool _isImporting;
+  private WebsiteImportFolder? _folder;
+  private WebsiteImportReview? _review;
+
+  // the stages the last import finished, and why it stopped if it did
+  private List<WebsiteImportStageDone> _stagesDone = [];
+  private string? _importProblem;
+
+  // every field there is, for the artwork type review
+  private IReadOnlyList<ArtworkFieldDefinition> _fields = [];
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    // the page closed before the importer started, so nothing will be dropped on it
+    try
+    {
+      _module = await JS.InvokeAsync<IJSObjectReference>("import",
+"./Components/Pages/Admin/Import/Website/WebsiteImportUpload.razor.js");
+      _selfReference = DotNetObjectReference.Create(this);
+      _importer = await _module.InvokeAsync<IJSObjectReference>("createWebsiteImporter", _zone, _selfReference, MaximumFiles);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  [JSInvokable]
+  public async Task OnFilesCollected()
+  {
+    _tooManyFiles = false;
+    _folder = null;
+    _review = null;
+    _stagesDone = [];
+    _importProblem = null;
+    _isReading = true;
+    await InvokeAsync(StateHasChanged);
+
+    // the page closed while the folder was being read, so there is no one left to show it to
+    try
+    {
+      _folder = await ReadFolderAsync();
+      await ReviewAsync(_folder);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+    finally
+    {
+      _isReading = false;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private async Task ReviewAsync(WebsiteImportFolder folder)
+  {
+    var target = await WebsiteImportTarget.LoadAsync(
+      folder,
+      ArtworkFieldRepository,
+      ArtworkTypeRepository,
+      VocabularyRepository,
+      SeriesRepository,
+      ProductTypeRepository,
+      ArtworkRepository,
+      PostRepository,
+      ImageStorage
+    );
+    _fields = target.Setup.Fields;
+    _review = WebsiteImportPlanner.Plan(folder, target);
+  }
+
+  // The review shows what's on the website afterwards, so it says what a second run would add
+  private async Task ImportAsync()
+  {
+    if (_folder is not { } folder)
+    {
+      return;
+    }
+
+    _isImporting = true;
+    _stagesDone = [];
+    _importProblem = null;
+
+    var repositories = new CatalogRepositories(
+      ArtworkFieldRepository,
+      ArtworkTypeRepository,
+      VocabularyRepository,
+      VocabularyTermRepository,
+      SeriesRepository,
+      ProductTypeRepository,
+      ArtworkRepository
+    );
+
+    try
+    {
+      _importProblem = await WebsiteCatalogImporter.ImportAsync(
+        folder,
+        repositories,
+        async stage =>
+        {
+          _stagesDone.Add(stage);
+          await InvokeAsync(StateHasChanged);
+        }
+      );
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "The whole-website import failed.");
+      _importProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
+    }
+
+    await ReviewAsync(folder);
+    _isImporting = false;
+  }
+
+  [JSInvokable]
+  public async Task OnTooManyFiles()
+  {
+    _tooManyFiles = true;
+    _review = null;
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // Only OnFilesCollected calls these, inside its catch of JSDisconnectedException; the analyzer
+  // checks each method on its own
+#pragma warning disable BL0016
+  // The folder website.json is in is the download's own; everything else is found by its path
+  // inside it. With no website.json nothing else is read, and the review says what's wrong
+  private async Task<WebsiteImportFolder> ReadFolderAsync()
+  {
+    List<CollectedFile> files;
+
+    await using (var metadata = await Unwrap.Value(_importer).InvokeAsync<IJSStreamReference>("metadata"))
+    await using (var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes))
+    {
+      files = await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
+    }
+
+    // the shallowest, in case the folder holds another download inside it
+    var manifest = files
+      .Where(file => CollectedPaths.NameOf(file.Path) == WebsiteExportArchive.ManifestFileName)
+      .MinBy(file => file.Path.Trim('/').Count(character => character == '/'));
+
+    if (manifest is null)
+    {
+      return new WebsiteImportFolder(null, null, null, new Dictionary<string, string>(), null, new Dictionary<string,
+string>(), []);
+    }
+
+    var root = CollectedPaths.FolderOf(manifest.Path);
+    var byPath = new Dictionary<string, CollectedFile>();
+
+    foreach (var file in files)
+    {
+      if (CollectedPaths.Inside(root, file.Path) is { } path)
+      {
+        byPath[path] = file;
+      }
+    }
+
+    async Task<string?> TextAtAsync(string path, long maximumBytes) =>
+      byPath.TryGetValue(path, out var file) ? await ReadTextAsync(file, maximumBytes) : null;
+
+    const string catalog = WebsiteExportArchive.CatalogFolder;
+    var artworkFolder = $"{catalog}/{CatalogExportArchive.ArtworksFolder}";
+    var artworkCsvs = new Dictionary<string, string>();
+
+    foreach (var (path, file) in byPath.Where(entry => CollectedPaths.FolderOf(entry.Key) == artworkFolder))
+    {
+      artworkCsvs[CollectedPaths.NameOf(path)] = await ReadTextAsync(file, MaximumListBytes);
+    }
+
+    const string images = WebsiteExportArchive.ImagesFolder;
+    var imageFileIds = new Dictionary<string, string>();
+
+    foreach (var (path, file) in byPath)
+    {
+      if (CollectedPaths.Inside(images, path) is { } imagePath)
+      {
+        imageFileIds[imagePath] = file.Id;
+      }
+    }
+
+    var posts = new List<PostImportFolder>();
+
+    foreach (var (path, file) in byPath.Where(entry => CollectedPaths.NameOf(entry.Key) == PostExportJson.FileName))
+    {
+      var postFolder = CollectedPaths.FolderOf(path);
+
+      // a post's folder sits directly in posts/
+      if (CollectedPaths.FolderOf(postFolder) != WebsiteExportArchive.PostsFolder)
+      {
+        continue;
+      }
+
+      posts.Add(
+        new PostImportFolder(
+          CollectedPaths.NameOf(postFolder),
+          // one too large isn't a post.json the download wrote, and reads as unreadable
+          file.Size <= MaximumPostFileBytes ? await ReadTextAsync(file, MaximumPostFileBytes) : "",
+          byPath
+            .Where(entry => CollectedPaths.FolderOf(entry.Key) == postFolder && entry.Key != path)
+            .ToDictionary(entry => CollectedPaths.NameOf(entry.Key), entry => entry.Value.Id)
+        )
+      );
+    }
+
+    return new WebsiteImportFolder(
+      await TextAtAsync(WebsiteExportArchive.ManifestFileName, MaximumPostFileBytes),
+      await TextAtAsync($"{catalog}/{CatalogExportArchive.ArtworkTypesFileName}", MaximumListBytes),
+      await TextAtAsync($"{catalog}/{CatalogExportArchive.VocabulariesFileName}", MaximumListBytes),
+      artworkCsvs,
+      await TextAtAsync($"{images}/{ImageExportArchive.ImageListFileName}", MaximumListBytes),
+      imageFileIds,
+      posts
+    );
+  }
+
+  // A StreamReader takes off the byte order mark the CSV files start with. One over the limit
+  // reads as empty, which the review reports as unreadable
+  private async Task<string> ReadTextAsync(CollectedFile file, long maximumBytes)
+  {
+    if (file.Size > maximumBytes)
+    {
+      return "";
+    }
+
+    await using var reference = await Unwrap.Value(_importer).InvokeAsync<IJSStreamReference>("file", file.Id);
+    await using var stream = await reference.OpenReadStreamAsync(maximumBytes);
+    using var reader = new StreamReader(stream);
+
+    return await reader.ReadToEndAsync();
+  }
+#pragma warning restore BL0016
+
+  public async ValueTask DisposeAsync()
+  {
+    try
+    {
+      if (_importer is not null)
+      {
+        await _importer.InvokeVoidAsync("dispose");
+        await _importer.DisposeAsync();
+      }
+
+      if (_module is not null)
+      {
+        await _module.DisposeAsync();
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+
+    _selfReference?.Dispose();
+  }
+}
+
+<DisabledUntilInteractive>
+  @* a run reads the folder it was given, so nothing new may be chosen until it ends *@
+  <fieldset class="contents" disabled="@_isImporting">
+    <div @ref="_zone" class="mb-4">
+      <FileDropZoneFrame Prompt="Drop the unzipped Download everything folder here" ButtonLabel="@null"
+                         DirectoryButtonLabel="Choose a folder">
+        <input type="file" webkitdirectory class="hidden" />
+      </FileDropZoneFrame>
+    </div>
+  </fieldset>
+</DisabledUntilInteractive>
+
+@if (_tooManyFiles)
+{
+  <p class="mb-4 text-red-400">That's more than @MaximumFiles files. Choose the Download everything folder itself.</p>
+}
+
+@if (_isReading)
+{
+  <p class="mb-4 text-sm">Reading the folder…</p>
+}
+
+@if (_isImporting)
+{
+  <p class="mb-4 text-sm">Importing…</p>
+}
+
+@if (_stagesDone.Count > 0 || _importProblem is not null)
+{
+  <div class="mb-4">
+    <h2 class="mb-1 text-lg">Imported</h2>
+    <ul class="text-sm">
+      @foreach (var stage in _stagesDone)
+      {
+        <li>@stage.Stage: @stage.AddedCount added</li>
+      }
+    </ul>
+    @if (_importProblem is not null)
+    {
+      <p class="text-sm text-red-400">@_importProblem</p>
+    }
+    @if (!_isImporting && _importProblem is null)
+    {
+      <p class="text-sm">Images and posts aren't imported yet: that's still to come.</p>
+    }
+  </div>
+}
+
+@if (_review is { } review)
+{
+  @if (review.CanImport && !_isImporting)
+  {
+    <div class="mb-4">
+      <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="ImportAsync">Import</ButtonBasic>
+    </div>
+  }
+  <WebsiteImportReport Review="review" Fields="_fields" />
+
+}

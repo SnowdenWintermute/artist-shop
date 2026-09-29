@@ -32,7 +32,20 @@ public static class PostExportArchive
     )
     {
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
+        await AddAsync(zip, posts, artworkImages, folderName, host, siteOrigin, imageStorage, cancellationToken);
+    }
 
+    public static async Task AddAsync(
+        ZipArchive zip,
+        IReadOnlyList<ExportedPost> posts,
+        IReadOnlyDictionary<string, ArtworkImageWithArtwork> artworkImages,
+        string folderName,
+        string host,
+        string siteOrigin,
+        ImageStorage imageStorage,
+        CancellationToken cancellationToken
+    )
+    {
         await ExportZip.AddTextAsync(zip, $"{folderName}/{ExportZip.ReadmeFileName}", Readme(host), cancellationToken);
         await ExportZip.AddTextAsync(zip, $"{folderName}/{PostExportHtml.IndexFileName}", PostExportHtml.Index(host, [.. posts.Select(exported => exported.Post)]), cancellationToken);
 

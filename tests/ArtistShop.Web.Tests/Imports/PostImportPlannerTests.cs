@@ -30,8 +30,7 @@ public class PostImportPlannerTests
         new(
             postSlugs ?? new HashSet<string>(),
             new HashSet<string> { "gardens" },
-            artworks ?? [Dawn],
-            new Dictionary<string, string> { [DawnKey] = DawnSha256 }
+            new WebsiteArtworks(artworks ?? [Dawn], new Dictionary<string, string> { [DawnKey] = DawnSha256 })
         );
 
     private static string PostJson(string title, string ops, string publishedAt = "\"2025-03-04T05:06:07Z\"") =>

@@ -115,6 +115,9 @@
     await InvokeAsync(StateHasChanged);
   }
 
+  // Only OnFilesCollected calls these, inside its catch of JSDisconnectedException; the analyzer
+  // checks each method on its own
+#pragma warning disable BL0016
   // each post.json with the files in its own folder
   private async Task<List<PostImportFolder>> ReadFoldersAsync()
   {
@@ -131,21 +134,21 @@
       files = await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
     }
 
-    var byFolder = files.ToLookup(file => FolderOf(file.Path));
+    var byFolder = files.ToLookup(file => CollectedPaths.FolderOf(file.Path));
     var folders = new List<PostImportFolder>();
 
-    foreach (var postFile in files.Where(file => NameOf(file.Path) == PostExportJson.FileName))
+    foreach (var postFile in files.Where(file => CollectedPaths.NameOf(file.Path) == PostExportJson.FileName))
     {
-      var folder = FolderOf(postFile.Path);
+      var folder = CollectedPaths.FolderOf(postFile.Path);
 
       folders.Add(
         new PostImportFolder(
-          NameOf(folder),
+          CollectedPaths.NameOf(folder),
           // one too large isn't a post.json the download wrote, and reads as unreadable
           postFile.Size <= MaximumPostFileBytes ? await ReadTextAsync(postFile.Id) : "",
           byFolder[folder]
             .Where(file => file.Id != postFile.Id)
-            .ToDictionary(file => NameOf(file.Path), file => file.Id)
+            .ToDictionary(file => CollectedPaths.NameOf(file.Path), file => file.Id)
         )
       );
     }
@@ -161,6 +164,7 @@
 
     return await reader.ReadToEndAsync();
   }
+#pragma warning restore BL0016
 
   private async Task StartImportAsync()
   {
@@ -247,18 +251,6 @@
     _isImporting = false;
     await InvokeAsync(StateHasChanged);
   }
-
-  // "site-posts/spring-notes/post.json" is in "site-posts/spring-notes"; a drop's leading slash
-  // makes no difference
-  private static string FolderOf(string path)
-  {
-    var trimmed = path.Trim('/');
-    var slash = trimmed.LastIndexOf('/');
-
-    return slash < 0 ? "" : trimmed[..slash];
-  }
-
-  private static string NameOf(string path) => path.Trim('/').Split('/')[^1];
 
   public async ValueTask DisposeAsync()
   {

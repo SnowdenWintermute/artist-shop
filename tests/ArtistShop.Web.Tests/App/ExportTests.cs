@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
+using ArtistShop.Web.Components;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
@@ -80,9 +82,17 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(["no"], response.Headers.GetValues("X-Accel-Buffering"));
 
         var files = await ReadZipAsync(response, ReadBytesAsync);
-        Assert.Equal(["Painting/Dawn (2).tiff", "Painting/Dawn.jpg"], files.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["Painting/Dawn (2).tiff", "Painting/Dawn.jpg", ImageExportArchive.ImageListFileName], files.Keys.Order(StringComparer.Ordinal));
         Assert.Equal(jpeg, files["Painting/Dawn.jpg"]);
         Assert.Equal(tiff, files["Painting/Dawn (2).tiff"]);
+        Assert.Equal(
+            [
+                "file,artworkType,title,slug,sha256",
+                $"Painting/Dawn.jpg,Painting,Dawn,dawn,{Sha256(jpeg)}",
+                $"Painting/Dawn (2).tiff,Painting,Dawn,dawn,{Sha256(tiff)}",
+            ],
+            CsvLines(files[ImageExportArchive.ImageListFileName])
+        );
     }
 
     [Fact]
@@ -117,7 +127,49 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Matches($@"^{System.Text.RegularExpressions.Regex.Escape(site.Host)}-images-\d{{4}}-\d{{2}}-\d{{2}}\.zip$", response.Content.Headers.ContentDisposition?.FileNameStar);
         var files = await ReadZipAsync(response, ReadBytesAsync);
-        Assert.Equal(["Painting/Dawn.png", "Painting/Gardens/Rose.png", "Sculpture/Stone.png"], files.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["Painting/Dawn.png", "Painting/Gardens/Rose.png", "Sculpture/Stone.png", ImageExportArchive.ImageListFileName],
+            files.Keys.Order(StringComparer.Ordinal)
+        );
+    }
+
+    // each download in its own folder, and a post's artwork picture names the same hash images.csv
+    // gives its image, which is how the whole-website import finds the artwork before uploading anything
+    [Fact]
+    public async Task TheEverythingDownloadHoldsTheCatalogImagesAndPostsInOneFolder()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = Catalog(site.Id);
+        byte[] jpeg = [0xFF, 0xD8, 0xFF, 7, 8, 9];
+        var dawnImage = await SaveOriginalAsync(site.Id, jpeg);
+        await SaveWebCopyAsync(site.Id, dawnImage.StorageKey);
+        var dawn = await catalog.Artworks.AddAsync(
+            Addition(
+                await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                images: [dawnImage]
+            )
+        );
+        var body = new PostBody(
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY"}}},{"insert":"\n"}]}"""
+                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
+                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+        );
+        await Posts(site.Id).AddAsync(new PostTitle("Morning"), new PostSlug("morning"), body, PostStatus.Published);
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var response = await client.GetAsync(ExportEndpoints.EverythingPath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith($"{site.Host}-website-", response.Content.Headers.ContentDisposition?.FileNameStar);
+        var files = await ReadZipAsync(response, ReadBytesAsync);
+        Assert.Contains(ExportZip.ReadmeFileName, files.Keys);
+        Assert.Contains($"catalog/{CatalogExportArchive.ArtworkTypesFileName}", files.Keys);
+        Assert.Contains($"catalog/{CatalogExportArchive.ArtworksFolder}/Painting.csv", files.Keys);
+        Assert.Equal(jpeg, files["images/Painting/Dawn.jpg"]);
+        Assert.Contains("posts/index.html", files.Keys);
+
+        Assert.Equal($"Painting/Dawn.jpg,Painting,Dawn,dawn,{Sha256(jpeg)}", CsvLines(files[$"images/{ImageExportArchive.ImageListFileName}"])[1]);
+        Assert.Contains($"\"{PostExportJson.ImageSha256Property}\": \"{Sha256(jpeg)}\"", Encoding.UTF8.GetString(files["posts/morning/post.json"]));
     }
 
     [Fact]
@@ -337,6 +389,132 @@ public sealed class ExportTests(TestApp app)
         Assert.Single(await toPosts.GetPublishedMentioningArtworkAsync(toDawn.Id));
     }
 
+    // Download everything from one website, reviewed on a new website and on the one it came from:
+    // each stage is planned as though the ones before it had run, so a post's picture already links
+    // to an artwork the import would add, and the website it came from has everything already
+    [Fact]
+    public async Task TheWholeWebsiteReviewPlansEachStageAsThoughTheOnesBeforeHadRun()
+    {
+        var from = await app.MakeSiteAsync();
+        var fromCatalog = Catalog(from.Id);
+        var painting = await TypeIdAsync(fromCatalog, "Painting");
+        var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
+        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), [painting, installation]);
+        var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
+        var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        var dawnImage = await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 1]);
+        await SaveWebCopyAsync(from.Id, dawnImage.StorageKey);
+        await fromCatalog.Artworks.AddManyAsync(
+            [
+                Addition(
+                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: [],
+                    images: [dawnImage, await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 2])]
+                ),
+                Addition(
+                    installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: [],
+                    images: [await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 3])]
+                ),
+            ]
+        );
+        var dawn = (await fromCatalog.Artworks.GetAllAsync()).Single(artwork => artwork.Name.Value == "Dawn");
+        var body = new PostBody(
+            """
+            {"ops":[
+              {"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY"}}},
+              {"insert":"See "},{"insert":"Dawn","attributes":{"link":"/artworks/dawn"}},{"insert":" in "},
+              {"insert":"the gardens","attributes":{"link":"/series/gardens"}},{"insert":"\n"}
+            ]}
+            """
+                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
+                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+        );
+        await Posts(from.Id).AddAsync(new PostTitle("Morning"), new PostSlug("morning"), body, PostStatus.Published);
+        var client = await app.SignedInClientAsync(from.Host, from.OwnerEmail);
+        var folder = WebsiteFolder(await ReadZipAsync(await client.GetAsync(ExportEndpoints.EverythingPath, TestContext.Current.CancellationToken), ReadBytesAsync));
+
+        var onNew = await ReviewAsync(folder, (await app.MakeSiteAsync()).Id);
+
+        Assert.Empty(onNew.Problems);
+        Assert.Equal(["Installation"], onNew.ArtworkTypes.Additions.Select(addition => addition.Name.Value));
+        Assert.Equal(["Medium"], onNew.Vocabularies.Changes.Select(change => change.Name.Value));
+        Assert.Equal(["Installation.csv", "Painting.csv"], onNew.ArtworkFiles.Select(file => file.FileName).Order(StringComparer.Ordinal));
+        Assert.All(onNew.ArtworkFiles, file => Assert.Empty(file.Plan.Errors));
+        Assert.All(onNew.ArtworkFiles, file => Assert.Single(file.Plan.Additions));
+        // the first file creates it, and the second finds it
+        Assert.Equal(["Gardens"], onNew.ArtworkFiles.SelectMany(file => file.Plan.NewSeries).Select(series => series.Name));
+        Assert.Equal(3, onNew.Images.ToAddCount);
+        Assert.Equal(2, onNew.Images.Artworks.Single(artwork => artwork.Title.Value == "Dawn").ToAdd.Count);
+        Assert.Empty(onNew.Images.MissingFiles);
+        Assert.Empty(onNew.Images.UnlistedFiles);
+        var post = Assert.Single(onNew.Posts);
+        Assert.Equal(PostImportOutcome.WillAdd, post.Outcome);
+        Assert.Equal(1, post.RelinkedArtworkCount);
+        Assert.Empty(post.PictureOnlyArtworks);
+        Assert.Empty(post.BrokenLinks);
+
+        var onSame = await ReviewAsync(folder, from.Id);
+
+        Assert.Empty(onSame.ArtworkTypes.Additions);
+        Assert.Empty(onSame.Vocabularies.Changes);
+        Assert.All(onSame.ArtworkFiles, file => Assert.Empty(file.Plan.Additions));
+        Assert.Equal(0, onSame.Images.ToAddCount);
+        Assert.Equal(3, onSame.Images.Artworks.Sum(artwork => artwork.AlreadyThereCount));
+        Assert.Equal(PostImportOutcome.Skipped, Assert.Single(onSame.Posts).Outcome);
+    }
+
+    // Each catalog stage runs against the website as the one before left it, and a second run adds nothing
+    [Fact]
+    public async Task TheWholeWebsiteImportBringsTheCatalogOverOnce()
+    {
+        var from = await app.MakeSiteAsync();
+        var fromCatalog = Catalog(from.Id);
+        var painting = await TypeIdAsync(fromCatalog, "Painting");
+        var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
+        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), [painting, installation]);
+        var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
+        var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        await fromCatalog.Artworks.AddManyAsync(
+            [
+                Addition(painting, "Dawn", "Early light.", dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: []),
+                Addition(installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: []),
+            ]
+        );
+        var client = await app.SignedInClientAsync(from.Host, from.OwnerEmail);
+        var folder = WebsiteFolder(await ReadZipAsync(await client.GetAsync(ExportEndpoints.EverythingPath, TestContext.Current.CancellationToken), ReadBytesAsync));
+        var to = await app.MakeSiteAsync();
+        var toCatalog = Catalog(to.Id);
+        var repositories = new CatalogRepositories(
+            toCatalog.Fields, toCatalog.Types, toCatalog.Vocabularies, toCatalog.Terms, toCatalog.Series, toCatalog.ProductTypes, toCatalog.Artworks
+        );
+        var stages = new List<WebsiteImportStageDone>();
+
+        var problem = await WebsiteCatalogImporter.ImportAsync(folder, repositories, stage => { stages.Add(stage); return Task.CompletedTask; });
+
+        Assert.Null(problem);
+        Assert.Equal(
+            ["Artwork types: 1", "Vocabularies: 1", "Artworks: Painting: 1", "Artworks: Installation: 1"],
+            stages.Select(stage => $"{stage.Stage}: {stage.AddedCount}")
+        );
+        Assert.Equal(Describe(await fromCatalog.Artworks.GetAllAsync()), Describe(await toCatalog.Artworks.GetAllAsync()));
+
+        stages.Clear();
+        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, repositories, stage => { stages.Add(stage); return Task.CompletedTask; }));
+        Assert.All(stages, stage => Assert.Equal(0, stage.AddedCount));
+    }
+
+    [Fact]
+    public async Task TheImportPageLeadsWithMovingAWholeWebsite()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var importPage = await client.GetStringAsync(PageUrls.Import, TestContext.Current.CancellationToken);
+        var websitePage = await client.GetAsync(PageUrls.WebsiteImport, TestContext.Current.CancellationToken);
+
+        Assert.Contains($"href=\"{PageUrls.WebsiteImport}\"", importPage);
+        Assert.Equal(HttpStatusCode.OK, websitePage.StatusCode);
+    }
+
     [Fact]
     public async Task SomeoneWhoIsntAnAdminIsDenied()
     {
@@ -451,6 +629,65 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(Describe(await fromCatalog.Artworks.GetAllAsync()), Describe(await toCatalog.Artworks.GetAllAsync()));
     }
 
+    private async Task<WebsiteImportReview> ReviewAsync(WebsiteImportFolder folder, SiteId siteId)
+    {
+        var catalog = Catalog(siteId);
+        var target = await WebsiteImportTarget.LoadAsync(
+            folder,
+            catalog.Fields,
+            catalog.Types,
+            catalog.Vocabularies,
+            catalog.Series,
+            catalog.ProductTypes,
+            catalog.Artworks,
+            Posts(siteId),
+            ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId)
+        );
+
+        return WebsiteImportPlanner.Plan(folder, target);
+    }
+
+    // the unzipped download as the Import page reads it, with each file's path as its id
+    private static WebsiteImportFolder WebsiteFolder(Dictionary<string, byte[]> files)
+    {
+        const string artworks = $"{WebsiteExportArchive.CatalogFolder}/{CatalogExportArchive.ArtworksFolder}/";
+        const string images = $"{WebsiteExportArchive.ImagesFolder}/";
+        const string posts = $"{WebsiteExportArchive.PostsFolder}/";
+
+        string? TextOf(string path) => files.TryGetValue(path, out var bytes) ? Decode(bytes) : null;
+
+        return new WebsiteImportFolder(
+            TextOf(WebsiteExportArchive.ManifestFileName),
+            TextOf($"{WebsiteExportArchive.CatalogFolder}/{CatalogExportArchive.ArtworkTypesFileName}"),
+            TextOf($"{WebsiteExportArchive.CatalogFolder}/{CatalogExportArchive.VocabulariesFileName}"),
+            files.Where(file => file.Key.StartsWith(artworks)).ToDictionary(file => file.Key[artworks.Length..], file => Decode(file.Value)),
+            TextOf($"{images}{ImageExportArchive.ImageListFileName}"),
+            files.Keys.Where(path => path.StartsWith(images)).ToDictionary(path => path[images.Length..], path => path),
+            [
+                .. files
+                    .Where(file => file.Key.StartsWith(posts) && file.Key.EndsWith($"/{PostExportJson.FileName}"))
+                    .Select(file =>
+                    {
+                        var postFolder = file.Key[..^(PostExportJson.FileName.Length + 1)];
+                        return new PostImportFolder(
+                            postFolder[posts.Length..],
+                            Decode(file.Value),
+                            files.Keys
+                                .Where(path => path.StartsWith($"{postFolder}/") && path != file.Key)
+                                .ToDictionary(path => path[(postFolder.Length + 1)..], path => path)
+                        );
+                    }),
+            ]
+        );
+    }
+
+    // as a StreamReader reads it, taking off a byte order mark
+    private static string Decode(byte[] bytes)
+    {
+        using var reader = new StreamReader(new MemoryStream(bytes));
+        return reader.ReadToEnd();
+    }
+
     private static ArtworkCatalogAddition Addition(
         ArtworkTypeId typeId,
         string name,
@@ -554,6 +791,15 @@ public sealed class ExportTests(TestApp app)
                 ))
                 .Order(),
         ];
+
+    private static string Sha256(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
+
+    // a CSV file's lines, after the byte order mark that tells Excel it's UTF-8
+    private static List<string> CsvLines(byte[] file)
+    {
+        Assert.Equal(Encoding.UTF8.GetPreamble(), file[..3]);
+        return [.. Encoding.UTF8.GetString(file[3..]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries)];
+    }
 
     // each file by its path inside the zip's one folder, which is named after the download, so
     // unzipping it doesn't scatter files wherever it's unzipped

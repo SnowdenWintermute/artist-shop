@@ -1,0 +1,13 @@
+@inject SvgIconFiles SvgIconFiles
+
+@code {
+  // the path inside wwwroot/icons without ".svg", like "folder-open"
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+
+  // its size, and colours when it shouldn't match the text
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+@((MarkupString)SvgIconFiles.Markup(Name, Class))

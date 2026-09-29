@@ -1,0 +1,43 @@
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public WebsiteImportImagesPlan Images { get; set; } = default!;
+
+  private int AlreadyThereCount => Images.Artworks.Sum(artwork => artwork.AlreadyThereCount);
+}
+
+<p class="mb-4">
+  @CountText.Of(Images.ToAddCount, "image") to add, @AlreadyThereCount already here,
+  @CountText.Of(Images.WithoutArtwork.Count + Images.MissingFiles.Count + Images.UnlistedFiles.Count, "file") left out.
+</p>
+
+<ImportProblems Errors="Images.Errors" />
+
+@if (Images.Artworks.Any(artwork => artwork.ToAdd.Count > 0))
+{
+  <div class="mb-6">
+    <DataTable Items="@(Images.Artworks.Where(artwork => artwork.ToAdd.Count > 0).ToList())"
+               Headings="@(new[] { "Artwork type", "Artwork", "Images to add" })" Class="text-sm" StickyHeadings>
+      <Row Context="artwork">
+        <DataTableCell>@artwork.TypeName.Value</DataTableCell>
+        <DataTableCell>@artwork.Title.Value</DataTableCell>
+        <DataTableCell>@artwork.ToAdd.Count</DataTableCell>
+      </Row>
+    </DataTable>
+  </div>
+}
+
+<ReportGroup Heading="Left out, their artworks won't be on this website" Items="Images.WithoutArtwork" Context="path">
+  <ItemContent>@path</ItemContent>
+</ReportGroup>
+<ReportGroup Heading="Left out, listed in images.csv but not in the folder" Items="Images.MissingFiles" Context="path">
+  <ItemContent>@path</ItemContent>
+</ReportGroup>
+<ReportGroup Heading="Left out, in the folder but not in images.csv" Items="Images.UnlistedFiles" Context="path">
+  <ItemContent>@path</ItemContent>
+</ReportGroup>

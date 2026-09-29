@@ -1,0 +1,32 @@
+@typeparam TItem
+@* One group of an import's report, "Heading: count" over its items. Nothing when it's empty. It
+   never scrolls itself: a report shown in a modal gets its scrolling from the modal's content *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Heading { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<TItem> Items { get; set; } = default!;
+
+  // what goes inside each item's <li>
+  [Parameter, EditorRequired]
+  public RenderFragment<TItem> ItemContent { get; set; } = default!;
+
+  // for items with several lines, which need space between them
+  [Parameter]
+  public string? ItemClass { get; set; }
+}
+
+@if (Items.Count > 0)
+{
+  <div class="mb-4">
+    <h3 class="mb-1">@Heading: @Items.Count</h3>
+    <ul class="text-sm">
+      @foreach (var item in Items)
+      {
+        <li class="@ItemClass">@ItemContent(item)</li>
+      }
+    </ul>
+  </div>
+}

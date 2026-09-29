@@ -17,6 +17,7 @@ public static class ExportEndpoints
     public const string ImagesPath = "/admin/export/images";
     public const string AllImagesPath = "/admin/export/images/all";
     public const string PostsPath = "/admin/export/posts";
+    public const string EverythingPath = "/admin/export/everything";
 
     public const string ExportRunningMessage = "Another download from this website is running. Try again when it has finished.";
 
@@ -35,6 +36,7 @@ public static class ExportEndpoints
         downloads.MapGet(ImagesPath, DownloadImagesAsync);
         downloads.MapGet(AllImagesPath, DownloadAllImagesAsync);
         downloads.MapGet(PostsPath, DownloadPostsAsync);
+        downloads.MapGet(EverythingPath, DownloadEverythingAsync);
     }
 
     private static async Task<FileContentHttpResult> DownloadCatalogAsync(
@@ -123,6 +125,69 @@ public static class ExportEndpoints
         ExportLock exportLock
     )
     {
+        var (posts, artworkImages) = await LoadPostsAsync(postRepository, artworkRepository, imageStorage);
+        var host = currentSite.MainHost.Value;
+        var name = $"{host}-posts-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
+        var siteOrigin = SiteOrigin(context);
+
+        return await StreamZipAsync(
+            context,
+            currentSite,
+            exportLock,
+            name,
+            (body, cancellationToken) =>
+                PostExportArchive.WriteAsync(body, posts, artworkImages, name, host, siteOrigin, imageStorage, cancellationToken)
+        );
+    }
+
+    // the catalog, every image and every post in one zip, for the whole-website import
+    private static async Task<IResult> DownloadEverythingAsync(
+        HttpContext context,
+        CurrentSite currentSite,
+        TimeProvider timeProvider,
+        ArtworkRepository artworkRepository,
+        ArtworkFieldRepository artworkFieldRepository,
+        ArtworkTypeRepository artworkTypeRepository,
+        VocabularyRepository vocabularyRepository,
+        PostRepository postRepository,
+        ImageStorage imageStorage,
+        ExportLock exportLock
+    )
+    {
+        var snapshot = await CatalogSetupSnapshot.LoadAsync(artworkFieldRepository, artworkTypeRepository, vocabularyRepository);
+        var artworks = await artworkRepository.GetAllAsync();
+        var (posts, artworkImages) = await LoadPostsAsync(postRepository, artworkRepository, imageStorage);
+        var host = currentSite.MainHost.Value;
+        var name = $"{host}-website-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
+        var siteOrigin = SiteOrigin(context);
+
+        return await StreamZipAsync(
+            context,
+            currentSite,
+            exportLock,
+            name,
+            (body, cancellationToken) =>
+                WebsiteExportArchive.WriteAsync(
+                    body,
+                    snapshot,
+                    artworks,
+                    posts,
+                    artworkImages,
+                    name,
+                    host,
+                    siteOrigin,
+                    imageStorage,
+                    cancellationToken
+                )
+        );
+    }
+
+    private static async Task<(List<ExportedPost> Posts, IReadOnlyDictionary<string, ArtworkImageWithArtwork> ArtworkImages)> LoadPostsAsync(
+        PostRepository postRepository,
+        ArtworkRepository artworkRepository,
+        ImageStorage imageStorage
+    )
+    {
         // missing uploads left out, as on the post page
         List<ExportedPost> posts =
         [
@@ -141,19 +206,11 @@ public static class ExportEndpoints
                     .Distinct(),
             ]
         );
-        var host = currentSite.MainHost.Value;
-        var name = $"{host}-posts-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
-        var siteOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
 
-        return await StreamZipAsync(
-            context,
-            currentSite,
-            exportLock,
-            name,
-            (body, cancellationToken) =>
-                PostExportArchive.WriteAsync(body, posts, artworkImages, name, host, siteOrigin, imageStorage, cancellationToken)
-        );
+        return (posts, artworkImages);
     }
+
+    private static string SiteOrigin(HttpContext context) => $"{context.Request.Scheme}://{context.Request.Host}";
 
     private static async Task<IResult> StreamZipAsync(
         HttpContext context,

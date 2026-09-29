@@ -1,0 +1,7 @@
+@code {
+  // its spacing, which differs by where it sits
+  [Parameter, EditorRequired]
+  public string Class { get; set; } = default!;
+}
+
+<div class="@($"h-0.5 w-full bg-theme-base {Class}")" aria-hidden="true"></div>

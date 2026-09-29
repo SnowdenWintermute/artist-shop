@@ -1,0 +1,19 @@
+@page "/admin/import/website"
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+<PageTitle>Move a whole website</PageTitle>
+
+<main>
+  <AdminPanel>
+    <h1 class="mb-4 text-xl">Move a whole website here</h1>
+
+    <p class="mb-4 text-sm">
+      Choose the folder from Download everything on the other website's Export page, unzipped. You'll see what importing
+      it would add before anything is imported. Every step only adds: something already here is skipped.
+    </p>
+
+    <WebsiteImportUpload />
+  </AdminPanel>
+</main>

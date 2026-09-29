@@ -1,4 +1,4 @@
-# Next: the whole-folder website migration (CSVs, then images, then posts). The Export links from delete-website and My websites are built (2026-09-29, uncommitted). Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
+# Next: the whole-website move, designed 2026-09-29 (notes under the site export below): steps 1–3 built; next step 4, images by `images.csv`. The Export links from delete-website and My websites are committed (cce6055). Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -129,7 +129,63 @@ site host, one download at a time per site via `ExportLock`); (c) both. (a) need
 online. The owner-less case: deleting an account puts its owned sites into the grace period
 (`DeleteAccountBox.razor` lists them), so check who could export those.
 
-**Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and
+**Whole-website move, designed with Mike 2026-09-29.** One download, one upload; the single imports stay
+on the Import page as fallbacks (and for a new website's first artworks and images). Wording isn't
+reviewed now: Mike will review all of the site's wording as a task later.
+- Download: "Download everything" at the top of Export, `<host>-website-<date>/` holding `catalog/`,
+  `images/` and `posts/`, each laid out as its own download, streamed under `ExportLock`. Every image
+  download gets `images.csv`: file, artwork type, title, slug and the original's SHA-256 (hashed while
+  it's copied into the zip). It matches images exactly, extra images in order, and lets the review see
+  which artwork a post's picture belongs to (post.json's `imageSha256`) before anything uploads.
+- Upload page, first on `/admin/import` ("Move a whole website"): choose the unzipped folder; .NET reads the
+  CSVs, `images.csv` and each `post.json`; image files stay in the browser until the import runs.
+- One review, a section per stage (types, vocabularies, artworks per type with new series, images per
+  artwork plus unlisted or missing files, posts with relinked and picture-only artworks and broken links),
+  then one Import button running types → vocabularies → artworks → images → posts with progress per
+  stage and Stop. The posts stage re-plans against what's really there, so the review is a preview.
+  Re-running skips what exists (an image exists when its artwork has one with the same hash).
+- Risk: `ArtworkImportCatalogSnapshot` reads types and vocabularies from the database, which don't
+  exist yet on a new website at review time. Plan: a snapshot of what's there plus what the review
+  would add, with placeholder ids; fall back to a two-step review (types and vocabularies first) if tangled.
+- Left out for now (Mike): series order and covers, image order beyond (n), primary image, products.csv.
+- Build order, each committed on its own: (1) `images.csv` and Download everything, (2) upload page and
+  review without importing, (3) catalog stages, (4) images by `images.csv`, (5) posts via `PostImportPlanner`.
+- Step 1 built 2026-09-29, uncommitted (791 tests): `GET /admin/export/everything` (`WebsiteExportArchive`, a
+  README, then `catalog/`, `images/`, `posts/`), "Download everything" at the top of Export. Every image
+  download ends with `images.csv` (`ImageExportArchive.ImageListHeaders`; paths relative to the images
+  folder; hashed during the copy by `ExportZip.AddFileWithSha256Async`). The catalog and post archives
+  gained `AddAsync` into a shared zip; `ExportZip.AddCsvAsync` writes the byte order mark;
+  `ImageExportEntry` carries its `Artwork`. The README names "Import > Move a whole website", built in step 2.
+- Step 2 built 2026-09-29, uncommitted: Download everything also writes `website.json` (`formatVersion`,
+  `listSeparator`, `artworkFiles` file → type, since a type with a non-portable name has an id-named CSV).
+  `/admin/import/website` (`Import/Website/`: `ImportWebsite`, `WebsiteImportUpload` + `.razor.js` that only
+  collects for now, `WebsiteImportReport`, `WebsiteImportImagesReport`, `WebsiteImportFileList`), first on the
+  Import page above a Divider, the single imports under "One piece at a time". `WebsiteImportPlanner.Plan` is
+  pure: types against the website, vocabularies against it plus the planned types, each artwork file against
+  that plus the planned vocabularies and the series earlier files create (negative placeholder ids; default
+  product type, centimetres, one of a kind); images from `images.csv` matched to (type, title) after import, an
+  image already on its artwork (same hash) counted as already here; posts through `PostImportPlanner` with
+  `ArtworksAfterImport`. `PostImportTarget` now takes an `IPostImportArtworks` (`WebsiteArtworks` is the old
+  slug/title + hash lookup). Type and vocabulary reviews became `ArtworkTypeImportReview` and
+  `VocabularyImportReview`; `CollectedPaths` holds the folder path helpers. The import must re-plan each stage
+  against the website after the one before runs (steps 3–5), not apply the review's plans, whose ids are
+  placeholders.
+- Step 3 built 2026-09-29, uncommitted (798 tests): Import button on the review when `WebsiteImportReview.CanImport`
+  (no folder problems, no catalog errors; image and post problems don't block). `WebsiteCatalogImporter.ImportAsync`
+  re-plans and applies types, vocabularies, then each artwork file (`AddManyAsync`, one transaction a file) against
+  the website as it now is, reporting `WebsiteImportStageDone` per stage; a stage with errors, or
+  NameAlreadyInUse/ChangedSincePageLoad, stops it ("changed since the review"). The page re-reviews afterwards.
+  `WebsiteImportManifest` (website.json reading) and `WebsiteImportPlanner.ArtworkSettings` are shared by both.
+  The page says images and posts aren't imported yet; step 4 adds images to the same run, step 5 posts.
+- Icons (Mike, 2026-09-29): `<SvgIcon Name="folder-open" />` and `IconLabel Icon="folder-open"` draw
+  `wwwroot/icons/<name>.svg` inline (nested folders by path). `SvgIconFiles` (singleton) reads each once, drops
+  size attributes, moves fill and stroke colours to the root as currentColor (a shape relying on the root's
+  "none" keeps it), so fill-*, stroke-* and text-* classes work. Multi-colour files stay `<img>` (Google logo).
+  Report lists: `Lists/ReportGroup` ("Heading: count" over a list, nothing when empty, never scrolls itself)
+  is used by `BulkImageReport`, `PostImportReport` and the whole-website images review. The catalog reviews
+  in modals are tables; their scrolling is the modal wrapper's `min-h-0 overflow-y-auto`.
+
+**Earlier note: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and
 vocabulary planners share one skeleton (parse, find columns, count names, skip blank and repeated rows);
 decide then whether to pull it out. Once the export's design settles, the Export page should say exactly
 what each download includes and leaves out (for now it points to the README).
