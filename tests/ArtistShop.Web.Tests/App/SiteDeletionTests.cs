@@ -53,6 +53,41 @@ public sealed class SiteDeletionTests(TestApp app)
         Assert.Equal(HttpStatusCode.OK, await HomeStatusAsync(site));
     }
 
+    // on the website's own host, since it goes offline with the website
+    [Fact]
+    public async Task TheDeletePageLinksToTheWebsitesExport()
+    {
+        var site = await app.MakeSiteAsync();
+
+        Assert.Contains($"http://{site.Host}/admin/export", await ReadAsync(await OwnerClientAsync(site), DeletePath(site)));
+    }
+
+    [Fact]
+    public async Task MyWebsitesSaysHowToDownloadAWebsiteBeingDeleted()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await OwnerClientAsync(site);
+        const string howTo = "To download one, keep it";
+
+        Assert.DoesNotContain(howTo, await ReadAsync(client, "/sites"));
+        await DeleteAsync(client, site, site.Host);
+        Assert.Contains(howTo, await ReadAsync(client, "/sites"));
+    }
+
+    // the delete page is on the platform; an admin can't delete, so isn't shown it
+    [Fact]
+    public async Task TheDashboardLinksOnlyTheOwnerToTheDeletePage()
+    {
+        var site = await app.MakeSiteAsync();
+        var owner = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var admin = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var ownersPage = await ReadAsync(owner, "/admin");
+        Assert.Contains("Delete website", ownersPage);
+        Assert.Contains($"href=\"http://{TestApp.PlatformHost}{DeletePath(site)}\"", ownersPage);
+        Assert.DoesNotContain("Delete website", await ReadAsync(admin, "/admin"));
+    }
+
     // not its admins, and not a site already being deleted
     [Fact]
     public async Task OnlyTheOwnerOfAWebsiteOnlineFindsItsDeletePage()

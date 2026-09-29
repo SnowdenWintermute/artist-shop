@@ -1,4 +1,4 @@
-# Next: commit the post import (browser-checked; notes under the site export below). Then the Export links from delete-website and My websites, later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
+# Next: the whole-folder website migration (CSVs, then images, then posts). The Export links from delete-website and My websites are built (2026-09-29, uncommitted). Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -107,7 +107,27 @@ Website box beside Export: artwork types, vocabularies, artworks, images, in the
 with the posts import and later the whole-site import to join it. The type and vocabulary import
 buttons left the dashboard's Catalog box; the Artworks box keeps its per-type Import and Upload
 images, which are everyday work. New `PageUrls.ArtworkImport` and `PageUrls.Import`.
-Then: links to Export from delete-website and My websites during the grace period.
+Post import committed 2026-09-29 (1540dfd, with the review fixes and the Import page).
+**Built 2026-09-29, uncommitted (789 tests):** `PageUrls.SiteExport`; the delete page says to download first and links
+Export; My websites, when an owned website is being deleted, says to keep it, download, delete again; the
+delete-account dialog links each owned website's Export (or says to keep one already being deleted). Also the
+post import review fixes: failed posts retry, Stop checked before each upload, a save error shows a message,
+and the post download skips an image whose original is gone. Original handoff: Mike
+chose option (a) below (2026-09-29): simple, and more than most platforms offer. Nothing is served
+for an offline website. To build: the delete page (and `DeleteAccountBox.razor`'s list of websites
+it deletes) says to download first, linking to the website's Export page on its own host (a
+`PageUrls.SiteExport` beside `SiteAdmin`, which already builds a site-host address from the platform's
+base URI); My websites, for a website in its grace period, tells the owner to keep it, download it from
+Export, then delete it again. Show Mike the wording before building. The catch: `DeleteSitePage.razor` says a deleted site
+"goes offline now for everyone, admins included", and `MemberSiteTable.razor` shows a site being
+deleted without a link (`site.EraseAt`, `MemberSite.IsBeingDeleted`, `CanStillBeKept`), so the Export
+page on the site's host can't be reached in the grace period. Options to put to Mike: (a) the delete
+page links to Export before deleting ("download first"), and during the grace period My websites
+says to Keep the website, export, then delete again; (b) serve the downloads for an offline site to its
+owner, on the site host or the platform host (the endpoints are `ExportEndpoints`, admin-only on the
+site host, one download at a time per site via `ExportLock`); (c) both. (a) needs no change to what's
+online. The owner-less case: deleting an account puts its owned sites into the grace period
+(`DeleteAccountBox.razor` lists them), so check who could export those.
 
 **Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and
 vocabulary planners share one skeleton (parse, find columns, count names, skip blank and repeated rows);

@@ -65,6 +65,11 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
    */
   async function upload(file) {
     for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
+      // Stop pressed while waiting to retry, or between one file and the next
+      if (isStopped) {
+        return null;
+      }
+
       const { finished, abort } = sendUpload({ url: UPLOAD_URL, file });
       abortInFlight = abort;
       const response = await finished;

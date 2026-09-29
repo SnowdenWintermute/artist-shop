@@ -61,7 +61,7 @@ public static class PageUrls
     // on a site's host
     public const string PostImport = "/admin/import/posts";
 
-    // A site's home page and its admin, on the platform page's scheme and port (5176 in dev). Being
+    // A site's home page, its admin and its Export page, on the platform page's scheme and port (5176 in dev). Being
     // signed in on the platform doesn't sign anyone in there: each host has its own cookie, so the
     // admin sends someone not signed in on that site to its sign-in first
     public static string SiteHome(string platformBaseUri, HostName siteHost) =>
@@ -70,6 +70,9 @@ public static class PageUrls
     public static string SiteAdmin(string platformBaseUri, HostName siteHost) =>
         OnHost(platformBaseUri, siteHost, AdminDashboard);
 
+    public static string SiteExport(string platformBaseUri, HostName siteHost) =>
+        OnHost(platformBaseUri, siteHost, Export);
+
     // the platform's home from a site's page
     public static string PlatformHome(string siteBaseUri, HostName platformHost) =>
         OnHost(siteBaseUri, platformHost, "/");
@@ -77,6 +80,10 @@ public static class PageUrls
     // My websites from a site's page, such as in an invitation's email
     public static string PlatformMySites(string siteBaseUri, HostName platformHost) =>
         OnHost(siteBaseUri, platformHost, MySites);
+
+    // a website's delete page from its own admin
+    public static string PlatformDeleteSite(string siteBaseUri, HostName platformHost, SiteId id) =>
+        OnHost(siteBaseUri, platformHost, DeleteSite(id));
 
     // on a website's host: where the platform sends a browser with its sign-in code (SiteSignIns)
     public const string SiteHandoff = "/Account/Handoff";

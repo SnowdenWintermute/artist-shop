@@ -6,6 +6,9 @@
 @using Microsoft.AspNetCore.Authorization
 @page "/admin"
 @inject ArtworkTypeRepository ArtworkTypeRepository
+@inject PlatformSettings PlatformSettings
+@inject NavigationManager NavigationManager
+@inject CurrentSite CurrentSite
 
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 
@@ -61,6 +64,14 @@
         </AuthorizeView>
         <DashboardLink Href="@PageUrls.Import">Import</DashboardLink>
         <DashboardLink Href="@PageUrls.Export">Export</DashboardLink>
+        @* deleting is on the platform, where My websites keeps it during the grace period *@
+        <AuthorizeView Policy="@SitePolicies.Owner">
+          <Authorized>
+            <DashboardLink Href="@PageUrls.PlatformDeleteSite(NavigationManager.BaseUri, PlatformSettings.Host, CurrentSite.Id)">
+              Delete website
+            </DashboardLink>
+          </Authorized>
+        </AuthorizeView>
       </ul>
     </DashboardBox>
   </div>

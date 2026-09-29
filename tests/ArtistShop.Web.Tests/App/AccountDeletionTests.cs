@@ -27,6 +27,20 @@ public sealed class AccountDeletionTests(TestApp app)
         Assert.Contains("This is your PictureCord account.", page);
     }
 
+    // nobody can export an owned website once the account is gone
+    [Fact]
+    public async Task ThePageLinksToEachOwnedWebsitesExport()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail);
+
+        var page = await (await client.GetAsync(Path, TestContext.Current.CancellationToken)).Content.ReadAsStringAsync(
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Contains($"http://{site.Host}/admin/export", page);
+    }
+
     [Fact]
     public async Task DeletingAnAccountWithNoWebsitesDeletesOnlyTheAccount()
     {

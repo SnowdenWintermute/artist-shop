@@ -1,10 +1,8 @@
-<svg width="57" height="57" viewBox="0 0 57 57" fill="none" xmlns="http://www.w3.org/2000/svg">
-<!-- the browser's own light or dark theme, which is what its tab strip follows -->
+<svg width="43" height="31" viewBox="0 0 43 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+
 <style>
 path { fill: black; }
 @media (prefers-color-scheme: dark) { path { fill: white; } }
 </style>
-<path d="M57 41H52V5H16V0H57V41Z"/>
-<path d="M49 49H44V13H8V8H49V49Z"/>
-<path d="M41 57H0V16H41V57ZM5 21V52H36V21H5Z"/>
+<path d="M37.293 26L42.293 31H0.77832L5.77832 26H37.293ZM5 5.70703V25.3643L0 30.3643V0.707031L5 5.70703ZM43 30.293L38 25.293V5.77832L43 0.77832V30.293ZM37.3643 5H5.70703L0.707031 0H42.3643L37.3643 5Z" />
 </svg>

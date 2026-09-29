@@ -12,6 +12,7 @@
 @inject ArtworkRepository ArtworkRepository
 @inject ImageStorage ImageStorage
 @inject IJSRuntime JS
+@inject ILogger<PostImportUpload> Logger
 @implements IAsyncDisposable
 
 @code {
@@ -42,6 +43,14 @@
   private readonly Dictionary<string, ImageUploadResult> _uploadsByFileId = [];
 
   private int WillAddCount => _items.Count(item => item.Outcome is PostImportOutcome.WillAdd);
+
+  // the posts to add that aren't in yet, including those that failed, so a run tries them again
+  private List<int> IndexesToImport() =>
+    [
+      .. Enumerable
+        .Range(0, _items.Count)
+        .Where(index => _items[index].Outcome is PostImportOutcome.WillAdd && !(_results.TryGetValue(index, out var problem) && problem is null)),
+    ];
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -161,16 +170,20 @@
     }
 
     _isImporting = true;
+    var indexes = IndexesToImport();
+
+    // a failure from an earlier run is tried again, so it counts as not done yet
+    foreach (var index in indexes)
+    {
+      _results.Remove(index);
+    }
 
     // the page closed, taking the files with it
     try
     {
       await _importer.InvokeVoidAsync(
         "importPosts",
-        _items
-          .Select((item, index) => (item, index))
-          .Where(pair => pair.item.Outcome is PostImportOutcome.WillAdd && !_results.ContainsKey(pair.index))
-          .Select(pair => new { pair.index, fileIds = pair.item.FileIdsByPlaceholder.Values })
+        indexes.Select(index => new { index, fileIds = _items[index].FileIdsByPlaceholder.Values })
       );
     }
     catch (JSDisconnectedException)
@@ -212,7 +225,17 @@
   {
     if (index >= 0 && index < _items.Count)
     {
-      _results[index] = await PostImporter.SaveAsync(_items[index], _uploadsByFileId, PostRepository, ImageStorage);
+      // the database failing, say. Thrown back to the script, it would end the run with no word
+      // to the artist
+      try
+      {
+        _results[index] = await PostImporter.SaveAsync(_items[index], _uploadsByFileId, PostRepository, ImageStorage);
+      }
+      catch (Exception exception)
+      {
+        Logger.LogError(exception, "Saving an imported post failed.");
+        _results[index] = "Something went wrong saving this post. Press Import to try again.";
+      }
     }
 
     await InvokeAsync(StateHasChanged);
@@ -295,11 +318,11 @@
     <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="StopImportAsync">Stop</ButtonBasic>
   </div>
 }
-else if (WillAddCount > _results.Count)
+else if (IndexesToImport() is { Count: > 0 } toImport)
 {
   <div class="mb-4">
     <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="StartImportAsync">
-      Import @CountText.Of(WillAddCount - _results.Count, "post")
+      Import @CountText.Of(toImport.Count, "post")
     </ButtonBasic>
   </div>
 }

@@ -78,11 +78,23 @@
     @if (_ownedSites.Count > 0)
     {
       <p class="mb-1">These websites are yours. They go offline now, and are erased with all their artworks, posts and
-        images on the date shown. Nobody can keep them once your account is gone:</p>
+        images on the date shown. Nobody can keep them once your account is gone, so download anything you want
+        first:</p>
       <ul class="mb-2 list-disc pl-6 last:mb-0">
         @foreach (var site in _ownedSites)
         {
-          <li>@site.MainHost.Value, on <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /></li>
+          <li>
+            @site.MainHost.Value, on <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" />
+            @* a website being deleted is offline, Export page included *@
+            @if (site.IsBeingDeleted)
+            {
+              <span>(already being deleted; keep it from My websites to download it)</span>
+            }
+            else
+            {
+              <span>· <a class="underline" href="@PageUrls.SiteExport(NavigationManager.BaseUri, site.MainHost)">Export</a></span>
+            }
+          </li>
         }
       </ul>
     }

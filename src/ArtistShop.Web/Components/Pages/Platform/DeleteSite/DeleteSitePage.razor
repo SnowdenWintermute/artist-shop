@@ -71,6 +71,11 @@
       <LocalDate Moment="SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /> it's erased with all its artworks, posts
       and images. Until then you can keep it from <a class="underline" href="@PageUrls.MySites">My websites</a>.
     </p>
+    <p class="mb-4">
+      Want a copy first? Download its catalog, images and posts from its
+      <a class="underline" href="@PageUrls.SiteExport(NavigationManager.BaseUri, site.MainHost)">Export page</a>. You can
+      import them into another website. Once it's deleted, the Export page goes offline with it.
+    </p>
 
     <EditForm EditContext="Input.EditContext" FormName="delete-site" OnValidSubmit="() => DeleteAsync(site)" Enhance
               class="mb-6">

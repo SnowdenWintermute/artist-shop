@@ -61,8 +61,8 @@ public static class PostExportArchive
                     ImageVariants.FileName(ImageVariants.LargestWidthUpTo(source.Width, WebCopyWidth), ImageVariantFormat.Webp)
                 );
 
-                // a variant gone since the post was saved leaves the embed out, as a missing original does
-                if (!File.Exists(webCopyPath))
+                // a web copy or original gone since the post was saved leaves the embed out
+                if (!File.Exists(webCopyPath) || !imageStorage.OriginalExists(source.StorageKey))
                 {
                     continue;
                 }

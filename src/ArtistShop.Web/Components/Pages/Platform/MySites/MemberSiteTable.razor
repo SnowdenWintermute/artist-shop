@@ -34,6 +34,14 @@
   Each website has its own sign-in. If Manage asks you to sign in, use this same email and password.
 </p>
 
+@if (Sites.Any(site => site.Role is SiteRole.Owner && site.CanStillBeKept(TimeProvider.GetUtcNow())))
+{
+  <p class="mb-4">
+    A website being deleted is offline, so it can't be downloaded. To download one, keep it, download it from its
+    Export page, then delete it again.
+  </p>
+}
+
 <DataTable Items="Sites" Headings="@(new[] { "Address", "Role", "" })" Class="mb-4">
   <Row Context="site">
     <DataTableCell>
