@@ -16,8 +16,10 @@
 
     <p class="mb-4 text-sm">
       Each image is matched to an artwork of the chosen type by its file name without the extension,
-      so <code>Sunset over the bay.jpg</code> goes to the artwork called Sunset over the bay. Drop the
-      folder your images are in; its series folders are read too, but nothing deeper.
+      so <code>Sunset over the bay.jpg</code> goes to the artwork called Sunset over the bay. An artwork's other
+      images are named the same with a number in brackets, like <code>Sunset over the bay (2).jpg</code>, and go
+      after its first image in the order of their numbers. Drop the folder your images are in; its series folders
+      are read too, but nothing deeper.
     </p>
 
     @* the island posts each image to an endpoint that checks the antiforgery token, and there is

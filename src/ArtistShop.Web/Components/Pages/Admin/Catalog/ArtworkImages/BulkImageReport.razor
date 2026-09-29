@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Imports
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Utilities
@@ -10,11 +11,14 @@
   private static readonly BulkImageOutcome[] Order =
   [
     BulkImageOutcome.Attached,
+    BulkImageOutcome.ExtraAdded,
     BulkImageOutcome.WillAttach,
+    BulkImageOutcome.WillAddExtra,
     BulkImageOutcome.Failed,
     BulkImageOutcome.DuplicateNameInUpload,
     BulkImageOutcome.SeveralArtworks,
     BulkImageOutcome.ArtworkHasImages,
+    BulkImageOutcome.ArtworkHasThisFile,
     BulkImageOutcome.NoArtwork,
   ];
 
@@ -22,7 +26,10 @@
     outcome switch
     {
       BulkImageOutcome.Attached => "Added",
+      BulkImageOutcome.ExtraAdded => "Added as another image",
       BulkImageOutcome.WillAttach => "Will be added",
+      BulkImageOutcome.WillAddExtra => "Will be added as another image",
+      BulkImageOutcome.ArtworkHasThisFile => "That artwork already has an image from a file of this name",
       BulkImageOutcome.Failed => "Didn't upload",
       BulkImageOutcome.DuplicateNameInUpload => "Named twice in this upload, so neither was used",
       BulkImageOutcome.SeveralArtworks => "More than one artwork has this name",

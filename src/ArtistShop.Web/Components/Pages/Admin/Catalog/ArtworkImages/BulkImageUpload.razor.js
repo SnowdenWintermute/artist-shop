@@ -1,4 +1,5 @@
 import { listenForFiles } from "/js/collect-files.js";
+import { createUploadProgress } from "/js/upload-progress.js";
 import {
   MAXIMUM_UPLOAD_ATTEMPTS,
   isRetryable,
@@ -8,12 +9,17 @@ import {
   wait,
 } from "/js/upload-request.js";
 
+// a first image, matched to its artwork by name on the server
 const UPLOAD_URL = "/admin/uploads/artwork-image-by-name";
 
-// a courtesy to the server, which has its own limits and doesn't trust this number
+// another image of an artwork, like "Dawn (2)", after the ones it has
+const APPEND_URL = "/admin/uploads/artwork-image-appended";
+
+// a courtesy to the server, which has its own limits and doesn't trust this number. Each worker
+// takes a whole artwork, so an artwork's files still go in order
 const CONCURRENT_UPLOADS = 4;
 
-const PROGRESS_INTERVAL_MILLISECONDS = 250;
+/** @typedef {{ id: string, artworkId: number | null }} UploadItem */
 
 /**
  * @param {HTMLElement} zone an element wrapping the drop zone: both "change" and "entriesdropped"
@@ -29,17 +35,12 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
 
   /** @type {Map<string, () => void>} */
   const inFlightAborts = new Map();
-  /** @type {string[]} */
+  /** @type {UploadItem[][]} one artwork's files each */
   let queue = [];
-  /** bytes of files whose response has arrived */
-  let finishedBytes = 0;
-  /** bytes sent so far by each upload still in flight */
-  const loadedByFile = new Map();
-  let totalBytes = 0;
+  let progress = createUploadProgress(0, reportProgress);
   let artworkTypeId = 0;
   let isStopped = false;
   let isRunning = false;
-  let progressReportedAt = 0;
 
   /** @param {string} method */
   function notify(method, ...args) {
@@ -76,33 +77,36 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
 
   /**
    * one request, resolved however it ends: null when Stop aborted it
-   * @param {string} id
+   * @param {UploadItem} item
    * @param {File} file
    */
-  function sendOnce(id, file) {
+  function sendOnce({ id, artworkId }, file) {
     const { finished, abort } = sendUpload({
-      url: UPLOAD_URL,
+      url: artworkId === null ? UPLOAD_URL : APPEND_URL,
       file,
-      fields: { artworkTypeId: String(artworkTypeId) },
-      onProgress: (loaded) => {
-        loadedByFile.set(id, loaded);
-        reportProgress(false);
-      },
+      fields: artworkId === null ? { artworkTypeId: String(artworkTypeId) } : { artworkId: String(artworkId) },
+      onProgress: (loaded) => progress.loaded(id, loaded),
     });
     inFlightAborts.set(id, abort);
 
     return finished.finally(() => inFlightAborts.delete(id));
   }
 
-  /** @param {string} id */
-  async function uploadFile(id) {
+  /** @param {UploadItem} item */
+  async function uploadFile(item) {
+    const { id, artworkId } = item;
     const file = collectedFiles.get(id);
     if (!file) {
       return;
     }
 
     for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
-      const response = await sendOnce(id, file);
+      // Stop pressed while waiting to retry
+      if (isStopped) {
+        return;
+      }
+
+      const response = await sendOnce(item, file);
 
       // a stopped run leaves the file as it was, so pressing Upload again picks it up
       if (response === null || isStopped) {
@@ -110,54 +114,40 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
       }
 
       if (response.status === 200) {
-        finish(id, file.size);
-        notify("OnFileFinished", id, JSON.parse(response.text));
+        progress.finished(id, file.size);
+        if (artworkId === null) {
+          notify("OnFileFinished", id, JSON.parse(response.text));
+        } else {
+          notify("OnExtraAdded", id);
+        }
         return;
       }
 
       if (!isRetryable(response.status) || attempt === MAXIMUM_UPLOAD_ATTEMPTS) {
-        finish(id, file.size);
+        progress.finished(id, file.size);
         notify("OnFileFailed", id, uploadErrorMessage(response));
         return;
       }
 
-      // none of this file's bytes count while it waits to be sent again
-      loadedByFile.delete(id);
-      reportProgress(false);
+      progress.retrying(id);
       await wait(retryDelay(attempt, response.retryAfter));
     }
   }
 
-  /**
-   * @param {string} id
-   * @param {number} size
-   */
-  function finish(id, size) {
-    loadedByFile.delete(id);
-    finishedBytes += size;
-    reportProgress(false);
-  }
-
-  /** @param {boolean} force sends even inside the throttling interval, for the last update of a run */
-  function reportProgress(force) {
-    const now = Date.now();
-    if (!force && now - progressReportedAt < PROGRESS_INTERVAL_MILLISECONDS) {
-      return;
-    }
-
-    progressReportedAt = now;
-
-    let sent = finishedBytes;
-    for (const bytes of loadedByFile.values()) {
-      sent += bytes;
-    }
-
-    notify("OnUploadProgress", totalBytes === 0 ? 100 : Math.min(100, Math.round((sent / totalBytes) * 100)));
+  /** @param {number} percentComplete */
+  function reportProgress(percentComplete) {
+    notify("OnUploadProgress", percentComplete);
   }
 
   async function runWorker() {
     while (queue.length > 0 && !isStopped) {
-      await uploadFile(/** @type {string} */ (queue.shift()));
+      for (const item of queue.shift() ?? []) {
+        if (isStopped) {
+          return;
+        }
+
+        await uploadFile(item);
+      }
     }
   }
 
@@ -165,17 +155,18 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
    * Started but not awaited: an InvokeAsync from .NET gives up after
    * CircuitOptions.JSInteropDefaultCallTimeout, one minute by default, and a real run passes that.
    * The island hears the end through OnUploadFinished instead
-   * @param {string[]} ids
+   * @param {UploadItem[][]} artworks
    * @param {number} typeId
    */
-  async function run(ids, typeId) {
+  async function run(artworks, typeId) {
     isStopped = false;
     isRunning = true;
     artworkTypeId = typeId;
-    queue = [...ids];
-    finishedBytes = 0;
-    totalBytes = ids.reduce((sum, id) => sum + (collectedFiles.get(id)?.size ?? 0), 0);
-    loadedByFile.clear();
+    queue = [...artworks];
+    progress = createUploadProgress(
+      artworks.flat().reduce((sum, { id }) => sum + (collectedFiles.get(id)?.size ?? 0), 0),
+      reportProgress
+    );
 
     try {
       await Promise.all(
@@ -186,7 +177,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     } finally {
       // without this the island stays "uploading" for good when a worker throws
       isRunning = false;
-      reportProgress(true);
+      progress.done();
       notify("OnUploadFinished");
     }
   }
@@ -210,12 +201,12 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
       return new Blob([JSON.stringify(collectedMetadata)]);
     },
     /**
-     * @param {string[]} ids
+     * @param {UploadItem[][]} artworks
      * @param {number} typeId
      */
-    upload(ids, typeId) {
+    upload(artworks, typeId) {
       // "void" says the promise is deliberately not awaited
-      void run(ids, typeId);
+      void run(artworks, typeId);
     },
     stop,
     dispose() {

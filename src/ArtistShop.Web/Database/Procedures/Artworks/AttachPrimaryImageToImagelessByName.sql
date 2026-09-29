@@ -57,29 +57,15 @@ BEGIN
     ) THEN
         found_match_type := artwork_with_images;
     ELSE
-        -- arrays count from 1
-        INSERT INTO
-            artwork_images (
-                artwork_id,
-                storage_key,
-                original_file_name,
-                sort_order,
-                is_primary,
-                width,
-                height,
-                blur_data_uri
-            )
-        VALUES
-            (
-                matching_artwork_ids[1],
-                p_storage_key,
-                p_original_file_name,
-                0,
-                true,
-                p_width,
-                p_height,
-                p_blur_data_uri
-            );
+        -- arrays count from 1. On an imageless artwork, appending makes it the first and primary image
+        PERFORM append_artwork_image(
+            matching_artwork_ids[1],
+            p_storage_key,
+            p_original_file_name,
+            p_width,
+            p_height,
+            p_blur_data_uri
+        );
 
         found_match_type := one_imageless_artwork;
     END IF;

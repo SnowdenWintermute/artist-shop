@@ -63,6 +63,46 @@ public class ArtworkImageRepository(SiteDatabase database)
         }
     }
 
+    // after the artwork's other images, and its primary when it has none. Throws
+    // ChangedSincePageLoadException when the artwork is gone
+    public async Task AppendImageAsync(ArtworkId artworkId, ArtworkImage image)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "SELECT append_artwork_image(@ArtworkId, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri)",
+                new
+                {
+                    ArtworkId = artworkId.Value,
+                    image.StorageKey,
+                    image.OriginalFileName,
+                    image.Width,
+                    image.Height,
+                    image.BlurDataUri,
+                }
+            );
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerExists))
+        {
+            throw new ChangedSincePageLoadException(exception.Message, exception);
+        }
+    }
+
+    // the file names each artwork's images were uploaded under
+    public async Task<ILookup<ArtworkId, string>> GetFileNamesAsync(IReadOnlyCollection<ArtworkId> artworkIds)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = await connection.QueryAsync<FileNameRow>(
+            "SELECT * FROM get_artwork_image_file_names(@ArtworkIds)",
+            new { ArtworkIds = (int[])[.. artworkIds.Select(artworkId => artworkId.Value)] }
+        );
+
+        return rows.ToLookup(row => new ArtworkId(row.ArtworkId), row => row.OriginalFileName);
+    }
+
     // the names must be distinct ignoring case, or one name's rows would come back under both spellings
     public async Task<Dictionary<ArtworkName, ArtworkNameMatch>> GetArtworkNameMatchesAsync(
         ArtworkTypeId typeId,
@@ -107,6 +147,12 @@ public class ArtworkImageRepository(SiteDatabase database)
         {
             throw new ChangedSincePageLoadException(exception.Message, exception);
         }
+    }
+
+    private sealed class FileNameRow
+    {
+        public required int ArtworkId { get; init; }
+        public required string OriginalFileName { get; init; }
     }
 
     private sealed class AttachRow

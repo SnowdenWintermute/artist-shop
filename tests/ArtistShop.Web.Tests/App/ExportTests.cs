@@ -15,6 +15,7 @@ using ArtistShop.Web.Imports;
 using ArtistShop.Web.Sites;
 using ArtistShop.Web.Utilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ArtistShop.Web.Tests.App;
 
@@ -466,6 +467,7 @@ public sealed class ExportTests(TestApp app)
     [Fact]
     public async Task TheWholeWebsiteImportBringsTheCatalogOverOnce()
     {
+        byte[] dawnBytes = [0xFF, 0xD8, 0xFF, 4];
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
@@ -475,7 +477,10 @@ public sealed class ExportTests(TestApp app)
         var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
         await fromCatalog.Artworks.AddManyAsync(
             [
-                Addition(painting, "Dawn", "Early light.", dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: []),
+                Addition(
+                    painting, "Dawn", "Early light.", dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: [],
+                    images: [await SaveOriginalAsync(from.Id, dawnBytes)]
+                ),
                 Addition(installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: []),
             ]
         );
@@ -500,6 +505,81 @@ public sealed class ExportTests(TestApp app)
         stages.Clear();
         Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, repositories, stage => { stages.Add(stage); return Task.CompletedTask; }));
         Assert.All(stages, stage => Assert.Equal(0, stage.AddedCount));
+
+        // the images stage then sends Dawn's image to the artwork now here, and a second run finds it there
+        var toDawn = (await toCatalog.Artworks.GetAllAsync()).Single(artwork => artwork.Name.Value == "Dawn");
+        var images = Assert.Single((await ReviewAsync(folder, to.Id)).Images.Artworks);
+        Assert.Equal((toDawn.Id, 1), (images.ArtworkId, images.ToAdd.Count));
+
+        await new ArtworkImageRepository(app.Services.GetRequiredService<SiteDatabases>().For(to.Id))
+            .AppendImageAsync(toDawn.Id, await SaveOriginalAsync(to.Id, dawnBytes));
+
+        var again = Assert.Single((await ReviewAsync(folder, to.Id)).Images.Artworks);
+        Assert.Equal((0, 1), (again.ToAdd.Count, again.AlreadyThereCount));
+    }
+
+    // The posts stage plans against the website as the images left it: a picture links to its
+    // artwork only once the artwork's image is here, never to a placeholder
+    [Fact]
+    public async Task TheWholeWebsitePostsLinkOnlyToArtworksWhoseImagesAreHere()
+    {
+        byte[] dawnBytes = [0xFF, 0xD8, 0xFF, 5];
+        var from = await app.MakeSiteAsync();
+        var fromCatalog = Catalog(from.Id);
+        var dawnImage = await SaveOriginalAsync(from.Id, dawnBytes);
+        await SaveWebCopyAsync(from.Id, dawnImage.StorageKey);
+        var dawn = await fromCatalog.Artworks.AddAsync(
+            Addition(
+                await TypeIdAsync(fromCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                images: [dawnImage]
+            )
+        );
+        var body = new PostBody(
+            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY"}}},{"insert":"\n"}]}"""
+                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
+                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+        );
+        await Posts(from.Id).AddAsync(new PostTitle("Morning"), new PostSlug("morning"), body, PostStatus.Published);
+        var client = await app.SignedInClientAsync(from.Host, from.OwnerEmail);
+        var folder = WebsiteFolder(await ReadZipAsync(await client.GetAsync(ExportEndpoints.EverythingPath, TestContext.Current.CancellationToken), ReadBytesAsync));
+
+        var to = await app.MakeSiteAsync();
+        var toCatalog = Catalog(to.Id);
+        var toPosts = Posts(to.Id);
+        var toStorage = ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), to.Id);
+        await WebsiteCatalogImporter.ImportAsync(
+            folder,
+            new CatalogRepositories(toCatalog.Fields, toCatalog.Types, toCatalog.Vocabularies, toCatalog.Terms, toCatalog.Series, toCatalog.ProductTypes, toCatalog.Artworks),
+            _ => Task.CompletedTask
+        );
+
+        async Task<PostImportItem> PlanAsync() =>
+            Assert.Single(PostImportPlanner.Plan(folder.Posts, await PostImportTarget.LoadAsync(folder.Posts, toPosts, toCatalog.Series, toCatalog.Artworks, toStorage)));
+
+        // Dawn is here, but not its image: the images stage didn't get it in
+        var beforeImages = await PlanAsync();
+        Assert.Equal(0, beforeImages.RelinkedArtworkCount);
+        Assert.Equal(["Dawn"], beforeImages.PictureOnlyArtworks);
+
+        var toDawn = (await toCatalog.Artworks.GetAllAsync()).Single(artwork => artwork.Name.Value == "Dawn");
+        var toImage = await SaveOriginalAsync(to.Id, dawnBytes);
+        await new ArtworkImageRepository(app.Services.GetRequiredService<SiteDatabases>().For(to.Id)).AppendImageAsync(toDawn.Id, toImage);
+
+        var run = new PostImportRun([await PlanAsync()]);
+        Assert.Equal(1, run.Items[0].RelinkedArtworkCount);
+        var batch = Assert.Single(run.Start());
+        Assert.Empty(batch.FileIds);
+
+        await run.PostUploadedAsync(batch.Index, toPosts, toStorage, NullLogger.Instance);
+
+        Assert.Null(run.Results[batch.Index]);
+        Assert.Empty(run.Start());
+        var imported = await toPosts.GetBySlugAsync(new PostSlug("morning"));
+        Assert.NotNull(imported);
+        Assert.Equal(
+            new ArtworkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.Center, Caption: null),
+            Assert.Single(PostDocumentParser.Parse(imported.Body).Blocks.OfType<ArtworkEmbedBlock>())
+        );
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 @rendermode InteractiveServer
 @using System.Text.Json
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -48,6 +49,35 @@
   // the stages the last import finished, and why it stopped if it did
   private List<WebsiteImportStageDone> _stagesDone = [];
   private string? _importProblem;
+
+  // the images stage while the script sends them: how many there are, how many are in, and each
+  // that didn't go in, by its path in images/
+  private bool _isSendingImages;
+  private int _percentComplete;
+  private int _imageCount;
+  private int _imagesAdded;
+  private Dictionary<string, string> _imagePathsByFileId = [];
+  private List<(string Path, string Problem)> _imageFailures = [];
+
+  // the posts stage, run as the post import page runs one, once the images are in
+  private bool _isSendingPosts;
+  private PostImportRun _postRun = new([]);
+
+  private List<(string Title, string Problem)> PostFailures()
+  {
+    var failures = new List<(string Title, string Problem)>();
+
+    foreach (var (index, problem) in _postRun.Results)
+    {
+      if (problem is not null)
+      {
+        var item = _postRun.Items[index];
+        failures.Add((item.Title?.Value ?? item.FolderName, problem));
+      }
+    }
+
+    return failures;
+  }
 
   // every field there is, for the artwork type review
   private IReadOnlyList<ArtworkFieldDefinition> _fields = [];
@@ -117,7 +147,9 @@
     _review = WebsiteImportPlanner.Plan(folder, target);
   }
 
-  // The review shows what's on the website afterwards, so it says what a second run would add
+  // The catalog runs here; the images are then handed to the script, which reports each one and
+  // then OnImagesFinished. The review shows what's on the website afterwards, so it says what a
+  // second run would add
   private async Task ImportAsync()
   {
     if (_folder is not { } folder)
@@ -128,6 +160,8 @@
     _isImporting = true;
     _stagesDone = [];
     _importProblem = null;
+    _imageFailures = [];
+    _postRun = new([]);
 
     var repositories = new CatalogRepositories(
       ArtworkFieldRepository,
@@ -154,11 +188,188 @@
     catch (Exception exception)
     {
       Logger.LogError(exception, "The whole-website import failed.");
-      _importProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
+      _importProblem = SomethingWentWrongProblem;
     }
 
+    if (_importProblem is not null)
+    {
+      await FinishAsync(folder);
+      return;
+    }
+
+    // planned again now the artworks are here, for their real ids and the images they have
     await ReviewAsync(folder);
+    var artworks = Unwrap.Value(_review).Images.Artworks.Where(artwork => artwork.ToAdd.Count > 0).ToList();
+
+    if (artworks.Count == 0)
+    {
+      _stagesDone.Add(new WebsiteImportStageDone("Images", 0));
+      await StartPostsAsync(folder);
+      return;
+    }
+
+    _imageCount = artworks.Sum(artwork => artwork.ToAdd.Count);
+    _imagesAdded = 0;
+    _percentComplete = 0;
+    _imagePathsByFileId = artworks.SelectMany(artwork => artwork.ToAdd).ToDictionary(image => image.FileId, image => image.Path);
+    _isSendingImages = true;
+
+    // the page closed, which ends the import anyway
+    try
+    {
+      await Unwrap.Value(_importer).InvokeVoidAsync(
+        "importImages",
+        artworks.Select(artwork => new { artworkId = artwork.ArtworkId.Value, fileIds = artwork.ToAdd.Select(image => image.FileId) })
+      );
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  private const string SomethingWentWrongProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
+
+  // Planned against the website as the images left it, as the post import page plans them, so a
+  // picture links only to an artwork that really has its image here
+  private async Task StartPostsAsync(WebsiteImportFolder folder)
+  {
+    _isSendingImages = false;
+
+    try
+    {
+      var target = await PostImportTarget.LoadAsync(folder.Posts, PostRepository, SeriesRepository, ArtworkRepository, ImageStorage);
+      _postRun = new PostImportRun(PostImportPlanner.Plan(folder.Posts, target));
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "Planning the whole-website import's posts failed.");
+      _importProblem = SomethingWentWrongProblem;
+      await FinishAsync(folder);
+      return;
+    }
+
+    var batches = _postRun.Start();
+
+    if (batches.Count == 0)
+    {
+      _stagesDone.Add(new WebsiteImportStageDone("Posts", 0));
+      await FinishAsync(folder);
+      return;
+    }
+
+    _isSendingPosts = true;
+    _percentComplete = 0;
+    await InvokeAsync(StateHasChanged);
+
+    // the page closed, which ends the import anyway
+    try
+    {
+      await Unwrap.Value(_importer).InvokeVoidAsync("importPosts", batches);
+    }
+    catch (JSDisconnectedException)
+    {
+    }
+  }
+
+  [JSInvokable]
+  public void OnFileUploaded(string fileId, ImageUploadResult result) => _postRun.FileUploaded(fileId, result);
+
+  [JSInvokable]
+  public async Task OnPostFailed(int index, string message)
+  {
+    _postRun.PostFailed(index, message);
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // saved before the script goes on to the next post, since it waits for this to return
+  [JSInvokable]
+  public async Task OnPostUploaded(int index)
+  {
+    await _postRun.PostUploadedAsync(index, PostRepository, ImageStorage, Logger);
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnPostsFinished(bool wasStopped)
+  {
+    _stagesDone.Add(new WebsiteImportStageDone("Posts", _postRun.ImportedCount));
+
+    if (wasStopped)
+    {
+      _importProblem = StoppedProblem;
+    }
+
+    if (_folder is { } folder)
+    {
+      await FinishAsync(folder);
+    }
+  }
+
+  private async Task FinishAsync(WebsiteImportFolder folder)
+  {
+    await ReviewAsync(folder);
+    _isSendingImages = false;
+    _isSendingPosts = false;
     _isImporting = false;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnUploadProgress(int percentComplete)
+  {
+    _percentComplete = percentComplete;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnImageAdded(string fileId)
+  {
+    _imagesAdded++;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnImageFailed(string fileId, string problem)
+  {
+    _imageFailures.Add((_imagePathsByFileId.GetValueOrDefault(fileId, fileId), problem));
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnImagesFinished(bool wasStopped)
+  {
+    _stagesDone.Add(new WebsiteImportStageDone("Images", _imagesAdded));
+
+    if (_folder is not { } folder)
+    {
+      return;
+    }
+
+    if (wasStopped)
+    {
+      _importProblem = StoppedProblem;
+      await FinishAsync(folder);
+      return;
+    }
+
+    await StartPostsAsync(folder);
+  }
+
+  private const string StoppedProblem = "Stopped. What was imported stays; import again to add the rest.";
+
+  private async Task StopAsync()
+  {
+    // the page closed, which stopped the import anyway
+    try
+    {
+      if (_importer is not null)
+      {
+        await _importer.InvokeVoidAsync("stop");
+      }
+    }
+    catch (JSDisconnectedException)
+    {
+    }
   }
 
   [JSInvokable]
@@ -327,7 +538,17 @@ string>(), []);
   <p class="mb-4 text-sm">Reading the folder…</p>
 }
 
-@if (_isImporting)
+@if (_isSendingImages)
+{
+  <UploadProgress PercentComplete="_percentComplete" OnStop="StopAsync"
+                  Detail="@($"({_imagesAdded + _imageFailures.Count} of {_imageCount} images)")" />
+}
+else if (_isSendingPosts)
+{
+  <UploadProgress PercentComplete="_percentComplete" OnStop="StopAsync"
+                  Detail="@($"({_postRun.Results.Count} of {_postRun.Items.Count(item => item.Outcome is PostImportOutcome.WillAdd)} posts)")" />
+}
+else if (_isImporting)
 {
   <p class="mb-4 text-sm">Importing…</p>
 }
@@ -346,12 +567,20 @@ string>(), []);
     {
       <p class="text-sm text-red-400">@_importProblem</p>
     }
-    @if (!_isImporting && _importProblem is null)
-    {
-      <p class="text-sm">Images and posts aren't imported yet: that's still to come.</p>
-    }
   </div>
 }
+
+<ReportGroup Heading="Images that didn't upload" Items="_imageFailures" Context="failure">
+  <ItemContent>
+    @failure.Path <span class="text-red-400"> — @failure.Problem</span>
+  </ItemContent>
+</ReportGroup>
+
+<ReportGroup Heading="Posts that didn't import" Items="PostFailures()" Context="failure">
+  <ItemContent>
+    @failure.Title <span class="text-red-400"> — @failure.Problem</span>
+  </ItemContent>
+</ReportGroup>
 
 @if (_review is { } review)
 {

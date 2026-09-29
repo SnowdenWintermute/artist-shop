@@ -37,6 +37,9 @@ public static class ImageUploadEndpoints
     // the post editor's script sends its images here
     public const string PostImageUploadPath = "/admin/uploads/post-image";
 
+    // the whole-website import's script sends each image here with the artwork it's for
+    public const string AppendArtworkImagePath = "/admin/uploads/artwork-image-appended";
+
     public static void MapImageUploadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints
@@ -61,6 +64,8 @@ public static class ImageUploadEndpoints
             .AsImageUpload();
 
         endpoints.MapPost("/admin/uploads/artwork-image-by-name", UploadAndAttachByNameAsync).AsImageUpload();
+
+        endpoints.MapPost(AppendArtworkImagePath, UploadAndAppendAsync).AsImageUpload();
 
         endpoints
             .MapPost(
@@ -210,6 +215,75 @@ public static class ImageUploadEndpoints
             }
         }
         // the artist deleted the work type while the run was going: every remaining file is doomed
+        catch (ChangedSincePageLoadException exception)
+        {
+            return Rejected(exception.Message);
+        }
+        catch (VipsException exception)
+        {
+            loggerFactory
+                .CreateLogger(typeof(ImageUploadEndpoints))
+                .LogWarning(exception, "libvips could not read an uploaded image.");
+
+            return Rejected(UnreadableImageMessage);
+        }
+        catch (Exception exception) when (IsRejectedImage(exception))
+        {
+            return Rejected(exception.Message);
+        }
+        catch (ImageProcessingBusyException exception)
+        {
+            return Busy(response, exception);
+        }
+    }
+
+    // after the artwork's other images. The page worked out which images the artwork is missing,
+    // but any artwork on the site is one its admin could add an image to anyway
+    private static async Task<Results<Ok, ContentHttpResult, StatusCodeHttpResult>> UploadAndAppendAsync(
+        IFormFile file,
+        // a form field, as above
+        [FromForm] int artworkId,
+        ImageUploadStore imageUploadStore,
+        ImageStorage imageStorage,
+        ArtworkImageRepository artworkImageRepository,
+        HttpResponse response,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken
+    )
+    {
+        if (ImageUploadValidation.FindProblem(file) is string problem)
+        {
+            return Rejected(problem);
+        }
+
+        try
+        {
+            await using var content = file.OpenReadStream();
+            var stored = await imageUploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, cancellationToken);
+
+            try
+            {
+                await artworkImageRepository.AppendImageAsync(
+                    new ArtworkId(artworkId),
+                    new ArtworkImage(
+                        stored.StorageKey,
+                        ImageUploadValidation.OriginalFileName(file),
+                        stored.Processed.Width,
+                        stored.Processed.Height,
+                        stored.Processed.BlurDataUri
+                    )
+                );
+            }
+            catch
+            {
+                // nothing references it, so it goes now rather than waiting for the sweep
+                imageStorage.Delete(stored.StorageKey);
+                throw;
+            }
+
+            return TypedResults.Ok();
+        }
+        // the artist deleted the artwork while the import was running
         catch (ChangedSincePageLoadException exception)
         {
             return Rejected(exception.Message);

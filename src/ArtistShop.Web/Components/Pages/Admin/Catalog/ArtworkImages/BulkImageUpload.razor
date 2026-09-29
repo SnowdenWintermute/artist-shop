@@ -2,12 +2,11 @@
 @using System.Text.Json
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms.FileUpload
-@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
+@using ArtistShop.Web.Imports
 @using ArtistShop.Web.Utilities
-@using BlazorBlueprint.Primitives.Progress
 @inject ArtworkTypeRepository ArtworkTypeRepository
 @inject ArtworkImageRepository ArtworkImageRepository
 @inject IJSRuntime JS
@@ -47,7 +46,7 @@
   private bool _isUploading;
   private int _percentComplete;
 
-  private int WillAttachCount => _files.Count(file => file.Outcome is BulkImageOutcome.WillAttach);
+  private int WillAttachCount => _files.Count(file => file.Outcome is BulkImageOutcome.WillAttach or BulkImageOutcome.WillAddExtra);
 
   protected override async Task OnInitializedAsync()
   {
@@ -130,8 +129,8 @@
     await InvokeAsync(StateHasChanged);
   }
 
-  // one database call for every name at once, so the artist sees the whole outcome before a byte
-  // is uploaded and only the files that will be used are sent
+  // every name checked at once, so the artist sees the whole outcome before a byte is uploaded
+  // and only the files that will be used are sent
   private async Task MatchToArtworksAsync()
   {
     if (_artworkTypeId is not int typeId)
@@ -140,44 +139,10 @@
       return;
     }
 
-    var files = _candidates
-      .Select(file => new BulkImageFile(file.Id, file.Path, ArtworkName.FromFileName(file.Path)))
-      .ToList();
+    List<BulkImageCandidate> candidates = [.. _candidates.Select(file => new BulkImageCandidate(file.Id, file.Path))];
+    var target = await BulkImageTarget.LoadAsync(new ArtworkTypeId(typeId), candidates, ArtworkImageRepository);
 
-    foreach (var file in files.Where(file => !file.ArtworkName.CanMatchAnArtwork))
-    {
-      file.Outcome = BulkImageOutcome.NoArtwork;
-    }
-
-    // one group per name as the database compares them, which is also what dbo.ArtworkNameList's
-    // primary key allows: "Sunset.jpg" and "sunset.png" are one name and neither is attached
-    var byName = files
-      .Where(file => file.ArtworkName.CanMatchAnArtwork)
-      .GroupBy(file => file.ArtworkName.Value, DatabaseCollationComparer.Instance)
-      .ToList();
-
-    var matches = await ArtworkImageRepository.GetArtworkNameMatchesAsync(
-      new ArtworkTypeId(typeId),
-      [.. byName.Select(sameName => new ArtworkName(sameName.Key))]
-    );
-
-    foreach (var sameName in byName)
-    {
-      var match = matches[new ArtworkName(sameName.Key)];
-      var artworkIds = match.ArtworkIds.Select(artworkId => artworkId.Value).ToList();
-      var outcome = sameName.Count() > 1
-        ? BulkImageOutcome.DuplicateNameInUpload
-        : OutcomeOf(match.Type);
-
-      foreach (var file in sameName)
-      {
-        file.Outcome = outcome;
-        file.ArtworkIds = artworkIds;
-      }
-    }
-
-    _files = files;
-
+    _files = [.. BulkImagePlanner.Plan(candidates, target).Select(item => new BulkImageFile(item))];
   }
 
   private async Task OnArtworkTypeChangedAsync()
@@ -195,19 +160,32 @@
     _isUploading = true;
     _percentComplete = 0;
 
+    // One artwork's files go one after another, its first image before the others and those by
+    // number, so they keep that order and the first finds the artwork still without an image.
+    // Different artworks go side by side. An extra image names its artwork; a first image is
+    // matched by name again on the server
+    var artworks = _files
+      .Where(file => file.Outcome is BulkImageOutcome.WillAttach or BulkImageOutcome.WillAddExtra)
+      .GroupBy(file => file.ArtworkIds[0])
+      .Select(artwork =>
+        artwork
+          .OrderBy(file => file.ExtraNumber is not null)
+          .ThenBy(file => file.ExtraNumber)
+          .Select(file => new UploadItem(file.Id, file.Outcome is BulkImageOutcome.WillAddExtra ? file.ArtworkIds[0] : null))
+      );
+
     // the page closed, taking the files with it
     try
     {
-      await _uploader.InvokeVoidAsync(
-        "upload",
-        _files.Where(file => file.Outcome is BulkImageOutcome.WillAttach).Select(file => file.Id),
-        typeId
-      );
+      await _uploader.InvokeVoidAsync("upload", artworks, typeId);
     }
     catch (JSDisconnectedException)
     {
     }
   }
+
+  // what the script sends one file as: an extra image names its artwork, and a first image has none
+  private record UploadItem(string Id, int? ArtworkId);
 
   private async Task StopUploadAsync()
   {
@@ -239,10 +217,21 @@
       // the server's answer, not the pre-check's: another upload may have taken the artwork since
       file.Outcome = result.Outcome is ArtworkNameMatchType.OneImagelessArtwork
         ? BulkImageOutcome.Attached
-        : OutcomeOf(result.Outcome);
+        : BulkImagePlanner.OutcomeOf(result.Outcome);
       file.ArtworkIds = result.ArtworkIds;
     }
 
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnExtraAdded(string id)
+  {
+    if (FindFile(id) is { } file)
+    {
+      file.Outcome = BulkImageOutcome.ExtraAdded;
+    }
 
     await InvokeAsync(StateHasChanged);
   }
@@ -267,15 +256,6 @@
   }
 
   private BulkImageFile? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
-
-  private static BulkImageOutcome OutcomeOf(ArtworkNameMatchType matchType) =>
-    matchType switch
-    {
-      ArtworkNameMatchType.OneImagelessArtwork => BulkImageOutcome.WillAttach,
-      ArtworkNameMatchType.NoArtwork => BulkImageOutcome.NoArtwork,
-      ArtworkNameMatchType.SeveralArtworks => BulkImageOutcome.SeveralArtworks,
-      ArtworkNameMatchType.ArtworkWithImages => BulkImageOutcome.ArtworkHasImages,
-    };
 
   private async Task<List<CollectedFile>> ReadCollectedFilesAsync()
   {
@@ -387,17 +367,7 @@
 
 @if (_isUploading)
 {
-  <div class="mb-4">
-    <BbProgress Value="_percentComplete" Max="100" class="mb-2 block h-1 bg-gray-200">
-      <BbProgressIndicator class="block h-1 bg-blue-500" style="@($"width: {_percentComplete}%")" />
-    </BbProgress>
-
-    <p class="mb-2 text-sm">
-      @(_percentComplete == 100 ? "Processing the last images…" : $"Uploading… {_percentComplete}%")
-    </p>
-
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="StopUploadAsync">Stop</ButtonBasic>
-  </div>
+  <UploadProgress PercentComplete="_percentComplete" OnStop="StopUploadAsync" />
 }
 else if (WillAttachCount > 0)
 {

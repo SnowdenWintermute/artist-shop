@@ -39,6 +39,49 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(0, artwork.MainImageIndex);
     }
 
+    // the first becomes the primary image, and each after it goes last, as the whole-website import adds them
+    [Fact]
+    public async Task AppendsAfterTheArtworksOtherImages()
+    {
+        var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Dawn"));
+        var first = CatalogTestData.CreateTestImage();
+        var second = CatalogTestData.CreateTestImage();
+
+        await _images.AppendImageAsync(painting.Id, first);
+        await _images.AppendImageAsync(painting.Id, second);
+
+        var artwork = await GetExistingAsync(painting.Id);
+        Assert.Equal([first, second], artwork.Images);
+        Assert.Equal(0, artwork.MainImageIndex);
+    }
+
+    // the bulk upload's check that an artwork doesn't already have an image from a file
+    [Fact]
+    public async Task ListsTheFileNamesEachArtworksImagesWereUploadedUnder()
+    {
+        var typeId = await _catalog.GetPaintingTypeIdAsync();
+        var dawn = await _catalog.AddArtworkAsync(typeId, UniqueName("Dawn"));
+        var dusk = await _catalog.AddArtworkAsync(typeId, UniqueName("Dusk"));
+        await _images.AppendImageAsync(dawn.Id, CatalogTestData.CreateTestImage() with { OriginalFileName = "Dawn.jpg" });
+        await _images.AppendImageAsync(dawn.Id, CatalogTestData.CreateTestImage() with { OriginalFileName = "Dawn (2).jpg" });
+        // saved without a name, so it isn't listed
+        await _images.AppendImageAsync(dusk.Id, CatalogTestData.CreateTestImage());
+
+        var fileNames = await _images.GetFileNamesAsync([dawn.Id, dusk.Id]);
+
+        Assert.Equal(["Dawn (2).jpg", "Dawn.jpg"], fileNames[dawn.Id].Order(StringComparer.Ordinal));
+        Assert.Empty(fileNames[dusk.Id]);
+    }
+
+    [Fact]
+    public async Task AppendingToAnArtworkThatsGoneThrows()
+    {
+        var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Gone"));
+        await _artworks.DeleteAsync(painting.Id);
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _images.AppendImageAsync(painting.Id, CatalogTestData.CreateTestImage()));
+    }
+
     [Fact]
     public async Task ReportsANameNoArtworkHas()
     {

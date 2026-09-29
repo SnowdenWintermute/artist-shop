@@ -1,4 +1,4 @@
-# Next: the whole-website move, designed 2026-09-29 (notes under the site export below): steps 1–3 built; next step 4, images by `images.csv`. The Export links from delete-website and My websites are committed (cce6055). Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
+# Next: review the whole-website move's code (handoff below, 2026-09-29), and check nothing we meant to build with it was missed. Then the catalog's open items (SES production access pending), the dev hot reload 403 on site hosts
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -177,6 +177,45 @@ reviewed now: Mike will review all of the site's wording as a task later.
   NameAlreadyInUse/ChangedSincePageLoad, stops it ("changed since the review"). The page re-reviews afterwards.
   `WebsiteImportManifest` (website.json reading) and `WebsiteImportPlanner.ArtworkSettings` are shared by both.
   The page says images and posts aren't imported yet; step 4 adds images to the same run, step 5 posts.
+- Step 4 built 2026-09-29, uncommitted (800 tests): after the catalog, the page re-reviews for real artwork ids and
+  hands the script each artwork's images still missing (by hash); `WebsiteImportUpload.razor.js` sends them to
+  `POST /admin/uploads/artwork-image-appended` (file + artworkId), three artworks at a time with each artwork's
+  images in order, retries like the post import, Stop. `append_artwork_image` (Procedures/Artworks/AppendImage.sql)
+  locks the artwork row and appends (first one primary; SH003 when gone → ChangedSincePageLoadException), via
+  `ArtworkImageRepository.AppendImageAsync`; the endpoint deletes the stored file if appending fails.
+  `WebsiteImportArtworkImages` carries `ArtworkId`. Failures listed with ReportGroup. Not browser-checked yet.
+- Bulk image upload takes extra images (Mike, 2026-09-29, uncommitted, 811 tests): `Dawn (n).jpg` (any whole number,
+  gaps fine) goes after Dawn's images in number order via the append endpoint; an exact title "Dawn (n)" wins; skipped
+  when the artwork already has an image uploaded under that file name (`get_artwork_image_file_names`). The script
+  uploads one artwork's files in sequence (first image, then by number), artworks four at a time. New outcomes
+  WillAddExtra / ExtraAdded / ArtworkHasThisFile. `attach_primary_image_to_imageless_artwork_by_name` now
+  PERFORMs `append_artwork_image` instead of its own INSERT. Page texts updated. The pre-check moved to
+  `Imports/BulkImagePlanner` + `BulkImageTarget.LoadAsync` (pure plan, like PostImportPlanner; 819 tests),
+  returning `BulkImagePlanItem`s; `BulkImageOutcome` moved to Imports; `BulkImageFile` is built from a plan item.
+- Upload progress shared (2026-09-29): `Forms/FileUpload/UploadProgress.razor` (bar, "Uploading… n%", Stop, optional
+  Detail) and `wwwroot/js/upload-progress.js` (`createUploadProgress`: bytes finished + in flight, 250 ms throttle),
+  used by the bulk image upload and the whole-website images stage. The post import has no bar yet.
+- Step 5 built 2026-09-29, uncommitted (820 tests): after the images, the page plans posts with the post import's own
+  `PostImportTarget.LoadAsync` against the website as the images left it (never the review's `ArtworksAfterImport`,
+  whose fallback links carry a placeholder storage key), and runs them like the post import page. Shared now:
+  `wwwroot/js/post-import-run.js` (`startPostImport`: files to the post-image upload, retries, Stop, progress, then
+  .NET saves each post) and `Imports/PostImportRun` (uploads, results, retrying failures, saving with the friendly
+  error). The post import page uses both and got the `UploadProgress` bar. Failed posts listed with ReportGroup.
+- **Handoff for the review session (2026-09-29).** Built this session: Download everything (+ `images.csv`,
+  `website.json`); `/admin/import/website` review then Import (catalog → images → posts); the bulk image
+  upload's `(n)` extra images (`BulkImagePlanner`); shared `ReportGroup`, `UploadProgress` + `upload-progress.js`,
+  `post-import-run.js` + `PostImportRun`, `SvgIcon`/`SvgIconFiles`, `Divider`. Committed through ce8f47e; step 4,
+  step 5 and the bulk extra images are uncommitted (`Imports/PostImportRun.cs` and `wwwroot/js/post-import-run.js`
+  untracked). 820 tests. Things to look at in the review:
+  - Deliberately left out (Mike): series order and covers, which image is primary, `products.csv` import. Decide
+    whether any belong in the move now.
+  - Browser-only code has no tests: the three upload scripts and the page components' run state.
+  - Two tabs importing the same website at once aren't prevented (the single imports have the same gap).
+  - Import stays offered after a run that added everything (a second run adds nothing, but says so only afterwards).
+  - Images whose upload failed leave their posts' pictures unlinked; a second run adds the images but skips the
+    posts already imported, so those pictures stay unlinked.
+  - The Export page still offers every separate download; the Download everything README names each folder.
+  - Wording across these pages is for Mike's later site-wide wording pass.
 - Icons (Mike, 2026-09-29): `<SvgIcon Name="folder-open" />` and `IconLabel Icon="folder-open"` draw
   `wwwroot/icons/<name>.svg` inline (nested folders by path). `SvgIconFiles` (singleton) reads each once, drops
   size attributes, moves fill and stroke colours to the root as currentColor (a shape relying on the root's

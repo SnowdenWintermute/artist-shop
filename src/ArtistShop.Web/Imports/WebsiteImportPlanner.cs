@@ -73,8 +73,10 @@ public record WebsiteImportArtworkFile(string FileName, ArtworkTypeName TypeName
 // an image the import adds: its path in images/, the id the page's script knows it by, and its hash
 public record WebsiteImportImage(string Path, string FileId, string Sha256);
 
-// One artwork's images: those the import adds, in images.csv's order, and how many it has already
+// One artwork's images: those the import adds, in images.csv's order, and how many it has already.
+// ArtworkId is a placeholder for an artwork the review would add
 public record WebsiteImportArtworkImages(
+    ArtworkId ArtworkId,
     ArtworkTypeName TypeName,
     ArtworkName Title,
     IReadOnlyList<WebsiteImportImage> ToAdd,
@@ -400,7 +402,7 @@ public static class WebsiteImportPlanner
         return new WebsiteImportImagesPlan(
             [
                 .. byArtwork.Select(entry =>
-                    new WebsiteImportArtworkImages(entry.Key.TypeName, entry.Key.Title, entry.Value.ToAdd, entry.Value.AlreadyThere)
+                    new WebsiteImportArtworkImages(entry.Key.Id, entry.Key.TypeName, entry.Key.Title, entry.Value.ToAdd, entry.Value.AlreadyThere)
                 ),
             ],
             errors,
@@ -423,9 +425,7 @@ public static class WebsiteImportPlanner
         private readonly WebsiteArtworks _website = new(target.Artworks, target.Sha256ByStorageKey);
 
         private readonly Dictionary<string, ArtworkId> _artworkIdsBySha256 = images
-            .Artworks.SelectMany(artwork =>
-                artwork.ToAdd.Select(image => (image.Sha256, afterImport[ArtworkKey(artwork.TypeName.Value, artwork.Title.Value)].Id))
-            )
+            .Artworks.SelectMany(artwork => artwork.ToAdd.Select(image => (image.Sha256, Id: artwork.ArtworkId)))
             .DistinctBy(pair => pair.Sha256)
             .ToDictionary(pair => pair.Sha256, pair => pair.Id);
 

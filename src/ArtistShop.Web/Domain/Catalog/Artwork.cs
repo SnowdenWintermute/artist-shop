@@ -1,10 +1,12 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using ArtistShop.Web.Domain.Commerce;
 
 namespace ArtistShop.Web.Domain.Catalog;
 
 public record ArtworkId(int Value);
 
-public record ArtworkName(string Value)
+public partial record ArtworkName(string Value)
 {
     // macOS writes an accented letter as the plain letter followed by a combining mark, while
     // Windows and the database hold the single composed character. Normalize composes it, so the
@@ -14,7 +16,25 @@ public record ArtworkName(string Value)
 
     // No stored name can be longer than the name column allows, so one that is matches nothing
     public bool CanMatchAnArtwork => Value.Length <= ArtistShopLimits.ArtworkNameMaximumLength;
+
+    // "Dawn (2)" read as another image of Dawn, as the image download names them: a space and a
+    // whole number in brackets after the title. Null for any other name
+    public ExtraImageName? AsExtraImage()
+    {
+        var match = ExtraImagePattern().Match(Value);
+
+        return match.Success
+            && int.TryParse(match.Groups[2].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number)
+            ? new ExtraImageName(new ArtworkName(match.Groups[1].Value), number)
+            : null;
+    }
+
+    [GeneratedRegex(@"^(.+) \((-?\d+)\)$")]
+    private static partial Regex ExtraImagePattern();
 }
+
+// Number orders the image among the artwork's others; any whole number, and gaps don't matter
+public record ExtraImageName(ArtworkName Artwork, int Number);
 
 public record ArtworkImage(
     string StorageKey,

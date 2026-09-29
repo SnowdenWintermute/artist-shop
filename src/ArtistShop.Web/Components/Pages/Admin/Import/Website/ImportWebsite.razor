@@ -14,6 +14,10 @@
       it would add before anything is imported. Every step only adds: something already here is skipped.
     </p>
 
+    @* the island posts each image to an endpoint that checks the antiforgery token, and there is
+       no form on this page to carry one *@
+    <AntiforgeryToken />
+
     <WebsiteImportUpload />
   </AdminPanel>
 </main>

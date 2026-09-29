@@ -34,23 +34,10 @@
   private bool _noPostFiles;
   private bool _isReading;
   private bool _isImporting;
-  private List<PostImportItem> _items = [];
+  private int _percentComplete;
+  private PostImportRun _run = new([]);
 
-  // by the item's place in _items: null once imported, otherwise why it wasn't
-  private Dictionary<int, string?> _results = [];
-
-  // every upload so far, by the id the script knows its file by
-  private readonly Dictionary<string, ImageUploadResult> _uploadsByFileId = [];
-
-  private int WillAddCount => _items.Count(item => item.Outcome is PostImportOutcome.WillAdd);
-
-  // the posts to add that aren't in yet, including those that failed, so a run tries them again
-  private List<int> IndexesToImport() =>
-    [
-      .. Enumerable
-        .Range(0, _items.Count)
-        .Where(index => _items[index].Outcome is PostImportOutcome.WillAdd && !(_results.TryGetValue(index, out var problem) && problem is null)),
-    ];
+  private int WillAddCount => _run.Items.Count(item => item.Outcome is PostImportOutcome.WillAdd);
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -76,9 +63,7 @@
   {
     _tooManyFiles = false;
     _noPostFiles = false;
-    _items = [];
-    _results = [];
-    _uploadsByFileId.Clear();
+    _run = new([]);
     _isReading = true;
     await InvokeAsync(StateHasChanged);
 
@@ -90,7 +75,7 @@
 
       if (folders.Count > 0)
       {
-        _items = [.. PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, SeriesRepository, ArtworkRepository, ImageStorage))];
+        _run = new(PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, SeriesRepository, ArtworkRepository, ImageStorage)));
       }
     }
     catch (JSDisconnectedException)
@@ -109,8 +94,7 @@
   {
     _tooManyFiles = true;
     _noPostFiles = false;
-    _items = [];
-    _results = [];
+    _run = new([]);
 
     await InvokeAsync(StateHasChanged);
   }
@@ -174,21 +158,12 @@
     }
 
     _isImporting = true;
-    var indexes = IndexesToImport();
-
-    // a failure from an earlier run is tried again, so it counts as not done yet
-    foreach (var index in indexes)
-    {
-      _results.Remove(index);
-    }
+    _percentComplete = 0;
 
     // the page closed, taking the files with it
     try
     {
-      await _importer.InvokeVoidAsync(
-        "importPosts",
-        indexes.Select(index => new { index, fileIds = _items[index].FileIdsByPlaceholder.Values })
-      );
+      await _importer.InvokeVoidAsync("importPosts", _run.Start());
     }
     catch (JSDisconnectedException)
     {
@@ -211,15 +186,19 @@
   }
 
   [JSInvokable]
-  public void OnFileUploaded(string fileId, ImageUploadResult result)
+  public async Task OnUploadProgress(int percentComplete)
   {
-    _uploadsByFileId[fileId] = result;
+    _percentComplete = percentComplete;
+    await InvokeAsync(StateHasChanged);
   }
+
+  [JSInvokable]
+  public void OnFileUploaded(string fileId, ImageUploadResult result) => _run.FileUploaded(fileId, result);
 
   [JSInvokable]
   public async Task OnPostFailed(int index, string message)
   {
-    _results[index] = message;
+    _run.PostFailed(index, message);
     await InvokeAsync(StateHasChanged);
   }
 
@@ -227,21 +206,7 @@
   [JSInvokable]
   public async Task OnPostUploaded(int index)
   {
-    if (index >= 0 && index < _items.Count)
-    {
-      // the database failing, say. Thrown back to the script, it would end the run with no word
-      // to the artist
-      try
-      {
-        _results[index] = await PostImporter.SaveAsync(_items[index], _uploadsByFileId, PostRepository, ImageStorage);
-      }
-      catch (Exception exception)
-      {
-        Logger.LogError(exception, "Saving an imported post failed.");
-        _results[index] = "Something went wrong saving this post. Press Import to try again.";
-      }
-    }
-
+    await _run.PostUploadedAsync(index, PostRepository, ImageStorage, Logger);
     await InvokeAsync(StateHasChanged);
   }
 
@@ -305,12 +270,10 @@
 
 @if (_isImporting)
 {
-  <div class="mb-4">
-    <p class="mb-2 text-sm">Importing… @_results.Count of @WillAddCount</p>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="StopImportAsync">Stop</ButtonBasic>
-  </div>
+  <UploadProgress PercentComplete="_percentComplete" OnStop="StopImportAsync"
+                  Detail="@($"({_run.Results.Count} of {WillAddCount} posts)")" />
 }
-else if (IndexesToImport() is { Count: > 0 } toImport)
+else if (_run.IndexesToImport() is { Count: > 0 } toImport)
 {
   <div class="mb-4">
     <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="StartImportAsync">
@@ -319,4 +282,4 @@ else if (IndexesToImport() is { Count: > 0 } toImport)
   </div>
 }
 
-<PostImportReport Items="_items" Results="_results" />
+<PostImportReport Items="_run.Items" Results="_run.Results" />
