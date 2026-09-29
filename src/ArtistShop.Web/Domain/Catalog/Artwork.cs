@@ -51,6 +51,9 @@ public record ArtworkSlug(string Value)
 
 public record ArtworkIdentifiers(ArtworkId Id, ArtworkSlug Slug);
 
+// an artwork as the import tells same-titled artworks apart
+public record ArtworkTitleAndSlug(string Title, string Slug);
+
 public class Artwork(
     ArtworkId id,
     ArtworkType type,

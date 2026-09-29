@@ -2,7 +2,8 @@ using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Images;
 
-public record StoredImage(string StorageKey, ProcessedImage Processed);
+// Sha256 is the original's, in lower case hex
+public record StoredImage(string StorageKey, string Sha256, ProcessedImage Processed);
 
 // Saves an uploaded image and generates its variants
 public class ImageUploadStore(
@@ -18,7 +19,7 @@ public class ImageUploadStore(
         // and avoid database fragmenting if stored there
         // "n" gives 32 hex characters with no dash or braces
         var storageKey = Guid.CreateVersion7().ToString("n");
-        await imageStorage.SaveOriginalAsync(content, storageKey, cancellationToken);
+        var sha256 = await imageStorage.SaveOriginalAsync(content, storageKey, cancellationToken);
 
         try
         {
@@ -44,7 +45,7 @@ public class ImageUploadStore(
 
             // waits here while other images use the slots or the memory
             using var lease = await processingLimiter.AcquireAsync(megabytes, cancellationToken);
-            return new StoredImage(storageKey, imageProcessor.Process(storageKey, minimumWidth));
+            return new StoredImage(storageKey, sha256, imageProcessor.Process(storageKey, minimumWidth));
         }
         catch
         {

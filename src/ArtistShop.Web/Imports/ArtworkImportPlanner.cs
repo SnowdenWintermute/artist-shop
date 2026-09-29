@@ -31,12 +31,25 @@ public static class ArtworkImportPlanner
             return ArtworkImportPlan.WithErrors(errors);
         }
 
-        var existingNames = new HashSet<string>(snapshot.TypeArtworkNames, ImportNames.Comparer);
-        var titleCounts = table.Rows
-            .Select(row => row.Cells[columns.Title])
-            .Where(title => title.Length > 0)
-            .CountBy(title => title, ImportNames.Comparer)
-            .ToDictionary(ImportNames.Comparer);
+        string SlugOf(CsvRow row) => columns.Slug is int slugColumn ? row.Cells[slugColumn] : "";
+
+        var existingNames = new HashSet<string>(snapshot.TypeArtworks.Select(artwork => artwork.Title), ImportNames.Comparer);
+        var rowsByTitle = table.Rows
+            .Where(row => row.Cells[columns.Title].Length > 0)
+            .GroupBy(row => row.Cells[columns.Title], ImportNames.Comparer)
+            .ToDictionary(group => group.Key, group => group.ToList(), ImportNames.Comparer);
+
+        // A title on several rows is imported only when each row has a slug of its own, as the
+        // catalog download writes for two artworks of a type with one title. Such a row is here
+        // already when an artwork has its title and slug; any other title, when one has its title
+        bool IsToldApart(List<CsvRow> sameTitle) =>
+            sameTitle.All(row => SlugOf(row).Length > 0)
+            && sameTitle.Select(SlugOf).Distinct(StringComparer.Ordinal).Count() == sameTitle.Count;
+
+        bool IsHere(string title, string slug, bool isToldApart) =>
+            isToldApart
+                ? snapshot.TypeArtworks.Any(artwork => ImportNames.Comparer.Equals(artwork.Title, title) && artwork.Slug == slug)
+                : existingNames.Contains(title);
 
         var additions = new List<ArtworkImportAddition>();
         var skippedRows = new List<ArtworkImportSkippedRow>();
@@ -46,23 +59,32 @@ public static class ArtworkImportPlanner
         {
             var reader = new ArtworkImportRowReader(row);
             var title = row.Cells[columns.Title];
+            var slug = SlugOf(row);
 
             if (title.Length == 0)
             {
                 reader.AddError(ArtworkImportHeaders.Title, "Every row needs a title.");
             }
-            else if (titleCounts[title] > 1)
+            else if (rowsByTitle[title] is { Count: > 1 } sameTitle && !IsToldApart(sameTitle))
             {
                 skippedRows.Add(new ArtworkImportSkippedRow(row.RowNumber, title, ArtworkImportSkipReason.TitleRepeatedInFile));
                 continue;
             }
-            else if (existingNames.Contains(title))
+            else if (IsHere(title, slug, isToldApart: rowsByTitle[title].Count > 1))
             {
                 skippedRows.Add(new ArtworkImportSkippedRow(row.RowNumber, title, ArtworkImportSkipReason.AlreadyInCatalog));
                 continue;
             }
+            // Skipped rather than given another address: the artwork would come over under a slug
+            // other than its own, and its images and post links would quietly miss it. One longer
+            // still isn't a slug at all, which ReadAddition reports
+            else if (slug.Length is > ArtistShopLimits.BaseSlugMaximumLength and <= ArtistShopLimits.SlugMaximumLength)
+            {
+                skippedRows.Add(new ArtworkImportSkippedRow(row.RowNumber, title, ArtworkImportSkipReason.SlugTooLong));
+                continue;
+            }
 
-            var addition = ReadAddition(reader, title, columns, settings, snapshot);
+            var addition = ReadAddition(reader, title, slug, columns, settings, snapshot);
             errors.AddRange(reader.Errors);
 
             if (addition is not null && reader.Errors.Count == 0)
@@ -126,6 +148,7 @@ public static class ArtworkImportPlanner
     private static ArtworkCatalogAddition? ReadAddition(
         ArtworkImportRowReader reader,
         string title,
+        string slug,
         ArtworkImportColumns columns,
         ArtworkImportSettings settings,
         ArtworkImportCatalogSnapshot snapshot
@@ -138,6 +161,11 @@ public static class ArtworkImportPlanner
         else if (title.Length > 0 && ArtworkSlug.FromName(title).Value.Length == 0)
         {
             reader.AddError(ArtworkImportHeaders.Title, "This title has no letters or numbers to build a web address from.");
+        }
+
+        if (slug.Length > 0 && !ArtistShopSlug.IsWellFormed(slug))
+        {
+            reader.AddError(ArtworkImportHeaders.Slug, "A web address name is lower case letters, numbers and single dashes between them.");
         }
 
         var dateCreated = reader.Date(columns.DateCreated, ArtworkImportHeaders.DateCreated);
@@ -157,7 +185,7 @@ public static class ArtworkImportPlanner
         return new ArtworkCatalogAddition(
             snapshot.ArtworkType.Id,
             new ArtworkName(title),
-            ArtworkSlug.FromName(title),
+            CandidateSlug(title, slug),
             reader.Text(columns.Description),
             dateCreated,
             dimensions,
@@ -170,6 +198,11 @@ public static class ArtworkImportPlanner
             Products: product is null ? [] : [product]
         );
     }
+
+    // The row's own slug, so the artwork keeps its web address and a link to it from a post still
+    // works; one taken here gets the next free number, as on the Add form
+    private static ArtworkSlug CandidateSlug(string title, string slug) =>
+        slug.Length > 0 ? new ArtworkSlug(slug) : ArtworkSlug.FromName(title);
 
     private static DimensionsCentimeters? ReadDimensions(
         ArtworkImportRowReader reader,

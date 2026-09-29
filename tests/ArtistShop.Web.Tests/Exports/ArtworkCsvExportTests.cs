@@ -59,7 +59,7 @@ public sealed class ArtworkCsvExportTests
                 [new Vocabulary(MediumId, MediumName)],
                 [SunriseSunset, Gardens],
                 [Original, Print],
-                TypeArtworkNames: []
+                TypeArtworks: []
             )
         );
 
@@ -100,7 +100,7 @@ public sealed class ArtworkCsvExportTests
 
         var csv = ArtworkCsvExport.ForType(screenshot, [MediumSetup], [], ';');
 
-        Assert.Equal("title,description,dateCreated,series,Medium\r\n", csv);
+        Assert.Equal("title,slug,description,dateCreated,series,Medium\r\n", csv);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public sealed class ArtworkCsvExportTests
 
         var csv = ArtworkCsvExport.ForType(screenshot, [seriesVocabulary], [], ';');
 
-        Assert.Equal("title,description,series,vocabulary:Series\r\n", csv);
+        Assert.Equal("title,slug,description,series,vocabulary:Series\r\n", csv);
     }
 
     [Fact]

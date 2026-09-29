@@ -28,7 +28,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             paintingTypeId,
             new ArtworkName(name.ToUpperInvariant()),
-            image
+            image,
+            CatalogTestData.UniqueSha256()
         );
 
         Assert.Equal(ArtworkNameMatchType.OneImagelessArtwork, attachment.MatchType);
@@ -47,12 +48,99 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var first = CatalogTestData.CreateTestImage();
         var second = CatalogTestData.CreateTestImage();
 
-        await _images.AppendImageAsync(painting.Id, first);
-        await _images.AppendImageAsync(painting.Id, second);
+        Assert.True(await _images.AppendImageAsync(painting.Id, first, CatalogTestData.UniqueSha256()));
+        Assert.True(await _images.AppendImageAsync(painting.Id, second, CatalogTestData.UniqueSha256()));
 
         var artwork = await GetExistingAsync(painting.Id);
         Assert.Equal([first, second], artwork.Images);
         Assert.Equal(0, artwork.MainImageIndex);
+    }
+
+    // a retried upload, or the same folder imported twice
+    [Fact]
+    public async Task AppendingAnImageTheArtworkHasAlreadyAddsNothing()
+    {
+        var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Dawn"));
+        var sha256 = CatalogTestData.UniqueSha256();
+        var first = CatalogTestData.CreateTestImage();
+
+        Assert.True(await _images.AppendImageAsync(painting.Id, first, sha256));
+        Assert.False(await _images.AppendImageAsync(painting.Id, CatalogTestData.CreateTestImage(), sha256));
+
+        Assert.Equal([first], (await GetExistingAsync(painting.Id)).Images);
+    }
+
+    [Fact]
+    public async Task ConcurrentAppendsToOneArtworkTakeTurns()
+    {
+        var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Race"));
+        var sameSha256 = CatalogTestData.UniqueSha256();
+
+        var appended = await Task.WhenAll(
+            Enumerable
+                .Range(0, 8)
+                .Select(index => _images.AppendImageAsync(
+                    painting.Id,
+                    CatalogTestData.CreateTestImage(),
+                    // two of each hash, so each pair adds once
+                    index % 2 == 0 ? CatalogTestData.UniqueSha256() : sameSha256
+                ))
+        );
+
+        // four different hashes and one more shared by the other four
+        Assert.Equal(5, appended.Count(isAdded => isAdded));
+        var artwork = await GetExistingAsync(painting.Id);
+        Assert.Equal(5, artwork.Images.Count);
+        Assert.Equal(0, artwork.MainImageIndex);
+    }
+
+    [Fact]
+    public async Task ListsOnlyTheHashesItHas()
+    {
+        var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Dawn"));
+        var hashed = CatalogTestData.CreateTestImage();
+        var sha256 = CatalogTestData.UniqueSha256();
+        await _images.AppendImageAsync(painting.Id, hashed, sha256);
+        var unhashed = await _catalog.AddPaintingAsync(UniqueName("Dusk"), termIds: [], seriesIds: [], images: [CatalogTestData.CreateTestImage()]);
+        var unhashedKey = (await GetExistingAsync(unhashed.Id)).Images[0].StorageKey;
+
+        var hashes = await _images.GetSha256ByStorageKeyAsync([hashed.StorageKey, unhashedKey]);
+
+        Assert.Equal(new Dictionary<string, string> { [hashed.StorageKey] = sha256 }, hashes);
+    }
+
+    // the form sends no hashes, and a kept image keeps its own
+    [Fact]
+    public async Task SavingTheArtworkFormKeepsItsImagesHashes()
+    {
+        var name = UniqueName("Dawn");
+        var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), name);
+        var image = CatalogTestData.CreateTestImage();
+        var sha256 = CatalogTestData.UniqueSha256();
+        await _images.AppendImageAsync(painting.Id, image, sha256);
+        var added = CatalogTestData.CreateTestImage();
+
+        await _artworks.UpdateAsync(
+            new ArtworkCatalogUpdate(
+                painting.Id,
+                new ArtworkName(name),
+                ArtworkSlug.FromName(name),
+                Description: null,
+                DateCreated: null,
+                Dimensions: null,
+                Duration: null,
+                Images: [added, image],
+                MainImageIndex: 1,
+                VocabularyTermIds: [],
+                SeriesIds: []
+            )
+        );
+
+        Assert.Equal([added, image], (await GetExistingAsync(painting.Id)).Images);
+        Assert.Equal(
+            new Dictionary<string, string> { [image.StorageKey] = sha256 },
+            await _images.GetSha256ByStorageKeyAsync([image.StorageKey, added.StorageKey])
+        );
     }
 
     // the bulk upload's check that an artwork doesn't already have an image from a file
@@ -62,10 +150,10 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var typeId = await _catalog.GetPaintingTypeIdAsync();
         var dawn = await _catalog.AddArtworkAsync(typeId, UniqueName("Dawn"));
         var dusk = await _catalog.AddArtworkAsync(typeId, UniqueName("Dusk"));
-        await _images.AppendImageAsync(dawn.Id, CatalogTestData.CreateTestImage() with { OriginalFileName = "Dawn.jpg" });
-        await _images.AppendImageAsync(dawn.Id, CatalogTestData.CreateTestImage() with { OriginalFileName = "Dawn (2).jpg" });
+        await _images.AppendImageAsync(dawn.Id, CatalogTestData.CreateTestImage() with { OriginalFileName = "Dawn.jpg" }, CatalogTestData.UniqueSha256());
+        await _images.AppendImageAsync(dawn.Id, CatalogTestData.CreateTestImage() with { OriginalFileName = "Dawn (2).jpg" }, CatalogTestData.UniqueSha256());
         // saved without a name, so it isn't listed
-        await _images.AppendImageAsync(dusk.Id, CatalogTestData.CreateTestImage());
+        await _images.AppendImageAsync(dusk.Id, CatalogTestData.CreateTestImage(), CatalogTestData.UniqueSha256());
 
         var fileNames = await _images.GetFileNamesAsync([dawn.Id, dusk.Id]);
 
@@ -79,7 +167,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Gone"));
         await _artworks.DeleteAsync(painting.Id);
 
-        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _images.AppendImageAsync(painting.Id, CatalogTestData.CreateTestImage()));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _images.AppendImageAsync(painting.Id, CatalogTestData.CreateTestImage(), CatalogTestData.UniqueSha256()));
     }
 
     [Fact]
@@ -88,7 +176,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             await _catalog.GetPaintingTypeIdAsync(),
             new ArtworkName(UniqueName("Nothing")),
-            CatalogTestData.CreateTestImage()
+            CatalogTestData.CreateTestImage(),
+            CatalogTestData.UniqueSha256()
         );
 
         Assert.Equal(ArtworkNameMatchType.NoArtwork, attachment.MatchType);
@@ -106,7 +195,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             paintingTypeId,
             new ArtworkName(name),
-            CatalogTestData.CreateTestImage()
+            CatalogTestData.CreateTestImage(),
+            CatalogTestData.UniqueSha256()
         );
 
         Assert.Equal(ArtworkNameMatchType.SeveralArtworks, attachment.MatchType);
@@ -130,7 +220,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             await _catalog.GetPaintingTypeIdAsync(),
             new ArtworkName(name),
-            CatalogTestData.CreateTestImage()
+            CatalogTestData.CreateTestImage(),
+            CatalogTestData.UniqueSha256()
         );
 
         Assert.Equal(ArtworkNameMatchType.ArtworkWithImages, attachment.MatchType);
@@ -149,7 +240,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var attachment = await _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
             paintingTypeId,
             new ArtworkName(name),
-            CatalogTestData.CreateTestImage()
+            CatalogTestData.CreateTestImage(),
+            CatalogTestData.UniqueSha256()
         );
 
         Assert.Equal(ArtworkNameMatchType.OneImagelessArtwork, attachment.MatchType);
@@ -172,7 +264,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
                     _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
                         paintingTypeId,
                         new ArtworkName(name),
-                        CatalogTestData.CreateTestImage()
+                        CatalogTestData.CreateTestImage(),
+                        CatalogTestData.UniqueSha256()
                     )
                 )
         );
@@ -194,7 +287,8 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
             _images.AttachPrimaryImageToImagelessArtworkByNameAsync(
                 new ArtworkTypeId(int.MaxValue),
                 new ArtworkName(UniqueName("Orphan")),
-                CatalogTestData.CreateTestImage()
+                CatalogTestData.CreateTestImage(),
+                CatalogTestData.UniqueSha256()
             )
         );
     }

@@ -1,3 +1,4 @@
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Imports;
@@ -29,7 +30,7 @@ public sealed class ArtworkImportPlannerTests
             [new Vocabulary(MediumId, MediumName), Glaze],
             [SunriseSunset, Gardens],
             [Original, Print],
-            ["Existing Painting"]
+            [new ArtworkTitleAndSlug("Existing Painting", "existing-painting"), new ArtworkTitleAndSlug("Twin", "twin")]
         );
 
     private static ArtworkImportPlan PlanPaintings(string csv) =>
@@ -225,6 +226,98 @@ public sealed class ArtworkImportPlannerTests
             Assert.Single(plan.SkippedRows)
         );
         Assert.Equal("Dawn", Assert.Single(plan.Additions).Addition.Name.Value);
+    }
+
+    // two artworks of a type with one title, as the catalog download writes them
+    [Fact]
+    public void ImportsARepeatedTitleWhenEachRowHasItsOwnSlug()
+    {
+        var plan = PlanPaintings(
+            """
+            title,slug
+            Dawn,dawn
+            Dawn,dawn-2
+            """
+        );
+
+        Assert.Empty(plan.Errors);
+        Assert.Equal(["dawn", "dawn-2"], plan.Additions.Select(addition => addition.Addition.CandidateSlug.Value));
+    }
+
+    // one without a slug, or two with the same one, can't be told apart
+    [Fact]
+    public void SkipsARepeatedTitleItCantTellApart()
+    {
+        var plan = PlanPaintings(
+            """
+            title,slug
+            Dawn,dawn
+            Dawn,
+            Dusk,dusk
+            Dusk,dusk
+            """
+        );
+
+        Assert.Empty(plan.Additions);
+        Assert.All(plan.SkippedRows, row => Assert.Equal(ArtworkImportSkipReason.TitleRepeatedInFile, row.Reason));
+        Assert.Equal(4, plan.SkippedRows.Count);
+    }
+
+    // "Twin" is here with slug twin: the row with that slug is it, the other is a second Twin
+    [Fact]
+    public void ARepeatedTitleIsHereOnlyWithItsSlug()
+    {
+        var plan = PlanPaintings(
+            """
+            title,slug
+            Twin,twin
+            Twin,twin-2
+            """
+        );
+
+        Assert.Equal(new ArtworkImportSkippedRow(2, "Twin", ArtworkImportSkipReason.AlreadyInCatalog), Assert.Single(plan.SkippedRows));
+        Assert.Equal("twin-2", Assert.Single(plan.Additions).Addition.CandidateSlug.Value);
+    }
+
+    // a title on one row is here by its title, whatever its slug, as before
+    [Fact]
+    public void AnArtworkKeepsItsSlugAndIsHereByItsTitle()
+    {
+        var plan = PlanPaintings(
+            """
+            title,slug
+            Existing Painting,another-slug
+            Dawn,early-light
+            Dusk,
+            """
+        );
+
+        Assert.Equal(ArtworkImportSkipReason.AlreadyInCatalog, Assert.Single(plan.SkippedRows).Reason);
+        Assert.Equal(["early-light", "dusk"], plan.Additions.Select(addition => addition.Addition.CandidateSlug.Value));
+    }
+
+    // too long to take a number if another artwork here has it, so it isn't given another address
+    [Fact]
+    public void SkipsARowWhoseSlugIsTooLongToNumber()
+    {
+        var longest = new string('a', ArtistShopLimits.BaseSlugMaximumLength);
+        var plan = PlanPaintings($"title,slug\nDawn,{longest}-2\nDusk,{longest}\n");
+
+        Assert.Empty(plan.Errors);
+        Assert.Equal(new ArtworkImportSkippedRow(2, "Dawn", ArtworkImportSkipReason.SlugTooLong), Assert.Single(plan.SkippedRows));
+        Assert.Equal(longest, Assert.Single(plan.Additions).Addition.CandidateSlug.Value);
+    }
+
+    [Theory]
+    [InlineData("Dawn")]
+    [InlineData("dawn light")]
+    [InlineData("-dawn")]
+    [InlineData("dawn--light")]
+    public void RefusesASlugThatIsntOne(string slug)
+    {
+        var plan = PlanPaintings($"title,slug\nDawn,{slug}\n");
+
+        AssertError(plan, 2, ArtworkImportHeaders.Slug);
     }
 
     [Fact]

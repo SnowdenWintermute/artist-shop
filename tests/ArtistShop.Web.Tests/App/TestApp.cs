@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Platform;
@@ -342,6 +343,35 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
             ),
             TestContext.Current.CancellationToken
         );
+    }
+
+    // An upload page's script sending one file, as a browser does: the page loaded for its
+    // antiforgery token, then the file as the form field "file" with the other fields beside it
+    public static async Task<HttpResponseMessage> PostFileAsync(
+        HttpClient client,
+        string pagePath,
+        string uploadPath,
+        string fileName,
+        string contentType,
+        byte[] bytes,
+        Dictionary<string, string> fields
+    )
+    {
+        var page = await client.GetStringAsync(pagePath, TestContext.Current.CancellationToken);
+        var file = new ByteArrayContent(bytes);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        using var content = new MultipartFormDataContent
+        {
+            { file, "file", fileName },
+            { new StringContent(AntiforgeryToken().Match(page).Groups["token"].Value), "__RequestVerificationToken" },
+        };
+
+        foreach (var (name, value) in fields)
+        {
+            content.Add(new StringContent(value), name);
+        }
+
+        return await client.PostAsync(uploadPath, content, TestContext.Current.CancellationToken);
     }
 
     [GeneratedRegex("name=\"__RequestVerificationToken\" value=\"(?<token>[^\"]+)\"")]

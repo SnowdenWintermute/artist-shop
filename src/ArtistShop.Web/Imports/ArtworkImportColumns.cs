@@ -7,6 +7,7 @@ public record VocabularyColumn(int Index, VocabularyWithTerms Vocabulary);
 // where each known header sits in the file; null when the file doesn't have it
 public record ArtworkImportColumns(
     int Title,
+    int? Slug,
     int? Description,
     int? DateCreated,
     int? Height,
@@ -168,6 +169,7 @@ public record ArtworkImportColumns(
 
         return new ArtworkImportColumns(
             titleColumn,
+            ColumnOf(ArtworkImportHeaders.Slug),
             ColumnOf(ArtworkImportHeaders.Description),
             ColumnOf(ArtworkImportHeaders.DateCreated),
             ColumnOf(ArtworkImportHeaders.Height),

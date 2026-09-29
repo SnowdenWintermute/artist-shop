@@ -1,13 +1,6 @@
 import { listenForFiles } from "/js/collect-files.js";
 import { createUploadProgress } from "/js/upload-progress.js";
-import {
-  MAXIMUM_UPLOAD_ATTEMPTS,
-  isRetryable,
-  retryDelay,
-  sendUpload,
-  uploadErrorMessage,
-  wait,
-} from "/js/upload-request.js";
+import { uploadWithRetries } from "/js/upload-request.js";
 
 // a first image, matched to its artwork by name on the server
 const UPLOAD_URL = "/admin/uploads/artwork-image-by-name";
@@ -33,8 +26,8 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
   /** @type {{ id: string, path: string, size: number, type: string }[]} */
   let collectedMetadata = [];
 
-  /** @type {Map<string, () => void>} */
-  const inFlightAborts = new Map();
+  /** @type {Set<() => void>} */
+  const aborts = new Set();
   /** @type {UploadItem[][]} one artwork's files each */
   let queue = [];
   let progress = createUploadProgress(0, reportProgress);
@@ -75,62 +68,34 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     notify("OnFilesCollected");
   }
 
-  /**
-   * one request, resolved however it ends: null when Stop aborted it
-   * @param {UploadItem} item
-   * @param {File} file
-   */
-  function sendOnce({ id, artworkId }, file) {
-    const { finished, abort } = sendUpload({
-      url: artworkId === null ? UPLOAD_URL : APPEND_URL,
-      file,
-      fields: artworkId === null ? { artworkTypeId: String(artworkTypeId) } : { artworkId: String(artworkId) },
-      onProgress: (loaded) => progress.loaded(id, loaded),
-    });
-    inFlightAborts.set(id, abort);
-
-    return finished.finally(() => inFlightAborts.delete(id));
-  }
-
   /** @param {UploadItem} item */
-  async function uploadFile(item) {
-    const { id, artworkId } = item;
+  async function uploadFile({ id, artworkId }) {
     const file = collectedFiles.get(id);
     if (!file) {
       return;
     }
 
-    for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
-      // Stop pressed while waiting to retry
-      if (isStopped) {
-        return;
-      }
+    const outcome = await uploadWithRetries({
+      id,
+      url: artworkId === null ? UPLOAD_URL : APPEND_URL,
+      file,
+      fields: artworkId === null ? { artworkTypeId: String(artworkTypeId) } : { artworkId: String(artworkId) },
+      progress,
+      aborts,
+      isStopped: () => isStopped,
+    });
 
-      const response = await sendOnce(item, file);
+    // a stopped run leaves the file as it was, so pressing Upload again picks it up
+    if (outcome === null) {
+      return;
+    }
 
-      // a stopped run leaves the file as it was, so pressing Upload again picks it up
-      if (response === null || isStopped) {
-        return;
-      }
-
-      if (response.status === 200) {
-        progress.finished(id, file.size);
-        if (artworkId === null) {
-          notify("OnFileFinished", id, JSON.parse(response.text));
-        } else {
-          notify("OnExtraAdded", id);
-        }
-        return;
-      }
-
-      if (!isRetryable(response.status) || attempt === MAXIMUM_UPLOAD_ATTEMPTS) {
-        progress.finished(id, file.size);
-        notify("OnFileFailed", id, uploadErrorMessage(response));
-        return;
-      }
-
-      progress.retrying(id);
-      await wait(retryDelay(attempt, response.retryAfter));
+    if ("failure" in outcome) {
+      notify("OnFileFailed", id, outcome.failure);
+    } else if (artworkId === null) {
+      notify("OnFileFinished", id, JSON.parse(outcome.response.text));
+    } else {
+      notify("OnExtraAdded", id);
     }
   }
 
@@ -186,7 +151,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     isStopped = true;
     queue = [];
 
-    for (const abort of inFlightAborts.values()) {
+    for (const abort of aborts) {
       abort();
     }
   }

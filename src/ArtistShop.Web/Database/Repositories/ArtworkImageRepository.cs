@@ -26,7 +26,8 @@ public class ArtworkImageRepository(SiteDatabase database)
     public async Task<ImageAttachResult> AttachPrimaryImageToImagelessArtworkByNameAsync(
         ArtworkTypeId typeId,
         ArtworkName artworkName,
-        ArtworkImage image
+        ArtworkImage image,
+        string sha256
     )
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -36,7 +37,7 @@ public class ArtworkImageRepository(SiteDatabase database)
             var row = await connection.QuerySingleAsync<AttachRow>(
                 """
                 SELECT * FROM attach_primary_image_to_imageless_artwork_by_name(
-                    @ArtworkTypeId, @ArtworkName, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri
+                    @ArtworkTypeId, @ArtworkName, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri, @Sha256
                 )
                 """,
                 new
@@ -48,6 +49,7 @@ public class ArtworkImageRepository(SiteDatabase database)
                     image.Width,
                     image.Height,
                     image.BlurDataUri,
+                    Sha256 = sha256,
                 }
             );
 
@@ -59,20 +61,21 @@ public class ArtworkImageRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
-    // after the artwork's other images, and its primary when it has none. Throws
-    // ChangedSincePageLoadException when the artwork is gone
-    public async Task AppendImageAsync(ArtworkId artworkId, ArtworkImage image)
+    // After the artwork's other images, and its primary when it has none. False, adding nothing,
+    // when the artwork already has an image with this hash. Throws ChangedSincePageLoadException
+    // when the artwork is gone
+    public async Task<bool> AppendImageAsync(ArtworkId artworkId, ArtworkImage image, string sha256)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         try
         {
-            await connection.ExecuteAsync(
-                "SELECT append_artwork_image(@ArtworkId, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri)",
+            return await connection.ExecuteScalarAsync<bool>(
+                "SELECT append_artwork_image(@ArtworkId, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri, @Sha256)",
                 new
                 {
                     ArtworkId = artworkId.Value,
@@ -81,13 +84,27 @@ public class ArtworkImageRepository(SiteDatabase database)
                     image.Width,
                     image.Height,
                     image.BlurDataUri,
+                    Sha256 = sha256,
                 }
             );
         }
         catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
+    }
+
+    // the hashes stored for these images, by storage key; an image saved without one is left out
+    public async Task<Dictionary<string, string>> GetSha256ByStorageKeyAsync(IReadOnlyCollection<string> storageKeys)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = await connection.QueryAsync<Sha256Row>(
+            "SELECT * FROM get_artwork_image_sha256s(@StorageKeys)",
+            new { StorageKeys = storageKeys.ToArray() }
+        );
+
+        return rows.ToDictionary(row => row.StorageKey, row => row.Sha256);
     }
 
     // the file names each artwork's images were uploaded under
@@ -145,8 +162,14 @@ public class ArtworkImageRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworkTypeNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
+    }
+
+    private sealed class Sha256Row
+    {
+        public required string StorageKey { get; init; }
+        public required string Sha256 { get; init; }
     }
 
     private sealed class FileNameRow

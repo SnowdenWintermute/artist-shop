@@ -1,5 +1,4 @@
 @rendermode InteractiveServer
-@using System.Text.Json
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Database.Repositories
@@ -10,6 +9,7 @@
 @inject PostRepository PostRepository
 @inject SeriesRepository SeriesRepository
 @inject ArtworkRepository ArtworkRepository
+@inject ArtworkImageRepository ArtworkImageRepository
 @inject ImageStorage ImageStorage
 @inject IJSRuntime JS
 @inject ILogger<PostImportUpload> Logger
@@ -21,9 +21,6 @@
 
   // a backstop only, as for the bulk image upload
   private const long MaximumMetadataBytes = MaximumFiles * 400L;
-
-  // a post's text, which is small; its images are separate files
-  private const long MaximumPostFileBytes = 5L * Units.BytesPerMebibyte;
 
   private ElementReference _zone;
   private IJSObjectReference? _module;
@@ -75,7 +72,7 @@
 
       if (folders.Count > 0)
       {
-        _run = new(PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, SeriesRepository, ArtworkRepository, ImageStorage)));
+        _run = new(PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, SeriesRepository, ArtworkRepository, ArtworkImageRepository, ImageStorage)));
       }
     }
     catch (JSDisconnectedException)
@@ -99,54 +96,24 @@
     await InvokeAsync(StateHasChanged);
   }
 
-  // Only OnFilesCollected calls these, inside its catch of JSDisconnectedException; the analyzer
+  // Only OnFilesCollected calls this, inside its catch of JSDisconnectedException; the analyzer
   // checks each method on its own
 #pragma warning disable BL0016
   // each post.json with the files in its own folder
   private async Task<List<PostImportFolder>> ReadFoldersAsync()
   {
-    if (_importer is null)
+    if (_importer is not { } importer)
     {
       return [];
     }
 
-    List<CollectedFile> files;
+    var files = await CollectedFileStreams.ReadListAsync(importer, MaximumMetadataBytes);
 
-    await using (var metadata = await _importer.InvokeAsync<IJSStreamReference>("metadata"))
-    await using (var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes))
-    {
-      files = await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
-    }
-
-    var byFolder = files.ToLookup(file => CollectedPaths.FolderOf(file.Path));
-    var folders = new List<PostImportFolder>();
-
-    foreach (var postFile in files.Where(file => CollectedPaths.NameOf(file.Path) == PostExportJson.FileName))
-    {
-      var folder = CollectedPaths.FolderOf(postFile.Path);
-
-      folders.Add(
-        new PostImportFolder(
-          CollectedPaths.NameOf(folder),
-          // one too large isn't a post.json the download wrote, and reads as unreadable
-          postFile.Size <= MaximumPostFileBytes ? await ReadTextAsync(postFile.Id) : "",
-          byFolder[folder]
-            .Where(file => file.Id != postFile.Id)
-            .ToDictionary(file => CollectedPaths.NameOf(file.Path), file => file.Id)
-        )
-      );
-    }
-
-    return folders;
-  }
-
-  private async Task<string> ReadTextAsync(string fileId)
-  {
-    await using var file = await Unwrap.Value(_importer).InvokeAsync<IJSStreamReference>("file", fileId);
-    await using var stream = await file.OpenReadStreamAsync(MaximumPostFileBytes);
-    using var reader = new StreamReader(stream);
-
-    return await reader.ReadToEndAsync();
+    return await CollectedImportFolders.PostsAsync(
+      [.. files.Select(file => (file.Path, file))],
+      _ => true,
+      (file, maximumBytes) => CollectedFileStreams.ReadTextAsync(importer, file, maximumBytes)
+    );
   }
 #pragma warning restore BL0016
 

@@ -27,7 +27,7 @@ public sealed class ArtworkImportCatalogSnapshotTests(TestDatabaseFixture databa
 
         Assert.NotNull(snapshot);
         Assert.Equal("Painting", snapshot.ArtworkType.Name.Value);
-        Assert.Contains(name, snapshot.TypeArtworkNames);
+        Assert.Contains(snapshot.TypeArtworks, artwork => artwork.Title == name && artwork.Slug == ArtworkSlug.FromName(name).Value);
         Assert.Contains(snapshot.ProductTypes, productType => productType.Name.Value == "Original");
     }
 
@@ -42,7 +42,7 @@ public sealed class ArtworkImportCatalogSnapshotTests(TestDatabaseFixture databa
         var snapshot = await LoadAsync(await _catalog.GetPaintingTypeIdAsync());
 
         Assert.NotNull(snapshot);
-        Assert.DoesNotContain(name, snapshot.TypeArtworkNames);
+        Assert.DoesNotContain(snapshot.TypeArtworks, artwork => artwork.Title == name);
     }
 
     [Fact]

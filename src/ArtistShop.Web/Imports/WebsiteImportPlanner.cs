@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
@@ -32,7 +33,8 @@ public record WebsiteImportTarget(
     IReadOnlySet<string> PostSlugs
 )
 {
-    // Hashes only the originals of artworks the download has images or post pictures for
+    // Hashes only the originals of artworks the download has images or post pictures for, and
+    // only those saved without a stored hash
     public static async Task<WebsiteImportTarget> LoadAsync(
         WebsiteImportFolder folder,
         ArtworkFieldRepository artworkFieldRepository,
@@ -41,20 +43,17 @@ public record WebsiteImportTarget(
         SeriesRepository seriesRepository,
         ProductTypeRepository productTypeRepository,
         ArtworkRepository artworkRepository,
+        ArtworkImageRepository artworkImageRepository,
         PostRepository postRepository,
         ImageStorage imageStorage
     )
     {
         var artworks = await artworkRepository.GetAllAsync();
-        var sha256ByStorageKey = new Dictionary<string, string>();
-
-        foreach (var storageKey in WebsiteImportPlanner.ImagesToHash(folder, artworks))
-        {
-            if (imageStorage.OriginalExists(storageKey))
-            {
-                sha256ByStorageKey[storageKey] = await PostExportArchive.Sha256Async(imageStorage.OriginalPath(storageKey), CancellationToken.None);
-            }
-        }
+        var sha256ByStorageKey = await ImageHashes.LoadAsync(
+            WebsiteImportPlanner.ImagesToHash(folder, artworks),
+            artworkImageRepository,
+            imageStorage
+        );
 
         return new WebsiteImportTarget(
             await CatalogSetupSnapshot.LoadAsync(artworkFieldRepository, artworkTypeRepository, vocabularyRepository),
@@ -172,13 +171,22 @@ public static class WebsiteImportPlanner
             listSeparator
         );
 
-    public static WebsiteImportReview Plan(WebsiteImportFolder folder, WebsiteImportTarget target)
+    // What's wrong with the folder as a whole, which stops everything: website.json unreadable, a
+    // file the import reads missing, or no product type for the artworks' products. The review
+    // and the import both check, so the import never reads a file that isn't there
+    public static bool TryCheckFolder(
+        WebsiteImportFolder folder,
+        IReadOnlyList<ProductType> productTypes,
+        [NotNullWhen(true)] out WebsiteImportManifest? manifest,
+        out List<string> problems
+    )
     {
-        var problems = new List<string>();
+        problems = [];
 
-        if (!WebsiteImportManifest.TryRead(folder.Manifest, out var manifest, out var manifestProblem))
+        if (!WebsiteImportManifest.TryRead(folder.Manifest, out manifest, out var manifestProblem))
         {
-            return WebsiteImportReview.Refused([manifestProblem]);
+            problems.Add(manifestProblem);
+            return false;
         }
 
         if (folder.ArtworkTypesCsv is null)
@@ -201,12 +209,23 @@ public static class WebsiteImportPlanner
             problems.Add($"{WebsiteExportArchive.ImagesFolder}/{ImageListFileName} is missing.");
         }
 
-        if (target.ProductTypes.Count == 0)
+        if (productTypes.Count == 0)
         {
             problems.Add("This website has no product types for the artworks' products.");
         }
 
         if (problems.Count > 0)
+        {
+            manifest = null;
+            return false;
+        }
+
+        return true;
+    }
+
+    public static WebsiteImportReview Plan(WebsiteImportFolder folder, WebsiteImportTarget target)
+    {
+        if (!TryCheckFolder(folder, target.ProductTypes, out var manifest, out var problems))
         {
             return WebsiteImportReview.Refused(problems);
         }
@@ -277,8 +296,8 @@ public static class WebsiteImportPlanner
 
     // Each file in the manifest's order, against the catalog as the files before it would leave it:
     // a series one file creates isn't new again for the next. Returns every artwork that would be
-    // here after, by ArtworkKey, and every series
-    private static (List<WebsiteImportArtworkFile> Files, Dictionary<string, ArtworkAfterImport> AfterImport, List<Series> Series) PlanArtworks(
+    // here after, by ArtworkKey (a title can be on several artworks of a type), and every series
+    private static (List<WebsiteImportArtworkFile> Files, Dictionary<string, List<ArtworkAfterImport>> AfterImport, List<Series> Series) PlanArtworks(
         WebsiteImportFolder folder,
         WebsiteImportManifest manifest,
         CatalogSetupSnapshot setup,
@@ -287,18 +306,28 @@ public static class WebsiteImportPlanner
     {
         var settings = ArtworkSettings(target.ProductTypes, manifest.ListSeparator);
         var series = target.Series.ToList();
-        var afterImport = new Dictionary<string, ArtworkAfterImport>(ImportNames.Comparer);
+        var afterImport = new Dictionary<string, List<ArtworkAfterImport>>(ImportNames.Comparer);
         var files = new List<WebsiteImportArtworkFile>();
         var nextArtworkId = -1;
         var nextSeriesId = -1;
 
-        // an existing title shared by two artworks of a type finds the first
+        void Add(ArtworkAfterImport artwork)
+        {
+            var key = ArtworkKey(artwork.TypeName.Value, artwork.Title.Value);
+
+            if (afterImport.TryGetValue(key, out var sameTitle))
+            {
+                sameTitle.Add(artwork);
+            }
+            else
+            {
+                afterImport[key] = [artwork];
+            }
+        }
+
         foreach (var artwork in target.Artworks)
         {
-            afterImport.TryAdd(
-                ArtworkKey(artwork.Type.Name.Value, artwork.Name.Value),
-                new ArtworkAfterImport(artwork.Id, artwork.Type.Name, artwork.Name, artwork.Slug, artwork)
-            );
+            Add(new ArtworkAfterImport(artwork.Id, artwork.Type.Name, artwork.Name, artwork.Slug, artwork));
         }
 
         foreach (var (fileName, typeName) in manifest.ArtworkFiles)
@@ -325,7 +354,11 @@ public static class WebsiteImportPlanner
                 [.. setup.Vocabularies.Select(vocabulary => new Vocabulary(vocabulary.Id, vocabulary.Name))],
                 [.. series],
                 target.ProductTypes,
-                [.. target.Artworks.Where(artwork => artwork.Type.Id == type.Id).Select(artwork => artwork.Name.Value)]
+                [
+                    .. target.Artworks
+                        .Where(artwork => artwork.Type.Id == type.Id)
+                        .Select(artwork => new ArtworkTitleAndSlug(artwork.Name.Value, artwork.Slug.Value)),
+                ]
             );
             var plan = ArtworkImportPlanner.Plan(folder.ArtworkCsvsByFileName[fileName], settings, snapshot);
             files.Add(new WebsiteImportArtworkFile(fileName, type.Name, plan));
@@ -344,10 +377,7 @@ public static class WebsiteImportPlanner
 
             foreach (var addition in plan.Additions.Select(addition => addition.Addition))
             {
-                afterImport.TryAdd(
-                    ArtworkKey(type.Name.Value, addition.Name.Value),
-                    new ArtworkAfterImport(new ArtworkId(nextArtworkId--), type.Name, addition.Name, addition.CandidateSlug, Existing: null)
-                );
+                Add(new ArtworkAfterImport(new ArtworkId(nextArtworkId--), type.Name, addition.Name, addition.CandidateSlug, Existing: null));
             }
         }
 
@@ -357,13 +387,18 @@ public static class WebsiteImportPlanner
     private static WebsiteImportImagesPlan PlanImages(
         WebsiteImportFolder folder,
         WebsiteImportTarget target,
-        Dictionary<string, ArtworkAfterImport> afterImport
+        Dictionary<string, List<ArtworkAfterImport>> afterImport
     )
     {
         var rows = ReadImageList(folder.ImageList, out var errors);
         var byArtwork = new Dictionary<ArtworkAfterImport, (List<WebsiteImportImage> ToAdd, int AlreadyThere)>();
         var withoutArtwork = new List<string>();
         var missingFiles = new List<string>();
+
+        // the download's own slugs for each title, to tell apart two artworks of a type sharing one
+        var slugsByKey = rows
+            .GroupBy(row => ArtworkKey(row.ArtworkType, row.Title), ImportNames.Comparer)
+            .ToDictionary(group => group.Key, group => group.Select(row => row.Slug).Distinct().Count(), ImportNames.Comparer);
 
         foreach (var row in rows)
         {
@@ -373,7 +408,7 @@ public static class WebsiteImportPlanner
                 continue;
             }
 
-            if (!afterImport.TryGetValue(ArtworkKey(row.ArtworkType, row.Title), out var artwork))
+            if (ArtworkFor(row, slugsByKey[ArtworkKey(row.ArtworkType, row.Title)], afterImport) is not { } artwork)
             {
                 withoutArtwork.Add(row.File);
                 continue;
@@ -412,13 +447,33 @@ public static class WebsiteImportPlanner
         );
     }
 
+    // The artwork a row's image goes to: by type and title, since slugs can differ between websites.
+    // When the title is on several artworks, of the download or here, only the one with the row's
+    // slug; with none, nothing rather than a guess. The artwork import skips a repeated title, so
+    // the second "Dawn" isn't imported and its images mustn't land on the first
+    private static ArtworkAfterImport? ArtworkFor(
+        ImageListRow row,
+        int slugCountInDownload,
+        Dictionary<string, List<ArtworkAfterImport>> afterImport
+    )
+    {
+        if (!afterImport.TryGetValue(ArtworkKey(row.ArtworkType, row.Title), out var sameTitle))
+        {
+            return null;
+        }
+
+        return slugCountInDownload == 1 && sameTitle.Count == 1
+            ? sameTitle[0]
+            : sameTitle.FirstOrDefault(artwork => artwork.Slug.Value == row.Slug);
+    }
+
     // What a post's artwork picture would link to once the import has run: an artwork here with the
     // same image, as the post import finds it, or else the artwork images.csv says the image is
     // for, if that artwork will be here. The link's storage key is a placeholder, since the image
     // has no key here until it's uploaded
     private sealed class ArtworksAfterImport(
         WebsiteImportTarget target,
-        Dictionary<string, ArtworkAfterImport> afterImport,
+        Dictionary<string, List<ArtworkAfterImport>> afterImport,
         WebsiteImportImagesPlan images
     ) : IPostImportArtworks
     {
@@ -429,7 +484,7 @@ public static class WebsiteImportPlanner
             .DistinctBy(pair => pair.Sha256)
             .ToDictionary(pair => pair.Sha256, pair => pair.Id);
 
-        public IReadOnlySet<string> Slugs { get; } = afterImport.Values.Select(artwork => artwork.Slug.Value).ToHashSet();
+        public IReadOnlySet<string> Slugs { get; } = afterImport.Values.SelectMany(sameTitle => sameTitle).Select(artwork => artwork.Slug.Value).ToHashSet();
 
         public PostArtworkLink? Find(PostArtworkReference reference) =>
             _website.Find(reference)
@@ -440,9 +495,11 @@ public static class WebsiteImportPlanner
             );
     }
 
-    private record ImageListRow(string File, string ArtworkType, string Title, string Sha256);
+    // Slug is empty when the row has none
+    private record ImageListRow(string File, string ArtworkType, string Title, string Slug, string Sha256);
 
-    // images.csv's rows; one missing a value is an error rather than a row
+    // images.csv's rows; one missing a value, or naming a file an earlier row named, is an error
+    // rather than a row
     private static List<ImageListRow> ReadImageList(string? csvText, out List<ImportError> errors)
     {
         errors = [];
@@ -470,6 +527,7 @@ public static class WebsiteImportPlanner
         }
 
         var rows = new List<ImageListRow>();
+        var files = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var row in table.Rows)
         {
@@ -481,7 +539,14 @@ public static class WebsiteImportPlanner
                 continue;
             }
 
-            rows.Add(new ImageListRow(cells[0], cells[1], cells[2], cells[3].ToLowerInvariant()));
+            if (!files.Add(cells[0]))
+            {
+                errors.Add(new ImportError(row.RowNumber, ImageListHeaders.File, "An earlier row lists this file."));
+                continue;
+            }
+
+            var slug = columns.TryGetValue(ImageListHeaders.Slug, out var slugColumn) ? row.Cells[slugColumn] : "";
+            rows.Add(new ImageListRow(cells[0], cells[1], cells[2], slug, cells[3].ToLowerInvariant()));
         }
 
         return rows;

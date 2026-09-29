@@ -8,6 +8,9 @@ public enum ArtworkImportSkipReason : byte
 {
     AlreadyInCatalog = 1,
     TitleRepeatedInFile = 2,
+
+    // longer than a slug can be and still take a number, should another artwork here have it
+    SlugTooLong = 3,
 }
 
 public record ArtworkImportSkippedRow(int RowNumber, string Title, ArtworkImportSkipReason Reason);

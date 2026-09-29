@@ -98,7 +98,8 @@ public static class CatalogExportArchive
 
         {ArtworksFolder}/
           One CSV file per artwork type that has artworks, with a row for each artwork. The columns are the
-          ones the artwork import reads: {ArtworkImportHeaders.Title}, {ArtworkImportHeaders.Description}, the fields the type has, {ArtworkImportHeaders.Series}, and a
+          ones the artwork import reads: {ArtworkImportHeaders.Title}, {ArtworkImportHeaders.Slug} (the web address name, which tells apart
+          two artworks with the same title), {ArtworkImportHeaders.Description}, the fields the type has, {ArtworkImportHeaders.Series}, and a
           column for each vocabulary that applies to the type. A vocabulary whose name is also one of
           those columns, like "{ArtworkImportHeaders.Series}", is written "{ArtworkImportHeaders.VocabularyPrefix}{ArtworkImportHeaders.Series}".
           - Height, width and depth are in centimetres.
@@ -125,6 +126,6 @@ public static class CatalogExportArchive
           3. Each file in {ArtworksFolder}/, choosing its type, with the unit set to centimetres and
              "one of a kind" ticked.
           Every import only adds: something that already exists is skipped. Artworks that share a
-          title within a type are skipped by the import, and products can't be imported yet.
+          title within a type are told apart by their {ArtworkImportHeaders.Slug}. Products can't be imported yet.
         """;
 }

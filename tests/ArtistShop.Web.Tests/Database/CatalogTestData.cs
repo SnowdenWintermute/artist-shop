@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
@@ -77,6 +78,9 @@ public class CatalogTestData(SiteDatabase database)
     // characters, which is what the char(32) column holds
     public static ArtworkImage CreateTestImage() =>
         new($"{Guid.NewGuid():n}", OriginalFileName: null, 800, 600, BlurDataUri: null);
+
+    // a hash no other test image has
+    public static string UniqueSha256() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     public async Task<ArtworkSlug> AddPaintingWithTermAsync(VocabularyTermId termId) =>
         (

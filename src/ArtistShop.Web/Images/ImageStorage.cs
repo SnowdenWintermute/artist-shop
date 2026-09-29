@@ -2,6 +2,7 @@ namespace ArtistShop.Web.Images;
 
 using System.Globalization;
 using ArtistShop.Web.Domain.Sites;
+using ArtistShop.Web.Utilities;
 
 // One site's images, in a folder of its own, so nothing that works on one site's files (the sweep,
 // a quota, erasing a closed site) can reach another's
@@ -57,14 +58,16 @@ public class ImageStorage(string siteRootPath)
         return Guid.TryParseExact(storageKey, "N", out _) && File.Exists(OriginalPath(storageKey));
     }
 
-    public async Task SaveOriginalAsync(
+    // Returns the SHA-256 of what was saved. An original is never written again, so the hash stays
+    // true for its storage key
+    public async Task<string> SaveOriginalAsync(
         Stream contentStream,
         string storageKey,
         CancellationToken cancellationToken
     )
     {
         await using var destination = File.Create(OriginalPath(storageKey));
-        await contentStream.CopyToAsync(destination, cancellationToken);
+        return await Sha256Copy.CopyAsync(contentStream, destination, cancellationToken);
     }
 
     public void Delete(string storageKey)

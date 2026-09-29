@@ -116,3 +116,54 @@ export function retryDelay(attempt, retryAfter) {
 export function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
+
+/**
+ * The file sent, and sent again while the server is busy, until it's in or turned away. Each
+ * request's abort sits in aborts while it's in flight, for Stop to call
+ * @param {object} upload
+ * @param {string} upload.id the file's id, for progress
+ * @param {string} upload.url
+ * @param {File} upload.file
+ * @param {Record<string, string>} [upload.fields]
+ * @param {{ loaded: (id: string, loaded: number) => void, retrying: (id: string) => void, finished: (id: string, size: number) => void }} upload.progress
+ * @param {Set<() => void>} upload.aborts
+ * @param {() => boolean} upload.isStopped
+ * @returns {Promise<{ response: UploadResponse } | { failure: string } | null>} null when Stop ended it
+ */
+export async function uploadWithRetries({ id, url, file, fields, progress, aborts, isStopped }) {
+  for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
+    // Stop pressed while waiting to retry, or between one file and the next
+    if (isStopped()) {
+      return null;
+    }
+
+    const { finished, abort } = sendUpload({
+      url,
+      file,
+      fields,
+      onProgress: (loaded) => progress.loaded(id, loaded),
+    });
+    aborts.add(abort);
+    const response = await finished;
+    aborts.delete(abort);
+
+    if (response === null || isStopped()) {
+      return null;
+    }
+
+    if (response.status === 200) {
+      progress.finished(id, file.size);
+      return { response };
+    }
+
+    if (!isRetryable(response.status) || attempt === MAXIMUM_UPLOAD_ATTEMPTS) {
+      progress.finished(id, file.size);
+      return { failure: uploadErrorMessage(response) };
+    }
+
+    progress.retrying(id);
+    await wait(retryDelay(attempt, response.retryAfter));
+  }
+
+  return { failure: "The upload failed." };
+}

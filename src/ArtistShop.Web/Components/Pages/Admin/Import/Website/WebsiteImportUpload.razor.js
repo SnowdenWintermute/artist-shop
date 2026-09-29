@@ -1,14 +1,7 @@
 import { listenForFiles } from "/js/collect-files.js";
 import { createUploadProgress } from "/js/upload-progress.js";
 import { startPostImport } from "/js/post-import-run.js";
-import {
-  MAXIMUM_UPLOAD_ATTEMPTS,
-  isRetryable,
-  retryDelay,
-  sendUpload,
-  uploadErrorMessage,
-  wait,
-} from "/js/upload-request.js";
+import { uploadWithRetries } from "/js/upload-request.js";
 
 const APPEND_IMAGE_URL = "/admin/uploads/artwork-image-appended";
 
@@ -30,7 +23,7 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
   let collectedMetadata = [];
 
   /** @type {Set<() => void>} */
-  const inFlightAborts = new Set();
+  const aborts = new Set();
   let isStopped = false;
   let isRunning = false;
   let progress = createUploadProgress(0, reportProgress);
@@ -73,65 +66,30 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
     notify("OnFilesCollected");
   }
 
-  /**
-   * Null once it's in, otherwise why not; undefined when Stop ended it
-   * @param {string} fileId
-   * @param {File} file
-   * @param {number} artworkId
-   * @returns {Promise<string | null | undefined>}
-   */
-  async function upload(fileId, file, artworkId) {
-    for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
-      // Stop pressed while waiting to retry, or between one file and the next
-      if (isStopped) {
-        return undefined;
-      }
-
-      const { finished, abort } = sendUpload({
-        url: APPEND_IMAGE_URL,
-        file,
-        fields: { artworkId: String(artworkId) },
-        onProgress: (loaded) => progress.loaded(fileId, loaded),
-      });
-      inFlightAborts.add(abort);
-      const response = await finished;
-      inFlightAborts.delete(abort);
-
-      if (response === null || isStopped) {
-        return undefined;
-      }
-
-      if (response.status === 200) {
-        progress.finished(fileId, file.size);
-        return null;
-      }
-
-      if (!isRetryable(response.status) || attempt === MAXIMUM_UPLOAD_ATTEMPTS) {
-        progress.finished(fileId, file.size);
-        return uploadErrorMessage(response);
-      }
-
-      progress.retrying(fileId);
-      await wait(retryDelay(attempt, response.retryAfter));
-    }
-
-    return "The upload failed.";
-  }
-
   /** @param {{ artworkId: number, fileIds: string[] }} artwork */
   async function importArtwork(artwork) {
     for (const fileId of artwork.fileIds) {
       const file = collectedFiles.get(fileId);
-      const failure = file ? await upload(fileId, file, artwork.artworkId) : "The file is no longer there.";
+      const outcome = file
+        ? await uploadWithRetries({
+            id: fileId,
+            url: APPEND_IMAGE_URL,
+            file,
+            fields: { artworkId: String(artwork.artworkId) },
+            progress,
+            aborts,
+            isStopped: () => isStopped,
+          })
+        : { failure: "The file is no longer there." };
 
-      if (failure === undefined) {
+      if (outcome === null) {
         return;
       }
 
-      if (failure === null) {
-        notify("OnImageAdded", fileId);
+      if ("failure" in outcome) {
+        notify("OnImageFailed", fileId, outcome.failure);
       } else {
-        notify("OnImageFailed", fileId, failure);
+        notify("OnImageAdded", fileId);
       }
     }
   }
@@ -192,7 +150,7 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
   function stop() {
     isStopped = true;
     posts?.stop();
-    for (const abort of inFlightAborts) {
+    for (const abort of aborts) {
       abort();
     }
   }

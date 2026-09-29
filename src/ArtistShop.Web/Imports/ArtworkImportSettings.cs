@@ -22,6 +22,7 @@ public record ArtworkImportSettings(
 public static class ArtworkImportHeaders
 {
     public const string Title = "title";
+    public const string Slug = "slug";
     public const string Description = "description";
     public const string DateCreated = "dateCreated";
     public const string Height = "height";
@@ -35,7 +36,7 @@ public static class ArtworkImportHeaders
     public const string Stock = "stock";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(
-        [Title, Description, DateCreated, Height, Width, Depth, Duration, Series, Price, Sold, EditionSize, Stock],
+        [Title, Slug, Description, DateCreated, Height, Width, Depth, Duration, Series, Price, Sold, EditionSize, Stock],
         ImportNames.Comparer
     );
 

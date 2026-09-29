@@ -56,6 +56,8 @@ public static class ArtworkCsvExport
         List<(string Header, Func<Artwork, string?> Value)> columns =
         [
             (ArtworkImportHeaders.Title, artwork => artwork.Name.Value),
+            // tells apart two artworks of the type with one title, and keeps each one's web address
+            (ArtworkImportHeaders.Slug, artwork => artwork.Slug.Value),
             (ArtworkImportHeaders.Description, artwork => artwork.Description),
         ];
 

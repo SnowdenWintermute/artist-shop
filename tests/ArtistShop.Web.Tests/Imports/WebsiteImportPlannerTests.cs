@@ -1,0 +1,49 @@
+using ArtistShop.Web.Domain.Commerce;
+using ArtistShop.Web.Imports;
+
+namespace ArtistShop.Web.Tests.Imports;
+
+// the checks on a whole-website folder that stop both the review and the import
+public sealed class WebsiteImportPlannerTests
+{
+    private static readonly ProductType Original = new(new ProductTypeId(31), new ProductTypeName("Original"), IsDefault: true);
+
+    private static readonly WebsiteImportFolder EveryFile = new(
+        """{ "formatVersion": 1, "listSeparator": ";", "artworkFiles": [ { "file": "Painting.csv", "artworkType": "Painting" } ] }""",
+        ArtworkTypesCsv: "",
+        VocabulariesCsv: "",
+        new Dictionary<string, string> { ["Painting.csv"] = "" },
+        ImageList: "",
+        new Dictionary<string, string>(),
+        Posts: []
+    );
+
+    [Fact]
+    public void AFolderWithEveryFileIsFine()
+    {
+        Assert.True(WebsiteImportPlanner.TryCheckFolder(EveryFile, [Original], out var manifest, out var problems));
+        Assert.NotNull(manifest);
+        Assert.Empty(problems);
+    }
+
+    [Fact]
+    public void EachMissingFileIsAProblem()
+    {
+        var folder = EveryFile with { ArtworkTypesCsv = null, ImageList = null, ArtworkCsvsByFileName = new Dictionary<string, string>() };
+
+        Assert.False(WebsiteImportPlanner.TryCheckFolder(folder, [Original], out var manifest, out var problems));
+        Assert.Null(manifest);
+        Assert.Equal(
+            ["catalog/artworkTypes.csv is missing.", "catalog/artworks/Painting.csv is missing.", "images/images.csv is missing."],
+            problems
+        );
+    }
+
+    // every imported artwork gets a product of the website's default type
+    [Fact]
+    public void AWebsiteWithNoProductTypesCantTakeTheArtworks()
+    {
+        Assert.False(WebsiteImportPlanner.TryCheckFolder(EveryFile, [], out _, out var problems));
+        Assert.Equal(["This website has no product types for the artworks' products."], problems);
+    }
+}

@@ -190,7 +190,8 @@ public static class ImageUploadEndpoints
                         stored.Processed.Width,
                         stored.Processed.Height,
                         stored.Processed.BlurDataUri
-                    )
+                    ),
+                    stored.Sha256
                 );
 
                 if (!attached.Attached)
@@ -237,8 +238,9 @@ public static class ImageUploadEndpoints
         }
     }
 
-    // after the artwork's other images. The page worked out which images the artwork is missing,
-    // but any artwork on the site is one its admin could add an image to anyway
+    // After the artwork's other images, unless it has this image already. The page worked out which
+    // images the artwork is missing, but any artwork on the site is one its admin could add an
+    // image to anyway
     private static async Task<Results<Ok, ContentHttpResult, StatusCodeHttpResult>> UploadAndAppendAsync(
         IFormFile file,
         // a form field, as above
@@ -263,7 +265,7 @@ public static class ImageUploadEndpoints
 
             try
             {
-                await artworkImageRepository.AppendImageAsync(
+                var appended = await artworkImageRepository.AppendImageAsync(
                     new ArtworkId(artworkId),
                     new ArtworkImage(
                         stored.StorageKey,
@@ -271,8 +273,16 @@ public static class ImageUploadEndpoints
                         stored.Processed.Width,
                         stored.Processed.Height,
                         stored.Processed.BlurDataUri
-                    )
+                    ),
+                    stored.Sha256
                 );
+
+                // the artwork has this image already, as when a retry follows an upload that got
+                // in but whose answer was lost. It's there, so the upload has done its job
+                if (!appended)
+                {
+                    imageStorage.Delete(stored.StorageKey);
+                }
             }
             catch
             {

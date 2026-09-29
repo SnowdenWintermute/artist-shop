@@ -180,15 +180,21 @@ public class ArtworkRepository(SiteDatabase database)
             ? new ArtworkLink(new ArtworkName(name), new ArtworkSlug(slug))
             : null;
 
-    public async Task<List<string>> GetNamesOfTypeAsync(ArtworkTypeId artworkTypeId)
+    public async Task<List<ArtworkTitleAndSlug>> GetTitlesOfTypeAsync(ArtworkTypeId artworkTypeId)
     {
         await using var connection = await database.OpenConnectionAsync();
 
-        var names = await connection.QueryAsync<string>(
+        var rows = await connection.QueryAsync<TitleAndSlugRow>(
             "SELECT * FROM get_artwork_names(@ArtworkTypeId)",
             new { ArtworkTypeId = artworkTypeId.Value }
         );
-        return [.. names];
+        return [.. rows.Select(row => new ArtworkTitleAndSlug(row.Name, row.Slug))];
+    }
+
+    private sealed class TitleAndSlugRow
+    {
+        public required string Name { get; init; }
+        public required string Slug { get; init; }
     }
 
     public Task<Artwork?> GetByIdAsync(ArtworkId id) => GetAsync(id.Value);

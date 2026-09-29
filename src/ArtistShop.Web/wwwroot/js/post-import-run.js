@@ -2,14 +2,7 @@
 // sent to the post editor's upload, then the post, which .NET saves before the next one starts
 
 import { createUploadProgress } from "/js/upload-progress.js";
-import {
-  MAXIMUM_UPLOAD_ATTEMPTS,
-  isRetryable,
-  retryDelay,
-  sendUpload,
-  uploadErrorMessage,
-  wait,
-} from "/js/upload-request.js";
+import { uploadWithRetries } from "/js/upload-request.js";
 
 // the post editor's own upload, so an imported image is processed as one dropped into a post
 const UPLOAD_URL = "/admin/uploads/post-image";
@@ -26,62 +19,21 @@ const UPLOAD_URL = "/admin/uploads/post-image";
  * @returns {{ finished: Promise<boolean>, stop: () => void }}
  */
 export function startPostImport(posts, { fileOf, dotNetReference, onProgress }) {
-  /** @type {(() => void) | null} */
-  let abortInFlight = null;
+  /** @type {Set<() => void>} */
+  const aborts = new Set();
   let isStopped = false;
   const progress = createUploadProgress(
     posts.flatMap(({ fileIds }) => fileIds).reduce((sum, id) => sum + (fileOf(id)?.size ?? 0), 0),
     onProgress
   );
 
-  /**
-   * The upload endpoint's answer, parsed, or the reason it failed. Null when Stop aborted it
-   * @param {string} fileId
-   * @param {File} file
-   * @returns {Promise<{ result: unknown } | { failure: string } | null>}
-   */
-  async function upload(fileId, file) {
-    for (let attempt = 1; attempt <= MAXIMUM_UPLOAD_ATTEMPTS; attempt += 1) {
-      // Stop pressed while waiting to retry, or between one file and the next
-      if (isStopped) {
-        return null;
-      }
-
-      const { finished, abort } = sendUpload({
-        url: UPLOAD_URL,
-        file,
-        onProgress: (loaded) => progress.loaded(fileId, loaded),
-      });
-      abortInFlight = abort;
-      const response = await finished;
-      abortInFlight = null;
-
-      if (response === null || isStopped) {
-        return null;
-      }
-
-      if (response.status === 200) {
-        progress.finished(fileId, file.size);
-        return { result: JSON.parse(response.text) };
-      }
-
-      if (!isRetryable(response.status) || attempt === MAXIMUM_UPLOAD_ATTEMPTS) {
-        progress.finished(fileId, file.size);
-        return { failure: uploadErrorMessage(response) };
-      }
-
-      progress.retrying(fileId);
-      await wait(retryDelay(attempt, response.retryAfter));
-    }
-
-    return { failure: "The upload failed." };
-  }
-
   /** @param {{ index: number, fileIds: string[] }} post */
   async function importPost(post) {
     for (const fileId of post.fileIds) {
       const file = fileOf(fileId);
-      const outcome = file ? await upload(fileId, file) : { failure: "The file is no longer there." };
+      const outcome = file
+        ? await uploadWithRetries({ id: fileId, url: UPLOAD_URL, file, progress, aborts, isStopped: () => isStopped })
+        : { failure: "The file is no longer there." };
 
       if (outcome === null) {
         return;
@@ -92,7 +44,7 @@ export function startPostImport(posts, { fileOf, dotNetReference, onProgress }) 
         return;
       }
 
-      await dotNetReference.invokeMethodAsync("OnFileUploaded", fileId, outcome.result);
+      await dotNetReference.invokeMethodAsync("OnFileUploaded", fileId, JSON.parse(outcome.response.text));
     }
 
     await dotNetReference.invokeMethodAsync("OnPostUploaded", post.index);
@@ -120,7 +72,9 @@ export function startPostImport(posts, { fileOf, dotNetReference, onProgress }) 
     finished: run(),
     stop() {
       isStopped = true;
-      abortInFlight?.();
+      for (const abort of aborts) {
+        abort();
+      }
     },
   };
 }

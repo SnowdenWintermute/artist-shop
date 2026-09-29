@@ -69,19 +69,16 @@ public record PostImportTarget(IReadOnlySet<string> PostSlugs, IReadOnlySet<stri
         PostRepository posts,
         SeriesRepository series,
         ArtworkRepository artworkRepository,
+        ArtworkImageRepository artworkImageRepository,
         ImageStorage imageStorage
     )
     {
         var artworks = await artworkRepository.GetAllAsync();
-        var sha256ByStorageKey = new Dictionary<string, string>();
-
-        foreach (var storageKey in PostImportPlanner.ArtworkImagesToHash(folders, artworks))
-        {
-            if (imageStorage.OriginalExists(storageKey))
-            {
-                sha256ByStorageKey[storageKey] = await PostExportArchive.Sha256Async(imageStorage.OriginalPath(storageKey), CancellationToken.None);
-            }
-        }
+        var sha256ByStorageKey = await ImageHashes.LoadAsync(
+            PostImportPlanner.ArtworkImagesToHash(folders, artworks),
+            artworkImageRepository,
+            imageStorage
+        );
 
         return new PostImportTarget(
             (await posts.GetAllAsync()).Select(post => post.Slug.Value).ToHashSet(),

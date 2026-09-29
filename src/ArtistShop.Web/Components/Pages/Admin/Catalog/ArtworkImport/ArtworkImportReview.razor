@@ -1,5 +1,6 @@
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
 @using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Utilities
@@ -17,6 +18,7 @@
     {
       ArtworkImportSkipReason.AlreadyInCatalog => $"Already in the catalog ({ArtworkTypeName.Value})",
       ArtworkImportSkipReason.TitleRepeatedInFile => "The title is on more than one row",
+      ArtworkImportSkipReason.SlugTooLong => $"The slug is longer than {ArtistShopLimits.BaseSlugMaximumLength} characters",
     };
 }
 

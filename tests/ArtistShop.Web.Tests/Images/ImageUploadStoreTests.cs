@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ArtistShop.Web.Images;
 using NetVips;
 
@@ -44,6 +45,7 @@ public sealed class ImageUploadStoreTests : IDisposable
         Assert.True(_imageStorage.OriginalExists(stored.StorageKey));
         Assert.True(File.Exists(Path.Combine(_imageStorage.VariantDirectory(stored.StorageKey), "800.webp")));
         Assert.Equal(800, stored.Processed.Width);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(content.ToArray())), stored.Sha256);
     }
 
     [Fact]

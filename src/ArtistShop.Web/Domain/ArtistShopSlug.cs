@@ -34,4 +34,13 @@ public static class ArtistShopSlug
 
         return slug.ToString().Trim('-');
     }
+
+    // one a slug could be: lower case letters, numbers and single dashes between them, no longer
+    // than the column. It may be longer than FromName makes one, as a numbered slug is
+    public static bool IsWellFormed(string slug) =>
+        slug.Length is > 0 and <= ArtistShopLimits.SlugMaximumLength
+        && slug.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-')
+        && !slug.StartsWith('-')
+        && !slug.EndsWith('-')
+        && !slug.Contains("--", StringComparison.Ordinal);
 }

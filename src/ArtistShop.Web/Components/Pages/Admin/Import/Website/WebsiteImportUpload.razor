@@ -1,5 +1,4 @@
 @rendermode InteractiveServer
-@using System.Text.Json
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Components.Forms.FileUpload
@@ -16,6 +15,7 @@
 @inject SeriesRepository SeriesRepository
 @inject ProductTypeRepository ProductTypeRepository
 @inject ArtworkRepository ArtworkRepository
+@inject ArtworkImageRepository ArtworkImageRepository
 @inject PostRepository PostRepository
 @inject ImageStorage ImageStorage
 @inject IJSRuntime JS
@@ -29,12 +29,6 @@
   // a backstop only, as for the bulk image upload
   private const long MaximumMetadataBytes = MaximumFiles * 400L;
 
-  // the catalog's CSV files and images.csv, which grow with the number of artworks
-  private const long MaximumListBytes = 50L * Units.BytesPerMebibyte;
-
-  // a post's text, which is small; its images are separate files
-  private const long MaximumPostFileBytes = 5L * Units.BytesPerMebibyte;
-
   private ElementReference _zone;
   private IJSObjectReference? _module;
   private IJSObjectReference? _importer;
@@ -43,6 +37,7 @@
   private bool _tooManyFiles;
   private bool _isReading;
   private bool _isImporting;
+  private string? _readProblem;
   private WebsiteImportFolder? _folder;
   private WebsiteImportReview? _review;
 
@@ -110,17 +105,27 @@
     _review = null;
     _stagesDone = [];
     _importProblem = null;
+    _readProblem = null;
     _isReading = true;
     await InvokeAsync(StateHasChanged);
 
-    // the page closed while the folder was being read, so there is no one left to show it to
     try
     {
-      _folder = await ReadFolderAsync();
+      var importer = Unwrap.Value(_importer);
+      var files = await CollectedFileStreams.ReadListAsync(importer, MaximumMetadataBytes);
+      _folder = await CollectedImportFolders.WebsiteAsync(files, (file, maximumBytes) => CollectedFileStreams.ReadTextAsync(importer, file, maximumBytes));
       await ReviewAsync(_folder);
     }
+    // the page closed while the folder was being read, so there is no one left to show it to
     catch (JSDisconnectedException)
     {
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "Reading the whole-website folder failed.");
+      _folder = null;
+      _review = null;
+      _readProblem = "Something went wrong reading the folder. Choose it again to try again.";
     }
     finally
     {
@@ -140,6 +145,7 @@
       SeriesRepository,
       ProductTypeRepository,
       ArtworkRepository,
+      ArtworkImageRepository,
       PostRepository,
       ImageStorage
     );
@@ -197,7 +203,38 @@
       return;
     }
 
-    // planned again now the artworks are here, for their real ids and the images they have
+    await GuardAsync(folder, () => StartImagesAsync(folder));
+  }
+
+  private const string SomethingWentWrongProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
+
+  // A step after the catalog. Whatever it throws ends the run with a message, rather than leaving
+  // the page importing with nothing running
+  private async Task GuardAsync(WebsiteImportFolder folder, Func<Task> step)
+  {
+    try
+    {
+      await step();
+    }
+    // the page closed, which ends the import anyway
+    catch (JSDisconnectedException)
+    {
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "The whole-website import failed.");
+      _importProblem = SomethingWentWrongProblem;
+      await FinishAsync(folder);
+    }
+  }
+
+  // GuardAsync catches JSDisconnectedException around these two; the analyzer checks each method
+  // on its own
+#pragma warning disable BL0016
+  // Planned again now the artworks are here, for their real ids and the images they have. The
+  // script reports each image, then OnImagesFinished
+  private async Task StartImagesAsync(WebsiteImportFolder folder)
+  {
     await ReviewAsync(folder);
     var artworks = Unwrap.Value(_review).Images.Artworks.Where(artwork => artwork.ToAdd.Count > 0).ToList();
 
@@ -214,20 +251,11 @@
     _imagePathsByFileId = artworks.SelectMany(artwork => artwork.ToAdd).ToDictionary(image => image.FileId, image => image.Path);
     _isSendingImages = true;
 
-    // the page closed, which ends the import anyway
-    try
-    {
-      await Unwrap.Value(_importer).InvokeVoidAsync(
-        "importImages",
-        artworks.Select(artwork => new { artworkId = artwork.ArtworkId.Value, fileIds = artwork.ToAdd.Select(image => image.FileId) })
-      );
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    await Unwrap.Value(_importer).InvokeVoidAsync(
+      "importImages",
+      artworks.Select(artwork => new { artworkId = artwork.ArtworkId.Value, fileIds = artwork.ToAdd.Select(image => image.FileId) })
+    );
   }
-
-  private const string SomethingWentWrongProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
 
   // Planned against the website as the images left it, as the post import page plans them, so a
   // picture links only to an artwork that really has its image here
@@ -235,19 +263,8 @@
   {
     _isSendingImages = false;
 
-    try
-    {
-      var target = await PostImportTarget.LoadAsync(folder.Posts, PostRepository, SeriesRepository, ArtworkRepository, ImageStorage);
-      _postRun = new PostImportRun(PostImportPlanner.Plan(folder.Posts, target));
-    }
-    catch (Exception exception)
-    {
-      Logger.LogError(exception, "Planning the whole-website import's posts failed.");
-      _importProblem = SomethingWentWrongProblem;
-      await FinishAsync(folder);
-      return;
-    }
-
+    var target = await PostImportTarget.LoadAsync(folder.Posts, PostRepository, SeriesRepository, ArtworkRepository, ArtworkImageRepository, ImageStorage);
+    _postRun = new PostImportRun(PostImportPlanner.Plan(folder.Posts, target));
     var batches = _postRun.Start();
 
     if (batches.Count == 0)
@@ -261,15 +278,9 @@
     _percentComplete = 0;
     await InvokeAsync(StateHasChanged);
 
-    // the page closed, which ends the import anyway
-    try
-    {
-      await Unwrap.Value(_importer).InvokeVoidAsync("importPosts", batches);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    await Unwrap.Value(_importer).InvokeVoidAsync("importPosts", batches);
   }
+#pragma warning restore BL0016
 
   [JSInvokable]
   public void OnFileUploaded(string fileId, ImageUploadResult result) => _postRun.FileUploaded(fileId, result);
@@ -305,9 +316,20 @@
     }
   }
 
+  // Never throws, so the page always leaves the run
   private async Task FinishAsync(WebsiteImportFolder folder)
   {
-    await ReviewAsync(folder);
+    try
+    {
+      await ReviewAsync(folder);
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "Reviewing the folder after the whole-website import failed.");
+      _review = null;
+      _importProblem ??= "The import finished, but the folder couldn't be checked again. Choose it again to see what's left.";
+    }
+
     _isSendingImages = false;
     _isSendingPosts = false;
     _isImporting = false;
@@ -352,7 +374,7 @@
       return;
     }
 
-    await StartPostsAsync(folder);
+    await GuardAsync(folder, () => StartPostsAsync(folder));
   }
 
   private const string StoppedProblem = "Stopped. What was imported stays; import again to add the rest.";
@@ -380,118 +402,6 @@
 
     await InvokeAsync(StateHasChanged);
   }
-
-  // Only OnFilesCollected calls these, inside its catch of JSDisconnectedException; the analyzer
-  // checks each method on its own
-#pragma warning disable BL0016
-  // The folder website.json is in is the download's own; everything else is found by its path
-  // inside it. With no website.json nothing else is read, and the review says what's wrong
-  private async Task<WebsiteImportFolder> ReadFolderAsync()
-  {
-    List<CollectedFile> files;
-
-    await using (var metadata = await Unwrap.Value(_importer).InvokeAsync<IJSStreamReference>("metadata"))
-    await using (var stream = await metadata.OpenReadStreamAsync(MaximumMetadataBytes))
-    {
-      files = await JsonSerializer.DeserializeAsync<List<CollectedFile>>(stream, JsonSerializerOptions.Web) ?? [];
-    }
-
-    // the shallowest, in case the folder holds another download inside it
-    var manifest = files
-      .Where(file => CollectedPaths.NameOf(file.Path) == WebsiteExportArchive.ManifestFileName)
-      .MinBy(file => file.Path.Trim('/').Count(character => character == '/'));
-
-    if (manifest is null)
-    {
-      return new WebsiteImportFolder(null, null, null, new Dictionary<string, string>(), null, new Dictionary<string,
-string>(), []);
-    }
-
-    var root = CollectedPaths.FolderOf(manifest.Path);
-    var byPath = new Dictionary<string, CollectedFile>();
-
-    foreach (var file in files)
-    {
-      if (CollectedPaths.Inside(root, file.Path) is { } path)
-      {
-        byPath[path] = file;
-      }
-    }
-
-    async Task<string?> TextAtAsync(string path, long maximumBytes) =>
-      byPath.TryGetValue(path, out var file) ? await ReadTextAsync(file, maximumBytes) : null;
-
-    const string catalog = WebsiteExportArchive.CatalogFolder;
-    var artworkFolder = $"{catalog}/{CatalogExportArchive.ArtworksFolder}";
-    var artworkCsvs = new Dictionary<string, string>();
-
-    foreach (var (path, file) in byPath.Where(entry => CollectedPaths.FolderOf(entry.Key) == artworkFolder))
-    {
-      artworkCsvs[CollectedPaths.NameOf(path)] = await ReadTextAsync(file, MaximumListBytes);
-    }
-
-    const string images = WebsiteExportArchive.ImagesFolder;
-    var imageFileIds = new Dictionary<string, string>();
-
-    foreach (var (path, file) in byPath)
-    {
-      if (CollectedPaths.Inside(images, path) is { } imagePath)
-      {
-        imageFileIds[imagePath] = file.Id;
-      }
-    }
-
-    var posts = new List<PostImportFolder>();
-
-    foreach (var (path, file) in byPath.Where(entry => CollectedPaths.NameOf(entry.Key) == PostExportJson.FileName))
-    {
-      var postFolder = CollectedPaths.FolderOf(path);
-
-      // a post's folder sits directly in posts/
-      if (CollectedPaths.FolderOf(postFolder) != WebsiteExportArchive.PostsFolder)
-      {
-        continue;
-      }
-
-      posts.Add(
-        new PostImportFolder(
-          CollectedPaths.NameOf(postFolder),
-          // one too large isn't a post.json the download wrote, and reads as unreadable
-          file.Size <= MaximumPostFileBytes ? await ReadTextAsync(file, MaximumPostFileBytes) : "",
-          byPath
-            .Where(entry => CollectedPaths.FolderOf(entry.Key) == postFolder && entry.Key != path)
-            .ToDictionary(entry => CollectedPaths.NameOf(entry.Key), entry => entry.Value.Id)
-        )
-      );
-    }
-
-    return new WebsiteImportFolder(
-      await TextAtAsync(WebsiteExportArchive.ManifestFileName, MaximumPostFileBytes),
-      await TextAtAsync($"{catalog}/{CatalogExportArchive.ArtworkTypesFileName}", MaximumListBytes),
-      await TextAtAsync($"{catalog}/{CatalogExportArchive.VocabulariesFileName}", MaximumListBytes),
-      artworkCsvs,
-      await TextAtAsync($"{images}/{ImageExportArchive.ImageListFileName}", MaximumListBytes),
-      imageFileIds,
-      posts
-    );
-  }
-
-  // A StreamReader takes off the byte order mark the CSV files start with. One over the limit
-  // reads as empty, which the review reports as unreadable
-  private async Task<string> ReadTextAsync(CollectedFile file, long maximumBytes)
-  {
-    if (file.Size > maximumBytes)
-    {
-      return "";
-    }
-
-    await using var reference = await Unwrap.Value(_importer).InvokeAsync<IJSStreamReference>("file", file.Id);
-    await using var stream = await reference.OpenReadStreamAsync(maximumBytes);
-    using var reader = new StreamReader(stream);
-
-    return await reader.ReadToEndAsync();
-  }
-#pragma warning restore BL0016
 
   public async ValueTask DisposeAsync()
   {
@@ -531,6 +441,11 @@ string>(), []);
 @if (_tooManyFiles)
 {
   <p class="mb-4 text-red-400">That's more than @MaximumFiles files. Choose the Download everything folder itself.</p>
+}
+
+@if (_readProblem is not null)
+{
+  <p class="mb-4 text-red-400">@_readProblem</p>
 }
 
 @if (_isReading)

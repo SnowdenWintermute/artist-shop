@@ -34,9 +34,9 @@ public static class WebsiteCatalogImporter
         Func<WebsiteImportStageDone, Task> onStageDone
     )
     {
-        if (!WebsiteImportManifest.TryRead(folder.Manifest, out var manifest, out var manifestProblem))
+        if (!WebsiteImportPlanner.TryCheckFolder(folder, await repositories.ProductTypes.GetAllAsync(), out var manifest, out var problems))
         {
-            return manifestProblem;
+            return string.Join(" ", problems);
         }
 
         try
@@ -67,7 +67,10 @@ public static class WebsiteCatalogImporter
             }
 
             await VocabularyImportPlanner.ApplyAsync(vocabularies, repositories.Vocabularies, repositories.Terms);
-            await onStageDone(new WebsiteImportStageDone("Vocabularies", vocabularies.Changes.Count));
+            // a change can be new terms or artwork types for a vocabulary already here, so the
+            // vocabularies added are only the new ones
+            await onStageDone(new WebsiteImportStageDone("Vocabularies", vocabularies.Changes.Count(change => change.ExistingId is null)));
+            await onStageDone(new WebsiteImportStageDone("Vocabulary terms", vocabularies.Changes.Sum(change => change.AddedTerms.Count)));
 
             var settings = WebsiteImportPlanner.ArtworkSettings(await repositories.ProductTypes.GetAllAsync(), manifest.ListSeparator);
             var allTypes = await repositories.Types.GetAllAsync();

@@ -10,7 +10,8 @@ CREATE FUNCTION attach_primary_image_to_imageless_artwork_by_name (
     p_original_file_name text,
     p_width int,
     p_height int,
-    p_blur_data_uri text
+    p_blur_data_uri text,
+    p_sha256 text
 ) RETURNS TABLE (match_type smallint, artwork_ids int[]) LANGUAGE plpgsql AS $$
 DECLARE
     one_imageless_artwork CONSTANT smallint := 1;
@@ -64,7 +65,8 @@ BEGIN
             p_original_file_name,
             p_width,
             p_height,
-            p_blur_data_uri
+            p_blur_data_uri,
+            p_sha256
         );
 
         found_match_type := one_imageless_artwork;

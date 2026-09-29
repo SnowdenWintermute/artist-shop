@@ -1,6 +1,6 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
+using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Exports;
 
@@ -31,7 +31,7 @@ public static class ExportZip
         await source.CopyToAsync(target, cancellationToken);
     }
 
-    // the SHA-256 of what was copied, in lower case hex, worked out on the way so the file is read once
+    // the SHA-256 of what was copied, worked out on the way so the file is read once
     public static async Task<string> AddFileWithSha256Async(
         ZipArchive zip,
         string path,
@@ -40,18 +40,8 @@ public static class ExportZip
         CancellationToken cancellationToken
     )
     {
-        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         await using var target = await zip.CreateEntry(path, compression).OpenAsync(cancellationToken);
-        var buffer = new byte[81_920];
-        int read;
-
-        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
-        {
-            sha256.AppendData(buffer, 0, read);
-            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-        }
-
-        return Convert.ToHexStringLower(sha256.GetHashAndReset());
+        return await Sha256Copy.CopyAsync(source, target, cancellationToken);
     }
 
     public static Task AddTextAsync(ZipArchive zip, string path, string text, CancellationToken cancellationToken) =>

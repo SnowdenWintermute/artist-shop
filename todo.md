@@ -1,4 +1,25 @@
-# Next: review the whole-website move's code (handoff below, 2026-09-29), and check nothing we meant to build with it was missed. Then the catalog's open items (SES production access pending), the dev hot reload 403 on site hosts
+# Next: get ready to deploy, and switch production email from SES to Resend (Mike, 2026-09-29). Handoff below
+
+## Handoff, 2026-09-29: deploy and Resend
+
+This session reviewed and fixed the whole-website move (summary under "Site export" below: **Review done
+2026-09-29**). All of it is uncommitted, 859 tests passing; Mike commits it before the deploy work starts.
+
+**Resend.** The app sends through `Email/SmtpMailer.cs` (MailKit) with `EmailSettings` (`Email__Host`, `Port`,
+`Security`, `Username`, `Password`, `FromAddress`, `FromName`), queued by `EmailQueueSender` with the send limit
+in app code. Resend offers SMTP as well as an HTTP API, so the switch may be settings plus DNS only (check their
+current SMTP host, port and login before assuming). Decide with Mike: SMTP through the existing mailer, or their
+API behind `Mailer`. Also: verify the sending domain at Resend (SPF/DKIM records at Mike's domain provider; SES
+used `mail.mikesilverman.net`), then remove the SES records and credentials once Resend works.
+
+**Deploy.** The last deploy on record is 2026-09-22 (`a7e6708`, before multi-tenancy, schemas per site, the auth rework, blog,
+export/import). Go through what changed for production before building: new env settings (Google sign-in, `Email__*`),
+database migrations on first boot (platform, identity, each site's schema; `0003_AddArtworkImageSha256` is new),
+`stop_grace_period: 30s` merged into the VPS compose (email queue), the image storage folders per site, and the
+rehearsal compose kept in step. Deployment facts are in the Claude memory (`project_artist_shop_deployment`).
+
+Still open from before: the catalog's open items and the dev hot reload 403 on site hosts. (SES production access
+no longer matters once Resend is in.)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -216,6 +237,21 @@ reviewed now: Mike will review all of the site's wording as a task later.
     posts already imported, so those pictures stay unlinked.
   - The Export page still offers every separate download; the Download everything README names each folder.
   - Wording across these pages is for Mike's later site-wide wording pass.
+- **Review done 2026-09-29, uncommitted.** Fixed: images.csv's slug decides between same-titled
+  artworks (before, every image went to the first Dawn); `artwork_images.sha256` (migration 0003), set only by the
+  server (`ImageStorage.SaveOriginalAsync` hashes while saving; `set_artwork_images` keeps a kept image's hash, the
+  form never sends one), so `append_artwork_image` skips an image the artwork has (a retried 504, two tabs) and
+  reviews read stored hashes (`ImageHashes.LoadAsync`, the file only for an image without one); the page's steps
+  after the catalog are guarded (`GuardAsync`, `FinishAsync` never throws); one folder check (`TryCheckFolder`) for
+  the review and the import; images.csv listing a file twice is an error; "Vocabularies" counts new ones and
+  "Vocabulary terms" the terms; image upload messages lost their "SH003:" prefix. Shared: `uploadWithRetries`
+  (upload-request.js), `CollectedFileStreams`, `CollectedImportFolders` (the tests read downloads through it),
+  `Sha256Copy`. Artwork CSVs now have a `slug` column (export writes it, import reads it, optional): a title
+  repeated in a file imports when each row has its own slug (here already = same title and slug), and a row's
+  slug is the new artwork's candidate slug, so web addresses (and post links) survive a move. A slug over 190
+  characters (too long to take a number) is skipped as SlugTooLong rather than falling back to the title's
+  (Mike: no hidden fix-ups). 859 tests. Products stay out of the move until the shop
+  features, with their own import/export (Mike).
 - Icons (Mike, 2026-09-29): `<SvgIcon Name="folder-open" />` and `IconLabel Icon="folder-open"` draw
   `wwwroot/icons/<name>.svg` inline (nested folders by path). `SvgIconFiles` (singleton) reads each once, drops
   size attributes, moves fill and stroke colours to the root as currentColor (a shape relying on the root's
