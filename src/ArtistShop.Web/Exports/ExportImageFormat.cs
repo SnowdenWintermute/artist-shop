@@ -7,7 +7,7 @@ namespace ArtistShop.Web.Exports;
 public record ExportImageFormat(string Extension, bool IsCompressed)
 {
     // enough for AVIF's first box and the brands listed in it
-    public const int HeaderLength = 32;
+    private const int HeaderLength = 32;
 
     // already compressed, so deflating them again costs time and saves almost nothing
     public static readonly ExportImageFormat Jpeg = new(".jpg", IsCompressed: true);
@@ -18,6 +18,16 @@ public record ExportImageFormat(string Extension, bool IsCompressed)
 
     // the longest extension any format gets, so a name checked with it fits with every one
     public const string LongestExtension = ".webp";
+
+    // reads an original's first bytes, then goes back to the start so the whole file can be copied
+    public static async Task<ExportImageFormat?> ReadAsync(Stream original, CancellationToken cancellationToken)
+    {
+        var header = new byte[HeaderLength];
+        var headerLength = await original.ReadAtLeastAsync(header, header.Length, throwOnEndOfStream: false, cancellationToken);
+        original.Position = 0;
+
+        return Detect(header.AsSpan(0, headerLength));
+    }
 
     // null for bytes that aren't one of the formats uploads accept
     public static ExportImageFormat? Detect(ReadOnlySpan<byte> header)

@@ -70,6 +70,24 @@ public class PostRepository(SiteDatabase database)
         return [.. rows.Select(row => row.ToPostSummary())];
     }
 
+    // drafts included
+    public async Task<int> CountAsync()
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        return await connection.ExecuteScalarAsync<int>("SELECT count_posts()");
+    }
+
+    // drafts included, with their bodies, for the site export
+    public async Task<List<Post>> GetAllWithBodiesAsync()
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = await connection.QueryAsync<PostRow>("SELECT * FROM get_all_posts()");
+
+        return [.. rows.Select(row => row.ToPost())];
+    }
+
     // the count rides on the rows, so a page past the end carries none; the page sends a page
     // number past the end back to the first page
     public async Task<PostListPage> GetPublishedPageAsync(int pageNumber)

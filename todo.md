@@ -1,4 +1,4 @@
-# Next: the site export's blog posts (handoff below), later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
+# Next session: review the post download's code with Mike, then design a post format the website can import back (notes under the site export below). Then the Export links from delete-website and My websites, later the whole-folder website migration. Also open: the dev hot reload 403 on site hosts, step 7 or the catalog's open items (SES production access pending)
 
 Claude writes features and Mike reviews them, as on the Postgres port and the blog posts.
 
@@ -33,9 +33,46 @@ only attaches a first image to an imageless artwork by title, so `(2)` files and
 back unmatched, and it takes the `Type` folder, not the zip's top folder (depth limit 2); the page says
 so. Browser check: `/admin/export` with a few artworks with images, download one, unzip, drop its Type
 folder on a new site's bulk upload.
-**Next session: the blog posts.** As agreed: one HTML file per post with its images beside it, plus an
-index. Then links to Export from delete-website and
-My websites during the grace period.
+**Post download built 2026-09-28, uncommitted, 767 tests; Mike downloaded it, opened index.html and clicked through (2026-09-28).** Export page → Posts
+(`GET /admin/export/posts`, `<host>-posts-<date>.zip`): `index.html` lists published posts newest first,
+then drafts; each post is `<slug>/<slug>.html` with its images beside it as `image-1.webp`, `image-2.webp`...
+(one file per image however often the post shows it). Mike's choices: drafts included and marked,
+artwork pictures as a web copy (the 800px WebP variant, or the widest up to that), videos as a plain
+link, `<slug>/<slug>.html` rather than `index.html`. Uploaded post images also keep their original
+(`image-2-original.tiff`), which a click opens, since it's in no other download and a TIFF won't show
+in a page. Site paths in links become `<scheme>://<host the download came from>/...`. `PostExportHtml`
+writes plain HTML (styles in the page, no scripts, `HtmlEncoder`); `PostExportArchive` gathers the
+files. Shared now: `ExportZip` (create, add file/text, compression by format), `ExportImageFormat.ReadAsync`,
+`ExportLock` (was `ImageExportLock`, one image or post download per site), `VideoUrls.Page`,
+`PostRepository.GetAllWithBodiesAsync` over new `get_all_posts()`. Committed before this in 39cff3a: `DateText`
+(`Day`, `FileNameDay`) now used by `LocalDate`, `EmailDates` and the export names. Browser check:
+download posts on a site with an artwork embed, an uploaded image, a video and a draft; open
+`index.html` from the unzipped folder, click through, try a narrow window for the floats.
+Mike also checked the floats (they drop to their own line below 40rem).
+Review fixes (2026-09-28, 768 tests): `ArtworkEmbeds.SourceOf` is the one rule for which artwork embeds
+show, used by `PostDocumentView` and the export; the endpoint parses each body once (`ExportedPost`);
+exported dates are `<time datetime>` via `DateText.DateTimeAttribute` (shared with `LocalDate`); the
+Export page counts with `count_posts()`. No `lang` on exported pages, since a post's language isn't known. The explanation moved from `index.html` into a `README.txt` (`ExportZip.ReadmeFileName`, shared with the catalog).
+**Next session (Mike, 2026-09-28): review this code, then think about exporting posts in a form the
+website can import back.** Not designed yet. What a re-import has to solve: a post's Delta names
+uploaded images by storage key and artwork embeds by artwork id and storage key, none of which exist
+on another website. One shape to discuss: a `post.json` per post beside its HTML, holding the Delta
+with each image pointing at its file in the folder (`image-2-original.tiff`) and each artwork embed at
+the artwork's slug plus its image number, so the import uploads the files and finds the artworks
+after the catalog import. Also title, slug, draft or published and the publish date. Videos need
+nothing. The HTML stays for reading and pasting elsewhere.
+Mike's lean (2026-09-28): export the stored Delta as JSON. Reading back a tampered one is no worse
+than a save: the form already stores any `{"ops":[...]}` the browser posts (`PostBody.IsDelta` only),
+pages render only what `PostDocumentParser` keeps, and the editor filters through Quill's `formats`
+and link sanitize. The import itself must: replace every storage key with a fresh upload of the
+file in the folder (drop an embed whose file isn't there, never trust a key from the file, since it
+could name another image on the same site); remap artwork embeds by slug and image number after the
+catalog import; refuse what a save refuses (dropped links, taken titles or slugs).
+Caveat: the editor loads the raw stored Delta (`quill.setContents` in `PostBodyEditor.razor.js`), guarded
+only by Quill's `formats` and link sanitize, not our parser. An import lets someone else's file reach an
+admin's editor, so either audit the `artshop-*` blots (attributes and text only, no `innerHTML`, from
+Delta values) or have the import store a Delta rebuilt from the parsed `PostDocument`.
+Then: links to Export from delete-website and My websites during the grace period.
 
 **Later: whole-website migration** (Mike): upload the catalog folder's CSVs at once, images separately. The artwork type and
 vocabulary planners share one skeleton (parse, find columns, count names, skip blank and repeated rows);

@@ -10,13 +10,6 @@
   [Parameter, EditorRequired]
   public IReadOnlyDictionary<string, ArtworkImageWithArtwork> ArtworkImages { get; set; } = default!;
 
-  // Left out: an embed whose image was deleted, and one whose image now belongs to another
-  // artwork than the one the embed names, which no edit can do, but the parser can't rule out
-  private ArtworkImageWithArtwork? SourceOf(ArtworkEmbedBlock embed) =>
-    ArtworkImages.TryGetValue(embed.StorageKey, out var source) && source.ArtworkId == embed.ArtworkId
-      ? source
-      : null;
-
   private bool HasLightboxImages =>
     Document.Blocks.OfType<PostImageEmbedBlock>().Any(PostImageEmbedView.OpensLightbox);
 }
@@ -67,7 +60,7 @@
         </ol>
         break;
 
-      case ArtworkEmbedBlock embed when SourceOf(embed) is { } source:
+      case ArtworkEmbedBlock embed when ArtworkEmbeds.SourceOf(embed, ArtworkImages) is { } source:
         <ArtworkEmbedView Embed="embed" Source="source" />
         break;
 

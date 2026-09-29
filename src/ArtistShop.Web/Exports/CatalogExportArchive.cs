@@ -11,7 +11,6 @@ public static class CatalogExportArchive
     public const string ArtworkTypesFileName = "artworkTypes.csv";
     public const string VocabulariesFileName = "vocabularies.csv";
     public const string ProductsFileName = "products.csv";
-    public const string ReadmeFileName = "README.txt";
     public const string ArtworksFolder = "artworks";
 
     // the byte order mark tells Excel the file is UTF-8, and the import skips it
@@ -30,7 +29,7 @@ public static class CatalogExportArchive
 
         using (var zip = new ZipArchive(zipBytes, ZipArchiveMode.Create))
         {
-            AddText(zip, folderName, ReadmeFileName, Readme(listSeparator));
+            AddText(zip, folderName, ExportZip.ReadmeFileName, Readme(listSeparator));
             AddText(zip, folderName, ArtworkTypesFileName, CatalogSetupCsvExport.ArtworkTypes(snapshot, listSeparator));
             AddText(zip, folderName, VocabulariesFileName, CatalogSetupCsvExport.Vocabularies(snapshot, listSeparator));
             AddText(zip, folderName, ProductsFileName, ArtworkCsvExport.Products(artworks));

@@ -10,13 +10,15 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject ArtworkRepository ArtworkRepository
 @inject ImageStorage ImageStorage
+@inject PostRepository PostRepository
 
 <PageTitle>Export your website</PageTitle>
 
 <AdminPanel>
   <h1 class="mb-4 text-xl">Export your website</h1>
   <p class="mb-4">
-    Download all images and data on your website. The README in each download says what's included and what isn't.
+    Download all images and data on your website. The artwork and post downloads each have a README saying what's included and what isn't.
+    Only one image or post download can run at a time.
   </p>
 
   <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -33,12 +35,38 @@
     </LinkButton>
   </div>
 
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="mb-1 text-lg">Posts</h2>
+      <p class="text-sm">
+        @if (_postCount == 0)
+        {
+          <text>No posts yet.</text>
+        }
+        else
+        {
+          <text>
+            @CountText.Of(_postCount, "post"), drafts included, each as a web page in a folder with its images, and a
+            page listing them all. Artwork pictures in posts are smaller copies, and videos are links.
+          </text>
+        }
+      </p>
+    </div>
+    @if (_postCount > 0)
+    {
+      @* no download attribute, as for the images below *@
+      <LinkButton Variant="ButtonVariant.Outline" href="@ExportEndpoints.PostsPath" data-enhance-nav="false">
+        Download
+      </LinkButton>
+    }
+  </div>
+
   <h2 class="mb-1 text-lg">Images</h2>
   <p class="mb-2 text-sm">
     The original of every artwork image, in a folder for each artwork type and series. Each image is named after its
     artwork's title, and an artwork's other images get (2), (3) and so on. An artwork in several series is in its
     first series' folder. Download them all at once, or one series at a time if a large download keeps failing
-    partway. One image download at a time.
+    partway.
   </p>
   <p class="mb-4 text-sm">
     Not kept: the order of each artwork's images or which one is shown first. The bulk image upload matches only
@@ -89,6 +117,7 @@
 
 @code {
   private List<(ImageExportPart Part, (int Count, long Bytes) Size)> _parts = [];
+  private int _postCount;
 
   protected override async Task OnInitializedAsync()
   {
@@ -98,6 +127,7 @@
         .Parts(await ArtworkRepository.GetAllAsync())
         .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
     ];
+    _postCount = await PostRepository.CountAsync();
   }
 
   private static string Size(long bytes) =>

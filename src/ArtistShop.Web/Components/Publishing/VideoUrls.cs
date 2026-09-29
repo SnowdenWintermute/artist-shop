@@ -16,6 +16,15 @@ public static class VideoUrls
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
         };
 
+    // the video on its own site, for a link rather than a player
+    public static string Page(VideoSource source) =>
+        source switch
+        {
+            YouTubeVideo video => YouTubePage(video.Id),
+            VimeoVideo video => VimeoPage(video.Id, video.UnlistedHash),
+            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
+        };
+
     public static string YouTubePlayer(string id) => $"https://www.youtube-nocookie.com/embed/{id}";
 
     public static string VimeoPlayer(string id, string? unlistedHash) =>

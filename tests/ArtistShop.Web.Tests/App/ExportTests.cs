@@ -1,9 +1,11 @@
 using System.IO.Compression;
 using System.Net;
+using System.Text;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Exports;
 using ArtistShop.Web.Images;
@@ -13,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-// The Export page's catalog download, and what importing it into another website gives back
+// The Export page's downloads, and what importing the catalog into another website gives back
 [Collection(TestAppCollection.Name)]
 public sealed class ExportTests(TestApp app)
 {
@@ -34,7 +36,7 @@ public sealed class ExportTests(TestApp app)
         Assert.StartsWith($"{site.Host}-catalog-", response.Content.Headers.ContentDisposition?.FileNameStar);
 
         var files = await ReadZipAsync(response);
-        Assert.Contains(CatalogExportArchive.ReadmeFileName, files.Keys);
+        Assert.Contains(ExportZip.ReadmeFileName, files.Keys);
         Assert.Contains(CatalogExportArchive.ArtworkTypesFileName, files.Keys);
         Assert.Contains(CatalogExportArchive.VocabulariesFileName, files.Keys);
         Assert.Contains(CatalogExportArchive.ProductsFileName, files.Keys);
@@ -133,15 +135,117 @@ public sealed class ExportTests(TestApp app)
         var url = $"{ExportEndpoints.ImagesPath}?type={painting.Value}";
 
         HttpResponseMessage response;
-        using (app.Services.GetRequiredService<ImageExportLock>().TryAcquire(site.Id))
+        using (app.Services.GetRequiredService<ExportLock>().TryAcquire(site.Id))
         {
             response = await client.GetAsync(url, TestContext.Current.CancellationToken);
         }
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal(ExportEndpoints.ImageExportRunningMessage, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(ExportEndpoints.ExportRunningMessage, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         // and once it has finished
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(url, TestContext.Current.CancellationToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ThePostDownloadHasAPageForEachPostWithItsImagesBesideIt()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = Catalog(site.Id);
+        var dawnImage = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
+        await SaveWebCopyAsync(site.Id, dawnImage.StorageKey);
+        var dawn = await catalog.Artworks.AddAsync(
+            Addition(
+                await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                images: [dawnImage]
+            )
+        );
+        byte[] tiff = [(byte)'I', (byte)'I', 0x2A, 0, 4, 5, 6];
+        var upload = await SaveOriginalAsync(site.Id, tiff);
+        var webCopy = await SaveWebCopyAsync(site.Id, upload.StorageKey);
+        var posts = Posts(site.Id);
+        var body = new PostBody(
+            """
+            {"ops":[
+              {"insert":"See "},{"insert":"the gardens","attributes":{"bold":true,"link":"/series/gardens"}},{"insert":"\n"},
+              {"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY","layout":"floatLeft"}}},
+              {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","width":10,"height":10,"alt":"A study","caption":"Early"}}},
+              {"insert":{"artshop-video":{"provider":"youtube","videoId":"dQw4w9WgXcQ"}}},
+              {"insert":"\n"}
+            ]}
+            """
+                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
+                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+                .Replace("UPLOAD_KEY", upload.StorageKey)
+        );
+        await posts.AddAsync(new PostTitle("Spring notes"), new PostSlug("spring-notes"), body, PostStatus.Published);
+        await posts.AddAsync(new PostTitle("Unfinished"), new PostSlug("unfinished"), PostBody.Empty, PostStatus.Draft);
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var response = await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith($"{site.Host}-posts-", response.Content.Headers.ContentDisposition?.FileNameStar);
+        var files = await ReadZipAsync(response, ReadBytesAsync);
+        Assert.Equal(
+            [
+                "README.txt",
+                "index.html",
+                "spring-notes/image-1.webp",
+                "spring-notes/image-2-original.tiff",
+                "spring-notes/image-2.webp",
+                "spring-notes/spring-notes.html",
+                "unfinished/unfinished.html",
+            ],
+            files.Keys.Order(StringComparer.Ordinal)
+        );
+        Assert.Equal(tiff, files["spring-notes/image-2-original.tiff"]);
+        Assert.Equal(webCopy, files["spring-notes/image-2.webp"]);
+
+        var page = Encoding.UTF8.GetString(files["spring-notes/spring-notes.html"]);
+        Assert.Contains($"""<a href="http://{site.Host}/series/gardens"><strong>the gardens</strong></a>""", page);
+        Assert.Contains("""<figure class="floatLeft" style="width: 400px"><img src="image-1.webp" alt="Dawn" width="400" height="400"></figure>""", page);
+        Assert.Contains("""<a href="image-2-original.tiff"><img src="image-2.webp" alt="A study" """, page);
+        Assert.Contains("<figcaption>Early</figcaption>", page);
+        Assert.Contains("""<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">""", page);
+
+        var index = Encoding.UTF8.GetString(files["index.html"]);
+        Assert.Contains("""<a href="spring-notes/spring-notes.html">Spring notes</a>""", index);
+        Assert.Contains("""<h2>Drafts</h2>""", index);
+        Assert.Contains("""<a href="unfinished/unfinished.html">Unfinished</a>""", index);
+    }
+
+    [Fact]
+    public async Task AnImageShownTwiceIsOneFileAndOneWithoutAWebCopyIsLeftOut()
+    {
+        var site = await app.MakeSiteAsync();
+        var shown = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
+        await SaveWebCopyAsync(site.Id, shown.StorageKey);
+        var withoutWebCopy = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
+        var body = new PostBody(
+            """
+            {"ops":[
+              {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","width":10,"height":10,"alt":"First"}}},
+              {"insert":{"artshop-image":{"storageKey":"MISSING_KEY","width":10,"height":10,"alt":"Gone"}}},
+              {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","width":10,"height":10,"alt":"Again"}}},
+              {"insert":"\n"}
+            ]}
+            """
+                .Replace("SHOWN_KEY", shown.StorageKey)
+                .Replace("MISSING_KEY", withoutWebCopy.StorageKey)
+        );
+        await Posts(site.Id).AddAsync(new PostTitle("Twice"), new PostSlug("twice"), body, PostStatus.Published);
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var files = await ReadZipAsync(await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken));
+
+        Assert.Equal(
+            ["README.txt", "index.html", "twice/image-1-original.jpg", "twice/image-1.webp", "twice/twice.html"],
+            files.Keys.Order(StringComparer.Ordinal)
+        );
+        var page = files["twice/twice.html"];
+        Assert.Contains("""<img src="image-1.webp" alt="First" """, page);
+        Assert.Contains("""<img src="image-1.webp" alt="Again" """, page);
+        Assert.DoesNotContain("Gone", page);
     }
 
     [Fact]
@@ -320,6 +424,20 @@ public sealed class ExportTests(TestApp app)
         );
 
         return new ArtworkImage(storageKey, OriginalFileName: null, Width: 10, Height: 10, BlurDataUri: null);
+    }
+
+    private PostRepository Posts(SiteId siteId) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+
+    // the web copy an upload of an image 10 pixels wide gets, at its own width
+    private async Task<byte[]> SaveWebCopyAsync(SiteId siteId, string storageKey)
+    {
+        var directory = ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId).VariantDirectory(storageKey);
+        Directory.CreateDirectory(directory);
+        byte[] bytes = [(byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'W', (byte)'E', (byte)'B', (byte)'P', 1];
+        await File.WriteAllBytesAsync(Path.Combine(directory, ImageVariants.FileName(10, ImageVariantFormat.Webp)), bytes, TestContext.Current.CancellationToken);
+
+        return bytes;
     }
 
     private static Task<CatalogSetupSnapshot> SetupAsync(SiteCatalog catalog) =>

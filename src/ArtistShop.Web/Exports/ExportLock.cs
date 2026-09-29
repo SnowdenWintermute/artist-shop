@@ -3,9 +3,9 @@ using ArtistShop.Web.Domain.Sites;
 
 namespace ArtistShop.Web.Exports;
 
-// One image download per site at a time: each reads gigabytes of originals from disk, so a
-// website can't start many at once and crowd out every other website's requests
-public sealed class ImageExportLock
+// One image or post download per site at a time: each reads originals from disk, gigabytes of
+// them for images, so a website can't start many at once and crowd out every other website's requests
+public sealed class ExportLock
 {
     private readonly ConcurrentDictionary<SiteId, byte> _running = new();
 

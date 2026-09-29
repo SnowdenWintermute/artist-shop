@@ -2,6 +2,7 @@ namespace ArtistShop.Web.Exports;
 
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
 using ArtistShop.Web.Sites;
@@ -15,8 +16,9 @@ public static class ExportEndpoints
     public const string CatalogPath = "/admin/export/catalog";
     public const string ImagesPath = "/admin/export/images";
     public const string AllImagesPath = "/admin/export/images/all";
+    public const string PostsPath = "/admin/export/posts";
 
-    public const string ImageExportRunningMessage = "Another image download from this website is running. Try again when it has finished.";
+    public const string ExportRunningMessage = "Another download from this website is running. Try again when it has finished.";
 
     public static string ImagesUrl(ImageExportPart part) =>
         part.Series is null ? $"{ImagesPath}?type={part.Type.Id.Value}" : $"{ImagesPath}?type={part.Type.Id.Value}&series={part.Series.Id.Value}";
@@ -32,6 +34,7 @@ public static class ExportEndpoints
         downloads.MapGet(CatalogPath, DownloadCatalogAsync);
         downloads.MapGet(ImagesPath, DownloadImagesAsync);
         downloads.MapGet(AllImagesPath, DownloadAllImagesAsync);
+        downloads.MapGet(PostsPath, DownloadPostsAsync);
     }
 
     private static async Task<FileContentHttpResult> DownloadCatalogAsync(
@@ -60,7 +63,7 @@ public static class ExportEndpoints
         TimeProvider timeProvider,
         ArtworkRepository artworkRepository,
         ImageStorage imageStorage,
-        ImageExportLock imageExportLock
+        ExportLock exportLock
     )
     {
         var part = ImageExportPlan
@@ -74,7 +77,15 @@ public static class ExportEndpoints
 
         var date = DateText.FileNameDay(timeProvider.GetUtcNow());
 
-        return await StreamImagesAsync(context, currentSite, imageStorage, imageExportLock, part.Entries, DownloadName(currentSite.MainHost.Value, part, date));
+        var name = DownloadName(currentSite.MainHost.Value, part, date);
+
+        return await StreamZipAsync(
+            context,
+            currentSite,
+            exportLock,
+            name,
+            (body, cancellationToken) => ImageExportArchive.WriteAsync(body, part.Entries, name, imageStorage, cancellationToken)
+        );
     }
 
     // every part in one zip, the same folders side by side
@@ -84,29 +95,79 @@ public static class ExportEndpoints
         TimeProvider timeProvider,
         ArtworkRepository artworkRepository,
         ImageStorage imageStorage,
-        ImageExportLock imageExportLock
+        ExportLock exportLock
     )
     {
         var entries = ImageExportPlan.Parts(await artworkRepository.GetAllAsync()).SelectMany(part => part.Entries);
         var date = DateText.FileNameDay(timeProvider.GetUtcNow());
 
-        return await StreamImagesAsync(context, currentSite, imageStorage, imageExportLock, entries, $"{currentSite.MainHost.Value}-images-{date}");
+        var name = $"{currentSite.MainHost.Value}-images-{date}";
+
+        return await StreamZipAsync(
+            context,
+            currentSite,
+            exportLock,
+            name,
+            (body, cancellationToken) => ImageExportArchive.WriteAsync(body, entries, name, imageStorage, cancellationToken)
+        );
     }
 
-    private static async Task<IResult> StreamImagesAsync(
+    // drafts included. A link to a page on the site gets the address the download came from
+    private static async Task<IResult> DownloadPostsAsync(
         HttpContext context,
         CurrentSite currentSite,
+        TimeProvider timeProvider,
+        PostRepository postRepository,
+        ArtworkRepository artworkRepository,
         ImageStorage imageStorage,
-        ImageExportLock imageExportLock,
-        IEnumerable<ImageExportEntry> entries,
-        string name
+        ExportLock exportLock
     )
     {
-        using var running = imageExportLock.TryAcquire(currentSite.Id);
+        // missing uploads left out, as on the post page
+        List<ExportedPost> posts =
+        [
+            .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(
+                post,
+                PostImageFiles.WithoutMissing(PostDocumentParser.Parse(post.Body), imageStorage)
+            )),
+        ];
+
+        // every artwork embed's image in one query, however many posts there are
+        var artworkImages = await artworkRepository.GetImagesByStorageKeyAsync(
+            [
+                .. posts
+                    .SelectMany(post => post.Document.Blocks.OfType<ArtworkEmbedBlock>())
+                    .Select(embed => embed.StorageKey)
+                    .Distinct(),
+            ]
+        );
+        var host = currentSite.MainHost.Value;
+        var name = $"{host}-posts-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
+        var siteOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
+
+        return await StreamZipAsync(
+            context,
+            currentSite,
+            exportLock,
+            name,
+            (body, cancellationToken) =>
+                PostExportArchive.WriteAsync(body, posts, artworkImages, name, host, siteOrigin, imageStorage, cancellationToken)
+        );
+    }
+
+    private static async Task<IResult> StreamZipAsync(
+        HttpContext context,
+        CurrentSite currentSite,
+        ExportLock exportLock,
+        string name,
+        Func<Stream, CancellationToken, Task> writeAsync
+    )
+    {
+        using var running = exportLock.TryAcquire(currentSite.Id);
 
         if (running is null)
         {
-            return TypedResults.Text(ImageExportRunningMessage, statusCode: StatusCodes.Status409Conflict);
+            return TypedResults.Text(ExportRunningMessage, statusCode: StatusCodes.Status409Conflict);
         }
 
         context.Response.ContentType = "application/zip";
@@ -116,7 +177,7 @@ public static class ExportEndpoints
         context.Response.Headers["X-Accel-Buffering"] = "no";
 
         // written inside the handler, not by a returned result, so the lock is held until the last byte
-        await ImageExportArchive.WriteAsync(context.Response.Body, entries, name, imageStorage, context.RequestAborted);
+        await writeAsync(context.Response.Body, context.RequestAborted);
 
         return TypedResults.Empty;
     }
