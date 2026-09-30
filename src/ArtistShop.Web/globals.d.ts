@@ -3,7 +3,12 @@
 
 // defined by blazor.web.js, which App.razor loads before every script
 declare const Blazor: {
-  addEventListener(name: "enhancedload" | "enhancednavigationstart", callback: () => void): void;
+  addEventListener(
+    name: "enhancedload" | "enhancednavigationstart" | "enhancednavigationend",
+    callback: () => void
+  ): void;
+  // an enhanced navigation on a static page, as following a link would be
+  navigateTo(url: string): void;
   reconnect(): Promise<boolean>;
   resumeCircuit(): Promise<boolean>;
 };

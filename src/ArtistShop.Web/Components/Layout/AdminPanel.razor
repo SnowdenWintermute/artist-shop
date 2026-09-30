@@ -1,8 +1,10 @@
+@using ArtistShop.Web.Components.Atoms
+
 @code {
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 
-  // links between the pages of one section, shown above the panel
+  // links between the pages of one section, shown at the top of the panel
   [Parameter]
   public RenderFragment? SectionNav { get; set; }
 
@@ -12,14 +14,15 @@
 }
 
 <div class="@WidthClass">
-  @if (SectionNav is not null)
-  {
-    <nav class="mb-6 flex flex-wrap gap-4 border-b pb-2">
-      @SectionNav
-    </nav>
-  }
-
   <Panel>
+    @if (SectionNav is not null)
+    {
+      <nav class="mb-2 flex flex-wrap gap-4">
+        @SectionNav
+      </nav>
+      <Divider Class="mb-6" />
+    }
+
     @ChildContent
   </Panel>
 </div>

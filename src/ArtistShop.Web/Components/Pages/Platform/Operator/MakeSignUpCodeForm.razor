@@ -43,7 +43,7 @@
 <EditForm EditContext="Input.EditContext" FormName="make-sign-up-code" OnValidSubmit="MakeAsync" Enhance class="mb-6">
   <DataAnnotationsValidator />
 
-  <TextField Label="For" @bind-Value="Input.Note" />
+  <TextField Label="For (optional)" @bind-Value="Input.Note" />
   <NumberField Label="@($"Expires in days (1 to {SignUpCodeForm.MaximumDaysValid})")" @bind-Value="Input.DaysValid" />
   <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Make code</ButtonBasic>
 </EditForm>
@@ -51,7 +51,10 @@
 @if (_madeCode is { } madeCode)
 {
   <div class="mb-6 border p-3">
-    <p class="mb-2 font-mono text-lg">@madeCode.Text</p>
+    <div class="mb-2 flex items-center gap-2">
+      <p class="font-mono text-lg">@madeCode.Text</p>
+      <CopyButton Text="@madeCode.Text" />
+    </div>
     <p>Copy it now: it won't be shown again.</p>
   </div>
 }

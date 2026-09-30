@@ -1,5 +1,7 @@
 // A picture filling the screen, and the images it was handed to step through. It is told what to
-// show rather than knowing where the pictures came from, so any page can hold one
+// show rather than knowing where the pictures came from, so any page can hold one. Whoever opens it
+// may say there is more beyond either end; stepping past one then raises lightboxbeyond, for them
+// to go and fetch it
 customElements.define(
   "image-lightbox",
   class extends HTMLElement {
@@ -8,6 +10,8 @@ customElements.define(
     /** @type {HTMLImageElement[]} */
     #pictures = [];
     #current = 0;
+    #continuesBefore = false;
+    #continuesAfter = false;
 
     connectedCallback() {
       this.#listeners = new AbortController();
@@ -22,13 +26,24 @@ customElements.define(
     }
 
     /**
+     * Also hands an open lightbox a new set of pictures, which is how it stays open across a
+     * page change
      * @param {HTMLImageElement[]} pictures the images on the page this shows a copy of
      * @param {number} index which of them to start on
+     * @param {{ continuesBefore?: boolean, continuesAfter?: boolean }} [ends] whether stepping
+     * past the first or the last goes anywhere
      */
-    open(pictures, index) {
+    open(pictures, index, { continuesBefore = false, continuesAfter = false } = {}) {
       this.#pictures = pictures;
+      this.#continuesBefore = continuesBefore;
+      this.#continuesAfter = continuesAfter;
       this.#show(index);
-      this.#dialog()?.showModal();
+
+      const dialog = this.#dialog();
+
+      if (dialog && !dialog.open) {
+        dialog.showModal();
+      }
     }
 
     /** @param {MouseEvent} event */
@@ -67,9 +82,17 @@ customElements.define(
     #step(direction) {
       const next = this.#current + direction;
 
-      // the ends hold rather than wrap, which is what the counter and the disabled buttons say
       if (next >= 0 && next < this.#pictures.length) {
         this.#show(next);
+        return;
+      }
+
+      // the ends hold rather than wrap, which is what the counter and the disabled buttons say,
+      // unless whoever opened this has more beyond them
+      if (direction < 0 ? this.#continuesBefore : this.#continuesAfter) {
+        this.dispatchEvent(
+          new CustomEvent("lightboxbeyond", { detail: { direction }, bubbles: true })
+        );
       }
     }
 
@@ -98,8 +121,8 @@ customElements.define(
 
       for (const step of this.querySelectorAll("[data-lightbox-step]")) {
         const next = index + Number(step.dataset.lightboxStep);
-        step.hidden = count < 2;
-        step.disabled = next < 0 || next >= count;
+        step.hidden = count < 2 && !this.#continuesBefore && !this.#continuesAfter;
+        step.disabled = (next < 0 && !this.#continuesBefore) || (next >= count && !this.#continuesAfter);
       }
 
       // whoever opened this follows the picture, so closing leaves the page on the one being

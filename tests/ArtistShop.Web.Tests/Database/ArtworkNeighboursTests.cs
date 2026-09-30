@@ -46,6 +46,31 @@ public sealed class ArtworkNeighboursTests(TestDatabaseFixture database)
         Assert.Equal(firstName, neighbours.Next?.Name.Value);
     }
 
+    // so stepping back past the first image can land on the previous artwork's last
+    [Fact]
+    public async Task CountsEachNeighboursImages()
+    {
+        var seriesId = await _catalog.AddSeriesAsync();
+        var previous = await _catalog.AddPaintingAsync(
+            $"Previous {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images: [CatalogTestData.CreateTestImage(), CatalogTestData.CreateTestImage(), CatalogTestData.CreateTestImage()]
+        );
+        var middle = await AddPhotographedAsync(seriesId, $"Middle {Guid.NewGuid():n}");
+        await AddPhotographedAsync(seriesId, $"Next {Guid.NewGuid():n}");
+
+        var neighbours = await _artworks.GetNeighboursInSeriesAsync(
+            seriesId,
+            middle.Id,
+            onlyArtworksWithImages: true
+        );
+
+        Assert.Equal(previous.Slug, neighbours.Previous?.Slug);
+        Assert.Equal(3, neighbours.Previous?.ImageCount);
+        Assert.Equal(1, neighbours.Next?.ImageCount);
+    }
+
     [Fact]
     public async Task HasNothingBeyondEitherEnd()
     {

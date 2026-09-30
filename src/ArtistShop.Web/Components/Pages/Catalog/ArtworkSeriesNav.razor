@@ -3,35 +3,24 @@
 @code {
   [Parameter, EditorRequired]
   public Series Series { get; set; } = default!;
+  // the same steps as the arrow keys, from the image the page opened on: null where there is
+  // nowhere to go
   [Parameter, EditorRequired]
-  public ArtworkNeighbours Neighbours { get; set; } = default!;
+  public string? PreviousUrl { get; set; }
+  [Parameter, EditorRequired]
+  public string? NextUrl { get; set; }
 
-  private string UrlFor(ArtworkLink artwork) =>
-    ArtworkPageQuery.Url(artwork.Slug.Value, Series.Slug.Value, imageNumber: null);
+  // an anchor without an href is no link: it isn't focusable, and these classes gray it
+  private const string StepClass = "[&:not([href])]:pointer-events-none [&:not([href])]:select-none [&:not([href])]:text-gray-400";
 }
 
-@* left and right are a shortcut for these links, handled by js/arrow-key-links.js. A span where
-   there is nowhere to go, since a grayed anchor is still reachable by keyboard *@
+@* ArtworkGallery.razor.js takes a plain click on these and steps as the arrow keys do, and moves
+   their hrefs along as the image changes, so a middle click still opens the next step *@
 <nav class="mb-4 flex items-center justify-between gap-4" aria-label="@Series.Name.Value">
   <a href="@PageUrls.Series(Series.Slug)">← @Series.Name.Value</a>
 
   <div class="flex gap-4">
-    @if (Neighbours.Previous is { } previous)
-    {
-      <a href="@UrlFor(previous)" data-arrow-key-link="previous" rel="prev">← Previous</a>
-    }
-    else
-    {
-      <span class="text-gray-400 pointer-events-none select-none">← Previous</span>
-    }
-
-    @if (Neighbours.Next is { } next)
-    {
-      <a href="@UrlFor(next)" data-arrow-key-link="next" rel="next">Next →</a>
-    }
-    else
-    {
-      <span class="text-gray-400 pointer-events-none select-none">Next →</span>
-    }
+    <a href="@PreviousUrl" data-artwork-step="-1" rel="prev" class="@StepClass">← Previous</a>
+    <a href="@NextUrl" data-artwork-step="1" rel="next" class="@StepClass">Next →</a>
   </div>
 </nav>

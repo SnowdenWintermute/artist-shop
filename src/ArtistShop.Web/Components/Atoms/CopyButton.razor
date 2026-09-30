@@ -1,0 +1,15 @@
+@using ArtistShop.Web.Components.Icons
+@* <copy-button> is defined in CopyButton.razor.js, so it works on a static page *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Text { get; set; } = default!;
+}
+
+<copy-button data-text="@Text" class="inline-flex items-center gap-2">
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" aria-label="Copy to clipboard">
+    <SvgIcon Name="copy-file" Class="size-5" />
+  </ButtonBasic>
+  @* role="status" makes a screen reader read the text out when it changes *@
+  <span data-copy-status role="status" class="text-sm text-gray-500"></span>
+</copy-button>

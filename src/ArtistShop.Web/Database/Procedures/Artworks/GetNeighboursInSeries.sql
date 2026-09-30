@@ -3,8 +3,10 @@ DROP FUNCTION IF EXISTS get_artwork_neighbours_in_series;
 CREATE FUNCTION get_artwork_neighbours_in_series (p_series_id int, p_artwork_id int, p_only_artworks_with_images boolean) RETURNS TABLE (
     previous_name text,
     previous_slug text,
+    previous_image_count int,
     next_name text,
-    next_slug text
+    next_slug text,
+    next_image_count int
 ) LANGUAGE sql STABLE AS $$
 -- the places in the series a visitor may be sent to, filtered once so both sides share the rule.
 -- A work with no photograph is not somewhere a visitor can be sent
@@ -13,7 +15,15 @@ WITH
         SELECT
             junction.sort_order,
             artwork.name,
-            artwork.slug
+            artwork.slug,
+            (
+                SELECT
+                    count(*)::int
+                FROM
+                    artwork_images AS image
+                WHERE
+                    image.artwork_id = artwork.id
+            ) AS image_count
         FROM
             artwork_and_series_junction AS junction
             JOIN artworks AS artwork ON artwork.id = junction.artwork_id
@@ -36,14 +46,17 @@ WITH
 SELECT
     previous_artwork.name,
     previous_artwork.slug,
+    previous_artwork.image_count,
     next_artwork.name,
-    next_artwork.slug
+    next_artwork.slug,
+    next_artwork.image_count
 FROM
     artwork_and_series_junction AS here
     LEFT JOIN LATERAL (
         SELECT
             destination.name,
-            destination.slug
+            destination.slug,
+            destination.image_count
         FROM
             destinations AS destination
         WHERE
@@ -56,7 +69,8 @@ FROM
     LEFT JOIN LATERAL (
         SELECT
             destination.name,
-            destination.slug
+            destination.slug,
+            destination.image_count
         FROM
             destinations AS destination
         WHERE

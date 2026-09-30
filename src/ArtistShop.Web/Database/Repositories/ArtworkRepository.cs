@@ -170,14 +170,35 @@ public class ArtworkRepository(SiteDatabase database)
         );
 
         return new ArtworkNeighbours(
-            ToLink(row?.PreviousName, row?.PreviousSlug),
-            ToLink(row?.NextName, row?.NextSlug)
+            ToNeighbour(row?.PreviousName, row?.PreviousSlug, row?.PreviousImageCount),
+            ToNeighbour(row?.NextName, row?.NextSlug, row?.NextImageCount)
         );
     }
 
-    private static ArtworkLink? ToLink(string? name, string? slug) =>
-        name is not null && slug is not null
-            ? new ArtworkLink(new ArtworkName(name), new ArtworkSlug(slug))
+    // where stepping past either end of a series goes
+    public async Task<ArtworksBeyondSeries> GetBeyondSeriesAsync(SeriesId seriesId, bool onlyArtworksWithImages)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var row = await connection.QuerySingleOrDefaultAsync<ArtworksBeyondSeriesRow>(
+            "SELECT * FROM get_artworks_beyond_series(@SeriesId, @OnlyArtworksWithImages)",
+            new { SeriesId = seriesId.Value, OnlyArtworksWithImages = onlyArtworksWithImages }
+        );
+
+        return new ArtworksBeyondSeries(
+            ToArtworkInSeries(row?.PreviousArtworkSlug, row?.PreviousSeriesSlug, row?.PreviousImageCount),
+            ToArtworkInSeries(row?.NextArtworkSlug, row?.NextSeriesSlug, row?.NextImageCount)
+        );
+    }
+
+    private static ArtworkInSeries? ToArtworkInSeries(string? slug, string? seriesSlug, int? imageCount) =>
+        slug is not null && seriesSlug is not null && imageCount is int count
+            ? new ArtworkInSeries(new ArtworkSlug(slug), new SeriesSlug(seriesSlug), count)
+            : null;
+
+    private static ArtworkNeighbour? ToNeighbour(string? name, string? slug, int? imageCount) =>
+        name is not null && slug is not null && imageCount is int count
+            ? new ArtworkNeighbour(new ArtworkName(name), new ArtworkSlug(slug), count)
             : null;
 
     public async Task<List<ArtworkTitleAndSlug>> GetTitlesOfTypeAsync(ArtworkTypeId artworkTypeId)
@@ -510,8 +531,20 @@ public class ArtworkRepository(SiteDatabase database)
     {
         public string? PreviousName { get; init; }
         public string? PreviousSlug { get; init; }
+        public int? PreviousImageCount { get; init; }
         public string? NextName { get; init; }
         public string? NextSlug { get; init; }
+        public int? NextImageCount { get; init; }
+    }
+
+    private sealed class ArtworksBeyondSeriesRow
+    {
+        public string? PreviousSeriesSlug { get; init; }
+        public string? PreviousArtworkSlug { get; init; }
+        public int? PreviousImageCount { get; init; }
+        public string? NextSeriesSlug { get; init; }
+        public string? NextArtworkSlug { get; init; }
+        public int? NextImageCount { get; init; }
     }
 
     private sealed class AddedArtworkRow

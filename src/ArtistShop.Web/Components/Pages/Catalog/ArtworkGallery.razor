@@ -18,6 +18,11 @@
   public string? SeriesSlug { get; set; }
   [Parameter, EditorRequired]
   public string Alt { get; set; } = default!;
+  // where the arrows go past the first image and the last, null at the ends of the series
+  [Parameter]
+  public string? PreviousUrl { get; set; }
+  [Parameter]
+  public string? NextUrl { get; set; }
 
   // how much of the screen the work may take, so the whole of it is visible without scrolling
   private const int StageMaximumScreenHeightPercent = 80;
@@ -45,10 +50,10 @@
     Images.Select((image, index) => (image, index));
 }
 
-@* <artwork-gallery> is defined in ArtworkGallery.razor.js: it moves which image is shown, and
-   nothing else. Without it every thumbnail is still a link to this page showing that image, so
-   the picker works by page load instead *@
-<artwork-gallery class="block">
+@* <artwork-gallery> is defined in ArtworkGallery.razor.js: it moves which image is shown, and the
+   arrow keys step on to the neighbouring artworks. Without it every thumbnail is still a link to
+   this page showing that image, so the picker works by page load instead *@
+<artwork-gallery class="block" data-previous-url="@PreviousUrl" data-next-url="@NextUrl">
   @if (StageImage is { } stage)
   {
     @* the frame keeps the shape of the tallest image so the page never moves, and each picture

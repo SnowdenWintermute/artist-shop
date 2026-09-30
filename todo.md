@@ -1,4 +1,4 @@
-# Next: get ready to deploy, and switch production email from SES to Resend (Mike, 2026-09-29). Handoff below
+# Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
 ## Handoff, 2026-09-29: deploy and Resend
 
@@ -7,7 +7,9 @@ The whole-website move is committed (97ff6e9).
 **Deploy checklist (worked out with Mike 2026-09-29; `nginx.conf` now holds the wildcard version, uncommitted).**
 **Steps 1-7 done 2026-09-29**: new version live on the VPS (fresh volume, role script ran, migrations applied; the
 EF `__EFMigrationsHistory` "fail" on first boot is normal). The rehearsal passed after it gained the Google settings.
-Step 3's wipe was done inside step 7. Left: 8 (smoke test) and 9 (expiry monitoring).
+Step 3's wipe was done inside step 7. **Step 8 done 2026-09-29**: sign-up, a website on its subdomain, a whole-site
+import, Resend email, Google sign-in; operator password line removed; SES's DNS records (DKIM CNAMEs, `mail` MX
+and SPF) and credentials removed. **Step 9 done 2026-09-29.**
 Found on the VPS: a whole-website import is CPU-bound there (`docker stats` near 100%, not Mike's upload speed).
 Each image is 8 encodes (4 widths, AVIF and WebP) on one CPU. If it matters beyond one-off moves, first measure
 AVIF's share of an image's time; a bigger VPS is the other fix.
@@ -48,8 +50,13 @@ own VPS (then consider Caddy's on-demand TLS behind an nginx SNI split, or Caddy
    over https, and that the sign-up email arrived through Resend. Then remove SES's DNS records and credentials.
 9. Expiry monitoring, since Let's Encrypt sends no expiry emails any more and any renewal failure (CAA, acme-dns
    gone, CNAME lost) is otherwise silent until every site shows a certificate error: an outside check of
-   `https://artshop.mikesilverman.net` that emails at 14 days left (certbot renews at 30), such as UptimeRobot's
-   free SSL expiry alert. Optionally Cert Spotter's free alerts for certificates issued for artshop's names.
+   `https://artshop.mikesilverman.net` that emails at 14 days left (certbot renews at 30).
+   **Done 2026-09-29** with Red Sift Certificates Lite (free up to 250 certificates), covering all nine live certbot
+   hostnames on the VPS, not only artshop. UptimeRobot was dropped: its free plan has no SSL check. Cert Spotter was
+   dropped: not free; the CAA records are the protection against someone else issuing. The same day, four expired
+   certificates for domains no longer Mike's (`mike-silverman.com`, its `ecommerce.` and `rpg.`, and `lucella.org`)
+   were deleted with `certbot delete` after a grep showed nginx didn't reference them; `certbot renew --dry-run` is clean.
+   On that VPS, some sites' nginx configs live in `conf.d/`, not `sites-available/`; `nginx -T` shows every file.
 
 The runtime image is chiseled (no shell), so no `docker exec bash`. To look inside:
 `docker run --rm -it --pid container:<web> --network container:<web> busybox sh` (files under `/proc/1/root/app`).

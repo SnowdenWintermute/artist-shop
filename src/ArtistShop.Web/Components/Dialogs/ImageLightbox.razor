@@ -5,7 +5,9 @@
    bar and padding a picture has no use for. What it shows is handed to it, so it knows nothing
    about artworks *@
 
-<image-lightbox class="contents">
+@* data-permanent: enhanced navigation leaves it as it is, so it can stay open while an artwork's
+   arrows step on to the next artwork's page *@
+<image-lightbox class="contents" data-permanent="image-lightbox">
   <dialog data-lightbox-dialog class="artist-shop-lightbox" aria-label="Full screen image">
     @* size-full is what makes object-contain mean anything: the element is the screen, and the
        picture is fitted inside it. Given no box the image would simply take its own shape and

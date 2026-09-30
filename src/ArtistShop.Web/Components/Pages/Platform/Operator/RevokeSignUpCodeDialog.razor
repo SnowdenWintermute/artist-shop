@@ -36,7 +36,7 @@
 
 @if (Code is { } code)
 {
-  <ConfirmDialog Open="true" OpenChanged="HandleOpenChanged" Title="@($"Revoke the code for {code.Note}?")"
+  <ConfirmDialog Open="true" OpenChanged="HandleOpenChanged" Title="@(code.Note == "" ? "Revoke this code?" : $"Revoke the code for {code.Note}?")"
                  ConfirmLabel="Revoke" OnConfirm="() => RevokeAsync(code)" IsWorking="_isRevoking">
     Nobody will be able to sign up with it.
   </ConfirmDialog>

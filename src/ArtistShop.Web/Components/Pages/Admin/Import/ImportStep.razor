@@ -1,0 +1,30 @@
+@using ArtistShop.Web.Components.Atoms
+@* one of the numbered imports under "One piece at a time" on the import page *@
+
+@code {
+  // with its number, like "1. Artwork types"
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public string Href { get; set; } = default!;
+
+  // the path inside wwwroot/icons without ".svg", like "csv"
+  [Parameter, EditorRequired]
+  public string Icon { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public string ButtonLabel { get; set; } = default!;
+
+  // what to pick, and where it comes from
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<div>
+  <h3 class="mb-1">@Title</h3>
+  <p class="mb-2 text-sm">@ChildContent</p>
+  <LinkButton href="@Href" Variant="ButtonVariant.Outline">
+    <IconLabel Icon="@Icon">@ButtonLabel</IconLabel>
+  </LinkButton>
+</div>

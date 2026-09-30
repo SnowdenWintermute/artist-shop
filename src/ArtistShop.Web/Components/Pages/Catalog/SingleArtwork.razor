@@ -32,6 +32,42 @@
     artwork.Series.FirstOrDefault(series => series.Slug.Value == SeriesValue)
     ?? SeriesOrder.SortedByName(artwork.Series).FirstOrDefault();
 
+  // where stepping past either end of the images goes: the previous artwork's last image, or the
+  // next one's first, rather than their starred ones, so the steps run on without a jump. At an
+  // end of the series, that's the series before's last artwork or the series after's first
+  private static string? PreviousStepUrl(LoadedArtwork loaded) =>
+    loaded switch
+    {
+      { Series: { } series, Neighbours.Previous: { } previous } =>
+        ArtworkPageQuery.Url(previous.Slug.Value, series.Slug.Value, previous.ImageCount),
+      { Beyond.Previous: { } previous } =>
+        ArtworkPageQuery.Url(previous.Slug.Value, previous.SeriesSlug.Value, previous.ImageCount),
+      _ => null,
+    };
+
+  private static string? NextStepUrl(LoadedArtwork loaded) =>
+    loaded switch
+    {
+      { Series: { } series, Neighbours.Next: { } next } =>
+        ArtworkPageQuery.Url(next.Slug.Value, series.Slug.Value, imageNumber: 1),
+      { Beyond.Next: { } next } =>
+        ArtworkPageQuery.Url(next.Slug.Value, next.SeriesSlug.Value, imageNumber: 1),
+      _ => null,
+    };
+
+  // where Previous and Next go from the image the page opens on, the same as the arrow keys: the
+  // image beside it, or past either end the step to the neighbouring artwork. The address counts
+  // images from one, so image index - 1 is image number index
+  private static string? PreviousLinkUrl(LoadedArtwork loaded, int currentIndex) =>
+    currentIndex > 0
+      ? ArtworkPageQuery.Url(loaded.Artwork.Slug.Value, loaded.Series?.Slug.Value, imageNumber: currentIndex)
+      : PreviousStepUrl(loaded);
+
+  private static string? NextLinkUrl(LoadedArtwork loaded, int currentIndex) =>
+    currentIndex < loaded.Artwork.Images.Count - 1
+      ? ArtworkPageQuery.Url(loaded.Artwork.Slug.Value, loaded.Series?.Slug.Value, imageNumber: currentIndex + 2)
+      : NextStepUrl(loaded);
+
   protected override async Task OnParametersSetAsync()
   {
     var artwork = await ArtworkRepository.GetBySlugAsync(Slug);
@@ -54,9 +90,13 @@
           onlyArtworksWithImages: true
         );
 
+    var beyond = series is not null && (neighbours.Previous is null || neighbours.Next is null)
+      ? await ArtworkRepository.GetBeyondSeriesAsync(series.Id, onlyArtworksWithImages: true)
+      : new ArtworksBeyondSeries(null, null);
+
     var mentions = await PostRepository.GetPublishedMentioningArtworkAsync(artwork.Id);
 
-    _loaded = new LoadedArtwork(artwork, series, neighbours, mentions);
+    _loaded = new LoadedArtwork(artwork, series, neighbours, beyond, mentions);
   }
 }
 
@@ -69,7 +109,9 @@
   <main class="mx-auto max-w-[1200px] p-4">
     @if (loaded.Series is { } series)
     {
-      <ArtworkSeriesNav Series="series" Neighbours="loaded.Neighbours" />
+      <ArtworkSeriesNav Series="series"
+                        PreviousUrl="@PreviousLinkUrl(loaded, CurrentImageIndex(loaded.Artwork))"
+                        NextUrl="@NextLinkUrl(loaded, CurrentImageIndex(loaded.Artwork))" />
     }
 
     @* one column on a phone, the panel beside the work once there is room. minmax(0,…) rather
@@ -78,7 +120,8 @@
     <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <ArtworkGallery Images="loaded.Artwork.Images" CurrentImageIndex="CurrentImageIndex(loaded.Artwork)"
                       Slug="@loaded.Artwork.Slug.Value" SeriesSlug="@loaded.Series?.Slug.Value"
-                      Alt="@loaded.Artwork.Name.Value" />
+                      Alt="@loaded.Artwork.Name.Value" PreviousUrl="@PreviousStepUrl(loaded)"
+                      NextUrl="@NextStepUrl(loaded)" />
 
       <ArtworkDetails Artwork="loaded.Artwork" Mentions="loaded.Mentions" />
     </div>
