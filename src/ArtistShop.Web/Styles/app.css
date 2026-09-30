@@ -113,14 +113,24 @@ button[data-busy] {
   @apply pointer-events-none opacity-60;
 }
 
-/* the full-screen view of a work: no padding and no panel, because the picture is the whole
-   point, and the dialog is its own frame. The cursor says what a click does, which is close.
+/* viewport-fit=cover in App.razor lets the page run under a phone's notch, which is what makes
+   the browser report the notch's size here. The padding then keeps content out from under it */
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* the full-screen view of a work: no panel, because the picture is the whole point, and the
+   dialog is its own frame. The cursor says what a click does, which is close.
    fixed, as the browser has an open modal, since anything else lays it out at the top of the
    page: opening it scrolled there to reach its focused button, and it scrolled with the page.
-   Fixed also anchors the buttons placed inside it */
+   Being fixed it escapes the body's padding, so it has its own: the black reaches the edges of
+   the screen while what it holds stays clear of a notch */
 .artist-shop-lightbox {
-  @apply fixed inset-0 m-0 h-full max-h-none w-full max-w-none cursor-zoom-out bg-black/95 p-0;
+  @apply fixed inset-0 m-0 h-full max-h-none w-full max-w-none cursor-zoom-out bg-black/95;
   @apply backdrop:bg-black/95;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
 }
 
 /* the page behind stays where it was while a lightbox covers it */
