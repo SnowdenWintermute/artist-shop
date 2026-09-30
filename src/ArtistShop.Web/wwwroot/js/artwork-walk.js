@@ -1,12 +1,16 @@
 // The artworks a lightbox swipes through, in the order Previous and Next walk them, fetched a few
 // at a time from each artwork's walk endpoint as the visitor nears them. Every picture has a fixed
-// number, its place among all the pictures in the walk, which the endpoint gives as a count of
-// those before it, so an artwork that arrives later slots in without renumbering the others. The
-// ones fetched are kept while the lightbox is open, so swiping back finds them
+// number, its place among all the pictures in the walk: the artwork opened on is numbered by the
+// count of those before it, and each that arrives runs on from its neighbour, so none already here
+// is renumbered. The ones fetched are kept while the lightbox is open, so swiping back finds them.
+//
+// The numbers are only as true as the catalogue was when the lightbox opened. An artist editing
+// it meanwhile can leave a picture or two past either end unreachable, or black; a refresh
+// numbers them again
 import { lightboxArtworksFetchedAhead } from "/js/app-consts.js";
 
 /**
- * One picture, as ArtworkWalkEndpoints writes it
+ * One picture, as ArtworkWalkStep.cs writes it
  * @typedef {object} ArtworkWalkImage
  * @property {string} src
  * @property {string} srcset
@@ -18,7 +22,7 @@ import { lightboxArtworksFetchedAhead } from "/js/app-consts.js";
  */
 
 /**
- * An artwork's step in the walk, as ArtworkWalkEndpoints writes it
+ * An artwork's step in the walk, as ArtworkWalkStep.cs writes it
  * @typedef {object} ArtworkWalkStep
  * @property {ArtworkWalkImage[]} images
  * @property {string | null} previousWalkUrl
@@ -41,15 +45,6 @@ import { lightboxArtworksFetchedAhead } from "/js/app-consts.js";
  * @property {string} walkUrl
  * @property {number} imageIndex
  * @property {string} pageUrl
- */
-
-/**
- * @typedef {object} WalkListeners
- * @property {(indexes: number[]) => void} onArrived pictures that were still coming are in
- * @property {(walkUrl: string, imageIndex: number) => void} onOutOfStep an artwork arrived
- * numbered differently from the ones already here, as when the artist has added or removed
- * pictures since. The walk is no use past that, and should be started again from the picture
- * named
  */
 
 /**
@@ -77,20 +72,24 @@ export class ArtworkWalk {
   #index;
   /** @type {Set<string>} */
   #fetching = new Set();
+  // gone since the lightbox opened, so the walk ends there rather than asking again
+  /** @type {Set<string>} */
+  #notFound = new Set();
   #requests = new AbortController();
-  #listeners;
+  #onArrived;
 
   /**
    * @param {string} walkUrl where step came from
    * @param {ArtworkWalkStep} step
    * @param {number} imageIndex which of its pictures the lightbox opens on
-   * @param {WalkListeners} listeners
+   * @param {(indexes: number[]) => void} onArrived told which pictures that were still coming
+   * are in
    */
-  constructor(walkUrl, step, imageIndex, listeners) {
+  constructor(walkUrl, step, imageIndex, onArrived) {
     this.#steps = [{ walkUrl, step, start: step.earlierImageCount }];
     this.#itemCount = step.totalImageCount;
     this.#index = step.earlierImageCount + imageIndex;
-    this.#listeners = listeners;
+    this.#onArrived = onArrived;
   }
 
   // the picture the lightbox opens on
@@ -183,14 +182,20 @@ export class ArtworkWalk {
   #fetch(from, direction) {
     const walkUrl = direction < 0 ? from.step.previousWalkUrl : from.step.nextWalkUrl;
 
-    if (walkUrl === null || this.#fetching.has(walkUrl)) {
+    if (walkUrl === null || this.#fetching.has(walkUrl) || this.#notFound.has(walkUrl)) {
       return;
     }
 
     this.#fetching.add(walkUrl);
 
     fetch(walkUrl, { signal: this.#requests.signal, headers: { Accept: "application/json" } })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {
+        if (response.status === 404) {
+          this.#notFound.add(walkUrl);
+        }
+
+        return response.ok ? response.json() : null;
+      })
       .then((/** @type {ArtworkWalkStep | null} */ step) => {
         if (step !== null) {
           this.#place(from, direction, walkUrl, step);
@@ -217,21 +222,6 @@ export class ArtworkWalk {
     }
 
     const start = direction < 0 ? from.start - step.images.length : from.start + from.step.images.length;
-
-    if (step.earlierImageCount !== start || step.totalImageCount !== this.#itemCount) {
-      const here = this.placeAt(this.#index);
-
-      if (here !== null) {
-        this.#listeners.onOutOfStep(here.walkUrl, here.imageIndex);
-      } else {
-        // the lightbox is on a picture still coming, just past this end, so most likely in the
-        // step that's just arrived
-        this.#listeners.onOutOfStep(walkUrl, direction < 0 ? step.images.length - 1 : 0);
-      }
-
-      return;
-    }
-
     const placed = { walkUrl, step, start };
 
     if (direction < 0) {
@@ -240,7 +230,7 @@ export class ArtworkWalk {
       this.#steps.push(placed);
     }
 
-    this.#listeners.onArrived(step.images.map((_, imageIndex) => start + imageIndex));
+    this.#onArrived(step.images.map((_, imageIndex) => start + imageIndex));
     this.#fetchAhead();
   }
 }

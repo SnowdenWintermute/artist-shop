@@ -89,7 +89,7 @@
                       Slug="@loaded.Artwork.Slug.Value" SeriesSlug="@loaded.Walk.Series?.Slug.Value"
                       Alt="@loaded.Artwork.Name.Value" PreviousUrl="@PreviousStepUrl(loaded)"
                       NextUrl="@NextStepUrl(loaded)"
-                      WalkStep="ArtworkWalkEndpoints.ToStep(loaded.Artwork, loaded.Walk)" />
+                      WalkStep="ArtworkWalkStep.For(loaded.Artwork, loaded.Walk)" />
 
       <ArtworkDetails Artwork="loaded.Artwork" Mentions="loaded.Mentions" />
     </div>

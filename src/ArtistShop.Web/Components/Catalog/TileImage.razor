@@ -49,8 +49,7 @@
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
          srcset="@ImageUrls.SourceSet(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
-         sizes="@Sizes" alt="@Alt" width="@image.Width" height="@image.Height"
-         loading="@(IsEager ? "eager" : "lazy")"
+         sizes="@Sizes" alt="@Alt" loading="@(IsEager ? "eager" : "lazy")"
          class="@($"size-full {(IsUncropped ? "object-contain" : "object-cover")}")" />
   }
   else

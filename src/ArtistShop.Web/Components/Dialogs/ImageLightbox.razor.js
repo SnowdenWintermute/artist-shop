@@ -12,10 +12,14 @@
 let photoSwipeLoaded = null;
 
 // src is Assets' address, relative to the page's <base> ("lib/…"), which import() would read as a
-// bare module name and refuse, so it's made a full address first
+// bare module name and refuse, so it's made a full address first. A load that fails is forgotten,
+// so the next open tries again
 /** @param {string} src */
 function loadPhotoSwipe(src) {
-  photoSwipeLoaded ??= import(new URL(src, document.baseURI).href);
+  photoSwipeLoaded ??= import(new URL(src, document.baseURI).href).catch((error) => {
+    photoSwipeLoaded = null;
+    throw error;
+  });
   return photoSwipeLoaded;
 }
 
@@ -60,16 +64,15 @@ customElements.define(
     #listeners = null;
     /** @type {PhotoSwipe | null} */
     #viewer = null;
-    // counts opens, so a PhotoSwipe still loading when a newer open comes, or when the dialog
-    // closes, is never shown
+    // counts opens, so a PhotoSwipe that finishes loading after its dialog has closed, or closed
+    // and opened again, is never shown
     #opens = 0;
-    // a new set of slides waits for the finger to lift rather than swapping the picture under it
-    #fingerDown = false;
-    /** @type {(() => void) | null} */
-    #afterFingerLifts = null;
     // lightboxchange is raised once per picture reached, not again when a slide is filled in
     /** @type {number | null} */
     #changedTo = null;
+    // the picture the arrows and counter were last set for
+    /** @type {number | null} */
+    #controlsFor = null;
 
     connectedCallback() {
       this.#listeners = new AbortController();
@@ -105,8 +108,6 @@ customElements.define(
     }
 
     /**
-     * Also hands an open lightbox a new set of slides, which take the old ones' place without
-     * the picture fading out and in
      * @param {LightboxSlides} slides
      * @param {number} index which to start on
      */
@@ -114,27 +115,28 @@ customElements.define(
       const dialog = this.#dialog();
       const src = this.dataset.photoswipeSrc;
 
-      if (!dialog || src === undefined) {
+      if (!dialog || dialog.open || src === undefined) {
         return;
       }
 
-      if (!dialog.open) {
-        dialog.showModal();
-      }
-
+      dialog.showModal();
       const open = ++this.#opens;
 
-      loadPhotoSwipe(src).then((photoSwipe) => {
-        if (open !== this.#opens || !dialog.open) {
-          return;
-        }
+      loadPhotoSwipe(src).then(
+        (photoSwipe) => {
+          if (open === this.#opens && dialog.open) {
+            this.#start(photoSwipe, dialog, slides, index);
+          }
+        },
+        // with nothing to show, the open dialog would only be buttons over the page
+        (error) => {
+          console.error(error);
 
-        if (this.#fingerDown) {
-          this.#afterFingerLifts = () => this.#start(photoSwipe, dialog, slides, index);
-        } else {
-          this.#start(photoSwipe, dialog, slides, index);
+          if (open === this.#opens) {
+            dialog.close();
+          }
         }
-      });
+      );
     }
 
     // a slide that was still coming has arrived. PhotoSwipe keeps what it made for each number,
@@ -151,14 +153,12 @@ customElements.define(
      * @param {number} index
      */
     #start({ default: PhotoSwipe }, dialog, slides, index) {
-      const replaced = this.#viewer;
       const viewer = new PhotoSwipe({
         index,
         appendToEl: dialog,
         loop: false,
         bgOpacity: 1,
-        // fading in again would flash: the new one takes the old one's place
-        showHideAnimationType: replaced ? "none" : "fade",
+        showHideAnimationType: "fade",
         // the buttons and the counter are ours, and so are the keys, which the dialog holds
         arrowPrev: false,
         arrowNext: false,
@@ -188,28 +188,24 @@ customElements.define(
       viewer.addFilter("itemData", (_, at) => slides.slideAt(at) ?? blankSlide);
 
       viewer.on("change", () => this.#onChange(viewer, slides));
-      viewer.on("pointerDown", () => {
-        this.#fingerDown = true;
-      });
-      viewer.on("pointerUp", () => {
-        this.#fingerDown = false;
-        const waiting = this.#afterFingerLifts;
-        this.#afterFingerLifts = null;
-        waiting?.();
-      });
-      // PhotoSwipe closing itself, from a tap or a pinch, closes the dialog with it. One that
-      // has been replaced leaves the dialog alone
-      viewer.on("destroy", () => {
-        if (this.#viewer === viewer) {
-          this.#viewer = null;
-          dialog.close();
+      // a released swipe springs on into place, and "change" only comes once it has settled. The
+      // picture it's heading for is known from the first frame, so the controls follow that
+      viewer.on("moveMainScroll", () => {
+        if (viewer.potentialIndex !== this.#controlsFor) {
+          this.#showControls(viewer, slides);
         }
+      });
+      // PhotoSwipe closing itself, from a tap or a pinch, closes the dialog with it. When the
+      // dialog closed first, it's closed already and this does nothing
+      viewer.on("destroy", () => {
+        this.#viewer = null;
+        dialog.close();
       });
 
       this.#viewer = viewer;
       this.#changedTo = null;
+      this.#controlsFor = null;
       viewer.init();
-      replaced?.destroy();
     }
 
     /** @param {MouseEvent} event */
@@ -223,7 +219,7 @@ customElements.define(
       if (step instanceof HTMLElement) {
         this.#step(Number(step.dataset.lightboxStep));
       } else if (event.target.closest("[data-lightbox-close]")) {
-        this.#viewer?.close();
+        this.#close();
       }
     }
 
@@ -241,6 +237,15 @@ customElements.define(
       event.preventDefault();
     }
 
+    // with PhotoSwipe's fade when it's showing. Before it has loaded there is only the dialog
+    #close() {
+      if (this.#viewer) {
+        this.#viewer.close();
+      } else {
+        this.#dialog()?.close();
+      }
+    }
+
     /** @param {number} direction */
     #step(direction) {
       if (direction < 0) {
@@ -252,11 +257,10 @@ customElements.define(
 
     #onDialogClose() {
       this.#opens++;
-      this.#fingerDown = false;
-      this.#afterFingerLifts = null;
       const viewer = this.#viewer;
       this.#viewer = null;
       viewer?.destroy();
+      this.#hideControls();
       this.dispatchEvent(new CustomEvent("lightboxclose", { bubbles: true }));
     }
 
@@ -265,7 +269,29 @@ customElements.define(
      * @param {LightboxSlides} slides
      */
     #onChange(viewer, slides) {
+      // also when a slide that was still coming is filled in, which can change the counter
+      this.#showControls(viewer, slides);
+
       const index = viewer.currIndex;
+
+      if (index === this.#changedTo) {
+        return;
+      }
+
+      this.#changedTo = index;
+      // whoever opened this follows the picture, so closing leaves the page on the one being
+      // looked at
+      this.dispatchEvent(new CustomEvent("lightboxchange", { detail: { index }, bubbles: true }));
+    }
+
+    /**
+     * For the picture being moved to, which is the one showing once a move has settled
+     * @param {PhotoSwipe} viewer
+     * @param {LightboxSlides} slides
+     */
+    #showControls(viewer, slides) {
+      const index = viewer.potentialIndex;
+      this.#controlsFor = index;
 
       // the ends hold rather than wrap, which is what the disabled buttons say
       for (const step of this.querySelectorAll("[data-lightbox-step]")) {
@@ -285,15 +311,16 @@ customElements.define(
         counter.textContent = counterText ?? "";
         counter.hidden = counterText === null;
       }
+    }
 
-      if (index === this.#changedTo) {
-        return;
+    // the lightbox outlives the page it opened on, so the next opening starts without the last
+    // one's arrows and counter, which the first change shows again
+    #hideControls() {
+      for (const control of this.querySelectorAll("[data-lightbox-step], [data-lightbox-counter]")) {
+        if (control instanceof HTMLElement) {
+          control.hidden = true;
+        }
       }
-
-      this.#changedTo = index;
-      // whoever opened this follows the picture, so closing leaves the page on the one being
-      // looked at
-      this.dispatchEvent(new CustomEvent("lightboxchange", { detail: { index }, bubbles: true }));
     }
 
     #dialog() {

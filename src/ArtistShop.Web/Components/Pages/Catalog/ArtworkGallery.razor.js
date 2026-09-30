@@ -41,52 +41,6 @@ function catchUp() {
   catchUpUrl = null;
 }
 
-/**
- * @param {ImageLightboxElement} lightbox
- * @param {string} walkUrl
- * @param {ArtworkWalkStep} step
- * @param {number} imageIndex
- */
-function startWalk(lightbox, walkUrl, step, imageIndex) {
-  walk?.discard();
-
-  const started = new ArtworkWalk(walkUrl, step, imageIndex, {
-    onArrived: (indexes) => {
-      for (const index of indexes) {
-        lightbox.refreshSlide(index);
-      }
-    },
-    onOutOfStep: (outWalkUrl, outImageIndex) => restartWalk(lightbox, outWalkUrl, outImageIndex),
-  });
-
-  walk = started;
-  lightbox.openSlides(started.slides(), started.index);
-}
-
-// the artwork the lightbox is on, asked for again, so the walk starts over numbered as the
-// catalogue is now. The lightbox swaps its slides in once the finger is off the screen
-/**
- * @param {ImageLightboxElement} lightbox
- * @param {string} walkUrl
- * @param {number} imageIndex
- */
-function restartWalk(lightbox, walkUrl, imageIndex) {
-  const restarting = walk;
-
-  fetch(walkUrl, { headers: { Accept: "application/json" } })
-    .then((response) => (response.ok ? response.json() : null))
-    .then((/** @type {ArtworkWalkStep | null} */ step) => {
-      // closed, or already started over, while this was coming
-      if (step === null || step.images.length === 0 || walk !== restarting) {
-        return;
-      }
-
-      startWalk(lightbox, walkUrl, step, Math.min(imageIndex, step.images.length - 1));
-    })
-    // the walk carries on as it was, and the next artwork out of step asks again
-    .catch(() => {});
-}
-
 class ArtworkGallery extends HTMLElement {
   /** @type {AbortController | null} */
   #listeners = null;
@@ -233,7 +187,13 @@ class ArtworkGallery extends HTMLElement {
 
     /** @type {ArtworkWalkStep} */
     const step = JSON.parse(walkStep);
-    startWalk(lightbox, walkUrl, step, this.#currentIndex());
+
+    walk = new ArtworkWalk(walkUrl, step, this.#currentIndex(), (indexes) => {
+      for (const index of indexes) {
+        lightbox.refreshSlide(index);
+      }
+    });
+    lightbox.openSlides(walk.slides(), walk.index);
   }
 
   // the page follows the lightbox: this artwork's own pictures are shown where they stand, and

@@ -1,7 +1,7 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Components.Icons;
-using ArtistShop.Web.Components.Pages.Catalog;
+using ArtistShop.Web.Catalog;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Email;

@@ -117,7 +117,7 @@ type PhotoSwipeOptions = {
   appendToEl: HTMLElement;
   loop: boolean;
   bgOpacity: number;
-  showHideAnimationType: "fade" | "none";
+  showHideAnimationType: "fade";
   arrowPrev: boolean;
   arrowNext: boolean;
   close: boolean;
@@ -133,6 +133,8 @@ type PhotoSwipeOptions = {
 
 type PhotoSwipe = {
   currIndex: number;
+  // where a move is heading, set as soon as it starts, where currIndex waits for it to settle
+  potentialIndex: number;
   init(): void;
   prev(): void;
   next(): void;
@@ -142,7 +144,7 @@ type PhotoSwipe = {
   refreshSlideContent(index: number): void;
   addFilter(name: "numItems", filter: () => number): void;
   addFilter(name: "itemData", filter: (itemData: PhotoSwipeSlide, index: number) => PhotoSwipeSlide): void;
-  on(name: "change" | "destroy" | "pointerDown" | "pointerUp", callback: () => void): void;
+  on(name: "change" | "destroy" | "moveMainScroll", callback: () => void): void;
 };
 
 type PhotoSwipeModule = { default: new (options: PhotoSwipeOptions) => PhotoSwipe };
