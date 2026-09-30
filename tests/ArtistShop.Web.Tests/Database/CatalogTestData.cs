@@ -92,18 +92,16 @@ public class CatalogTestData(SiteDatabase database)
             )
         ).Slug;
 
-    public async Task<ArtworkId> AddPaintingInSeriesAsync(
+    public Task<ArtworkIdentifiers> AddPaintingInSeriesAsync(
         SeriesId seriesId,
         IReadOnlyList<ArtworkImage> images
     ) =>
-        (
-            await AddPaintingAsync(
-                $"Series test painting {Guid.NewGuid():n}",
-                termIds: [],
-                seriesIds: [seriesId],
-                images
-            )
-        ).Id;
+        AddPaintingAsync(
+            $"Series test painting {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId],
+            images
+        );
 
     public Task<ArtworkIdentifiers> AddPaintingAsync(
         string name,

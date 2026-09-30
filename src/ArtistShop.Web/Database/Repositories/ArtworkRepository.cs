@@ -150,8 +150,9 @@ public class ArtworkRepository(SiteDatabase database)
         return new ArtworkIdentifiers(new ArtworkId(row.Id), new ArtworkSlug(row.Slug));
     }
 
-    // the artworks either side of this one in the series the visitor is walking through
-    public async Task<ArtworkNeighbours> GetNeighboursInSeriesAsync(
+    // the artworks either side of this one in the series the visitor is walking through, running on
+    // into the series before or after at either end
+    public async Task<ArtworkNeighbours> GetNeighboursAsync(
         SeriesId seriesId,
         ArtworkId artworkId,
         bool onlyArtworksWithImages
@@ -160,7 +161,7 @@ public class ArtworkRepository(SiteDatabase database)
         await using var connection = await database.OpenConnectionAsync();
 
         var row = await connection.QuerySingleOrDefaultAsync<ArtworkNeighboursRow>(
-            "SELECT * FROM get_artwork_neighbours_in_series(@SeriesId, @ArtworkId, @OnlyArtworksWithImages)",
+            "SELECT * FROM get_artwork_neighbours(@SeriesId, @ArtworkId, @OnlyArtworksWithImages)",
             new
             {
                 SeriesId = seriesId.Value,
@@ -170,22 +171,6 @@ public class ArtworkRepository(SiteDatabase database)
         );
 
         return new ArtworkNeighbours(
-            ToNeighbour(row?.PreviousName, row?.PreviousSlug, row?.PreviousImageCount),
-            ToNeighbour(row?.NextName, row?.NextSlug, row?.NextImageCount)
-        );
-    }
-
-    // where stepping past either end of a series goes
-    public async Task<ArtworksBeyondSeries> GetBeyondSeriesAsync(SeriesId seriesId, bool onlyArtworksWithImages)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        var row = await connection.QuerySingleOrDefaultAsync<ArtworksBeyondSeriesRow>(
-            "SELECT * FROM get_artworks_beyond_series(@SeriesId, @OnlyArtworksWithImages)",
-            new { SeriesId = seriesId.Value, OnlyArtworksWithImages = onlyArtworksWithImages }
-        );
-
-        return new ArtworksBeyondSeries(
             ToArtworkInSeries(row?.PreviousArtworkSlug, row?.PreviousSeriesSlug, row?.PreviousImageCount),
             ToArtworkInSeries(row?.NextArtworkSlug, row?.NextSeriesSlug, row?.NextImageCount)
         );
@@ -194,11 +179,6 @@ public class ArtworkRepository(SiteDatabase database)
     private static ArtworkInSeries? ToArtworkInSeries(string? slug, string? seriesSlug, int? imageCount) =>
         slug is not null && seriesSlug is not null && imageCount is int count
             ? new ArtworkInSeries(new ArtworkSlug(slug), new SeriesSlug(seriesSlug), count)
-            : null;
-
-    private static ArtworkNeighbour? ToNeighbour(string? name, string? slug, int? imageCount) =>
-        name is not null && slug is not null && imageCount is int count
-            ? new ArtworkNeighbour(new ArtworkName(name), new ArtworkSlug(slug), count)
             : null;
 
     public async Task<List<ArtworkTitleAndSlug>> GetTitlesOfTypeAsync(ArtworkTypeId artworkTypeId)
@@ -526,18 +506,8 @@ public class ArtworkRepository(SiteDatabase database)
         return artwork;
     }
 
-    // every column is nullable: an artwork at either end of the series has no row to read there
+    // every column is nullable: an artwork at the very first or last place has no row to read there
     private sealed class ArtworkNeighboursRow
-    {
-        public string? PreviousName { get; init; }
-        public string? PreviousSlug { get; init; }
-        public int? PreviousImageCount { get; init; }
-        public string? NextName { get; init; }
-        public string? NextSlug { get; init; }
-        public int? NextImageCount { get; init; }
-    }
-
-    private sealed class ArtworksBeyondSeriesRow
     {
         public string? PreviousSeriesSlug { get; init; }
         public string? PreviousArtworkSlug { get; init; }

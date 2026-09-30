@@ -86,10 +86,10 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     public async Task ArtworkAddedToASeriesJoinsItLast()
     {
         var id = await _catalog.AddSeriesAsync();
-        var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
-        var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var first = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        Assert.Equal([firstId, secondId], (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id));
+        Assert.Equal([first.Id, second.Id], (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id));
     }
 
     [Fact]
@@ -130,13 +130,13 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     {
         var id = await _catalog.AddSeriesAsync();
         var image = CatalogTestData.CreateTestImage();
-        var withImageId = await _catalog.AddPaintingInSeriesAsync(id, [image]);
-        var withoutImageId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var withImage = await _catalog.AddPaintingInSeriesAsync(id, [image]);
+        var withoutImage = await _catalog.AddPaintingInSeriesAsync(id, []);
 
         var series = await GetExistingAsync(id);
 
         Assert.Equal(
-            [withImageId, withoutImageId],
+            [withImage.Id, withoutImage.Id],
             series.Artworks.Select(artwork => artwork.Id)
         );
         Assert.Equal(image, series.Artworks[0].PrimaryImage);
@@ -222,9 +222,9 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var id = await _catalog.AddSeriesAsync();
         await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
         var secondImage = CatalogTestData.CreateTestImage();
-        var secondId = await _catalog.AddPaintingInSeriesAsync(id, [secondImage]);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, [secondImage]);
 
-        await _series.SetCoverAsync(id, secondId);
+        await _series.SetCoverAsync(id, second.Id);
 
         var series = (await _series.GetAllWithCoversAsync()).Single(series => series.Id == id);
         Assert.Equal(secondImage, series.Cover);
@@ -234,12 +234,12 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     public async Task MovingTheStarReplacesTheCover()
     {
         var id = await _catalog.AddSeriesAsync();
-        var firstId = await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
+        var first = await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
         var secondImage = CatalogTestData.CreateTestImage();
-        var secondId = await _catalog.AddPaintingInSeriesAsync(id, [secondImage]);
-        await _series.SetCoverAsync(id, firstId);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, [secondImage]);
+        await _series.SetCoverAsync(id, first.Id);
 
-        await _series.SetCoverAsync(id, secondId);
+        await _series.SetCoverAsync(id, second.Id);
 
         var series = (await _series.GetAllWithCoversAsync()).Single(series => series.Id == id);
         Assert.Equal(secondImage, series.Cover);
@@ -255,8 +255,8 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         var id = await _catalog.AddSeriesAsync();
         var firstImage = CatalogTestData.CreateTestImage();
         await _catalog.AddPaintingInSeriesAsync(id, [firstImage]);
-        var secondId = await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
-        await _series.SetCoverAsync(id, secondId);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, [CatalogTestData.CreateTestImage()]);
+        await _series.SetCoverAsync(id, second.Id);
 
         await _series.ClearCoverAsync(id);
 
@@ -269,23 +269,23 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     public async Task RejectsACoverWithNoImage()
     {
         var id = await _catalog.AddSeriesAsync();
-        var artworkId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var artwork = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _series.SetCoverAsync(id, artworkId));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _series.SetCoverAsync(id, artwork.Id));
     }
 
     [Fact]
     public async Task ReorderSwapsArtworks()
     {
         var id = await _catalog.AddSeriesAsync();
-        var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
-        var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
-        var thirdId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var first = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var third = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await _series.ReorderArtworksAsync(id, [thirdId, secondId, firstId]);
+        await _series.ReorderArtworksAsync(id, [third.Id, second.Id, first.Id]);
 
         Assert.Equal(
-            [thirdId, secondId, firstId],
+            [third.Id, second.Id, first.Id],
             (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
         );
     }
@@ -294,11 +294,11 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     public async Task ReorderRejectsAListThatDoesNotMatchTheSeries()
     {
         var id = await _catalog.AddSeriesAsync();
-        var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var first = await _catalog.AddPaintingInSeriesAsync(id, []);
         await _catalog.AddPaintingInSeriesAsync(id, []);
 
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
-            _series.ReorderArtworksAsync(id, [firstId])
+            _series.ReorderArtworksAsync(id, [first.Id])
         );
     }
 
@@ -318,14 +318,14 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     public async Task RemovesOnlyTheChosenArtworks()
     {
         var id = await _catalog.AddSeriesAsync();
-        var firstId = await _catalog.AddPaintingInSeriesAsync(id, []);
-        var secondId = await _catalog.AddPaintingInSeriesAsync(id, []);
-        var thirdId = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var first = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var third = await _catalog.AddPaintingInSeriesAsync(id, []);
 
-        await _series.RemoveArtworksAsync(id, [secondId]);
+        await _series.RemoveArtworksAsync(id, [second.Id]);
 
         Assert.Equal(
-            [firstId, thirdId],
+            [first.Id, third.Id],
             (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
         );
     }

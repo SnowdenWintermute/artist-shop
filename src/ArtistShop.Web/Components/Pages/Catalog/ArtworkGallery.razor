@@ -44,7 +44,7 @@
   // the picker's links only ever load when the script hasn't: a click with it in place is caught
   // and swapped where it stands, so the address never gains the parameter
   private string ThumbnailUrl(int index) =>
-    ArtworkPageQuery.Url(Slug, SeriesSlug, index + 1);
+    ArtworkPageQuery.ImageUrl(Slug, SeriesSlug, index);
 
   private IEnumerable<(ArtworkImage Image, int Index)> NumberedImages =>
     Images.Select((image, index) => (image, index));

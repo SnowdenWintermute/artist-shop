@@ -33,39 +33,27 @@
     ?? SeriesOrder.SortedByName(artwork.Series).FirstOrDefault();
 
   // where stepping past either end of the images goes: the previous artwork's last image, or the
-  // next one's first, rather than their starred ones, so the steps run on without a jump. At an
-  // end of the series, that's the series before's last artwork or the series after's first
+  // next one's first, rather than their starred ones, so the steps run on without a jump
   private static string? PreviousStepUrl(LoadedArtwork loaded) =>
-    loaded switch
-    {
-      { Series: { } series, Neighbours.Previous: { } previous } =>
-        ArtworkPageQuery.Url(previous.Slug.Value, series.Slug.Value, previous.ImageCount),
-      { Beyond.Previous: { } previous } =>
-        ArtworkPageQuery.Url(previous.Slug.Value, previous.SeriesSlug.Value, previous.ImageCount),
-      _ => null,
-    };
+    loaded.Neighbours.Previous is { } previous
+      ? ArtworkPageQuery.Url(previous.Slug.Value, previous.SeriesSlug.Value, previous.ImageCount)
+      : null;
 
   private static string? NextStepUrl(LoadedArtwork loaded) =>
-    loaded switch
-    {
-      { Series: { } series, Neighbours.Next: { } next } =>
-        ArtworkPageQuery.Url(next.Slug.Value, series.Slug.Value, imageNumber: 1),
-      { Beyond.Next: { } next } =>
-        ArtworkPageQuery.Url(next.Slug.Value, next.SeriesSlug.Value, imageNumber: 1),
-      _ => null,
-    };
+    loaded.Neighbours.Next is { } next
+      ? ArtworkPageQuery.Url(next.Slug.Value, next.SeriesSlug.Value, imageNumber: 1)
+      : null;
 
   // where Previous and Next go from the image the page opens on, the same as the arrow keys: the
-  // image beside it, or past either end the step to the neighbouring artwork. The address counts
-  // images from one, so image index - 1 is image number index
+  // image beside it, or past either end the step to the neighbouring artwork
   private static string? PreviousLinkUrl(LoadedArtwork loaded, int currentIndex) =>
     currentIndex > 0
-      ? ArtworkPageQuery.Url(loaded.Artwork.Slug.Value, loaded.Series?.Slug.Value, imageNumber: currentIndex)
+      ? ArtworkPageQuery.ImageUrl(loaded.Artwork.Slug.Value, loaded.Series?.Slug.Value, currentIndex - 1)
       : PreviousStepUrl(loaded);
 
   private static string? NextLinkUrl(LoadedArtwork loaded, int currentIndex) =>
     currentIndex < loaded.Artwork.Images.Count - 1
-      ? ArtworkPageQuery.Url(loaded.Artwork.Slug.Value, loaded.Series?.Slug.Value, imageNumber: currentIndex + 2)
+      ? ArtworkPageQuery.ImageUrl(loaded.Artwork.Slug.Value, loaded.Series?.Slug.Value, currentIndex + 1)
       : NextStepUrl(loaded);
 
   protected override async Task OnParametersSetAsync()
@@ -84,19 +72,15 @@
     // series page and the home page count by
     var neighbours = series is null
       ? new ArtworkNeighbours(null, null)
-      : await ArtworkRepository.GetNeighboursInSeriesAsync(
+      : await ArtworkRepository.GetNeighboursAsync(
           series.Id,
           artwork.Id,
           onlyArtworksWithImages: true
         );
 
-    var beyond = series is not null && (neighbours.Previous is null || neighbours.Next is null)
-      ? await ArtworkRepository.GetBeyondSeriesAsync(series.Id, onlyArtworksWithImages: true)
-      : new ArtworksBeyondSeries(null, null);
-
     var mentions = await PostRepository.GetPublishedMentioningArtworkAsync(artwork.Id);
 
-    _loaded = new LoadedArtwork(artwork, series, neighbours, beyond, mentions);
+    _loaded = new LoadedArtwork(artwork, series, neighbours, mentions);
   }
 }
 

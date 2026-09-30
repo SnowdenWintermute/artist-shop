@@ -28,4 +28,8 @@ public static class ArtworkPageQuery
             ? $"/artworks/{artworkSlug}"
             : $"/artworks/{artworkSlug}?{string.Join("&", parts)}";
     }
+
+    // for code holding an image's index, which counts from zero
+    public static string ImageUrl(string artworkSlug, string? seriesSlug, int imageIndex) =>
+        Url(artworkSlug, seriesSlug, imageIndex + 1);
 }
