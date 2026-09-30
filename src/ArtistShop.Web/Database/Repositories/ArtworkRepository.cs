@@ -176,6 +176,19 @@ public class ArtworkRepository(SiteDatabase database)
         );
     }
 
+    // the artwork must be in the series, as it is for any series taken from its own list
+    public async Task<ArtworkWalkPosition> GetWalkPositionAsync(SeriesId seriesId, ArtworkId artworkId)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var row = await connection.QuerySingleAsync<ArtworkWalkPositionRow>(
+            "SELECT * FROM get_artwork_walk_position(@SeriesId, @ArtworkId)",
+            new { SeriesId = seriesId.Value, ArtworkId = artworkId.Value }
+        );
+
+        return new ArtworkWalkPosition(row.EarlierImageCount, row.TotalImageCount);
+    }
+
     private static ArtworkInSeries? ToArtworkInSeries(string? slug, string? seriesSlug, int? imageCount) =>
         slug is not null && seriesSlug is not null && imageCount is int count
             ? new ArtworkInSeries(new ArtworkSlug(slug), new SeriesSlug(seriesSlug), count)
@@ -515,6 +528,12 @@ public class ArtworkRepository(SiteDatabase database)
         public string? NextSeriesSlug { get; init; }
         public string? NextArtworkSlug { get; init; }
         public int? NextImageCount { get; init; }
+    }
+
+    private sealed class ArtworkWalkPositionRow
+    {
+        public required int EarlierImageCount { get; init; }
+        public required int TotalImageCount { get; init; }
     }
 
     private sealed class AddedArtworkRow

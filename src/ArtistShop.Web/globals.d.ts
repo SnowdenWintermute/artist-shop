@@ -105,3 +105,63 @@ type FloatingUi = {
   flip(): FloatingMiddleware;
   shift(options?: { padding?: number }): FloatingMiddleware;
 };
+
+// wwwroot/lib/photoswipe, which ImageLightbox.razor.js imports the first time a lightbox opens.
+// Only what the lightbox uses
+type PhotoSwipeSlide =
+  | { src: string; srcset: string; width: number; height: number; alt: string; msrc?: string }
+  | { html: string };
+
+type PhotoSwipeOptions = {
+  index: number;
+  appendToEl: HTMLElement;
+  loop: boolean;
+  bgOpacity: number;
+  showHideAnimationType: "fade" | "none";
+  arrowPrev: boolean;
+  arrowNext: boolean;
+  close: boolean;
+  zoom: boolean;
+  counter: boolean;
+  arrowKeys: boolean;
+  escKey: boolean;
+  trapFocus: boolean;
+  returnFocus: boolean;
+  tapAction: "close";
+  paddingFn: () => { top: number; right: number; bottom: number; left: number };
+};
+
+type PhotoSwipe = {
+  currIndex: number;
+  init(): void;
+  prev(): void;
+  next(): void;
+  // with PhotoSwipe's closing fade, where destroy is at once. Either ends in "destroy"
+  close(): void;
+  destroy(): void;
+  refreshSlideContent(index: number): void;
+  addFilter(name: "numItems", filter: () => number): void;
+  addFilter(name: "itemData", filter: (itemData: PhotoSwipeSlide, index: number) => PhotoSwipeSlide): void;
+  on(name: "change" | "destroy" | "pointerDown" | "pointerUp", callback: () => void): void;
+};
+
+type PhotoSwipeModule = { default: new (options: PhotoSwipeOptions) => PhotoSwipe };
+
+// <image-lightbox>, from Components/Dialogs/ImageLightbox.razor.js, as the pages that hold one
+// call it. Slides are numbered, and not all of them need be known yet: slideAt is null for one
+// still coming, and counterAt null hides the counter
+type LightboxSlides = {
+  itemCount: number;
+  slideAt(index: number): PhotoSwipeSlide | null;
+  counterAt(index: number): string | null;
+};
+
+interface ImageLightboxElement extends HTMLElement {
+  open(pictures: HTMLImageElement[], index: number): void;
+  openSlides(slides: LightboxSlides, index: number): void;
+  refreshSlide(index: number): void;
+}
+
+interface HTMLElementTagNameMap {
+  "image-lightbox": ImageLightboxElement;
+}

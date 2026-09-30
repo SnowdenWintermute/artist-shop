@@ -1,21 +1,91 @@
 // Which of an artwork's images is showing. They are all in the page already, so this moves a
 // marker rather than building any url: the server wrote each picture's srcset and blur once.
-// The full-screen view is <image-lightbox>, which knows nothing about artworks: it is handed the
-// pictures and says which one it moved to.
+// The full-screen view is <image-lightbox>, which knows nothing about artworks: it is handed an
+// ArtworkWalk's slides, which run on through the neighbouring artworks, and says which one it
+// moved to. The page behind follows, once the visitor rests on another artwork's picture.
 //
 // Left and right step through the images, on the page and in the full-screen view alike, and past
 // either end go on to the neighbouring artwork: back to its last image, or on to its first. The
 // server wrote those two addresses on the element. The series bar's Previous and Next links take
 // the same steps
 
-// set when the full-screen view steps past an end. The next artwork's page hands it the new images
-// on enhancedload, which Blazor raises in the same task as it patches the page in, so the view
-// never shows closed. It stays open because it is data-permanent: the patch leaves it alone
-let carryLightbox = false;
+import { ArtworkWalk } from "/js/artwork-walk.js";
+import { lightboxPageCatchUpDelayMilliseconds } from "/js/app-consts.js";
 
-// one step to another artwork at a time: a held arrow key would otherwise start a navigation on
-// every repeat before the first had loaded
+/** @typedef {import("/js/artwork-walk.js").ArtworkWalkStep} ArtworkWalkStep */
+
+// the walk the open lightbox is swiping through. Kept here rather than on the element: the
+// lightbox is data-permanent, so it stays open while the page behind it changes
+/** @type {ArtworkWalk | null} */
+let walk = null;
+
+// where the page behind goes once the visitor stops swiping, when the lightbox is resting on
+// another artwork's picture
+/** @type {string | null} */
+let catchUpUrl = null;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let catchUpTimer;
+
+// one page load at a time: a held arrow key would otherwise start a navigation on every repeat
+// before the first had loaded, and a page catching up to the lightbox waits for the last one
 let navigating = false;
+
+// an enhanced navigation, the same as following the series' Previous or Next link
+function catchUp() {
+  if (catchUpUrl === null || navigating) {
+    return;
+  }
+
+  navigating = true;
+  Blazor.navigateTo(catchUpUrl);
+  catchUpUrl = null;
+}
+
+/**
+ * @param {ImageLightboxElement} lightbox
+ * @param {string} walkUrl
+ * @param {ArtworkWalkStep} step
+ * @param {number} imageIndex
+ */
+function startWalk(lightbox, walkUrl, step, imageIndex) {
+  walk?.discard();
+
+  const started = new ArtworkWalk(walkUrl, step, imageIndex, {
+    onArrived: (indexes) => {
+      for (const index of indexes) {
+        lightbox.refreshSlide(index);
+      }
+    },
+    onOutOfStep: (outWalkUrl, outImageIndex) => restartWalk(lightbox, outWalkUrl, outImageIndex),
+  });
+
+  walk = started;
+  lightbox.openSlides(started.slides(), started.index);
+}
+
+// the artwork the lightbox is on, asked for again, so the walk starts over numbered as the
+// catalogue is now. The lightbox swaps its slides in once the finger is off the screen
+/**
+ * @param {ImageLightboxElement} lightbox
+ * @param {string} walkUrl
+ * @param {number} imageIndex
+ */
+function restartWalk(lightbox, walkUrl, imageIndex) {
+  const restarting = walk;
+
+  fetch(walkUrl, { headers: { Accept: "application/json" } })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((/** @type {ArtworkWalkStep | null} */ step) => {
+      // closed, or already started over, while this was coming
+      if (step === null || step.images.length === 0 || walk !== restarting) {
+        return;
+      }
+
+      startWalk(lightbox, walkUrl, step, Math.min(imageIndex, step.images.length - 1));
+    })
+    // the walk carries on as it was, and the next artwork out of step asks again
+    .catch(() => {});
+}
 
 class ArtworkGallery extends HTMLElement {
   /** @type {AbortController | null} */
@@ -28,14 +98,15 @@ class ArtworkGallery extends HTMLElement {
     this.addEventListener("click", (event) => this.#onClick(event), { signal });
     this.addEventListener(
       "lightboxchange",
-      (event) => this.#show(event.detail.index),
+      (event) => {
+        if (event instanceof CustomEvent) {
+          walk?.moveTo(event.detail.index);
+          this.followLightbox();
+        }
+      },
       { signal }
     );
-    this.addEventListener(
-      "lightboxbeyond",
-      (event) => this.#goBeyond(event.detail.direction, { carryLightbox: true }),
-      { signal }
-    );
+    this.addEventListener("lightboxclose", () => this.#onLightboxClose(), { signal });
     document.addEventListener("keydown", (event) => this.#onKeyDown(event), { signal });
     // capture, so this sees a click on Previous or Next before Blazor's own listener on the
     // document, which leaves alone a click that has been handled already
@@ -132,15 +203,14 @@ class ArtworkGallery extends HTMLElement {
     if (next >= 0 && next < this.#images().length) {
       this.#show(next);
     } else {
-      this.#goBeyond(direction, { carryLightbox: false });
+      this.#goBeyond(direction);
     }
   }
 
   /**
    * @param {number} direction
-   * @param {{ carryLightbox: boolean }} options
    */
-  #goBeyond(direction, options) {
+  #goBeyond(direction) {
     const url = direction < 0 ? this.dataset.previousUrl : this.dataset.nextUrl;
 
     if (url === undefined || navigating) {
@@ -148,22 +218,53 @@ class ArtworkGallery extends HTMLElement {
     }
 
     navigating = true;
-    carryLightbox = options.carryLightbox;
-    // an enhanced navigation, the same as following the series' Previous or Next link
     Blazor.navigateTo(url);
   }
 
+  // the walk starts from this artwork's step, which the server wrote on the element, so the
+  // lightbox opens at once and fetches only what lies either side
   openLightbox() {
     const lightbox = this.querySelector("image-lightbox");
+    const { walkUrl, walkStep } = this.dataset;
 
-    if (lightbox instanceof HTMLElement && "open" in lightbox) {
-      const pictures = [...this.#images()].map((box) => box.querySelector("img"));
-
-      lightbox.open(pictures, this.#currentIndex(), {
-        continuesBefore: this.dataset.previousUrl !== undefined,
-        continuesAfter: this.dataset.nextUrl !== undefined,
-      });
+    if (lightbox === null || walkUrl === undefined || walkStep === undefined) {
+      return;
     }
+
+    /** @type {ArtworkWalkStep} */
+    const step = JSON.parse(walkStep);
+    startWalk(lightbox, walkUrl, step, this.#currentIndex());
+  }
+
+  // the page follows the lightbox: this artwork's own pictures are shown where they stand, and
+  // another's is gone to once the visitor has rested on it. Also asked after a page load, since
+  // the visitor may have swiped on while it was loading
+  followLightbox() {
+    clearTimeout(catchUpTimer);
+    catchUpUrl = null;
+
+    const place = walk?.placeAt(walk.index) ?? null;
+
+    // a picture still coming has no page yet
+    if (place === null) {
+      return;
+    }
+
+    if (place.walkUrl === this.dataset.walkUrl) {
+      this.#show(place.imageIndex);
+      return;
+    }
+
+    catchUpUrl = place.pageUrl;
+    catchUpTimer = setTimeout(catchUp, lightboxPageCatchUpDelayMilliseconds);
+  }
+
+  // closing is resting: the page goes straight to the picture the visitor closed on
+  #onLightboxClose() {
+    clearTimeout(catchUpTimer);
+    walk?.discard();
+    walk = null;
+    catchUp();
   }
 
   // read off the page each time rather than kept: an enhanced navigation to another artwork
@@ -242,15 +343,12 @@ customElements.define("artwork-gallery", ArtworkGallery);
 
 Blazor.addEventListener("enhancedload", () => {
   navigating = false;
-
-  if (!carryLightbox) {
-    return;
-  }
-
-  carryLightbox = false;
   const gallery = document.querySelector("artwork-gallery");
 
-  if (gallery instanceof ArtworkGallery) {
-    gallery.openLightbox();
+  if (walk !== null && gallery instanceof ArtworkGallery) {
+    gallery.followLightbox();
+  } else {
+    // a catch-up that came while the last page was loading, after the lightbox closed
+    catchUp();
   }
 });

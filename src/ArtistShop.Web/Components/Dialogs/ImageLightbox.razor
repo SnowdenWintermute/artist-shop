@@ -3,22 +3,21 @@
 @* <image-lightbox> is defined in ImageLightbox.razor.js. It starts closed and is opened by script,
    which is why it isn't ModalDialog: that one opens as soon as it is rendered, and carries a title
    bar and padding a picture has no use for. What it shows is handed to it, so it knows nothing
-   about artworks *@
+   about artworks. The picture itself, with its swiping and zooming, is PhotoSwipe's, loaded the
+   first time the lightbox opens; the buttons over it are ours *@
 
 @* data-permanent: enhanced navigation leaves it as it is, so it can stay open while an artwork's
    arrows step on to the next artwork's page *@
-<image-lightbox class="contents" data-permanent="image-lightbox">
+<image-lightbox class="contents" data-permanent="image-lightbox"
+                data-photoswipe-src="@Assets["lib/photoswipe/photoswipe.esm.min.js"]">
+  <link rel="stylesheet" href="@Assets["lib/photoswipe/photoswipe.css"]" />
+
   <dialog data-lightbox-dialog class="artist-shop-lightbox" aria-label="Full screen image">
     @* the buttons are placed from this box rather than the dialog, because a positioned child
        is measured from its container's edge, padding included. Placed from the dialog they would
        ignore the padding that keeps them clear of a phone's notch *@
     <div class="relative size-full">
-      @* size-full is what makes object-contain mean anything: the element is the screen, and
-         the picture is fitted inside it. Given no box the image would simply take its own shape
-         and object-fit would do nothing *@
-      <img data-lightbox-picture alt="" sizes="100vw" class="size-full object-contain" />
-
-      <ButtonBasic type="button" Variant="ButtonVariant.Outline"
+      <ButtonBasic type="button" data-lightbox-close Variant="ButtonVariant.Outline"
                    Class="absolute top-4 right-8 z-10 border-white/40 text-white">Close</ButtonBasic>
 
       <ButtonBasic type="button" data-lightbox-step="-1" aria-label="Previous image" Variant="ButtonVariant.Outline"
@@ -28,7 +27,7 @@
                    Class="absolute top-1/2 right-4 z-10 -translate-y-1/2 border-white/40 text-white">→</ButtonBasic>
 
       <p data-lightbox-counter aria-live="polite" hidden
-         class="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white"></p>
+         class="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 text-sm text-white"></p>
     </div>
   </dialog>
 </image-lightbox>

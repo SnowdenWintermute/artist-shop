@@ -14,8 +14,10 @@
     }
   </div>
 
+  @* the backgrounds run to the edges of the screen, under a phone's notch when it's held sideways,
+     while the padding keeps what's on them clear of it. So do the nav bars' *@
   <div class="w-full bg-theme-recessed flex flex-1 flex-col">
-    <div class="flex-1 pt-10 pb-20 px-2">
+    <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
       @Body
     </div>
   </div>

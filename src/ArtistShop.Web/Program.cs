@@ -1,6 +1,7 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Components.Icons;
+using ArtistShop.Web.Components.Pages.Catalog;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Email;
@@ -340,6 +341,9 @@ app.MapAdditionalIdentityEndpoints();
 // image endpoints
 app.MapImageUploadEndpoints();
 app.MapVariantEndpoints();
+
+// the lightbox's walk through the catalogue
+app.MapArtworkWalkEndpoints();
 
 // post editor endpoints
 app.MapVideoLinkEndpoints();

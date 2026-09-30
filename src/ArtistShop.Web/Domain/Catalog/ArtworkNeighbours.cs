@@ -10,3 +10,7 @@ public record ArtworkInSeries(ArtworkSlug Slug, SeriesSlug SeriesSlug, int Image
 // the places either side, running on into the series before or after; null on either side is the
 // first place of the first series or the last of the last
 public record ArtworkNeighbours(ArtworkInSeries? Previous, ArtworkInSeries? Next);
+
+// where an artwork's images sit among all those Previous and Next step through: how many come
+// before its first, and how many there are altogether. The lightbox numbers its pictures by it
+public record ArtworkWalkPosition(int EarlierImageCount, int TotalImageCount);
