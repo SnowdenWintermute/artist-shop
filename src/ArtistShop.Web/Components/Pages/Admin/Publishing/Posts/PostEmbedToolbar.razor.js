@@ -29,8 +29,9 @@ function isKeyboardUp() {
   );
 }
 
-// Resolves once a phone's keyboard has finished closing, which the visible area growing shows. The
-// timeout is in case that never comes
+// Resolves once a phone's keyboard has finished closing. A resize while it's still up, partway
+// through closing or from the browser's bars, isn't the end. The timeout is in case the end never
+// comes
 function keyboardClosed() {
   return new Promise((resolve) => {
     const viewport = window.visualViewport;
@@ -42,13 +43,19 @@ function keyboardClosed() {
 
     const timeout = setTimeout(done, 600);
 
+    function onResize() {
+      if (!isKeyboardUp()) {
+        done();
+      }
+    }
+
     function done() {
       clearTimeout(timeout);
-      viewport?.removeEventListener("resize", done);
+      viewport?.removeEventListener("resize", onResize);
       resolve(undefined);
     }
 
-    viewport.addEventListener("resize", done);
+    viewport.addEventListener("resize", onResize);
   });
 }
 
@@ -121,6 +128,8 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
   // once the keyboard has gone
   /** @type {Promise<unknown>} */
   let keyboardClosing = Promise.resolve();
+  // whether the cursor was in the text when the toolbar opened, so closing it puts the cursor back
+  let returnsToText = false;
 
   /** @param {HTMLElement} node */
   async function follow(node) {
@@ -189,6 +198,17 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     }
   }
 
+  // Done, Escape, or the open embed clicked again. Quill puts the cursor back where it was. A click
+  // elsewhere places the cursor itself, so it only closes
+  function closeBackToText() {
+    const wasOpen = toolbar.matches(":popover-open");
+    close();
+
+    if (wasOpen && returnsToText) {
+      quill.focus();
+    }
+  }
+
   // where an embed is in the document, or null if an edit has removed it
   /** @param {HTMLElement | null} node */
   function indexOf(node) {
@@ -241,8 +261,8 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
       value: kind.readValue(node),
       update: (change) => update(node, change),
       replace: (change) => {
-        // a click in a dialog closes the toolbar, but the file picker doesn't, and an open toolbar that
-        // had let go of its embed would have buttons that did nothing
+        // the artist may have closed the toolbar or moved it while waiting, such as during an
+        // upload. Still open on this embed, it moves to the replacement, or its buttons would do nothing
         const wasOpenOnIt = embed === node && toolbar.matches(":popover-open");
         const replacement = replace(node, change);
 
@@ -272,6 +292,12 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     return node instanceof HTMLElement ? node : null;
   }
 
+  // a click on a modal dialog's backdrop lands on the dialog itself
+  /** @param {Event} event */
+  function isInDialog(event) {
+    return event.target instanceof Element && event.target.closest("dialog") !== null;
+  }
+
   // A tap on an embed would otherwise focus the editing area, and on a phone the keyboard then
   // covers half the screen, toolbar included
   quill.root.addEventListener(
@@ -290,11 +316,23 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
       const clicked = embedAt(event);
 
       if (clicked !== null && clicked === embed && toolbar.matches(":popover-open")) {
-        close();
+        closeBackToText();
       } else if (clicked !== null) {
-        // the cursor may already be in the text, keeping the keyboard up
-        keyboardClosing = quill.hasFocus() && isKeyboardUp() ? keyboardClosed() : Promise.resolve();
-        quill.blur();
+        // moving the toolbar to another embed keeps where it came from
+        if (!toolbar.matches(":popover-open")) {
+          returnsToText = quill.hasFocus();
+        }
+
+        // a phone's keyboard, for the text or a caption field, would cover the toolbar
+        if (isKeyboardUp()) {
+          keyboardClosing = keyboardClosed();
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+        } else {
+          keyboardClosing = Promise.resolve();
+        }
+
         open(clicked);
       }
     },
@@ -314,7 +352,7 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
       const { action } = button.dataset;
 
       if (action === "done") {
-        close();
+        closeBackToText();
       } else if (action === "remove") {
         remove(node);
       } else {
@@ -341,7 +379,7 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     (event) => {
       if (event.key === "Enter" && !event.isComposing && event.target instanceof HTMLInputElement) {
         event.preventDefault();
-        close();
+        closeBackToText();
       }
     },
     { signal }
@@ -351,13 +389,14 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
   // embed included, and the click handler above would open it again, flickering. So closing on a
   // click elsewhere and on Escape is done here. A click rather than a pointerdown, so scrolling the
   // page by touch leaves it open. Capture, so a handler that stops the click can't keep it open.
-  // A click made by code, such as Replace image opening the file picker, isn't the artist's
+  // A click made by code, such as Replace image opening the file picker, isn't the artist's. A
+  // dialog opened from the toolbar leaves it open, so clicks and Escape in a dialog are the dialog's
   document.addEventListener(
     "click",
     (event) => {
       const isOnToolbar = event.target instanceof Node && toolbar.contains(event.target);
 
-      if (event.isTrusted && !isOnToolbar && embedAt(event) === null) {
+      if (event.isTrusted && !isOnToolbar && !isInDialog(event) && embedAt(event) === null) {
         close();
       }
     },
@@ -367,8 +406,8 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
   document.addEventListener(
     "keydown",
     (event) => {
-      if (event.key === "Escape") {
-        close();
+      if (event.key === "Escape" && !isInDialog(event)) {
+        closeBackToText();
       }
     },
     { signal }

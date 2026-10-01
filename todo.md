@@ -1,5 +1,52 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Review of 4d74b12, 2026-10-01 (From Claude)
+
+Fixed after the review (not committed yet):
+- A tap on an embed checks for a keyboard whoever has focus, so a caption field's keyboard closes too, and it
+  blurs whatever has focus. `globals.d.ts` no longer declares Quill's `blur` and `hasFocus`.
+- `keyboardClosed()` ignores resizes while the keyboard is still up (partway through closing, browser bars).
+- Clicks and Escape inside a `<dialog>` no longer close the toolbar, so a dialog opened from it leaves it open on
+  the embed, and the answer moves it to the replacement. Escape in a dialog closes only the dialog.
+- `./dev.sh --phone` says so when it finds no network address.
+- `./dev.sh --phone` serves HTTPS, because over HTTP the nip.io pages aren't secure and lose `crypto.randomUUID`
+  (every upload) and the clipboard (Copy button). The certificate is made by mkcert per address into the
+  git-ignored `.dev-certs/`, and passed with `Kestrel__Certificates__Default__*`. One-time setup: `mkcert -install`
+  (Firefox needs `libnss3-tools` first), then `rootCA.pem` from `mkcert -CAROOT` installed on the iPhone and given
+  full trust in Settings → General → About → Certificate Trust Settings. Never copy `rootCA-key.pem` anywhere.
+
+- Back to the text, as Google Docs does: if the cursor was in the text when the toolbar opened, Done, Enter in a
+  field, Escape or clicking the open embed again put it back (`closeBackToText`, `quill.focus()`). On a phone that
+  brings the keyboard back. A click elsewhere or Remove only closes. Focus is only taken from the editor or a
+  field when a keyboard is up, so on desktop the cursor stays in the text. `hasFocus` is declared again.
+
+Later:
+- Dragging embeds to move them, on desktop at least, phones if they can. The `mousedown` cancel on embeds
+  (keeps a phone's keyboard down) also stops the browser's own drag, so it will have to make way.
+- The cursor can't be put between two embeds that follow each other.
+
+## Handoff, 2026-10-01: embed toolbar on phones (From Claude)
+
+Committed as 4d74b12. Next session: review that commit together, then make the embed toolbar look better.
+
+- `PostEmbedToolbar.razor.js`, shared by the image, artwork and video embeds:
+  - Tapping an embed no longer brings up the phone keyboard: `mousedown` on an embed is cancelled, and the click
+    calls `quill.blur()`, which closes a keyboard that was already up.
+  - The toolbar waits for the keyboard to finish closing before it's placed (`isKeyboardUp`, `keyboardClosed`).
+    Otherwise `flip()` places it above the embed against the shortened view, then it jumps below. A keyboard is
+    "up" when the visible area (`visualViewport`, scaled back up by zoom) is over 150px shorter than the layout
+    viewport. 0.6s timeout only as a safety net. Not checked on Android; Firefox there may resize the layout
+    viewport too, so the check would miss its keyboard.
+  - `popover="manual"`, so the browser's own closing on an outside click no longer closes and reopens the
+    toolbar on the embed it's open for. Tapping that embed closes it, another embed moves it there, a real click
+    elsewhere or Escape closes it. Clicks made by code (Replace image's `fileInput.click()`) are ignored. A
+    toolbar button that opens a dialog now leaves the toolbar open behind it until a click in the dialog.
+- `globals.d.ts`: Quill's `blur` and `hasFocus`.
+- `./dev.sh --phone`: serves on `0.0.0.0:5176` (`phone` profile in `launchSettings.json`) under
+  `<address>.nip.io` names, sets `Platform__Host` to it, and renames every site host in the dev database to match.
+  A plain `./dev.sh` renames them back to `.localhost`. Mike's laptop has a DHCP reservation. Use email and
+  password sign-in there (Google only accepts its registered redirect addresses); reload the phone by hand.
+
 ## Handoff, 2026-09-29: deploy and Resend
 
 The whole-website move is committed (97ff6e9).

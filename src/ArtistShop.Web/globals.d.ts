@@ -73,7 +73,6 @@ declare class Quill {
   on(event: "text-change", handler: (change: QuillDelta, old: QuillDelta, source: QuillSource) => void): this;
   off(event: "text-change", handler: (change: QuillDelta, old: QuillDelta, source: QuillSource) => void): this;
   focus(): void;
-  blur(): void;
   hasFocus(): boolean;
   // with focus true, the editor takes the focus first, so there is always a selection
   getSelection(focus: true): { index: number; length: number };

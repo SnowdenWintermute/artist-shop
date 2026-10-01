@@ -15,18 +15,14 @@
 @* The uploaded image embed's toolbar. PostImageEmbed.razor.js defines the embed and its upload
    placeholder, and does the uploading. The toolbar carries the image address and widths because
    the server is what knows them, and a new image's layout, which the upload doesn't choose *@
-<PostEmbedToolbar data-part="image-embed-toolbar"
-                  data-storage-key-placeholder="@StorageKeyPlaceholder"
+<PostEmbedToolbar data-part="image-embed-toolbar" data-storage-key-placeholder="@StorageKeyPlaceholder"
                   data-width-placeholder="@WidthPlaceholder"
                   data-variant-url="@ImageUrls.VariantTemplate(StorageKeyPlaceholder, WidthPlaceholder, ImageVariantFormat.Avif)"
                   data-small-width="@ImageVariants.EmbedWidth(EmbedImageSize.Small).ToString(CultureInfo.InvariantCulture)"
                   data-medium-width="@ImageVariants.EmbedWidth(EmbedImageSize.Medium).ToString(CultureInfo.InvariantCulture)"
-                  data-variant-widths="@string.Join(",", ImageVariants.Widths)"
-                  data-layout-classes="@PostEmbedToolbar.LayoutClasses"
-                  data-caption-class="@EmbedFigure.CaptionClass"
-                  data-upload-url="@ImageUploadEndpoints.PostImageUploadPath"
-                  data-accept="@ImageUploadValidation.FileInputAccept"
-                  data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">
+                  data-variant-widths="@string.Join(",", ImageVariants.Widths)" data-layout-classes="@PostEmbedToolbar.LayoutClasses"
+                  data-caption-class="@EmbedFigure.CaptionClass" data-upload-url="@ImageUploadEndpoints.PostImageUploadPath"
+                  data-accept="@ImageUploadValidation.FileInputAccept" data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">
   @* The ⓘ button shows what alt text is for, since the file name it starts as rarely says what's
      in the picture. Applied as it's typed, like the caption *@
   <div class="w-full">
@@ -36,8 +32,10 @@
         <input type="text" autocomplete="off" class="artist-shop-field-input min-w-0 flex-1" data-part="alt"
                aria-describedby="@AltHelpId" />
       </label>
-      <button type="button" class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border text-sm font-bold"
-              aria-label="What is alt text?" aria-expanded="false" aria-controls="@AltHelpId" data-action="alt-help">i</button>
+      <button type="button"
+              class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border text-sm font-bold"
+              aria-label="What is alt text?" aria-expanded="false" aria-controls="@AltHelpId"
+              data-action="alt-help">i</button>
     </div>
     <p id="@AltHelpId" class="max-w-sm pt-2 text-sm" hidden>
       Alt text describes the picture for visitors who can't see it: screen readers read it aloud,
@@ -48,7 +46,7 @@
   <ImageEmbedControls />
   @* off when the upload is no wider than the size it's shown at, with the note saying why *@
   <label class="flex items-center gap-2">
-    <input type="checkbox" data-part="lightbox" />
+    <input type="checkbox" data-part="lightbox" checked="true" />
     <span>Open full screen when clicked</span>
     <span class="text-sm text-gray-500" data-part="lightbox-note" hidden>(no bigger version of this image)</span>
   </label>

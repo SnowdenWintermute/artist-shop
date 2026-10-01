@@ -16,7 +16,11 @@ APP_URL=$(python3 -c 'import json; p = json.load(open("src/ArtistShop.Web/Proper
 PHONE=false
 if [[ "${1:-}" == --phone ]]; then
   PHONE=true
-  LAN_ADDRESS=$(ip -4 route get 1.1.1.1 | grep -oP 'src \K[0-9.]+')
+  LAN_ADDRESS=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[0-9.]+' || true)
+  if [[ -z "$LAN_ADDRESS" ]]; then
+    echo "error: --phone found no network address. Is the Wi-Fi connected?" >&2
+    exit 1
+  fi
   PHONE_HOST="${LAN_ADDRESS//./-}.nip.io"
 fi
 
@@ -103,6 +107,24 @@ fi
 # the desktop through these names as well while this runs
 export Platform__Host="$PHONE_HOST"
 
-echo "platform: http://$PHONE_HOST:5176"
+# HTTPS, as in production: browsers only give a secure page some features, such as
+# crypto.randomUUID and the clipboard. The certificate comes from mkcert's own authority, which
+# the phone and the desktop browser have to trust once. One per address, so a new address gets a
+# new one
+CERT_DIR="$PWD/.dev-certs"
+CERT="$CERT_DIR/$PHONE_HOST.pem"
+CERT_KEY="$CERT_DIR/$PHONE_HOST-key.pem"
+if [[ ! -f "$CERT" ]]; then
+  if ! command -v mkcert >/dev/null; then
+    echo "error: --phone needs mkcert (apt install mkcert) for its certificate." >&2
+    exit 1
+  fi
+  mkdir -p "$CERT_DIR"
+  mkcert -cert-file "$CERT" -key-file "$CERT_KEY" "$PHONE_HOST" "*.$PHONE_HOST"
+fi
+export Kestrel__Certificates__Default__Path="$CERT"
+export Kestrel__Certificates__Default__KeyPath="$CERT_KEY"
+
+echo "platform: https://$PHONE_HOST:5176"
 echo "No automatic refresh on the phone: dotnet watch's refresh socket is on localhost"
 dotnet watch --project src/ArtistShop.Web --launch-profile phone
