@@ -20,9 +20,9 @@
 }
 
 @* The toolbar that opens under an embed when the artist clicks one, for any kind of embed.
-   PostEmbedToolbar.razor.js places it with Floating UI and handles Remove and Done. Its buttons
-   have no name, so the form never posts them *@
-<div popover class="m-0 inset-auto border border-theme-base bg-white p-2 shadow" @attributes="AdditionalAttributes"
+   PostEmbedToolbar.razor.js places it with Floating UI, closes it, and handles Remove and Done.
+   Its buttons have no name, so the form never posts them *@
+<div popover="manual" class="m-0 inset-auto border border-theme-base bg-white p-2 shadow" @attributes="AdditionalAttributes"
      data-floating-ui-src="@Assets["lib/floating-ui/floating-ui.dom.browser.min.mjs"]">
   <div class="flex flex-wrap items-center gap-4">
     @ChildContent

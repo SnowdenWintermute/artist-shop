@@ -15,6 +15,43 @@ function loadFloatingUi(src) {
   return floatingUiLoaded;
 }
 
+// Browser bars appearing and disappearing change the visible area by less than this; a keyboard
+// covers more
+const KEYBOARD_MIN_HEIGHT = 150;
+
+// A phone's keyboard shrinks the visible area but not the layout viewport the page is laid out in.
+// The visible area is scaled back up by the zoom, so a pinch-zoomed page isn't taken for a keyboard
+function isKeyboardUp() {
+  const viewport = window.visualViewport;
+  return (
+    viewport !== null &&
+    document.documentElement.clientHeight - viewport.height * viewport.scale > KEYBOARD_MIN_HEIGHT
+  );
+}
+
+// Resolves once a phone's keyboard has finished closing, which the visible area growing shows. The
+// timeout is in case that never comes
+function keyboardClosed() {
+  return new Promise((resolve) => {
+    const viewport = window.visualViewport;
+
+    if (viewport === null) {
+      resolve(undefined);
+      return;
+    }
+
+    const timeout = setTimeout(done, 600);
+
+    function done() {
+      clearTimeout(timeout);
+      viewport?.removeEventListener("resize", done);
+      resolve(undefined);
+    }
+
+    viewport.addEventListener("resize", done);
+  });
+}
+
 // one of the data- attributes the server renders onto a kind's toolbar, such as an image address
 /**
  * @param {HTMLElement} toolbar
@@ -79,6 +116,11 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
   let embed = null;
   /** @type {(() => void) | null} */
   let stopFollowing = null;
+  // Placing waits for this. While a phone's keyboard is up, only the part of the screen above it
+  // counts as visible, so a toolbar placed then can be flipped above the embed, then jump below it
+  // once the keyboard has gone
+  /** @type {Promise<unknown>} */
+  let keyboardClosing = Promise.resolve();
 
   /** @param {HTMLElement} node */
   async function follow(node) {
@@ -86,7 +128,7 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     let loaded;
 
     try {
-      loaded = await floatingUi;
+      [loaded] = await Promise.all([floatingUi, keyboardClosing]);
     } catch (error) {
       // shown where the browser puts a popover, mid-screen, rather than not at all
       toolbar.style.visibility = "";
@@ -199,7 +241,7 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
       value: kind.readValue(node),
       update: (change) => update(node, change),
       replace: (change) => {
-        // a dialog closes the toolbar, but the file picker doesn't, and an open toolbar that
+        // a click in a dialog closes the toolbar, but the file picker doesn't, and an open toolbar that
         // had let go of its embed would have buttons that did nothing
         const wasOpenOnIt = embed === node && toolbar.matches(":popover-open");
         const replacement = replace(node, change);
@@ -224,12 +266,35 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     close();
   }
 
+  /** @param {Event} event */
+  function embedAt(event) {
+    const node = event.target instanceof Element ? event.target.closest(`.${kind.className}`) : null;
+    return node instanceof HTMLElement ? node : null;
+  }
+
+  // A tap on an embed would otherwise focus the editing area, and on a phone the keyboard then
+  // covers half the screen, toolbar included
+  quill.root.addEventListener(
+    "mousedown",
+    (event) => {
+      if (embedAt(event) !== null) {
+        event.preventDefault();
+      }
+    },
+    { signal }
+  );
+
   quill.root.addEventListener(
     "click",
     (event) => {
-      const clicked = event.target instanceof Element ? event.target.closest(`.${kind.className}`) : null;
+      const clicked = embedAt(event);
 
-      if (clicked instanceof HTMLElement) {
+      if (clicked !== null && clicked === embed && toolbar.matches(":popover-open")) {
+        close();
+      } else if (clicked !== null) {
+        // the cursor may already be in the text, keeping the keyboard up
+        keyboardClosing = quill.hasFocus() && isKeyboardUp() ? keyboardClosed() : Promise.resolve();
+        quill.blur();
         open(clicked);
       }
     },
@@ -282,9 +347,35 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     { signal }
   );
 
-  // Closed by a click elsewhere, Escape, or one of the handlers above. The event arrives a moment
-  // later and can be merged with another, so it's the popover's state now that counts: a click on
-  // a second embed closes the toolbar and opens it again before this runs
+  // A manual popover, because the browser would close one of its own on any click outside it, the
+  // embed included, and the click handler above would open it again, flickering. So closing on a
+  // click elsewhere and on Escape is done here. A click rather than a pointerdown, so scrolling the
+  // page by touch leaves it open. Capture, so a handler that stops the click can't keep it open.
+  // A click made by code, such as Replace image opening the file picker, isn't the artist's
+  document.addEventListener(
+    "click",
+    (event) => {
+      const isOnToolbar = event.target instanceof Node && toolbar.contains(event.target);
+
+      if (event.isTrusted && !isOnToolbar && embedAt(event) === null) {
+        close();
+      }
+    },
+    { signal, capture: true }
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") {
+        close();
+      }
+    },
+    { signal }
+  );
+
+  // Closed by one of the handlers above. The event arrives a moment later and can be merged with
+  // another, so it's the popover's state now that counts
   toolbar.addEventListener(
     "toggle",
     () => {

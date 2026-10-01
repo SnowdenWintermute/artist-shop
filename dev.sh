@@ -10,6 +10,16 @@ TAILWIND_OUT="src/ArtistShop.Web/wwwroot/app.css"
 # uses the first profile when none is named, and takes the first url when a profile lists several.
 APP_URL=$(python3 -c 'import json; p = json.load(open("src/ArtistShop.Web/Properties/launchSettings.json"))["profiles"]; print(next(iter(p.values()))["applicationUrl"].split(";")[0])' 2>/dev/null || true)
 
+# --phone serves the app to other devices on the Wi-Fi, under nip.io names, which resolve to the
+# address inside them: site1.192-168-1-20.nip.io is 192.168.1.20. A phone can't use
+# *.localhost, which names the phone itself
+PHONE=false
+if [[ "${1:-}" == --phone ]]; then
+  PHONE=true
+  LAN_ADDRESS=$(ip -4 route get 1.1.1.1 | grep -oP 'src \K[0-9.]+')
+  PHONE_HOST="${LAN_ADDRESS//./-}.nip.io"
+fi
+
 if [[ ! -x ./tailwindcss ]]; then
   echo "error: ./tailwindcss not found. See README for the download command." >&2
   exit 1
@@ -66,10 +76,33 @@ if [[ "$(docker inspect -f '{{.State.Health.Status}}' artist-shop-postgres 2>/de
   exit 1
 fi
 
+# Every link to a site is built from its host, so the hosts are renamed to the names this run
+# serves: .localhost, or the current address's nip.io name with --phone. Run either way, so a plain
+# run undoes --phone, and a new address from the router only needs a restart
+SITE_DOMAIN=localhost
+if [[ $PHONE == true ]]; then
+  SITE_DOMAIN=$PHONE_HOST
+fi
+docker exec -i artist-shop-postgres psql -U postgres -d artist_shop_platform -v ON_ERROR_STOP=1 -q <<SQL
+UPDATE site_hosts
+SET host = regexp_replace(host, '\.(localhost|[0-9-]+\.nip\.io)$', '.$SITE_DOMAIN')
+WHERE host ~ '\.(localhost|[0-9-]+\.nip\.io)$';
+SQL
+
 # Not --no-hot-reload. That mode does rebuild and restart on every save, but its restart path never
 # sends the browser refresh socket anything -- no wait, no reload -- so the page only updates when
 # you refresh it by hand. Only the hot reload path drives that socket, and it is what turns the
 # regenerated app.css above into an UpdateStaticFile push.
-echo "app: ${APP_URL:-see the 'Now listening on' line below}"
+if [[ $PHONE == false ]]; then
+  echo "app: ${APP_URL:-see the 'Now listening on' line below}"
+  dotnet watch --project src/ArtistShop.Web
+  exit
+fi
 
-dotnet watch --project src/ArtistShop.Web
+# Signing in to a site goes through the platform, so it moves to the phone's names too. Sign in on
+# the desktop through these names as well while this runs
+export Platform__Host="$PHONE_HOST"
+
+echo "platform: http://$PHONE_HOST:5176"
+echo "No automatic refresh on the phone: dotnet watch's refresh socket is on localhost"
+dotnet watch --project src/ArtistShop.Web --launch-profile phone
