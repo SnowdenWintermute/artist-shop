@@ -54,6 +54,21 @@ public class SeriesRepository(SiteDatabase database)
             : new Series(new SeriesId(row.Id), new SeriesName(row.Name), new SeriesSlug(row.Slug));
     }
 
+    // the series alone, for a page that shows its name but not its artworks
+    public async Task<Series?> GetByIdAsync(SeriesId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var row = await connection.QuerySingleOrDefaultAsync<SeriesRow>(
+            "SELECT * FROM get_series(@Id)",
+            new { Id = id.Value }
+        );
+
+        return row is null
+            ? null
+            : new Series(new SeriesId(row.Id), new SeriesName(row.Name), new SeriesSlug(row.Slug));
+    }
+
     private async Task<List<SeriesWithCover>> GetWithCoversAsync(bool onlyArtworksWithImages)
     {
         await using var connection = await database.OpenConnectionAsync();

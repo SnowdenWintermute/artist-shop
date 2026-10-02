@@ -19,7 +19,7 @@
 
 <PageTitle>@(_series?.Name.Value ?? "Series")</PageTitle>
 
-<a href="/admin/catalog/series" class="mb-4 inline-block">← All series</a>
+<a href="@PageUrls.SeriesList" class="mb-4 inline-block">← All series</a>
 
 @if (_series is null)
 {

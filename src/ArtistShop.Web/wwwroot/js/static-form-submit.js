@@ -7,10 +7,29 @@
 let submittingForm = null;
 /** @type {HTMLElement | null} */
 let busyButton = null;
+// A form marked data-waits-for-pending posts what the page's SubmitOnChange forms are about to put
+// in the address, such as the ticks on the page adding artworks to a series. Clicked while one is
+// still pending, its button goes busy and it posts once they've landed
+/** @type {HTMLElement | null} */
+let waitingButton = null;
+
+/** @param {HTMLElement} button */
+function showBusy(button) {
+  button.setAttribute("data-busy", "");
+  button.setAttribute("aria-busy", "true");
+}
+
+/** @param {HTMLElement} button */
+function clearBusy(button) {
+  button.removeAttribute("data-busy");
+  button.removeAttribute("aria-busy");
+}
 
 function clearMarks() {
-  busyButton?.removeAttribute("data-busy");
-  busyButton?.removeAttribute("aria-busy");
+  if (busyButton !== null) {
+    clearBusy(busyButton);
+  }
+
   submittingForm = null;
   busyButton = null;
 }
@@ -24,8 +43,33 @@ function mark(form, submitter) {
 
   submittingForm = form;
   busyButton = submitter;
-  busyButton.setAttribute("data-busy", "");
-  busyButton.setAttribute("aria-busy", "true");
+  showBusy(busyButton);
+}
+
+function isPagePending() {
+  return document.querySelector("submit-on-change[data-pending]") !== null;
+}
+
+function postWaiting() {
+  const button = waitingButton;
+
+  if (button === null) {
+    return;
+  }
+
+  if (isPagePending()) {
+    // patching the page in may have taken the marks off
+    showBusy(button);
+    return;
+  }
+
+  waitingButton = null;
+  clearBusy(button);
+
+  // one the page answered by disabling, like Add selected once nothing is ticked, has nothing to post
+  if (button.isConnected && !button.hasAttribute("disabled") && button instanceof HTMLButtonElement) {
+    button.form?.requestSubmit(button);
+  }
 }
 
 document.addEventListener("submit", (event) => {
@@ -47,6 +91,13 @@ document.addEventListener("submit", (event) => {
   // leaves this set and the page needs reloading
   if (form === submittingForm) {
     event.preventDefault();
+    return;
+  }
+
+  if (form.hasAttribute("data-waits-for-pending") && isPagePending()) {
+    event.preventDefault();
+    waitingButton = event.submitter;
+    showBusy(waitingButton);
     return;
   }
 
@@ -73,7 +124,12 @@ document.addEventListener("submit", (event) => {
   }, 0);
 });
 
-Blazor.addEventListener("enhancedload", clearMarks);
+// SubmitOnChange.razor.js takes its pending marks off on this event too, so the waiting post looks
+// once every listener has run, whatever their order
+Blazor.addEventListener("enhancedload", () => {
+  clearMarks();
+  setTimeout(postWaiting, 0);
+});
 
 // Back can restore a plain form's page from the browser's cache just as it was left, busy
 window.addEventListener("pageshow", (event) => {

@@ -1,0 +1,13 @@
+@* the box that selects one row of a list. checked, and name and value or @onchange, come through
+   AdditionalAttributes *@
+
+@code {
+  // what the row is called, for a screen reader
+  [Parameter, EditorRequired]
+  public string ItemName { get; set; } = default!;
+
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}
+
+<input type="checkbox" @attributes="AdditionalAttributes" class="mx-1 cursor-pointer" aria-label="@($"Select {ItemName}")" />

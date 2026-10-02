@@ -217,6 +217,18 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task FindsASeriesByItsId()
+    {
+        var name = $"Harbour {Guid.NewGuid():n}";
+        var id = await AddNamedSeriesAsync(name);
+
+        Assert.Equal(new SeriesName(name), (await _series.GetByIdAsync(id))?.Name);
+
+        await _series.DeleteAsync(id);
+        Assert.Null(await _series.GetByIdAsync(id));
+    }
+
+    [Fact]
     public async Task StarredArtworkIsTheCover()
     {
         var id = await _catalog.AddSeriesAsync();
@@ -363,6 +375,21 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
             [first.Id, second.Id, third.Id],
             (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
         );
+    }
+
+    // ticked in a page loaded before another tab deleted it
+    [Fact]
+    public async Task AddingSkipsADeletedArtwork()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        var otherId = await _catalog.AddSeriesAsync();
+        var deleted = await _catalog.AddPaintingInSeriesAsync(otherId, []);
+        var kept = await _catalog.AddPaintingInSeriesAsync(otherId, []);
+        await _artworks.DeleteAsync(deleted.Id);
+
+        await _series.AddArtworksAsync(id, [deleted.Id, kept.Id]);
+
+        Assert.Equal([kept.Id], (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id));
     }
 
     [Fact]

@@ -32,7 +32,9 @@ public static class PageUrls
 
     public static string EditArtwork(ArtworkId id) => $"/admin/catalog/artworks/{id.Value}/edit";
 
-    public static string EditSeries(SeriesId id) => $"/admin/catalog/series/{id.Value}";
+    public const string SeriesList = "/admin/catalog/series";
+
+    public static string EditSeries(SeriesId id) => $"{SeriesList}/{id.Value}";
 
     // one parameter per artwork ticked on the page that adds artworks to a series
     public const string AddSeriesArtworksTickKey = "add";

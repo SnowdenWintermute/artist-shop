@@ -25,7 +25,7 @@
     try
     {
       await SeriesRepository.DeleteAsync(SeriesId);
-      NavigationManager.NavigateTo("/admin/catalog/series");
+      NavigationManager.NavigateTo(PageUrls.SeriesList);
     }
     finally
     {

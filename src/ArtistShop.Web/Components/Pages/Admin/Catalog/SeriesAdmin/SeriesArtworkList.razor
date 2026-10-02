@@ -134,8 +134,8 @@
         </div>
       </RowContent>
       <RowActions Context="artwork">
-        <input type="checkbox" class="mx-1 cursor-pointer" aria-label="@($"Select {artwork.Name.Value}")"
-               checked="@_selected.Contains(artwork.Id)" @onchange="() => ToggleSelected(artwork.Id)" />
+        <RowSelectCheckbox ItemName="@artwork.Name.Value" checked="@_selected.Contains(artwork.Id)"
+                           @onchange="() => ToggleSelected(artwork.Id)" />
       </RowActions>
     </StarredSortableList>
   }
