@@ -158,12 +158,16 @@
     }
   }
 
+  // a submit clicked while this is true waits for it (static-form-submit.js), so the images still
+  // processing are posted with the form
+  private bool IsUploading => _files.Any(file => file.Result is null && file.Error is null);
+
   // an image still uploading has nothing to post yet
   private IReadOnlyList<ArtworkImage> AttachedImages =>
     [.. _files.Select(file => file.Result).OfType<ArtworkImage>()];
 }
 
-<div class="mb-4">
+<div class="mb-4" data-pending="@IsUploading">
   @* only the controls: the hidden inputs below must stay enabled, since a disabled input posts nothing *@
   <DisabledUntilInteractive>
     <FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.ArtworkImageUploadPath" Prompt="Drop images here"

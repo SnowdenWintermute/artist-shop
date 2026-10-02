@@ -133,7 +133,7 @@
       <CatalogSetupNotice ArtworkType="_type" TypeVocabularies="_vocabularies"
                           VocabulariesWithoutArtworkTypes="_vocabulariesWithoutArtworkTypes" SeriesCount="_series.Count" />
 
-      <EditForm Model="Input" FormName="new-artwork" OnValidSubmit="SubmitArtwork" Enhance>
+      <EditForm Model="Input" FormName="new-artwork" OnValidSubmit="SubmitArtwork" Enhance data-waits-for-pending>
         <DataAnnotationsValidator />
 
         <TextField Label="Title" @bind-Value="Input.Name" />

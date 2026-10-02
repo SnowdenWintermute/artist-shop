@@ -15,7 +15,8 @@
    image lands *@
 <ArtworkThumbnail Image="SelectedImage.Result" />
 
-<div class="grow">
+@* data-failed: a submit waiting on this upload gives up (static-form-submit.js) *@
+<div class="grow" data-failed="@(SelectedImage.Error is not null)">
   <div class="mb-1 flex justify-between">
     <span>@SelectedImage.Name</span>
     <span>@StatusLabel</span>

@@ -149,7 +149,7 @@
       }
 
       <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
-        <EditForm Model="Input" FormName="edit-artwork" OnValidSubmit="SaveArtwork" Enhance class="mb-8">
+        <EditForm Model="Input" FormName="edit-artwork" OnValidSubmit="SaveArtwork" Enhance data-waits-for-pending class="mb-8">
           <DataAnnotationsValidator />
 
           <TextField Label="Title" @bind-Value="Input.Name" />
