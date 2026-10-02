@@ -19,7 +19,7 @@ public static class SqlStates
     // UpdateArtwork
     public const string ArtworkNoLongerExists = "SH003";
 
-    // RenameSeries, CheckArtworkChoicesAreCurrent
+    // RenameSeries, CheckArtworkChoicesAreCurrent, AddArtworksToSeries
     public const string SeriesNoLongerExists = "SH004";
 
     // ReorderSeriesArtworks

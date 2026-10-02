@@ -7,7 +7,7 @@
   public RenderFragment ChildContent { get; set; } = default!;
 
   // group, so the label and spinner inside can follow the button's data-busy
-  private const string BaseClass = "group cursor-pointer disabled:cursor-auto disabled:opacity-50";
+  private const string BaseClass = "group cursor-pointer disabled:cursor-default disabled:opacity-50";
 
   [Parameter]
   public ButtonVariant Variant { get; set; }
@@ -20,7 +20,8 @@
   [Parameter]
   public bool Busy { get; set; }
 
-  private string CssClass => ClassNames.Join(ButtonStyles.SizeClass, BaseClass, ButtonStyles.VariantClass(Variant), Class);
+  private string CssClass => ClassNames.Join(ButtonStyles.SizeClass, BaseClass, ButtonStyles.VariantClass(Variant),
+Class);
 }
 
 @* While the button carries data-busy, which js/static-form-submit.js sets on the button that
@@ -28,6 +29,6 @@
    beside it moves, and the spinner shows over its middle. The wrapper is what the spinner is placed
    against, since a caller's Class can position the button itself *@
 <button @attributes="AdditionalAttributes" class="@CssClass" data-busy="@Busy" aria-busy="@(Busy ? "true" : null)"><span
-    class="relative"><span class="group-data-busy:invisible">@ChildContent</span><span
-      class="absolute inset-0 m-auto hidden size-4 animate-spin rounded-full border-2 border-current border-t-transparent group-data-busy:block"
-      aria-hidden="true"></span></span></button>
+  class="relative"><span class="group-data-busy:invisible">@ChildContent</span><span
+  class="absolute inset-0 m-auto hidden size-4 animate-spin rounded-full border-2 border-current border-t-transparent group-data-busy:block"
+  aria-hidden="true"></span></span></button>

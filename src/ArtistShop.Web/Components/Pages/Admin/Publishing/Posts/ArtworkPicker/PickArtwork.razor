@@ -16,8 +16,8 @@
   private ArtworkPickerTrail Trail =>
     ArtworkPickerTrail.Read(ModeValue, new Uri(NavigationManager.Uri).Query.TrimStart('?'));
 
-  private IReadOnlyDictionary<string, string>? KeptFields =>
-    Trail.ModeValue is { } mode ? new Dictionary<string, string> { [ArtworkPickerTrail.ModeKey] = mode } : null;
+  private IReadOnlyList<(string Name, string Value)>? KeptFields =>
+    Trail.ModeValue is { } mode ? [(ArtworkPickerTrail.ModeKey, mode)] : null;
 
   // an artwork with no image has nothing to embed, so its row isn't a link
   private string? RowHref(ArtworkListItem item) =>

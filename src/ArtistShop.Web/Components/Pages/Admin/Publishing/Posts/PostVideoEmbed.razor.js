@@ -1,7 +1,7 @@
 // The video embed: a YouTube or Vimeo player on a line of its own. The Delta holds only which video
 // it is and where it sits, and the public page builds the player's address from those.
 // Imported by PostBodyEditor.razor.js; nothing here runs until an editor calls it
-import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
+import { attachEmbedToolbar, readToolbarSetting, showPressed } from "./PostEmbedToolbar.razor.js";
 
 // the name Quill stores it under, and the parser reads
 export const VIDEO_EMBED = "artshop-video";
@@ -195,12 +195,7 @@ export function attachVideoEmbedToolbar(quill, toolbar, dialog, signal) {
         link.href = addresses.page(value);
         link.textContent = link.href;
 
-        toolbar.querySelectorAll("button[data-layout]").forEach((button) => {
-          button.setAttribute(
-            "aria-pressed",
-            String(button instanceof HTMLElement && button.dataset.layout === value.layout)
-          );
-        });
+        showPressed(toolbar, "layout", value.layout);
       },
 
       onButton(button, embed) {

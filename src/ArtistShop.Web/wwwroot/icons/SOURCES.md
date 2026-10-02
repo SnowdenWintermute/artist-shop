@@ -9,5 +9,7 @@ file.
 | `copy-file.svg` | SVG Repo | CC0 or public domain |
 | `csv.svg` | SVG Repo | CC0 or public domain |
 | `folder-open.svg` | SVG Repo | CC0 or public domain |
-| `image-remove.svg` | SVG Repo | Public domain |
+| `image-remove.svg` | Drawn for this project | This project's |
 | `google-logo.svg` | Google | Google's mark, used as its sign-in branding guidelines allow |
+| `menu.svg` | Drawn for this project | This project's |
+| `close.svg` | Drawn for this project | This project's |

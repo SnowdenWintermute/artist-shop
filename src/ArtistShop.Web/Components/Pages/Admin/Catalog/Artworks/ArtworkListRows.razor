@@ -9,6 +9,14 @@
   // null leaves the title as text
   [Parameter, EditorRequired]
   public Func<ArtworkListItem, string?> RowHref { get; set; } = default!;
+
+  // gives each row a checkbox, which ArtworkListBrowser's form around this table submits
+  [Parameter]
+  public ArtworkListSelection? Selection { get; set; }
+
+  private static readonly string[] ColumnHeadings = ["", "Title", "Type", "Series", "Images", "For sale"];
+
+  private IReadOnlyList<string> Headings => Selection is null ? ColumnHeadings : [.. ColumnHeadings, ""];
 }
 
 @if (Items.Count == 0)
@@ -25,7 +33,7 @@ else
   @* the indicator is positioned against this wrapper: a div inside the table itself is
      foster-parented out by the html parser, which leaves it with nothing to sit against *@
   <div class="relative">
-    <DataTable Items="Items" Headings="@(new[] { "", "Title", "Type", "Series", "Images", "For sale" })"
+    <DataTable Items="Items" Headings="Headings"
                Class="artist-shop-fades-while-loading">
       <Row Context="item">
         <DataTableCell>
@@ -57,6 +65,14 @@ else
         <DataTableCell Class="text-sm text-gray-600">@item.ImageCount</DataTableCell>
 
         <DataTableCell Class="text-sm text-gray-600">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
+
+        @if (Selection is not null)
+        {
+          <DataTableCell>
+            <input type="checkbox" class="mx-1 cursor-pointer" aria-label="@($"Select {item.Name.Value}")"
+                   name="@Selection.FieldName" value="@item.Id.Value" checked="@Selection.Contains(item.Id)" />
+          </DataTableCell>
+        }
       </Row>
     </DataTable>
 

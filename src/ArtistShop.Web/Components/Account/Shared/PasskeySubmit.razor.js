@@ -1,9 +1,13 @@
-﻿const browserSupportsPasskeys =
+const browserSupportsPasskeys =
     typeof navigator.credentials !== 'undefined' &&
     typeof window.PublicKeyCredential !== 'undefined' &&
     typeof window.PublicKeyCredential.parseCreationOptionsFromJSON === 'function' &&
     typeof window.PublicKeyCredential.parseRequestOptionsFromJSON === 'function';
 
+/**
+ * @param {string} url
+ * @param {RequestInit} [options]
+ */
 async function fetchWithErrorHandling(url, options = {}) {
     const response = await fetch(url, {
         credentials: 'include',
@@ -17,6 +21,10 @@ async function fetchWithErrorHandling(url, options = {}) {
     return response;
 }
 
+/**
+ * @param {Record<string, string>} headers
+ * @param {AbortSignal} signal
+ */
 async function createCredential(headers, signal) {
     const optionsResponse = await fetchWithErrorHandling('/Account/PasskeyCreationOptions', {
         method: 'POST',
@@ -28,8 +36,15 @@ async function createCredential(headers, signal) {
     return await navigator.credentials.create({ publicKey: options, signal });
 }
 
+/**
+ * @param {string} email
+ * @param {CredentialMediationRequirement | undefined} mediation
+ * @param {Record<string, string>} headers
+ * @param {AbortSignal} signal
+ */
 async function requestCredential(email, mediation, headers, signal) {
-    const optionsResponse = await fetchWithErrorHandling(`/Account/PasskeyRequestOptions?username=${email}`, {
+    // encoded, or a + in the address would arrive as a space
+    const optionsResponse = await fetchWithErrorHandling(`/Account/PasskeyRequestOptions?username=${encodeURIComponent(email)}`, {
         method: 'POST',
         headers,
         signal,
@@ -42,18 +57,14 @@ async function requestCredential(email, mediation, headers, signal) {
 customElements.define('passkey-submit', class extends HTMLElement {
     static formAssociated = true;
 
-    connectedCallback() {
-        this.internals = this.attachInternals();
-        this.attrs = {
-            operation: this.getAttribute('operation'),
-            name: this.getAttribute('name'),
-            emailName: this.getAttribute('email-name'),
-            requestTokenName: this.getAttribute('request-token-name'),
-            requestTokenValue: this.getAttribute('request-token-value'),
-        };
+    // in the constructor, as attaching twice throws, and an element can be connected again
+    internals = this.attachInternals();
+    /** @type {AbortController | null} */
+    abortController = null;
 
-        this.internals.form.addEventListener('submit', (event) => {
-            if (event.submitter?.name === '__passkeySubmit') {
+    connectedCallback() {
+        this.form().addEventListener('submit', (event) => {
+            if (event.submitter instanceof HTMLButtonElement && event.submitter.name === '__passkeySubmit') {
                 event.preventDefault();
                 this.obtainAndSubmitCredential();
             }
@@ -66,23 +77,42 @@ customElements.define('passkey-submit', class extends HTMLElement {
         this.abortController?.abort();
     }
 
+    form() {
+        const form = this.internals.form;
+        if (form === null) {
+            throw new Error('passkey-submit has to be inside a form.');
+        }
+        return form;
+    }
+
+    // PasskeySubmit.razor renders every attribute, but a token's can be empty
+    /** @param {string} name */
+    attribute(name) {
+        return this.getAttribute(name) ?? '';
+    }
+
+    /**
+     * @param {boolean} useConditionalMediation
+     * @param {AbortSignal} signal
+     */
     async obtainCredential(useConditionalMediation, signal) {
         if (!browserSupportsPasskeys) {
             throw new Error('Some passkey features are missing. Please update your browser.');
         }
 
         const headers = {
-            [this.attrs.requestTokenName]: this.attrs.requestTokenValue,
+            [this.attribute('request-token-name')]: this.attribute('request-token-value'),
         };
+        const operation = this.attribute('operation');
 
-        if (this.attrs.operation === 'Create') {
+        if (operation === 'Create') {
             return await createCredential(headers, signal);
-        } else if (this.attrs.operation === 'Request') {
-            const email = new FormData(this.internals.form).get(this.attrs.emailName);
+        } else if (operation === 'Request') {
+            const email = new FormData(this.form()).get(this.attribute('email-name'));
             const mediation = useConditionalMediation ? 'conditional' : undefined;
-            return await requestCredential(email, mediation, headers, signal);
+            return await requestCredential(typeof email === 'string' ? email : '', mediation, headers, signal);
         } else {
-            throw new Error(`Unknown passkey operation '${this.attrs.operation}'.`);
+            throw new Error(`Unknown passkey operation '${operation}'.`);
         }
     }
 
@@ -91,12 +121,13 @@ customElements.define('passkey-submit', class extends HTMLElement {
         this.abortController = new AbortController();
         const signal = this.abortController.signal;
         const formData = new FormData();
+        const name = this.attribute('name');
         try {
             const credential = await this.obtainCredential(useConditionalMediation, signal);
             const credentialJson = JSON.stringify(credential);
-            formData.append(`${this.attrs.name}.CredentialJson`, credentialJson);
+            formData.append(`${name}.CredentialJson`, credentialJson);
         } catch (error) {
-            if (error.name === 'AbortError') {
+            if (error instanceof Error && error.name === 'AbortError') {
                 // The user explicitly canceled the operation - return without error.
                 return;
             }
@@ -106,17 +137,19 @@ customElements.define('passkey-submit', class extends HTMLElement {
                 // We log the error in the console but do not relay it to the user.
                 return;
             }
-            const errorMessage = error.name === 'NotAllowedError'
-                ? 'No passkey was provided by the authenticator.'
-                : error.message;
-            formData.append(`${this.attrs.name}.Error`, errorMessage);
+            const errorMessage = !(error instanceof Error)
+                ? String(error)
+                : error.name === 'NotAllowedError'
+                    ? 'No passkey was provided by the authenticator.'
+                    : error.message;
+            formData.append(`${name}.Error`, errorMessage);
         }
         this.internals.setFormValue(formData);
-        this.internals.form.submit();
+        this.form().submit();
     }
 
     async tryAutofillPasskey() {
-        if (browserSupportsPasskeys && this.attrs.operation === 'Request' && await PublicKeyCredential.isConditionalMediationAvailable?.()) {
+        if (browserSupportsPasskeys && this.attribute('operation') === 'Request' && await PublicKeyCredential.isConditionalMediationAvailable?.()) {
             await this.obtainAndSubmitCredential(/* useConditionalMediation */ true);
         }
     }

@@ -331,6 +331,53 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task AddedArtworksJoinTheEndInTheOrderGiven()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        var first = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var otherId = await _catalog.AddSeriesAsync();
+        var second = await _catalog.AddPaintingInSeriesAsync(otherId, []);
+        var third = await _catalog.AddPaintingInSeriesAsync(otherId, []);
+
+        await _series.AddArtworksAsync(id, [third.Id, second.Id]);
+
+        Assert.Equal(
+            [first.Id, third.Id, second.Id],
+            (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
+        );
+    }
+
+    // ticked in a page loaded before another tab added it
+    [Fact]
+    public async Task AddingAnArtworkAlreadyInTheSeriesKeepsItsPlace()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        var first = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var second = await _catalog.AddPaintingInSeriesAsync(id, []);
+        var otherId = await _catalog.AddSeriesAsync();
+        var third = await _catalog.AddPaintingInSeriesAsync(otherId, []);
+
+        await _series.AddArtworksAsync(id, [first.Id, third.Id]);
+
+        Assert.Equal(
+            [first.Id, second.Id, third.Id],
+            (await GetExistingAsync(id)).Artworks.Select(artwork => artwork.Id)
+        );
+    }
+
+    [Fact]
+    public async Task AddingToADeletedSeriesIsRejected()
+    {
+        var id = await _catalog.AddSeriesAsync();
+        var painting = await _catalog.AddPaintingInSeriesAsync(await _catalog.AddSeriesAsync(), []);
+        await _series.DeleteAsync(id);
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(
+            () => _series.AddArtworksAsync(id, [painting.Id])
+        );
+    }
+
+    [Fact]
     public async Task DeleteRemovesTheSeries()
     {
         var id = await _catalog.AddSeriesAsync();

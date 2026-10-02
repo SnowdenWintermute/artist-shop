@@ -10,3 +10,4 @@ tests/
 TestResults/
 src/ArtistShop.Web/wwwroot/app.css
 *.csv
+node_modules/

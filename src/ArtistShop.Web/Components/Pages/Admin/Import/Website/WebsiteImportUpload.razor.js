@@ -30,7 +30,10 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
   /** @type {{ finished: Promise<boolean>, stop: () => void } | null} */
   let posts = null;
 
-  /** @param {string} method */
+  /**
+   * @param {string} method
+   * @param {...unknown} args
+   */
   function notify(method, ...args) {
     dotNetReference
       .invokeMethodAsync(method, ...args)

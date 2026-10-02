@@ -1,23 +1,13 @@
-﻿@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Sites
 
-<div class="h-[70px] border-b flex justify-between items-center pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] bg-theme-sunken 
-  overflow-hidden
-  ">
-  <div class="flex items-center ">
-    <Logo />
-    <nav class="flex">
-      <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
-      <NavItem Text="Blog" Href="@PageUrls.Blog"></NavItem>
+@* the nav bar on a website's pages *@
+<NavBar>
+  <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
+  <NavItem Text="Blog" Href="@PageUrls.Blog"></NavItem>
 
-      <AuthorizeView Policy="@SitePolicies.Admin">
-        <Authorized>
-          <NavItem Text="Admin" Href="/admin"></NavItem>
-        </Authorized>
-      </AuthorizeView>
-    </nav>
-  </div>
-
-  <div>
-    <UserAuthMenu />
-  </div>
-</div>
+  <AuthorizeView Policy="@SitePolicies.Admin">
+    <Authorized>
+      <NavItem Text="Admin" Href="/admin"></NavItem>
+    </Authorized>
+  </AuthorizeView>
+</NavBar>

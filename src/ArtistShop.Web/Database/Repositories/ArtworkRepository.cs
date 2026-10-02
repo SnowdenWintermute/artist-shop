@@ -257,9 +257,11 @@ public class ArtworkRepository(SiteDatabase database)
     }
 
     // the search runs elsewhere and hands its matches in; null means nothing was searched for
+    // excludedSeriesId leaves out the artworks already in that series, for a page adding to it
     public async Task<ArtworkListPage> GetListAsync(
         ArtworkListFilter filter,
-        IReadOnlyList<ArtworkId>? searchMatches
+        IReadOnlyList<ArtworkId>? searchMatches,
+        SeriesId? excludedSeriesId
     )
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -271,7 +273,7 @@ public class ArtworkRepository(SiteDatabase database)
                 """
                 SELECT * FROM get_artwork_list(
                     @ArtworkTypeIds, @VocabularyTermIds, @MatchingArtworkIds, @IsSearching,
-                    @SeriesId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
+                    @SeriesId, @ExcludedSeriesId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
                 )
                 """,
                 new
@@ -281,6 +283,7 @@ public class ArtworkRepository(SiteDatabase database)
                     MatchingArtworkIds = (int[])[.. searchMatches?.Select(id => id.Value) ?? []],
                     IsSearching = searchMatches is not null,
                     SeriesId = filter.SeriesId?.Value,
+                    ExcludedSeriesId = excludedSeriesId?.Value,
                     filter.HasImages,
                     filter.IsForSale,
                     Sort = (short)filter.Sort,

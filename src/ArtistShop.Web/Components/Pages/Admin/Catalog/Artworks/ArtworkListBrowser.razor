@@ -1,9 +1,13 @@
+@using System.Globalization
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Search
 @using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.WebUtilities
 @inject ArtworkRepository ArtworkRepository
 @inject ArtworkSearch ArtworkSearch
 @inject ArtworkTypeRepository ArtworkTypeRepository
@@ -27,7 +31,15 @@
   // Query parameters of the page's own that the filter form keeps when it submits, which a GET
   // form otherwise drops, as it sends only its own fields. Paging keeps them by itself
   [Parameter]
-  public IReadOnlyDictionary<string, string>? KeptFields { get; set; }
+  public IReadOnlyList<(string Name, string Value)>? KeptFields { get; set; }
+
+  // leaves out the artworks already in this series, for a page adding to it
+  [Parameter]
+  public SeriesId? ExcludedSeriesId { get; set; }
+
+  // gives each row a checkbox; a tick submits at once and lands in the address
+  [Parameter]
+  public ArtworkListSelection? Selection { get; set; }
 
   [SupplyParameterFromQuery(Name = ArtworkListQuery.TypeKey)]
   private int[]? TypeIds { get; set; }
@@ -68,7 +80,7 @@
     var searchMatches =
       filter.SearchText is null ? null : await ArtworkSearch.FindAsync(filter.SearchText);
 
-    var artworks = await ArtworkRepository.GetListAsync(filter, searchMatches);
+    var artworks = await ArtworkRepository.GetListAsync(filter, searchMatches, ExcludedSeriesId);
 
     // a link to a page that has since emptied, because the filter narrowed or artworks were deleted
     if (artworks.Items.Count == 0 && filter.PageNumber > 1)
@@ -87,15 +99,42 @@
       artworks,
       ArtworkTypeOrder.SortedByName(types),
       VocabularyOrder.SortedByName(vocabularies),
-      await SeriesRepository.GetAllAsync()
+      // filtering by the excluded series could only ever show nothing
+      [.. (await SeriesRepository.GetAllAsync()).Where(series => series.Id != ExcludedSeriesId)]
     );
+  }
+
+  private static (string Name, string Value) SelectionField(ArtworkListSelection selection, ArtworkId id) =>
+    (selection.FieldName, id.Value.ToString(CultureInfo.InvariantCulture));
+
+  // the filter form carries the ticks too, or changing a filter would drop them
+  private IReadOnlyList<(string Name, string Value)>? FilterKeptFields =>
+    Selection is { } selection
+      ? [.. KeptFields ?? [], .. selection.Ids.Select(id => SelectionField(selection, id))]
+      : KeptFields;
+
+  // What the tick form sends besides this page's boxes: the rest of the address as it is, so the
+  // filters and the page stay put, and the ticks on other pages, which have no box here
+  private IEnumerable<(string Name, string Value)> TickFormFields(ArtworkListSelection selection, ArtworkListPage artworks)
+  {
+    var shownIds = artworks.Items.Select(item => item.Id).ToHashSet();
+
+    var addressFields = QueryHelpers.ParseQuery(new Uri(NavigationManager.Uri).Query)
+      .Where(parameter => parameter.Key != selection.FieldName)
+      .SelectMany(parameter => parameter.Value.Select(value => (parameter.Key, value ?? "")));
+
+    var otherPageTicks = selection.Ids
+      .Where(id => !shownIds.Contains(id))
+      .Select(id => SelectionField(selection, id));
+
+    return addressFields.Concat(otherPageTicks);
   }
 }
 
 @if (_loaded is { } loaded)
 {
   <ArtworkListFilters Filter="loaded.Filter" Types="loaded.Types" Vocabularies="loaded.Vocabularies"
-                      Series="loaded.Series" ClearFiltersHref="@ClearFiltersHref" KeptFields="KeptFields" />
+                      Series="loaded.Series" ClearFiltersHref="@ClearFiltersHref" KeptFields="FilterKeptFields" />
 
   <div class="flex justify-between items-center  mb-2">
     <span class="text-sm">@CountText.Of(loaded.Artworks.TotalCount, "artwork")</span>
@@ -103,7 +142,27 @@
     <PageLinks PageNumber="loaded.Artworks.PageNumber" PageCount="loaded.Artworks.PageCount" />
   </div>
 
-  <ArtworkListRows Items="loaded.Artworks.Items" RowHref="RowHref" />
+  @if (Selection is { } selection)
+  {
+    @* a GET form like the filter bar's, so a tick changes the address and nothing else. A form
+       submit, unlike a link, leaves the page where it was scrolled *@
+    <form method="get" data-enhance>
+      @foreach (var (name, value) in TickFormFields(selection, loaded.Artworks))
+      {
+        <input type="hidden" name="@name" value="@value" />
+      }
+
+      <SubmitOnChange>
+        <ArtworkListRows Items="loaded.Artworks.Items" RowHref="RowHref" Selection="selection" />
+
+        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Update ticks</ButtonBasic>
+      </SubmitOnChange>
+    </form>
+  }
+  else
+  {
+    <ArtworkListRows Items="loaded.Artworks.Items" RowHref="RowHref" />
+  }
 
   <div class="flex justify-end">
     <PageLinks PageNumber="loaded.Artworks.PageNumber" PageCount="loaded.Artworks.PageCount" />

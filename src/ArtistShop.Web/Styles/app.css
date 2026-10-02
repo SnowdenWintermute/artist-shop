@@ -141,8 +141,8 @@ button[data-busy] {
   --pswp-root-z-index: 0;
 }
 
-/* the page behind stays where it was while a lightbox covers it */
-html:has(.artist-shop-lightbox:modal) {
+/* the page behind stays where it was while a lightbox or a menu covers it */
+html:has(.artist-shop-lightbox:modal, dialog[data-menu]:modal) {
   overflow: hidden;
 }
 

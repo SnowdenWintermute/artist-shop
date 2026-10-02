@@ -15,6 +15,33 @@ document.addEventListener("click", (event) => {
   }
 });
 
+// A click on the backdrop lands on the dialog itself, outside the box it's drawn in
+/**
+ * @param {MouseEvent} event
+ * @param {HTMLDialogElement} dialog
+ */
+function isOnBackdrop(event, dialog) {
+  const box = dialog.getBoundingClientRect();
+
+  return (
+    event.target === dialog &&
+    (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)
+  );
+}
+
+// a link that opens in this tab; a modifier key opens it in another tab or window
+/**
+ * @param {MouseEvent} event
+ * @param {Element} target
+ */
+function isLinkFollowed(event, target) {
+  const link = target.closest("a[href]");
+  const opensElsewhere = link instanceof HTMLAnchorElement && link.target === "_blank";
+  const modified = event.ctrlKey || event.metaKey || event.shiftKey;
+
+  return link !== null && !opensElsewhere && !modified;
+}
+
 customElements.define(
   "modal-dialog",
   class extends HTMLElement {
@@ -55,8 +82,13 @@ customElements.define(
         return;
       }
 
+      const dialog = this.#dialog();
+
       if (event.target.closest("[data-modal-dialog]")?.getAttribute("data-modal-dialog") === "close") {
-        this.#dialog()?.close();
+        dialog?.close();
+      } else if (dialog?.hasAttribute("data-menu") && (isOnBackdrop(event, dialog) || isLinkFollowed(event, event.target))) {
+        // enhanced navigation keeps the page's layout, and a menu in it would stay open on the next page
+        dialog.close();
       }
     }
 

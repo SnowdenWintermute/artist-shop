@@ -244,6 +244,10 @@ class ArtworkGallery extends HTMLElement {
     }
 
     for (const thumbnail of this.querySelectorAll("[data-artwork-thumbnail]")) {
+      if (!(thumbnail instanceof HTMLElement)) {
+        continue;
+      }
+
       if (thumbnail.dataset.artworkThumbnail !== wanted) {
         thumbnail.removeAttribute("aria-current");
         continue;

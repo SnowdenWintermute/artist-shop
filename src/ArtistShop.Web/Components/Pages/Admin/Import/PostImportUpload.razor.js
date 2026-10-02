@@ -16,7 +16,10 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
   let current = null;
   let isRunning = false;
 
-  /** @param {string} method */
+  /**
+   * @param {string} method
+   * @param {...unknown} args
+   */
   function notify(method, ...args) {
     dotNetReference
       .invokeMethodAsync(method, ...args)

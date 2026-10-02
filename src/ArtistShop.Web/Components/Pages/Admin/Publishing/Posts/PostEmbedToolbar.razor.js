@@ -97,6 +97,18 @@ export function readToolbarSetting(toolbar, name) {
   return setting;
 }
 
+// presses the button whose data-<key> is the open embed's, such as its layout, and no other
+/**
+ * @param {HTMLElement} toolbar
+ * @param {"size" | "layout"} key
+ * @param {string} value
+ */
+export function showPressed(toolbar, key, value) {
+  toolbar.querySelectorAll(`button[data-${key}]`).forEach((button) => {
+    button.setAttribute("aria-pressed", String(button instanceof HTMLElement && button.dataset[key] === value));
+  });
+}
+
 /**
  * The open embed, as a kind's button handler sees it
  * @template V

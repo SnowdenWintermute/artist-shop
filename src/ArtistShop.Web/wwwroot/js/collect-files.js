@@ -31,13 +31,15 @@ export function listenForFiles(zone, maximumFiles, onFiles) {
       return;
     }
 
-    if (entry.isFile) {
+    if (isFileEntry(entry)) {
       found.push({ path: entry.fullPath, file: await fileOf(entry) });
       return;
     }
 
-    for (const child of await readAllEntries(entry.createReader())) {
-      await collectEntry(child, found);
+    if (isDirectoryEntry(entry)) {
+      for (const child of await readAllEntries(entry.createReader())) {
+        await collectEntry(child, found);
+      }
     }
   }
 
@@ -103,4 +105,21 @@ function readAllEntries(reader) {
  */
 function fileOf(entry) {
   return new Promise((resolve, reject) => entry.file(resolve, reject));
+}
+
+// isFile and isDirectory say which an entry is, which the browser's types can't tell from them
+/**
+ * @param {FileSystemEntry} entry
+ * @returns {entry is FileSystemFileEntry}
+ */
+function isFileEntry(entry) {
+  return entry.isFile;
+}
+
+/**
+ * @param {FileSystemEntry} entry
+ * @returns {entry is FileSystemDirectoryEntry}
+ */
+function isDirectoryEntry(entry) {
+  return entry.isDirectory;
 }

@@ -35,7 +35,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
         );
 
     private Task<ArtworkListPage> ListAsync(ArtworkListFilter filter) =>
-        _artworks.GetListAsync(filter, searchMatches: null);
+        _artworks.GetListAsync(filter, searchMatches: null, excludedSeriesId: null);
 
     [Fact]
     public async Task SeveralTermsFromOneVocabularyWidenTheSearch()
@@ -120,6 +120,25 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
         var page = await ListAsync(FilterFor(seriesId, sort: ArtworkListSort.SeriesOrder));
 
         Assert.Equal([second.Id, first.Id], page.Items.Select(item => item.Id));
+    }
+
+    // the page that adds artworks to a series lists only those not in it yet
+    [Fact]
+    public async Task LeavesOutTheArtworksInTheExcludedSeries()
+    {
+        var seriesId = await _catalog.AddSeriesAsync();
+        var excludedSeriesId = await _catalog.AddSeriesAsync();
+        var outside = await _catalog.AddPaintingInSeriesAsync(seriesId, []);
+        await _catalog.AddPaintingAsync(
+            $"Already added {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [seriesId, excludedSeriesId],
+            images: []
+        );
+
+        var page = await _artworks.GetListAsync(FilterFor(seriesId), searchMatches: null, excludedSeriesId);
+
+        Assert.Equal(outside.Id, Assert.Single(page.Items).Id);
     }
 
     // the public pages link by slug, so the list has to carry it
@@ -325,7 +344,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
             images: []
         );
 
-        var page = await _artworks.GetListAsync(FilterFor(seriesId), searchMatches: []);
+        var page = await _artworks.GetListAsync(FilterFor(seriesId), searchMatches: [], excludedSeriesId: null);
 
         Assert.Empty(page.Items);
         Assert.Equal(0, page.TotalCount);

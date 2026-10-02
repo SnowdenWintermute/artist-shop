@@ -8,19 +8,24 @@
   // the account page is the platform's, whichever host this is
   private string AccountUrl =>
     CurrentHost is CurrentHost.Site ? PageUrls.PlatformAccount(NavigationManager.BaseUri, PlatformSettings.Host) : PageUrls.AccountPage;
+
+  // its layout, which differs by where it sits
+  [Parameter, EditorRequired]
+  public string Class { get; set; } = default!;
 }
 
-<AuthorizeView>
-  <Authorized>
-    <a href="@AccountUrl">@context.User.Identity?.Name</a>
-    <form action="Account/Logout" method="post">
-      <AntiforgeryToken />
-      <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
-      <button type="submit">Logout</button>
-    </form>
-  </Authorized>
-  <NotAuthorized>
-    <a href="Account/Login">Login</a>
-  </NotAuthorized>
-</AuthorizeView>
-
+<div class="@Class">
+  <AuthorizeView>
+    <Authorized>
+      <a href="@AccountUrl">@context.User.Identity?.Name</a>
+      <form action="Account/Logout" method="post">
+        <AntiforgeryToken />
+        <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
+        <button type="submit">Logout</button>
+      </form>
+    </Authorized>
+    <NotAuthorized>
+      <a href="Account/Login">Login</a>
+    </NotAuthorized>
+  </AuthorizeView>
+</div>

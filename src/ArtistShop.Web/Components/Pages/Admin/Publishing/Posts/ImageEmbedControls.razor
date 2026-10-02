@@ -1,6 +1,3 @@
-@using ArtistShop.Web.Components.Icons
-@using ArtistShop.Web.Domain.Publishing
-
 @* The size and layout controls an image embed's toolbar has, whether the image is an artwork's
    or uploaded into the post. ImageEmbedControls.razor.js handles them, and the caption in
    EmbedCaptionField *@
@@ -9,20 +6,5 @@
     <EmbedToolbarButton data-size="small" aria-pressed="false">Small</EmbedToolbarButton>
     <EmbedToolbarButton data-size="medium" aria-pressed="false">Medium</EmbedToolbarButton>
   </div>
-  @* A video's three layouts: centred on a line of its own, or with the text wrapped beside it. The
-     wrap icon is padded, since it's drawn to its edges and Quill's icons leave a margin, and
-     mirrored for the right *@
-  <div class="flex" role="group" aria-label="Layout">
-    <EmbedToolbarButton aria-label="Centre" title="Centre" aria-pressed="false"
-                        data-quill-icon="align" data-quill-icon-value="center"
-                        data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)" />
-    <EmbedToolbarButton aria-label="Wrap left" title="Wrap left" aria-pressed="false"
-                        data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">
-      <SvgIcon Name="text-wrap" Class="p-0.5" />
-    </EmbedToolbarButton>
-    <EmbedToolbarButton aria-label="Wrap right" title="Wrap right" aria-pressed="false"
-                        data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">
-      <SvgIcon Name="text-wrap" Class="-scale-x-100 p-0.5" />
-    </EmbedToolbarButton>
-  </div>
+  <EmbedLayoutButtons CenterLabel="Centre" CenterIcon="center" />
 </div>

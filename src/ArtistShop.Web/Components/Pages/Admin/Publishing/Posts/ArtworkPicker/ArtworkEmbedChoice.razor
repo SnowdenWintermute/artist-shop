@@ -15,8 +15,7 @@
 
 @* The last step of the picker. <artwork-embed-choice>, defined in ArtworkPickerPage.razor.js, sends
    the choice to the editor around the frame, which adds the embed or changes its image; nothing
-   here is posted. The
-   alignments pair up with their wrapped layouts as the embed's toolbar does *@
+   here is posted *@
 <artwork-embed-choice class="block" data-artwork-id="@ArtworkId.Value" data-storage-key="@Image.StorageKey">
   <img src="@ImageUrls.EmbedVariant(Image.StorageKey, EmbedImageSize.Medium)" alt=""
        class="mb-4 max-h-64 max-w-full" />

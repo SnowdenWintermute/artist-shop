@@ -16,3 +16,6 @@ docker exec artist-shop-postgres psql -U postgres \
 
 -- open a SQL prompt on the domain database --
 docker exec -it artist-shop-postgres psql -U postgres -d artist_shop
+
+-- type-check the scripts (npm install once first) --
+npm run typecheck

@@ -1,6 +1,6 @@
 // What the artwork embed and the uploaded image embed share: the caption, size and layout
 // controls ImageEmbedControls renders into their toolbars, and the widths their sizes are shown at
-import { readToolbarSetting } from "./PostEmbedToolbar.razor.js";
+import { readToolbarSetting, showPressed } from "./PostEmbedToolbar.razor.js";
 
 /**
  * The keys every image embed's value has, whatever else its kind holds
@@ -46,13 +46,8 @@ export function attachImageEmbedControls(toolbar) {
         captionField.value = value.caption ?? "";
       }
 
-      toolbar.querySelectorAll("button[data-size]").forEach((button) => {
-        button.setAttribute("aria-pressed", String(button instanceof HTMLElement && button.dataset.size === value.size));
-      });
-
-      toolbar.querySelectorAll("button[data-layout]").forEach((button) => {
-        button.setAttribute("aria-pressed", String(button instanceof HTMLElement && button.dataset.layout === value.layout));
-      });
+      showPressed(toolbar, "size", value.size);
+      showPressed(toolbar, "layout", value.layout);
     },
 
     /**

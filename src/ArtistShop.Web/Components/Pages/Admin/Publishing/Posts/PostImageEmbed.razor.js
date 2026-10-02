@@ -392,6 +392,8 @@ export function createImageUploads(quill, toolbar) {
             layout: newLayout,
             // the file name without its extension, until the artist writes something better
             alt: uploaded.originalFileName.replace(/\.[^.]*$/, ""),
+            // the page ignores it while there's no version wider than the size shown
+            lightbox: true,
           },
           "user"
         );

@@ -28,7 +28,7 @@
       return;
     }
 
-    var artworks = await ArtworkRepository.GetListAsync(FilterFor(series.Id), searchMatches: null);
+    var artworks = await ArtworkRepository.GetListAsync(FilterFor(series.Id), searchMatches: null, excludedSeriesId: null);
 
     // the same cover the home page shows, for the card a pasted link turns into
     var cover = (await SeriesRepository.GetVisibleWithCoversAsync())

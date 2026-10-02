@@ -1,5 +1,4 @@
 @using System.Text.Json
-@using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Domain.Publishing
 
@@ -39,19 +38,6 @@
     </div>
   </Lines>
   <ChildContent>
-    <div class="flex" role="group" aria-label="Layout">
-      <EmbedToolbarButton aria-label="Full width" title="Full width" aria-pressed="false"
-                          data-quill-icon="align" data-quill-icon-value="justify"
-                          data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)" />
-      @* the image toolbar's Wrap text icon, padded as it is there, and mirrored for the right *@
-      <EmbedToolbarButton aria-label="Wrap left" title="Wrap left" aria-pressed="false"
-                          data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">
-        <SvgIcon Name="text-wrap" Class="p-0.5" />
-      </EmbedToolbarButton>
-      <EmbedToolbarButton aria-label="Wrap right" title="Wrap right" aria-pressed="false"
-                          data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">
-        <SvgIcon Name="text-wrap" Class="-scale-x-100 p-0.5" />
-      </EmbedToolbarButton>
-    </div>
+    <EmbedLayoutButtons CenterLabel="Full width" CenterIcon="justify" />
   </ChildContent>
 </PostEmbedToolbar>

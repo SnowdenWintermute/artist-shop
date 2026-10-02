@@ -32,6 +32,24 @@ public static class PageUrls
 
     public static string EditArtwork(ArtworkId id) => $"/admin/catalog/artworks/{id.Value}/edit";
 
+    public static string EditSeries(SeriesId id) => $"/admin/catalog/series/{id.Value}";
+
+    // one parameter per artwork ticked on the page that adds artworks to a series
+    public const string AddSeriesArtworksTickKey = "add";
+
+    public static string AddSeriesArtworks(SeriesId id) => $"{EditSeries(id)}/add-artworks";
+
+    // the page with these artworks ticked and no filters, which is where Clear filters goes
+    public static string AddSeriesArtworks(SeriesId id, IReadOnlyList<ArtworkId> tickedIds) =>
+        WithQuery(
+            AddSeriesArtworks(id),
+            [
+                .. tickedIds.Select(tickedId =>
+                    (AddSeriesArtworksTickKey, (string?)tickedId.Value.ToString(CultureInfo.InvariantCulture))
+                ),
+            ]
+        );
+
     // on a site's host
     public const string AdminDashboard = "/admin";
 

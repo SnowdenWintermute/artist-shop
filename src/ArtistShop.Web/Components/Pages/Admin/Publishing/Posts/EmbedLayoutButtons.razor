@@ -1,0 +1,29 @@
+@using ArtistShop.Web.Components.Icons
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  // what the centred layout is called for this kind of embed, such as "Full width" for a video
+  [Parameter, EditorRequired]
+  public string CenterLabel { get; set; } = default!;
+
+  // which of Quill's align icons the centred layout shows, such as "justify"
+  [Parameter, EditorRequired]
+  public string CenterIcon { get; set; } = default!;
+}
+
+@* An embed's three layouts: centred on a line of its own, or with the text wrapped beside it. The
+   wrap icon is padded, since it's drawn to its edges and Quill's icons leave a margin, and
+   mirrored for the right *@
+<div class="flex" role="group" aria-label="Layout">
+  <EmbedToolbarButton aria-label="@CenterLabel" title="@CenterLabel" aria-pressed="false"
+                      data-quill-icon="align" data-quill-icon-value="@CenterIcon"
+                      data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)" />
+  <EmbedToolbarButton aria-label="Wrap left" title="Wrap left" aria-pressed="false"
+                      data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">
+    <SvgIcon Name="text-wrap" Class="p-0.5" />
+  </EmbedToolbarButton>
+  <EmbedToolbarButton aria-label="Wrap right" title="Wrap right" aria-pressed="false"
+                      data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">
+    <SvgIcon Name="text-wrap" Class="-scale-x-100 p-0.5" />
+  </EmbedToolbarButton>
+</div>

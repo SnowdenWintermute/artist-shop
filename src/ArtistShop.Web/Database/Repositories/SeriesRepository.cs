@@ -305,6 +305,29 @@ public class SeriesRepository(SiteDatabase database)
         );
     }
 
+    // at the end of the series, in the order given
+    public async Task AddArtworksAsync(SeriesId id, IReadOnlyList<ArtworkId> artworkIds)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "SELECT add_artworks_to_series(@SeriesId, @ArtworkIds)",
+                new
+                {
+                    SeriesId = id.Value,
+                    ArtworkIds = (int[])[.. artworkIds.Select(artworkId => artworkId.Value)],
+                }
+            );
+        }
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.SeriesNoLongerExists))
+        {
+            throw new ChangedSincePageLoadException(exception.Message, exception);
+        }
+    }
+
     public async Task RemoveArtworksAsync(SeriesId id, IEnumerable<ArtworkId> artworkIds)
     {
         await using var connection = await database.OpenConnectionAsync();

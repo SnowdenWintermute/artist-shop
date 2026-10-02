@@ -8,6 +8,8 @@ CREATE FUNCTION get_artwork_list (
     -- as not searching at all
     p_is_searching boolean,
     p_series_id int,
+    -- the series an artwork is being added to, so the list leaves out what's in it already
+    p_excluded_series_id int,
     p_has_images boolean,
     p_is_for_sale boolean,
     p_sort smallint,
@@ -124,6 +126,17 @@ BEGIN
         AND (
             p_series_id IS NULL
             OR series_place.artwork_id IS NOT NULL
+        )
+        AND (
+            p_excluded_series_id IS NULL
+            OR NOT EXISTS (
+                SELECT
+                FROM
+                    artwork_and_series_junction AS excluded
+                WHERE
+                    excluded.artwork_id = artwork.id
+                    AND excluded.series_id = p_excluded_series_id
+            )
         )
         AND (
             NOT p_is_searching

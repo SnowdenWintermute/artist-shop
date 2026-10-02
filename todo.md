@@ -1,29 +1,94 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
-## Review of 4d74b12, 2026-10-01 (From Claude)
+## Handoff, 2026-10-02 (evening): drawer review fixes, Add artworks page for a series (From Claude)
 
-Fixed after the review (not committed yet):
-- A tap on an embed checks for a keyboard whoever has focus, so a caption field's keyboard closes too, and it
-  blurs whatever has focus. `globals.d.ts` no longer declares Quill's `blur` and `hasFocus`.
-- `keyboardClosed()` ignores resizes while the keyboard is still up (partway through closing, browser bars).
-- Clicks and Escape inside a `<dialog>` no longer close the toolbar, so a dialog opened from it leaves it open on
-  the embed, and the answer moves it to the replacement. Escape in a dialog closes only the dialog.
-- `./dev.sh --phone` says so when it finds no network address.
-- `./dev.sh --phone` serves HTTPS, because over HTTP the nip.io pages aren't secure and lose `crypto.randomUUID`
-  (every upload) and the clipboard (Copy button). The certificate is made by mkcert per address into the
-  git-ignored `.dev-certs/`, and passed with `Kestrel__Certificates__Default__*`. One-time setup: `mkcert -install`
-  (Firefox needs `libnss3-tools` first), then `rootCA.pem` from `mkcert -CAROOT` installed on the iPhone and given
-  full trust in Settings → General → About → Certificate Trust Settings. Never copy `rootCA-key.pem` anywhere.
+Uncommitted (on top of the afternoon's work below), 870 tests pass, `npm run typecheck` clean. Mike tried the drawer
+and the Add artworks page in the browser and both work; fast ticking is debounced by `SubmitOnChange` (300 ms), which
+felt fine. Next session: review all of the uncommitted code together, then add things to the admin menus.
 
+- Drawer review fixes: `UserAuthMenu` renders its own wrapper `<div>` with a required `Class` (a row in the bar, a
+  column in the drawer), so the username and Logout no longer spread across the bar. The lightbox's
+  `html:has(...:modal)` scroll lock in `Styles/app.css` also covers `dialog[data-menu]`. Ctrl, Cmd or Shift on a
+  drawer link doesn't close the drawer (`isLinkFollowed`). Bottom safe-area padding on the drawer. `NavBar.razor.js`
+  checks `isConnected` before querying.
+- Add artworks to a series: `SeriesAdmin/AddSeriesArtworks.razor` at `/admin/catalog/series/{id}/add-artworks`,
+  opened by a primary "Add artworks" button beside "Remove selected" in `SeriesArtworkList` (which now shows that
+  row for an empty series too). The page reuses `ArtworkListBrowser`, with its filters and paging, through two new
+  parameters: `ExcludedSeriesId` (leaves out the series' artworks, and the series from the Series dropdown) and
+  `Selection` (`ArtworkListSelection`, a checkbox column in `ArtworkListRows`).
+- Ticks live in the address as `add=<id>`. A GET form with `SubmitOnChange` wraps the rows and carries the rest of
+  the address plus ticks on other pages; the filter form carries the ticks through `KeptFields`, now a list of
+  name/value pairs so a name can repeat (`PickArtwork` updated). Blazor doesn't scroll to the top after a form
+  submit, only after a link, so a tick shouldn't move the page; worth checking how it feels, and whether a quick
+  second tick during a load gets undone.
+- "Add selected (n)" posts to the page's own address and calls `SeriesRepository.AddArtworksAsync`, which runs the
+  new `add_artworks_to_series` (Procedures/Series/AddArtworks.sql): appends in address order, takes the series-row
+  lock like `set_artwork_series`, skips artworks already in the series or deleted, raises SH004 for a deleted
+  series. Then it redirects to the series page. `get_artwork_list` gained `p_excluded_series_id`.
+- `PageUrls.EditSeries` and `PageUrls.AddSeriesArtworks`. Tests: four in `SeriesRepositoryTests`/`ArtworkListTests`,
+  three in the new `App/AddSeriesArtworksPageTests.cs`.
+
+## Handoff, 2026-10-02 (afternoon): review fixes, TypeScript, nav drawer (From Claude)
+
+Uncommitted, 863 tests pass, `npm run typecheck` clean. Next session: review this session's code together, then add
+things to the admin menus. The drawer hasn't been tried in a browser yet.
+
+- Review fixes for 79a7179 + 837efba: new uploads start with `lightbox: true` (the page ignores it without a wider
+  version); `EmbedLayoutButtons.razor` holds the three layout buttons for image and video toolbars; `showPressed()`
+  in `PostEmbedToolbar.razor.js` marks the pressed size or layout; stale comments removed.
+- TypeScript 7.0.2 in a root `package.json` (`npm install` once, then `npm run typecheck`, in `commands.md`);
+  `node_modules/` in `.dockerignore`. The 59 errors already there are fixed: element classes are named so
+  `instanceof` replaces calling unknown methods (`EnableSaveOnChange`, `PostBackup`), `#part()` returns
+  `HTMLElement`, `findById()` in `ReconnectModal.razor.js`, the reconnect event typed in `globals.d.ts`, type
+  guards in `collect-files.js`. `PasskeySubmit.razor.js` (Microsoft's template, not rendered by any page) is typed,
+  attaches its internals once, and encodes the email in its address.
+- Nav drawer: `NavBar.razor` is the bar for both `NavMenu` and `PlatformNavMenu`, which now hold only their links;
+  the links render in the bar and in `NavDrawer.razor`. Below md the menu button shows by CSS; above it,
+  `<nav-bar>` (`NavBar.razor.js`, a ResizeObserver) collapses when the links don't fit. Hidden links stay laid
+  out, so the measurement doesn't change. The drawer is a `<dialog>` in `<modal-dialog>`, right side; `data-menu`
+  (new in `ModalDialog.razor.js`) closes it on a backdrop click or a followed link. `overflow-hidden` stopgap gone.
+- Icons `menu.svg`, `close.svg` drawn for the project; `image-remove.svg` redrawn too, as the old one looked like
+  Gridicons (GPL).
+
+## Handoff, 2026-10-02: embed toolbar review and restyle (From Claude)
+
+Committed as 79a7179 and 837efba. Next session: review both commits together, then build a hamburger-icon drawer
+for the website's main nav.
+
+Review of 4d74b12, then fixes (79a7179):
+- A tap on an embed closes a keyboard whoever has focus (text or a caption field), waiting for it with
+  `keyboardClosed()`, which ignores resizes while the keyboard is still up.
+- Clicks and Escape inside a `<dialog>` leave the toolbar open; a dialog's answer moves it to the replacement.
 - Back to the text, as Google Docs does: if the cursor was in the text when the toolbar opened, Done, Enter in a
-  field, Escape or clicking the open embed again put it back (`closeBackToText`, `quill.focus()`). On a phone that
-  brings the keyboard back. A click elsewhere or Remove only closes. Focus is only taken from the editor or a
-  field when a keyboard is up, so on desktop the cursor stays in the text. `hasFocus` is declared again.
+  field, Escape or clicking the open embed again put it back (`closeBackToText`). Focus is only taken when a
+  keyboard is up, so on desktop the cursor stays in the text.
+- `./dev.sh --phone` serves HTTPS with an mkcert certificate per address (git-ignored `.dev-certs/`), since the
+  nip.io pages over HTTP aren't secure and lose `crypto.randomUUID` (every upload) and the clipboard. One-time
+  setup: `mkcert -install` (Firefox needs `libnss3-tools`), and `rootCA.pem` from `mkcert -CAROOT` installed and
+  fully trusted on the iPhone. Never copy `rootCA-key.pem`. Exits with a message when there's no network address.
+
+Restyle (837efba):
+- The embed toolbar looks like Quill's link tooltip; `EmbedToolbarButton.razor` draws buttons as Quill's toolbar
+  does (grey, blue on hover or pressed) and colours Quill's icons. Quill's colours are `quill-*` theme tokens.
+- Icons: Quill's own (`Quill.import("ui/icons")`, filled in by `showQuillIcons` from `data-quill-icon`), plus
+  `text-wrap.svg` (Apache 2.0) and `image-remove.svg` (red, Remove). Done is the app's button at the far right.
+- `PostEmbedToolbar` has a `Lines` slot above the buttons: alt text, caption (`EmbedCaptionField.razor`), the
+  full-screen checkbox and upload status for images; the video's address after its Change video icon. Fields are
+  420px at most and fill what their label leaves; the toolbar is `w-max`, capped at the screen less 8px a side,
+  so `shift()` can move it left (before, its width depended on where it last was).
+- Images and videos now share three layouts: centred, wrap left, wrap right. `EmbedLayout.Left`/`Right` are
+  removed from the domain; an old "left"/"right" would read as centred (Mike deleted the production posts using
+  them). The add-artwork dialog's Position is three radios.
+- Main Quill toolbar: list buttons removed (lists still form by typing "1. " or "- "), Quill's image and video
+  icons on our buttons, and a tooltip on every control.
+- Licensing: `LICENSE.md` is PolyForm Noncommercial 1.0.0, as in speed-dungeon. Icons from others are listed in
+  `wwwroot/icons/SOURCES.md`, with `licenses/Apache-2.0.txt`; a new icon needs a row there.
 
 Later:
 - Dragging embeds to move them, on desktop at least, phones if they can. The `mousedown` cancel on embeds
   (keeps a phone's keyboard down) also stops the browser's own drag, so it will have to make way.
 - The cursor can't be put between two embeds that follow each other.
+- Android is untested for all of the keyboard handling.
 
 ## Handoff, 2026-10-01: embed toolbar on phones (From Claude)
 

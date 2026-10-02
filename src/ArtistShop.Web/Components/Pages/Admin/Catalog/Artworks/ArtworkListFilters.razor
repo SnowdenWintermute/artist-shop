@@ -15,8 +15,9 @@
   public IReadOnlyList<Series> Series { get; set; } = default!;
   [Parameter, EditorRequired]
   public string ClearFiltersHref { get; set; } = default!;
+  // a name can repeat, like one per ticked artwork
   [Parameter]
-  public IReadOnlyDictionary<string, string>? KeptFields { get; set; }
+  public IReadOnlyList<(string Name, string Value)>? KeptFields { get; set; }
 
   // Hidden when clearing would change nothing. Compared as filters, not addresses: the form sends
   // its empty fields too, so a list back at the cleared filters never has the same address. The
@@ -45,7 +46,7 @@
    data-enhance: blazor builds the address from the fields and patches the page in, instead of
    the browser reloading it, which is what put the address in the tab's title mid-submit *@
 <form method="get" data-enhance class="mb-4 border p-4">
-  @foreach (var (name, value) in KeptFields ?? new Dictionary<string, string>())
+  @foreach (var (name, value) in KeptFields ?? [])
   {
     <input type="hidden" name="@name" value="@value" />
   }

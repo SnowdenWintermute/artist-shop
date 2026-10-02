@@ -1,5 +1,5 @@
 // Types for what the browser scripts use without importing it. Written by hand, covering only what
-// the scripts call, since the real types come in npm packages and this project has no Node toolchain
+// the scripts call
 
 // defined by blazor.web.js, which App.razor loads before every script
 declare const Blazor: {
@@ -169,4 +169,9 @@ interface ImageLightboxElement extends HTMLElement {
 
 interface HTMLElementTagNameMap {
   "image-lightbox": ImageLightboxElement;
+}
+
+// blazor.web.js raises this on ReconnectModal.razor's dialog as the connection comes and goes
+interface HTMLElementEventMap {
+  "components-reconnect-state-changed": CustomEvent<{ state: string }>;
 }

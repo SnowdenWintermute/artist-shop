@@ -1,22 +1,41 @@
+// an element ReconnectModal.razor renders, as the type the script uses
+/**
+ * @template {Element} T
+ * @param {string} id
+ * @param {new () => T} type
+ * @returns {T}
+ */
+function findById(id, type) {
+  const element = document.getElementById(id);
+
+  if (!(element instanceof type)) {
+    throw new Error(`ReconnectModal.razor is missing its #${id}.`);
+  }
+
+  return element;
+}
+
 // Set up event handlers
-const reconnectModal = document.getElementById("components-reconnect-modal");
+const reconnectModal = findById("components-reconnect-modal", HTMLDialogElement);
 reconnectModal.addEventListener(
   "components-reconnect-state-changed",
   handleReconnectStateChanged
 );
 
-const retryButton = document.getElementById("components-reconnect-button");
+const retryButton = findById("components-reconnect-button", HTMLButtonElement);
 retryButton.addEventListener("click", retry);
 
-const resumeButton = document.getElementById("components-resume-button");
+const resumeButton = findById("components-resume-button", HTMLButtonElement);
 resumeButton.addEventListener("click", resume);
 
 // Refreshing or leaving the page closes the connection, and Blazor reports that like any other
 // disconnect, so showing the dialog at once makes it flash on every refresh. Only a connection that
 // is still down after this long is worth interrupting for.
 const SHOW_DELAY_MILLISECONDS = 1500;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
 let showTimeout;
 
+/** @param {CustomEvent<{ state: string }>} event */
 function handleReconnectStateChanged(event) {
   if (event.detail.state === "show") {
     clearTimeout(showTimeout);
