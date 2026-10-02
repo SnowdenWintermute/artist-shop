@@ -59,6 +59,29 @@ function keyboardClosed() {
   });
 }
 
+// Quill's own toolbar icons, in the buttons that name one as Quill's toolbar does: a format, and
+// for some, a value, such as align and center
+/** @param {HTMLElement} toolbar */
+function showQuillIcons(toolbar) {
+  const icons = Quill.import("ui/icons");
+
+  for (const button of toolbar.querySelectorAll("button[data-quill-icon]")) {
+    if (!(button instanceof HTMLButtonElement)) {
+      continue;
+    }
+
+    const { quillIcon = "", quillIconValue = "" } = button.dataset;
+    const icon = icons[quillIcon];
+    const markup = typeof icon === "string" ? icon : icon?.[quillIconValue];
+
+    if (markup === undefined) {
+      throw new Error(`Quill has no ${quillIcon} icon for "${quillIconValue}".`);
+    }
+
+    button.innerHTML = markup;
+  }
+}
+
 // one of the data- attributes the server renders onto a kind's toolbar, such as an image address
 /**
  * @param {HTMLElement} toolbar
@@ -117,6 +140,7 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
   // started now, so it has usually arrived before the first click
   const floatingUi = loadFloatingUi(floatingUiSource);
   const Delta = Quill.import("delta");
+  showQuillIcons(toolbar);
 
   // the embed the toolbar is open for
   /** @type {HTMLElement | null} */

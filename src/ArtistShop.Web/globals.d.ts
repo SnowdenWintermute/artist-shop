@@ -83,6 +83,8 @@ declare class Quill {
   static import(path: "formats/link"): typeof QuillLink;
   static import(path: "blots/block/embed"): typeof QuillBlot;
   static import(path: "delta"): typeof QuillDelta;
+  // each format's toolbar icon as SVG markup, or one per value, such as align's "", "center" and "right"
+  static import(path: "ui/icons"): { image: string; video: string; [format: string]: string | Record<string, string> };
   static register(blot: typeof QuillBlot, overwrite?: boolean): void;
   static find(node: Node): QuillBlot | Quill | null;
 }

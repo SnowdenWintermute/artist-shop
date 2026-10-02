@@ -1,14 +1,26 @@
 @using System.Text.Json
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Domain.Publishing
 
 @code {
-  public const string PressedClass = "aria-pressed:bg-blue-400 aria-pressed:text-white";
+  // a toolbar's text field, sized as Quill's own link field is
+  public const string FieldClass = "h-[26px] border border-quill-line px-[5px] text-[13px]";
+
+  // a field's line: its name, then the field filling what the name leaves, up to this width
+  public const string FieldLineClass = "flex max-w-[420px] items-center gap-2";
+
+  // a field's name before it, as wide for every field so the fields line up
+  public const string FieldNameClass = "w-16 shrink-0";
 
   // each layout's name in the Delta, mapped to the classes the post page gives it
   public static readonly string LayoutClasses = JsonSerializer.Serialize(
     Enum.GetValues<EmbedLayout>().ToDictionary(EmbedLayoutNames.Of, EmbedLayoutClasses.For));
+
+  // what this kind of embed shows above the buttons, each on a line of its own, such as its fields
+  [Parameter, EditorRequired]
+  public RenderFragment Lines { get; set; } = default!;
 
   // the buttons for this kind of embed, which go before Remove and Done
   [Parameter, EditorRequired]
@@ -21,13 +33,24 @@
 
 @* The toolbar that opens under an embed when the artist clicks one, for any kind of embed.
    PostEmbedToolbar.razor.js places it with Floating UI, closes it, and handles Remove and Done.
-   Its buttons have no name, so the form never posts them *@
-<div popover="manual" class="m-0 inset-auto border border-theme-base bg-white p-2 shadow" @attributes="AdditionalAttributes"
+   Its buttons have no name, so the form never posts them. It looks like Quill's link tooltip, so
+   it matches the editor's own. As wide as its content, rather than the default's fit to the room
+   right of where it last was, which kept it from moving left to fit; and no wider than the screen,
+   less the margin Floating UI's shift() keeps *@
+<div popover="manual" class="m-0 inset-auto w-max max-w-[calc(100%-1rem)] border border-quill-line bg-white px-3 py-2 text-sm text-quill-ink shadow-[0_0_5px_var(--color-quill-shadow)]"
+     @attributes="AdditionalAttributes"
      data-floating-ui-src="@Assets["lib/floating-ui/floating-ui.dom.browser.min.mjs"]">
-  <div class="flex flex-wrap items-center gap-4">
-    @ChildContent
-    <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-action="remove">Remove</ButtonBasic>
-    @* closes the toolbar, as a click anywhere else does, for anyone who doesn't know that *@
-    <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-action="done">Done</ButtonBasic>
+  <div class="flex flex-col gap-2">
+    @Lines
+    <div class="flex flex-wrap items-center gap-4">
+      @ChildContent
+      @* coloured on the icon, so it keeps its colour when the button turns blue on hover *@
+      <EmbedToolbarButton aria-label="Remove" title="Remove" data-action="remove">
+        <SvgIcon Name="image-remove" Class="text-red-600" />
+      </EmbedToolbarButton>
+      @* closes the toolbar, as a click anywhere else does, for anyone who doesn't know that. Apart
+         from the other buttons, at the far end *@
+      <ButtonBasic type="button" Variant="ButtonVariant.Primary" Class="ml-auto" data-action="done">Done</ButtonBasic>
+    </div>
   </div>
 </div>

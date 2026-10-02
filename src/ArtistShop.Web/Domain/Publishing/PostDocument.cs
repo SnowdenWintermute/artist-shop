@@ -77,8 +77,6 @@ public enum EmbedImageSize
 public enum EmbedLayout
 {
     Center,
-    Left,
-    Right,
     FloatLeft,
     FloatRight,
 }

@@ -22,10 +22,11 @@ post-body-editor ::deep .ql-editor h3 {
   font-weight: 700;
 }
 
-/* The toolbar buttons Quill leaves at an icon's width, with no icon */
-post-body-editor ::deep .ql-toolbar button.ql-artshop-artwork,
-post-body-editor ::deep .ql-toolbar button.ql-artshop-image,
-post-body-editor ::deep .ql-toolbar button.ql-artshop-video {
+/* The Artwork button, which has text where the others have an icon. Quill sets the text at the
+   top of the button, so it's centred here */
+post-body-editor ::deep .ql-snow.ql-toolbar button.ql-artshop-artwork {
+  display: inline-flex;
+  align-items: center;
   width: auto;
 }
 

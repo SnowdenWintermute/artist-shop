@@ -1,0 +1,8 @@
+@* An image embed's caption, whether the image is an artwork's or uploaded into the post.
+   ImageEmbedControls.razor.js handles it. Applied as it's typed. No name, so the form never posts
+   it; the toolbar's script keeps Enter from submitting the post *@
+<label class="@PostEmbedToolbar.FieldLineClass">
+  <span class="@PostEmbedToolbar.FieldNameClass">Caption</span>
+  <input type="text" autocomplete="off" placeholder="Optional" class="@PostEmbedToolbar.FieldClass min-w-0 flex-1"
+         data-part="caption" />
+</label>

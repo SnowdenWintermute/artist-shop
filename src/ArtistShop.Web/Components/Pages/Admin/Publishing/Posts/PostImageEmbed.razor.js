@@ -543,7 +543,7 @@ export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, sig
       },
 
       onButton(button, embed) {
-        if (controls.onButton(button, embed.value, embed.update)) {
+        if (controls.onButton(button, embed.update)) {
           return;
         }
 

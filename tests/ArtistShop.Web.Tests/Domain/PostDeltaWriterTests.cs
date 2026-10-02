@@ -21,9 +21,9 @@ public class PostDeltaWriterTests
           {"insert":"Two","attributes":{"link":"/series/gardens"}},{"insert":"\n","attributes":{"list":"bullet"}},
           {"insert":"First"},{"insert":"\n","attributes":{"list":"ordered"}},
           {"insert":{"artshop-artwork":{"artworkId":7,"storageKey":"0123456789abcdef0123456789abcdef","size":"small","layout":"floatLeft","caption":"Dawn"}}},
-          {"insert":{"artshop-image":{"storageKey":"0123456789abcdef0123456789abcdef","width":1200,"height":800,"blur":"data:image/webp;base64,AAAA","size":"medium","layout":"right","caption":"A study","alt":"Pencil","lightbox":true}}},
+          {"insert":{"artshop-image":{"storageKey":"0123456789abcdef0123456789abcdef","width":1200,"height":800,"blur":"data:image/webp;base64,AAAA","size":"medium","layout":"floatRight","caption":"A study","alt":"Pencil","lightbox":true}}},
           {"insert":{"artshop-video":{"provider":"youtube","videoId":"dQw4w9WgXcQ","layout":"center"}}},
-          {"insert":{"artshop-video":{"provider":"vimeo","videoId":"76979871","hash":"abc123","layout":"left"}}},
+          {"insert":{"artshop-video":{"provider":"vimeo","videoId":"76979871","hash":"abc123","layout":"floatLeft"}}},
           {"insert":"The end\n"}
         ]}
         """;

@@ -1,0 +1,29 @@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+  // empty for a button showing one of Quill's icons, which the toolbar's script puts in
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+
+  // for what the base doesn't cover
+  [Parameter]
+  public string? Class { get; set; }
+
+  // Sized as quill.snow.css sizes Quill's own buttons, as wide as an icon button there when it
+  // holds an icon. Quill's icons are styled as quill.snow.css styles them inside Quill's toolbar,
+  // which its rules don't reach, in the button's colour: lines, filled shapes, and the cut-outs in
+  // a filled shape
+  private const string BaseClass =
+    "inline-flex h-6 cursor-pointer has-[svg]:w-7 items-center px-[5px] py-[3px] text-quill-ink hover:text-quill-active " +
+    "aria-pressed:text-quill-active disabled:cursor-auto disabled:opacity-50 disabled:hover:text-quill-ink " +
+    "[&>svg]:h-full [&_.ql-stroke]:fill-none [&_.ql-stroke]:stroke-current [&_.ql-stroke]:stroke-2 " +
+    "[&_.ql-stroke]:[stroke-linecap:round] [&_.ql-stroke]:[stroke-linejoin:round] [&_.ql-fill]:fill-current " +
+    "[&_.ql-even]:[fill-rule:evenodd]";
+}
+
+@* A button in an embed toolbar, drawn as Quill draws its own toolbar's: no box, grey, and blue
+   when hovered or pressed *@
+<button type="button" @attributes="AdditionalAttributes" class="@ClassNames.Join(BaseClass, Class)">@ChildContent</button>

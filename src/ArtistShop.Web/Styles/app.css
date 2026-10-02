@@ -85,6 +85,13 @@
 }
 
 @theme {
+  /* Quill's snow theme colours, which quill.snow.css writes out rather than naming, for the post
+     editor's own controls that match it */
+  --color-quill-ink: #444;
+  --color-quill-line: #ccc;
+  --color-quill-shadow: #ddd;
+  --color-quill-active: #06c;
+
   --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
   --font-serif:
     "JosefinSlab", ui-serif, Georgia, Cambria, "Times New Roman", serif;

@@ -8,8 +8,6 @@ public static class EmbedLayoutNames
         layout switch
         {
             EmbedLayout.Center => "center",
-            EmbedLayout.Left => "left",
-            EmbedLayout.Right => "right",
             EmbedLayout.FloatLeft => "floatLeft",
             EmbedLayout.FloatRight => "floatRight",
         };

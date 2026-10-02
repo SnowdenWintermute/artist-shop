@@ -38,22 +38,11 @@ customElements.define(
       this.#listeners = new AbortController();
       const { signal } = this.#listeners;
 
-      this.addEventListener("change", () => this.#allowWrapOnlyBesideText(), { signal });
       this.querySelector('[data-part="insert"]')?.addEventListener("click", () => this.#insert(), { signal });
-      this.#allowWrapOnlyBesideText();
     }
 
     disconnectedCallback() {
       this.#listeners?.abort();
-    }
-
-    // a centred embed has nothing beside it to wrap
-    #allowWrapOnlyBesideText() {
-      const wrap = this.#input('input[name="wrap"]');
-
-      if (wrap !== null) {
-        wrap.disabled = this.#input('input[name="alignment"]:checked')?.dataset.wrappedLayout === undefined;
-      }
     }
 
     // Changing an embed's image renders no size or layout controls, and sends only the image
@@ -65,9 +54,7 @@ customElements.define(
       }
 
       const size = this.#input('input[name="size"]:checked')?.value;
-      const alignment = this.#input('input[name="alignment"]:checked');
-      const wrap = this.#input('input[name="wrap"]');
-      const wrappedLayout = alignment?.dataset.wrappedLayout;
+      const layout = this.#input('input[name="layout"]:checked')?.value;
 
       sendToArtworkPickerOwner({
         action: "choose",
@@ -75,9 +62,7 @@ customElements.define(
           artworkId: Number(artworkId),
           storageKey,
           ...(size === "small" || size === "medium" ? { size } : {}),
-          ...(alignment === null
-            ? {}
-            : { layout: wrap?.checked && wrappedLayout !== undefined ? wrappedLayout : alignment.value }),
+          ...(layout === undefined ? {} : { layout }),
         },
       });
     }

@@ -1,5 +1,5 @@
 @using System.Text.Json
-@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Domain.Publishing
 
@@ -29,18 +29,29 @@
                   data-player-classes="@PlayerClasses"
                   data-player-style="@EmbedLayoutClasses.VideoStyle"
                   data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">
-  @* the video it is, on a line of its own above the buttons. Opens in a new tab,
-     so checking the video never leaves the editor *@
-  <div class="flex w-full items-center gap-2">
-    <a data-part="video-link" target="_blank" rel="noopener noreferrer" class="max-w-sm min-w-0 truncate underline"></a>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="shrink-0" data-action="change-video">Change video</ButtonBasic>
-  </div>
-  <div class="flex gap-1" role="group" aria-label="Layout">
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-                 data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">Full width</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-                 data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">Wrap left</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-                 data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">Wrap right</ButtonBasic>
-  </div>
+  <Lines>
+    @* the video it is, on a line of its own above the buttons, after the button that changes it.
+       Opens in a new tab, so checking the video never leaves the editor *@
+    <div class="flex items-center gap-2">
+      <EmbedToolbarButton Class="shrink-0" aria-label="Change video" title="Change video" data-quill-icon="video"
+                          data-action="change-video" />
+      <a data-part="video-link" target="_blank" rel="noopener noreferrer" class="max-w-sm min-w-0 truncate underline"></a>
+    </div>
+  </Lines>
+  <ChildContent>
+    <div class="flex" role="group" aria-label="Layout">
+      <EmbedToolbarButton aria-label="Full width" title="Full width" aria-pressed="false"
+                          data-quill-icon="align" data-quill-icon-value="justify"
+                          data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)" />
+      @* the image toolbar's Wrap text icon, padded as it is there, and mirrored for the right *@
+      <EmbedToolbarButton aria-label="Wrap left" title="Wrap left" aria-pressed="false"
+                          data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">
+        <SvgIcon Name="text-wrap" Class="p-0.5" />
+      </EmbedToolbarButton>
+      <EmbedToolbarButton aria-label="Wrap right" title="Wrap right" aria-pressed="false"
+                          data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">
+        <SvgIcon Name="text-wrap" Class="-scale-x-100 p-0.5" />
+      </EmbedToolbarButton>
+    </div>
+  </ChildContent>
 </PostEmbedToolbar>

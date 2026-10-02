@@ -31,27 +31,10 @@ export function readEmbedWidths(toolbar) {
  * @param {HTMLElement} toolbar
  */
 export function attachImageEmbedControls(toolbar) {
-  const alignmentButtons = [...toolbar.querySelectorAll("button[data-layout]")].filter(
-    (button) => button instanceof HTMLButtonElement
-  );
-  const wrapButton = toolbar.querySelector('button[data-action="wrap"]');
   const captionField = toolbar.querySelector('input[data-part="caption"]');
 
-  if (!(captionField instanceof HTMLInputElement) || !(wrapButton instanceof HTMLButtonElement)) {
-    throw new Error("The image embed toolbar is missing its caption field or Wrap text.");
-  }
-
-  // the alignment button a layout belongs to, whether or not its text wraps
-  /** @param {string} layout */
-  function alignmentOf(layout) {
-    return alignmentButtons.find(
-      (button) => button.dataset.layout === layout || button.dataset.wrappedLayout === layout
-    );
-  }
-
-  /** @param {string} layout */
-  function isWrapped(layout) {
-    return alignmentOf(layout)?.dataset.wrappedLayout === layout;
+  if (!(captionField instanceof HTMLInputElement)) {
+    throw new Error("The image embed toolbar is missing its caption field.");
   }
 
   return {
@@ -67,35 +50,23 @@ export function attachImageEmbedControls(toolbar) {
         button.setAttribute("aria-pressed", String(button instanceof HTMLElement && button.dataset.size === value.size));
       });
 
-      const alignment = alignmentOf(value.layout);
-      alignmentButtons.forEach((button) => button.setAttribute("aria-pressed", String(button === alignment)));
-
-      wrapButton.setAttribute("aria-pressed", String(isWrapped(value.layout)));
-      // centred has nothing beside it to wrap
-      wrapButton.disabled = alignment?.dataset.wrappedLayout === undefined;
+      toolbar.querySelectorAll("button[data-layout]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button instanceof HTMLElement && button.dataset.layout === value.layout));
+      });
     },
 
     /**
      * Whether the button was one of the controls'
      * @param {HTMLButtonElement} button
-     * @param {ImageEmbedLook} current
      * @param {(change: Partial<ImageEmbedLook>) => void} update the open embed's
      */
-    onButton(button, current, update) {
-      const { size, layout, wrappedLayout, action } = button.dataset;
+    onButton(button, update) {
+      const { size, layout } = button.dataset;
 
-      if (action === "wrap") {
-        const alignment = alignmentOf(current.layout)?.dataset;
-        const toggled = isWrapped(current.layout) ? alignment?.layout : alignment?.wrappedLayout;
-
-        if (toggled !== undefined) {
-          update({ layout: toggled });
-        }
-      } else if (size === "small" || size === "medium") {
+      if (size === "small" || size === "medium") {
         update({ size });
       } else if (layout !== undefined) {
-        // a new alignment keeps whether the text wraps, where it can
-        update({ layout: isWrapped(current.layout) ? wrappedLayout ?? layout : layout });
+        update({ layout });
       } else {
         return false;
       }

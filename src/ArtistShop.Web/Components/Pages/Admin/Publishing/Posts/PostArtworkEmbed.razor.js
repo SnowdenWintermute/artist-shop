@@ -241,7 +241,7 @@ export function attachArtworkEmbedToolbar(quill, toolbar, picker, signal) {
       show: controls.show,
 
       onButton(button, embed) {
-        if (controls.onButton(button, embed.value, embed.update)) {
+        if (controls.onButton(button, embed.update)) {
           return;
         }
 

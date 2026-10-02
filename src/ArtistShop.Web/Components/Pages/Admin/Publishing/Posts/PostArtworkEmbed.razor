@@ -1,5 +1,4 @@
 @using System.Globalization
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Images
@@ -17,6 +16,12 @@
                   data-small-width="@ImageVariants.EmbedWidth(EmbedImageSize.Small).ToString(CultureInfo.InvariantCulture)"
                   data-medium-width="@ImageVariants.EmbedWidth(EmbedImageSize.Medium).ToString(CultureInfo.InvariantCulture)"
                   data-layout-classes="@PostEmbedToolbar.LayoutClasses" data-caption-class="@EmbedFigure.CaptionClass">
-  <ImageEmbedControls />
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="change-image">Change image</ButtonBasic>
+  <Lines>
+    <EmbedCaptionField />
+  </Lines>
+  <ChildContent>
+    <ImageEmbedControls />
+    <EmbedToolbarButton aria-label="Change image" title="Change image" data-quill-icon="image"
+                        data-action="change-image" />
+  </ChildContent>
 </PostEmbedToolbar>

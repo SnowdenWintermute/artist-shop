@@ -238,8 +238,6 @@ public class PostDocumentParserTests
 
     [Theory]
     [InlineData("center", EmbedLayout.Center)]
-    [InlineData("left", EmbedLayout.Left)]
-    [InlineData("right", EmbedLayout.Right)]
     [InlineData("floatLeft", EmbedLayout.FloatLeft)]
     [InlineData("floatRight", EmbedLayout.FloatRight)]
     [InlineData("sideways", EmbedLayout.Center)]

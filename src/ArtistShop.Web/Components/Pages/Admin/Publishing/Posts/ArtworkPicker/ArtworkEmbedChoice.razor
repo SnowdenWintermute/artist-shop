@@ -32,17 +32,14 @@
     <fieldset class="mb-4">
       <legend class="artist-shop-field-label">Position</legend>
       <label class="mr-4">
-        <input type="radio" name="alignment" value="@EmbedLayoutNames.Of(EmbedLayout.Left)"
-               data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)" /> Left
+        <input type="radio" name="layout" value="@EmbedLayoutNames.Of(EmbedLayout.Center)" checked /> Centre
       </label>
       <label class="mr-4">
-        <input type="radio" name="alignment" value="@EmbedLayoutNames.Of(EmbedLayout.Center)" checked /> Centre
+        <input type="radio" name="layout" value="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)" /> Wrap left
       </label>
       <label>
-        <input type="radio" name="alignment" value="@EmbedLayoutNames.Of(EmbedLayout.Right)"
-               data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)" /> Right
+        <input type="radio" name="layout" value="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)" /> Wrap right
       </label>
-      <label class="mt-2 block"><input type="checkbox" name="wrap" /> Wrap the text around it</label>
     </fieldset>
   }
 

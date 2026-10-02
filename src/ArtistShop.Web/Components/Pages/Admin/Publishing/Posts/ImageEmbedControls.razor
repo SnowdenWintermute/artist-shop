@@ -1,35 +1,28 @@
-@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Domain.Publishing
 
-@* The caption, size and layout controls an image embed's toolbar has, whether the image is an
-   artwork's or uploaded into the post. ImageEmbedControls.razor.js handles them *@
-
-@* applied as it's typed. No name, so the form never posts it; the toolbar's script keeps Enter
-   from submitting the post *@
-<label class="flex items-center ">
-  <span class="shrink-0 mr-2">Caption</span>
-  <input type="text" autocomplete="off" placeholder="Optional" class="artist-shop-field-input min-w-0 flex-1"
-         data-part="caption" />
-</label>
-<div class="flex items-center">
-  <div class="flex gap-1" role="group" aria-label="Size">
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" data-size="small"
-                 aria-pressed="false">Small</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" data-size="medium"
-                 aria-pressed="false">Medium</ButtonBasic>
+@* The size and layout controls an image embed's toolbar has, whether the image is an artwork's
+   or uploaded into the post. ImageEmbedControls.razor.js handles them, and the caption in
+   EmbedCaptionField *@
+<div class="flex items-center gap-4">
+  <div class="flex" role="group" aria-label="Size">
+    <EmbedToolbarButton data-size="small" aria-pressed="false">Small</EmbedToolbarButton>
+    <EmbedToolbarButton data-size="medium" aria-pressed="false">Medium</EmbedToolbarButton>
   </div>
-  @* An alignment button names its layout on a line of its own, and the one with text wrapped
-   around it, if it has one. Wrap text switches between the two *@
-  <div class="flex gap-1" role="group" aria-label="Layout">
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass"
-                 aria-pressed="false" data-layout="@EmbedLayoutNames.Of(EmbedLayout.Left)"
-                 data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">Left</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass"
-                 aria-pressed="false" data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">Centre</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass"
-                 aria-pressed="false" data-layout="@EmbedLayoutNames.Of(EmbedLayout.Right)"
-                 data-wrapped-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">Right</ButtonBasic>
+  @* A video's three layouts: centred on a line of its own, or with the text wrapped beside it. The
+     wrap icon is padded, since it's drawn to its edges and Quill's icons leave a margin, and
+     mirrored for the right *@
+  <div class="flex" role="group" aria-label="Layout">
+    <EmbedToolbarButton aria-label="Centre" title="Centre" aria-pressed="false"
+                        data-quill-icon="align" data-quill-icon-value="center"
+                        data-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)" />
+    <EmbedToolbarButton aria-label="Wrap left" title="Wrap left" aria-pressed="false"
+                        data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatLeft)">
+      <SvgIcon Name="text-wrap" Class="p-0.5" />
+    </EmbedToolbarButton>
+    <EmbedToolbarButton aria-label="Wrap right" title="Wrap right" aria-pressed="false"
+                        data-layout="@EmbedLayoutNames.Of(EmbedLayout.FloatRight)">
+      <SvgIcon Name="text-wrap" Class="-scale-x-100 p-0.5" />
+    </EmbedToolbarButton>
   </div>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@PostEmbedToolbar.PressedClass" aria-pressed="false"
-               data-action="wrap">Wrap text</ButtonBasic>
 </div>

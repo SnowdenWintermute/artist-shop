@@ -14,8 +14,6 @@ public static class EmbedLayoutClasses
         layout switch
         {
             EmbedLayout.Center => "my-2 flex justify-center",
-            EmbedLayout.Left => "my-2 flex justify-start",
-            EmbedLayout.Right => "my-2 flex justify-end",
             EmbedLayout.FloatLeft => "my-2 flex justify-center sm:float-left sm:mt-1 sm:mr-4",
             EmbedLayout.FloatRight => "my-2 flex justify-center sm:float-right sm:mt-1 sm:ml-4",
         };

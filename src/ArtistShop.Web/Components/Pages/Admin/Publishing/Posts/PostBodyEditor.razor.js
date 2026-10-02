@@ -27,6 +27,7 @@ const FORMATS = [
   "italic",
   "underline",
   "link",
+  // no toolbar button: Quill makes a list when "1. " or "- " is typed, if the format is allowed
   "list",
   "blockquote",
   ARTWORK_EMBED,
@@ -38,7 +39,6 @@ const FORMATS = [
 const TOOLBAR = [
   [{ header: [2, 3, false] }],
   ["bold", "italic", "underline", "link"],
-  [{ list: "ordered" }, { list: "bullet" }],
   ["blockquote"],
   [ARTWORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
   ["clean"],
@@ -209,16 +209,40 @@ customElements.define(
       // the post page's text width, so the artist sees the lines and wrapping the page will show
       quill.root.classList.add(...(this.dataset.columnClass ?? "").split(" ").filter(Boolean));
 
-      // Quill draws its own buttons' icons and leaves ours empty
-      for (const [embedName, text, label] of [
-        [ARTWORK_EMBED, "Artwork", "Add an artwork"],
-        [IMAGE_EMBED, "Image", "Upload an image"],
-        [VIDEO_EMBED, "Video", "Add a video"],
+      const toolbar = quill.getModule("toolbar").container;
+
+      // Quill draws its own buttons' icons and leaves ours empty. Image and Video take its own image
+      // and video icons; it has none for an artwork, so that one says what it is
+      const icons = Quill.import("ui/icons");
+      for (const [embedName, content] of [
+        [ARTWORK_EMBED, "Artwork"],
+        [IMAGE_EMBED, icons.image],
+        [VIDEO_EMBED, icons.video],
       ]) {
-        const button = quill.getModule("toolbar").container.querySelector(`.ql-${embedName}`);
+        const button = toolbar.querySelector(`button.ql-${embedName}`);
         if (button !== null) {
-          button.textContent = text;
-          button.setAttribute("aria-label", label);
+          button.innerHTML = content;
+        }
+      }
+
+      // Quill gives its controls no tooltip, and names them to screen readers by their format, such
+      // as "bold". The heading picker's label is what takes the clicks
+      for (const [selector, label] of [
+        [".ql-header .ql-picker-label", "Heading"],
+        ["button.ql-bold", "Bold"],
+        ["button.ql-italic", "Italic"],
+        ["button.ql-underline", "Underline"],
+        ["button.ql-link", "Link"],
+        ["button.ql-blockquote", "Quote"],
+        [`button.ql-${ARTWORK_EMBED}`, "Add an artwork"],
+        [`button.ql-${IMAGE_EMBED}`, "Upload an image"],
+        [`button.ql-${VIDEO_EMBED}`, "Add a video"],
+        ["button.ql-clean", "Clear formatting"],
+      ]) {
+        const control = toolbar.querySelector(selector);
+        if (control instanceof HTMLElement) {
+          control.setAttribute("aria-label", label);
+          control.title = label;
         }
       }
 
