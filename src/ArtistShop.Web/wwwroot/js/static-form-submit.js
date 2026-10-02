@@ -10,28 +10,13 @@ let busyButton = null;
 // A form marked data-waits-for-pending posts what the page is still working on: the ticks a
 // SubmitOnChange form is about to put in the address, or the images an ImagesField is still
 // uploading. Clicked while anything carries data-pending, its button goes busy and it posts once
-// nothing does. An upload failing in the meantime ends the wait, so the artist sees the error
-// before anything is saved without that image
+// nothing does, unless an upload has failed, so the artist sees the error before anything is
+// saved without that image
 /** @type {HTMLElement | null} */
 let waitingButton = null;
 
 // a finished upload raises no enhancedload, so while a button waits this watches the marks too
-const pendingObserver = new MutationObserver((records) => {
-  const failed = records.some(
-    (record) =>
-      record.attributeName === "data-failed" &&
-      record.oldValue === null &&
-      record.target instanceof Element &&
-      record.target.hasAttribute("data-failed")
-  );
-
-  if (failed) {
-    stopWaiting();
-    return;
-  }
-
-  postWaiting();
-});
+const pendingObserver = new MutationObserver(postWaiting);
 
 /** @param {HTMLElement} button */
 function showBusy(button) {
@@ -78,8 +63,7 @@ function startWaiting(button) {
     subtree: true,
     // a pending element taken off the page stops being pending too
     childList: true,
-    attributeFilter: ["data-pending", "data-failed"],
-    attributeOldValue: true,
+    attributeFilter: ["data-pending"],
   });
 }
 
@@ -106,6 +90,10 @@ function postWaiting() {
   }
 
   stopWaiting();
+
+  if (button.closest("form")?.querySelector("[data-failed]")) {
+    return;
+  }
 
   // one the page answered by disabling, like Add selected once nothing is ticked, has nothing to post
   if (button.isConnected && !button.hasAttribute("disabled") && button instanceof HTMLButtonElement) {

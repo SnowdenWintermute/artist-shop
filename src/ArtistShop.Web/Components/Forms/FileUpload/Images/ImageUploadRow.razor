@@ -15,7 +15,7 @@
    image lands *@
 <ArtworkThumbnail Image="SelectedImage.Result" />
 
-@* data-failed: a submit waiting on this upload gives up (static-form-submit.js) *@
+@* data-failed: a submit that waited for uploads doesn't post while a row has it (static-form-submit.js) *@
 <div class="grow" data-failed="@(SelectedImage.Error is not null)">
   <div class="mb-1 flex justify-between">
     <span>@SelectedImage.Name</span>

@@ -1,5 +1,42 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Handoff, 2026-10-02 (night): New series dialog, scrollbar gutter (From Claude)
+
+Uncommitted, 872 tests pass. Mike checked the scrollbar fix in Brave; the dialog isn't browser-checked yet.
+
+- `SeriesAdmin/AddSeriesDialog.razor` (shaped like `RenameSeriesDialog`), opened by a "New series" button under the
+  Series checkboxes in `TermAndSeriesPickers`, so it works on Add and Edit artwork. The new series is ticked once
+  added. Its `<form>` is nested in the artwork's form through DOM calls (comment in the file).
+- `Styles/app.css`: `html { overflow-y: scroll }`, so the scrollbar always shows and the admin panel doesn't shift
+  between short and long pages (seen in Brave). Tried first and dropped: `scrollbar-gutter: stable` (the nav bar
+  stopped short of an empty gutter) and left padding of `100vw - 100%` in `MainLayout` (moved the panel in windows
+  narrower than it).
+
+## Handoff, 2026-10-02 (late): submit waits for images still processing (From Claude)
+
+Committed as 8c32989 (with Mike's `ButtonStyles.cs` colour change). 872 tests passed before the capture-phase fix;
+Mike tried both versions in the browser and the final one works. Next session: review 8c32989 together.
+
+- Before this, a click on Add or Save while an image was processing posted only the finished images: the artwork
+  was saved without the rest and nothing said so, or "Add at least one image." if none had finished.
+- `ImagesField` carries `data-pending` while any file has neither a result nor an error; each `ImageUploadRow`
+  carries `data-failed` when its upload errors. `AddArtwork` and `EditArtwork` mark their `EditForm`s
+  `data-waits-for-pending`.
+- `static-form-submit.js`: `isPagePending()` matches any `[data-pending]`, not only `submit-on-change`. A finished
+  upload raises no `enhancedload`, so while a button waits a `MutationObserver` watches `data-pending`. Once nothing
+  is pending it posts, unless the form holds a `[data-failed]` row; then the button goes back to normal.
+- Review (next session): it first stopped at the moment a row newly failed (`data-failed` with `oldValue` null).
+  The upload rows aren't keyed (`BbSortable` never calls `SetKey`), so moving or removing a row could look like a
+  new failure and cancel the wait. Replaced by the single check above, which also stops a failure from before the
+  click from being posted past. Mike tried it in the browser: works. A second click still posts the finished images
+  past a failed row, which Mike chose to keep.
+- The submit listener now runs in the capture phase. Blazor's enhanced-form listener on `document` ran first and
+  posts unless the event is already cancelled, so the hold never stopped the first post. That was true on the Add
+  artworks page too, and for the "already posting" guard. Worth re-checking Add artworks with a quick tick then Add.
+- Known edges, left alone: a file dropped in the instant the last upload lands can miss the post (on success its
+  island is replaced and the sweeper removes the upload); removing the last processing image while waiting posts
+  straight away.
+
 ## Handoff, 2026-10-02 (evening): drawer review fixes, Add artworks page for a series (From Claude)
 
 Uncommitted (on top of the afternoon's work below), 870 tests pass, `npm run typecheck` clean. Mike tried the drawer
