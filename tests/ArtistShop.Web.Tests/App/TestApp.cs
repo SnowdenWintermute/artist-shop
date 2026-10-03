@@ -77,6 +77,11 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
             services.AddSingleton<EmailQueue>(new ImmediateEmailQueue(Mailer));
             services.AddSingleton<EmailSendLimit>(EmailSendLimit);
             services.AddTransient<IStartupFilter, FakeGoogle>();
+
+            // every request runs the security stamp check, which production runs on a cookie's first
+            // request each half hour; that request's user is rebuilt from the account, and must still
+            // carry its session id
+            services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
         });
     }
 

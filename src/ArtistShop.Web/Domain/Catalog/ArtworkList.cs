@@ -13,11 +13,22 @@ public enum ArtworkListSort : byte
     SeriesOrder = 6,
 }
 
+// which series a listed artwork is in; a null filter keeps artworks in any series or none
+public abstract record ArtworkSeriesFilter
+{
+    // only the two below
+    private ArtworkSeriesFilter() { }
+
+    public sealed record InSeries(SeriesId SeriesId) : ArtworkSeriesFilter;
+
+    public sealed record InNoSeries : ArtworkSeriesFilter;
+}
+
 // a null for a three-state filter means the filter is off: HasImages null keeps both
 public record ArtworkListFilter(
     IReadOnlyList<ArtworkTypeId> ArtworkTypeIds,
     IReadOnlyList<VocabularyTermId> VocabularyTermIds,
-    SeriesId? SeriesId,
+    ArtworkSeriesFilter? Series,
     string? SearchText,
     bool? HasImages,
     bool? IsForSale,
@@ -29,7 +40,7 @@ public record ArtworkListFilter(
     public bool HasSameFiltersAs(ArtworkListFilter other) =>
         ArtworkTypeIds.ToHashSet().SetEquals(other.ArtworkTypeIds)
         && VocabularyTermIds.ToHashSet().SetEquals(other.VocabularyTermIds)
-        && SeriesId == other.SeriesId
+        && Series == other.Series
         && SearchText == other.SearchText
         && HasImages == other.HasImages
         && IsForSale == other.IsForSale;

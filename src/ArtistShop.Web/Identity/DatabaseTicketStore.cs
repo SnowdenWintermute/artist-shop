@@ -69,7 +69,7 @@ public sealed class DatabaseTicketStore(
     {
         var claims = identityOptions.Value.ClaimsIdentity;
 
-        // the stamp check rebuilds the claims from the account, without this one
+        // a sign-in over this one, as after a password change, builds its claims from the account, without this one
         if (!ticket.Principal.HasClaim(claim => claim.Type == SessionIdClaimType))
         {
             ticket.Principal.Identities.First().AddClaim(new Claim(SessionIdClaimType, key));

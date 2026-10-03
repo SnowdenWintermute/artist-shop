@@ -268,12 +268,14 @@ public class ArtworkRepository(SiteDatabase database)
 
         var pageSize = ArtistShopLimits.ArtworkListPageSize;
 
+        int? seriesId = filter.Series is ArtworkSeriesFilter.InSeries inSeries ? inSeries.SeriesId.Value : null;
+
         var rows = (
             await connection.QueryAsync<ArtworkListRow>(
                 """
                 SELECT * FROM get_artwork_list(
                     @ArtworkTypeIds, @VocabularyTermIds, @MatchingArtworkIds, @IsSearching,
-                    @SeriesId, @ExcludedSeriesId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
+                    @SeriesId, @IsInNoSeries, @ExcludedSeriesId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
                 )
                 """,
                 new
@@ -282,7 +284,8 @@ public class ArtworkRepository(SiteDatabase database)
                     VocabularyTermIds = (int[])[.. filter.VocabularyTermIds.Select(id => id.Value)],
                     MatchingArtworkIds = (int[])[.. searchMatches?.Select(id => id.Value) ?? []],
                     IsSearching = searchMatches is not null,
-                    SeriesId = filter.SeriesId?.Value,
+                    SeriesId = seriesId,
+                    IsInNoSeries = filter.Series is ArtworkSeriesFilter.InNoSeries,
                     ExcludedSeriesId = excludedSeriesId?.Value,
                     filter.HasImages,
                     filter.IsForSale,

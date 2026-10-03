@@ -1,9 +1,15 @@
+@using System.Globalization
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Sites
 
 @code {
   [Parameter, EditorRequired]
   public IReadOnlyList<ArtworkType> ArtworkTypes { get; set; } = default!;
+
+  private List<(string Value, string Label)> TypeOptions =>
+    [.. ArtworkTypes.Select(type => (type.Id.Value.ToString(CultureInfo.InvariantCulture), type.Name.Value))];
 }
 
 @* A GET form, so each button goes to its own page with the chosen type in the address, as
@@ -11,12 +17,8 @@
 <form method="get" data-enhance>
   <label class="mb-4 block">
     <span class="artist-shop-field-label">Artwork type</span>
-    <select name="type" class="artist-shop-field-input w-full">
-      @foreach (var artworkType in ArtworkTypes)
-      {
-        <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
-      }
-    </select>
+    <RememberedSelect Name="type" InputName="@RememberedInputs.DashboardArtworkType" Options="TypeOptions"
+                      Class="artist-shop-field-input w-full" />
   </label>
 
   <div class="flex flex-wrap gap-2">

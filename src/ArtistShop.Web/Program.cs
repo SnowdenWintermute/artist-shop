@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Account;
 using ArtistShop.Web.Components.Icons;
@@ -73,6 +74,9 @@ builder.Services.AddSingleton(services =>
 );
 builder.Services.AddSingleton(services =>
     new SiteInviteRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
+builder.Services.AddSingleton(services =>
+    new SiteMemberInputValueRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
 );
 
 // every site's schema, in the platform database and reached through one shared pool
@@ -221,6 +225,20 @@ builder
     .Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
     .Configure<DatabaseTicketStore>((options, store) => options.SessionStore = store);
 
+// The security stamp check rebuilds the user from the account, without the sign-in's row id, and that
+// user is the request's own as well as the renewed ticket's
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.OnRefreshingPrincipal = context =>
+    {
+        if (context.CurrentPrincipal?.FindFirst(DatabaseTicketStore.SessionIdClaimType) is { } sessionId)
+        {
+            context.NewPrincipal?.Identities.First().AddClaim(new Claim(sessionId.Type, sessionId.Value));
+        }
+
+        return Task.CompletedTask;
+    }
+);
+
 builder
     .Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -350,5 +368,8 @@ app.MapVideoLinkEndpoints();
 
 // export downloads
 app.MapExportEndpoints();
+
+// inputs that save the value an admin leaves them at
+app.MapRememberedInputEndpoints();
 
 app.Run();

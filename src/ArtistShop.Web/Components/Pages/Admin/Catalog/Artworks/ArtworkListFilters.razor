@@ -23,12 +23,12 @@
   // its empty fields too, so a list back at the cleared filters never has the same address. The
   // picker's cleared list keeps its images filter
   private string ClearFiltersClass =>
-    Filter.HasSameFiltersAs(ArtworkListQuery.ReadAddress(ClearFiltersHref)) ? "invisible" : "";
+    Filter.HasSameFiltersAs(ArtworkListQuery.ReadAddress(ClearFiltersHref)) ? "invisible" : "underline";
 
   // the artist's order inside a series can only sort a list that is one series' worth
   private IEnumerable<ArtworkListSort> SortOptions =>
     Enum.GetValues<ArtworkListSort>()
-      .Where(sort => sort != ArtworkListSort.SeriesOrder || Filter.SeriesId is not null);
+      .Where(sort => sort != ArtworkListSort.SeriesOrder || Filter.Series is ArtworkSeriesFilter.InSeries);
 
   private List<(int Value, string Label)> TypeOptions =>
     [.. Types.Select(type => (type.Id.Value, type.Name.Value))];
@@ -63,52 +63,55 @@
         <span class="artist-shop-field-label">Series</span>
         <select name="@ArtworkListQuery.SeriesKey" class="artist-shop-field-input">
           <option value="">Any series</option>
-          @foreach (var series in Series)
-          {
-            <option value="@series.Id.Value" selected="@(Filter.SeriesId == series.Id)">@series.Name.Value</option>
-          }
-        </select>
-      </label>
+          <option value="@ArtworkListQuery.NoSeriesValue" selected="@(Filter.Series is ArtworkSeriesFilter.InNoSeries)">
+            No series</option>
+            @foreach (var series in Series)
+            {
+              <option value="@series.Id.Value" selected="@(Filter.Series == new ArtworkSeriesFilter.InSeries(series.Id))">
+                @series.Name.Value</option>
+              }
+            </select>
+          </label>
 
-      <YesNoSelect Label="Images" Name="@ArtworkListQuery.ImagesKey" Value="Filter.HasImages"
-                   EitherLabel="With or without" YesLabel="With images" NoLabel="Without images" />
+          <YesNoSelect Label="Images" Name="@ArtworkListQuery.ImagesKey" Value="Filter.HasImages"
+                       EitherLabel="With or without" YesLabel="With images" NoLabel="Without images" />
 
-      <YesNoSelect Label="For sale" Name="@ArtworkListQuery.SaleKey" Value="Filter.IsForSale"
-                   EitherLabel="For sale or not" YesLabel="For sale" NoLabel="Not for sale" />
+          <YesNoSelect Label="For sale" Name="@ArtworkListQuery.SaleKey" Value="Filter.IsForSale"
+                       EitherLabel="For sale or not" YesLabel="For sale" NoLabel="Not for sale" />
 
-      <label>
-        <span class="artist-shop-field-label">Sort by</span>
-        <select name="@ArtworkListQuery.SortKey" class="artist-shop-field-input">
-          @foreach (var sort in SortOptions)
-          {
-            <option value="@ArtworkListQuery.Value(sort)" selected="@(Filter.Sort == sort)">
-              @ArtworkListQuery.Label(sort)
-            </option>
-          }
-        </select>
-      </label>
-    </div>
+          <label>
+            <span class="artist-shop-field-label">Sort by</span>
+            <select name="@ArtworkListQuery.SortKey" class="artist-shop-field-input">
+              @foreach (var sort in SortOptions)
+              {
+                <option value="@ArtworkListQuery.Value(sort)" selected="@(Filter.Sort == sort)">
+                  @ArtworkListQuery.Label(sort)
+                </option>
+              }
+            </select>
+          </label>
+        </div>
 
-    @if (Types.Count > 1)
-    {
-      <CheckboxGroup Legend="Work type" Name="@ArtworkListQuery.TypeKey" Options="TypeOptions"
-                     SelectedValues="SelectedTypeIds" />
-    }
+        @if (Types.Count > 1)
+        {
+          <CheckboxGroup Legend="Work type" Name="@ArtworkListQuery.TypeKey" Options="TypeOptions"
+                         SelectedValues="SelectedTypeIds" />
+        }
 
-    @* several terms from one vocabulary widen the search, while a term from a second
+        @* several terms from one vocabulary widen the search, while a term from a second
        vocabulary narrows it: an artwork has to match one term in each *@
-    @foreach (var vocabulary in Vocabularies.Where(vocabulary => vocabulary.Terms.Count > 0))
-    {
-      <CheckboxGroup @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="@ArtworkListQuery.TermKey"
-                     Options="TermOptions(vocabulary)" SelectedValues="SelectedTermIds" />
-    }
+        @foreach (var vocabulary in Vocabularies.Where(vocabulary => vocabulary.Terms.Count > 0))
+        {
+          <CheckboxGroup @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="@ArtworkListQuery.TermKey"
+                         Options="TermOptions(vocabulary)" SelectedValues="SelectedTermIds" />
+        }
 
-    <div class="flex items-center gap-4">
-      @* app.css hides this unless the browser runs no scripts, which is the only case that
+        <div class="flex items-center gap-4">
+          @* app.css hides this unless the browser runs no scripts, which is the only case that
          can't submit the filter bar by itself *@
-      <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Apply filters</ButtonBasic>
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Apply filters</ButtonBasic>
 
-      <a href="@ClearFiltersHref" class="@ClearFiltersClass">Clear filters</a>
-    </div>
-  </SubmitOnChange>
-</form>
+          <a href="@ClearFiltersHref" class="@ClearFiltersClass">Clear filters</a>
+        </div>
+      </SubmitOnChange>
+    </form>

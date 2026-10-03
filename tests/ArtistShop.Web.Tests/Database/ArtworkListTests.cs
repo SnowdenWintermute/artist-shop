@@ -26,7 +26,7 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
         new(
             ArtworkTypeIds: [],
             VocabularyTermIds: termIds ?? [],
-            SeriesId: seriesId,
+            Series: new ArtworkSeriesFilter.InSeries(seriesId),
             SearchText: null,
             HasImages: hasImages,
             IsForSale: isForSale,
@@ -139,6 +139,28 @@ public sealed class ArtworkListTests(TestDatabaseFixture database)
         var page = await _artworks.GetListAsync(FilterFor(seriesId), searchMatches: null, excludedSeriesId);
 
         Assert.Equal(outside.Id, Assert.Single(page.Items).Id);
+    }
+
+    // no series of its own to filter by, so the search matches hold the list to this test's artworks
+    [Fact]
+    public async Task ListsOnlyTheArtworksInNoSeries()
+    {
+        var seriesId = await _catalog.AddSeriesAsync();
+        var inSeries = await _catalog.AddPaintingInSeriesAsync(seriesId, []);
+        var inNoSeries = await _catalog.AddPaintingAsync(
+            $"Unsorted {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [],
+            images: []
+        );
+
+        var page = await _artworks.GetListAsync(
+            FilterFor(seriesId) with { Series = new ArtworkSeriesFilter.InNoSeries() },
+            searchMatches: [inSeries.Id, inNoSeries.Id],
+            excludedSeriesId: null
+        );
+
+        Assert.Equal(inNoSeries.Id, Assert.Single(page.Items).Id);
     }
 
     // the public pages link by slug, so the list has to carry it

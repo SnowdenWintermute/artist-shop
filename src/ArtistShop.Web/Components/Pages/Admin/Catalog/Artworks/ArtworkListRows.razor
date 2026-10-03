@@ -10,13 +10,24 @@
   [Parameter, EditorRequired]
   public Func<ArtworkListItem, string?> RowHref { get; set; } = default!;
 
-  // gives each row a checkbox, which ArtworkListBrowser's form around this table submits
+  // gives each row a checkbox, which ArtworkListBrowser's form around this table submits. The
+  // whole row is its label, and on a phone the box is hidden
   [Parameter]
   public ArtworkListSelection? Selection { get; set; }
 
-  private static readonly string[] ColumnHeadings = ["", "Title", "Type", "Series", "Images", "For sale"];
+  // whether an artwork is for sale doesn't bear on picking it, so the checkbox takes that column
+  private IReadOnlyList<string> Headings => ["", "Title", "Type", "Series", "Images", Selection is null ? "For sale" : ""];
 
-  private IReadOnlyList<string> Headings => Selection is null ? ColumnHeadings : [.. ColumnHeadings, ""];
+  // a phone keeps only the thumbnail and the title
+  private const string WideOnly = "max-sm:hidden";
+
+  private static readonly string?[] HeadingClasses = [null, null, WideOnly, WideOnly, WideOnly, WideOnly];
+
+  // the whole row shows the tick, as a phone hides the box
+  private string? RowClass =>
+    Selection is null ? null : "has-checked:bg-theme-selected has-checked:hover:bg-theme-selected has-focus-visible:outline-2";
+
+  private string? TickBoxId(ArtworkListItem item) => Selection is null ? null : $"tick-{item.Id.Value}";
 }
 
 @if (Items.Count == 0)
@@ -33,45 +44,56 @@ else
   @* the indicator is positioned against this wrapper: a div inside the table itself is
      foster-parented out by the html parser, which leaves it with nothing to sit against *@
   <div class="relative">
-    <DataTable Items="Items" Headings="Headings"
+    <DataTable Items="Items" Headings="Headings" HeadingClasses="HeadingClasses" RowClass="@RowClass"
                Class="artist-shop-fades-while-loading">
       <Row Context="item">
-        <DataTableCell>
+        <ArtworkListCell TickBoxId="@TickBoxId(item)">
           <a href="@RowHref(item)" class="border block w-fit">
-            <ArtworkThumbnail Image="item.PrimaryImage" Class="size-20" />
+            <ArtworkThumbnail Image="item.PrimaryImage" Class="size-15 sm:size-20" />
           </a>
-        </DataTableCell>
+        </ArtworkListCell>
 
-        <DataTableCell>
+        @* on a phone the title takes the width that's left and stops at its edge: a cell's width
+           only holds back its text once max-w-0 stops it growing to fit *@
+        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="max-sm:w-full max-sm:max-w-0">
           @if (RowHref(item) is { } href)
           {
-            <a href="@href" class="underline">@item.Name.Value</a>
+            <a href="@href" class="underline max-sm:block max-sm:truncate">@item.Name.Value</a>
           }
           else
           {
-            <span>@item.Name.Value</span>
+            <span class="max-sm:block max-sm:truncate">@item.Name.Value</span>
           }
 
           @if (item.DateCreated is { } dateCreated)
           {
-            <span class="block text-xs text-gray-500">@dateCreated.Text</span>
+            <span class="block text-xs text-gray-500 max-sm:truncate">@dateCreated.Text</span>
           }
-        </DataTableCell>
+        </ArtworkListCell>
 
-        <DataTableCell Class="text-sm">@item.ArtworkTypeName.Value</DataTableCell>
+        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="@($"text-sm {WideOnly}")">
+          @item.ArtworkTypeName.Value
+        </ArtworkListCell>
 
-        <DataTableCell Class="text-sm text-gray-600">@item.SeriesNames</DataTableCell>
+        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+          @item.SeriesNames
+        </ArtworkListCell>
 
-        <DataTableCell Class="text-sm text-gray-600">@item.ImageCount</DataTableCell>
+        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+          @item.ImageCount
+        </ArtworkListCell>
 
-        <DataTableCell Class="text-sm text-gray-600">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
-
-        @if (Selection is not null)
+        @if (Selection is null)
         {
-          <DataTableCell>
-            <RowSelectCheckbox ItemName="@item.Name.Value" name="@Selection.FieldName" value="@item.Id.Value"
-                               checked="@Selection.Contains(item.Id)" />
-          </DataTableCell>
+          <DataTableCell Class="@($"text-sm text-gray-600 {WideOnly}")">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
+        }
+        else
+        {
+          @* sr-only rather than hidden, so a phone's keyboard and screen reader still reach the box *@
+          <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="max-sm:sr-only">
+            <RowSelectCheckbox ItemName="@item.Name.Value" id="@TickBoxId(item)" name="@Selection.FieldName"
+                               value="@item.Id.Value" checked="@Selection.Contains(item.Id)" />
+          </ArtworkListCell>
         }
       </Row>
     </DataTable>

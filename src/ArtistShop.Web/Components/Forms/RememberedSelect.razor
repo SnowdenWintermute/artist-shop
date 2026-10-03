@@ -1,0 +1,49 @@
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@inject SiteMemberInputValueRepository InputValues
+@inject CurrentSite CurrentSite
+@inject AntiforgeryStateProvider AntiforgeryStateProvider
+
+@* A select that comes back at the option its admin last changed it to. The saved value only picks
+   among the options rendered now, so one the page no longer offers leaves the first selected *@
+
+@code {
+  // the form field the select submits as
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+
+  // one of RememberedInputs' names, which the value is saved under
+  [Parameter, EditorRequired]
+  public string InputName { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<(string Value, string Label)> Options { get; set; } = default!;
+
+  [Parameter]
+  public string? Class { get; set; }
+
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
+  private string? _savedValue;
+
+  protected override async Task OnInitializedAsync() =>
+    _savedValue = await InputValues.GetAsync(CurrentSite.Id, HttpContext.User.RequiredUserId(), InputName);
+
+  // the select sits in a GET form, so the token goes in attributes rather than a hidden field it
+  // would submit
+  private AntiforgeryRequestToken? Token => AntiforgeryStateProvider.GetAntiforgeryToken();
+}
+
+@* <remembered-select> is defined in RememberedSelect.razor.js. Custom elements display inline by
+   default, so "block" lays it out like a div *@
+<remembered-select class="block" data-save-url="@RememberedInputEndpoints.Path" data-input-name="@InputName"
+                   data-token-field="@Token?.FormFieldName" data-token="@Token?.Value">
+  <select name="@Name" class="@Class">
+    @foreach (var (value, label) in Options)
+    {
+      <option value="@value" selected="@(value == _savedValue)">@label</option>
+    }
+  </select>
+</remembered-select>

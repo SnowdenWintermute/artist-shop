@@ -7,7 +7,8 @@
 @code {
   // the account page is the platform's, whichever host this is
   private string AccountUrl =>
-    CurrentHost is CurrentHost.Site ? PageUrls.PlatformAccount(NavigationManager.BaseUri, PlatformSettings.Host) : PageUrls.AccountPage;
+    CurrentHost is CurrentHost.Site ? PageUrls.PlatformAccount(NavigationManager.BaseUri, PlatformSettings.Host) :
+PageUrls.AccountPage;
 
   // its layout, which differs by where it sits
   [Parameter, EditorRequired]
@@ -21,7 +22,7 @@
       <form action="Account/Logout" method="post">
         <AntiforgeryToken />
         <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
-        <button type="submit">Logout</button>
+        <button type="submit" class="cursor-pointer">Logout</button>
       </form>
     </Authorized>
     <NotAuthorized>

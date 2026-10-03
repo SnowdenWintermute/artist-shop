@@ -9,6 +9,11 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<string> Headings { get; set; } = default!;
 
+  // by column, in the same order as Headings, for a column whose cells carry a class too, like
+  // one hidden on a phone
+  [Parameter]
+  public IReadOnlyList<string?>? HeadingClasses { get; set; }
+
   // one item's cells, each a DataTableCell
   [Parameter, EditorRequired]
   public RenderFragment<TItem> Row { get; set; } = default!;
@@ -27,9 +32,10 @@
 <table class="@ClassNames.Join("w-full text-left", Class)">
   <thead>
     <tr class="text-sm text-gray-500">
-      @foreach (var heading in Headings)
+      @for (var index = 0; index < Headings.Count; index++)
       {
-        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null)">@heading</th>
+        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null,
+                     HeadingClasses?.ElementAtOrDefault(index))">@Headings[index]</th>
       }
     </tr>
   </thead>

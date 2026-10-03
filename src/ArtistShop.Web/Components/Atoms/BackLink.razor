@@ -1,0 +1,8 @@
+@code {
+  [Parameter, EditorRequired]
+  public string Link { get; set; } = null!;
+  [Parameter, EditorRequired]
+  public string Title { get; set; } = null!;
+
+}
+<a href="@Link" class="mb-4 inline-block">← @Title</a>

@@ -1,0 +1,31 @@
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Utilities
+
+@* One cell of ArtworkListRows. With a selection, an empty label for the row's checkbox covers the
+   cell, padding and all, so a click anywhere on the row ticks it. Covering it rather than holding
+   the content keeps the cell's height its content's: a label stretched to the row's height needs
+   a percentage height in a table cell, which Firefox resolves differently *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // the id of the row's checkbox, or null when the list has no selection
+  [Parameter]
+  public string? TickBoxId { get; set; }
+
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+@if (TickBoxId is null)
+{
+  <DataTableCell Class="@Class">@ChildContent</DataTableCell>
+}
+else
+{
+  <DataTableCell Class="@ClassNames.Join("relative", Class)">
+    @ChildContent
+    <label for="@TickBoxId" class="absolute inset-0 cursor-pointer"></label>
+  </DataTableCell>
+}

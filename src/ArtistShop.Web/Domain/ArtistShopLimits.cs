@@ -34,4 +34,7 @@ public static class ArtistShopLimits
 
     // site_invites.email: the longest address email allows
     public const int EmailMaximumLength = 254;
+
+    // site_member_input_values.value
+    public const int RememberedInputValueMaximumLength = 100;
 }

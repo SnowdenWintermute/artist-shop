@@ -13,6 +13,8 @@ public static class ArtworkListQuery
     public const string TypeKey = "type";
     public const string TermKey = "term";
     public const string SeriesKey = "series";
+    // the series filter's value for artworks in no series, where any other value is a series id
+    public const string NoSeriesValue = "none";
     public const string SearchKey = "q";
     public const string ImagesKey = "images";
     public const string SaleKey = "sale";
@@ -29,18 +31,19 @@ public static class ArtworkListQuery
         string? page
     )
     {
-        SeriesId? seriesId = int.TryParse(series, out var chosenSeries)
-            ? new SeriesId(chosenSeries)
+        ArtworkSeriesFilter? seriesFilter =
+            series == NoSeriesValue ? new ArtworkSeriesFilter.InNoSeries()
+            : int.TryParse(series, out var chosenSeries) ? new ArtworkSeriesFilter.InSeries(new SeriesId(chosenSeries))
             : null;
 
         return new(
             [.. (typeIds ?? []).Select(id => new ArtworkTypeId(id))],
             [.. (termIds ?? []).Select(id => new VocabularyTermId(id))],
-            seriesId,
+            seriesFilter,
             string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
             YesNoSelect.Read(images),
             YesNoSelect.Read(sale),
-            ReadSort(sort, seriesId),
+            ReadSort(sort, seriesFilter),
             PageLinks.ReadPageNumber(page)
         );
     }
@@ -66,7 +69,7 @@ public static class ArtworkListQuery
     private static int[] Ids(StringValues values) =>
         [.. values.Select(value => int.TryParse(value, out var id) ? id : (int?)null).OfType<int>()];
 
-    private static ArtworkListSort ReadSort(string? value, SeriesId? seriesId) =>
+    private static ArtworkListSort ReadSort(string? value, ArtworkSeriesFilter? seriesFilter) =>
         value switch
         {
             "title" => ArtworkListSort.TitleAscending,
@@ -75,7 +78,7 @@ public static class ArtworkListQuery
             "oldest" => ArtworkListSort.DateCreatedOldest,
             // the filter bar only offers this with a series picked, and without one it sorts by
             // nothing: a link carrying it alone would leave the control reading "Recently added"
-            "series" when seriesId is not null => ArtworkListSort.SeriesOrder,
+            "series" when seriesFilter is ArtworkSeriesFilter.InSeries => ArtworkListSort.SeriesOrder,
             _ => ArtworkListSort.RecentlyAdded,
         };
 

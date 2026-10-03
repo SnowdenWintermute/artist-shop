@@ -9,6 +9,7 @@
   --theme-base: black; /* header / footer */
   --theme-muted: grey; /* secondary text, borders */
   --theme-hovered: blue; /* primary text */
+  --theme-selected: var(--color-blue-200); /* a selected row */
 }
 
 @theme inline {
@@ -17,6 +18,7 @@
   --color-theme-base: var(--theme-base);
   --color-theme-muted: var(--theme-muted);
   --color-theme-hovered: var(--theme-hovered);
+  --color-theme-selected: var(--theme-selected);
 }
 
 /* The scrollbar shows on every page, even with nothing to scroll, so pages are all the same width
