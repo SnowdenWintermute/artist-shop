@@ -11,17 +11,18 @@
   public Func<ArtworkListItem, string?> RowHref { get; set; } = default!;
 
   // gives each row a checkbox, which ArtworkListBrowser's form around this table submits. The
-  // whole row is its label, and on a phone the box is hidden
+  // whole row is its label, and on a phone the box is hidden. The label covers the row's links
+  // too, so a list with a selection passes a RowHref that returns null
   [Parameter]
   public ArtworkListSelection? Selection { get; set; }
 
   // whether an artwork is for sale doesn't bear on picking it, so the checkbox takes that column
-  private IReadOnlyList<string> Headings => ["", "Title", "Type", "Series", "Images", Selection is null ? "For sale" : ""];
+  private IReadOnlyList<DataTableHeading> Headings =>
+    ["", "Title", new("Type", WideOnly), new("Series", WideOnly), new("Images", WideOnly),
+      new(Selection is null ? "For sale" : "", WideOnly)];
 
   // a phone keeps only the thumbnail and the title
   private const string WideOnly = "max-sm:hidden";
-
-  private static readonly string?[] HeadingClasses = [null, null, WideOnly, WideOnly, WideOnly, WideOnly];
 
   // the whole row shows the tick, as a phone hides the box
   private string? RowClass =>
@@ -44,7 +45,7 @@ else
   @* the indicator is positioned against this wrapper: a div inside the table itself is
      foster-parented out by the html parser, which leaves it with nothing to sit against *@
   <div class="relative">
-    <DataTable Items="Items" Headings="Headings" HeadingClasses="HeadingClasses" RowClass="@RowClass"
+    <DataTable Items="Items" Headings="Headings" RowClass="@RowClass"
                Class="artist-shop-fades-while-loading">
       <Row Context="item">
         <ArtworkListCell TickBoxId="@TickBoxId(item)">

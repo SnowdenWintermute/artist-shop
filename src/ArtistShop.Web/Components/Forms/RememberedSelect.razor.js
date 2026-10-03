@@ -15,20 +15,26 @@ class RememberedSelect extends HTMLElement {
 
   /** @param {EventTarget | null} target */
   #save(target) {
-    const { saveUrl, inputName, tokenField, token } = this.dataset;
+    const { saveUrl, inputName, nameField, valueField, tokenField, token } = this.dataset;
 
-    if (!(target instanceof HTMLSelectElement) || saveUrl === undefined || inputName === undefined) {
+    if (
+      !(target instanceof HTMLSelectElement) ||
+      saveUrl === undefined ||
+      inputName === undefined ||
+      nameField === undefined ||
+      valueField === undefined
+    ) {
       return;
     }
 
-    // the field names RememberedInputEndpoints binds
-    const body = new URLSearchParams({ name: inputName, value: target.value });
+    const body = new URLSearchParams({ [nameField]: inputName, [valueField]: target.value });
 
     if (tokenField !== undefined && token !== undefined) {
       body.append(tokenField, token);
     }
 
-    fetch(saveUrl, { method: "POST", body }).catch(() => {});
+    // keepalive lets the save finish if the page is closed or left by a full load right after
+    fetch(saveUrl, { method: "POST", body, keepalive: true }).catch(() => {});
   }
 }
 

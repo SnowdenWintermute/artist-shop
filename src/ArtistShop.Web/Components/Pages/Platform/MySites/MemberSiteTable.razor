@@ -42,7 +42,7 @@
   </p>
 }
 
-<DataTable Items="Sites" Headings="@(new[] { "Address", "Role", "" })" Class="mb-4">
+<DataTable Items="Sites" Headings="@(["Address", "Role", ""])" Class="mb-4">
   <Row Context="site">
     <DataTableCell>
       @* a site being deleted is offline, so there's nothing to link to *@

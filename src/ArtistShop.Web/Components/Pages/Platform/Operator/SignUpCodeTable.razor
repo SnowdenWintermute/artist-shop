@@ -21,7 +21,7 @@
   }
   else
   {
-    <DataTable Items="Codes" Headings="@(new[] { "For", "Made", "Expires", "" })">
+    <DataTable Items="Codes" Headings="@(["For", "Made", "Expires", ""])">
       <Row Context="signUpCode">
         <DataTableCell>@signUpCode.Note</DataTableCell>
         <DataTableCell><LocalDate Moment="signUpCode.CreatedAt" /></DataTableCell>

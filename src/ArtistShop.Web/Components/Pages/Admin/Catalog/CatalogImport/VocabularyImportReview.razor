@@ -23,7 +23,7 @@
   {
     <div class="mb-6">
       <h3 class="mb-1">To add</h3>
-      <DataTable Items="Plan.Changes" Headings="@(new[] { "Row", "Vocabulary", "Applies to", "New terms" })"
+      <DataTable Items="Plan.Changes" Headings="@(["Row", "Vocabulary", "Applies to", "New terms"])"
                  Class="text-sm" RowClass="align-top" StickyHeadings>
         <Row Context="change">
           <DataTableCell>@change.RowNumber</DataTableCell>

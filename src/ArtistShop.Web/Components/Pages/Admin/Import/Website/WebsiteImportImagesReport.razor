@@ -22,7 +22,7 @@
 {
   <div class="mb-6">
     <DataTable Items="@(Images.Artworks.Where(artwork => artwork.ToAdd.Count > 0).ToList())"
-               Headings="@(new[] { "Artwork type", "Artwork", "Images to add" })" Class="text-sm" StickyHeadings>
+               Headings="@(["Artwork type", "Artwork", "Images to add"])" Class="text-sm" StickyHeadings>
       <Row Context="artwork">
         <DataTableCell>@artwork.TypeName.Value</DataTableCell>
         <DataTableCell>@artwork.Title.Value</DataTableCell>

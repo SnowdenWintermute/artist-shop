@@ -1,5 +1,46 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Handoff, 2026-10-03: artwork table on phones, No series filter, remembered inputs (From Claude)
+
+Committed by Mike as 2c8bc9c. 880 tests passed in a scratch copy, `npm run typecheck` clean. Next session: review
+2c8bc9c together.
+
+- `ArtworkListRows` (admin list, picker, Add artworks): below `sm`, only the thumbnail (`size-15`) and the title
+  show, and the title cuts off with an ellipsis (`max-w-0 w-full` on its cell). `DataTable` takes `HeadingClasses`
+  to hide a column's heading with its cells. With a selection, For sale gives way to the checkbox column
+  (`max-sm:sr-only` on a phone), and each `ArtworkListCell` carries an empty `absolute inset-0` label for the row's
+  box. That makes the whole row clickable, and `has-checked:bg-theme-selected` (a new token in `Styles/app.css`,
+  blue-200) highlights it. An earlier `h-px`/`h-full` label collapsed the rows in desktop Firefox 140. Not checked
+  since the overlay change: desktop Firefox and iPhone Safari.
+- `SubmitOnChange` submits on every change with no 300 ms delay (`submitOnChangeDelayMilliseconds` removed). A
+  load landing during the delay reset the later ticks, and the delayed submit then sent the reset form. Each new
+  enhanced load aborts the one before (`blazor.web.js`). `data-pending` runs from the submit to `enhancedload`, so
+  "Add selected" still waits for a tick in flight. The filter bars load once per change now too.
+- `ButtonStyles.SizeClass` gained `whitespace-nowrap`: `h-10 leading-0` drew a wrapped label over itself
+  ("Add selected (n)" on a phone). The Add artworks header has `gap-4`.
+- Series filter: `ArtworkListFilter.Series` is a closed `ArtworkSeriesFilter` (`InSeries(id)`, `InNoSeries`; null
+  is any). "No series" is `series=none`, and `get_artwork_list` takes `p_is_in_no_series`.
+- Remembered inputs: `RememberedSelect` renders the option its admin last chose and posts each change to
+  `/admin/remembered-inputs` (`RememberedInputEndpoints`, admin only, antiforgery token in data attributes since it
+  sits in a GET form). Values are in the platform table `site_member_input_values`, foreign-keyed to `site_members`
+  with `ON DELETE CASCADE`, so an admin's removal, an account's deletion or a site's erasure clears them.
+  `RememberedInputs` lists the names the endpoint accepts. A saved value only picks among the options rendered, so
+  one no longer offered selects nothing. Only user so far: the dashboard's artwork type. Not browser-checked yet.
+
+## Handoff, 2026-10-03 (later): review of 2c8bc9c, fixes uncommitted (From Claude)
+
+886 tests pass in a scratch copy, `npm run typecheck` clean.
+
+- `BackLink` takes `Href`/`Label` and passes other attributes through. It now replaces every hand-written
+  "← …" link (Add artworks, series editor, post editor, public series page, single post, artwork picker).
+- `DataTable.Headings` is a list of `DataTableHeading(Text, Class)`; a plain string converts to one, so
+  `HeadingClasses` is gone.
+- `RememberedSelect` passes the endpoint's field names to its script in data attributes, and saves with
+  `keepalive`.
+- Tests for `series=none` and for the series order sort needing one series picked. A note on
+  `ArtworkListRows.Selection`: the row labels cover links, so a selection list gives no row links.
+- "Updated." on Edit artwork.
+
 ## Handoff, 2026-10-02 (night): New series dialog, scrollbar gutter (From Claude)
 
 Uncommitted, 872 tests pass. Mike checked the scrollbar fix in Brave; the dialog isn't browser-checked yet.

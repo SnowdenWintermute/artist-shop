@@ -30,7 +30,7 @@
 
 <h2 class="mb-2 text-lg">Invitations</h2>
 
-<DataTable Items="Invites" Headings="@(new[] { "Website", "Expires", "" })" Class="mb-6">
+<DataTable Items="Invites" Headings="@(["Website", "Expires", ""])" Class="mb-6">
   <Row Context="invite">
     <DataTableCell>@invite.MainHost.Value</DataTableCell>
     <DataTableCell><LocalDate Moment="invite.ExpiresAt" /></DataTableCell>

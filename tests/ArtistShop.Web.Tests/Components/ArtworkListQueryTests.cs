@@ -1,4 +1,5 @@
 using ArtistShop.Web.Components.Catalog;
+using ArtistShop.Web.Domain.Catalog;
 
 namespace ArtistShop.Web.Tests.Components;
 
@@ -25,8 +26,37 @@ public class ArtworkListQueryTests
     [InlineData("/admin/posts/pick-artwork?images=yes", "/admin/posts/pick-artwork?q=&images=")]
     [InlineData("/admin/posts/pick-artwork?images=yes", "/admin/posts/pick-artwork?images=yes&series=4")]
     [InlineData("/admin/catalog/artworks?term=1", "/admin/catalog/artworks?term=1&term=2")]
+    [InlineData("/admin/catalog/artworks", "/admin/catalog/artworks?series=none")]
     public void AddressesShowingOtherArtworksHaveDifferentFilters(string cleared, string current)
     {
         Assert.False(ArtworkListQuery.ReadAddress(current).HasSameFiltersAs(ArtworkListQuery.ReadAddress(cleared)));
+    }
+
+    [Fact]
+    public void NoneIsTheNoSeriesFilter()
+    {
+        Assert.Equal(
+            new ArtworkSeriesFilter.InNoSeries(),
+            ArtworkListQuery.ReadAddress("/admin/catalog/artworks?series=none").Series
+        );
+    }
+
+    [Fact]
+    public void ANumberIsThatSeries()
+    {
+        Assert.Equal(
+            new ArtworkSeriesFilter.InSeries(new SeriesId(4)),
+            ArtworkListQuery.ReadAddress("/admin/catalog/artworks?series=4").Series
+        );
+    }
+
+    // the artist's order only sorts one series' worth of artworks
+    [Theory]
+    [InlineData("/admin/catalog/artworks?series=4&sort=series", ArtworkListSort.SeriesOrder)]
+    [InlineData("/admin/catalog/artworks?series=none&sort=series", ArtworkListSort.RecentlyAdded)]
+    [InlineData("/admin/catalog/artworks?sort=series", ArtworkListSort.RecentlyAdded)]
+    public void SortsBySeriesOrderOnlyWithASeriesPicked(string address, ArtworkListSort expected)
+    {
+        Assert.Equal(expected, ArtworkListQuery.ReadAddress(address).Sort);
     }
 }

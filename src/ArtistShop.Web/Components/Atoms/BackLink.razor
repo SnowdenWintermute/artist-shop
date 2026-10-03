@@ -1,8 +1,10 @@
 @code {
   [Parameter, EditorRequired]
-  public string Link { get; set; } = null!;
+  public string Href { get; set; } = default!;
   [Parameter, EditorRequired]
-  public string Title { get; set; } = null!;
-
+  public string Label { get; set; } = default!;
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 }
-<a href="@Link" class="mb-4 inline-block">← @Title</a>
+
+<a href="@Href" @attributes="AdditionalAttributes" class="mb-4 inline-block">← @Label</a>

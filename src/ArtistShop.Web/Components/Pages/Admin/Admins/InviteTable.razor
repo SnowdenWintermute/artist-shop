@@ -26,7 +26,7 @@
 }
 else
 {
-  <DataTable Items="Invites" Headings="@(new[] { "Email", "Expires", "" })" Class="mb-6">
+  <DataTable Items="Invites" Headings="@(["Email", "Expires", ""])" Class="mb-6">
     <Row Context="invite">
       <DataTableCell>@invite.Email.Value</DataTableCell>
       <DataTableCell>

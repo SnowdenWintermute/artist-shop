@@ -51,13 +51,13 @@
 
 @if (_series is null)
 {
-  <a href="@PageUrls.SeriesList" class="mb-4 inline-block">← All series</a>
+  <BackLink Href="@PageUrls.SeriesList" Label="All series" />
 
   <p>This series doesn't exist. It may have been deleted.</p>
 }
 else
 {
-  <a href="@PageUrls.EditSeries(SeriesId)" class="mb-4 inline-block">← @_series.Name.Value</a>
+  <BackLink Href="@PageUrls.EditSeries(SeriesId)" Label="@_series.Name.Value" />
 
   <div class="mb-4 flex items-baseline justify-between gap-4">
     <h1 class="text-xl">Add artworks to @_series.Name.Value</h1>

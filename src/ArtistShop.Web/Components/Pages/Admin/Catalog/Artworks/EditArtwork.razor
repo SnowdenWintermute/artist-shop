@@ -125,7 +125,7 @@
 
   <main>
     <AdminPanel>
-      <BackLink Link="/admin/catalog/artworks" Title="Artworks"></BackLink>
+      <BackLink Href="@PageUrls.ArtworkList" Label="Artworks" />
 
       <div class="mb-4 flex items-baseline justify-between">
         <h1>Editing
@@ -141,7 +141,7 @@
         @if (Saved && !_formWasPosted)
         {
           <SavedNotice>
-            Updated
+            Updated.
           </SavedNotice>
         }
       </div>

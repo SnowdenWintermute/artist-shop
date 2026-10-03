@@ -21,7 +21,7 @@
   }
   else
   {
-    <DataTable Items="Terms" Headings="@(new[] { "Term", "Used on", "" })">
+    <DataTable Items="Terms" Headings="@(["Term", "Used on", ""])">
       <Row Context="term">
         <DataTableCell>@term.Name.Value</DataTableCell>
         <DataTableCell>@term.ArtworkCount items</DataTableCell>

@@ -39,6 +39,8 @@
 @* <remembered-select> is defined in RememberedSelect.razor.js. Custom elements display inline by
    default, so "block" lays it out like a div *@
 <remembered-select class="block" data-save-url="@RememberedInputEndpoints.Path" data-input-name="@InputName"
+                   data-name-field="@RememberedInputEndpoints.NameField"
+                   data-value-field="@RememberedInputEndpoints.ValueField"
                    data-token-field="@Token?.FormFieldName" data-token="@Token?.Value">
   <select name="@Name" class="@Class">
     @foreach (var (value, label) in Options)

@@ -31,7 +31,7 @@
     }
     else
     {
-      <DataTable Items="_posts" Headings="@(new[] { "Title", "Status", "Last updated" })">
+      <DataTable Items="_posts" Headings="@(["Title", "Status", "Last updated"])">
         <Row Context="post">
           <DataTableCell>
             <a href="@PageUrls.EditPost(post.Id)" class="underline">@post.Title.Value</a>

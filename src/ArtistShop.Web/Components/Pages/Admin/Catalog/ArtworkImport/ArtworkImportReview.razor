@@ -51,7 +51,7 @@
         </ul>
       }
 
-      <DataTable Items="Plan.NewSeries" Headings="@(new[] { "Name", "Rows" })" Class="text-sm" StickyHeadings>
+      <DataTable Items="Plan.NewSeries" Headings="@(["Name", "Rows"])" Class="text-sm" StickyHeadings>
         <Row Context="series">
           <DataTableCell>@series.Name</DataTableCell>
           <DataTableCell>@series.RowCount</DataTableCell>
@@ -67,7 +67,7 @@
       <p class="mb-2 text-sm">
         These rows aren't imported and aren't checked. Add same-titled artworks one at a time instead.
       </p>
-      <DataTable Items="Plan.SkippedRows" Headings="@(new[] { "Row", "Title", "Why" })" Class="text-sm" RowClass="align-top"
+      <DataTable Items="Plan.SkippedRows" Headings="@(["Row", "Title", "Why"])" Class="text-sm" RowClass="align-top"
                  StickyHeadings>
         <Row Context="skipped">
           <DataTableCell>@skipped.RowNumber</DataTableCell>
@@ -82,7 +82,7 @@
   {
     <div class="mb-6">
       <h3 class="mb-1">To add</h3>
-      <DataTable Items="Plan.Additions" Headings="@(new[] { "Row", "Title" })" Class="text-sm" StickyHeadings>
+      <DataTable Items="Plan.Additions" Headings="@(["Row", "Title"])" Class="text-sm" StickyHeadings>
         <Row Context="addition">
           <DataTableCell>@addition.RowNumber</DataTableCell>
           <DataTableCell>@addition.Addition.Name.Value</DataTableCell>

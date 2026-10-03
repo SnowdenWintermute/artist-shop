@@ -7,12 +7,7 @@
 
   // an empty string for a column that needs no label, like a thumbnail's
   [Parameter, EditorRequired]
-  public IReadOnlyList<string> Headings { get; set; } = default!;
-
-  // by column, in the same order as Headings, for a column whose cells carry a class too, like
-  // one hidden on a phone
-  [Parameter]
-  public IReadOnlyList<string?>? HeadingClasses { get; set; }
+  public IReadOnlyList<DataTableHeading> Headings { get; set; } = default!;
 
   // one item's cells, each a DataTableCell
   [Parameter, EditorRequired]
@@ -32,10 +27,11 @@
 <table class="@ClassNames.Join("w-full text-left", Class)">
   <thead>
     <tr class="text-sm text-gray-500">
-      @for (var index = 0; index < Headings.Count; index++)
+      @foreach (var heading in Headings)
       {
-        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null,
-                     HeadingClasses?.ElementAtOrDefault(index))">@Headings[index]</th>
+        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null, heading.Class)">
+          @heading.Text
+        </th>
       }
     </tr>
   </thead>

@@ -1,4 +1,5 @@
 @page "/series/{slug}"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Database.Repositories
@@ -59,7 +60,7 @@
   <LinkPreview Title="@loaded.Series.Name.Value" Image="loaded.Cover" />
 
   <main class="mx-auto max-w-[1200px] p-4">
-    <a href="/" class="mb-4 inline-block">← All series</a>
+    <BackLink Href="/" Label="All series" />
 
     <h1 class="mb-4">@loaded.Series.Name.Value</h1>
 

@@ -47,7 +47,7 @@
   }
 }
 
-<DataTable Items="Members" Headings="@(new[] { "Email", "Role", "" })" Class="mb-6">
+<DataTable Items="Members" Headings="@(["Email", "Role", ""])" Class="mb-6">
   <Row Context="member">
     <DataTableCell>@member.Email.Value</DataTableCell>
     <DataTableCell>@member.Role</DataTableCell>
