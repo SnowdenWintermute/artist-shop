@@ -522,4 +522,56 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
             _artworks.UpdateDetailsAsync(DetailsUpdateOf(identifiers.Id, name, termIds: [], seriesIds: []))
         );
     }
+
+    [Fact]
+    public async Task GetManyReadsOnlyTheArtworksAskedFor()
+    {
+        var termId = await _catalog.AddTermAsync(await _catalog.AddPaintingVocabularyAsync());
+        var seriesId = await _catalog.AddSeriesAsync();
+        var image = CatalogTestData.CreateTestImage();
+        var first = await _catalog.AddPaintingAsync($"Asked {Guid.NewGuid():n}", termIds: [termId], seriesIds: [seriesId], images: [image]);
+        var second = await _catalog.AddPaintingAsync($"Asked {Guid.NewGuid():n}", termIds: [], seriesIds: [], images: []);
+        var other = await _catalog.AddPaintingAsync($"Not asked {Guid.NewGuid():n}", termIds: [termId], seriesIds: [], images: []);
+
+        var artworks = await _artworks.GetManyAsync([second.Id, first.Id]);
+
+        Assert.Equal([first.Id, second.Id], [.. artworks.Select(artwork => artwork.Id)]);
+        Assert.DoesNotContain(other.Id, artworks.Select(artwork => artwork.Id));
+        Assert.Equal([image.StorageKey], [.. artworks[0].Images.Select(read => read.StorageKey)]);
+        Assert.Equal([termId], [.. artworks[0].VocabularyTerms.Select(term => term.Id)]);
+        Assert.Equal([seriesId], [.. artworks[0].Series.Select(series => series.Id)]);
+        Assert.Empty(artworks[1].VocabularyTerms);
+    }
+
+    [Fact]
+    public async Task UpdatingImagesKeepsTheDetails()
+    {
+        var kept = CatalogTestData.CreateTestImage();
+        var removed = CatalogTestData.CreateTestImage();
+        var seriesId = await _catalog.AddSeriesAsync();
+        var name = $"Images only {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [seriesId], images: [kept, removed]);
+
+        var added = CatalogTestData.CreateTestImage();
+        await _artworks.UpdateImagesAsync(identifiers.Id, [added, kept], mainImageIndex: 1);
+
+        var artwork = await _artworks.GetByIdAsync(identifiers.Id);
+
+        Assert.NotNull(artwork);
+        Assert.Equal(name, artwork.Name.Value);
+        Assert.Equal([seriesId], [.. artwork.Series.Select(series => series.Id)]);
+        Assert.Equal([added.StorageKey, kept.StorageKey], [.. artwork.Images.Select(image => image.StorageKey)]);
+        Assert.Equal(1, artwork.MainImageIndex);
+    }
+
+    [Fact]
+    public async Task RefusesToUpdateTheImagesOfAnArtworkThatWasDeleted()
+    {
+        var identifiers = await _catalog.AddPaintingAsync($"Gone {Guid.NewGuid():n}", termIds: [], seriesIds: [], images: []);
+        await _artworks.DeleteAsync(identifiers.Id);
+
+        await Assert.ThrowsAsync<ArtworkDeletedException>(() =>
+            _artworks.UpdateImagesAsync(identifiers.Id, [CatalogTestData.CreateTestImage()], mainImageIndex: 0)
+        );
+    }
 }

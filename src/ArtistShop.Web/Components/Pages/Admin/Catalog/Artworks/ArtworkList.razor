@@ -1,14 +1,26 @@
 @page "/admin/catalog/artworks"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject NavigationManager NavigationManager
+
+@code {
+  // the same filters, from the first page, since the table may count its pages differently
+  private string TableHref =>
+    PageUrls.ArtworkTable + new Uri(NavigationManager.GetUriWithQueryParameter(PageLinks.PageKey, (int?)null)).Query;
+}
 
 <PageTitle>Artworks</PageTitle>
 
 <main>
   <AdminPanel>
 
-    <h1 class="mb-4">Artworks</h1>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+      <h1>Artworks</h1>
+      <LinkButton href="@TableHref" Variant="ButtonVariant.Outline">Edit as table</LinkButton>
+    </div>
 
     <ArtworkListBrowser RowHref="item => PageUrls.EditArtwork(item.Id)" ClearFiltersHref="@PageUrls.ArtworkList" />
   </AdminPanel>

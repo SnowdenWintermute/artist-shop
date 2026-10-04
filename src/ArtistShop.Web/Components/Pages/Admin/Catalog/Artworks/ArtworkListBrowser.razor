@@ -41,6 +41,15 @@
   [Parameter]
   public ArtworkListSelection? Selection { get; set; }
 
+  // One type at a time, picked by a select, for the artwork table: the address's first type that still
+  // exists, or the first by name. Vocabularies and term filters are that type's only
+  [Parameter]
+  public bool SingleType { get; set; }
+
+  // drawn in place of the list's rows, such as the artwork table
+  [Parameter]
+  public RenderFragment<LoadedArtworkList>? Rows { get; set; }
+
   [SupplyParameterFromQuery(Name = ArtworkListQuery.TypeKey)]
   private int[]? TypeIds { get; set; }
   [SupplyParameterFromQuery(Name = ArtworkListQuery.TermKey)]
@@ -65,6 +74,8 @@
   // not OnInitializedAsync: a filter change is the same page with new query parameters
   protected override async Task OnParametersSetAsync()
   {
+    var types = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
+
     var filter = ArtworkListQuery.Read(
       typeIds: TypeIds,
       termIds: TermIds,
@@ -75,6 +86,32 @@
       sort: SortValue,
       page: PageValue
     );
+
+    List<VocabularyWithTerms> vocabularies;
+
+    if (!SingleType)
+    {
+      vocabularies = await VocabularyRepository.GetAllWithTermsAsync();
+    }
+    else
+    {
+      var type = types.FirstOrDefault(candidate => filter.ArtworkTypeIds.Contains(candidate.Id)) ?? types.FirstOrDefault();
+
+      if (type is null)
+      {
+        // no types yet, so no artworks either
+        return;
+      }
+
+      vocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(type.Id);
+      var termIds = vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id).ToHashSet();
+
+      filter = filter with
+      {
+        ArtworkTypeIds = [type.Id],
+        VocabularyTermIds = [.. filter.VocabularyTermIds.Where(termIds.Contains)],
+      };
+    }
 
     // null means nothing was searched for, which is not the same as a search that found nothing
     var searchMatches =
@@ -91,18 +128,21 @@
       return;
     }
 
-    var types = await ArtworkTypeRepository.GetAllAsync();
-    var vocabularies = await VocabularyRepository.GetAllWithTermsAsync();
-
     _loaded = new LoadedArtworkList(
       filter,
       artworks,
-      ArtworkTypeOrder.SortedByName(types),
+      types,
       VocabularyOrder.SortedByName(vocabularies),
       // filtering by the excluded series could only ever show nothing
       [.. (await SeriesRepository.GetAllAsync()).Where(series => series.Id != ExcludedSeriesId)]
     );
   }
+
+  // the cleared list keeps its one type
+  private string ClearHref(ArtworkListFilter filter) =>
+    SingleType && filter.ArtworkTypeIds is [var typeId]
+      ? QueryHelpers.AddQueryString(ClearFiltersHref, ArtworkListQuery.TypeKey, typeId.Value.ToString(CultureInfo.InvariantCulture))
+      : ClearFiltersHref;
 
   private static (string Name, string Value) SelectionField(ArtworkListSelection selection, ArtworkId id) =>
     (selection.FieldName, id.Value.ToString(CultureInfo.InvariantCulture));
@@ -134,7 +174,8 @@
 @if (_loaded is { } loaded)
 {
   <ArtworkListFilters Filter="loaded.Filter" Types="loaded.Types" Vocabularies="loaded.Vocabularies"
-                      Series="loaded.Series" ClearFiltersHref="@ClearFiltersHref" KeptFields="FilterKeptFields" />
+                      Series="loaded.Series" ClearFiltersHref="@ClearHref(loaded.Filter)" KeptFields="FilterKeptFields"
+                      SingleType="SingleType" />
 
   <div class="flex justify-between items-center  mb-2">
     <span class="text-sm">@CountText.Of(loaded.Artworks.TotalCount, "artwork")</span>
@@ -142,7 +183,15 @@
     <PageLinks PageNumber="loaded.Artworks.PageNumber" PageCount="loaded.Artworks.PageCount" />
   </div>
 
-  @if (Selection is { } selection)
+  @if (Rows is not null)
+  {
+    @* the indicator is positioned against this wrapper *@
+    <div class="relative">
+      @Rows(loaded)
+      <LoadingIndicator />
+    </div>
+  }
+  else if (Selection is { } selection)
   {
     @* a GET form like the filter bar's, so a tick changes the address and nothing else. A form
        submit, unlike a link, leaves the page where it was scrolled *@

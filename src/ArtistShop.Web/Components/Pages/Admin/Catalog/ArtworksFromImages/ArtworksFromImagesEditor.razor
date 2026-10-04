@@ -2,8 +2,8 @@
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTable
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
-@using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -36,7 +36,7 @@
   // a drop waiting for the artist to choose its series
   private PendingDrop? _pendingDrop;
 
-  private readonly List<ArtworkFromImagesRow> _rows = [];
+  private readonly List<ArtworkTableRow> _rows = [];
   private readonly Dictionary<string, RowImage> _imagesByFileId = [];
 
   private IReadOnlyList<SkippedImage> _skipped = [];
@@ -51,9 +51,6 @@
   // the last time anything was created or saved, and the browser's offset from UTC to show it in
   private DateTimeOffset? _lastSavedAt;
   private TimeSpan? _browserUtcOffset;
-
-  private ArtworkFromImagesRow? _descriptionRow;
-  private ArtworkFromImagesRow? _seriesRow;
 
   private int UnsentCount =>
     _imagesByFileId.Values.Count(image => image.State is RowImageState.Waiting or RowImageState.Failed);
@@ -186,7 +183,7 @@ RowImageState.Failed))
   }
 
   // all or nothing, new series too, so a failure leaves no half-made drop behind
-  private async Task<List<ArtworkFromImagesRow>> CreateArtworksAsync(ArtworkTypeId typeId,
+  private async Task<List<ArtworkTableRow>> CreateArtworksAsync(ArtworkTypeId typeId,
 IReadOnlyList<BulkImageCandidate> candidates, DropSeriesChoice choice)
   {
     var plan = ArtworksFromImagesPlanner.Plan(candidates, choice.SeriesFolders, choice.LooseSeriesIds);
@@ -204,7 +201,7 @@ artwork))]);
     }
 
     var rows = plan.Artworks
-      .Zip(identifiers, (artwork, added) => new ArtworkFromImagesRow(added.Id, artwork, SeriesIdsFor(artwork)))
+      .Zip(identifiers, (artwork, added) => ArtworkTableRow.FromDrop(added.Id, artwork, SeriesIdsFor(artwork)))
       .ToList();
 
     foreach (var image in rows.SelectMany(row => row.Images))
@@ -246,7 +243,7 @@ artwork))]);
   }
 
   // Each artwork's images go one after another, in the row's order, so its first file becomes its main image
-  private async Task UploadAsync(IEnumerable<ArtworkFromImagesRow> rows, ArtworkTypeId typeId)
+  private async Task UploadAsync(IEnumerable<ArtworkTableRow> rows, ArtworkTypeId typeId)
   {
     var artworks = rows
       .Select(row => row.Images
@@ -334,71 +331,7 @@ artwork))]);
     await InvokeAsync(StateHasChanged);
   }
 
-  // A change made while a save is running waits for it, then saves again, so saves of one row never
-  // overlap and the last one sent holds the latest values
-  private async Task SaveAsync(ArtworkFromImagesRow row)
-  {
-    if (row.IsSaving)
-    {
-      row.SaveAgain = true;
-      return;
-    }
-
-    row.IsSaving = true;
-
-    try
-    {
-      do
-      {
-        row.SaveAgain = false;
-
-        if (!row.Validate())
-        {
-          continue;
-        }
-
-        try
-        {
-          await ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id));
-          row.SaveError = null;
-          row.SaveCount++;
-          _lastSavedAt = TimeProvider.GetUtcNow();
-        }
-        catch (ArtworkDeletedException)
-        {
-          row.SaveError = "Deleted elsewhere";
-        }
-        catch (ChangedSincePageLoadException)
-        {
-          row.SaveError = "Changed elsewhere. Reload the page.";
-        }
-      } while (row.SaveAgain);
-    }
-    finally
-    {
-      row.IsSaving = false;
-    }
-  }
-
-  private async Task DescriptionOkAsync(string? description)
-  {
-    if (_descriptionRow is { } row)
-    {
-      row.Form.Description = string.IsNullOrWhiteSpace(description) ? null : description;
-      _descriptionRow = null;
-      await SaveAsync(row);
-    }
-  }
-
-  private async Task SeriesOkAsync(List<int> seriesIds)
-  {
-    if (_seriesRow is { } row)
-    {
-      row.Form.SeriesIds = seriesIds;
-      _seriesRow = null;
-      await SaveAsync(row);
-    }
-  }
+  private void Saved() => _lastSavedAt = TimeProvider.GetUtcNow();
 
   private void SeriesAdded(Series series) => _series.Add(series);
 
@@ -497,8 +430,7 @@ else if (UnsentCount > 0)
     @CountText.Of(_rows.Count, "artwork") added. Each change saves when you leave its field.
   </p>
 
-  <ArtworksFromImagesTable Rows="_rows" Fields="rowsType.Fields" AllSeries="_series" OnChanged="SaveAsync"
-                           OnEditDescription="row => _descriptionRow = row" OnEditSeries="row => _seriesRow = row" />
+  <ArtworkTable Rows="_rows" Type="rowsType" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnSaved="Saved" />
 
   <p class="text-sm text-gray-600">
     @CountText.Of(_rows.Count, "artwork") added@(LastSavedText is { } savedText ? $", updated at {savedText}" : "").
@@ -506,21 +438,9 @@ else if (UnsentCount > 0)
   </p>
 }
 
-@if (_descriptionRow is { } descriptionRow)
-{
-  <DescriptionDialog ArtworkName="@descriptionRow.Form.Name" Description="@descriptionRow.Form.Description"
-                     OnOk="DescriptionOkAsync" OnClose="() => _descriptionRow = null" />
-}
-
 @if (_pendingDrop is { } pendingDrop)
 {
   <DropSeriesDialog Folders="pendingDrop.Folders" LooseImageCount="@ArtworksFromImagesPlanner.LooseImageCount(pendingDrop.Candidates)"
                     AllSeries="_series" OnOk="SeriesChosenAsync" OnClose="() => _pendingDrop = null"
                     OnSeriesAdded="DropSeriesAdded" />
-}
-
-@if (_seriesRow is { } seriesRow)
-{
-  <SeriesChoiceDialog ArtworkName="@seriesRow.Form.Name" AllSeries="_series" SelectedSeriesIds="seriesRow.Form.SeriesIds"
-                      OnOk="SeriesOkAsync" OnClose="() => _seriesRow = null" OnSeriesAdded="SeriesAdded" />
 }

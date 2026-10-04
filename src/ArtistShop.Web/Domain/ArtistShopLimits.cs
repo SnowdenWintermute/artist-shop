@@ -16,6 +16,9 @@ public static class ArtistShopLimits
     public const string MinimumDimensionCm = "0.01";
     public const string MaximumDimensionCm = "9999.9999";
 
+    // the size columns are numeric(8, 4), which round anything finer
+    public const int DimensionDecimalPlaces = 4;
+
     public const int VocabularyNameMaximumLength = 100;
     public const int VocabularyTermNameMaximumLength = 100;
 

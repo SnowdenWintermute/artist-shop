@@ -29,7 +29,8 @@
     {
       <li @key="reason.Key">
         <details>
-          <summary class="cursor-pointer">@CountText.Of(reason.Count(), "image") skipped, @Why(reason.Key)</summary>
+          <summary class="cursor-pointer text-yellow-700">@CountText.Of(reason.Count(), "image") skipped, @Why(reason.Key)
+          </summary>
           <ul class="ml-4 text-gray-600">
             @foreach (var skipped in reason)
             {

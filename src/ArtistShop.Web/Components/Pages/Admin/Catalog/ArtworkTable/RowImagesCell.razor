@@ -1,0 +1,76 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* The row's main image, a spinner while none has arrived, and how its other images fared. A button
+   for the images dialog once nothing is uploading, since the dialog saves the whole list *@
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkTableRow Row { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback OnEdit { get; set; }
+
+  // overflow-hidden: the saved mark rises from below the box, out of sight until it enters
+  private const string BoxClass = "relative flex size-10 items-center justify-center overflow-hidden";
+
+  private int CountIn(RowImageState state) => Row.Images.Count(image => image.State == state);
+
+  private string FailureText =>
+    string.Join(" ", Row.Images.Where(image => image.State is RowImageState.Failed).Select(image => $"{image.Path}: {image.Error}"));
+}
+
+@if (Row.HasImagesUploading)
+{
+  <div class="@BoxClass">
+    @BoxContent
+  </div>
+}
+else
+{
+  <button type="button" class="@($"{BoxClass} cursor-pointer")" title="Edit images" @onclick="OnEdit">
+    @BoxContent
+    @if (Row.Thumbnail is null)
+    {
+      <span class="flex size-full items-center justify-center border border-dashed border-gray-400 text-gray-500" aria-hidden="true">+</span>
+    }
+    <span class="sr-only">Edit images</span>
+  </button>
+}
+
+@if (CountIn(RowImageState.Failed) is var failed and > 0)
+{
+  <p class="max-w-24 text-xs text-red-600" title="@FailureText">@failed failed</p>
+}
+@if (CountIn(RowImageState.NotSent) is var notSent and > 0)
+{
+  <p class="max-w-24 text-xs text-red-600" title="Drop these on the Upload images page to add them">@notSent not sent</p>
+}
+
+@code {
+  private RenderFragment BoxContent => @<text>
+    @if (Row.Thumbnail is { } thumbnail)
+    {
+      <ArtworkThumbnail Image="thumbnail" />
+    }
+    else if (Row.HasImagesUploading)
+    {
+      <span class="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" role="status"
+            aria-label="Uploading"></span>
+    }
+
+    @if (Row.Images.Count > 1)
+    {
+      <span class="absolute right-0 bottom-0 bg-black/60 px-0.5 text-[10px] leading-tight text-white"
+            title="@($"{Row.Images.Count} images")">+@(Row.Images.Count - 1)</span>
+    }
+
+    @* a new element for each save, so the animation plays again *@
+    @if (Row.SaveCount > 0)
+    {
+      <span @key="Row.SaveCount"
+            class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-theme-primary" role="status">
+        <SvgIcon Name="floppy-disc" Class="size-5" />
+        <span class="sr-only">Saved</span>
+      </span>
+    }
+  </text>;
+}

@@ -100,9 +100,16 @@
         Uncheck any folder name that doesn't correspond to a series name. </p>
 
       </Notice>
+  }
+
+  @* one scrolling area for the folders and the loose images' series, so a long series list can't
+     squeeze the folders out of view. The padding keeps a focused checkbox's outline inside it, which
+     clips it; the negative margin keeps the boxes lined up with the rest of the dialog *@
+  <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
+    @if (Folders.Count > 0)
+    {
       @if (TickablePaths.Count() > 1)
       {
-        @* outside the scrolling list, so it stays in view however long the list is *@
         <label class="mb-1 flex cursor-pointer items-center gap-2 ">
           <input type="checkbox" class="cursor-pointer" checked="@AllFoldersTicked" @onchange="ToggleAllFolders" />
           Toggle all checked
@@ -110,9 +117,7 @@
         <Divider />
       }
 
-      @* the padding keeps a focused checkbox's outline inside the scrolling box, which clips it; the
-       negative margin keeps the boxes lined up with the rest of the dialog *@
-      <fieldset class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
+      <fieldset class="mb-4">
         <legend class="sr-only">Folders</legend>
         @foreach (var folder in Folders)
         {
@@ -142,10 +147,12 @@
       <SeriesChoices AllSeries="AllSeries" Ticked="_tickedSeries" OnToggle="ToggleSeries" OnSeriesAdded="SeriesAddedAsync"
                      @bind-IsAdding="_isAddingSeries" />
     }
+  </div>
 
     <ModalDialogActions>
       <ModalCloseButton Label="Cancel" Disabled="_isAddingSeries" />
-      <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isAddingSeries" @onclick="OkAsync">
+      @* focused when the dialog opens, so Enter adds the artworks; the browser would focus the first checkbox *@
+      <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isAddingSeries" @onclick="OkAsync" autofocus>
         Add artworks
       </ButtonBasic>
     </ModalDialogActions>

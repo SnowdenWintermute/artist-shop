@@ -203,4 +203,37 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
         Assert.NotNull(vocabulary);
         Assert.Equal([paintingTypeId], vocabulary.ArtworkTypeIds);
     }
+
+    [Fact]
+    public async Task AddOrLinkAddsAVocabularyForTheType()
+    {
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
+        var name = UniqueName();
+
+        var id = await _vocabularies.AddOrLinkAsync(name, paintingTypeId);
+
+        var vocabulary = await _vocabularies.GetAsync(id);
+        Assert.NotNull(vocabulary);
+        Assert.Equal(name, vocabulary.Name);
+        Assert.Equal([paintingTypeId], vocabulary.ArtworkTypeIds);
+    }
+
+    // the artist typing a name another type's vocabulary has, in any capitals
+    [Fact]
+    public async Task AddOrLinkGivesTheTypeToAVocabularyWithThatName()
+    {
+        var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();
+        var name = UniqueName();
+        var existing = await _vocabularies.AddAsync(name, []);
+
+        var id = await _vocabularies.AddOrLinkAsync(new VocabularyName(name.Value.ToUpperInvariant()), paintingTypeId);
+        var again = await _vocabularies.AddOrLinkAsync(name, paintingTypeId);
+
+        Assert.Equal(existing, id);
+        Assert.Equal(existing, again);
+        var vocabulary = await _vocabularies.GetAsync(existing);
+        Assert.NotNull(vocabulary);
+        Assert.Equal(name, vocabulary.Name);
+        Assert.Equal([paintingTypeId], vocabulary.ArtworkTypeIds);
+    }
 }

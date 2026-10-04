@@ -51,6 +51,7 @@
 
   <ModalDialogActions>
     <ModalCloseButton Label="Cancel" Disabled="_isAddingSeries" />
-    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isAddingSeries" @onclick="OkAsync">OK</ButtonBasic>
+    @* focused when the dialog opens, so Enter is OK; the browser would focus the first checkbox *@
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isAddingSeries" @onclick="OkAsync" autofocus>OK</ButtonBasic>
   </ModalDialogActions>
 </ModalDialog>

@@ -1,0 +1,162 @@
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Interop
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+
+@* An artwork's images: drop to upload, drag to order, star the main one. ImagesField posts them with
+   the edit page's form; the artwork table's images dialog saves them itself *@
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkImage> SavedImages { get; set; } = default!;
+  // null for the first image
+  [Parameter]
+  public string? SavedMainImageKey { get; set; }
+  // the star buttons' name, which a form posts as the main image's storage key
+  [Parameter, EditorRequired]
+  public string StarName { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<ImageListState> OnChanged { get; set; }
+  // the name of the first file dropped on an empty list
+  [Parameter]
+  public EventCallback<string> OnFirstFileSelected { get; set; }
+
+  private readonly List<SelectedImage> _files = [];
+  private string? _mainImageKey;
+  private FileDropZone<ImageUploadResult>? _dropZone;
+
+  // seeded once: a different artwork's images make a new editor
+  protected override void OnInitialized()
+  {
+    _files.AddRange(SavedImages.Select(SelectedImage.ForSavedImage));
+    _mainImageKey = SavedMainImageKey;
+  }
+
+  private Task ChangedAsync() =>
+    OnChanged.InvokeAsync(
+      new ImageListState(
+        // an image still uploading has nothing to save yet
+        [.. _files.Select(file => file.Result).OfType<ArtworkImage>()],
+        _mainImageKey,
+        IsUploading: _files.Any(file => file.Result is null && file.Error is null)
+      )
+    );
+
+  private async Task SetMainAsync(SelectedImage file)
+  {
+    _mainImageKey = file.Result?.StorageKey;
+    await ChangedAsync();
+  }
+
+  private async Task ClearMainAsync()
+  {
+    _mainImageKey = null;
+    await ChangedAsync();
+  }
+
+  private async Task OnSelectedAsync((string Id, string Name, long Size) file)
+  {
+    var isFirstFile = _files.Count is 0;
+
+    _files.Add(new SelectedImage(file.Id, file.Name, file.Size));
+    await ChangedAsync();
+
+    if (isFirstFile)
+    {
+      await OnFirstFileSelected.InvokeAsync(file.Name);
+    }
+  }
+
+  private void OnProgress((string Id, int PercentComplete) progress)
+  {
+    if (FindFile(progress.Id) is { } file)
+    {
+      file.UploadPercentComplete = progress.PercentComplete;
+    }
+  }
+
+  private async Task OnCompletedAsync((string Id, ImageUploadResult Result) completion)
+  {
+    if (FindFile(completion.Id) is { } file)
+    {
+      var uploaded = completion.Result;
+      file.UploadPercentComplete = 100;
+      // from here on a fresh upload and a saved image are the same thing to this component
+      file.Result = new ArtworkImage(
+        uploaded.StorageKey,
+        uploaded.OriginalFileName,
+        uploaded.Width,
+        uploaded.Height,
+        uploaded.BlurDataUri
+      );
+      await ChangedAsync();
+    }
+  }
+
+  private async Task OnFailedAsync((string Id, string Message) failure)
+  {
+    if (FindFile(failure.Id) is { } file)
+    {
+      file.Error = failure.Message;
+      await ChangedAsync();
+    }
+  }
+
+  private async Task RemoveFileAsync(SelectedImage file)
+  {
+    _files.Remove(file);
+    await ChangedAsync();
+
+    if (_dropZone is not null)
+    {
+      await _dropZone.ForgetAsync(file.Id);
+    }
+  }
+
+  private async Task RetryUploadAsync(SelectedImage file)
+  {
+    file.Error = null;
+    file.UploadPercentComplete = 0;
+    await ChangedAsync();
+
+    if (_dropZone is not null)
+    {
+      await _dropZone.UploadAsync(file.Id);
+    }
+  }
+
+  private async Task MoveFileAsync((int OldIndex, int NewIndex) move)
+  {
+    var file = _files[move.OldIndex];
+    _files.RemoveAt(move.OldIndex);
+    _files.Insert(move.NewIndex, file);
+    await ChangedAsync();
+  }
+
+  private SelectedImage? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
+}
+
+<FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.ArtworkImageUploadPath" Prompt="Drop images here"
+              Accept="@ImageUploadValidation.FileInputAccept" Multiple="true" OnSelected="OnSelectedAsync" OnProgress="OnProgress"
+              OnCompleted="OnCompletedAsync" OnFailed="OnFailedAsync" />
+<StarredSortableList TItem="SelectedImage" Items="_files" AriaLabel="Image order" StarName="@StarName"
+                     StarTitle="Set as main image" StarValueOf="file => file.Result?.StorageKey" StarredValue="@_mainImageKey"
+                     OnStar="SetMainAsync" ChosenStarMessage="Main image chosen by hand"
+                     ClearStarLabel="Use the first image instead" OnClearStar="ClearMainAsync" OnMove="MoveFileAsync">
+  <RowContent Context="file">
+    <ImageUploadRow SelectedImage="file" />
+  </RowContent>
+  <RowActions Context="file">
+    @if (file.Error is not null)
+    {
+      <button type="button" class="cursor-pointer border px-2" @onclick="() => RetryUploadAsync(file)">
+        Retry
+      </button>
+    }
+
+    <button type="button" class="cursor-pointer px-1" title="Remove" @onclick="() => RemoveFileAsync(file)">
+      ✕
+    </button>
+  </RowActions>
+</StarredSortableList>

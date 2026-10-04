@@ -390,6 +390,25 @@ public class ArtworkRepository(SiteDatabase database)
         }
     }
 
+    // the images only, for the artwork table's images dialog, which saves them apart from the other fields
+    public async Task UpdateImagesAsync(ArtworkId id, IReadOnlyList<ArtworkImage> images, int mainImageIndex)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "SELECT update_artwork_images(@Id, @Images)",
+                new { Id = id.Value, Images = CreateImageInputs(images, mainImageIndex) }
+            );
+        }
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerExists))
+        {
+            throw new ArtworkDeletedException(exception.Message, exception);
+        }
+    }
+
     // the images, series rows, term rows and products go with it, through the foreign keys'
     // ON DELETE CASCADE. The image files wait for OrphanedImageSweeper
     public async Task DeleteAsync(ArtworkId id)
@@ -432,18 +451,26 @@ public class ArtworkRepository(SiteDatabase database)
     }
 
     // every artwork on the site with its images, series, terms and products, for the site export
-    public async Task<List<Artwork>> GetAllAsync()
+    public Task<List<Artwork>> GetAllAsync() => GetArtworksAsync(artworkIds: null);
+
+    // in id order, leaving out any deleted since the ids were read
+    public Task<List<Artwork>> GetManyAsync(IReadOnlyCollection<ArtworkId> ids) =>
+        GetArtworksAsync([.. ids.Select(id => id.Value)]);
+
+    // null for every artwork
+    private async Task<List<Artwork>> GetArtworksAsync(int[]? artworkIds)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         await using var results = await connection.QueryMultipleAsync(
             """
-            SELECT * FROM get_all_artworks();
-            SELECT * FROM get_all_artwork_images();
-            SELECT * FROM get_all_artwork_series();
-            SELECT * FROM get_all_artwork_vocabulary_terms();
-            SELECT * FROM get_all_artwork_products();
-            """
+            SELECT * FROM get_all_artworks(@ArtworkIds);
+            SELECT * FROM get_all_artwork_images(@ArtworkIds);
+            SELECT * FROM get_all_artwork_series(@ArtworkIds);
+            SELECT * FROM get_all_artwork_vocabulary_terms(@ArtworkIds);
+            SELECT * FROM get_all_artwork_products(@ArtworkIds);
+            """,
+            new { ArtworkIds = artworkIds }
         );
 
         // These Read calls MUST run in the same order as the SELECTs above

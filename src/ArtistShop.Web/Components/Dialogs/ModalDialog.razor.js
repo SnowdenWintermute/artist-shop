@@ -107,3 +107,25 @@ customElements.define(
     }
   }
 );
+
+// After a drop, BlazorBlueprint's sortable.js (3.16.1, unchanged in 4.1.0) hides the list and lays a
+// frozen copy of it over the top until Blazor has redrawn it. The copy is appended to <body>, but an
+// open modal sits in the browser's top layer above everything in <body>, so in a dialog the list blinks
+// out instead. Moving the copy into the open modal shows it; its position is fixed, so it stays where it
+// was laid. Remove this once the library places the copy beside the list
+new MutationObserver((mutations) => {
+  const modal = [...document.querySelectorAll("dialog")].findLast((dialog) => dialog.matches(":modal"));
+
+  if (!modal) {
+    return;
+  }
+
+  for (const node of mutations.flatMap((mutation) => [...mutation.addedNodes])) {
+    const isSortableCopy =
+      node instanceof HTMLElement && node.style.position === "fixed" && node.querySelector(".sortable-handle") !== null;
+
+    if (isSortableCopy) {
+      modal.append(node);
+    }
+  }
+}).observe(document.body, { childList: true });

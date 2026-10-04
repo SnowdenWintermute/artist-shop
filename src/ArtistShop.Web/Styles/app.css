@@ -159,6 +159,13 @@ html:has(.artist-shop-lightbox:modal, dialog[data-menu]:modal) {
   overflow: hidden;
 }
 
+/* and behind a modal dialog, where the page still shows round it: the gutter keeps the room the
+   scrollbar took, so the page doesn't widen behind the backdrop */
+html:has(.artist-shop-modal:modal) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
 /* a trigger only promises to zoom where a lightbox is on the page to answer it. Asked of the
    document rather than tracked: an enhanced navigation connects the incoming lightbox and
    disconnects the outgoing one, and a flag those two lifecycles share is wiped by whichever runs

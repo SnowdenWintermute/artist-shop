@@ -94,6 +94,19 @@ public class VocabularyRepository(SiteDatabase database)
         }
     }
 
+    // a vocabulary already named this gains the type rather than being refused
+    public async Task<VocabularyId> AddOrLinkAsync(VocabularyName name, ArtworkTypeId artworkTypeId)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var id = await connection.QuerySingleAsync<int>(
+            "SELECT add_or_link_vocabulary(@Name, @ArtworkTypeId)",
+            new { Name = name.Value, ArtworkTypeId = artworkTypeId.Value }
+        );
+
+        return new VocabularyId(id);
+    }
+
     public async Task<VocabularyWithArtworkTypes?> GetAsync(VocabularyId id)
     {
         await using var connection = await database.OpenConnectionAsync();

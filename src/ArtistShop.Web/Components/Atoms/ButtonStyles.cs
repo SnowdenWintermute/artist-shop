@@ -4,7 +4,7 @@ namespace ArtistShop.Web.Components.Atoms;
 public static class ButtonStyles
 {
     // one line, as the fixed height and zero line height would draw a wrapped label over itself
-    public const string SizeClass = "p-2 h-10 leading-0 whitespace-nowrap";
+    public const string SizeClass = "p-2 h-10 min-w-16 leading-0 whitespace-nowrap";
 
     public static string VariantClass(ButtonVariant variant) =>
         variant switch

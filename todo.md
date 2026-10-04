@@ -1,6 +1,36 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
-## Handoff, 2026-10-04: review fixes and folder dialog for Add from images (From Claude)
+## Handoff, 2026-10-04 (evening): Edit as table, vocabularies and images in the artwork table (From Claude)
+
+Uncommitted, on top of dc2cf81. 917 tests passed in a scratch copy, `npm run typecheck` clean. Mike tried it in the
+browser once; the fixes from that round aren't browser-checked. **Next session: review the code together.** Mike's own
+edits in the same tree: `ButtonStyles.cs`, `AdminPanel.razor`, `AddArtworksFromImages.razor`, `SkippedImagesReport.razor`.
+
+- **Page** `/admin/catalog/artworks/table` (`ArtworkTable/EditArtworksAsTable.razor`), from "Edit as table" on the
+  artworks list, which carries the list's filters without the page number. `ArtworkListBrowser` takes `SingleType`
+  (a type select in `ArtworkListFilters` instead of the checkboxes; the address's first type or the first by name;
+  only that type's vocabularies, other terms dropped from the filter) and a `Rows` slot in place of its rows.
+- **Island** `ArtworkTableEditor`: loads its rows only once interactive (spinner during the prerender) through
+  `ArtworkRepository.GetManyAsync`, one round trip (the five `get_all_*` functions take `p_artwork_ids`, null for the
+  export). It reloads only when its `Address` changes, so a row edited out of the filter stays, and calls
+  `NavigationManager.Refresh()` after a dialog added a vocabulary, term or series, so the static filters list it.
+- **Shared table** `ArtworkTable/`, used by Add from images too: `ArtworkTableRow` (`FromDrop`, `FromArtwork`; number
+  fields rewritten as saved, sizes rounded to `DimensionDecimalPlaces`), `ArtworkTable` owns the saves and the
+  dialogs. New Vocabularies column: `VocabularyChoiceDialog` lists the type's vocabularies with term checkboxes, "Add
+  term" and "New vocabulary" switch to `VocabularyTermEntry` (name, Enter, then a term per Enter, Go back / Done).
+  `add_or_link_vocabulary` links an existing vocabulary of that name to the type rather than refusing it.
+- **Images dialog** `ArtworkImagesDialog`, opened from the thumbnail (a dashed "+" without one; not while that row
+  uploads). `ImageListEditor` + `ImageListState` split out of `ImagesField`, which now wraps it for the edit page.
+  OK saves through `update_artwork_images` (`UpdateImagesAsync`), apart from the details.
+- **BbSortable workaround** in `ModalDialog.razor.js`: after a drop the library lays a copy of the list over it,
+  appended to `<body>`, which a modal's top layer hides, so the list blinked out in a dialog. A MutationObserver moves
+  the copy into the open modal. Still needed in BlazorBlueprint 4.1.0; worth reporting upstream.
+- Also: `TextField.FocusAsync`; scroll locked behind `.artist-shop-modal` dialogs with a stable gutter (the lightbox
+  rule is unchanged); one scroll area in `DropSeriesDialog`; the main button is `autofocus` in the folder, series and
+  vocabulary dialogs so Enter confirms on opening. Build warning from dc2cf81 left alone: `Divider` without `Class`
+  in `DropSeriesDialog`.
+
+## Handoff, 2026-10-04: review fixes and folder dialog for Add from images (From Claude), committed by Mike as dc2cf81
 
 Uncommitted, on top of 7603ad0. 905 tests passed in a fresh scratch copy, `npm run typecheck` clean. Mike reworded
 the dialog's intro; the "Check / uncheck all" box above its folder list isn't browser-checked.
@@ -25,8 +55,7 @@ current page (row model, save on blur, series dialog) carries over.
 - `Components/Interop/InteropObject<T>` in six components; `UnusableFileCounts`/`UnusableFileItems` and
   `ArtworkTypes/ArtworkTypeSelect.razor` shared by the two bulk image pages; `SeriesNameForm.AddAsync`;
   `SeriesChoiceDialog` moved to `SeriesAdmin/`; `StoredImage.ToArtworkImage`.
-- `TextNumberInput` (type="text") in `NumberField` and `PartialDateField`. A bad year now shows Blazor's own message,
-  "The value '19a5' is not valid for 'YearCreated'.", which names the C# property: worth our own wording later.
+- `TextNumberInput` (type="text") in `NumberField` and `PartialDateField`.
 
 ## Handoff, 2026-10-03 (evening): Add artworks from images (From Claude), committed by Mike as 7603ad0
 

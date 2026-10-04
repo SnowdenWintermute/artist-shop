@@ -18,6 +18,9 @@
   // a name can repeat, like one per ticked artwork
   [Parameter]
   public IReadOnlyList<(string Name, string Value)>? KeptFields { get; set; }
+  // a select of one type in place of the type checkboxes, for the artwork table
+  [Parameter]
+  public bool SingleType { get; set; }
 
   // Hidden when clearing would change nothing. Compared as filters, not addresses: the form sends
   // its empty fields too, so a list back at the cleared filters never has the same address. The
@@ -53,6 +56,19 @@
 
   <SubmitOnChange>
     <div class="mb-3 flex flex-wrap items-end gap-4">
+      @if (SingleType)
+      {
+        <label>
+          <span class="artist-shop-field-label">Work type</span>
+          <select name="@ArtworkListQuery.TypeKey" class="artist-shop-field-input">
+            @foreach (var type in Types)
+            {
+              <option value="@type.Id.Value" selected="@SelectedTypeIds.Contains(type.Id.Value)">@type.Name.Value</option>
+            }
+          </select>
+        </label>
+      }
+
       <label>
         <span class="artist-shop-field-label">Search titles</span>
         <input type="search" name="@ArtworkListQuery.SearchKey" value="@Filter.SearchText"
@@ -92,7 +108,7 @@
           </label>
         </div>
 
-        @if (Types.Count > 1)
+        @if (!SingleType && Types.Count > 1)
         {
           <CheckboxGroup Legend="Work type" Name="@ArtworkListQuery.TypeKey" Options="TypeOptions"
                          SelectedValues="SelectedTypeIds" />

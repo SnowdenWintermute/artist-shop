@@ -27,7 +27,8 @@
 
 @* Handle: only the grip starts a drag, so the rest of a row can hold links. Keyboard users have ↑/↓.
    ForceFallback: SortableJS moves the row itself instead of using the browser's drag, which ignores CSS
-   cursors; app.css keeps the closed hand during it *@
+   cursors; app.css keeps the closed hand during it. In a modal, ModalDialog.razor.js moves the copy of the
+   list it shows after a drop into the dialog, where it can be seen; it finds the copy by .sortable-handle *@
 <BbSortable Items="Items" OnUpdate="OnMove" Handle=".sortable-handle" ForceFallback="true" AriaLabel="@AriaLabel">
   <ItemTemplate Context="item">
     <div class="mb-2 flex items-center gap-2 border p-2 text-sm bg-theme-recessed">

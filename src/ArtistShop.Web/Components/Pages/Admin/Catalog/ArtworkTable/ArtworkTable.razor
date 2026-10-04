@@ -1,0 +1,362 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Forms.FileUpload.Images
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject ArtworkRepository ArtworkRepository
+@inject VocabularyRepository VocabularyRepository
+
+@* Artworks of one type, each saved on its own as its fields change. Each input saves its row when it
+   loses focus with a changed value: @bind updates on "change". The longer fields open dialogs *@
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkTableRow> Rows { get; set; } = default!;
+  // the type every row has, whose fields are the columns
+  [Parameter, EditorRequired]
+  public ArtworkTypeWithFields Type { get; set; } = default!;
+  // in the artist's order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Series> AllSeries { get; set; } = default!;
+  // a series is saved as soon as the series dialog adds it, so the caller lists it for every row
+  [Parameter, EditorRequired]
+  public EventCallback<Series> OnSeriesAdded { get; set; }
+  // for a page that shows when it last saved
+  [Parameter]
+  public EventCallback OnSaved { get; set; }
+  // a vocabulary, term or series was added from a dialog that has now closed, for a page with lists of
+  // its own, like filters, to read them again
+  [Parameter]
+  public EventCallback OnChoicesAdded { get; set; }
+
+  private bool _choicesAdded;
+
+  // the type's, sorted by name; the vocabulary dialog can add to them
+  private List<VocabularyWithTerms> _vocabularies = [];
+  private ArtworkTypeId? _vocabulariesTypeId;
+
+  private ArtworkTableRow? _descriptionRow;
+  private ArtworkTableRow? _seriesRow;
+  private ArtworkTableRow? _vocabularyRow;
+  private ArtworkTableRow? _imagesRow;
+
+  // the images and title stay in view as the other columns scroll sideways under them
+  private const string ImagesColumnClass = "sticky left-0 z-10 w-16 min-w-16 bg-white";
+  private const string TitleColumnClass = "sticky left-16 z-10 bg-white";
+
+  private const string InputClass = "artist-shop-field-input";
+
+  // room for a focused input's outline, which the pinned title column would otherwise paint over
+  private const string FieldCellClass = "pl-1 align-top";
+
+  private const string DialogButtonClass = $"{InputClass} w-48 cursor-pointer truncate text-left";
+
+  private IReadOnlyCollection<ArtworkField> Fields => Type.Fields;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (_vocabulariesTypeId != Type.Id)
+    {
+      _vocabulariesTypeId = Type.Id;
+      await ReloadVocabulariesAsync();
+    }
+  }
+
+  private async Task ReloadVocabulariesAsync() =>
+    _vocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(Type.Id));
+
+  private async Task VocabulariesChangedAsync()
+  {
+    _choicesAdded = true;
+    await ReloadVocabulariesAsync();
+  }
+
+  private async Task SeriesAddedAsync(Series series)
+  {
+    _choicesAdded = true;
+    await OnSeriesAdded.InvokeAsync(series);
+  }
+
+  // once the dialog is gone, after any save, so the page's refresh doesn't land mid-dialog
+  private async Task ChoiceDialogClosedAsync()
+  {
+    _seriesRow = null;
+    _vocabularyRow = null;
+
+    if (_choicesAdded)
+    {
+      _choicesAdded = false;
+      await OnChoicesAdded.InvokeAsync();
+    }
+  }
+
+  private IReadOnlyList<DataTableHeading> Headings
+  {
+    get
+    {
+      List<DataTableHeading> headings = [new("", ImagesColumnClass), new("Title", TitleColumnClass)];
+
+      if (Fields.Contains(ArtworkField.DateCreated))
+      {
+        headings.Add("Date created");
+      }
+
+      if (Fields.Contains(ArtworkField.HeightAndWidth))
+      {
+        headings.AddRange(["Height (cm)", "Width (cm)"]);
+      }
+
+      if (Fields.Contains(ArtworkField.Depth))
+      {
+        headings.Add("Depth (cm)");
+      }
+
+      if (Fields.Contains(ArtworkField.Duration))
+      {
+        headings.Add("Duration");
+      }
+
+      headings.AddRange(["Description", "Series", "Vocabularies"]);
+      return headings;
+    }
+  }
+
+  // A change made while a save is running waits for it, then saves again, so saves of one row never
+  // overlap and the last one sent holds the latest values
+  private async Task SaveAsync(ArtworkTableRow row)
+  {
+    if (row.IsSaving)
+    {
+      row.SaveAgain = true;
+      return;
+    }
+
+    row.IsSaving = true;
+
+    try
+    {
+      do
+      {
+        row.SaveAgain = false;
+
+        if (!row.Validate())
+        {
+          continue;
+        }
+
+        await SaveRowAsync(row, () => ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
+      } while (row.SaveAgain);
+    }
+    finally
+    {
+      row.IsSaving = false;
+    }
+  }
+
+  private async Task SaveRowAsync(ArtworkTableRow row, Func<Task> save)
+  {
+    try
+    {
+      await save();
+      row.SaveError = null;
+      row.SaveCount++;
+      await OnSaved.InvokeAsync();
+    }
+    catch (ArtworkDeletedException)
+    {
+      row.SaveError = "Deleted elsewhere";
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      row.SaveError = "Changed elsewhere. Reload the page.";
+    }
+  }
+
+  private async Task DescriptionOkAsync(string? description)
+  {
+    if (_descriptionRow is { } row)
+    {
+      row.Form.Description = string.IsNullOrWhiteSpace(description) ? null : description;
+      _descriptionRow = null;
+      await SaveAsync(row);
+    }
+  }
+
+  private async Task SeriesOkAsync(List<int> seriesIds)
+  {
+    if (_seriesRow is { } row)
+    {
+      row.Form.SeriesIds = seriesIds;
+      _seriesRow = null;
+      await SaveAsync(row);
+      await ChoiceDialogClosedAsync();
+    }
+  }
+
+  private async Task VocabularyOkAsync(List<int> termIds)
+  {
+    if (_vocabularyRow is { } row)
+    {
+      row.Form.VocabularyTermIds = termIds;
+      _vocabularyRow = null;
+      await SaveAsync(row);
+      await ChoiceDialogClosedAsync();
+    }
+  }
+
+  // apart from the row's other fields, which update_artwork_details saves without touching images
+  private async Task ImagesOkAsync(ImageListState state)
+  {
+    if (_imagesRow is not { } row)
+    {
+      return;
+    }
+
+    var mainImageIndex = state.Images.ToList().FindIndex(image => image.StorageKey == state.MainImageKey);
+
+    await SaveRowAsync(row, async () =>
+    {
+      await ArtworkRepository.UpdateImagesAsync(row.Id, state.Images, Math.Max(mainImageIndex, 0));
+      row.ReplaceSavedImages(state.Images, mainImageIndex < 0 ? null : state.MainImageKey);
+    });
+
+    _imagesRow = null;
+  }
+
+  private string SeriesText(ArtworkTableRow row) =>
+    string.Join(", ", AllSeries.Where(series => row.Form.SeriesIds.Contains(series.Id.Value)).Select(series =>
+series.Name.Value));
+
+  private string VocabularyText(ArtworkTableRow row) =>
+    string.Join(", ", _vocabularies
+      .SelectMany(vocabulary => vocabulary.Terms)
+      .Where(term => row.Form.VocabularyTermIds.Contains(term.Id.Value))
+      .Select(term => term.Name.Value));
+}
+
+@* the right padding keeps the last column's focus outline inside the scrolling box, which clips it *@
+<div class="mb-4 overflow-x-auto pr-1">
+  <DataTable Items="Rows" Headings="Headings" Class="text-sm" FitsContent>
+    <Row Context="row">
+      <DataTableCell Class="@($"align-top {ImagesColumnClass}")">
+        <RowImagesCell Row="row" OnEdit="() => _imagesRow = row" />
+      </DataTableCell>
+
+      <DataTableCell Class="@($"align-top {TitleColumnClass}")">
+        <input class="@($"{InputClass} w-48")" aria-label="Title" @bind="row.Form.Name"
+               @bind:after="() => SaveAsync(row)" />
+        <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.Name))" />
+        <RowFieldError Message="@row.SaveError" />
+      </DataTableCell>
+
+      @if (Fields.Contains(ArtworkField.DateCreated))
+      {
+        <DataTableCell Class="@FieldCellClass">
+          <div class="flex gap-1">
+            <input inputmode="numeric" class="@($"{InputClass} w-20")" placeholder="Year" aria-label="Year created"
+                   @bind="row.YearText" @bind:after="() => SaveAsync(row)" />
+            <select class="@($"{InputClass} w-20")" aria-label="Month created" @bind="row.Form.MonthCreated"
+                    @bind:after="() => SaveAsync(row)">
+              <option value="">Month</option>
+              @for (var month = 1; month <= 12; month++)
+              {
+                <option value="@month">@(PartialDate.MonthName(month)[..3])</option>
+              }
+            </select>
+            <select class="@($"{InputClass} w-16")" aria-label="Day created" @bind="row.Form.DayCreated"
+                    @bind:after="() => SaveAsync(row)">
+              <option value="">Day</option>
+              @for (var day = 1; day <= 31; day++)
+              {
+                <option value="@day"
+                        disabled="@(day > PartialDate.MaximumDayIn(row.Form.YearCreated, row.Form.MonthCreated))">@day</option>
+              }
+            </select>
+          </div>
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.YearCreated))" />
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.MonthCreated))" />
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.DayCreated))" />
+        </DataTableCell>
+      }
+
+      @if (Fields.Contains(ArtworkField.HeightAndWidth))
+      {
+        <DataTableCell Class="@FieldCellClass">
+          <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Height in centimetres"
+                 @bind="row.HeightText" @bind:after="() => SaveAsync(row)" />
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.HeightCm))" />
+        </DataTableCell>
+        <DataTableCell Class="@FieldCellClass">
+          <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Width in centimetres"
+                 @bind="row.WidthText" @bind:after="() => SaveAsync(row)" />
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.WidthCm))" />
+        </DataTableCell>
+      }
+
+      @if (Fields.Contains(ArtworkField.Depth))
+      {
+        <DataTableCell Class="@FieldCellClass">
+          <input inputmode="decimal" class="@($"{InputClass} w-24")" aria-label="Depth in centimetres"
+                 @bind="row.DepthText" @bind:after="() => SaveAsync(row)" />
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.DepthCm))" />
+        </DataTableCell>
+      }
+
+      @if (Fields.Contains(ArtworkField.Duration))
+      {
+        <DataTableCell Class="@FieldCellClass">
+          <input class="@($"{InputClass} w-28")" placeholder="h:mm:ss" aria-label="Duration" @bind="row.Form.Duration"
+                 @bind:after="() => SaveAsync(row)" />
+          <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.Duration))" />
+        </DataTableCell>
+      }
+
+      <DataTableCell Class="@FieldCellClass">
+        <button type="button" class="@DialogButtonClass" @onclick="() => _descriptionRow = row">
+          @(string.IsNullOrWhiteSpace(row.Form.Description) ? "Edit…" : row.Form.Description)
+        </button>
+      </DataTableCell>
+
+      <DataTableCell Class="@FieldCellClass">
+        <button type="button" class="@DialogButtonClass" @onclick="() => _seriesRow = row">
+          @(row.Form.SeriesIds.Count is 0 ? "Choose…" : SeriesText(row))
+        </button>
+      </DataTableCell>
+
+      <DataTableCell Class="@FieldCellClass">
+        <button type="button" class="@DialogButtonClass" @onclick="() => _vocabularyRow = row">
+          @(VocabularyText(row) is { Length: > 0 } terms ? terms : "Choose…")
+        </button>
+      </DataTableCell>
+    </Row>
+  </DataTable>
+</div>
+
+@if (_descriptionRow is { } descriptionRow)
+{
+  <DescriptionDialog ArtworkName="@descriptionRow.Form.Name" Description="@descriptionRow.Form.Description"
+                     OnOk="DescriptionOkAsync" OnClose="() => _descriptionRow = null" />
+}
+
+@if (_seriesRow is { } seriesRow)
+{
+  <SeriesChoiceDialog ArtworkName="@seriesRow.Form.Name" AllSeries="AllSeries"
+                      SelectedSeriesIds="seriesRow.Form.SeriesIds" OnOk="SeriesOkAsync" OnClose="ChoiceDialogClosedAsync"
+                      OnSeriesAdded="SeriesAddedAsync" />
+}
+
+@if (_vocabularyRow is { } vocabularyRow)
+{
+  <VocabularyChoiceDialog ArtworkName="@vocabularyRow.Form.Name" ArtworkTypeId="Type.Id" Vocabularies="_vocabularies"
+                          SelectedTermIds="vocabularyRow.Form.VocabularyTermIds" OnOk="VocabularyOkAsync" OnClose="ChoiceDialogClosedAsync"
+                          OnVocabulariesChanged="VocabulariesChangedAsync" />
+}
+
+@if (_imagesRow is { } imagesRow)
+{
+  <ArtworkImagesDialog ArtworkName="@imagesRow.Form.Name" Images="imagesRow.SavedImages"
+                       MainImageKey="@imagesRow.MainImageKey" OnOk="ImagesOkAsync" OnClose="() => _imagesRow = null" />
+}
