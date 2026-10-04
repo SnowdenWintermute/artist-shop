@@ -44,8 +44,8 @@ public sealed class ArtworkImageAppendTests(TestApp app)
             new Dictionary<string, string> { ["artworkId"] = $"{artworkId.Value}" }
         );
 
-    private static async Task<ImageUploadResult?> ImageInAsync(HttpResponseMessage response) =>
-        (await response.Content.ReadFromJsonAsync<ArtworkImageAppendResult>(TestContext.Current.CancellationToken))?.Image;
+    private static async Task<ArtworkImage?> ImageInAsync(HttpResponseMessage response) =>
+        await response.Content.ReadFromJsonAsync<ArtworkImage>(TestContext.Current.CancellationToken);
 
     private int OriginalCount(TestSite site) =>
         Directory.GetFiles(ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), site.Id).Originals).Length;
@@ -66,9 +66,9 @@ public sealed class ArtworkImageAppendTests(TestApp app)
         Assert.NotNull(images);
         Assert.Equal(2, images.Count);
         Assert.Equal("Dawn.jpg", images[0].OriginalFileName);
-        // each added image comes back for its thumbnail; the repeat added nothing, so nothing does
+        // each answer is the artwork's image, for its thumbnail; the repeat gets the first one's
         Assert.Equal(images[0].StorageKey, (await ImageInAsync(first))?.StorageKey);
-        Assert.Null(await ImageInAsync(again));
+        Assert.Equal(images[0].StorageKey, (await ImageInAsync(again))?.StorageKey);
         Assert.Equal(images[1].StorageKey, (await ImageInAsync(other))?.StorageKey);
         // the second copy was deleted rather than left for the sweep
         Assert.Equal(2, OriginalCount(site));

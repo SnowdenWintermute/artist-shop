@@ -6,9 +6,7 @@
   [Parameter, EditorRequired]
   public EventCallback OnTabReturn { get; set; }
 
-  private IJSObjectReference? _module;
-  private IJSObjectReference? _watcher;
-  private DotNetObjectReference<TabReturnWatcher>? _selfReference;
+  private InteropObject<TabReturnWatcher>? _watcher;
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -17,16 +15,9 @@
       return;
     }
 
-    // the page closed before the watcher started, so there is nothing to watch
-    try
-    {
-      _module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Interop/TabReturnWatcher.razor.js");
-      _selfReference = DotNetObjectReference.Create(this);
-      _watcher = await _module.InvokeAsync<IJSObjectReference>("watchTabReturn", _selfReference);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // null when the page closed before the watcher started, so there is nothing to watch
+    _watcher = await InteropObject<TabReturnWatcher>.CreateAsync(
+      JS, "./Components/Interop/TabReturnWatcher.razor.js", "watchTabReturn", this, self => [self]);
   }
 
   [JSInvokable]
@@ -34,23 +25,9 @@
 
   public async ValueTask DisposeAsync()
   {
-    try
+    if (_watcher is not null)
     {
-      if (_watcher is not null)
-      {
-        await _watcher.InvokeVoidAsync("dispose");
-        await _watcher.DisposeAsync();
-      }
-
-      if (_module is not null)
-      {
-        await _module.DisposeAsync();
-      }
+      await _watcher.DisposeAsync();
     }
-    catch (JSDisconnectedException)
-    {
-    }
-
-    _selfReference?.Dispose();
   }
 }

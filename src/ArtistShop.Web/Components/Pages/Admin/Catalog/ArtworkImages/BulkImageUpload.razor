@@ -1,6 +1,7 @@
 @rendermode InteractiveServer
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
@@ -15,29 +16,15 @@
   [Parameter]
   public int? InitialArtworkTypeId { get; set; }
 
-  // the dropped folder and one level of folders inside it. Deeper than that is someone's thumbnails
-  private const int MaximumDirectoryDepth = 2;
-
-  // one drop at a time. Well past any artwork folder, and it keeps the name pre-check's
-  // table-valued parameter and the report to a size worth rendering
-  private const int MaximumFiles = 5_000;
-
-  // a backstop only: the count above is the real limit, and 400 bytes is generous for an entry
-  // of an id, a path, a size and a content type
-  private const long MaximumMetadataBytes = MaximumFiles * 400L;
-
   private ElementReference _zone;
-  private IJSObjectReference? _module;
-  private IJSObjectReference? _uploader;
-  private DotNetObjectReference<BulkImageUpload>? _selfReference;
+  private InteropObject<BulkImageUpload>? _uploader;
 
   private List<ArtworkType> _artworkTypes = [];
   private int? _artworkTypeId;
 
   // the images found, before they are matched to artworks
   private List<CollectedFile> _candidates = [];
-  private int _notImageCount;
-  private int _heicCount;
+  private UnusableFileCounts _unusable = UnusableFileCounts.None;
   private int _tooDeepCount;
   private bool _tooManyFiles;
 
@@ -60,22 +47,9 @@
       return;
     }
 
-    // the page closed before the uploader started, so nothing will be dropped on it
-    try
-    {
-      _module = await JS.InvokeAsync<IJSObjectReference>(
-        "import",
-        "./js/bulk-artwork-uploader.js"
-      );
-
-      _selfReference = DotNetObjectReference.Create(this);
-
-      _uploader = await _module.InvokeAsync<IJSObjectReference>(
-        "createBulkUploader", _zone, _selfReference, MaximumFiles);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // null when the page closed before the uploader started, so nothing will be dropped on it
+    _uploader = await InteropObject<BulkImageUpload>.CreateAsync(
+      JS, "./js/bulk-artwork-uploader.js", "createBulkUploader", this, self => [_zone, self, BulkImageDrop.MaximumFiles]);
   }
 
   [JSInvokable]
@@ -84,30 +58,11 @@
     var collected = await ReadCollectedFilesAsync();
 
     _tooManyFiles = false;
-    _notImageCount = 0;
-    _heicCount = 0;
-    _tooDeepCount = 0;
-    _candidates = [];
+    _unusable = UnusableFileCounts.Of(collected);
 
-    foreach (var file in collected)
-    {
-      if (ImageUploadValidation.IsHeic(file.Type))
-      {
-        _heicCount++;
-      }
-      else if (!ImageUploadValidation.IsPermittedContentType(file.Type))
-      {
-        _notImageCount++;
-      }
-      else if (DirectoryDepthOf(file.Path) > MaximumDirectoryDepth)
-      {
-        _tooDeepCount++;
-      }
-      else
-      {
-        _candidates.Add(file);
-      }
-    }
+    var images = collected.Where(file => ImageUploadValidation.IsPermittedContentType(file.Type)).ToList();
+    _candidates = [.. images.Where(file => BulkImageDrop.FoldersOf(file.Path).Length <= BulkImageDrop.MaximumDirectoryDepth)];
+    _tooDeepCount = images.Count - _candidates.Count;
 
     await MatchToArtworksAsync();
 
@@ -119,8 +74,7 @@
   public async Task OnTooManyFiles()
   {
     _tooManyFiles = true;
-    _notImageCount = 0;
-    _heicCount = 0;
+    _unusable = UnusableFileCounts.None;
     _tooDeepCount = 0;
     _candidates = [];
     _files = [];
@@ -173,14 +127,8 @@
           .Select(file => new UploadItem(file.Id, file.Outcome is BulkImageOutcome.WillAddExtra ? file.ArtworkIds[0] : null))
       );
 
-    // the page closed, taking the files with it
-    try
-    {
-      await _uploader.InvokeVoidAsync("upload", artworks, typeId);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // nothing happens once the page has closed, taking the files with it
+    await _uploader.InvokeIfOpenAsync("upload", artworks, typeId);
   }
 
   // what the script sends one file as: an extra image names its artwork, and a first image has none
@@ -188,16 +136,10 @@
 
   private async Task StopUploadAsync()
   {
-    // the page closed, which stopped the uploads anyway
-    try
+    // closing the page stops the uploads anyway
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("stop");
-      }
-    }
-    catch (JSDisconnectedException)
-    {
+      await _uploader.InvokeIfOpenAsync("stop");
     }
   }
 
@@ -224,9 +166,9 @@
     await InvokeAsync(StateHasChanged);
   }
 
-  // the script sends the appended image too, for pages that show it; this report needs only the outcome
+  // the script sends the artwork's image too, for pages that show it; this report needs only the outcome
   [JSInvokable]
-  public async Task OnExtraAdded(string id, ArtworkImageAppendResult _)
+  public async Task OnExtraAdded(string id, ArtworkImage _)
   {
     if (FindFile(id) is { } file)
     {
@@ -267,7 +209,7 @@
     // the page closed while the files were being read, so there is no one left to show them to
     try
     {
-      return await CollectedFileStreams.ReadListAsync(_uploader, MaximumMetadataBytes);
+      return await CollectedFileStreams.ReadListAsync(_uploader.Reference, BulkImageDrop.MaximumMetadataBytes);
     }
     catch (JSDisconnectedException)
     {
@@ -275,29 +217,12 @@
     }
   }
 
-  // "/Seascapes/1990s/sunset.jpg" is two folders deep; a loose file is none
-  private static int DirectoryDepthOf(string path) => path.Trim('/').Split('/').Length - 1;
-
   public async ValueTask DisposeAsync()
   {
-    try
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("dispose");
-        await _uploader.DisposeAsync();
-      }
-
-      if (_module is not null)
-      {
-        await _module.DisposeAsync();
-      }
+      await _uploader.DisposeAsync();
     }
-    catch (JSDisconnectedException)
-    {
-    }
-
-    _selfReference?.Dispose();
   }
 }
 
@@ -306,16 +231,7 @@
      FileDropZoneFrame already refuses a drop onto an input inside a disabled fieldset *@
   <fieldset class="contents" disabled="@_isUploading">
     <div class="mb-4">
-      @* SelectField builds on InputSelect, which needs an EditContext, and there is no form here *@
-      <label class="mb-1 block text-sm" for="artwork-type">Artwork type</label>
-      <select id="artwork-type" class="artist-shop-field-input" @bind="_artworkTypeId"
-              @bind:after="OnArtworkTypeChangedAsync">
-        <option value="">Choose a type</option>
-        @foreach (var artworkType in _artworkTypes)
-        {
-          <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
-        }
-      </select>
+      <ArtworkTypeSelect ArtworkTypes="_artworkTypes" @bind-Value="_artworkTypeId" @bind-Value:after="OnArtworkTypeChangedAsync" />
     </div>
 
     @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
@@ -333,23 +249,15 @@
 @if (_tooManyFiles)
 {
   <p class="mb-4 text-red-400">
-    That's more than @MaximumFiles files. Upload one folder at a time.
+    That's more than @BulkImageDrop.MaximumFiles files. Upload one folder at a time.
   </p>
 }
 
-@if (_candidates.Count > 0 || _notImageCount > 0 || _heicCount > 0 || _tooDeepCount > 0)
+@if (_candidates.Count > 0 || _unusable.Any || _tooDeepCount > 0)
 {
   <ul class="mb-4 text-sm">
     <li>@CountText.Of(_candidates.Count, "image") found</li>
-    @if (_heicCount > 0)
-    {
-      <li>@CountText.Of(_heicCount, "file") skipped. @ImageProcessor.UnsupportedHeicMessage</li>
-    }
-    @if (_notImageCount > 0)
-
-    {
-      <li>@CountText.Of(_notImageCount, "file") skipped: not an image format we accept</li>
-    }
+    <UnusableFileItems Counts="_unusable" />
     @if (_tooDeepCount > 0)
     {
       <li>@CountText.Of(_tooDeepCount, "file") skipped: images in deeply nested folders</li>

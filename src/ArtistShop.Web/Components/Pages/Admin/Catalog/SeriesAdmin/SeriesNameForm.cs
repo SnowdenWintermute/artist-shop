@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using ArtistShop.Web.Components.Forms;
+using ArtistShop.Web.Database;
+using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Utilities;
@@ -33,6 +35,23 @@ public class SeriesNameForm : ServerValidatedForm, IValidatableObject
             nameof(Name),
             "Another series already has this name, or one that only differs in punctuation, accents or capital letters."
         );
+    }
+
+    // the new series, or null when the name is taken, which the form then says under the field
+    public async Task<Series?> AddAsync(SeriesRepository seriesRepository)
+    {
+        var name = ToSeriesName();
+        var slug = ToSeriesSlug();
+
+        try
+        {
+            return new Series(await seriesRepository.AddAsync(name, slug), name, slug);
+        }
+        catch (NameAlreadyInUseException)
+        {
+            AddNameTakenError();
+            return null;
+        }
     }
 
     public SeriesName ToSeriesName() => new(Unwrap.Value(Name).Trim());

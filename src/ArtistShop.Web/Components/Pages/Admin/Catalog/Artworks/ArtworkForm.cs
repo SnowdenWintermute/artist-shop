@@ -229,13 +229,16 @@ public class ArtworkForm : IValidatableObject
             yield return new ValidationResult(dateError.Message, [memberName]);
         }
 
-        var dimensionsPartiallyFilled = HeightCm.HasValue != WidthCm.HasValue;
-        if (dimensionsPartiallyFilled)
+        // under the empty one only, where the artist goes next. A height that isn't a number reads
+        // as empty here too, so the width beside it isn't blamed for it
+        if (HeightCm.HasValue && !WidthCm.HasValue)
         {
-            yield return new ValidationResult(
-                "Enter both height and width, or neither.",
-                [nameof(HeightCm), nameof(WidthCm)]
-            );
+            yield return new ValidationResult("Enter a width too.", [nameof(WidthCm)]);
+        }
+
+        if (WidthCm.HasValue && !HeightCm.HasValue)
+        {
+            yield return new ValidationResult("Enter a height too.", [nameof(HeightCm)]);
         }
 
         var depthWithoutHeightAndWidth = DepthCm.HasValue && !HeightCm.HasValue;

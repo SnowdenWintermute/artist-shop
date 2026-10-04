@@ -68,14 +68,15 @@ public class ArtworkImageRepository(SiteDatabase database)
     // After the artwork's other images, and its primary when it has none. False, adding nothing,
     // when the artwork already has an image with this hash. Throws ChangedSincePageLoadException
     // when the artwork is gone
-    public async Task<bool> AppendImageAsync(ArtworkId artworkId, ArtworkImage image, string sha256)
+    // the image the artwork holds afterwards: this one, or the one it already had with this hash
+    public async Task<ImageAppendResult> AppendImageAsync(ArtworkId artworkId, ArtworkImage image, string sha256)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         try
         {
-            return await connection.ExecuteScalarAsync<bool>(
-                "SELECT append_artwork_image(@ArtworkId, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri, @Sha256)",
+            var row = await connection.QuerySingleAsync<AppendRow>(
+                "SELECT * FROM append_artwork_image(@ArtworkId, @StorageKey, @OriginalFileName, @Width, @Height, @BlurDataUri, @Sha256)",
                 new
                 {
                     ArtworkId = artworkId.Value,
@@ -86,6 +87,11 @@ public class ArtworkImageRepository(SiteDatabase database)
                     image.BlurDataUri,
                     Sha256 = sha256,
                 }
+            );
+
+            return new ImageAppendResult(
+                new ArtworkImage(row.StorageKey, row.OriginalFileName, row.Width, row.Height, row.BlurDataUri),
+                row.Appended
             );
         }
         catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerExists))
@@ -176,6 +182,16 @@ public class ArtworkImageRepository(SiteDatabase database)
     {
         public required int ArtworkId { get; init; }
         public required string OriginalFileName { get; init; }
+    }
+
+    private sealed class AppendRow
+    {
+        public required string StorageKey { get; init; }
+        public string? OriginalFileName { get; init; }
+        public required int Width { get; init; }
+        public required int Height { get; init; }
+        public string? BlurDataUri { get; init; }
+        public required bool Appended { get; init; }
     }
 
     private sealed class AttachRow

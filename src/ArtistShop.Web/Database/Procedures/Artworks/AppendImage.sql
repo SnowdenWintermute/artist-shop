@@ -1,9 +1,9 @@
 DROP FUNCTION IF EXISTS append_artwork_image;
 
 -- After the artwork's other images, and its primary image when it has none. The artwork's row is
--- locked, so two uploads for one artwork take turns and each sees the other's image. False, adding
--- nothing, when the artwork already has an image with this hash: a retried upload, or a second
--- import of the same folder
+-- locked, so two uploads for one artwork take turns and each sees the other's image. When the
+-- artwork already has an image with this hash, as after a retried upload or a second import of the
+-- same folder, it adds nothing and returns that image instead, so a retry gets the same answer
 CREATE FUNCTION append_artwork_image (
     p_artwork_id int,
     p_storage_key text,
@@ -12,7 +12,14 @@ CREATE FUNCTION append_artwork_image (
     p_height int,
     p_blur_data_uri text,
     p_sha256 text
-) RETURNS boolean LANGUAGE plpgsql AS $$
+) RETURNS TABLE (
+    storage_key text,
+    original_file_name text,
+    width int,
+    height int,
+    blur_data_uri text,
+    appended boolean
+) LANGUAGE plpgsql AS $$
 BEGIN
     PERFORM
     FROM
@@ -25,15 +32,24 @@ BEGIN
         RAISE EXCEPTION 'The artwork no longer exists.' USING ERRCODE = 'SH003';
     END IF;
 
-    IF EXISTS (
-        SELECT
-        FROM
-            artwork_images AS image
-        WHERE
-            image.artwork_id = p_artwork_id
-            AND image.sha256 = p_sha256
-    ) THEN
-        RETURN false;
+    RETURN QUERY
+    SELECT
+        image.storage_key::text,
+        image.original_file_name::text,
+        image.width,
+        image.height,
+        image.blur_data_uri::text,
+        false
+    FROM
+        artwork_images AS image
+    WHERE
+        image.artwork_id = p_artwork_id
+        AND image.sha256 = p_sha256
+    LIMIT
+        1;
+
+    IF FOUND THEN
+        RETURN;
     END IF;
 
     -- with no images, max is null and count is 0, so it's first and primary
@@ -64,6 +80,13 @@ BEGIN
     WHERE
         image.artwork_id = p_artwork_id;
 
-    RETURN true;
+    RETURN QUERY
+    SELECT
+        p_storage_key,
+        p_original_file_name,
+        p_width,
+        p_height,
+        p_blur_data_uri,
+        true;
 END;
 $$;

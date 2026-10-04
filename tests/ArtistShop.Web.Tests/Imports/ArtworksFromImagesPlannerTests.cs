@@ -20,7 +20,7 @@ public sealed class ArtworksFromImagesPlannerTests
     [Fact]
     public void TitlesAreFileNamesWithoutTheirExtension()
     {
-        var plan = ArtworksFromImagesPlanner.Plan(Files("/Painting/sunset_over-bay.jpg", "loose.png"), seriesForFolders: null);
+        var plan = ArtworksFromImagesPlanner.Plan(Files("/Painting/sunset_over-bay.jpg", "loose.png"), seriesFolders: [], looseSeriesIds: []);
 
         Assert.Equal(["loose", "sunset_over-bay"], plan.Artworks.Select(artwork => artwork.Name.Value).Order());
         Assert.Empty(plan.Skipped);
@@ -31,7 +31,7 @@ public sealed class ArtworksFromImagesPlannerTests
     {
         var plan = ArtworksFromImagesPlanner.Plan(
             Files("/Painting/Dawn (10).jpg", "/Painting/Dawn.jpg", "/Painting/Dawn (2).jpg", "/Painting/Dusk (2).jpg"),
-            seriesForFolders: null
+            seriesFolders: [], looseSeriesIds: []
         );
 
         Assert.Equal(
@@ -43,7 +43,7 @@ public sealed class ArtworksFromImagesPlannerTests
     [Fact]
     public void ANumberedTitleThatIsItselfAnExtraDoesNotTakeExtras()
     {
-        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/Dawn.jpg", "/P/Dawn (2).jpg", "/P/Dawn (2) (3).jpg"), seriesForFolders: null);
+        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/Dawn.jpg", "/P/Dawn (2).jpg", "/P/Dawn (2) (3).jpg"), seriesFolders: [], looseSeriesIds: []);
 
         Assert.Equal(
             ["Dawn: /P/Dawn.jpg, /P/Dawn (2).jpg", "Dawn (2) (3): /P/Dawn (2) (3).jpg"],
@@ -51,60 +51,112 @@ public sealed class ArtworksFromImagesPlannerTests
         );
     }
 
+    // as the Upload images page reads a drop, so that page can still finish what this one didn't send
     [Fact]
-    public void TheSameNameInOneFolderIsSkippedButInTwoFoldersIsTwoArtworks()
+    public void TheSameNameAnywhereInTheDropIsSkipped()
     {
         var plan = ArtworksFromImagesPlanner.Plan(
-            Files("/P/a/Untitled.jpg", "/P/b/Untitled.jpg", "/P/c/Dawn.jpg", "/P/c/dawn.png"),
-            seriesForFolders: null
+            Files("/P/a/Untitled.jpg", "/P/b/Untitled.jpg", "/P/c/Dawn.jpg", "/P/c/dawn.png", "/P/Dusk.jpg"),
+            seriesFolders: [], looseSeriesIds: []
         );
 
-        Assert.Equal(["Untitled", "Untitled"], plan.Artworks.Select(artwork => artwork.Name.Value));
-        Assert.Equal(ArtworkFromImagesSkipReason.SameNameInFolder, ReasonFor(plan, "/P/c/Dawn.jpg"));
-        Assert.Equal(ArtworkFromImagesSkipReason.SameNameInFolder, ReasonFor(plan, "/P/c/dawn.png"));
+        Assert.Equal(["Dusk"], plan.Artworks.Select(artwork => artwork.Name.Value));
+        Assert.All(
+            ["/P/a/Untitled.jpg", "/P/b/Untitled.jpg", "/P/c/Dawn.jpg", "/P/c/dawn.png"],
+            path => Assert.Equal(ArtworkFromImagesSkipReason.SameNameInUpload, ReasonFor(plan, path))
+        );
     }
 
     [Fact]
-    public void WithoutSeriesFoldersAnyDepthIsTakenAndNoSeriesIsSet()
+    public void NumberedFilesJoinTheirTitleFromAnotherFolder()
     {
-        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/Seascapes 1990s/x/y/Deep.jpg"), seriesForFolders: null);
+        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/Dawn.jpg", "/P/more/Dawn (2).jpg"), seriesFolders: [], looseSeriesIds: []);
 
-        var artwork = Assert.Single(plan.Artworks);
-        Assert.Null(artwork.SeriesId);
+        Assert.Equal(["Dawn: /P/Dawn.jpg, /P/more/Dawn (2).jpg"], Artworks(plan));
     }
 
     [Fact]
-    public void ASubfolderNamesItsSeriesByWebAddress()
+    public void WithoutSeriesFoldersTheDroppedFolderAndOneLevelAreTaken()
     {
         var plan = ArtworksFromImagesPlanner.Plan(
-            Files("/Paintings/seascapes 1990s/Wave.jpg", "/Paintings/Loose.jpg", "/Paintings/Portraits/Face.jpg", "/Paintings/a/b/Deep.jpg"),
-            seriesForFolders: [Seascapes]
+            Files("/P/Loose.jpg", "/P/Seascapes 1990s/Wave.jpg", "/P/Seascapes 1990s/thumbs/Wave small.jpg"),
+            seriesFolders: [], looseSeriesIds: []
+        );
+
+        Assert.Equal(["Loose", "Wave"], plan.Artworks.Select(artwork => artwork.Name.Value));
+        Assert.All(plan.Artworks, artwork => Assert.Empty(artwork.SeriesIds));
+        Assert.Equal(ArtworkFromImagesSkipReason.TooDeep, ReasonFor(plan, "/P/Seascapes 1990s/thumbs/Wave small.jpg"));
+    }
+
+    [Fact]
+    public void FoldersHoldingImagesAreListedWithTheSeriesTheirNamesGive()
+    {
+        var folders = ArtworksFromImagesPlanner.Folders(
+            Files(
+                "/Paintings/Loose.jpg",
+                "/Paintings/seascapes 1990s/Wave.jpg",
+                "/Paintings/seascapes 1990s/Tide.jpg",
+                "/Paintings/Seascapes, 1999/Gull.jpg",
+                "/Paintings/!!!/Odd.jpg",
+                "/Paintings/a/b/Deep.jpg",
+                "Alone.jpg"
+            ),
+            [Seascapes]
         );
 
         Assert.Equal(
-            [("Loose", (SeriesId?)null), ("Wave", Seascapes.Id)],
-            plan.Artworks.Select(artwork => (artwork.Name.Value, artwork.SeriesId)).OrderBy(entry => entry.Value)
+            [
+                ("Paintings", 1, DroppedFolderSeriesType.New, true),
+                ("Paintings/!!!", 1, DroppedFolderSeriesType.CannotBeSeries, false),
+                ("Paintings/seascapes 1990s", 2, DroppedFolderSeriesType.Existing, false),
+                ("Paintings/Seascapes, 1999", 1, DroppedFolderSeriesType.New, false),
+            ],
+            folders.Select(folder => (folder.Path, folder.ImageCount, folder.Type, folder.IsDropped))
         );
-        Assert.Equal(ArtworkFromImagesSkipReason.UnknownSeriesFolder, ReasonFor(plan, "/Paintings/Portraits/Face.jpg"));
-        Assert.Equal(ArtworkFromImagesSkipReason.TooDeep, ReasonFor(plan, "/Paintings/a/b/Deep.jpg"));
+        Assert.Equal(Seascapes, folders[2].Existing);
+        // one character from an existing series, which the artist may have meant
+        Assert.Equal(Seascapes.Name.Value, folders[3].SimilarSeriesName);
     }
 
-    // dropping one series' own folder puts its images in that series
-    [Fact]
-    public void TheDroppedFolderNamesASeriesWhenOneMatches()
-    {
-        var plan = ArtworksFromImagesPlanner.Plan(Files("/Seascapes 1990s/Wave.jpg", "Loose.jpg"), seriesForFolders: [Seascapes]);
+    // "new: Name" for a series made with the artworks
+    private static List<(string Title, string Series)> SeriesOf(ArtworksFromImagesPlan plan) =>
+        [
+            .. plan.Artworks.Select(artwork => (
+                artwork.Name.Value,
+                string.Join(", ", artwork.SeriesIds.Select(id => $"{id.Value}").Concat(artwork.NewSeriesName is { } name ? [$"new: {name.Value}"] : []))
+            )),
+        ];
 
-        Assert.Equal(
-            [("Loose", (SeriesId?)null), ("Wave", Seascapes.Id)],
-            plan.Artworks.Select(artwork => (artwork.Name.Value, artwork.SeriesId)).OrderBy(entry => entry.Value)
+    [Fact]
+    public void ImagesInChosenFoldersJoinTheirSeriesAndOthersJoinNone()
+    {
+        var files = Files("/Paintings/Loose.jpg", "/Paintings/seascapes 1990s/Wave.jpg", "/Paintings/Portraits/Face.jpg");
+        var folders = ArtworksFromImagesPlanner.Folders(files, [Seascapes]);
+
+        var plan = ArtworksFromImagesPlanner.Plan(files, [.. folders.Where(folder => !folder.IsDropped)], looseSeriesIds: []);
+
+        Assert.Equal([("Face", "new: Portraits"), ("Loose", ""), ("Wave", "3")], SeriesOf(plan));
+        Assert.Empty(plan.Skipped);
+    }
+
+    // images dropped on their own, rather than in a folder, join every series chosen for them
+    [Fact]
+    public void LooseImagesJoinTheSeriesChosenForThem()
+    {
+        var plan = ArtworksFromImagesPlanner.Plan(
+            Files("Dawn.jpg", "/Paintings/Dusk.jpg"),
+            seriesFolders: [],
+            looseSeriesIds: [new SeriesId(3), new SeriesId(5)]
         );
+
+        Assert.Equal([("Dawn", "3, 5"), ("Dusk", "")], SeriesOf(plan));
+        Assert.Equal(1, ArtworksFromImagesPlanner.LooseImageCount(Files("Dawn.jpg", "/Paintings/Dusk.jpg")));
     }
 
     [Fact]
     public void ATitleThatCantBeAWebAddressIsSkippedWithItsExtras()
     {
-        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/!!!.jpg", "/P/!!! (2).jpg"), seriesForFolders: null);
+        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/!!!.jpg", "/P/!!! (2).jpg"), seriesFolders: [], looseSeriesIds: []);
 
         Assert.Empty(plan.Artworks);
         Assert.Equal(ArtworkFromImagesSkipReason.NoWebAddress, ReasonFor(plan, "/P/!!!.jpg"));
@@ -114,7 +166,7 @@ public sealed class ArtworksFromImagesPlannerTests
     [Fact]
     public void ATitleAnArtworkAlreadyHasIsSkipped()
     {
-        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/Dawn.jpg", "/P/Dawn (2).jpg", "/P/Dusk.jpg"), seriesForFolders: null);
+        var plan = ArtworksFromImagesPlanner.Plan(Files("/P/Dawn.jpg", "/P/Dawn (2).jpg", "/P/Dusk.jpg"), seriesFolders: [], looseSeriesIds: []);
 
         Assert.Equal(["Dawn", "Dusk"], ArtworksFromImagesPlanner.NamesToCheck(plan).Select(name => name.Value));
 

@@ -33,8 +33,8 @@
   @* a new element for each save, so the animation plays again *@
   @if (Row.SaveCount > 0)
   {
-    <span @key="Row.SaveCount" class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-theme-primary"
-          role="status">
+    <span @key="Row.SaveCount"
+          class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-theme-primary" role="status">
       <SvgIcon Name="floppy-disc" Class="size-5" />
       <span class="sr-only">Saved</span>
     </span>

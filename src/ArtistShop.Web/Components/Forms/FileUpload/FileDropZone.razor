@@ -24,12 +24,7 @@
   // populated by the @ref after the first render, and can be passed to JS as the real DOM element
   private ElementReference _fileInput;
 
-  private IJSObjectReference? _module;
-  private IJSObjectReference? _uploader;
-
-  // wraps this Blazor component instance so JS can call back into
-  // it. Must be explicitly disposed or will memory leak.
-  private DotNetObjectReference<FileDropZone<TResult>>? _selfReference;
+  private InteropObject<FileDropZone<TResult>>? _uploader;
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -38,51 +33,25 @@
       return;
     }
 
-    // the page closed before the uploader started, so nothing will be dropped on it
-    try
-    {
-      _module = await JS.InvokeAsync<IJSObjectReference>(
-        "import",
-        "./Components/Forms/FileUpload/FileDropZone.razor.js"
-      );
-
-      _selfReference = DotNetObjectReference.Create(this);
-
-      _uploader = await _module.InvokeAsync<IJSObjectReference>(
-        "createUploader", _fileInput, _selfReference, UploadUrl);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // null when the page closed before the uploader started, so nothing will be dropped on it
+    _uploader = await InteropObject<FileDropZone<TResult>>.CreateAsync(
+      JS, "./Components/Forms/FileUpload/FileDropZone.razor.js", "createUploader", this, self => [_fileInput, self, UploadUrl]);
   }
 
+  // once the page has closed, the file went with it
   public async Task UploadAsync(string id)
   {
-    // the page closed, taking the file with it
-    try
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("upload", id);
-      }
-    }
-    catch (JSDisconnectedException)
-    {
+      await _uploader.InvokeIfOpenAsync("upload", id);
     }
   }
 
   public async Task ForgetAsync(string id)
   {
-    // the page closed, so the browser has already let go of the file
-    try
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("forget", id);
-      }
-    }
-    catch (JSDisconnectedException)
-    {
+      await _uploader.InvokeIfOpenAsync("forget", id);
     }
   }
 
@@ -110,24 +79,10 @@
 
   public async ValueTask DisposeAsync()
   {
-    try
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("dispose");
-        await _uploader.DisposeAsync();
-      }
-
-      if (_module is not null)
-      {
-        await _module.DisposeAsync();
-      }
+      await _uploader.DisposeAsync();
     }
-    catch (JSDisconnectedException)
-    {
-    }
-
-    _selfReference?.Dispose();
   }
 }
 

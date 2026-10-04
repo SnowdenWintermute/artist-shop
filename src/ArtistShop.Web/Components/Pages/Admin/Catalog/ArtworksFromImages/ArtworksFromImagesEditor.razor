@@ -2,6 +2,8 @@
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -20,14 +22,8 @@
   [Parameter]
   public int? InitialArtworkTypeId { get; set; }
 
-  // the same limits as the Upload images page, for the same reasons
-  private const int MaximumFiles = 5_000;
-  private const long MaximumMetadataBytes = MaximumFiles * 400L;
-
   private ElementReference _zone;
-  private IJSObjectReference? _module;
-  private IJSObjectReference? _uploader;
-  private DotNetObjectReference<ArtworksFromImagesEditor>? _selfReference;
+  private InteropObject<ArtworksFromImagesEditor>? _uploader;
 
   private List<ArtworkType> _artworkTypes = [];
   private int? _artworkTypeId;
@@ -36,14 +32,15 @@
 
   // in the artist's order; a series added from the series dialog joins the end, as it does in the database
   private List<Series> _series = [];
-  private bool _foldersAreSeries;
+
+  // a drop waiting for the artist to choose its series
+  private PendingDrop? _pendingDrop;
 
   private readonly List<ArtworkFromImagesRow> _rows = [];
   private readonly Dictionary<string, RowImage> _imagesByFileId = [];
 
   private IReadOnlyList<SkippedImage> _skipped = [];
-  private int _heicCount;
-  private int _notImageCount;
+  private UnusableFileCounts _unusable = UnusableFileCounts.None;
   private bool _tooManyFiles;
   private string? _dropError;
 
@@ -85,19 +82,17 @@
     // the page closed before the uploader started, so nothing will be dropped on it
     try
     {
-      await using (var clock = await JS.InvokeAsync<IJSObjectReference>(
-        "import", "./Components/Pages/Admin/Catalog/ArtworksFromImages/ArtworksFromImagesEditor.razor.js"))
-      {
-        _browserUtcOffset = TimeSpan.FromMinutes(await clock.InvokeAsync<int>("utcOffsetMinutes"));
-      }
-
-      _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bulk-artwork-uploader.js");
-      _selfReference = DotNetObjectReference.Create(this);
-      _uploader = await _module.InvokeAsync<IJSObjectReference>("createBulkUploader", _zone, _selfReference, MaximumFiles);
+      await using var clock = await JS.InvokeAsync<IJSObjectReference>(
+        "import", "./Components/Pages/Admin/Catalog/ArtworksFromImages/ArtworksFromImagesEditor.razor.js");
+      _browserUtcOffset = TimeSpan.FromMinutes(await clock.InvokeAsync<int>("utcOffsetMinutes"));
     }
     catch (JSDisconnectedException)
     {
+      return;
     }
+
+    _uploader = await InteropObject<ArtworksFromImagesEditor>.CreateAsync(
+      JS, "./js/bulk-artwork-uploader.js", "createBulkUploader", this, self => [_zone, self, BulkImageDrop.MaximumFiles]);
   }
 
   [JSInvokable]
@@ -120,9 +115,7 @@ RowImageState.Failed))
 
     _tooManyFiles = false;
     _dropError = null;
-    _heicCount = collected.Count(file => ImageUploadValidation.IsHeic(file.Type));
-    _notImageCount = collected.Count(file =>
-      !ImageUploadValidation.IsHeic(file.Type) && !ImageUploadValidation.IsPermittedContentType(file.Type));
+    _unusable = UnusableFileCounts.Of(collected);
 
     List<BulkImageCandidate> candidates =
     [
@@ -131,12 +124,46 @@ RowImageState.Failed))
         .Select(file => new BulkImageCandidate(file.Id, file.Path)),
     ];
 
+    // a drop with no images has only the files it couldn't use to report
+    _skipped = [];
+    _pendingDrop = candidates.Count > 0
+      ? new PendingDrop(type.Id, candidates, ArtworksFromImagesPlanner.Folders(candidates, _series))
+      : null;
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // what a drop holds while the series dialog is open
+  private record PendingDrop(ArtworkTypeId TypeId, IReadOnlyList<BulkImageCandidate> Candidates, IReadOnlyList<DroppedFolder> Folders);
+
+  private async Task SeriesChosenAsync(DropSeriesChoice choice)
+  {
+    if (_pendingDrop is { } drop)
+    {
+      _pendingDrop = null;
+      await AddAsync(drop.TypeId, drop.Candidates, choice);
+    }
+  }
+
+  // A folder named like the new series is now that existing series, rather than one to create again
+  private void DropSeriesAdded(Series series)
+  {
+    _series.Add(series);
+
+    if (_pendingDrop is { } drop)
+    {
+      _pendingDrop = drop with { Folders = ArtworksFromImagesPlanner.Folders(drop.Candidates, _series) };
+    }
+  }
+
+  private async Task AddAsync(ArtworkTypeId typeId, IReadOnlyList<BulkImageCandidate> candidates, DropSeriesChoice choice)
+  {
     _isCreating = true;
     await InvokeAsync(StateHasChanged);
 
     try
     {
-      var newRows = await CreateArtworksAsync(type.Id, candidates);
+      var newRows = await CreateArtworksAsync(typeId, candidates, choice);
       _rows.AddRange(newRows);
 
       if (newRows.Count > 0)
@@ -144,7 +171,7 @@ RowImageState.Failed))
         _lastSavedAt = TimeProvider.GetUtcNow();
       }
 
-      await UploadAsync(newRows, type.Id);
+      await UploadAsync(newRows, typeId);
     }
     catch (ChangedSincePageLoadException)
     {
@@ -158,11 +185,11 @@ RowImageState.Failed))
     await InvokeAsync(StateHasChanged);
   }
 
-  // all or nothing, so a failure leaves no half-made drop behind
+  // all or nothing, new series too, so a failure leaves no half-made drop behind
   private async Task<List<ArtworkFromImagesRow>> CreateArtworksAsync(ArtworkTypeId typeId,
-IReadOnlyList<BulkImageCandidate> candidates)
+IReadOnlyList<BulkImageCandidate> candidates, DropSeriesChoice choice)
   {
-    var plan = ArtworksFromImagesPlanner.Plan(candidates, _foldersAreSeries ? _series : null);
+    var plan = ArtworksFromImagesPlanner.Plan(candidates, choice.SeriesFolders, choice.LooseSeriesIds);
     var matches = await ArtworkImageRepository.GetArtworkNameMatchesAsync(typeId,
 ArtworksFromImagesPlanner.NamesToCheck(plan));
     plan = ArtworksFromImagesPlanner.WithoutExisting(plan, matches);
@@ -170,7 +197,15 @@ ArtworksFromImagesPlanner.NamesToCheck(plan));
 
     var identifiers = await ArtworkRepository.AddManyAsync([.. plan.Artworks.Select(artwork => ToAddition(typeId,
 artwork))]);
-    var rows = plan.Artworks.Zip(identifiers, (artwork, added) => new ArtworkFromImagesRow(added.Id, artwork)).ToList();
+
+    if (plan.Artworks.Any(artwork => artwork.NewSeriesName is not null))
+    {
+      _series = await SeriesRepository.GetAllAsync();
+    }
+
+    var rows = plan.Artworks
+      .Zip(identifiers, (artwork, added) => new ArtworkFromImagesRow(added.Id, artwork, SeriesIdsFor(artwork)))
+      .ToList();
 
     foreach (var image in rows.SelectMany(row => row.Images))
     {
@@ -179,6 +214,12 @@ artwork))]);
 
     return rows;
   }
+
+  // a new series has its id only once added, so it's found again by its web address
+  private IReadOnlyList<SeriesId> SeriesIdsFor(PlannedArtworkFromImages artwork) =>
+    artwork.NewSeriesName is { } name
+      ? [.. artwork.SeriesIds, _series.Single(series => series.Slug == SeriesSlug.FromName(name.Value)).Id]
+      : artwork.SeriesIds;
 
   private static ArtworkCatalogAddition ToAddition(ArtworkTypeId typeId, PlannedArtworkFromImages artwork) =>
     new(
@@ -192,8 +233,8 @@ artwork))]);
       Images: [],
       MainImageIndex: 0,
       VocabularyTermIds: [],
-      SeriesIds: artwork.SeriesId is SeriesId seriesId ? [seriesId] : [],
-      NewSeriesNames: [],
+      SeriesIds: artwork.SeriesIds,
+      NewSeriesNames: artwork.NewSeriesName is { } newSeriesName ? [newSeriesName] : [],
       Products: []
     );
 
@@ -223,14 +264,8 @@ artwork))]);
     _isUploading = true;
     _percentComplete = 0;
 
-    // the page closed, taking the files with it
-    try
-    {
-      await _uploader.InvokeVoidAsync("upload", artworks, typeId.Value);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // nothing happens once the page has closed, taking the files with it
+    await _uploader.InvokeIfOpenAsync("upload", artworks, typeId.Value);
   }
 
   // what the script sends one file as; every one here names its artwork
@@ -253,16 +288,10 @@ artwork))]);
 
   private async Task StopUploadAsync()
   {
-    // the page closed, which stopped the uploads anyway
-    try
+    // closing the page stops the uploads anyway
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("stop");
-      }
-    }
-    catch (JSDisconnectedException)
-    {
+      await _uploader.InvokeIfOpenAsync("stop");
     }
   }
 
@@ -273,15 +302,14 @@ artwork))]);
     await InvokeAsync(StateHasChanged);
   }
 
+  // the image the artwork holds, even when a retry found it already there
   [JSInvokable]
-  public async Task OnExtraAdded(string id, ArtworkImageAppendResult result)
+  public async Task OnExtraAdded(string id, ArtworkImage added)
   {
     if (_imagesByFileId.GetValueOrDefault(id) is { } image)
     {
-      image.State = result.Image is null ? RowImageState.AlreadyThere : RowImageState.Added;
-      image.Image = result.Image is { } added
-        ? new ArtworkImage(added.StorageKey, added.OriginalFileName, added.Width, added.Height, added.BlurDataUri)
-        : null;
+      image.State = RowImageState.Added;
+      image.Image = added;
     }
 
     await InvokeAsync(StateHasChanged);
@@ -390,7 +418,7 @@ artwork))]);
     // the page closed while the files were being read, so there is no one left to show them to
     try
     {
-      return await CollectedFileStreams.ReadListAsync(_uploader, MaximumMetadataBytes);
+      return await CollectedFileStreams.ReadListAsync(_uploader.Reference, BulkImageDrop.MaximumMetadataBytes);
     }
     catch (JSDisconnectedException)
     {
@@ -400,56 +428,20 @@ artwork))]);
 
   public async ValueTask DisposeAsync()
   {
-    try
+    if (_uploader is not null)
     {
-      if (_uploader is not null)
-      {
-        await _uploader.InvokeVoidAsync("dispose");
-        await _uploader.DisposeAsync();
-      }
-
-      if (_module is not null)
-      {
-        await _module.DisposeAsync();
-      }
+      await _uploader.DisposeAsync();
     }
-    catch (JSDisconnectedException)
-    {
-    }
-
-    _selfReference?.Dispose();
   }
 }
 
 <DisabledUntilInteractive>
-  <label class="mb-2 flex cursor-pointer items-center gap-2">
-    <input type="checkbox" class="cursor-pointer" @bind="_foldersAreSeries" />
-    Match nested folder names to existing series names
-  </label>
-
   @* the script refuses new files while a run is going, as they would replace the ones it hasn't sent *@
-  <fieldset class="contents" disabled="@(_type is null || _isUploading || _isCreating)">
-    <Notice>
-      <p>
-        When checked, dropping a folder containing subfolders that match existing series in the catalog will add the
-        images in those folders
-        as artworks in the matched series. If you have not yet done so, you can <a class="underline"
-                                                                                   href="/admin/catalog/series">add new series' here</a>.
-      </p>
-    </Notice>
-
-
+  <fieldset class="contents" disabled="@(_type is null || _isUploading || _isCreating || _pendingDrop is not null)">
     <div class="mb-4">
-      <label class="mb-1 block text-sm" for="artwork-type">Artwork type</label>
       @* the rows are artworks of this type, under its fields' columns *@
-      <select id="artwork-type" class="artist-shop-field-input mb-1" @bind="_artworkTypeId" @bind:after="LoadTypeAsync"
-              disabled="@(_rows.Count > 0 || _isCreating)">
-        <option value="">Choose a type</option>
-        @foreach (var artworkType in _artworkTypes)
-        {
-          <option value="@artworkType.Id.Value">@artworkType.Name.Value</option>
-        }
-      </select>
+      <ArtworkTypeSelect ArtworkTypes="_artworkTypes" @bind-Value="_artworkTypeId" @bind-Value:after="LoadTypeAsync"
+                         Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
       @if (_rows.Count > 0)
       {
         <p class="text-sm text-gray-600">Reload the page to add artworks of another type.</p>
@@ -471,7 +463,7 @@ artwork))]);
 
 @if (_tooManyFiles)
 {
-  <p class="mb-4 text-red-600">That's more than @MaximumFiles files. Drop one folder at a time.</p>
+  <p class="mb-4 text-red-600">That's more than @BulkImageDrop.MaximumFiles files. Drop one folder at a time.</p>
 }
 
 @if (_dropError is not null)
@@ -484,7 +476,7 @@ artwork))]);
   <p class="mb-4 text-sm" role="status">Adding artworks…</p>
 }
 
-<SkippedImagesReport Skipped="_skipped" HeicCount="_heicCount" NotImageCount="_notImageCount" />
+<SkippedImagesReport Skipped="_skipped" Unusable="_unusable" />
 
 @if (_isUploading)
 {
@@ -518,6 +510,13 @@ else if (UnsentCount > 0)
 {
   <DescriptionDialog ArtworkName="@descriptionRow.Form.Name" Description="@descriptionRow.Form.Description"
                      OnOk="DescriptionOkAsync" OnClose="() => _descriptionRow = null" />
+}
+
+@if (_pendingDrop is { } pendingDrop)
+{
+  <DropSeriesDialog Folders="pendingDrop.Folders" LooseImageCount="@ArtworksFromImagesPlanner.LooseImageCount(pendingDrop.Candidates)"
+                    AllSeries="_series" OnOk="SeriesChosenAsync" OnClose="() => _pendingDrop = null"
+                    OnSeriesAdded="DropSeriesAdded" />
 }
 
 @if (_seriesRow is { } seriesRow)

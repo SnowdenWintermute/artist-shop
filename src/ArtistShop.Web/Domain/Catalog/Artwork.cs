@@ -44,6 +44,10 @@ public record ArtworkImage(
     string? BlurDataUri
 );
 
+// what appending an image left on the artwork: the image given, or one it already had with the
+// same bytes, in which case nothing was appended
+public record ImageAppendResult(ArtworkImage Image, bool Appended);
+
 public record ArtworkSlug(string Value)
 {
     public static ArtworkSlug FromName(string name) => new(ArtistShopSlug.FromName(name));

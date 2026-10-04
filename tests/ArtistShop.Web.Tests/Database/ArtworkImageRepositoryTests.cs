@@ -48,24 +48,28 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         var first = CatalogTestData.CreateTestImage();
         var second = CatalogTestData.CreateTestImage();
 
-        Assert.True(await _images.AppendImageAsync(painting.Id, first, CatalogTestData.UniqueSha256()));
-        Assert.True(await _images.AppendImageAsync(painting.Id, second, CatalogTestData.UniqueSha256()));
+        Assert.True((await _images.AppendImageAsync(painting.Id, first, CatalogTestData.UniqueSha256())).Appended);
+        Assert.True((await _images.AppendImageAsync(painting.Id, second, CatalogTestData.UniqueSha256())).Appended);
 
         var artwork = await GetExistingAsync(painting.Id);
         Assert.Equal([first, second], artwork.Images);
         Assert.Equal(0, artwork.MainImageIndex);
     }
 
-    // a retried upload, or the same folder imported twice
+    // a retried upload, or the same folder imported twice: nothing is added, and the answer is the
+    // image already there
     [Fact]
-    public async Task AppendingAnImageTheArtworkHasAlreadyAddsNothing()
+    public async Task AppendingAnImageTheArtworkHasAlreadyAddsNothingAndReturnsIt()
     {
         var painting = await _catalog.AddArtworkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName("Dawn"));
         var sha256 = CatalogTestData.UniqueSha256();
         var first = CatalogTestData.CreateTestImage();
 
-        Assert.True(await _images.AppendImageAsync(painting.Id, first, sha256));
-        Assert.False(await _images.AppendImageAsync(painting.Id, CatalogTestData.CreateTestImage(), sha256));
+        Assert.Equal(new ImageAppendResult(first, Appended: true), await _images.AppendImageAsync(painting.Id, first, sha256));
+        Assert.Equal(
+            new ImageAppendResult(first, Appended: false),
+            await _images.AppendImageAsync(painting.Id, CatalogTestData.CreateTestImage(), sha256)
+        );
 
         Assert.Equal([first], (await GetExistingAsync(painting.Id)).Images);
     }
@@ -88,7 +92,7 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
         );
 
         // four different hashes and one more shared by the other four
-        Assert.Equal(5, appended.Count(isAdded => isAdded));
+        Assert.Equal(5, appended.Count(result => result.Appended));
         var artwork = await GetExistingAsync(painting.Id);
         Assert.Equal(5, artwork.Images.Count);
         Assert.Equal(0, artwork.MainImageIndex);

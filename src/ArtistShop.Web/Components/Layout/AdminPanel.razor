@@ -13,11 +13,13 @@
   public const string WidthClass = "mx-auto max-w-[900px]";
 
   // for a page built around a wide table, like adding artworks from images
+  private const string WideWidthClass = "mx-auto max-w-[1200px]";
+
   [Parameter]
   public bool Wide { get; set; }
 }
 
-<div class="@(Wide ? "mx-auto max-w-[1200px]" : WidthClass)">
+<div class="@(Wide ? WideWidthClass : WidthClass)">
   <Panel>
     @if (SectionNav is not null)
     {

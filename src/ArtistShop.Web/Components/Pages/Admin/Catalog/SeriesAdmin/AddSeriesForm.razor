@@ -1,6 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
-@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
@@ -13,15 +12,10 @@
 
   private async Task AddAsync()
   {
-    try
+    if (await Input.AddAsync(SeriesRepository) is not null)
     {
-      await SeriesRepository.AddAsync(Input.ToSeriesName(), Input.ToSeriesSlug());
       // redirect to this same page: the list reloads, and refreshing the browser won't post again
       NavigationManager.NavigateTo(NavigationManager.Uri);
-    }
-    catch (NameAlreadyInUseException)
-    {
-      Input.AddNameTakenError();
     }
   }
 }

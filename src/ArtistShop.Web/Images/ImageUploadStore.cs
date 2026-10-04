@@ -1,9 +1,14 @@
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Images;
 
 // Sha256 is the original's, in lower case hex
-public record StoredImage(string StorageKey, string Sha256, ProcessedImage Processed);
+public record StoredImage(string StorageKey, string Sha256, ProcessedImage Processed)
+{
+    public ArtworkImage ToArtworkImage(string originalFileName) =>
+        new(StorageKey, originalFileName, Processed.Width, Processed.Height, Processed.BlurDataUri);
+}
 
 // Saves an uploaded image and generates its variants
 public class ImageUploadStore(

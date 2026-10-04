@@ -1,0 +1,152 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+
+@* rendered only while open, after a drop and before anything is created *@
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<DroppedFolder> Folders { get; set; } = default!;
+  // images dropped on their own rather than in a folder
+  [Parameter, EditorRequired]
+  public int LooseImageCount { get; set; }
+  // in the artist's order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Series> AllSeries { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<DropSeriesChoice> OnOk { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+  // saved as soon as it's added, so it stays even if this dialog is cancelled
+  [Parameter, EditorRequired]
+  public EventCallback<Series> OnSeriesAdded { get; set; }
+
+  private readonly HashSet<string> _tickedFolders = [];
+  private readonly HashSet<int> _tickedSeries = [];
+  private bool _isAddingSeries;
+
+  private IEnumerable<string> TickablePaths =>
+    Folders.Where(folder => folder.Type is not DroppedFolderSeriesType.CannotBeSeries).Select(folder => folder.Path);
+
+  private bool AllFoldersTicked => TickablePaths.All(_tickedFolders.Contains);
+
+  // every folder that can be a series starts ticked
+  protected override void OnInitialized() => _tickedFolders.UnionWith(TickablePaths);
+
+  private void ToggleAllFolders()
+  {
+    if (AllFoldersTicked)
+    {
+      _tickedFolders.Clear();
+    }
+    else
+    {
+      _tickedFolders.UnionWith(TickablePaths);
+    }
+  }
+
+  private void ToggleFolder(DroppedFolder folder)
+  {
+    if (!_tickedFolders.Remove(folder.Path))
+    {
+      _tickedFolders.Add(folder.Path);
+    }
+  }
+
+  private void ToggleSeries(int seriesId)
+  {
+    if (!_tickedSeries.Remove(seriesId))
+    {
+      _tickedSeries.Add(seriesId);
+    }
+  }
+
+  private async Task SeriesAddedAsync(Series series)
+  {
+    _tickedSeries.Add(series.Id.Value);
+    await OnSeriesAdded.InvokeAsync(series);
+  }
+
+  private Task OkAsync() =>
+    OnOk.InvokeAsync(
+      new DropSeriesChoice(
+        [.. Folders.Where(folder => _tickedFolders.Contains(folder.Path))],
+        [.. AllSeries.Where(series => _tickedSeries.Contains(series.Id.Value)).Select(series => series.Id)]
+      )
+    );
+
+  private static string Kind(DroppedFolder folder) =>
+    folder.Type switch
+    {
+      DroppedFolderSeriesType.Existing => "existing series",
+      DroppedFolderSeriesType.New => "new series",
+      DroppedFolderSeriesType.CannotBeSeries => "can't be a series name",
+    };
+}
+
+<ModalDialog Title="Series for these artworks" Width="ModalDialogWidth.Wide" OnClose="OnClose"
+             KeepOpen="_isAddingSeries">
+  @if (Folders.Count > 0)
+  {
+    <Notice>
+      <p class="mb-2 ">
+        Uploaded folder names can create a new series or match existing series. The containing images will be added to
+        that series.
+      </p>
+      <p class="">
+        Uncheck any folder name that doesn't correspond to a series name. </p>
+
+      </Notice>
+      @if (TickablePaths.Count() > 1)
+      {
+        @* outside the scrolling list, so it stays in view however long the list is *@
+        <label class="mb-1 flex cursor-pointer items-center gap-2 ">
+          <input type="checkbox" class="cursor-pointer" checked="@AllFoldersTicked" @onchange="ToggleAllFolders" />
+          Toggle all checked
+        </label>
+        <Divider />
+      }
+
+      @* the padding keeps a focused checkbox's outline inside the scrolling box, which clips it; the
+       negative margin keeps the boxes lined up with the rest of the dialog *@
+      <fieldset class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
+        <legend class="sr-only">Folders</legend>
+        @foreach (var folder in Folders)
+        {
+          <label @key="folder.Path" class="flex cursor-pointer items-start gap-2 py-1">
+            <input type="checkbox" class="mt-1 cursor-pointer" checked="@_tickedFolders.Contains(folder.Path)"
+                   disabled="@(folder.Type is DroppedFolderSeriesType.CannotBeSeries)" @onchange="() => ToggleFolder(folder)" />
+            <span>
+              <span class="font-medium">@(folder.Existing is { } existing ? existing.Name.Value : folder.Name)</span>
+              <span class="text-sm text-gray-600">
+                @CountText.Of(folder.ImageCount, "image"), @Kind(folder)@(folder.IsDropped ? ", the folder you dropped" : "")
+              </span>
+              @if (folder.SimilarSeriesName is { } similar)
+              {
+                <span class="block text-sm text-gray-600">Close to the existing series @similar</span>
+              }
+            </span>
+          </label>
+        }
+      </fieldset>
+    }
+
+    @if (LooseImageCount > 0)
+    {
+      <h2 class="mb-1 font-medium">@CountText.Of(LooseImageCount, "image") not in a folder</h2>
+      <p class="mb-2">Check all series you wish to add these artworks to.</p>
+
+      <SeriesChoices AllSeries="AllSeries" Ticked="_tickedSeries" OnToggle="ToggleSeries" OnSeriesAdded="SeriesAddedAsync"
+                     @bind-IsAdding="_isAddingSeries" />
+    }
+
+    <ModalDialogActions>
+      <ModalCloseButton Label="Cancel" Disabled="_isAddingSeries" />
+      <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isAddingSeries" @onclick="OkAsync">
+        Add artworks
+      </ButtonBasic>
+    </ModalDialogActions>
+  </ModalDialog>

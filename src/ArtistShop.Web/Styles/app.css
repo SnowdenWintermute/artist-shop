@@ -10,7 +10,9 @@
   --theme-muted: grey; /* secondary text, borders */
   --theme-hovered: blue; /* primary text */
   --theme-selected: var(--color-blue-200); /* a selected row */
-  --theme-primary: var(--color-blue-500); /* the accent, like a row's saved mark */
+  --theme-primary: var(
+    --color-blue-500
+  ); /* the accent, like a row's saved mark */
 }
 
 @theme inline {
@@ -142,8 +144,8 @@ button[data-busy] {
 .artist-shop-lightbox {
   @apply fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent;
   @apply backdrop:bg-transparent;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* PhotoSwipe stacks itself above everything on the page, which inside the dialog would be above
@@ -211,7 +213,7 @@ body:has(.sortable-fallback) * {
    text-shadow, which an svg ignores */
 .artist-shop-saved-flash {
   animation: artist-shop-saved-rise 1.8s ease-out forwards;
-  filter: drop-shadow(0 0 1px white) drop-shadow(0 0 2px white);
+  filter: drop-shadow(1px 1px 0px white);
 }
 
 @keyframes artist-shop-saved-rise {

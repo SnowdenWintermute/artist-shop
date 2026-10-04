@@ -30,9 +30,7 @@
   private const long MaximumMetadataBytes = MaximumFiles * 400L;
 
   private ElementReference _zone;
-  private IJSObjectReference? _module;
-  private IJSObjectReference? _importer;
-  private DotNetObjectReference<WebsiteImportUpload>? _selfReference;
+  private InteropObject<WebsiteImportUpload>? _importer;
 
   private bool _tooManyFiles;
   private bool _isReading;
@@ -84,17 +82,10 @@
       return;
     }
 
-    // the page closed before the importer started, so nothing will be dropped on it
-    try
-    {
-      _module = await JS.InvokeAsync<IJSObjectReference>("import",
-"./Components/Pages/Admin/Import/Website/WebsiteImportUpload.razor.js");
-      _selfReference = DotNetObjectReference.Create(this);
-      _importer = await _module.InvokeAsync<IJSObjectReference>("createWebsiteImporter", _zone, _selfReference, MaximumFiles);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // null when the page closed before the importer started, so nothing will be dropped on it
+    _importer = await InteropObject<WebsiteImportUpload>.CreateAsync(
+      JS, "./Components/Pages/Admin/Import/Website/WebsiteImportUpload.razor.js", "createWebsiteImporter", this,
+      self => [_zone, self, MaximumFiles]);
   }
 
   [JSInvokable]
@@ -111,7 +102,7 @@
 
     try
     {
-      var importer = Unwrap.Value(_importer);
+      var importer = Unwrap.Value(_importer).Reference;
       var files = await CollectedFileStreams.ReadListAsync(importer, MaximumMetadataBytes);
       _folder = await CollectedImportFolders.WebsiteAsync(files, (file, maximumBytes) => CollectedFileStreams.ReadTextAsync(importer, file, maximumBytes));
       await ReviewAsync(_folder);
@@ -251,7 +242,7 @@
     _imagePathsByFileId = artworks.SelectMany(artwork => artwork.ToAdd).ToDictionary(image => image.FileId, image => image.Path);
     _isSendingImages = true;
 
-    await Unwrap.Value(_importer).InvokeVoidAsync(
+    await Unwrap.Value(_importer).Reference.InvokeVoidAsync(
       "importImages",
       artworks.Select(artwork => new { artworkId = artwork.ArtworkId.Value, fileIds = artwork.ToAdd.Select(image => image.FileId) })
     );
@@ -278,7 +269,7 @@
     _percentComplete = 0;
     await InvokeAsync(StateHasChanged);
 
-    await Unwrap.Value(_importer).InvokeVoidAsync("importPosts", batches);
+    await Unwrap.Value(_importer).Reference.InvokeVoidAsync("importPosts", batches);
   }
 #pragma warning restore BL0016
 
@@ -381,16 +372,10 @@
 
   private async Task StopAsync()
   {
-    // the page closed, which stopped the import anyway
-    try
+    // closing the page stops the import anyway
+    if (_importer is not null)
     {
-      if (_importer is not null)
-      {
-        await _importer.InvokeVoidAsync("stop");
-      }
-    }
-    catch (JSDisconnectedException)
-    {
+      await _importer.InvokeIfOpenAsync("stop");
     }
   }
 
@@ -405,24 +390,10 @@
 
   public async ValueTask DisposeAsync()
   {
-    try
+    if (_importer is not null)
     {
-      if (_importer is not null)
-      {
-        await _importer.InvokeVoidAsync("dispose");
-        await _importer.DisposeAsync();
-      }
-
-      if (_module is not null)
-      {
-        await _module.DisposeAsync();
-      }
+      await _importer.DisposeAsync();
     }
-    catch (JSDisconnectedException)
-    {
-    }
-
-    _selfReference?.Dispose();
   }
 }
 

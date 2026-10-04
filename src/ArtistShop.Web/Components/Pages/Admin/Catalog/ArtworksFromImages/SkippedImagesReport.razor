@@ -1,5 +1,5 @@
+@using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Imports
-@using ArtistShop.Web.Images
 @using ArtistShop.Web.Utilities
 
 @* what the last drop left out, grouped by why, with the files behind a toggle *@
@@ -8,33 +8,23 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<SkippedImage> Skipped { get; set; } = default!;
   [Parameter, EditorRequired]
-  public int HeicCount { get; set; }
-  [Parameter, EditorRequired]
-  public int NotImageCount { get; set; }
+  public UnusableFileCounts Unusable { get; set; } = default!;
 
   private static string Why(ArtworkFromImagesSkipReason reason) =>
     reason switch
     {
-      ArtworkFromImagesSkipReason.TooDeep => "in a folder inside a series folder",
-      ArtworkFromImagesSkipReason.UnknownSeriesFolder => "in a folder whose name isn't a series",
-      ArtworkFromImagesSkipReason.SameNameInFolder => "named the same as another file in their folder",
+      ArtworkFromImagesSkipReason.TooDeep => "in deeply nested folders",
+      ArtworkFromImagesSkipReason.SameNameInUpload => "named the same as another file you dropped",
       ArtworkFromImagesSkipReason.TitleTooLong => "with a name too long for a title",
       ArtworkFromImagesSkipReason.NoWebAddress => "with no letters or numbers in their name",
       ArtworkFromImagesSkipReason.ArtworkExists => "named like an artwork of this type you already have",
     };
 }
 
-@if (Skipped.Count > 0 || HeicCount > 0 || NotImageCount > 0)
+@if (Skipped.Count > 0 || Unusable.Any)
 {
   <ul class="mb-4 text-sm">
-    @if (HeicCount > 0)
-    {
-      <li>@CountText.Of(HeicCount, "file") skipped. @ImageProcessor.UnsupportedHeicMessage</li>
-    }
-    @if (NotImageCount > 0)
-    {
-      <li>@CountText.Of(NotImageCount, "file") skipped: not an image format we accept</li>
-    }
+    <UnusableFileItems Counts="Unusable" />
     @foreach (var reason in Skipped.GroupBy(skipped => skipped.Reason))
     {
       <li @key="reason.Key">

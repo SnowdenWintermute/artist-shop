@@ -1,0 +1,18 @@
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
+
+@* list items, for the caller's list of what a drop held *@
+
+@code {
+  [Parameter, EditorRequired]
+  public UnusableFileCounts Counts { get; set; } = default!;
+}
+
+@if (Counts.Heic > 0)
+{
+  <li>@CountText.Of(Counts.Heic, "file") skipped. @ImageProcessor.UnsupportedHeicMessage</li>
+}
+@if (Counts.NotImage > 0)
+{
+  <li>@CountText.Of(Counts.NotImage, "file") skipped: not an image format we accept</li>
+}

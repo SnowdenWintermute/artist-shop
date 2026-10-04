@@ -1,5 +1,74 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Handoff, 2026-10-04: review fixes and folder dialog for Add from images (From Claude)
+
+Uncommitted, on top of 7603ad0. 905 tests passed in a fresh scratch copy, `npm run typecheck` clean. Mike reworded
+the dialog's intro; the "Check / uncheck all" box above its folder list isn't browser-checked.
+
+**Next session:** think through editing existing artworks in this bulk table, not only right after an upload: which
+artworks load into it (by type, series, filter?), how it relates to the admin artworks list, and what of the
+current page (row model, save on blur, series dialog) carries over.
+
+- **Series dialog after every drop with images** (`DropSeriesDialog`), before anything is created. Folders: each
+  folder holding images (the dropped folder and one level down) is an existing series, a new series, or "can't be a
+  series name", all ticked that can be; ticked folders' images join their series, new ones created in the same
+  transaction as the artworks (`NewSeriesNames`, as the CSV import does). A new series' name close to an existing
+  one shows "Close to the existing series …" (`SeriesNameSimilarity`). Images dropped on their own: checkboxes for
+  any number of existing series plus "New series" (saved at once, kept on Cancel), from `SeriesAdmin/SeriesChoices`,
+  now shared with `SeriesChoiceDialog`. Adding a series there re-labels a folder of that name as existing. The
+  checkbox and notice above the drop zone are gone. "Check / uncheck all" sits above the folder list when two or more
+  folders can be ticked. Planner: `Folders`, then `Plan(candidates, seriesFolders,
+  looseSeriesIds)`; a planned artwork carries `SeriesIds` and `NewSeriesName`.
+- Planner reads folders as Upload images does (`Imports/BulkImageDrop.cs`) and skips a name repeated anywhere in the drop.
+- `append_artwork_image` returns the image the artwork holds, even on a retry; the endpoint answers `ArtworkImage`.
+- Height/width message only under the empty one ("Enter a width too.").
+- `Components/Interop/InteropObject<T>` in six components; `UnusableFileCounts`/`UnusableFileItems` and
+  `ArtworkTypes/ArtworkTypeSelect.razor` shared by the two bulk image pages; `SeriesNameForm.AddAsync`;
+  `SeriesChoiceDialog` moved to `SeriesAdmin/`; `StoredImage.ToArtworkImage`.
+- `TextNumberInput` (type="text") in `NumberField` and `PartialDateField`. A bad year now shows Blazor's own message,
+  "The value '19a5' is not valid for 'YearCreated'.", which names the C# property: worth our own wording later.
+
+## Handoff, 2026-10-03 (evening): Add artworks from images (From Claude), committed by Mike as 7603ad0
+
+Uncommitted. 901 tests passed in a scratch copy, `npm run typecheck` clean. Mike tried an early version in the
+browser; the latest round (floppy-disk save mark, type select) isn't browser-checked. Next session: review all of it
+together. Mike's own edits in the same tree: `AdminPanel` wide width set to 1200px, and an intro line on `SeriesList`.
+
+- **Page** `/admin/catalog/artworks/add-from-images` (`Catalog/ArtworksFromImages/`), linked by "Add from images" on
+  the dashboard (`PageUrls.AddArtworksFromImages`). Pick a type (`?type=` picks the starting one; the select locks
+  once there are rows), drop images or a folder: every file becomes an artwork at once, then its images upload.
+  - `AddArtworksFromImages.razor`: static wrapper, `AdminPanel Wide` (new parameter), antiforgery token.
+  - `ArtworksFromImagesEditor.razor`: the island. Creates the artworks on drop (`AddManyAsync`, one transaction),
+    uploads through the shared script, saves a row on each changed field (`SaveAsync` queues a second save rather than
+    overlapping), and keeps the last save time for the bottom line, shown in the browser's UTC offset
+    (`ArtworksFromImagesEditor.razor.js`).
+  - `ArtworkFromImagesRow.cs`: one row, its `ArtworkForm` and images. Year and sizes are text inputs the row reads
+    itself (`YearText` etc.), because Firefox lets letters into `type="number"` and reports them as blank.
+  - `ArtworksFromImagesTable.razor` (on `DataTable`, new `FitsContent`), `RowImagesCell.razor` (thumbnail, "+x" badge,
+    the floppy-disk save mark that rises and fades: `.artist-shop-saved-flash` in `app.css`), `RowFieldError.razor`,
+    `DescriptionDialog.razor` (Ctrl/Cmd+Enter for OK), `SeriesChoiceDialog.razor` (checkboxes plus "New series"),
+    `SkippedImagesReport.razor`.
+- **Planner** `Imports/ArtworksFromImagesPlanner.cs` (pure, 9 tests): titles by `ArtworkName.FromFileName`, the rule
+  Upload images matches by, so that page can finish images this one didn't send. `X (2)` joins `X` in the same folder
+  only when `X` is a plain title. "My folders are series": a folder named like a series (by slug) puts its images in
+  it; images right inside the dropped folder join none; an unknown subfolder or one nested deeper is skipped.
+  Same name twice in one folder, a title too long or with no slug, and titles the type already has are skipped.
+- **Database**: `update_artwork_details` (`UpdateDetails.sql`) is `update_artwork` without `set_artwork_images`, so a row
+  save can't drop images still uploading; `update_artwork` now calls it, then sets the images.
+  `ArtworkRepository.UpdateDetailsAsync`; `ArtworkCatalogUpdate` is now `(Details, Images, MainImageIndex)` around the
+  new `ArtworkDetailsUpdate`; `ArtworkForm.ToDetailsUpdate`.
+- **Append endpoint** answers `ArtworkImageAppendResult(Image)`, the stored image, or null when the artwork already had
+  it. A record, because `Ok(null)` sends an empty body that `JSON.parse` throws on.
+- **Shared uploader**: `BulkImageUpload.razor.js` moved to `wwwroot/js/bulk-artwork-uploader.js` and passes the append
+  result to `OnExtraAdded`, which Upload images now accepts and ignores.
+- **Elsewhere**: `ArtworkForm`'s built-in messages are short on every page ("Enter a title.", "Use a number from 0.1 to
+  10000."). New token `theme-primary` (blue-500). `floppy-disc.svg` (public domain, row in `SOURCES.md`): its
+  `fill="none"` wrapper group was removed, since `SvgIconFiles` keeps an explicit "none" and the path would have drawn
+  nothing; its title and inner ids went too.
+- Known limits: a drop replaces the files the script holds, so images not yet sent from an earlier drop become "not
+  sent" (only possible after Stop, as the zone is disabled during a run). Mobile layout not designed. Vocabularies
+  left out of the table.
+
 ## Handoff, 2026-10-03: artwork table on phones, No series filter, remembered inputs (From Claude)
 
 Committed by Mike as 2c8bc9c. 880 tests passed in a scratch copy, `npm run typecheck` clean. Next session: review

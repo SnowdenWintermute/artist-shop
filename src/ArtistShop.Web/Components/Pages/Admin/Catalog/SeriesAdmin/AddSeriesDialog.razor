@@ -1,6 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
-@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Components.Dialogs
@@ -37,14 +36,12 @@
 
     try
     {
-      var id = await SeriesRepository.AddAsync(_form.ToSeriesName(), _form.ToSeriesSlug());
-      _isSaving = false;
-      await OnAdded.InvokeAsync(id);
-      await OpenChanged.InvokeAsync(false);
-    }
-    catch (NameAlreadyInUseException)
-    {
-      _form.AddNameTakenError();
+      if (await _form.AddAsync(SeriesRepository) is { } series)
+      {
+        _isSaving = false;
+        await OnAdded.InvokeAsync(series.Id);
+        await OpenChanged.InvokeAsync(false);
+      }
     }
     finally
     {

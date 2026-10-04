@@ -23,9 +23,7 @@
   private const long MaximumMetadataBytes = MaximumFiles * 400L;
 
   private ElementReference _zone;
-  private IJSObjectReference? _module;
-  private IJSObjectReference? _importer;
-  private DotNetObjectReference<PostImportUpload>? _selfReference;
+  private InteropObject<PostImportUpload>? _importer;
 
   private bool _tooManyFiles;
   private bool _noPostFiles;
@@ -43,16 +41,9 @@
       return;
     }
 
-    // the page closed before the importer started, so nothing will be dropped on it
-    try
-    {
-      _module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Admin/Import/PostImportUpload.razor.js");
-      _selfReference = DotNetObjectReference.Create(this);
-      _importer = await _module.InvokeAsync<IJSObjectReference>("createPostImporter", _zone, _selfReference, MaximumFiles);
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // null when the page closed before the importer started, so nothing will be dropped on it
+    _importer = await InteropObject<PostImportUpload>.CreateAsync(
+      JS, "./Components/Pages/Admin/Import/PostImportUpload.razor.js", "createPostImporter", this, self => [_zone, self, MaximumFiles]);
   }
 
   [JSInvokable]
@@ -102,7 +93,7 @@
   // each post.json with the files in its own folder
   private async Task<List<PostImportFolder>> ReadFoldersAsync()
   {
-    if (_importer is not { } importer)
+    if (_importer?.Reference is not { } importer)
     {
       return [];
     }
@@ -127,28 +118,16 @@
     _isImporting = true;
     _percentComplete = 0;
 
-    // the page closed, taking the files with it
-    try
-    {
-      await _importer.InvokeVoidAsync("importPosts", _run.Start());
-    }
-    catch (JSDisconnectedException)
-    {
-    }
+    // nothing happens once the page has closed, taking the files with it
+    await _importer.InvokeIfOpenAsync("importPosts", _run.Start());
   }
 
   private async Task StopImportAsync()
   {
-    // the page closed, which stopped the import anyway
-    try
+    // closing the page stops the import anyway
+    if (_importer is not null)
     {
-      if (_importer is not null)
-      {
-        await _importer.InvokeVoidAsync("stop");
-      }
-    }
-    catch (JSDisconnectedException)
-    {
+      await _importer.InvokeIfOpenAsync("stop");
     }
   }
 
@@ -186,24 +165,10 @@
 
   public async ValueTask DisposeAsync()
   {
-    try
+    if (_importer is not null)
     {
-      if (_importer is not null)
-      {
-        await _importer.InvokeVoidAsync("dispose");
-        await _importer.DisposeAsync();
-      }
-
-      if (_module is not null)
-      {
-        await _module.DisposeAsync();
-      }
+      await _importer.DisposeAsync();
     }
-    catch (JSDisconnectedException)
-    {
-    }
-
-    _selfReference?.Dispose();
   }
 }
 

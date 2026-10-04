@@ -43,8 +43,8 @@
     <div class="flex gap-2">
       <label class="sr-only" for="@IdFor(YearExpression)">Year</label>
       @* data-part is how the script finds each input *@
-      <InputNumber class="artist-shop-field-input" id="@IdFor(YearExpression)" placeholder="Year" data-part="year"
-                   TValue="int?" Value="Year" ValueChanged="YearChanged" ValueExpression="YearExpression" />
+      <TextNumberInput class="artist-shop-field-input" id="@IdFor(YearExpression)" placeholder="Year" data-part="year"
+                       TValue="int?" Value="Year" ValueChanged="YearChanged" ValueExpression="YearExpression" />
 
       <label class="sr-only" for="@IdFor(MonthExpression)">Month</label>
       <InputSelect class="artist-shop-field-input" id="@IdFor(MonthExpression)" data-part="month" TValue="int?"

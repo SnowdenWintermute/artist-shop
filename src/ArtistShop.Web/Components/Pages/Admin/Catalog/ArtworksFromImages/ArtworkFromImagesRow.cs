@@ -12,11 +12,9 @@ public enum RowImageState : byte
 {
     Waiting = 1,
     Added = 2,
-    // the artwork already had this image, as after a retry whose first answer was lost
-    AlreadyThere = 3,
-    Failed = 4,
+    Failed = 3,
     // a later drop replaced the files the script held before this one was sent
-    NotSent = 5,
+    NotSent = 4,
 }
 
 public class RowImage(BulkImageCandidate file)
@@ -30,7 +28,7 @@ public class RowImage(BulkImageCandidate file)
 
 // One artwork already created from a drop, as the table edits it. Its fields are an ArtworkForm, so
 // a row is checked by the same rules as the add and edit pages
-public class ArtworkFromImagesRow(ArtworkId id, PlannedArtworkFromImages planned)
+public class ArtworkFromImagesRow(ArtworkId id, PlannedArtworkFromImages planned, IReadOnlyList<SeriesId> seriesIds)
 {
     public ArtworkId Id { get; } = id;
 
@@ -38,7 +36,7 @@ public class ArtworkFromImagesRow(ArtworkId id, PlannedArtworkFromImages planned
         new()
         {
             Name = planned.Name.Value,
-            SeriesIds = planned.SeriesId is SeriesId seriesId ? [seriesId.Value] : [],
+            SeriesIds = [.. seriesIds.Select(seriesId => seriesId.Value)],
         };
 
     public IReadOnlyList<RowImage> Images { get; } = [.. planned.Images.Select(image => new RowImage(image))];
