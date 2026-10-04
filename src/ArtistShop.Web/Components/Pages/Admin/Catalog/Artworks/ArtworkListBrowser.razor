@@ -41,8 +41,9 @@
   [Parameter]
   public ArtworkListSelection? Selection { get; set; }
 
-  // One type at a time, picked by a select, for the artwork table: the address's first type that still
-  // exists, or the first by name. Vocabularies and term filters are that type's only
+  // One type at a time, picked by a select, for the artwork table: of the types in the address that
+  // still exist, the first by name, or with none the first of all by name. Vocabularies and term
+  // filters are that type's only
   [Parameter]
   public bool SingleType { get; set; }
 
@@ -71,6 +72,9 @@
 
   private LoadedArtworkList? _loaded;
 
+  // a single-type list on a site with no types, so there is nothing to show
+  private bool _hasNoTypes;
+
   // not OnInitializedAsync: a filter change is the same page with new query parameters
   protected override async Task OnParametersSetAsync()
   {
@@ -97,9 +101,10 @@
     {
       var type = types.FirstOrDefault(candidate => filter.ArtworkTypeIds.Contains(candidate.Id)) ?? types.FirstOrDefault();
 
+      _hasNoTypes = type is null;
+
       if (type is null)
       {
-        // no types yet, so no artworks either
         return;
       }
 
@@ -171,7 +176,11 @@
   }
 }
 
-@if (_loaded is { } loaded)
+@if (_hasNoTypes)
+{
+  <p>Adding artworks starts with an <a href="@PageUrls.NewArtworkType" class="underline">artwork type</a>.</p>
+}
+else if (_loaded is { } loaded)
 {
   <ArtworkListFilters Filter="loaded.Filter" Types="loaded.Types" Vocabularies="loaded.Vocabularies"
                       Series="loaded.Series" ClearFiltersHref="@ClearHref(loaded.Filter)" KeptFields="FilterKeptFields"

@@ -32,6 +32,8 @@ public static class PageUrls
     // takes the artwork list's filters, with one type; with none, the first type by name
     public const string ArtworkTable = "/admin/catalog/artworks/table";
 
+    public const string NewArtworkType = "/admin/catalog/types/new";
+
     public const string ArtworkTypeImport = "/admin/catalog/types/import";
 
     public const string VocabularyImport = "/admin/catalog/vocabularies/import";

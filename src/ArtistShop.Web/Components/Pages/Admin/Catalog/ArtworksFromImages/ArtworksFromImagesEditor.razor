@@ -37,7 +37,10 @@
   private PendingDrop? _pendingDrop;
 
   private readonly List<ArtworkTableRow> _rows = [];
+  // for the script's callbacks; an entry the images dialog has since dropped from its row is ignored
   private readonly Dictionary<string, RowImage> _imagesByFileId = [];
+
+  private IEnumerable<RowImage> RowImages => _rows.SelectMany(row => row.Images);
 
   private IReadOnlyList<SkippedImage> _skipped = [];
   private UnusableFileCounts _unusable = UnusableFileCounts.None;
@@ -53,7 +56,7 @@
   private TimeSpan? _browserUtcOffset;
 
   private int UnsentCount =>
-    _imagesByFileId.Values.Count(image => image.State is RowImageState.Waiting or RowImageState.Failed);
+    RowImages.Count(image => image.State is RowImageState.Waiting or RowImageState.Failed);
 
   protected override async Task OnInitializedAsync()
   {
@@ -104,8 +107,7 @@
     var collected = await ReadCollectedFilesAsync();
 
     // the script now holds only the new drop's files, so ones from before that weren't sent never will be
-    foreach (var image in _imagesByFileId.Values.Where(image => image.State is RowImageState.Waiting or
-RowImageState.Failed))
+    foreach (var image in RowImages.Where(image => image.State is RowImageState.Waiting or RowImageState.Failed))
     {
       image.State = RowImageState.NotSent;
     }
@@ -121,11 +123,24 @@ RowImageState.Failed))
         .Select(file => new BulkImageCandidate(file.Id, file.Path)),
     ];
 
-    // a drop with no images has only the files it couldn't use to report
     _skipped = [];
-    _pendingDrop = candidates.Count > 0
-      ? new PendingDrop(type.Id, candidates, ArtworksFromImagesPlanner.Folders(candidates, _series))
-      : null;
+    _pendingDrop = null;
+
+    // a drop with no images has only the files it couldn't use to report, and one whose images would
+    // all be skipped whatever series they joined has nothing to ask about
+    if (candidates.Count > 0)
+    {
+      var plan = await PlanAsync(type.Id, candidates, new DropSeriesChoice([], []));
+
+      if (plan.Artworks.Count is 0)
+      {
+        _skipped = plan.Skipped;
+      }
+      else
+      {
+        _pendingDrop = new PendingDrop(type.Id, candidates, ArtworksFromImagesPlanner.Folders(candidates, _series));
+      }
+    }
 
     await InvokeAsync(StateHasChanged);
   }
@@ -186,10 +201,8 @@ RowImageState.Failed))
   private async Task<List<ArtworkTableRow>> CreateArtworksAsync(ArtworkTypeId typeId,
 IReadOnlyList<BulkImageCandidate> candidates, DropSeriesChoice choice)
   {
-    var plan = ArtworksFromImagesPlanner.Plan(candidates, choice.SeriesFolders, choice.LooseSeriesIds);
-    var matches = await ArtworkImageRepository.GetArtworkNameMatchesAsync(typeId,
-ArtworksFromImagesPlanner.NamesToCheck(plan));
-    plan = ArtworksFromImagesPlanner.WithoutExisting(plan, matches);
+    // checked again rather than kept from the drop, since artworks may have been added while the series dialog was open
+    var plan = await PlanAsync(typeId, candidates, choice);
     _skipped = plan.Skipped;
 
     var identifiers = await ArtworkRepository.AddManyAsync([.. plan.Artworks.Select(artwork => ToAddition(typeId,
@@ -210,6 +223,15 @@ artwork))]);
     }
 
     return rows;
+  }
+
+  // titles the type already has are skipped
+  private async Task<ArtworksFromImagesPlan> PlanAsync(ArtworkTypeId typeId, IReadOnlyList<BulkImageCandidate> candidates,
+    DropSeriesChoice choice)
+  {
+    var plan = ArtworksFromImagesPlanner.Plan(candidates, choice.SeriesFolders, choice.LooseSeriesIds);
+    var matches = await ArtworkImageRepository.GetArtworkNameMatchesAsync(typeId, ArtworksFromImagesPlanner.NamesToCheck(plan));
+    return ArtworksFromImagesPlanner.WithoutExisting(plan, matches);
   }
 
   // a new series has its id only once added, so it's found again by its web address
@@ -270,7 +292,7 @@ artwork))]);
 
   private async Task UploadUnsentAsync()
   {
-    foreach (var image in _imagesByFileId.Values.Where(image => image.State is RowImageState.Failed))
+    foreach (var image in RowImages.Where(image => image.State is RowImageState.Failed))
     {
       image.State = RowImageState.Waiting;
       image.Error = null;
@@ -280,15 +302,6 @@ artwork))]);
     if (_type is { } type)
     {
       await UploadAsync(_rows, type.Id);
-    }
-  }
-
-  private async Task StopUploadAsync()
-  {
-    // closing the page stops the uploads anyway
-    if (_uploader is not null)
-    {
-      await _uploader.InvokeIfOpenAsync("stop");
     }
   }
 
@@ -324,14 +337,33 @@ artwork))]);
     await InvokeAsync(StateHasChanged);
   }
 
+  // An image the run ended without sending, as when the script stopped early, would otherwise spin
+  // for good and keep its row's images dialog shut. As a failure, Upload sends it again
   [JSInvokable]
   public async Task OnUploadFinished()
   {
     _isUploading = false;
+
+    foreach (var image in RowImages.Where(image => image.State is RowImageState.Waiting))
+    {
+      image.State = RowImageState.Failed;
+      image.Error = "Not uploaded";
+    }
+
     await InvokeAsync(StateHasChanged);
   }
 
-  private void Saved() => _lastSavedAt = TimeProvider.GetUtcNow();
+  private void SaveFinished(ArtworkTableRow row)
+  {
+    if (row.Errors.Count is 0 && row.SaveError is null)
+    {
+      _lastSavedAt = TimeProvider.GetUtcNow();
+    }
+  }
+
+  // nothing typed wrongly, saving, uploading or failed to upload, so closing the tab loses nothing
+  private bool IsAllSaved =>
+    !_isUploading && UnsentCount is 0 && _rows.All(row => !row.IsSaving && row.Errors.Count is 0 && row.SaveError is null);
 
   private void SeriesAdded(Series series) => _series.Add(series);
 
@@ -413,7 +445,8 @@ artwork))]);
 
 @if (_isUploading)
 {
-  <UploadProgress PercentComplete="_percentComplete" OnStop="StopUploadAsync" />
+  @* no Stop: the artworks are already added, so stopping would leave them without their images *@
+  <UploadProgress PercentComplete="_percentComplete" />
 }
 else if (UnsentCount > 0)
 {
@@ -430,10 +463,17 @@ else if (UnsentCount > 0)
     @CountText.Of(_rows.Count, "artwork") added. Each change saves when you leave its field.
   </p>
 
-  <ArtworkTable Rows="_rows" Type="rowsType" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnSaved="Saved" />
+  <ArtworkTable Rows="_rows" Type="rowsType" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnSaveFinished="SaveFinished" />
 
   <p class="text-sm text-gray-600">
-    @CountText.Of(_rows.Count, "artwork") added@(LastSavedText is { } savedText ? $", updated at {savedText}" : "").
+    @if (IsAllSaved && LastSavedText is { } savedText)
+    {
+      <text>@CountText.Of(_rows.Count, "artwork") added. All changes saved at @savedText, it is safe to close the tab.</text>
+    }
+    else
+    {
+      <text>@CountText.Of(_rows.Count, "artwork") added.</text>
+    }
     <a class="underline" href="@PageUrls.AdminDashboard">Back to the dashboard</a>
   </p>
 }

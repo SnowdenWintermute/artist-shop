@@ -91,10 +91,11 @@ public class ArtworkTableRow
 
     public IReadOnlyList<ArtworkImage> SavedImages => [.. Images.Select(image => image.Image).OfType<ArtworkImage>()];
 
-    // after the images dialog saved; the images that failed or weren't sent keep their messages
+    // after the images dialog saved the whole list, so the ones that failed or weren't sent go: the
+    // artist has re-added or left them out there
     public void ReplaceSavedImages(IReadOnlyList<ArtworkImage> images, string? mainImageKey)
     {
-        Images = [.. images.Select(RowImage.Saved), .. Images.Where(image => image.State is not RowImageState.Added)];
+        Images = [.. images.Select(RowImage.Saved)];
         MainImageKey = mainImageKey;
     }
 

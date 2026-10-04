@@ -17,7 +17,7 @@
 
   protected override async Task OnInitializedAsync()
   {
-    _artworkTypes = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
+    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
   }
 }
 
@@ -45,7 +45,7 @@
       }
       else
       {
-        <ArtworkTypeActions ArtworkTypes="_artworkTypes" />
+        <AddArtworkLinks />
       }
     </DashboardBox>
 

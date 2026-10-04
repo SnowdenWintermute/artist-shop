@@ -118,7 +118,7 @@ public sealed class ArtworkTableRowTests
     }
 
     [Fact]
-    public void ReplacingTheImagesKeepsTheOnesThatFailedToUpload()
+    public void ReplacingTheImagesDropsTheOnesThatFailedToUpload()
     {
         var row = ArtworkTableRow.FromDrop(
             new ArtworkId(1),
@@ -133,7 +133,7 @@ public sealed class ArtworkTableRowTests
 
         Assert.Equal([Image('c'), Image('a')], row.SavedImages);
         Assert.Equal(Image('c'), row.Thumbnail);
-        Assert.Equal([RowImageState.Added, RowImageState.Added, RowImageState.Failed], [.. row.Images.Select(image => image.State)]);
+        Assert.Equal([RowImageState.Added, RowImageState.Added], [.. row.Images.Select(image => image.State)]);
     }
 
     // the size columns keep 4 decimal places, so the field shows the size as it's saved

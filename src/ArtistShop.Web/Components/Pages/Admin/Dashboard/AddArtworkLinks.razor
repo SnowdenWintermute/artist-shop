@@ -1,0 +1,14 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* each page asks for the artwork type itself: Add one starts at the type its admin last chose *@
+
+<div class="flex flex-wrap gap-2">
+  <LinkButton href="/admin/catalog/artworks/add" Variant="ButtonVariant.Outline">Add one</LinkButton>
+  <LinkButton href="@PageUrls.AddArtworksFromImages" Variant="ButtonVariant.Outline">Add from images</LinkButton>
+  <LinkButton href="@PageUrls.ArtworkImport" Variant="ButtonVariant.Outline">
+    <IconLabel Icon="csv">Import</IconLabel>
+  </LinkButton>
+  <LinkButton href="@PageUrls.ArtworkBulkImageUpload(null)" Variant="ButtonVariant.Outline">
+    <IconLabel Icon="folder-open">Upload images</IconLabel>
+  </LinkButton>
+</div>

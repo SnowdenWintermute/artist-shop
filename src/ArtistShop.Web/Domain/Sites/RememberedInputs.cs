@@ -4,8 +4,8 @@ namespace ArtistShop.Web.Domain.Sites;
 // forgets every value saved under the old name
 public static class RememberedInputs
 {
-    public const string DashboardArtworkType = "dashboard-artwork-type";
+    public const string AddArtworkType = "add-artwork-type";
 
     // what the saving endpoint accepts, so it can't fill the table with names nothing reads
-    public static readonly IReadOnlySet<string> Names = new HashSet<string> { DashboardArtworkType };
+    public static readonly IReadOnlySet<string> Names = new HashSet<string> { AddArtworkType };
 }

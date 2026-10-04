@@ -1,12 +1,13 @@
 @using ArtistShop.Web.Components.Atoms
 @using BlazorBlueprint.Primitives.Progress
-@* an upload run under way: a bar of the bytes sent, and Stop *@
+@* an upload run under way: a bar of the bytes sent, and Stop when there is one *@
 
 @code {
   [Parameter, EditorRequired]
   public int PercentComplete { get; set; }
 
-  [Parameter, EditorRequired]
+  // none for a run whose stopping would leave things half done, such as artworks already added
+  [Parameter]
   public EventCallback OnStop { get; set; }
 
   // more about the run, like how many images are in
@@ -28,5 +29,8 @@
     }
   </p>
 
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="OnStop">Stop</ButtonBasic>
+  @if (OnStop.HasDelegate)
+  {
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="OnStop">Stop</ButtonBasic>
+  }
 </div>

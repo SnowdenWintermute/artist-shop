@@ -13,7 +13,7 @@ public sealed class SiteMemberInputValueRepositoryTests(TestDatabaseFixture data
     private readonly SiteInviteRepository _invites = new(database.PlatformDataSource);
     private readonly SiteMemberInputValueRepository _inputValues = new(database.PlatformDataSource);
 
-    private const string InputName = RememberedInputs.DashboardArtworkType;
+    private const string InputName = RememberedInputs.AddArtworkType;
 
     [Fact]
     public async Task ReadsBackTheLastValueSaved()

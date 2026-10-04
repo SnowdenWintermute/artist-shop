@@ -66,8 +66,14 @@
     }
   }
 
+  // Enter still submits while the buttons are disabled, and a second save would find the name taken
   private async Task<bool> SaveVocabularyAsync()
   {
+    if (IsSaving)
+    {
+      return false;
+    }
+
     await IsSavingChanged.InvokeAsync(true);
 
     try
@@ -85,6 +91,11 @@
 
   private async Task<bool> SaveTermAsync(VocabularyWithTerms vocabulary)
   {
+    if (IsSaving)
+    {
+      return false;
+    }
+
     await IsSavingChanged.InvokeAsync(true);
 
     try

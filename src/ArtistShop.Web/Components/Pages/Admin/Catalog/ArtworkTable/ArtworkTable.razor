@@ -24,9 +24,10 @@
   // a series is saved as soon as the series dialog adds it, so the caller lists it for every row
   [Parameter, EditorRequired]
   public EventCallback<Series> OnSeriesAdded { get; set; }
-  // for a page that shows when it last saved
+  // after each save of a row, which saved only if the row has no errors now; for a page that shows
+  // whether everything is saved
   [Parameter]
-  public EventCallback OnSaved { get; set; }
+  public EventCallback<ArtworkTableRow> OnSaveFinished { get; set; }
   // a vocabulary, term or series was added from a dialog that has now closed, for a page with lists of
   // its own, like filters, to read them again
   [Parameter]
@@ -154,6 +155,8 @@
     {
       row.IsSaving = false;
     }
+
+    await OnSaveFinished.InvokeAsync(row);
   }
 
   private async Task SaveRowAsync(ArtworkTableRow row, Func<Task> save)
@@ -163,7 +166,6 @@
       await save();
       row.SaveError = null;
       row.SaveCount++;
-      await OnSaved.InvokeAsync();
     }
     catch (ArtworkDeletedException)
     {
@@ -224,6 +226,7 @@
     });
 
     _imagesRow = null;
+    await OnSaveFinished.InvokeAsync(row);
   }
 
   private string SeriesText(ArtworkTableRow row) =>

@@ -1,11 +1,15 @@
 @page "/admin/catalog/artworks/add"
+@using System.Globalization
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Forms.FileUpload.Images
 @using ArtistShop.Web.Components.Pages.Catalog
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -16,11 +20,13 @@
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
 @inject ImageStorage ImageStorage
+@inject SiteMemberInputValueRepository InputValues
+@inject CurrentSite CurrentSite
 
 @code {
   [SupplyParameterFromForm]
   private ArtworkForm Input { get; set; } = default!;
-  // the artist picks the type before opening this page, so the form only has to show that type's choices
+  // the form shows only this type's choices. Without one the page goes to the type its admin last chose
   [SupplyParameterFromQuery(Name = "type")]
   private int? TypeIdValue { get; set; }
   [SupplyParameterFromQuery(Name = "added")]
@@ -30,7 +36,17 @@
   // between different components, and AddedSlug alone is what both would use
   private string PickersKey => $"pickers-{AddedSlug}";
 
+  [CascadingParameter]
+  private HttpContext HttpContext { get; set; } = default!;
+
   private bool _staleChoices;
+
+  // sorted by name, for the type select
+  private List<ArtworkType> _artworkTypes = [];
+  private bool _hasNoTypes;
+
+  private List<(string Value, string Label)> TypeOptions =>
+    [.. _artworkTypes.Select(type => (type.Id.Value.ToString(CultureInfo.InvariantCulture), type.Name.Value))];
 
   private ArtworkType? _type;
   private IReadOnlyList<ArtworkField> _fields = [];
@@ -42,6 +58,14 @@
   protected override async Task OnInitializedAsync()
   {
     Input ??= new();
+    _artworkTypes = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
+
+    if (TypeIdValue is null)
+    {
+      await GoToStartingTypeAsync();
+      return;
+    }
+
     var typeWithFields = TypeIdValue is int typeId ? await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(typeId)) : null;
 
     if (typeWithFields is null)
@@ -56,6 +80,23 @@
     _vocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
     _vocabulariesWithoutArtworkTypes = await VocabularyRepository.GetAllWithoutArtworkTypesAsync();
     _series = await SeriesRepository.GetAllAsync();
+  }
+
+  // A redirect rather than showing that type here, so the address names the type the form posts to:
+  // the saved choice could change in another tab before this form is submitted
+  private async Task GoToStartingTypeAsync()
+  {
+    var saved = await InputValues.GetAsync(CurrentSite.Id, HttpContext.User.RequiredUserId(), RememberedInputs.AddArtworkType);
+    var type = _artworkTypes.FirstOrDefault(type => type.Id.Value.ToString(CultureInfo.InvariantCulture) == saved)
+               ?? _artworkTypes.FirstOrDefault();
+
+    if (type is null)
+    {
+      _hasNoTypes = true;
+      return;
+    }
+
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("type", type.Id.Value));
   }
 
   private async Task SubmitArtwork(EditContext editContext)
@@ -111,7 +152,18 @@
   }
 }
 
-@if (_type is not null)
+@if (_hasNoTypes)
+{
+  <PageTitle>Add an artwork</PageTitle>
+
+  <main>
+    <AdminPanel>
+      <h1 class="mb-4">Add an artwork</h1>
+      <p>Adding artworks starts with an <a href="@PageUrls.NewArtworkType" class="underline">artwork type</a>.</p>
+    </AdminPanel>
+  </main>
+}
+else if (_type is not null)
 {
   var typeName = _type.Name.Value.ToLower();
 
@@ -120,6 +172,21 @@
   <main>
     <AdminPanel>
       <h1>Add a @typeName</h1>
+
+      @* outside the form below, since forms can't be nested. The type decides the form's fields, so
+         choosing one loads the page for it *@
+      <form method="get" data-enhance class="mb-4">
+        <SubmitOnChange>
+          <label class="mb-4 block">
+            <span class="artist-shop-field-label">Artwork type</span>
+            <RememberedSelect Name="type" InputName="@RememberedInputs.AddArtworkType" Options="TypeOptions"
+                              Value="@_type.Id.Value.ToString(CultureInfo.InvariantCulture)" Class="artist-shop-field-input" />
+          </label>
+
+          @* app.css hides this unless the browser runs no scripts *@
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Change type</ButtonBasic>
+        </SubmitOnChange>
+      </form>
 
       @if (AddedSlug is not null)
       {

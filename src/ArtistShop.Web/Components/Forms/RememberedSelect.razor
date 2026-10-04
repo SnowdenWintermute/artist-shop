@@ -5,8 +5,9 @@
 @inject CurrentSite CurrentSite
 @inject AntiforgeryStateProvider AntiforgeryStateProvider
 
-@* A select that comes back at the option its admin last changed it to. The saved value only picks
-   among the options rendered now, so one the page no longer offers leaves the first selected *@
+@* A select that comes back at the option its admin last changed it to, unless the page already
+   has a value. The saved value only picks among the options rendered now, so one the page no
+   longer offers leaves the first selected *@
 
 @code {
   // the form field the select submits as
@@ -23,13 +24,17 @@
   [Parameter]
   public string? Class { get; set; }
 
+  // the option to show when the page has one, such as from its address
+  [Parameter]
+  public string? Value { get; set; }
+
   [CascadingParameter]
   private HttpContext HttpContext { get; set; } = default!;
 
   private string? _savedValue;
 
   protected override async Task OnInitializedAsync() =>
-    _savedValue = await InputValues.GetAsync(CurrentSite.Id, HttpContext.User.RequiredUserId(), InputName);
+    _savedValue = Value ?? await InputValues.GetAsync(CurrentSite.Id, HttpContext.User.RequiredUserId(), InputName);
 
   // the select sits in a GET form, so the token goes in attributes rather than a hidden field it
   // would submit

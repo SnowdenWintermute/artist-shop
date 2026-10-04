@@ -44,14 +44,23 @@
       return;
     }
 
-    _loadedAddress = Address;
+    var address = Address;
+    _loadedAddress = address;
     _isLoading = true;
     _loaded = null;
 
     var type = await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(ArtworkTypeId));
-    _series = await SeriesRepository.GetAllAsync();
+    var series = await SeriesRepository.GetAllAsync();
     var artworks = (await ArtworkRepository.GetManyAsync([.. ArtworkIds.Select(id => new ArtworkId(id))]))
       .ToDictionary(artwork => artwork.Id);
+
+    // the address changed while this was loading, and that change's load is the one to show
+    if (_loadedAddress != address)
+    {
+      return;
+    }
+
+    _series = series;
 
     // one deleted since the list was read is left out
     _loaded = type is null
