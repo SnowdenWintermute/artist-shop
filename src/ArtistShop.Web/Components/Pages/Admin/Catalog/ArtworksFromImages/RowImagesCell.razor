@@ -1,0 +1,51 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* the row's first uploaded image, a spinner while none has arrived, and how its other images fared *@
+
+@code {
+  [Parameter, EditorRequired]
+  public ArtworkFromImagesRow Row { get; set; } = default!;
+
+  private int CountIn(RowImageState state) => Row.Images.Count(image => image.State == state);
+
+  private string FailureText =>
+    string.Join(" ", Row.Images.Where(image => image.State is RowImageState.Failed).Select(image => $"{image.Path}: {image.Error}"));
+}
+
+@* overflow-hidden: the saved mark rises from below the box, out of sight until it enters *@
+<div class="relative flex size-10 items-center justify-center overflow-hidden">
+  @if (Row.Thumbnail is { } thumbnail)
+  {
+    <ArtworkThumbnail Image="thumbnail" />
+  }
+  else if (CountIn(RowImageState.Waiting) > 0)
+  {
+    <span class="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" role="status"
+          aria-label="Uploading"></span>
+  }
+
+  @if (Row.Images.Count > 1)
+  {
+    <span class="absolute right-0 bottom-0 bg-black/60 px-0.5 text-[10px] leading-tight text-white"
+          title="@($"{Row.Images.Count} images")">+@(Row.Images.Count - 1)</span>
+  }
+
+  @* a new element for each save, so the animation plays again *@
+  @if (Row.SaveCount > 0)
+  {
+    <span @key="Row.SaveCount" class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-theme-primary"
+          role="status">
+      <SvgIcon Name="floppy-disc" Class="size-5" />
+      <span class="sr-only">Saved</span>
+    </span>
+  }
+</div>
+
+@if (CountIn(RowImageState.Failed) is var failed and > 0)
+{
+  <p class="max-w-24 text-xs text-red-600" title="@FailureText">@failed failed</p>
+}
+@if (CountIn(RowImageState.NotSent) is var notSent and > 0)
+{
+  <p class="max-w-24 text-xs text-red-600" title="Drop these on the Upload images page to add them">@notSent not sent</p>
+}

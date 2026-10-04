@@ -265,6 +265,13 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         string name,
         IReadOnlyList<VocabularyTermId> termIds,
         IReadOnlyList<SeriesId> seriesIds
+    ) => new(DetailsUpdateOf(id, name, termIds, seriesIds), Images: [], MainImageIndex: 0);
+
+    private static ArtworkDetailsUpdate DetailsUpdateOf(
+        ArtworkId id,
+        string name,
+        IReadOnlyList<VocabularyTermId> termIds,
+        IReadOnlyList<SeriesId> seriesIds
     ) =>
         new(
             id,
@@ -274,8 +281,6 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
             DateCreated: null,
             Dimensions: null,
             Duration: null,
-            Images: [],
-            MainImageIndex: 0,
             VocabularyTermIds: termIds,
             SeriesIds: seriesIds
         );
@@ -473,5 +478,48 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         Assert.NotNull(artwork);
         Assert.Empty(artwork.Images);
         Assert.DoesNotContain(image.StorageKey, await _images.GetAllStorageKeysAsync());
+    }
+
+    // the add-from-images table saves rows while their uploads are still appending images
+    [Fact]
+    public async Task UpdatingDetailsKeepsTheImages()
+    {
+        var image = CatalogTestData.CreateTestImage();
+        var seriesId = await _catalog.AddSeriesAsync();
+        var identifiers = await _catalog.AddPaintingAsync(
+            $"Dropped {Guid.NewGuid():n}",
+            termIds: [],
+            seriesIds: [],
+            images: [image]
+        );
+
+        var renamed = $"Renamed {Guid.NewGuid():n}";
+        var slug = await _artworks.UpdateDetailsAsync(
+            DetailsUpdateOf(identifiers.Id, renamed, termIds: [], seriesIds: [seriesId]) with
+            {
+                Description = "Oil on board",
+            }
+        );
+
+        var artwork = await _artworks.GetByIdAsync(identifiers.Id);
+
+        Assert.NotNull(artwork);
+        Assert.Equal(renamed, artwork.Name.Value);
+        Assert.Equal(slug, artwork.Slug);
+        Assert.Equal("Oil on board", artwork.Description);
+        Assert.Equal([seriesId], [.. artwork.Series.Select(series => series.Id)]);
+        Assert.Equal([image.StorageKey], [.. artwork.Images.Select(kept => kept.StorageKey)]);
+    }
+
+    [Fact]
+    public async Task RefusesToUpdateTheDetailsOfAnArtworkThatWasDeleted()
+    {
+        var name = $"Gone before saving {Guid.NewGuid():n}";
+        var identifiers = await _catalog.AddPaintingAsync(name, termIds: [], seriesIds: [], images: []);
+        await _artworks.DeleteAsync(identifiers.Id);
+
+        await Assert.ThrowsAsync<ArtworkDeletedException>(() =>
+            _artworks.UpdateDetailsAsync(DetailsUpdateOf(identifiers.Id, name, termIds: [], seriesIds: []))
+        );
     }
 }

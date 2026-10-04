@@ -11,9 +11,13 @@
   // one width for every admin page, so the panel doesn't jump as the artist moves between them.
   // Public for the dashboard, whose boxes sit side by side instead of in one panel
   public const string WidthClass = "mx-auto max-w-[900px]";
+
+  // for a page built around a wide table, like adding artworks from images
+  [Parameter]
+  public bool Wide { get; set; }
 }
 
-<div class="@WidthClass">
+<div class="@(Wide ? "mx-auto max-w-[1200px]" : WidthClass)">
   <Panel>
     @if (SectionNav is not null)
     {

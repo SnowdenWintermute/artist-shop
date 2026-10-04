@@ -26,6 +26,9 @@ public static class PageUrls
     // with no type, the page asks for one
     public const string ArtworkImport = "/admin/catalog/artworks/import";
 
+    // ?type= picks the type to start with; with none, the page asks for one
+    public const string AddArtworksFromImages = "/admin/catalog/artworks/add-from-images";
+
     public const string ArtworkTypeImport = "/admin/catalog/types/import";
 
     public const string VocabularyImport = "/admin/catalog/vocabularies/import";

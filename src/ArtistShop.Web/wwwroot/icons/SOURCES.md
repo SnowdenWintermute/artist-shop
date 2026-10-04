@@ -9,6 +9,7 @@ file.
 | `copy-file.svg` | SVG Repo | CC0 or public domain |
 | `csv.svg` | SVG Repo | CC0 or public domain |
 | `folder-open.svg` | SVG Repo | CC0 or public domain |
+| `floppy-disc.svg` | SVG Repo ("save_item [#1409]") | Public domain. Changed: a `fill="none"` group that hid the shape, the title, description and inner `id`s removed |
 | `image-remove.svg` | Drawn for this project | This project's |
 | `google-logo.svg` | Google | Google's mark, used as its sign-in branding guidelines allow |
 | `menu.svg` | Drawn for this project | This project's |

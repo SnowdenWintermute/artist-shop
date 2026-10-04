@@ -321,41 +321,63 @@ public class ArtworkRepository(SiteDatabase database)
     // the slug comes back because the function decides it: a rename can land on a numbered one
     public async Task<ArtworkSlug> UpdateAsync(ArtworkCatalogUpdate artworkCatalogUpdate)
     {
+        var parameters = DetailsParameters(artworkCatalogUpdate.Details);
+        parameters.Add(
+            "Images",
+            CreateImageInputs(artworkCatalogUpdate.Images, artworkCatalogUpdate.MainImageIndex)
+        );
+
+        return await ExecuteUpdateAsync(
+            """
+            SELECT update_artwork(
+                @Id, @Name, @CandidateSlug, @Description, @DateCreated, @DateCreatedPrecision,
+                @HeightCm, @WidthCm, @DepthCm, @DurationSeconds,
+                @Images, @VocabularyTermIds, @SeriesIds
+            )
+            """,
+            parameters
+        );
+    }
+
+    // leaves the images alone, so uploads appending to the artwork meanwhile keep theirs
+    public Task<ArtworkSlug> UpdateDetailsAsync(ArtworkDetailsUpdate details) =>
+        ExecuteUpdateAsync(
+            """
+            SELECT update_artwork_details(
+                @Id, @Name, @CandidateSlug, @Description, @DateCreated, @DateCreatedPrecision,
+                @HeightCm, @WidthCm, @DepthCm, @DurationSeconds,
+                @VocabularyTermIds, @SeriesIds
+            )
+            """,
+            DetailsParameters(details)
+        );
+
+    private static DynamicParameters DetailsParameters(ArtworkDetailsUpdate details) =>
+        new(
+            new
+            {
+                Id = details.Id.Value,
+                Name = details.Name.Value,
+                CandidateSlug = details.CandidateSlug.Value,
+                details.Description,
+                DateCreated = details.DateCreated?.Date,
+                DateCreatedPrecision = details.DateCreated?.Precision,
+                HeightCm = details.Dimensions?.Height,
+                WidthCm = details.Dimensions?.Width,
+                DepthCm = details.Dimensions?.Depth,
+                DurationSeconds = (int?)details.Duration?.TotalSeconds,
+                VocabularyTermIds = (int[])[.. details.VocabularyTermIds.Select(id => id.Value)],
+                SeriesIds = (int[])[.. details.SeriesIds.Select(id => id.Value)],
+            }
+        );
+
+    private async Task<ArtworkSlug> ExecuteUpdateAsync(string sql, DynamicParameters parameters)
+    {
         await using var connection = await database.OpenConnectionAsync();
 
         try
         {
-            var slug = await connection.QuerySingleAsync<string>(
-                """
-                SELECT update_artwork(
-                    @Id, @Name, @CandidateSlug, @Description, @DateCreated, @DateCreatedPrecision,
-                    @HeightCm, @WidthCm, @DepthCm, @DurationSeconds,
-                    @Images, @VocabularyTermIds, @SeriesIds
-                )
-                """,
-                new
-                {
-                    Id = artworkCatalogUpdate.Id.Value,
-                    Name = artworkCatalogUpdate.Name.Value,
-                    CandidateSlug = artworkCatalogUpdate.CandidateSlug.Value,
-                    artworkCatalogUpdate.Description,
-                    DateCreated = artworkCatalogUpdate.DateCreated?.Date,
-                    DateCreatedPrecision = artworkCatalogUpdate.DateCreated?.Precision,
-                    HeightCm = artworkCatalogUpdate.Dimensions?.Height,
-                    WidthCm = artworkCatalogUpdate.Dimensions?.Width,
-                    DepthCm = artworkCatalogUpdate.Dimensions?.Depth,
-                    DurationSeconds = (int?)artworkCatalogUpdate.Duration?.TotalSeconds,
-                    Images = CreateImageInputs(
-                        artworkCatalogUpdate.Images,
-                        artworkCatalogUpdate.MainImageIndex
-                    ),
-                    VocabularyTermIds = (int[])
-                        [.. artworkCatalogUpdate.VocabularyTermIds.Select(id => id.Value)],
-                    SeriesIds = (int[])[.. artworkCatalogUpdate.SeriesIds.Select(id => id.Value)],
-                }
-            );
-
-            return new ArtworkSlug(slug);
+            return new ArtworkSlug(await connection.QuerySingleAsync<string>(sql, parameters));
         }
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ArtworkNoLongerExists))

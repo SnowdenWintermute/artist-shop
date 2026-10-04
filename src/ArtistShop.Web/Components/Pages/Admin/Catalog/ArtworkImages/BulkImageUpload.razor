@@ -65,7 +65,7 @@
     {
       _module = await JS.InvokeAsync<IJSObjectReference>(
         "import",
-        "./Components/Pages/Admin/Catalog/ArtworkImages/BulkImageUpload.razor.js"
+        "./js/bulk-artwork-uploader.js"
       );
 
       _selfReference = DotNetObjectReference.Create(this);
@@ -224,8 +224,9 @@
     await InvokeAsync(StateHasChanged);
   }
 
+  // the script sends the appended image too, for pages that show it; this report needs only the outcome
   [JSInvokable]
-  public async Task OnExtraAdded(string id)
+  public async Task OnExtraAdded(string id, ArtworkImageAppendResult _)
   {
     if (FindFile(id) is { } file)
     {

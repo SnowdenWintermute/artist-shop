@@ -1,0 +1,11 @@
+@* a field's message under it in the table; nothing at all without one, so only a row with an error grows *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string? Message { get; set; }
+}
+
+@if (Message is not null)
+{
+  <p class="mt-1 max-w-48 text-xs text-red-600">@Message</p>
+}

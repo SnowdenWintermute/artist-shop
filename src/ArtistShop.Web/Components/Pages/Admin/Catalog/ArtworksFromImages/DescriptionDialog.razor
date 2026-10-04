@@ -1,0 +1,42 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+
+@* rendered only while open, so each opening starts from the row's saved text *@
+
+@code {
+  // null while the row's title is cleared
+  [Parameter, EditorRequired]
+  public string? ArtworkName { get; set; }
+  [Parameter, EditorRequired]
+  public string? Description { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<string?> OnOk { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+
+  private string? _draft;
+
+  protected override void OnInitialized() => _draft = Description;
+
+  private Task OkAsync() => OnOk.InvokeAsync(_draft);
+
+  // Ctrl+Enter, or Cmd+Enter on a Mac, as in most editors that take a newline from plain Enter
+  private async Task KeyDownAsync(KeyboardEventArgs keyboardEvent)
+  {
+    if (keyboardEvent.Key is "Enter" && (keyboardEvent.CtrlKey || keyboardEvent.MetaKey))
+    {
+      await OkAsync();
+    }
+  }
+}
+
+<ModalDialog Title="@(ArtworkName is null ? "Description" : $"Description of {ArtworkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose">
+  <label class="sr-only" for="description-draft">Description</label>
+  <textarea id="description-draft" class="mb-4 min-h-60 w-full border border-theme-base p-2" @bind="_draft"
+            @bind:event="oninput" @onkeydown="KeyDownAsync" autofocus></textarea>
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" />
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" Class="min-w-24" @onclick="OkAsync">OK</ButtonBasic>
+  </ModalDialogActions>
+</ModalDialog>

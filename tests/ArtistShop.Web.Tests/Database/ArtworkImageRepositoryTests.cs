@@ -122,17 +122,19 @@ public sealed class ArtworkImageRepositoryTests(TestDatabaseFixture database)
 
         await _artworks.UpdateAsync(
             new ArtworkCatalogUpdate(
-                painting.Id,
-                new ArtworkName(name),
-                ArtworkSlug.FromName(name),
-                Description: null,
-                DateCreated: null,
-                Dimensions: null,
-                Duration: null,
+                new ArtworkDetailsUpdate(
+                    painting.Id,
+                    new ArtworkName(name),
+                    ArtworkSlug.FromName(name),
+                    Description: null,
+                    DateCreated: null,
+                    Dimensions: null,
+                    Duration: null,
+                    VocabularyTermIds: [],
+                    SeriesIds: []
+                ),
                 Images: [added, image],
-                MainImageIndex: 1,
-                VocabularyTermIds: [],
-                SeriesIds: []
+                MainImageIndex: 1
             )
         );
 

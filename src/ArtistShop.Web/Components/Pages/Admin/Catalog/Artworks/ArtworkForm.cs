@@ -21,6 +21,8 @@ public class ImageInput
 // properties by FromArtwork rather than passed to a constructor.
 public class ArtworkForm : IValidatableObject
 {
+    private const string DimensionRangeMessage = "Use a number from {1} to {2}.";
+
     public static ArtworkForm FromArtwork(Artwork artwork) =>
         new()
         {
@@ -60,8 +62,9 @@ public class ArtworkForm : IValidatableObject
             SeriesIds = [.. artwork.Series.Select(series => series.Id.Value)],
         };
 
-    [Required]
-    [StringLength(ArtistShopLimits.ArtworkNameMaximumLength)]
+    // short messages, since the add-from-images table shows them under small cells
+    [Required(ErrorMessage = "Enter a title.")]
+    [StringLength(ArtistShopLimits.ArtworkNameMaximumLength, ErrorMessage = "Use at most {1} characters.")]
     public string? Name { get; set; }
 
     public int? YearCreated { get; set; }
@@ -72,13 +75,13 @@ public class ArtworkForm : IValidatableObject
 
     public string? Description { get; set; }
 
-    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm)]
+    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm, ErrorMessage = DimensionRangeMessage)]
     public decimal? HeightCm { get; set; }
 
-    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm)]
+    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm, ErrorMessage = DimensionRangeMessage)]
     public decimal? WidthCm { get; set; }
 
-    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm)]
+    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm, ErrorMessage = DimensionRangeMessage)]
     public decimal? DepthCm { get; set; }
 
     // text rather than parts, because h:mm:ss is how a duration is written and read
@@ -169,10 +172,16 @@ public class ArtworkForm : IValidatableObject
 
     public ArtworkCatalogUpdate ToCatalogUpdate(ArtworkId id)
     {
-        var name = Unwrap.Value(Name);
         var images = ToArtworkImages();
 
-        return new ArtworkCatalogUpdate(
+        return new ArtworkCatalogUpdate(ToDetailsUpdate(id), images, MainImageIndex(images));
+    }
+
+    public ArtworkDetailsUpdate ToDetailsUpdate(ArtworkId id)
+    {
+        var name = Unwrap.Value(Name);
+
+        return new ArtworkDetailsUpdate(
             id,
             new ArtworkName(name),
             // the procedure keeps the artwork's current slug when this one is the same name's
@@ -181,8 +190,6 @@ public class ArtworkForm : IValidatableObject
             ToDateCreated(),
             ToDimensions(),
             ToDuration(),
-            Images: images,
-            MainImageIndex: MainImageIndex(images),
             VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
             SeriesIds: [.. SeriesIds.Select(id => new SeriesId(id))]
         );

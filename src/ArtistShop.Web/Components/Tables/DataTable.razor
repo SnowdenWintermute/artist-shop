@@ -22,9 +22,13 @@
   // for a table in its own scrolling box: the headings stay in view as the rows scroll under them
   [Parameter]
   public bool StickyHeadings { get; set; }
+
+  // columns only as wide as their content, rather than spread across the page
+  [Parameter]
+  public bool FitsContent { get; set; }
 }
 
-<table class="@ClassNames.Join("w-full text-left", Class)">
+<table class="@ClassNames.Join(FitsContent ? null : "w-full", "text-left", Class)">
   <thead>
     <tr class="text-sm text-gray-500">
       @foreach (var heading in Headings)

@@ -17,6 +17,10 @@ public record ImageUploadResult(
     string BlurDataUri
 );
 
+// the appended image, for the page to show its thumbnail, or null when the artwork already had it.
+// A record rather than a bare null, which ASP.NET would send as an empty body
+public record ArtworkImageAppendResult(ImageUploadResult? Image);
+
 // what the bulk page's report shows for one file. Outcome is the same classification the
 // pre-check uses; OneImagelessArtwork means the image was attached
 public record ArtworkImageMatchResult(
@@ -241,7 +245,10 @@ public static class ImageUploadEndpoints
     // After the artwork's other images, unless it has this image already. The page worked out which
     // images the artwork is missing, but any artwork on the site is one its admin could add an
     // image to anyway
-    private static async Task<Results<Ok, ContentHttpResult, StatusCodeHttpResult>> UploadAndAppendAsync(
+    // a 200 even when the artwork already had the image, since the uploaders count only a 200 as done
+    private static async Task<
+        Results<Ok<ArtworkImageAppendResult>, ContentHttpResult, StatusCodeHttpResult>
+    > UploadAndAppendAsync(
         IFormFile file,
         // a form field, as above
         [FromForm] int artworkId,
@@ -263,17 +270,19 @@ public static class ImageUploadEndpoints
             await using var content = file.OpenReadStream();
             var stored = await imageUploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, cancellationToken);
 
+            var image = new ImageUploadResult(
+                stored.StorageKey,
+                ImageUploadValidation.OriginalFileName(file),
+                stored.Processed.Width,
+                stored.Processed.Height,
+                stored.Processed.BlurDataUri
+            );
+
             try
             {
                 var appended = await artworkImageRepository.AppendImageAsync(
                     new ArtworkId(artworkId),
-                    new ArtworkImage(
-                        stored.StorageKey,
-                        ImageUploadValidation.OriginalFileName(file),
-                        stored.Processed.Width,
-                        stored.Processed.Height,
-                        stored.Processed.BlurDataUri
-                    ),
+                    new ArtworkImage(image.StorageKey, image.OriginalFileName, image.Width, image.Height, image.BlurDataUri),
                     stored.Sha256
                 );
 
@@ -282,6 +291,7 @@ public static class ImageUploadEndpoints
                 if (!appended)
                 {
                     imageStorage.Delete(stored.StorageKey);
+                    return TypedResults.Ok(new ArtworkImageAppendResult(null));
                 }
             }
             catch
@@ -291,7 +301,7 @@ public static class ImageUploadEndpoints
                 throw;
             }
 
-            return TypedResults.Ok();
+            return TypedResults.Ok(new ArtworkImageAppendResult(image));
         }
         // the artist deleted the artwork while the import was running
         catch (ChangedSincePageLoadException exception)

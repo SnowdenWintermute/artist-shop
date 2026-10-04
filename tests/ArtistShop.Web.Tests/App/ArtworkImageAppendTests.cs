@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net;
+using System.Net.Http.Json;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
@@ -43,6 +44,9 @@ public sealed class ArtworkImageAppendTests(TestApp app)
             new Dictionary<string, string> { ["artworkId"] = $"{artworkId.Value}" }
         );
 
+    private static async Task<ImageUploadResult?> ImageInAsync(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<ArtworkImageAppendResult>(TestContext.Current.CancellationToken))?.Image;
+
     private int OriginalCount(TestSite site) =>
         Directory.GetFiles(ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), site.Id).Originals).Length;
 
@@ -62,6 +66,10 @@ public sealed class ArtworkImageAppendTests(TestApp app)
         Assert.NotNull(images);
         Assert.Equal(2, images.Count);
         Assert.Equal("Dawn.jpg", images[0].OriginalFileName);
+        // each added image comes back for its thumbnail; the repeat added nothing, so nothing does
+        Assert.Equal(images[0].StorageKey, (await ImageInAsync(first))?.StorageKey);
+        Assert.Null(await ImageInAsync(again));
+        Assert.Equal(images[1].StorageKey, (await ImageInAsync(other))?.StorageKey);
         // the second copy was deleted rather than left for the sweep
         Assert.Equal(2, OriginalCount(site));
     }

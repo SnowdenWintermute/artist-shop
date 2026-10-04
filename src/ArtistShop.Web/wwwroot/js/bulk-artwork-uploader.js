@@ -12,6 +12,8 @@ const APPEND_URL = "/admin/uploads/artwork-image-appended";
 // takes a whole artwork, so an artwork's files still go in order
 const CONCURRENT_UPLOADS = 4;
 
+// Shared by the Upload images page and the Add from images page
+
 /** @typedef {{ id: string, artworkId: number | null }} UploadItem */
 
 /**
@@ -98,7 +100,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     } else if (artworkId === null) {
       notify("OnFileFinished", id, JSON.parse(outcome.response.text));
     } else {
-      notify("OnExtraAdded", id);
+      notify("OnExtraAdded", id, JSON.parse(outcome.response.text));
     }
   }
 

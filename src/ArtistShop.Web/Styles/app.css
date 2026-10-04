@@ -10,6 +10,7 @@
   --theme-muted: grey; /* secondary text, borders */
   --theme-hovered: blue; /* primary text */
   --theme-selected: var(--color-blue-200); /* a selected row */
+  --theme-primary: var(--color-blue-500); /* the accent, like a row's saved mark */
 }
 
 @theme inline {
@@ -19,6 +20,7 @@
   --color-theme-muted: var(--theme-muted);
   --color-theme-hovered: var(--theme-hovered);
   --color-theme-selected: var(--theme-selected);
+  --color-theme-primary: var(--theme-primary);
 }
 
 /* The scrollbar shows on every page, even with nothing to scroll, so pages are all the same width
@@ -202,4 +204,43 @@ submit-on-change [data-part="apply"] {
 body:has(.sortable-fallback),
 body:has(.sortable-fallback) * {
   cursor: grabbing !important;
+}
+
+/* the saved mark over a thumbnail in the add-from-images table: it rises in from below the image,
+   holds, then fades. The white halo keeps it readable on any image; drop-shadow rather than
+   text-shadow, which an svg ignores */
+.artist-shop-saved-flash {
+  animation: artist-shop-saved-rise 1.8s ease-out forwards;
+  filter: drop-shadow(0 0 1px white) drop-shadow(0 0 2px white);
+}
+
+@keyframes artist-shop-saved-rise {
+  0% {
+    transform: translateY(100%);
+  }
+  20%,
+  70% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artist-shop-saved-flash {
+    animation-name: artist-shop-saved-fade;
+  }
+}
+
+@keyframes artist-shop-saved-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
