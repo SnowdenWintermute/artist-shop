@@ -121,6 +121,8 @@ type PhotoSwipeOptions = {
   loop: boolean;
   bgOpacity: number;
   showHideAnimationType: "fade";
+  showAnimationDuration: number;
+  hideAnimationDuration: number;
   arrowPrev: boolean;
   arrowNext: boolean;
   close: boolean;

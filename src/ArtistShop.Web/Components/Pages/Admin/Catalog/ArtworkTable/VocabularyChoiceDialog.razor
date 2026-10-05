@@ -39,7 +39,16 @@
 
   private bool IsCollapsed => Vocabularies.Sum(vocabulary => vocabulary.Terms.Count) >= CollapseFromTermCount;
 
-  protected override void OnInitialized() => _checked.UnionWith(SelectedTermIds);
+  protected override void OnInitialized()
+  {
+    _checked.UnionWith(SelectedTermIds);
+
+    // nothing to check yet, so start on making one
+    if (Vocabularies.Count is 0)
+    {
+      _entry = new EntryView(VocabularyId: null);
+    }
+  }
 
   private VocabularyWithTerms? EntryVocabulary =>
     _entry?.VocabularyId is { } id ? Vocabularies.FirstOrDefault(vocabulary => vocabulary.Id == id) : null;

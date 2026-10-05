@@ -193,7 +193,25 @@ class ArtworkGallery extends HTMLElement {
         lightbox.refreshSlide(index);
       }
     });
-    lightbox.openSlides(walk.slides(), walk.index);
+
+    // While the lightbox fades in, the picture the page already shows stands in for the one it
+    // opens on, rather than the blur: it's as sharp as the page's, and the same file when the
+    // page took the largest. PhotoSwipe uses a stand-in only on the slide it opens on
+    const slides = walk.slides();
+    const openedAt = walk.index;
+    const shown = this.querySelector("[data-artwork-image]:not([hidden]) img");
+    const shownSrc = shown instanceof HTMLImageElement && shown.complete && shown.naturalWidth > 0 ? shown.currentSrc : null;
+
+    lightbox.openSlides(
+      {
+        ...slides,
+        slideAt: (index) => {
+          const slide = slides.slideAt(index);
+          return slide !== null && index === openedAt && shownSrc !== null ? { ...slide, msrc: shownSrc } : slide;
+        },
+      },
+      openedAt
+    );
   }
 
   // the page follows the lightbox: this artwork's own pictures are shown where they stand, and

@@ -1,32 +1,45 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
 
-@inject NavigationManager NavigationManager
 @inject CurrentHost CurrentHost
-@inject PlatformSettings PlatformSettings
 
 @code {
-  // the account page is the platform's, whichever host this is
-  private string AccountUrl =>
-    CurrentHost is CurrentHost.Site ? PageUrls.PlatformAccount(NavigationManager.BaseUri, PlatformSettings.Host) :
-PageUrls.AccountPage;
-
-  // its layout, which differs by where it sits
   [Parameter, EditorRequired]
-  public string Class { get; set; } = default!;
+  public UserAuthMenuPlacement Placement { get; set; }
 }
 
-<div class="@Class">
-  <AuthorizeView>
-    <Authorized>
-      <a href="@AccountUrl">@context.User.Identity?.Name</a>
-      <form action="Account/Logout" method="post">
-        <AntiforgeryToken />
-        <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
-        <button type="submit" class="cursor-pointer">Logout</button>
-      </form>
-    </Authorized>
-    <NotAuthorized>
-      <a href="Account/Login">Login</a>
-    </NotAuthorized>
-  </AuthorizeView>
-</div>
+@* The account button, which opens NavDrawer, or its links in the drawer, or Login on the platform. A
+   website's visitors don't sign in, so it has no Login: its admins reach sign-in from My websites, or
+   from an admin page. In the drawer, its own section, which a website's signed-out visitor doesn't
+   get. Its divider shows only with the bar's links above it, as NavBar shows them *@
+<AuthorizeView>
+  <Authorized>
+    @if (Placement is UserAuthMenuPlacement.Bar)
+    {
+      <button type="button" aria-label="Account" title="Account" data-opens-dialog="@NavDrawer.Id" class="cursor-pointer">
+        <SvgIcon Name="user-settings" Class="h-8 w-8" />
+      </button>
+    }
+    else
+    {
+      <Divider Class="my-6 md:hidden md:group-data-collapsed:block" />
+      <AccountLinks Email="@(context.User.Identity?.Name ?? throw new InvalidOperationException("A signed-in account has no name."))"
+                    Class="flex flex-col items-start gap-4" />
+    }
+  </Authorized>
+  <NotAuthorized>
+    @if (CurrentHost is CurrentHost.Platform)
+    {
+      @if (Placement is UserAuthMenuPlacement.Drawer)
+      {
+        <Divider Class="my-6 md:hidden md:group-data-collapsed:block" />
+        @* the drawer is a column that stretches what's in it *@
+        <a href="@PageUrls.Login" class="self-start">Login</a>
+      }
+      else
+      {
+        <a href="@PageUrls.Login">Login</a>
+      }
+    }
+  </NotAuthorized>
+</AuthorizeView>

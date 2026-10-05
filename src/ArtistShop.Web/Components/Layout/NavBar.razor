@@ -1,30 +1,31 @@
-@using ArtistShop.Web.Components.Atoms
-
 @code {
-  // the bar's links, shown in the bar and in the drawer, before the account links
+  // the bar's links, shown in the bar and in the drawer
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 }
 
 @* The bar across the top of every page. Its links show in the bar while they fit, and otherwise in
    NavDrawer behind the menu button: always below md, and above it when <nav-bar> (NavBar.razor.js)
-   finds they don't fit. Hidden, they stay laid out, so nav-bar can still measure them *@
-<nav-bar class="group flex h-[70px] items-center gap-4 border-b bg-theme-sunken pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
+   finds they don't fit. Hidden, they stay laid out, so nav-bar can still measure them. The account
+   button goes with them; while it shows, it opens the same drawer with only the account's links.
+   The drawer is inside <nav-bar> so that its group-data-collapsed classes follow the bar, even
+   while it's open *@
+<nav-bar
+  class="group flex h-[70px] items-center gap-4 border-b bg-theme-sunken pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
   <Logo />
   <div data-part="room" class="hidden min-w-0 flex-1 overflow-hidden md:block">
     <div data-part="links" class="flex min-w-max items-center justify-between gap-8 group-data-collapsed:invisible">
       <nav class="flex gap-4">@ChildContent</nav>
-      <UserAuthMenu Class="flex items-center gap-4" />
+      <UserAuthMenu Placement="UserAuthMenuPlacement.Bar" />
     </div>
   </div>
   <button type="button" aria-label="Menu" title="Menu" data-opens-dialog="@NavDrawer.Id"
           class="ml-auto cursor-pointer md:hidden md:group-data-collapsed:block">
     <SvgIcon Name="menu" Class="h-8 w-8" />
   </button>
-</nav-bar>
 
-<NavDrawer>
-  <nav class="flex flex-col gap-4">@ChildContent</nav>
-  <Divider Class="my-6" />
-  <UserAuthMenu Class="flex flex-col items-start gap-4" />
-</NavDrawer>
+  <NavDrawer>
+    <nav class="flex flex-col gap-4 md:hidden md:group-data-collapsed:flex">@ChildContent</nav>
+    <UserAuthMenu Placement="UserAuthMenuPlacement.Drawer" />
+  </NavDrawer>
+</nav-bar>

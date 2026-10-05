@@ -1,6 +1,8 @@
 @page "/admin/catalog/vocabularies/new"
 @page "/admin/catalog/vocabularies/{Id:int}/edit"
 @layout VocabularyLayout
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -17,10 +19,17 @@
   private List<ArtworkType> _artworkTypes = [];
   // null when creating, or when the id doesn't exist
   private LoadedVocabulary? _loaded;
+  // on the new vocabulary page only, which is where the admin's Vocabularies link lands
+  private List<Vocabulary> _unlinkedVocabularies = [];
 
   protected override async Task OnInitializedAsync()
   {
     _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+
+    if (Id is null)
+    {
+      _unlinkedVocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllWithoutArtworkTypesAsync());
+    }
 
     if (Id is int id)
     {
@@ -50,6 +59,32 @@ else
       <a href="@($"/admin/catalog/vocabularies/{Id}")">Edit associated terms</a>
     }
   </div>
+
+  @if (_unlinkedVocabularies.Count > 0)
+  {
+    <Notice>
+      <p class="mb-2">
+        @(_unlinkedVocabularies.Count is 1 ? "This vocabulary isn't" : "These vocabularies aren't") linked to any
+        artwork type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show on any artwork's form.
+      </p>
+      <ul class="list-disc pl-5">
+        @foreach (var vocabulary in _unlinkedVocabularies)
+        {
+          <li @key="vocabulary.Id.Value">
+            <a href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}/edit")" class="underline">@vocabulary.Name.Value</a>
+          </li>
+        }
+      </ul>
+    </Notice>
+  }
+
+  @if (_loaded is { Vocabulary.ArtworkTypeIds.Count: 0 })
+  {
+    <Notice>
+      @_loaded.Vocabulary.Name.Value isn't linked to any artwork type yet, so it doesn't show on any artwork's form.
+      Check the types it applies to below and save.
+    </Notice>
+  }
 
   @* @key: a different vocabulary gets a fresh island rather than inheriting this one's state *@
   <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" ArtworkTypes="_artworkTypes" Loaded="_loaded" />

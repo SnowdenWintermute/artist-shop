@@ -1,5 +1,6 @@
 @page "/admin/catalog/vocabularies/{Id:int}"
 @layout VocabularyLayout
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
 @using ArtistShop.Web.Database.Repositories
@@ -38,6 +39,14 @@ else
     <h1 class="text-xl">@_vocabulary.Name.Value</h1>
     <a href="@($"/admin/catalog/vocabularies/{Id}/edit")">Edit vocabulary</a>
   </div>
+
+  @if (_vocabulary.ArtworkTypeIds.Count is 0)
+  {
+    <Notice>
+      @_vocabulary.Name.Value isn't linked to any artwork type yet, so it doesn't show on any artwork's form.
+      <a href="@($"/admin/catalog/vocabularies/{Id}/edit")" class="underline">Choose the types it applies to</a>
+    </Notice>
+  }
 
   <AddVocabularyTermForm VocabularyId="VocabularyId" />
   <VocabularyTermTable @rendermode="InteractiveServer" @key="Id" Terms="_terms" />

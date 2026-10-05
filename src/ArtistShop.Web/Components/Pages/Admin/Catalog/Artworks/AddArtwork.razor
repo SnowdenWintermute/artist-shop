@@ -46,7 +46,6 @@
   private ArtworkType? _type;
   private IReadOnlyList<ArtworkField> _fields = [];
   private List<VocabularyWithTerms> _vocabularies = [];
-  private List<Vocabulary> _vocabulariesWithoutArtworkTypes = [];
   // in the artist's order
   private List<Series> _series = [];
 
@@ -73,7 +72,6 @@
     _fields = typeWithFields.Fields;
     Input.ClearFieldsOutside(_fields);
     _vocabularies = await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(_type.Id);
-    _vocabulariesWithoutArtworkTypes = await VocabularyRepository.GetAllWithoutArtworkTypesAsync();
     _series = await SeriesRepository.GetAllAsync();
   }
 
@@ -179,10 +177,6 @@ else if (_type is not null)
         </p>
       }
 
-      @* at the top, so the artist sets these up before filling in the form, not after *@
-      <CatalogSetupNotice ArtworkType="_type" TypeVocabularies="_vocabularies"
-                          VocabulariesWithoutArtworkTypes="_vocabulariesWithoutArtworkTypes" SeriesCount="_series.Count" />
-
       <EditForm Model="Input" FormName="new-artwork" OnValidSubmit="SubmitArtwork" Enhance data-waits-for-pending>
         <DataAnnotationsValidator />
 
@@ -195,8 +189,10 @@ else if (_type is not null)
         <TextAreaField Label="Description" @bind-Value="Input.Description" />
         @if (_fields.Contains(ArtworkField.HeightAndWidth))
         {
-          <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
-          <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+          <div class="flex gap-2">
+            <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
+            <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+          </div>
         }
         @if (_fields.Contains(ArtworkField.Depth))
         {

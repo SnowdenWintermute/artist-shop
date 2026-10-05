@@ -7,6 +7,8 @@
 // are ours. PhotoSwipe asks for each slide by its number as it needs it, so slides can arrive in
 // any order without renumbering the ones already there
 
+import { lightboxFadeMilliseconds } from "/js/app-consts.js";
+
 // every lightbox loads the same module, so the first to open is the one that loads it
 /** @type {Promise<PhotoSwipeModule> | null} */
 let photoSwipeLoaded = null;
@@ -159,6 +161,8 @@ customElements.define(
         loop: false,
         bgOpacity: 1,
         showHideAnimationType: "fade",
+        showAnimationDuration: lightboxFadeMilliseconds,
+        hideAnimationDuration: lightboxFadeMilliseconds,
         // the buttons and the counter are ours, and so are the keys, which the dialog holds
         arrowPrev: false,
         arrowNext: false,

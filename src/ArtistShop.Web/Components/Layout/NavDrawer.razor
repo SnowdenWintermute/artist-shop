@@ -1,21 +1,25 @@
 @code {
-  // for the menu button's data-opens-dialog; a page has one nav bar
+  // for the menu and account buttons' data-opens-dialog; a page has one nav bar
   public const string Id = "nav-drawer";
 
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 }
 
-@* The nav bar's links when they don't fit in it, in a panel that slides in from the right.
+@* The nav bar's links when they don't fit in it, and the account's links, in a panel that slides in
+   from the right.
    <modal-dialog> (ModalDialog.razor.js) closes it on Escape, the close button, and, as data-menu
    asks, a click outside it or on one of its links. Pinned to the right by its left margin; it
    slides in when it opens, and closes at once *@
 <modal-dialog class="contents" data-starts-closed>
   <dialog id="@Id" aria-label="Menu" data-menu
-          class="my-0 mr-0 ml-auto h-dvh max-h-none w-80 max-w-[calc(100%-3rem)] flex-col overflow-y-auto bg-theme-sunken p-6 pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-transform open:flex backdrop:bg-black/40 motion-reduce:transition-none starting:open:translate-x-full">
-    <button type="button" aria-label="Close" title="Close" data-modal-dialog="close" class="mb-6 cursor-pointer self-end">
-      <SvgIcon Name="close" Class="h-8 w-8" />
-    </button>
+          class="my-0 mr-0 ml-auto h-dvh max-h-none w-80 max-w-[calc(100%-3rem)] 
+    flex-col overflow-y-auto bg-theme-sunken px-6 pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-transform open:flex backdrop:bg-black/40 motion-reduce:transition-none starting:open:translate-x-full">
+    <div class="flex h-[70px] items-center justify-end">
+      <button type="button" aria-label="Close" title="Close" data-modal-dialog="close" class="cursor-pointer ">
+        <SvgIcon Name="close" Class="h-8 w-8" />
+      </button>
+    </div>
     @ChildContent
   </dialog>
 </modal-dialog>

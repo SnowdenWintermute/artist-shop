@@ -11,3 +11,7 @@ export const lightboxArtworksFetchedAhead = 2;
 // how long the lightbox rests on another artwork's picture before the page behind it goes there
 // too: long enough that a run of swipes is one page load, not one each
 export const lightboxPageCatchUpDelayMilliseconds = 400;
+
+// how long the lightbox takes to fade in, and out. PhotoSwipe only puts the full picture in once
+// the fade in has ended, so until then its stand-in shows
+export const lightboxFadeMilliseconds = 150;
