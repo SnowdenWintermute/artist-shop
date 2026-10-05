@@ -359,7 +359,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         );
     }
 
-    // ticked in a page loaded before another tab added it
+    // checked in a page loaded before another tab added it
     [Fact]
     public async Task AddingAnArtworkAlreadyInTheSeriesKeepsItsPlace()
     {
@@ -377,7 +377,7 @@ public sealed class SeriesRepositoryTests(TestDatabaseFixture database)
         );
     }
 
-    // ticked in a page loaded before another tab deleted it
+    // checked in a page loaded before another tab deleted it
     [Fact]
     public async Task AddingSkipsADeletedArtwork()
     {

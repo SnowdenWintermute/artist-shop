@@ -113,6 +113,7 @@ builder.Services.AddScoped<SiteDeletions>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(CurrentHost.From);
 builder.Services.AddScoped(CurrentSite.From);
+builder.Services.AddScoped<RememberedArtworkType>();
 builder.Services.AddScoped<CircuitHandler, HostCircuitStart>();
 
 builder.Services.AddScoped(services =>

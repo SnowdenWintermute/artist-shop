@@ -23,7 +23,10 @@
   [Parameter, EditorRequired]
   public EventCallback OnVocabulariesChanged { get; set; }
 
-  private readonly HashSet<int> _ticked = [];
+  // with this many terms in all, each vocabulary starts closed, so the dialog isn't one long column of checkboxes
+  private const int CollapseFromTermCount = 8;
+
+  private readonly HashSet<int> _checked = [];
   private bool _isSaving;
 
   // the entry view shows while this is set: a new vocabulary until it's saved, then the vocabulary terms go into
@@ -31,18 +34,57 @@
 
   private sealed record EntryView(VocabularyId? VocabularyId);
 
-  protected override void OnInitialized() => _ticked.UnionWith(SelectedTermIds);
+  // the vocabulary the entry view returned from, open so its new terms can be checked
+  private VocabularyId? _openVocabularyId;
+
+  private bool IsCollapsed => Vocabularies.Sum(vocabulary => vocabulary.Terms.Count) >= CollapseFromTermCount;
+
+  protected override void OnInitialized() => _checked.UnionWith(SelectedTermIds);
 
   private VocabularyWithTerms? EntryVocabulary =>
     _entry?.VocabularyId is { } id ? Vocabularies.FirstOrDefault(vocabulary => vocabulary.Id == id) : null;
 
   private void Toggle(int termId)
   {
-    if (!_ticked.Remove(termId))
+    if (!_checked.Remove(termId))
     {
-      _ticked.Add(termId);
+      _checked.Add(termId);
     }
   }
+
+  private void LeaveEntry()
+  {
+    _openVocabularyId = _entry?.VocabularyId;
+    _entry = null;
+  }
+
+  private string SummaryText(VocabularyWithTerms vocabulary)
+  {
+    var checkedCount = vocabulary.Terms.Count(term => _checked.Contains(term.Id.Value));
+    return checkedCount is 0 ? vocabulary.Name.Value : $"{vocabulary.Name.Value} ({checkedCount} checked)";
+  }
+
+  // shared by the open and the collapsed layouts
+  private RenderFragment VocabularyTerms(VocabularyWithTerms vocabulary) =>
+    @<text>
+      @if (vocabulary.Terms.Count is 0)
+      {
+        <p class="text-sm">No terms yet.</p>
+      }
+
+      @foreach (var term in vocabulary.Terms)
+      {
+        <label @key="term.Id.Value" class="flex cursor-pointer items-center gap-2 py-1">
+          <input type="checkbox" class="cursor-pointer" checked="@_checked.Contains(term.Id.Value)"
+                 @onchange="() => Toggle(term.Id.Value)" />
+          @term.Name.Value
+        </label>
+      }
+
+      <button type="button" class="cursor-pointer text-sm underline" @onclick="() => _entry = new EntryView(vocabulary.Id)">
+        Add term
+      </button>
+    </text>;
 
   private async Task VocabularySavedAsync(VocabularyId id)
   {
@@ -52,7 +94,7 @@
 
   // in the order the terms are listed, so the row reads the same as this list
   private Task OkAsync() =>
-    OnOk.InvokeAsync([.. Vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value).Where(_ticked.Contains)]);
+    OnOk.InvokeAsync([.. Vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value).Where(_checked.Contains)]);
 }
 
 <ModalDialog Title="@(ArtworkName is null ? "Vocabularies" : $"Vocabularies of {ArtworkName}")" Width="ModalDialogWidth.Narrow"
@@ -60,7 +102,7 @@
   @if (_entry is not null)
   {
     <VocabularyTermEntry ArtworkTypeId="ArtworkTypeId" Vocabulary="EntryVocabulary" OnVocabularySaved="VocabularySavedAsync"
-                         OnTermAdded="OnVocabulariesChanged" OnDone="() => _entry = null" @bind-IsSaving="_isSaving" />
+                         OnTermAdded="OnVocabulariesChanged" OnDone="LeaveEntry" @bind-IsSaving="_isSaving" />
   }
   else
   {
@@ -74,27 +116,23 @@
       <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
         @foreach (var vocabulary in Vocabularies)
         {
-          <fieldset @key="vocabulary.Id.Value" class="mb-3">
-            <legend class="mb-1 text-sm text-gray-600">@vocabulary.Name.Value</legend>
-
-            @if (vocabulary.Terms.Count is 0)
-            {
-              <p class="text-sm">No terms yet.</p>
-            }
-
-            @foreach (var term in vocabulary.Terms)
-            {
-              <label @key="term.Id.Value" class="flex cursor-pointer items-center gap-2 py-1">
-                <input type="checkbox" class="cursor-pointer" checked="@_ticked.Contains(term.Id.Value)"
-                       @onchange="() => Toggle(term.Id.Value)" />
-                @term.Name.Value
-              </label>
-            }
-
-            <button type="button" class="cursor-pointer text-sm underline" @onclick="() => _entry = new EntryView(vocabulary.Id)">
-              Add term
-            </button>
-          </fieldset>
+          @if (IsCollapsed)
+          {
+            <Disclosure @key="vocabulary.Id.Value" Class="mb-3" SummaryClass="text-sm text-gray-600"
+                        Open="vocabulary.Id == _openVocabularyId">
+              <Summary>@SummaryText(vocabulary)</Summary>
+              <ChildContent>
+                <div class="ml-4">@VocabularyTerms(vocabulary)</div>
+              </ChildContent>
+            </Disclosure>
+          }
+          else
+          {
+            <fieldset @key="vocabulary.Id.Value" class="mb-3">
+              <legend class="mb-1 text-sm text-gray-600">@vocabulary.Name.Value</legend>
+              @VocabularyTerms(vocabulary)
+            </fieldset>
+          }
         }
       </div>
     }

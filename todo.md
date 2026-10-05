@@ -1,5 +1,17 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Remembered artwork type everywhere, 2026-10-05 (From Claude)
+
+Uncommitted, 922 tests pass, not browser-checked. Add from images' type select was inside the
+fieldset that stays disabled until a type is chosen, so with no `?type=` it couldn't be clicked; it
+now sits above it. Every artwork type select shares one remembered value (`artwork-type`, renamed
+from `add-artwork-type`) through the new scoped `RememberedArtworkType`, which reads the user from
+`AuthenticationStateProvider` so islands can use it. Add one and Import redirect to it without
+`?type=` (Import still asks when nothing is saved: `RememberedSelect.Placeholder`). Add from images
+and Upload images start at it, and `ArtworkTypeSelect` saves each choice. The table page uses it when
+the address has no type, and its filter select is a `RememberedSelect`. The island save path has no
+test (no bUnit). Import and the two islands now list types by name.
+
 ## Review of 5ef13a5, 2026-10-04 (From Claude)
 
 Uncommitted, 918 tests pass, not browser-checked. The images dialog's save reports to its own
@@ -86,13 +98,13 @@ current page (row model, save on blur, series dialog) carries over.
 
 - **Series dialog after every drop with images** (`DropSeriesDialog`), before anything is created. Folders: each
   folder holding images (the dropped folder and one level down) is an existing series, a new series, or "can't be a
-  series name", all ticked that can be; ticked folders' images join their series, new ones created in the same
+  series name", all checked that can be; checked folders' images join their series, new ones created in the same
   transaction as the artworks (`NewSeriesNames`, as the CSV import does). A new series' name close to an existing
   one shows "Close to the existing series …" (`SeriesNameSimilarity`). Images dropped on their own: checkboxes for
   any number of existing series plus "New series" (saved at once, kept on Cancel), from `SeriesAdmin/SeriesChoices`,
   now shared with `SeriesChoiceDialog`. Adding a series there re-labels a folder of that name as existing. The
   checkbox and notice above the drop zone are gone. "Check / uncheck all" sits above the folder list when two or more
-  folders can be ticked. Planner: `Folders`, then `Plan(candidates, seriesFolders,
+  folders can be checked. Planner: `Folders`, then `Plan(candidates, seriesFolders,
   looseSeriesIds)`; a planned artwork carries `SeriesIds` and `NewSeriesName`.
 - Planner reads folders as Upload images does (`Imports/BulkImageDrop.cs`) and skips a name repeated anywhere in the drop.
 - `append_artwork_image` returns the image the artwork holds, even on a retry; the endpoint answers `ArtworkImage`.
@@ -156,9 +168,9 @@ Committed by Mike as 2c8bc9c. 880 tests passed in a scratch copy, `npm run typec
   blue-200) highlights it. An earlier `h-px`/`h-full` label collapsed the rows in desktop Firefox 140. Not checked
   since the overlay change: desktop Firefox and iPhone Safari.
 - `SubmitOnChange` submits on every change with no 300 ms delay (`submitOnChangeDelayMilliseconds` removed). A
-  load landing during the delay reset the later ticks, and the delayed submit then sent the reset form. Each new
+  load landing during the delay reset the later checks, and the delayed submit then sent the reset form. Each new
   enhanced load aborts the one before (`blazor.web.js`). `data-pending` runs from the submit to `enhancedload`, so
-  "Add selected" still waits for a tick in flight. The filter bars load once per change now too.
+  "Add selected" still waits for a check in flight. The filter bars load once per change now too.
 - `ButtonStyles.SizeClass` gained `whitespace-nowrap`: `h-10 leading-0` drew a wrapped label over itself
   ("Add selected (n)" on a phone). The Add artworks header has `gap-4`.
 - Series filter: `ArtworkListFilter.Series` is a closed `ArtworkSeriesFilter` (`InSeries(id)`, `InNoSeries`; null
@@ -189,7 +201,7 @@ Committed by Mike as 2c8bc9c. 880 tests passed in a scratch copy, `npm run typec
 Uncommitted, 872 tests pass. Mike checked the scrollbar fix in Brave; the dialog isn't browser-checked yet.
 
 - `SeriesAdmin/AddSeriesDialog.razor` (shaped like `RenameSeriesDialog`), opened by a "New series" button under the
-  Series checkboxes in `TermAndSeriesPickers`, so it works on Add and Edit artwork. The new series is ticked once
+  Series checkboxes in `TermAndSeriesPickers`, so it works on Add and Edit artwork. The new series is checked once
   added. Its `<form>` is nested in the artwork's form through DOM calls (comment in the file).
 - `Styles/app.css`: `html { overflow-y: scroll }`, so the scrollbar always shows and the admin panel doesn't shift
   between short and long pages (seen in Brave). Tried first and dropped: `scrollbar-gutter: stable` (the nav bar
@@ -216,7 +228,7 @@ Mike tried both versions in the browser and the final one works. Next session: r
   past a failed row, which Mike chose to keep.
 - The submit listener now runs in the capture phase. Blazor's enhanced-form listener on `document` ran first and
   posts unless the event is already cancelled, so the hold never stopped the first post. That was true on the Add
-  artworks page too, and for the "already posting" guard. Worth re-checking Add artworks with a quick tick then Add.
+  artworks page too, and for the "already posting" guard. Worth re-checking Add artworks with a quick check then Add.
 - Known edges, left alone: a file dropped in the instant the last upload lands can miss the post (on success its
   island is replaced and the sweeper removes the upload); removing the last processing image while waiting posts
   straight away.
@@ -224,7 +236,7 @@ Mike tried both versions in the browser and the final one works. Next session: r
 ## Handoff, 2026-10-02 (evening): drawer review fixes, Add artworks page for a series (From Claude)
 
 Uncommitted (on top of the afternoon's work below), 870 tests pass, `npm run typecheck` clean. Mike tried the drawer
-and the Add artworks page in the browser and both work; fast ticking is debounced by `SubmitOnChange` (300 ms), which
+and the Add artworks page in the browser and both work; fast checking is debounced by `SubmitOnChange` (300 ms), which
 felt fine. Next session: review all of the uncommitted code together, then add things to the admin menus.
 
 - Drawer review fixes: `UserAuthMenu` renders its own wrapper `<div>` with a required `Class` (a row in the bar, a
@@ -237,11 +249,11 @@ felt fine. Next session: review all of the uncommitted code together, then add t
   row for an empty series too). The page reuses `ArtworkListBrowser`, with its filters and paging, through two new
   parameters: `ExcludedSeriesId` (leaves out the series' artworks, and the series from the Series dropdown) and
   `Selection` (`ArtworkListSelection`, a checkbox column in `ArtworkListRows`).
-- Ticks live in the address as `add=<id>`. A GET form with `SubmitOnChange` wraps the rows and carries the rest of
-  the address plus ticks on other pages; the filter form carries the ticks through `KeptFields`, now a list of
+- Checks live in the address as `add=<id>`. A GET form with `SubmitOnChange` wraps the rows and carries the rest of
+  the address plus checks on other pages; the filter form carries the checks through `KeptFields`, now a list of
   name/value pairs so a name can repeat (`PickArtwork` updated). Blazor doesn't scroll to the top after a form
-  submit, only after a link, so a tick shouldn't move the page; worth checking how it feels, and whether a quick
-  second tick during a load gets undone.
+  submit, only after a link, so a check shouldn't move the page; worth checking how it feels, and whether a quick
+  second check during a load gets undone.
 - "Add selected (n)" posts to the page's own address and calls `SeriesRepository.AddArtworksAsync`, which runs the
   new `add_artworks_to_series` (Procedures/Series/AddArtworks.sql): appends in address order, takes the series-row
   lock like `set_artwork_series`, skips artworks already in the series or deleted, raises SH004 for a deleted
@@ -1345,7 +1357,7 @@ the RC1 ones. Not yet deployed.
    - **Lightbox** (built 2026-09-24, not yet seen in a browser): an "Open full screen when
      clicked" checkbox in the image toolbar, off by default and disabled when the upload has no
      file wider than the size shown (`ImageVariants.LargestWidthFor`, which the script mirrors and
-     a test pins). The page checks the same rule, so a ticked image that a new size or Replace
+     a test pins). The page checks the same rule, so a checked image that a new size or Replace
      left with nothing wider just isn't clickable. `<post-document>` (`PostDocumentView.razor.js`)
      hands every such image in the post to the existing `ImageLightbox`, so the visitor steps
      through them all. Uploaded images only: an artwork embed already links to its page.
@@ -1748,7 +1760,7 @@ indications belong on the button, in the table, where people expect to find them
 
 - **Shared SQL, so add and edit can't drift.** `dbo.CheckArtworkChoicesAreCurrent` (type exists, no
   value for a switched-off field, terms and series still exist), `dbo.SetArtworkVocabularyTerms`
-  (replace every row) and `dbo.SetArtworkSeries` (drop unticked, append newly ticked at `MAX + 1`).
+  (replace every row) and `dbo.SetArtworkSeries` (drop unchecked, append newly checked at `MAX + 1`).
   Both setters work unchanged on a brand-new artwork, where the `DELETE`s find nothing, so
   `AddArtwork` lost about 85 lines of checks and both junction writes to them. A table-valued
   parameter can be passed straight on to a nested procedure as `READONLY`, and deferred name
@@ -2277,9 +2289,9 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
         spreadsheet.
       - **Products: the page asks for a product type and a "one of a kind" checkbox.** The switch is on
         edition size, not on the type, the same rule the products island uses:
-        - ticked: edition size 1, and `sold` decides stock (0 sold, 1 not); `editionSize`/`stock`
+        - checked: edition size 1, and `sold` decides stock (0 sold, 1 not); `editionSize`/`stock`
           columns are errors
-        - unticked: `editionSize` (blank = open) and `stock` required; `sold` is an error
+        - unchecked: `editionSize` (blank = open) and `stock` required; `sold` is an error
         - no price and not sold: no product, so viewable but not buyable. A sold row may have no price
           (sold long ago, price unknown)
       - **No auto-created terms or series.** Typos would make near-duplicate terms, and guessing which
@@ -2469,10 +2481,10 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       **Pages:**
       - `/admin/catalog/series` lists series (with cover and artwork counts), linking to
         `/admin/catalog/series/{id}`: rename (the slug follows, breaking old links, accepted),
-        reorder and star its artworks, tick artworks and remove them after one confirm, and
+        reorder and star its artworks, check artworks and remove them after one confirm, and
         delete the series after a confirm. Each row shows the artwork's primary image. Adding
         existing artworks there: not now.
-      - Reorder, star, tick and remove belong in one island over the artwork list.
+      - Reorder, star, check and remove belong in one island over the artwork list.
       - Already done: `SortOrder` on the junction with `UNIQUE (SeriesId, SortOrder)`. `AddPainting`
         appends with `MAX + 1` under `UPDLOCK`.
       - Same rules as vocabularies: names trimmed, empty rejected, delete procedures remove junction
@@ -2509,7 +2521,7 @@ without the SDK installed); a later run of the rotated photo gave 1.58, still un
       deleted series isn't a foreign key error), the repository turns 50001/50009 into
       `ChangedSincePageLoadException`, and the page keeps the form and its uploads while saying the choices
       were updated. The pickers island adopts the options it's passed on every render (the page reads
-      them fresh each request), so a failed submit drops what no longer exists; ticks stay island state,
+      them fresh each request), so a failed submit drops what no longer exists; checks stay island state,
       seeded once.
 - [ ] (Catalog CSVs done 2026-09-28; images next, see the top.) Someday: export the catalog to CSV plus images in folders by series, for moving the shop
       elsewhere. The CSV import only creates items, so the site becomes the source of truth once
@@ -2595,7 +2607,7 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
 - **Fields per type work like vocabularies per type.** We predefine the fields, trying to cover
   every kind of artwork up front; a client who needs another asks us. The artist switches fields on
   per type. A field switched off in another tab while a form is open is handled the same way as
-  un-ticking a vocabulary's type.
+  unchecking a vocabulary's type.
 - Pre-release: edit `0001`/`0002` and drop the database, no migration.
 
 **Schema.**
@@ -2682,7 +2694,7 @@ dance performance). So `ShopItem` becomes `Artwork`, and its type becomes a row 
         until the products island. 80 tests pass
       - public page is `/artworks/{slug}`; the public nav's "Paintings" page is still the placeholder
 - [x] Work type admin under `/admin/catalog/types` (2026-09-16): add, rename, delete when unused, and
-      tick the type's fields. Vocabularies keep ticking their types on the vocabulary page
+      check the type's fields. Vocabularies keep checking their types on the vocabulary page
 - [ ] Upload a JPEG, PNG, WebP, AVIF and TIFF to check they still work with
       `NetVips.BlockUntrusted = true` (bulk image matching, step 1; never checked)
 - [ ] Products island: rows with product type, label, price, edition size and stock; with edition size 1,

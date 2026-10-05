@@ -131,7 +131,7 @@ public record ArtworkImportColumns(
             {
                 if (ColumnOf(header) is not null)
                 {
-                    AddError(header, "One-of-a-kind products don't use this column. Remove it, or untick one of a kind.");
+                    AddError(header, "One-of-a-kind products don't use this column. Remove it, or uncheck one of a kind.");
                 }
             }
         }

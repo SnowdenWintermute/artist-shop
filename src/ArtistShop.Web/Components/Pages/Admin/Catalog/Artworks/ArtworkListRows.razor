@@ -24,11 +24,11 @@
   // a phone keeps only the thumbnail and the title
   private const string WideOnly = "max-sm:hidden";
 
-  // the whole row shows the tick, as a phone hides the box
+  // the whole row shows the check, as a phone hides the box
   private string? RowClass =>
     Selection is null ? null : "has-checked:bg-theme-selected has-checked:hover:bg-theme-selected has-focus-visible:outline-2";
 
-  private string? TickBoxId(ArtworkListItem item) => Selection is null ? null : $"tick-{item.Id.Value}";
+  private string? CheckboxId(ArtworkListItem item) => Selection is null ? null : $"checkbox-{item.Id.Value}";
 }
 
 @if (Items.Count == 0)
@@ -48,7 +48,7 @@ else
     <DataTable Items="Items" Headings="Headings" RowClass="@RowClass"
                Class="artist-shop-fades-while-loading">
       <Row Context="item">
-        <ArtworkListCell TickBoxId="@TickBoxId(item)">
+        <ArtworkListCell CheckboxId="@CheckboxId(item)">
           <a href="@RowHref(item)" class="border block w-fit">
             <ArtworkThumbnail Image="item.PrimaryImage" Class="size-15 sm:size-20" />
           </a>
@@ -56,7 +56,7 @@ else
 
         @* on a phone the title takes the width that's left and stops at its edge: a cell's width
            only holds back its text once max-w-0 stops it growing to fit *@
-        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="max-sm:w-full max-sm:max-w-0">
+        <ArtworkListCell CheckboxId="@CheckboxId(item)" Class="max-sm:w-full max-sm:max-w-0">
           @if (RowHref(item) is { } href)
           {
             <a href="@href" class="underline max-sm:block max-sm:truncate">@item.Name.Value</a>
@@ -72,15 +72,15 @@ else
           }
         </ArtworkListCell>
 
-        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="@($"text-sm {WideOnly}")">
+        <ArtworkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm {WideOnly}")">
           @item.ArtworkTypeName.Value
         </ArtworkListCell>
 
-        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+        <ArtworkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
           @item.SeriesNames
         </ArtworkListCell>
 
-        <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+        <ArtworkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
           @item.ImageCount
         </ArtworkListCell>
 
@@ -91,8 +91,8 @@ else
         else
         {
           @* sr-only rather than hidden, so a phone's keyboard and screen reader still reach the box *@
-          <ArtworkListCell TickBoxId="@TickBoxId(item)" Class="max-sm:sr-only">
-            <RowSelectCheckbox ItemName="@item.Name.Value" id="@TickBoxId(item)" name="@Selection.FieldName"
+          <ArtworkListCell CheckboxId="@CheckboxId(item)" Class="max-sm:sr-only">
+            <RowSelectCheckbox ItemName="@item.Name.Value" id="@CheckboxId(item)" name="@Selection.FieldName"
                                value="@item.Id.Value" checked="@Selection.Contains(item.Id)" />
           </ArtworkListCell>
         }

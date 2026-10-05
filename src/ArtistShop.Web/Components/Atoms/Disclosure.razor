@@ -1,0 +1,20 @@
+@* <details> opens and closes without any script *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment Summary { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+  // the browser keeps the user's opening and closing until this changes
+  [Parameter]
+  public bool Open { get; set; }
+  [Parameter]
+  public string Class { get; set; } = "";
+  [Parameter]
+  public string SummaryClass { get; set; } = "";
+}
+
+<details class="@Class" open="@Open">
+  <summary class="@($"cursor-pointer {SummaryClass}")">@Summary</summary>
+  @ChildContent
+</details>

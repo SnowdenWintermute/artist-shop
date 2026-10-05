@@ -2,13 +2,12 @@
 
 @* each page asks for the artwork type itself: Add one starts at the type its admin last chose *@
 
-<div class="flex flex-wrap gap-2">
-  <LinkButton href="@PageUrls.AddArtwork" Variant="ButtonVariant.Outline">Add one</LinkButton>
-  <LinkButton href="@PageUrls.AddArtworksFromImages" Variant="ButtonVariant.Outline">Add from images</LinkButton>
-  <LinkButton href="@PageUrls.ArtworkImport" Variant="ButtonVariant.Outline">
-    <IconLabel Icon="csv">Import</IconLabel>
-  </LinkButton>
-  <LinkButton href="@PageUrls.ArtworkBulkImageUpload(null)" Variant="ButtonVariant.Outline">
-    <IconLabel Icon="folder-open">Upload images</IconLabel>
-  </LinkButton>
-</div>
+<DashboardLink Href="@PageUrls.AddArtwork">Add one</DashboardLink>
+<DashboardLink Href="@PageUrls.AddArtworksFromImages">Add many</DashboardLink>
+<Divider Class="mb-3"></Divider>
+<DashboardLink Href="@PageUrls.ArtworkImport">
+  <IconLabel Icon="csv">Import from spreadsheet</IconLabel>
+</DashboardLink>
+<DashboardLink Href="@PageUrls.ArtworkBulkImageUpload(null)">
+  <IconLabel Icon="folder-open">Upload images</IconLabel>
+</DashboardLink>

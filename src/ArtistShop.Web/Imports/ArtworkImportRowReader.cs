@@ -108,7 +108,7 @@ public class ArtworkImportRowReader(CsvRow row)
         return null;
     }
 
-    // blank reads as false, as spreadsheets leave an unticked box empty
+    // blank reads as false, as spreadsheets leave an unchecked box empty
     public bool Boolean(int? column, string header)
     {
         if (Text(column) is not string text)

@@ -1,6 +1,7 @@
 @rendermode InteractiveServer
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTable
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
@@ -9,10 +10,12 @@
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Imports
+@using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
 @inject ArtworkRepository ArtworkRepository
 @inject ArtworkImageRepository ArtworkImageRepository
 @inject ArtworkTypeRepository ArtworkTypeRepository
+@inject RememberedArtworkType RememberedArtworkType
 @inject SeriesRepository SeriesRepository
 @inject IJSRuntime JS
 @inject TimeProvider TimeProvider
@@ -60,9 +63,9 @@
 
   protected override async Task OnInitializedAsync()
   {
-    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+    _artworkTypes = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
     _series = await SeriesRepository.GetAllAsync();
-    _artworkTypeId = InitialArtworkTypeId;
+    _artworkTypeId = InitialArtworkTypeId ?? (await RememberedArtworkType.FindInAsync(_artworkTypes))?.Id.Value;
     await LoadTypeAsync();
   }
 
@@ -400,18 +403,19 @@ artwork))]);
 }
 
 <DisabledUntilInteractive>
+  @* outside the fieldset below, which is disabled until a type is chosen here *@
+  <div class="mb-4">
+    @* the rows are artworks of this type, under its fields' columns *@
+    <ArtworkTypeSelect ArtworkTypes="_artworkTypes" @bind-Value="_artworkTypeId" @bind-Value:after="LoadTypeAsync"
+                       Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
+    @if (_rows.Count > 0)
+    {
+      <p class="text-sm text-gray-600">Reload the page to add artworks of another type.</p>
+    }
+  </div>
+
   @* the script refuses new files while a run is going, as they would replace the ones it hasn't sent *@
   <fieldset class="contents" disabled="@(_type is null || _isUploading || _isCreating || _pendingDrop is not null)">
-    <div class="mb-4">
-      @* the rows are artworks of this type, under its fields' columns *@
-      <ArtworkTypeSelect ArtworkTypes="_artworkTypes" @bind-Value="_artworkTypeId" @bind-Value:after="LoadTypeAsync"
-                         Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
-      @if (_rows.Count > 0)
-      {
-        <p class="text-sm text-gray-600">Reload the page to add artworks of another type.</p>
-      }
-    </div>
-
     @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
     <div @ref="_zone" class="mb-4">
       <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"

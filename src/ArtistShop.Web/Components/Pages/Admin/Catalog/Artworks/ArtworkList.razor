@@ -17,9 +17,9 @@
 <main>
   <AdminPanel>
 
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="mb-4 flex flex-wrap justify-between gap-4">
       <h1>Artworks</h1>
-      <LinkButton href="@TableHref" Variant="ButtonVariant.Outline">Edit as table</LinkButton>
+      <LinkButton href="@TableHref" Variant="ButtonVariant.PrimaryOutline">Edit as table</LinkButton>
     </div>
 
     <ArtworkListBrowser RowHref="item => PageUrls.EditArtwork(item.Id)" ClearFiltersHref="@PageUrls.ArtworkList" />

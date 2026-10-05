@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
+using ArtistShop.Web.Components;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Components.Catalog;
 using ArtistShop.Web.Domain.Sites;
@@ -10,11 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-// Add one's artwork type: the page without a type goes to the one its admin last changed it to
+// The artwork type every type select shares: a page without one in its address starts at the type
+// its admin last chose
 [Collection(TestAppCollection.Name)]
 public sealed partial class RememberedInputTests(TestApp app)
 {
-    private const string AddPath = "/admin/catalog/artworks/add";
+    private const string AddPath = PageUrls.AddArtwork;
 
     private async Task<(CatalogTestData Catalog, HttpClient Client)> SiteWithAdminAsync()
     {
@@ -54,7 +56,7 @@ public sealed partial class RememberedInputTests(TestApp app)
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
 
-        var response = await SaveAsync(client, catalog, RememberedInputs.AddArtworkType, photograph);
+        var response = await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.EndsWith($"?type={photograph}", await RedirectFromAddAsync(client));
@@ -68,7 +70,7 @@ public sealed partial class RememberedInputTests(TestApp app)
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
         await app
             .Services.GetRequiredService<SiteMemberInputValueRepository>()
-            .SetAsync(site.Id, await app.UserIdAsync(site.OwnerEmail), RememberedInputs.AddArtworkType, "999999");
+            .SetAsync(site.Id, await app.UserIdAsync(site.OwnerEmail), RememberedInputs.ArtworkType, "999999");
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var first = ArtworkTypeOrder.SortedByName(await new ArtworkTypeRepository(database).GetAllAsync())[0];
 
@@ -81,7 +83,7 @@ public sealed partial class RememberedInputTests(TestApp app)
     {
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
-        await SaveAsync(client, catalog, RememberedInputs.AddArtworkType, photograph);
+        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
         var painting = (await catalog.GetPaintingTypeIdAsync()).Value.ToString(CultureInfo.InvariantCulture);
 
         var page = await client.GetStringAsync($"{AddPath}?type={painting}", TestContext.Current.CancellationToken);
@@ -90,13 +92,64 @@ public sealed partial class RememberedInputTests(TestApp app)
         Assert.Equal([painting], SelectedOptions(page));
     }
 
-    private static async Task<string> RedirectFromAddAsync(HttpClient client)
+    [Fact]
+    public async Task ImportGoesToTheSavedArtworkType()
     {
-        var response = await client.GetAsync(AddPath, TestContext.Current.CancellationToken);
+        var (catalog, client) = await SiteWithAdminAsync();
+        var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
+        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+
+        Assert.EndsWith($"?type={photograph}", await RedirectFromAsync(client, PageUrls.ArtworkImport));
+    }
+
+    // nothing saved, so the page asks rather than choosing for them
+    [Fact]
+    public async Task ImportWithNothingSavedAsksForAType()
+    {
+        var (_, client) = await SiteWithAdminAsync();
+
+        var page = await client.GetStringAsync(PageUrls.ArtworkImport, TestContext.Current.CancellationToken);
+
+        Assert.Contains("disabled selected>Choose a type</option>", RememberedSelectOf(page));
+    }
+
+    [Fact]
+    public async Task TheTablePageStartsAtTheSavedArtworkType()
+    {
+        var (catalog, client) = await SiteWithAdminAsync();
+        var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
+        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+
+        var page = await client.GetStringAsync(PageUrls.ArtworkTable, TestContext.Current.CancellationToken);
+
+        Assert.Equal([photograph], SelectedOptions(RememberedSelectOf(page)));
+    }
+
+    // the island's first render, before its circuit connects
+    [Fact]
+    public async Task AddFromImagesStartsAtTheSavedArtworkType()
+    {
+        var (catalog, client) = await SiteWithAdminAsync();
+        var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
+        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+
+        var page = await client.GetStringAsync(PageUrls.AddArtworksFromImages, TestContext.Current.CancellationToken);
+
+        Assert.Equal([photograph], SelectedOptions(page));
+    }
+
+    private static Task<string> RedirectFromAddAsync(HttpClient client) => RedirectFromAsync(client, AddPath);
+
+    private static async Task<string> RedirectFromAsync(HttpClient client, string path)
+    {
+        var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         return response.Headers.Location?.ToString() ?? "";
     }
+
+    // the page's other selects, like the filters', have selected options too
+    private static string RememberedSelectOf(string page) => RememberedSelect().Match(page).Value;
 
     [Fact]
     public async Task RefusesAnInputNameItDoesntList()
@@ -118,7 +171,7 @@ public sealed partial class RememberedInputTests(TestApp app)
             new FormUrlEncodedContent(
                 new Dictionary<string, string>
                 {
-                    [RememberedInputEndpoints.NameField] = RememberedInputs.AddArtworkType,
+                    [RememberedInputEndpoints.NameField] = RememberedInputs.ArtworkType,
                     [RememberedInputEndpoints.ValueField] = "1",
                 }
             ),
@@ -133,6 +186,9 @@ public sealed partial class RememberedInputTests(TestApp app)
 
     [GeneratedRegex("data-token-field=\"(?<field>[^\"]+)\" data-token=\"(?<token>[^\"]+)\"")]
     private static partial Regex SaveToken();
+
+    [GeneratedRegex("<remembered-select.*?</remembered-select>", RegexOptions.Singleline)]
+    private static partial Regex RememberedSelect();
 
     [GeneratedRegex("<option value=\"(?<value>[^\"]*)\" selected")]
     private static partial Regex SelectedOption();

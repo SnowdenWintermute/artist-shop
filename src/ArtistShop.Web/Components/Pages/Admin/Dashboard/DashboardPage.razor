@@ -36,16 +36,16 @@
 
     <DashboardBox Title="Artworks">
       <ul class="mb-4">
-        <DashboardLink Href="@PageUrls.ArtworkList">All artworks</DashboardLink>
+        <DashboardLink Href="@PageUrls.ArtworkList">Search and edit</DashboardLink>
+        @if (_artworkTypes.Count == 0)
+        {
+          <NoArtworkTypesNote Class="text-sm" />
+        }
+        else
+        {
+          <AddArtworkLinks />
+        }
       </ul>
-      @if (_artworkTypes.Count == 0)
-      {
-        <NoArtworkTypesNote Class="text-sm" />
-      }
-      else
-      {
-        <AddArtworkLinks />
-      }
     </DashboardBox>
 
     <DashboardBox Title="Publishing">
@@ -66,7 +66,8 @@
         @* deleting is on the platform, where My websites keeps it during the grace period *@
         <AuthorizeView Policy="@SitePolicies.Owner">
           <Authorized>
-            <DashboardLink Href="@PageUrls.PlatformDeleteSite(NavigationManager.BaseUri, PlatformSettings.Host, CurrentSite.Id)">
+            <DashboardLink
+              Href="@PageUrls.PlatformDeleteSite(NavigationManager.BaseUri, PlatformSettings.Host, CurrentSite.Id)">
               Delete website
             </DashboardLink>
           </Authorized>

@@ -29,6 +29,10 @@
   [Parameter]
   public string? Value { get; set; }
 
+  // a first option, like "Choose a type", shown when neither the page nor the saved value picks one
+  [Parameter]
+  public string? Placeholder { get; set; }
+
   [CascadingParameter]
   private HttpContext HttpContext { get; set; } = default!;
 
@@ -49,6 +53,11 @@
                    data-value-field="@RememberedInputEndpoints.ValueField"
                    data-token-field="@Token?.FormFieldName" data-token="@Token?.Value">
   <select name="@Name" class="@Class">
+    @if (Placeholder is not null && Options.All(option => option.Value != _selectedValue))
+    {
+      @* disabled: a select showing a disabled option sends nothing, so the address has no empty value *@
+      <option value="" disabled selected>@Placeholder</option>
+    }
     @foreach (var (value, label) in Options)
     {
       <option value="@value" selected="@(value == _selectedValue)">@label</option>

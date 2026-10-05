@@ -24,57 +24,57 @@
   [Parameter, EditorRequired]
   public EventCallback<Series> OnSeriesAdded { get; set; }
 
-  private readonly HashSet<string> _tickedFolders = [];
-  private readonly HashSet<int> _tickedSeries = [];
+  private readonly HashSet<string> _checkedFolders = [];
+  private readonly HashSet<int> _checkedSeries = [];
   private bool _isAddingSeries;
 
-  private IEnumerable<string> TickablePaths =>
+  private IEnumerable<string> CheckablePaths =>
     Folders.Where(folder => folder.Type is not DroppedFolderSeriesType.CannotBeSeries).Select(folder => folder.Path);
 
-  private bool AllFoldersTicked => TickablePaths.All(_tickedFolders.Contains);
+  private bool AllFoldersChecked => CheckablePaths.All(_checkedFolders.Contains);
 
-  // every folder that can be a series starts ticked
-  protected override void OnInitialized() => _tickedFolders.UnionWith(TickablePaths);
+  // every folder that can be a series starts checked
+  protected override void OnInitialized() => _checkedFolders.UnionWith(CheckablePaths);
 
   private void ToggleAllFolders()
   {
-    if (AllFoldersTicked)
+    if (AllFoldersChecked)
     {
-      _tickedFolders.Clear();
+      _checkedFolders.Clear();
     }
     else
     {
-      _tickedFolders.UnionWith(TickablePaths);
+      _checkedFolders.UnionWith(CheckablePaths);
     }
   }
 
   private void ToggleFolder(DroppedFolder folder)
   {
-    if (!_tickedFolders.Remove(folder.Path))
+    if (!_checkedFolders.Remove(folder.Path))
     {
-      _tickedFolders.Add(folder.Path);
+      _checkedFolders.Add(folder.Path);
     }
   }
 
   private void ToggleSeries(int seriesId)
   {
-    if (!_tickedSeries.Remove(seriesId))
+    if (!_checkedSeries.Remove(seriesId))
     {
-      _tickedSeries.Add(seriesId);
+      _checkedSeries.Add(seriesId);
     }
   }
 
   private async Task SeriesAddedAsync(Series series)
   {
-    _tickedSeries.Add(series.Id.Value);
+    _checkedSeries.Add(series.Id.Value);
     await OnSeriesAdded.InvokeAsync(series);
   }
 
   private Task OkAsync() =>
     OnOk.InvokeAsync(
       new DropSeriesChoice(
-        [.. Folders.Where(folder => _tickedFolders.Contains(folder.Path))],
-        [.. AllSeries.Where(series => _tickedSeries.Contains(series.Id.Value)).Select(series => series.Id)]
+        [.. Folders.Where(folder => _checkedFolders.Contains(folder.Path))],
+        [.. AllSeries.Where(series => _checkedSeries.Contains(series.Id.Value)).Select(series => series.Id)]
       )
     );
 
@@ -108,10 +108,10 @@
   <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
     @if (Folders.Count > 0)
     {
-      @if (TickablePaths.Count() > 1)
+      @if (CheckablePaths.Count() > 1)
       {
         <label class="mb-1 flex cursor-pointer items-center gap-2 ">
-          <input type="checkbox" class="cursor-pointer" checked="@AllFoldersTicked" @onchange="ToggleAllFolders" />
+          <input type="checkbox" class="cursor-pointer" checked="@AllFoldersChecked" @onchange="ToggleAllFolders" />
           Toggle all checked
         </label>
         <Divider />
@@ -122,7 +122,7 @@
         @foreach (var folder in Folders)
         {
           <label @key="folder.Path" class="flex cursor-pointer items-start gap-2 py-1">
-            <input type="checkbox" class="mt-1 cursor-pointer" checked="@_tickedFolders.Contains(folder.Path)"
+            <input type="checkbox" class="mt-1 cursor-pointer" checked="@_checkedFolders.Contains(folder.Path)"
                    disabled="@(folder.Type is DroppedFolderSeriesType.CannotBeSeries)" @onchange="() => ToggleFolder(folder)" />
             <span>
               <span class="font-medium">@(folder.Existing is { } existing ? existing.Name.Value : folder.Name)</span>
@@ -144,7 +144,7 @@
       <h2 class="mb-1 font-medium">@CountText.Of(LooseImageCount, "image") not in a folder</h2>
       <p class="mb-2">Check all series you wish to add these artworks to.</p>
 
-      <SeriesChoices AllSeries="AllSeries" Ticked="_tickedSeries" OnToggle="ToggleSeries" OnSeriesAdded="SeriesAddedAsync"
+      <SeriesChoices AllSeries="AllSeries" Checked="_checkedSeries" OnToggle="ToggleSeries" OnSeriesAdded="SeriesAddedAsync"
                      @bind-IsAdding="_isAddingSeries" />
     }
   </div>

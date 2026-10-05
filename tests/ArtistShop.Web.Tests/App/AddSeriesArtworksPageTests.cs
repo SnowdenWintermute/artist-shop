@@ -21,36 +21,36 @@ public sealed class AddSeriesArtworksPageTests(TestApp app)
         return (new CatalogTestData(database), new SeriesRepository(database), client);
     }
 
-    private static string TickBox(ArtworkIdentifiers artwork) => $"name=\"add\" value=\"{artwork.Id.Value}\"";
+    private static string Checkbox(ArtworkIdentifiers artwork) => $"name=\"add\" value=\"{artwork.Id.Value}\"";
 
     [Fact]
-    public async Task ListsOnlyTheArtworksNotInTheSeriesWithTheTickedOnesTicked()
+    public async Task ListsOnlyTheArtworksNotInTheSeriesWithTheCheckedOnesChecked()
     {
         var (catalog, _, client) = await SiteWithAdminAsync();
         var seriesId = await catalog.AddSeriesAsync();
         var inSeries = await catalog.AddPaintingInSeriesAsync(seriesId, []);
         var otherSeriesId = await catalog.AddSeriesAsync();
-        var ticked = await catalog.AddPaintingInSeriesAsync(otherSeriesId, []);
-        var unticked = await catalog.AddPaintingInSeriesAsync(otherSeriesId, []);
+        var checkedArtwork = await catalog.AddPaintingInSeriesAsync(otherSeriesId, []);
+        var uncheckedArtwork = await catalog.AddPaintingInSeriesAsync(otherSeriesId, []);
 
         var page = await client.GetStringAsync(
-            PageUrls.AddSeriesArtworks(seriesId, [ticked.Id]),
+            PageUrls.AddSeriesArtworks(seriesId, [checkedArtwork.Id]),
             TestContext.Current.CancellationToken
         );
 
-        Assert.Contains($"{TickBox(ticked)} checked", page);
-        Assert.Contains(TickBox(unticked), page);
-        Assert.DoesNotContain($"{TickBox(unticked)} checked", page);
-        Assert.DoesNotContain(TickBox(inSeries), page);
+        Assert.Contains($"{Checkbox(checkedArtwork)} checked", page);
+        Assert.Contains(Checkbox(uncheckedArtwork), page);
+        Assert.DoesNotContain($"{Checkbox(uncheckedArtwork)} checked", page);
+        Assert.DoesNotContain(Checkbox(inSeries), page);
         Assert.Contains("Add selected (1)", page);
         // the series filter offers the other series, but not this one
         Assert.Contains($"<option value=\"{otherSeriesId.Value}\"", page);
         Assert.DoesNotContain($"<option value=\"{seriesId.Value}\"", page);
     }
 
-    // a tick on an artwork the filters hide has no box, so the forms carry it as a hidden field
+    // a check on an artwork the filters hide has no box, so the forms carry it as a hidden field
     [Fact]
-    public async Task KeepsATickTheFiltersHide()
+    public async Task KeepsACheckTheFiltersHide()
     {
         var (catalog, _, client) = await SiteWithAdminAsync();
         var seriesId = await catalog.AddSeriesAsync();
@@ -63,13 +63,13 @@ public sealed class AddSeriesArtworksPageTests(TestApp app)
             TestContext.Current.CancellationToken
         );
 
-        // once in the filter form and once in the tick form, and never as a box
-        Assert.Equal(2, page.Split($"""<input type="hidden" {TickBox(hidden)} />""").Length - 1);
-        Assert.Equal(2, page.Split(TickBox(hidden)).Length - 1);
+        // once in the filter form and once in the checkbox form, and never as a box
+        Assert.Equal(2, page.Split($"""<input type="hidden" {Checkbox(hidden)} />""").Length - 1);
+        Assert.Equal(2, page.Split(Checkbox(hidden)).Length - 1);
     }
 
     [Fact]
-    public async Task AddingTheTickedArtworksReturnsToTheSeries()
+    public async Task AddingTheCheckedArtworksReturnsToTheSeries()
     {
         var (catalog, series, client) = await SiteWithAdminAsync();
         var seriesId = await catalog.AddSeriesAsync();

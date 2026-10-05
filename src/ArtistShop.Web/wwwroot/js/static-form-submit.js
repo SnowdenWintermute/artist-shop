@@ -7,7 +7,7 @@
 let submittingForm = null;
 /** @type {HTMLElement | null} */
 let busyButton = null;
-// A form marked data-waits-for-pending posts what the page is still working on: the ticks a
+// A form marked data-waits-for-pending posts what the page is still working on: the checks a
 // SubmitOnChange form is about to put in the address, or the images an ImagesField is still
 // uploading. Clicked while anything carries data-pending, its button goes busy and it posts once
 // nothing does, unless an upload has failed, so the artist sees the error before anything is
@@ -95,7 +95,7 @@ function postWaiting() {
     return;
   }
 
-  // one the page answered by disabling, like Add selected once nothing is ticked, has nothing to post
+  // one the page answered by disabling, like Add selected once nothing is checked, has nothing to post
   if (button.isConnected && !button.hasAttribute("disabled") && button instanceof HTMLButtonElement) {
     button.form?.requestSubmit(button);
   }

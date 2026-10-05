@@ -2,6 +2,8 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Sites
 
 @code {
   [Parameter, EditorRequired]
@@ -15,7 +17,7 @@
   public IReadOnlyList<Series> Series { get; set; } = default!;
   [Parameter, EditorRequired]
   public string ClearFiltersHref { get; set; } = default!;
-  // a name can repeat, like one per ticked artwork
+  // a name can repeat, like one per checked artwork
   [Parameter]
   public IReadOnlyList<(string Name, string Value)>? KeptFields { get; set; }
   // a select of one type in place of the type checkboxes, for the artwork table
@@ -35,6 +37,12 @@
 
   private List<(int Value, string Label)> TypeOptions =>
     [.. Types.Select(type => (type.Id.Value, type.Name.Value))];
+
+  private List<(string Value, string Label)> SingleTypeOptions =>
+    [.. Types.Select(type => (RememberedArtworkType.ValueOf(type.Id), type.Name.Value))];
+
+  private string? SingleTypeValue =>
+    Filter.ArtworkTypeIds.FirstOrDefault() is { } id ? RememberedArtworkType.ValueOf(id) : null;
 
   private HashSet<int> SelectedTypeIds => [.. Filter.ArtworkTypeIds.Select(id => id.Value)];
 
@@ -60,12 +68,9 @@
       {
         <label>
           <span class="artist-shop-field-label">Work type</span>
-          <select name="@ArtworkListQuery.TypeKey" class="artist-shop-field-input">
-            @foreach (var type in Types)
-            {
-              <option value="@type.Id.Value" selected="@SelectedTypeIds.Contains(type.Id.Value)">@type.Name.Value</option>
-            }
-          </select>
+          @* the browser has already settled on one type, so the address names it *@
+          <RememberedSelect Name="@ArtworkListQuery.TypeKey" InputName="@RememberedInputs.ArtworkType"
+                            Options="SingleTypeOptions" Value="@SingleTypeValue" Class="artist-shop-field-input" />
         </label>
       }
 

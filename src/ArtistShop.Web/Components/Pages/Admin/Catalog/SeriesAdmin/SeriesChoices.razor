@@ -12,10 +12,10 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<Series> AllSeries { get; set; } = default!;
   [Parameter, EditorRequired]
-  public IReadOnlySet<int> Ticked { get; set; } = default!;
+  public IReadOnlySet<int> Checked { get; set; } = default!;
   [Parameter, EditorRequired]
   public EventCallback<int> OnToggle { get; set; }
-  // the caller lists the new series and ticks it
+  // the caller lists the new series and checks it
   [Parameter, EditorRequired]
   public EventCallback<Series> OnSeriesAdded { get; set; }
   // for the dialog to stay open and hold its buttons while a series is being added
@@ -58,7 +58,7 @@ else
     @foreach (var series in AllSeries)
     {
       <label @key="series.Id.Value" class="flex cursor-pointer items-center gap-2 py-1">
-        <input type="checkbox" class="cursor-pointer" checked="@Ticked.Contains(series.Id.Value)"
+        <input type="checkbox" class="cursor-pointer" checked="@Checked.Contains(series.Id.Value)"
                @onchange="() => OnToggle.InvokeAsync(series.Id.Value)" />
         @series.Name.Value
       </label>

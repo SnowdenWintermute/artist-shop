@@ -4,7 +4,7 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 
 @code {
-  // the type to start with, as the dashboard sends it; the page has its own select too
+  // the type to start with; without one the island starts at the type its admin last chose
   [SupplyParameterFromQuery(Name = "type")]
   private int? TypeIdValue { get; set; }
 }

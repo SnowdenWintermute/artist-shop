@@ -109,7 +109,7 @@ public sealed class VocabularyRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task UntickingArtworkTypeRemovesVocabularyTermsFromItsItemsButKeepsTerms()
+    public async Task UncheckingArtworkTypeRemovesVocabularyTermsFromItsItemsButKeepsTerms()
     {
         var name = UniqueName();
         var paintingTypeId = await _catalog.GetPaintingTypeIdAsync();

@@ -1,7 +1,10 @@
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
+@inject RememberedArtworkType RememberedArtworkType
 
-@* For an island with no form. SelectField builds on InputSelect, which needs an EditContext *@
+@* For an island with no form. SelectField builds on InputSelect, which needs an EditContext. Each
+   choice is saved for the other artwork type selects to start at; the island reads it back itself *@
 
 @code {
   [Parameter, EditorRequired]
@@ -15,8 +18,17 @@
   [Parameter]
   public string? Class { get; set; }
 
-  private Task ChangedAsync(ChangeEventArgs change) =>
-    ValueChanged.InvokeAsync(int.TryParse(change.Value?.ToString(), out var typeId) ? typeId : null);
+  private async Task ChangedAsync(ChangeEventArgs change)
+  {
+    int? value = int.TryParse(change.Value?.ToString(), out var typeId) ? typeId : null;
+
+    if (value is int chosen)
+    {
+      await RememberedArtworkType.SetAsync(new ArtworkTypeId(chosen));
+    }
+
+    await ValueChanged.InvokeAsync(value);
+  }
 }
 
 <label class="mb-1 block text-sm" for="artwork-type">Artwork type</label>

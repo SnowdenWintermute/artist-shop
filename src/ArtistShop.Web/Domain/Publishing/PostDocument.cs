@@ -28,7 +28,7 @@ public record ArtworkEmbedBlock(
 
 // An image uploaded into the post. Width and Height are the upload's own, which may be narrower
 // than the size picked. Alt is empty when the artist cleared it. OpensLightbox is what the artist
-// ticked; the page also needs a version wider than the size before a click opens one
+// checked; the page also needs a version wider than the size before a click opens one
 public record PostImageEmbedBlock(
     string StorageKey,
     int Width,

@@ -124,7 +124,7 @@ public static class CatalogExportArchive
           1. {ArtworkTypesFileName}
           2. {VocabulariesFileName}
           3. Each file in {ArtworksFolder}/, choosing its type, with the unit set to centimetres and
-             "one of a kind" ticked.
+             "one of a kind" checked.
           Every import only adds: something that already exists is skipped. Artworks that share a
           title within a type are told apart by their {ArtworkImportHeaders.Slug}. Products can't be imported yet.
         """;

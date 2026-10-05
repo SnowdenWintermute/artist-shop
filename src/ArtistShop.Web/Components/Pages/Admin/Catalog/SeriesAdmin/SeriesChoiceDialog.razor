@@ -21,32 +21,32 @@
   [Parameter, EditorRequired]
   public EventCallback<Series> OnSeriesAdded { get; set; }
 
-  private readonly HashSet<int> _ticked = [];
+  private readonly HashSet<int> _checked = [];
   private bool _isAddingSeries;
 
-  protected override void OnInitialized() => _ticked.UnionWith(SelectedSeriesIds);
+  protected override void OnInitialized() => _checked.UnionWith(SelectedSeriesIds);
 
   private void Toggle(int seriesId)
   {
-    if (!_ticked.Remove(seriesId))
+    if (!_checked.Remove(seriesId))
     {
-      _ticked.Add(seriesId);
+      _checked.Add(seriesId);
     }
   }
 
   private async Task SeriesAddedAsync(Series series)
   {
-    _ticked.Add(series.Id.Value);
+    _checked.Add(series.Id.Value);
     await OnSeriesAdded.InvokeAsync(series);
   }
 
   // in the order the series are listed, so the row reads the same as this list
   private Task OkAsync() =>
-    OnOk.InvokeAsync([.. AllSeries.Select(series => series.Id.Value).Where(_ticked.Contains)]);
+    OnOk.InvokeAsync([.. AllSeries.Select(series => series.Id.Value).Where(_checked.Contains)]);
 }
 
 <ModalDialog Title="@(ArtworkName is null ? "Series" : $"Series of {ArtworkName}")" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isAddingSeries">
-  <SeriesChoices AllSeries="AllSeries" Ticked="_ticked" OnToggle="Toggle" OnSeriesAdded="SeriesAddedAsync"
+  <SeriesChoices AllSeries="AllSeries" Checked="_checked" OnToggle="Toggle" OnSeriesAdded="SeriesAddedAsync"
                  @bind-IsAdding="_isAddingSeries" />
 
   <ModalDialogActions>

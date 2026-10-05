@@ -17,21 +17,21 @@
   [Parameter]
   public int Id { get; set; }
 
-  [SupplyParameterFromQuery(Name = PageUrls.AddSeriesArtworksTickKey)]
-  private int[]? TickedIds { get; set; }
+  [SupplyParameterFromQuery(Name = PageUrls.AddSeriesArtworksCheckedKey)]
+  private int[]? CheckedIds { get; set; }
 
   private Series? _series;
 
   private SeriesId SeriesId => new(Id);
 
-  // an artwork ticked twice, in an address edited by hand, counts once
+  // an artwork checked twice, in an address edited by hand, counts once
   private ArtworkListSelection Selection =>
-    new(PageUrls.AddSeriesArtworksTickKey, [.. (TickedIds ?? []).Distinct().Select(id => new ArtworkId(id))]);
+    new(PageUrls.AddSeriesArtworksCheckedKey, [.. (CheckedIds ?? []).Distinct().Select(id => new ArtworkId(id))]);
 
   protected override async Task OnInitializedAsync() =>
     _series = await SeriesRepository.GetByIdAsync(SeriesId);
 
-  // the form posts to this page's own address, so the ticks arrive in it
+  // the form posts to this page's own address, so the checks arrive in it
   private async Task AddAsync()
   {
     try
@@ -62,7 +62,7 @@ else
   <div class="mb-4 flex items-baseline justify-between gap-4">
     <h1 class="text-xl">Add artworks to @_series.Name.Value</h1>
 
-    @* posts to the address, so a click while a tick is still on its way waits for it *@
+    @* posts to the address, so a click while a check is still on its way waits for it *@
     <form method="post" @formname="@AddFormName" @onsubmit="AddAsync" data-enhance data-waits-for-pending>
       <AntiforgeryToken />
       <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@(Selection.Ids.Count == 0)">
@@ -71,7 +71,7 @@ else
     </form>
   </div>
 
-  @* only artworks not in the series yet. A row's title is text, since this page is for ticking
+  @* only artworks not in the series yet. A row's title is text, since this page is for checking
      artworks, not opening them *@
   <ArtworkListBrowser RowHref="_ => null" ClearFiltersHref="@PageUrls.AddSeriesArtworks(SeriesId, Selection.Ids)"
                       ExcludedSeriesId="SeriesId" Selection="Selection" />

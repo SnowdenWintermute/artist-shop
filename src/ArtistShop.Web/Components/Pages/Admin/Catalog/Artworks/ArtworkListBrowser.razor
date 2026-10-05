@@ -7,6 +7,7 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Search
+@using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.WebUtilities
 @inject ArtworkRepository ArtworkRepository
@@ -15,6 +16,7 @@
 @inject VocabularyRepository VocabularyRepository
 @inject SeriesRepository SeriesRepository
 @inject NavigationManager NavigationManager
+@inject RememberedArtworkType RememberedArtworkType
 
 @* The filterable artwork list, read from the address it's on, so it works the same on any page
    that places it: the admin artwork list, and the picker a post's editor opens in a frame *@
@@ -38,13 +40,13 @@
   [Parameter]
   public SeriesId? ExcludedSeriesId { get; set; }
 
-  // gives each row a checkbox; a tick submits at once and lands in the address
+  // gives each row a checkbox; a check submits at once and lands in the address
   [Parameter]
   public ArtworkListSelection? Selection { get; set; }
 
   // One type at a time, picked by a select, for the artwork table: of the types in the address that
-  // still exist, the first by name, or with none the first of all by name. Vocabularies and term
-  // filters are that type's only
+  // still exist, the first by name; with none, the type its admin last chose, else the first of all
+  // by name. Vocabularies and term filters are that type's only
   [Parameter]
   public bool SingleType { get; set; }
 
@@ -100,7 +102,9 @@
     }
     else
     {
-      var type = types.FirstOrDefault(candidate => filter.ArtworkTypeIds.Contains(candidate.Id)) ?? types.FirstOrDefault();
+      var type = types.FirstOrDefault(candidate => filter.ArtworkTypeIds.Contains(candidate.Id))
+                 ?? await RememberedArtworkType.FindInAsync(types)
+                 ?? types.FirstOrDefault();
 
       _hasNoTypes = type is null;
 
@@ -153,15 +157,15 @@
   private static (string Name, string Value) SelectionField(ArtworkListSelection selection, ArtworkId id) =>
     (selection.FieldName, id.Value.ToString(CultureInfo.InvariantCulture));
 
-  // the filter form carries the ticks too, or changing a filter would drop them
+  // the filter form carries the checks too, or changing a filter would drop them
   private IReadOnlyList<(string Name, string Value)>? FilterKeptFields =>
     Selection is { } selection
       ? [.. KeptFields ?? [], .. selection.Ids.Select(id => SelectionField(selection, id))]
       : KeptFields;
 
-  // What the tick form sends besides this page's boxes: the rest of the address as it is, so the
-  // filters and the page stay put, and the ticks on other pages, which have no box here
-  private IEnumerable<(string Name, string Value)> TickFormFields(ArtworkListSelection selection, ArtworkListPage artworks)
+  // What the checkbox form sends besides this page's boxes: the rest of the address as it is, so the
+  // filters and the page stay put, and the checks on other pages, which have no box here
+  private IEnumerable<(string Name, string Value)> CheckboxFormFields(ArtworkListSelection selection, ArtworkListPage artworks)
   {
     var shownIds = artworks.Items.Select(item => item.Id).ToHashSet();
 
@@ -169,11 +173,11 @@
       .Where(parameter => parameter.Key != selection.FieldName)
       .SelectMany(parameter => parameter.Value.Select(value => (parameter.Key, value ?? "")));
 
-    var otherPageTicks = selection.Ids
+    var otherPageCheckedFields = selection.Ids
       .Where(id => !shownIds.Contains(id))
       .Select(id => SelectionField(selection, id));
 
-    return addressFields.Concat(otherPageTicks);
+    return addressFields.Concat(otherPageCheckedFields);
   }
 }
 
@@ -203,10 +207,10 @@ else if (_loaded is { } loaded)
   }
   else if (Selection is { } selection)
   {
-    @* a GET form like the filter bar's, so a tick changes the address and nothing else. A form
+    @* a GET form like the filter bar's, so a check changes the address and nothing else. A form
        submit, unlike a link, leaves the page where it was scrolled *@
     <form method="get" data-enhance>
-      @foreach (var (name, value) in TickFormFields(selection, loaded.Artworks))
+      @foreach (var (name, value) in CheckboxFormFields(selection, loaded.Artworks))
       {
         <input type="hidden" name="@name" value="@value" />
       }
@@ -214,7 +218,7 @@ else if (_loaded is { } loaded)
       <SubmitOnChange>
         <ArtworkListRows Items="loaded.Artworks.Items" RowHref="RowHref" Selection="selection" />
 
-        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Update ticks</ButtonBasic>
+        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Update checks</ButtonBasic>
       </SubmitOnChange>
     </form>
   }

@@ -5,7 +5,7 @@
   [Parameter, EditorRequired]
   public PostImageEmbedBlock Embed { get; set; } = default!;
 
-  // as the artist ticked it, and only when there's a wider version than the size shows: a
+  // as the artist checked it, and only when there's a wider version than the size shows: a
   // lightbox would otherwise just blow up the same file
   public static bool OpensLightbox(PostImageEmbedBlock embed) =>
     embed.OpensLightbox && ImageVariants.LargestWidthFor(embed.Width) > ImageVariants.EmbedWidth(embed.Size);

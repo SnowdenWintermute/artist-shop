@@ -16,7 +16,7 @@ public static class PageUrls
     public static string Series(SeriesSlug slug) => $"/series/{slug.Value}";
 
     public const string ArtworkList = "/admin/catalog/artworks";
-    // with no type, the page asks for one
+    // with no type, the one its admin last chose, else the page asks for one
     public static string ArtworkBulkImageUpload(ArtworkTypeId? typeId) =>
         WithQuery(
             "/admin/catalog/artworks/images",
@@ -26,13 +26,13 @@ public static class PageUrls
     // ?type= picks the type; with none, the page goes to the type its admin last chose
     public const string AddArtwork = "/admin/catalog/artworks/add";
 
-    // with no type, the page asks for one
+    // with no type, the one its admin last chose, else the page asks for one
     public const string ArtworkImport = "/admin/catalog/artworks/import";
 
-    // ?type= picks the type to start with; with none, the page asks for one
+    // ?type= picks the type to start with; with none, the one its admin last chose, else the page asks
     public const string AddArtworksFromImages = "/admin/catalog/artworks/add-from-images";
 
-    // takes the artwork list's filters, with one type; with none, the first type by name
+    // takes the artwork list's filters, with one type; with none, the type its admin last chose, else the first by name
     public const string ArtworkTable = "/admin/catalog/artworks/table";
 
     public const string NewArtworkType = "/admin/catalog/types/new";
@@ -47,18 +47,18 @@ public static class PageUrls
 
     public static string EditSeries(SeriesId id) => $"{SeriesList}/{id.Value}";
 
-    // one parameter per artwork ticked on the page that adds artworks to a series
-    public const string AddSeriesArtworksTickKey = "add";
+    // one parameter per artwork checked on the page that adds artworks to a series
+    public const string AddSeriesArtworksCheckedKey = "add";
 
     public static string AddSeriesArtworks(SeriesId id) => $"{EditSeries(id)}/add-artworks";
 
-    // the page with these artworks ticked and no filters, which is where Clear filters goes
-    public static string AddSeriesArtworks(SeriesId id, IReadOnlyList<ArtworkId> tickedIds) =>
+    // the page with these artworks checked and no filters, which is where Clear filters goes
+    public static string AddSeriesArtworks(SeriesId id, IReadOnlyList<ArtworkId> checkedIds) =>
         WithQuery(
             AddSeriesArtworks(id),
             [
-                .. tickedIds.Select(tickedId =>
-                    (AddSeriesArtworksTickKey, (string?)tickedId.Value.ToString(CultureInfo.InvariantCulture))
+                .. checkedIds.Select(checkedId =>
+                    (AddSeriesArtworksCheckedKey, (string?)checkedId.Value.ToString(CultureInfo.InvariantCulture))
                 ),
             ]
         );
