@@ -3,6 +3,7 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Search
@@ -178,7 +179,7 @@
 
 @if (_hasNoTypes)
 {
-  <p>Adding artworks starts with an <a href="@PageUrls.NewArtworkType" class="underline">artwork type</a>.</p>
+  <NoArtworkTypesNote />
 }
 else if (_loaded is { } loaded)
 {

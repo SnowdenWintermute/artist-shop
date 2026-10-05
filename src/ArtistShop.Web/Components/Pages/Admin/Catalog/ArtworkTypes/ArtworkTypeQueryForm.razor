@@ -1,0 +1,24 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+
+@* The artwork type choice for a static page whose fields depend on the type: choosing one loads
+   the page again with ?type= in its address. A form of its own, so it sits outside the page's
+   other forms, since forms can't be nested *@
+
+@code {
+  // a select named "type"
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<form method="get" data-enhance class="mb-4">
+  <SubmitOnChange>
+    <label class="mb-4 block">
+      <span class="artist-shop-field-label">Artwork type</span>
+      @ChildContent
+    </label>
+
+    @* app.css hides this unless the browser runs no scripts *@
+    <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Change type</ButtonBasic>
+  </SubmitOnChange>
+</form>

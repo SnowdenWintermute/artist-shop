@@ -3,6 +3,7 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
@@ -175,31 +176,22 @@
   <AdminPanel>
     <h1 class="mb-4 text-xl">Import artworks from a spreadsheet</h1>
 
-    @* outside the forms below, since forms can't be nested. The type decides which columns and fields
-       the page asks for, so choosing one loads the page for it *@
-    <form method="get" data-enhance class="mb-4">
-      <SubmitOnChange>
-        <label class="mb-4 block">
-          <span class="artist-shop-field-label">Artwork type</span>
-          <select name="type" class="artist-shop-field-input">
-            @if (_type is null)
-            {
-              @* disabled: a select showing a disabled option sends nothing, so the address has no empty type= *@
-              <option value="" disabled selected>Choose a type</option>
-            }
-            @foreach (var artworkType in _artworkTypes)
-            {
-              <option value="@artworkType.Id.Value" selected="@(artworkType.Id.Value == TypeIdValue)">
-                @artworkType.Name.Value
-              </option>
-            }
-          </select>
-        </label>
-
-        @* app.css hides this unless the browser runs no scripts *@
-        <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Change type</ButtonBasic>
-      </SubmitOnChange>
-    </form>
+    @* the type decides which columns and fields the page asks for *@
+    <ArtworkTypeQueryForm>
+      <select name="type" class="artist-shop-field-input">
+        @if (_type is null)
+        {
+          @* disabled: a select showing a disabled option sends nothing, so the address has no empty type= *@
+          <option value="" disabled selected>Choose a type</option>
+        }
+        @foreach (var artworkType in _artworkTypes)
+        {
+          <option value="@artworkType.Id.Value" selected="@(artworkType.Id.Value == TypeIdValue)">
+            @artworkType.Name.Value
+          </option>
+        }
+      </select>
+    </ArtworkTypeQueryForm>
 
     @if (_type is not null)
     {

@@ -98,7 +98,7 @@
     try
     {
       await ArtworkTypeRepository.DeleteAsync(loaded.ArtworkType.Id);
-      NavigationManager.NavigateTo("/admin/catalog/types/new");
+      NavigationManager.NavigateTo(PageUrls.NewArtworkType);
     }
     catch (ChangedSincePageLoadException)
     {

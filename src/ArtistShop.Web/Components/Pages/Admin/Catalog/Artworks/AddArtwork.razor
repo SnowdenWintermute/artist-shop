@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Forms.FileUpload.Images
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
 @using ArtistShop.Web.Components.Pages.Catalog
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
@@ -159,7 +160,7 @@
   <main>
     <AdminPanel>
       <h1 class="mb-4">Add an artwork</h1>
-      <p>Adding artworks starts with an <a href="@PageUrls.NewArtworkType" class="underline">artwork type</a>.</p>
+      <NoArtworkTypesNote />
     </AdminPanel>
   </main>
 }
@@ -173,20 +174,10 @@ else if (_type is not null)
     <AdminPanel>
       <h1>Add a @typeName</h1>
 
-      @* outside the form below, since forms can't be nested. The type decides the form's fields, so
-         choosing one loads the page for it *@
-      <form method="get" data-enhance class="mb-4">
-        <SubmitOnChange>
-          <label class="mb-4 block">
-            <span class="artist-shop-field-label">Artwork type</span>
-            <RememberedSelect Name="type" InputName="@RememberedInputs.AddArtworkType" Options="TypeOptions"
-                              Value="@_type.Id.Value.ToString(CultureInfo.InvariantCulture)" Class="artist-shop-field-input" />
-          </label>
-
-          @* app.css hides this unless the browser runs no scripts *@
-          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Change type</ButtonBasic>
-        </SubmitOnChange>
-      </form>
+      <ArtworkTypeQueryForm>
+        <RememberedSelect Name="type" InputName="@RememberedInputs.AddArtworkType" Options="TypeOptions"
+                          Value="@_type.Id.Value.ToString(CultureInfo.InvariantCulture)" Class="artist-shop-field-input" />
+      </ArtworkTypeQueryForm>
 
       @if (AddedSlug is not null)
       {

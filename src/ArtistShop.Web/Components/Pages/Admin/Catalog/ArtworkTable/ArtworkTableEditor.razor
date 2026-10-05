@@ -44,15 +44,17 @@
       return;
     }
 
+    // read before the awaits, during which a refresh can change the ids without changing the address
     var address = Address;
+    var typeId = new ArtworkTypeId(ArtworkTypeId);
+    List<ArtworkId> ids = [.. ArtworkIds.Select(id => new ArtworkId(id))];
     _loadedAddress = address;
     _isLoading = true;
     _loaded = null;
 
-    var type = await ArtworkTypeRepository.GetAsync(new ArtworkTypeId(ArtworkTypeId));
+    var type = await ArtworkTypeRepository.GetAsync(typeId);
     var series = await SeriesRepository.GetAllAsync();
-    var artworks = (await ArtworkRepository.GetManyAsync([.. ArtworkIds.Select(id => new ArtworkId(id))]))
-      .ToDictionary(artwork => artwork.Id);
+    var artworks = (await ArtworkRepository.GetManyAsync(ids)).ToDictionary(artwork => artwork.Id);
 
     // the address changed while this was loading, and that change's load is the one to show
     if (_loadedAddress != address)
@@ -67,7 +69,7 @@
       ? null
       : new LoadedRows(
         type,
-        [.. ArtworkIds.Select(id => artworks.GetValueOrDefault(new ArtworkId(id))).OfType<Artwork>().Select(ArtworkTableRow.FromArtwork)]
+        [.. ids.Select(artworks.GetValueOrDefault).OfType<Artwork>().Select(ArtworkTableRow.FromArtwork)]
       );
     _isLoading = false;
   }

@@ -24,17 +24,18 @@
   [Parameter]
   public string? Class { get; set; }
 
-  // the option to show when the page has one, such as from its address
+  // the option to show when the page has one, such as from its address. The saved value isn't read
+  // then, so a page that wants it, say to redirect to it, reads it itself
   [Parameter]
   public string? Value { get; set; }
 
   [CascadingParameter]
   private HttpContext HttpContext { get; set; } = default!;
 
-  private string? _savedValue;
+  private string? _selectedValue;
 
   protected override async Task OnInitializedAsync() =>
-    _savedValue = Value ?? await InputValues.GetAsync(CurrentSite.Id, HttpContext.User.RequiredUserId(), InputName);
+    _selectedValue = Value ?? await InputValues.GetAsync(CurrentSite.Id, HttpContext.User.RequiredUserId(), InputName);
 
   // the select sits in a GET form, so the token goes in attributes rather than a hidden field it
   // would submit
@@ -50,7 +51,7 @@
   <select name="@Name" class="@Class">
     @foreach (var (value, label) in Options)
     {
-      <option value="@value" selected="@(value == _savedValue)">@label</option>
+      <option value="@value" selected="@(value == _selectedValue)">@label</option>
     }
   </select>
 </remembered-select>

@@ -1,0 +1,10 @@
+@* for a page that adds or lists artworks on a site with no artwork types yet *@
+
+@code {
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+<p class="@Class">
+  Adding artworks starts with an <a href="@PageUrls.NewArtworkType" class="underline">artwork type</a>.
+</p>

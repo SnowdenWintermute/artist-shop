@@ -1,6 +1,51 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
-## Handoff, 2026-10-04 (evening): Edit as table, vocabularies and images in the artwork table (From Claude)
+## Review of 5ef13a5, 2026-10-04 (From Claude)
+
+Uncommitted, 918 tests pass, not browser-checked. The images dialog's save reports to its own
+`ImagesSaveError` (shown under the thumbnail), so it can't clear a failed details save. That had let
+"safe to close" show with details unsaved. `ArtworkTableRow.IsSaved` feeds the saved line, which now
+says "safe to close" before any edit too. `ArtworkTableEditor` reads its ids and type before the
+awaits. New `PageUrls.AddArtwork`, and `NewArtworkType` used everywhere. New `NoArtworkTypesNote`
+(three pages) and `ArtworkTypeQueryForm` (Add one, Import). `RememberedSelect._savedValue` renamed
+`_selectedValue`.
+
+## Handoff, 2026-10-04 (night): review fixes for 26e405d, Add one's type select (From Claude), committed by Mike as 5ef13a5
+
+Uncommitted, on top of 26e405d. 918 tests passed in a scratch copy. Nothing here is browser-checked. **Next
+session:** try it in the browser (list below), then commit.
+
+- **Artwork table review fixes.** `ArtworkTableEditor` drops a load the address has moved past (two quick filter
+  changes could leave the older rows showing). The table page with no artwork types says so and links to the new-type
+  page (`PageUrls.NewArtworkType`, new; the dashboard and type pages still hardcode that address). The `SingleType`
+  comment in `ArtworkListBrowser` now says what it does: of the address's types, the first by name. Enter in
+  `VocabularyTermEntry` does nothing while a save runs (a double Enter used to report the new term as taken). The
+  saved notice on both table pages is a `<p>`, not a second `<h1>`.
+- **Images dialog OK replaces the row's images outright**, so "failed" and "not sent" marks go. Add from images now
+  counts unsent images from its rows, not `_imagesByFileId`, so "Upload N images" doesn't resend ones the artist left
+  out in the dialog. Trade-off: OK just to reorder also clears a failed image's mark.
+- **No Stop on Add from images**: the artworks exist before the uploads start, so stopping only left spinners and a
+  shut images dialog. `UploadProgress.OnStop` is optional and shows Stop only when given (the other four pages still
+  pass it). Images still waiting when a run ends become Failed "Not uploaded", so the row shows "1 failed", the
+  dialog opens and "Upload N images" retries them.
+- **Series dialog skipped when every image would be skipped** (names taken by the type, repeats, too deep...): the
+  name check now runs on drop too (`PlanAsync`), and again after the dialog.
+- **Saved line on Add from images**: "N artworks added. All changes saved at X, it is safe to close the tab." only
+  when nothing is uploading, failed, saving or typed wrongly; otherwise just the count. `ArtworkTable.OnSaved` became
+  `OnSaveFinished(row)`, raised after every save, failed ones too.
+- **Type select moved from the dashboard to Add one.** Dashboard buttons are plain links (`AddArtworkLinks.razor`,
+  replacing `ArtworkTypeActions`); Add from images, Import and Upload images ask for the type themselves (Mike's
+  choice). `AddArtwork.razor` without `?type=` redirects to the remembered type, else the first by name, else shows
+  the "start with an artwork type" link. Its select (a GET form like Import's) uses `RememberedSelect` with a new
+  `Value` parameter so it shows the address's type. Remembered name renamed `add-artwork-type`, so the locally saved
+  dashboard value is forgotten once. Switching type reloads the page and loses what was typed.
+  `RememberedInputTests` rewritten for Add one.
+
+To check in the browser: Add one from the dashboard (redirect, switching type remembers it); a drop of a folder
+already added (no dialog, skipped list); Add from images' upload with no Stop and the saved line; images dialog OK on
+a row with a failed image; Enter pressed twice in the vocabulary term entry; the table page's filters changed quickly.
+
+## Handoff, 2026-10-04 (evening): Edit as table, vocabularies and images in the artwork table (From Claude), committed by Mike as 26e405d
 
 Uncommitted, on top of dc2cf81. 917 tests passed in a scratch copy, `npm run typecheck` clean. Mike tried it in the
 browser once; the fixes from that round aren't browser-checked. **Next session: review the code together.** Mike's own

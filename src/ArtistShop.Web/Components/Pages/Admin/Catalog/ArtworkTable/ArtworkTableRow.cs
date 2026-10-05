@@ -159,6 +159,9 @@ public class ArtworkTableRow
     // what the database said on the last save, such as the artwork having been deleted
     public string? SaveError { get; set; }
 
+    // the images dialog saves apart from the other fields, so its outcome can't clear their error
+    public string? ImagesSaveError { get; set; }
+
     // counts up with each save, so the thumbnail's saved mark plays again
     public int SaveCount { get; set; }
 
@@ -166,6 +169,9 @@ public class ArtworkTableRow
 
     // a field changed while a save was running, so another save follows it
     public bool SaveAgain { get; set; }
+
+    // nothing typed wrongly, saving or refused by the database
+    public bool IsSaved => !IsSaving && Errors.Count is 0 && SaveError is null && ImagesSaveError is null;
 
     public ArtworkImage? Thumbnail =>
         SavedImages.FirstOrDefault(image => image.StorageKey == MainImageKey) ?? SavedImages.FirstOrDefault();

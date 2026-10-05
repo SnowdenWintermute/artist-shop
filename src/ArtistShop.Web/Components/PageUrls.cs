@@ -23,6 +23,9 @@ public static class PageUrls
             ("type", typeId?.Value.ToString(CultureInfo.InvariantCulture))
         );
 
+    // ?type= picks the type; with none, the page goes to the type its admin last chose
+    public const string AddArtwork = "/admin/catalog/artworks/add";
+
     // with no type, the page asks for one
     public const string ArtworkImport = "/admin/catalog/artworks/import";
 

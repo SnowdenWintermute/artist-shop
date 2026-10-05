@@ -355,15 +355,14 @@ artwork))]);
 
   private void SaveFinished(ArtworkTableRow row)
   {
-    if (row.Errors.Count is 0 && row.SaveError is null)
+    if (row.IsSaved)
     {
       _lastSavedAt = TimeProvider.GetUtcNow();
     }
   }
 
-  // nothing typed wrongly, saving, uploading or failed to upload, so closing the tab loses nothing
-  private bool IsAllSaved =>
-    !_isUploading && UnsentCount is 0 && _rows.All(row => !row.IsSaving && row.Errors.Count is 0 && row.SaveError is null);
+  // nothing unsaved in a row, uploading or failed to upload, so closing the tab loses nothing
+  private bool IsAllSaved => !_isUploading && UnsentCount is 0 && _rows.All(row => row.IsSaved);
 
   private void SeriesAdded(Series series) => _series.Add(series);
 
@@ -466,13 +465,11 @@ else if (UnsentCount > 0)
   <ArtworkTable Rows="_rows" Type="rowsType" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnSaveFinished="SaveFinished" />
 
   <p class="text-sm text-gray-600">
-    @if (IsAllSaved && LastSavedText is { } savedText)
+    @CountText.Of(_rows.Count, "artwork") added.
+    @* no time before the first edit: the artworks and images were saved as they arrived *@
+    @if (IsAllSaved)
     {
-      <text>@CountText.Of(_rows.Count, "artwork") added. All changes saved at @savedText, it is safe to close the tab.</text>
-    }
-    else
-    {
-      <text>@CountText.Of(_rows.Count, "artwork") added.</text>
+      <text>All changes saved@(LastSavedText is { } savedText ? $" at {savedText}" : ""), it is safe to close the tab.</text>
     }
     <a class="underline" href="@PageUrls.AdminDashboard">Back to the dashboard</a>
   </p>

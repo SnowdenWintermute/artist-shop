@@ -44,6 +44,10 @@ else
 {
   <p class="max-w-24 text-xs text-red-600" title="Drop these on the Upload images page to add them">@notSent not sent</p>
 }
+@if (Row.ImagesSaveError is { } saveError)
+{
+  <p class="max-w-24 text-xs text-red-600">@saveError</p>
+}
 
 @code {
   private RenderFragment BoxContent => @<text>

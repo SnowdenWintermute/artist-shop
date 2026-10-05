@@ -16,7 +16,7 @@
 
 <AdminPanel>
   <SectionNav>
-    <NavLink href="/admin/catalog/types/new" ActiveClass="underline">+ New artwork type</NavLink>
+    <NavLink href="@PageUrls.NewArtworkType" ActiveClass="underline">+ New artwork type</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var artworkType in _artworkTypes)
     {

@@ -148,7 +148,7 @@
           continue;
         }
 
-        await SaveRowAsync(row, () => ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
+        row.SaveError = await SaveErrorOfAsync(row, () => ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
       } while (row.SaveAgain);
     }
     finally
@@ -159,21 +159,22 @@
     await OnSaveFinished.InvokeAsync(row);
   }
 
-  private async Task SaveRowAsync(ArtworkTableRow row, Func<Task> save)
+  // null when it saved
+  private static async Task<string?> SaveErrorOfAsync(ArtworkTableRow row, Func<Task> save)
   {
     try
     {
       await save();
-      row.SaveError = null;
       row.SaveCount++;
+      return null;
     }
     catch (ArtworkDeletedException)
     {
-      row.SaveError = "Deleted elsewhere";
+      return "Deleted elsewhere";
     }
     catch (ChangedSincePageLoadException)
     {
-      row.SaveError = "Changed elsewhere. Reload the page.";
+      return "Changed elsewhere. Reload the page.";
     }
   }
 
@@ -219,7 +220,7 @@
 
     var mainImageIndex = state.Images.ToList().FindIndex(image => image.StorageKey == state.MainImageKey);
 
-    await SaveRowAsync(row, async () =>
+    row.ImagesSaveError = await SaveErrorOfAsync(row, async () =>
     {
       await ArtworkRepository.UpdateImagesAsync(row.Id, state.Images, Math.Max(mainImageIndex, 0));
       row.ReplaceSavedImages(state.Images, mainImageIndex < 0 ? null : state.MainImageKey);
