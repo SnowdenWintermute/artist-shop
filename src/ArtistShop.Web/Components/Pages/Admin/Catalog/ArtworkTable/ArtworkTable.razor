@@ -44,9 +44,12 @@
   private ArtworkTableRow? _vocabularyRow;
   private ArtworkTableRow? _imagesRow;
 
-  // the images and title stay in view as the other columns scroll sideways under them
-  private const string ImagesColumnClass = "sticky left-0 z-10 w-16 min-w-16 bg-white";
-  private const string TitleColumnClass = "sticky left-16 z-10 bg-white";
+  // the images and title stay in view as the other columns scroll sideways under them. Their headings
+  // sit above both the other headings and the pinned cells scrolling up under them
+  private const string ImagesColumnClass = "sticky left-0 w-16 min-w-16 bg-white";
+  private const string TitleColumnClass = "sticky left-16 bg-white";
+  private const string PinnedCellClass = "z-10";
+  private const string PinnedHeadingClass = "z-30";
 
   private const string InputClass = "artist-shop-field-input";
 
@@ -98,7 +101,7 @@
   {
     get
     {
-      List<DataTableHeading> headings = [new("", ImagesColumnClass), new("Title", TitleColumnClass)];
+      List<DataTableHeading> headings = [new("", $"{ImagesColumnClass} {PinnedHeadingClass}"), new("Title", $"{TitleColumnClass} {PinnedHeadingClass}")];
 
       if (Fields.Contains(ArtworkField.DateCreated))
       {
@@ -148,7 +151,8 @@
           continue;
         }
 
-        row.SaveError = await SaveErrorOfAsync(row, () => ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
+        row.SaveError = await SaveErrorOfAsync(row, () =>
+ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
       } while (row.SaveAgain);
     }
     finally
@@ -241,16 +245,18 @@ series.Name.Value));
       .Select(term => term.Name.Value));
 }
 
-@* the right padding keeps the last column's focus outline inside the scrolling box, which clips it *@
-<div class="mb-4 overflow-x-auto pr-1">
-  <DataTable Items="Rows" Headings="Headings" Class="text-sm" FitsContent>
+@* the right padding keeps the last column's focus outline inside the scrolling box, which clips it.
+   On a touch screen the box scrolls both ways: a sideways scroll still coasting inside a box that
+   scrolls only sideways holds on to the next drag, so the page wouldn't scroll down until it stopped *@
+<div class="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
+  <DataTable Items="Rows" Headings="Headings" Class="text-sm" FitsContent StickyHeadings>
     <Row Context="row">
-      <DataTableCell Class="@($"align-top {ImagesColumnClass}")">
+      <DataTableCell Class="@($"align-top {ImagesColumnClass} {PinnedCellClass}")">
         <RowImagesCell Row="row" OnEdit="() => _imagesRow = row" />
       </DataTableCell>
 
-      <DataTableCell Class="@($"align-top {TitleColumnClass}")">
-        <input class="@($"{InputClass} w-48")" aria-label="Title" @bind="row.Form.Name"
+      <DataTableCell Class="@($"align-top {TitleColumnClass} {PinnedCellClass}")">
+        <input class="@($"{InputClass} w-24 xs:w-32 sm:w-48")" aria-label="Title" @bind="row.Form.Name"
                @bind:after="() => SaveAsync(row)" />
         <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.Name))" />
         <RowFieldError Message="@row.SaveError" />

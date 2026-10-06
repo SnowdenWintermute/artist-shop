@@ -25,6 +25,13 @@
   --color-theme-primary: var(--theme-primary);
 }
 
+/* what an iPhone shows past the page: below its end, and in the strip left uncovered once the
+   keyboard has opened (an iOS 26 bug). Safari also tints its toolbar from it. The pages' own
+   background, so neither shows as a white bar */
+html {
+  @apply bg-theme-recessed;
+}
+
 @font-face {
   font-family: "Roboto";
   src: url("/fonts/roboto/Roboto-Regular.woff2") format("woff2");
@@ -113,6 +120,17 @@
 
 .artist-shop-field-input {
   @apply border border-theme-base px-2 h-10;
+}
+
+/* an iPhone zooms in on a field smaller than 16px when it's tapped, and once zoomed a drag pans
+   the page behind an open modal, past its overflow: hidden. Touch screens only, so desktop keeps
+   the smaller text, like the artwork table's */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 .artist-shop-field-label {

@@ -36,7 +36,8 @@
 
 <DataTable Items="Sites" Headings="@(["Address", "Role", ""])" Class="mb-4">
   <Row Context="site">
-    <DataTableCell>
+    @* a long address breaks rather than widening the table past a phone's screen *@
+    <DataTableCell Class="wrap-anywhere">
       @* a site being deleted is offline, so there's nothing to link to *@
       @if (site.EraseAt is { } eraseAt)
       {
@@ -52,7 +53,7 @@
     </DataTableCell>
     <DataTableCell>@site.Role</DataTableCell>
     <DataTableCell Class="text-right">
-      <div class="flex justify-end gap-4">
+      <div class="flex flex-wrap justify-end gap-4">
         @* past its erase date it's waiting for SiteEraser, and can't be kept *@
         @if (site.Role is SiteRole.Owner && site.CanStillBeKept(TimeProvider.GetUtcNow()))
         {

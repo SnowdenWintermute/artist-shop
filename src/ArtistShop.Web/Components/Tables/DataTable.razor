@@ -19,7 +19,8 @@
   [Parameter]
   public string? RowClass { get; set; }
 
-  // for a table in its own scrolling box: the headings stay in view as the rows scroll under them
+  // for a table in its own scrolling box: the headings stay in view as the rows scroll under them.
+  // z-20, so they also stay above cells a table pins with z-10
   [Parameter]
   public bool StickyHeadings { get; set; }
 
@@ -33,7 +34,7 @@
     <tr class="text-sm text-gray-500">
       @foreach (var heading in Headings)
       {
-        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null, heading.Class)">
+        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 z-20 bg-white" : null, heading.Class)">
           @heading.Text
         </th>
       }
