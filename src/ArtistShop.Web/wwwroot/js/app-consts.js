@@ -15,3 +15,16 @@ export const lightboxPageCatchUpDelayMilliseconds = 400;
 // how long the lightbox takes to fade in, and out. PhotoSwipe only puts the full picture in once
 // the fade in has ended, so until then its stand-in shows
 export const lightboxFadeMilliseconds = 150;
+
+// how long a finger rests on something before it's picked up to drag, as a phone's own long press
+export const gestureHoldMilliseconds = 500;
+
+// how far a finger can wander while holding before it counts as scrolling instead
+export const gestureHoldTolerancePixels = 10;
+
+// how far a mouse moves with its button down before a drag begins, so a click stays a click
+export const gestureMouseDragPixels = 5;
+
+// how near the top or bottom of the window a drag scrolls the page, and how fast at the very edge
+export const dragScrollEdgePixels = 60;
+export const dragScrollMaxPixelsPerFrame = 16;

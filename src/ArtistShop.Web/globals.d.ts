@@ -28,7 +28,7 @@ declare class QuillDelta {
   ops: QuillOperation[];
   retain(length: number): this;
   delete(length: number): this;
-  insert(value: string | Record<string, unknown>): this;
+  insert(value: string | Record<string, unknown>, attributes?: Record<string, unknown>): this;
   // where index ends up once this change is applied
   transformPosition(index: number): number;
 }
@@ -96,6 +96,8 @@ declare class Quill {
   getSelection(): QuillRange | null;
   setSelection(index: number, length: number, source?: QuillSource): void;
   getIndex(blot: QuillBlot): number;
+  // the whole text's length, its final "\n" included
+  getLength(): number;
   getLine(index: number): [QuillBlot | null, number];
   getModule(name: "toolbar"): QuillToolbar;
   getModule(name: "keyboard"): { addBinding(binding: QuillKeyBinding): void };
@@ -108,7 +110,8 @@ declare class Quill {
   // each format's toolbar icon as SVG markup, or one per value, such as align's "", "center" and "right"
   static import(path: "ui/icons"): { image: string; video: string; [format: string]: string | Record<string, string> };
   static register(blot: typeof QuillBlot, overwrite?: boolean): void;
-  static find(node: Node): QuillBlot | Quill | null;
+  // with bubble, the nearest blot holding node, where node itself isn't one
+  static find(node: Node, bubble?: boolean): QuillBlot | Quill | null;
 }
 
 // wwwroot/lib/floating-ui, which PostArtworkEmbed.razor.js imports when an editor connects

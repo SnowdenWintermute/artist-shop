@@ -20,6 +20,7 @@ import { VIDEO_EMBED, addVideoEmbed, attachVideoEmbedToolbar, registerVideoEmbed
 import { VideoAddressDialog } from "./VideoAddressDialog.razor.js";
 import { attachEmbedLines, quillEmbedArrowBindingsOff } from "/js/embed-lines.js";
 import { attachEmbedSelection } from "/js/embed-selection.js";
+import { attachEmbedDrag } from "/js/embed-drag.js";
 
 // Must stay within what PostDocumentParser reads. Leaving out indent also turns off Tab-to-indent,
 // since the parser would flatten a nested list anyway
@@ -280,6 +281,7 @@ customElements.define(
       this.#labelEditingArea(input, quill, this.#listeners.signal);
       const lines = attachEmbedLines(quill, this.#listeners.signal);
       attachEmbedSelection(quill);
+      attachEmbedDrag(quill, this.#listeners.signal);
       attachArtworkEmbedToolbar(quill, artworkToolbar, picker, lines, this.#listeners.signal);
       attachPostImageEmbedToolbar(quill, imageToolbar, imagePicker, imageUploads, lines, this.#listeners.signal);
       attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), lines, this.#listeners.signal);
