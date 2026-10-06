@@ -58,7 +58,8 @@
   }
 
   private async Task ReloadVocabulariesAsync() =>
-    _vocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkTypeId));
+    _vocabularies = VocabularyOrder.SortedByName(await
+VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkTypeId));
 
   private async Task ReloadOptionsAsync()
   {
@@ -86,7 +87,8 @@
   private static List<(int Value, string Label)> TermOptions(VocabularyWithTerms vocabulary) =>
     [.. vocabulary.Terms.Select(term => (term.Id.Value, term.Name.Value))];
 
-  private List<(int Value, string Label)> SeriesOptions => [.. _series.Select(series => (series.Id.Value, series.Name.Value))];
+  private List<(int Value, string Label)> SeriesOptions => [.. _series.Select(series => (series.Id.Value,
+series.Name.Value))];
 
   private static void Toggle(HashSet<int> selected, int value)
   {
@@ -99,6 +101,15 @@
 
 <DisabledUntilInteractive>
   <TabReturnWatcher OnTabReturn="ReloadOptionsAsync" />
+
+  <CheckboxGroupField Legend="Series" Name="Input.SeriesIds" Options="SeriesOptions" SelectedValues="_selectedSeriesIds"
+                      OnToggle="value => Toggle(_selectedSeriesIds, value)">
+    <EmptyContent>No series yet.</EmptyContent>
+  </CheckboxGroupField>
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 " @onclick="() => _addSeriesDialogOpen = true">
+    New series
+  </ButtonBasic>
+  <AddSeriesDialog @bind-Open="_addSeriesDialogOpen" OnAdded="SeriesAddedAsync" />
 
   @if (_vocabularies.Count == 0)
   {
@@ -114,22 +125,13 @@
     </CheckboxGroupField>
   }
 
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 text-sm" @onclick="() => _vocabularyDialogOpen = true">
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" @onclick="() => _vocabularyDialogOpen = true">
     Add vocabularies or terms
   </ButtonBasic>
   @if (_vocabularyDialogOpen)
   {
     <VocabularyChoiceDialog ArtworkName="@null" ArtworkTypeId="ArtworkTypeId" Vocabularies="_vocabularies"
-                            SelectedTermIds="[.. _selectedTermIds]" OnOk="VocabularyOk"
-                            OnClose="() => _vocabularyDialogOpen = false" OnVocabulariesChanged="ReloadVocabulariesAsync" />
+                            SelectedTermIds="[.. _selectedTermIds]" OnOk="VocabularyOk" OnClose="() => _vocabularyDialogOpen = false"
+                            OnVocabulariesChanged="ReloadVocabulariesAsync" />
   }
-
-  <CheckboxGroupField Legend="Series" Name="Input.SeriesIds" Options="SeriesOptions" SelectedValues="_selectedSeriesIds"
-                      OnToggle="value => Toggle(_selectedSeriesIds, value)">
-    <EmptyContent>No series yet.</EmptyContent>
-  </CheckboxGroupField>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 text-sm" @onclick="() => _addSeriesDialogOpen = true">
-    New series
-  </ButtonBasic>
-  <AddSeriesDialog @bind-Open="_addSeriesDialogOpen" OnAdded="SeriesAddedAsync" />
 </DisabledUntilInteractive>

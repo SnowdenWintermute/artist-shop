@@ -39,6 +39,13 @@ public static class PageUrls
 
     public const string ArtworkTypeImport = "/admin/catalog/types/import";
 
+    // where the admin's Vocabularies links land, as it lists the vocabularies not linked to a type
+    public const string NewVocabulary = "/admin/catalog/vocabularies/new";
+
+    public static string EditVocabulary(VocabularyId id) => $"/admin/catalog/vocabularies/{id.Value}/edit";
+
+    public static string VocabularyTerms(VocabularyId id) => $"/admin/catalog/vocabularies/{id.Value}";
+
     public const string VocabularyImport = "/admin/catalog/vocabularies/import";
 
     public static string EditArtwork(ArtworkId id) => $"/admin/catalog/artworks/{id.Value}/edit";

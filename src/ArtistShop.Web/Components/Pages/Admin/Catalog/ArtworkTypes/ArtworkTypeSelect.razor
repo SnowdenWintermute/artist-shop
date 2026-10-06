@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
 @inject RememberedArtworkType RememberedArtworkType
+@inject ILogger<ArtworkTypeSelect> Logger
 
 @* For an island with no form. SelectField builds on InputSelect, which needs an EditContext. Each
    choice is saved for the other artwork type selects to start at; the island reads it back itself *@
@@ -22,12 +23,23 @@
   {
     int? value = int.TryParse(change.Value?.ToString(), out var typeId) ? typeId : null;
 
-    if (value is int chosen)
+    await ValueChanged.InvokeAsync(value);
+
+    if (value is not int chosen)
+    {
+      return;
+    }
+
+    // only a convenience, like RememberedSelect's save, so a failure costs the next page its
+    // starting type and nothing more
+    try
     {
       await RememberedArtworkType.SetAsync(new ArtworkTypeId(chosen));
     }
-
-    await ValueChanged.InvokeAsync(value);
+    catch (Exception exception)
+    {
+      Logger.LogWarning(exception, "Couldn't save the chosen artwork type");
+    }
   }
 }
 

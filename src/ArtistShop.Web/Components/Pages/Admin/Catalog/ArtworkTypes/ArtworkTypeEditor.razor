@@ -44,7 +44,7 @@ else
 {
   <h1 class="mb-4 text-xl">@(_loaded is null ? "New artwork type" : $"Edit {_loaded.ArtworkType.Name.Value}")</h1>
   <p class="mb-4 text-sm text-gray-500">
-    Choose which <a class="underline" href="/admin/catalog/vocabularies/new">vocabularies</a> apply to a type on each
+    Choose which <a class="underline" href="@PageUrls.NewVocabulary">vocabularies</a> apply to a type on each
     vocabulary's page.
   </p>
 

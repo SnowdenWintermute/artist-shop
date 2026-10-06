@@ -63,7 +63,7 @@
       if (Loaded is null)
       {
         var id = await VocabularyRepository.AddAsync(name, _form.ArtworkTypeIds);
-        NavigationManager.NavigateTo($"/admin/catalog/vocabularies/{id.Value}/edit");
+        NavigationManager.NavigateTo(PageUrls.EditVocabulary(id));
         return;
       }
 
@@ -94,7 +94,7 @@
     try
     {
       await VocabularyRepository.DeleteAsync(loaded.Vocabulary.Id);
-      NavigationManager.NavigateTo("/admin/catalog/vocabularies/new");
+      NavigationManager.NavigateTo(PageUrls.NewVocabulary);
     }
     finally
     {

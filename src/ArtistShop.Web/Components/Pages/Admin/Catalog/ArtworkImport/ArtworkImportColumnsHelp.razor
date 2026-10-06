@@ -11,80 +11,88 @@
   private bool Has(ArtworkField field) => ArtworkType.Fields.Contains(field);
 }
 
-<Disclosure Class="mb-4 text-sm">
-  <Summary>Columns the file can have</Summary>
-  <ChildContent>
-    <p class="mb-2">
-      The first row names the columns, in any order and with any capitals. Only a title column is needed.
-    </p>
+<Notice>
+  <p class="mb-2">Upload your existing spreadsheet of artworks and their associated data. If you don't have such a
+    spreadsheet, <a class="underline" href="@PageUrls.AddArtworksFromImages">add artworks from images
+    directly</a></p>
+    <Disclosure Class="">
+      <Summary>Columns the spreadsheet .csv file can have</Summary>
+      <ChildContent>
+        <p class="mb-2">
+          The first row names the columns, in any order and with any capitals. Only a title column is needed.
+        </p>
 
-    <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-      <dt class="font-mono">@ArtworkImportHeaders.Title</dt>
-      <dd>
-        Every row needs one. A title already in the catalog, or on two rows of the file, is skipped,
-        unless those rows each have their own slug.
-      </dd>
+        <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
+          <dt class="font-mono">@ArtworkImportHeaders.Title</dt>
+          <dd>
+            Every row needs one. A title already in the catalog, or on two rows of the file, is skipped,
+            unless those rows each have their own slug.
+          </dd>
 
-      <dt class="font-mono">@ArtworkImportHeaders.Slug</dt>
-      <dd>
-        The artwork's web address name, like "dawn-2": lower case letters, numbers and dashes. It tells
-        apart artworks that share a title. Without one, the address comes from the title.
-      </dd>
+          <dt class="font-mono">@ArtworkImportHeaders.Slug</dt>
+          <dd>
+            The artwork's web address name, like "dawn-2": lower case letters, numbers and dashes. It tells
+            apart artworks that share a title. Without one, the address comes from the title.
+          </dd>
 
-      <dt class="font-mono">@ArtworkImportHeaders.Description</dt>
-      <dd>Any text.</dd>
+          <dt class="font-mono">@ArtworkImportHeaders.Description</dt>
+          <dd>Any text.</dd>
 
-      @if (Has(ArtworkField.DateCreated))
-      {
-        <dt class="font-mono">@ArtworkImportHeaders.DateCreated</dt>
-        <dd>yyyy, yyyy-MM or yyyy-MM-dd. Blank or 0 when unknown.</dd>
-      }
-
-      @if (Has(ArtworkField.HeightAndWidth))
-      {
-        <dt class="font-mono">@ArtworkImportHeaders.Height, @ArtworkImportHeaders.Width</dt>
-        <dd>Both or neither, in the unit chosen below.</dd>
-      }
-
-      @if (Has(ArtworkField.Depth))
-      {
-        <dt class="font-mono">@ArtworkImportHeaders.Depth</dt>
-        <dd>Only with a height and width.</dd>
-      }
-
-      @if (Has(ArtworkField.Duration))
-      {
-        <dt class="font-mono">@ArtworkImportHeaders.Duration</dt>
-        <dd>h:mm:ss or m:ss.</dd>
-      }
-
-      <dt class="font-mono">@ArtworkImportHeaders.Series</dt>
-      <dd>Series names, separated by the list separator. A name that isn't a series yet is created, and the review lists the new ones before anything is imported.</dd>
-
-      <dt class="font-mono">@ArtworkImportHeaders.Price</dt>
-      <dd>Digits and a decimal point, no currency sign. A row with no price isn't for sale.</dd>
-
-      <dt class="font-mono">@ArtworkImportHeaders.Sold</dt>
-      <dd>One of a kind only: TRUE, FALSE or blank. A sold row may have no price.</dd>
-
-      <dt class="font-mono">@ArtworkImportHeaders.EditionSize</dt>
-      <dd>Not one of a kind: how many were made. Blank for an edition that can always be restocked.</dd>
-
-      <dt class="font-mono">@ArtworkImportHeaders.Stock</dt>
-      <dd>Not one of a kind: how many are left, no more than the edition size.</dd>
-
-      @foreach (var vocabulary in TypeVocabularies)
-      {
-        var header = ArtworkImportHeaders.ForVocabulary(vocabulary.Name.Value);
-        <dt class="font-mono">@header</dt>
-        <dd>
-          Names of existing terms, separated by the list separator.
-          @if (header != vocabulary.Name.Value)
+          @if (Has(ArtworkField.DateCreated))
           {
-            <text>Starts with @ArtworkImportHeaders.VocabularyPrefix, since @vocabulary.Name.Value alone is one of the columns above.</text>
+            <dt class="font-mono">@ArtworkImportHeaders.DateCreated</dt>
+            <dd>yyyy, yyyy-MM or yyyy-MM-dd. Blank or 0 when unknown.</dd>
           }
-        </dd>
-      }
-    </dl>
-  </ChildContent>
-</Disclosure>
+
+          @if (Has(ArtworkField.HeightAndWidth))
+          {
+            <dt class="font-mono">@ArtworkImportHeaders.Height, @ArtworkImportHeaders.Width</dt>
+            <dd>Both or neither, in the unit chosen below.</dd>
+          }
+
+          @if (Has(ArtworkField.Depth))
+          {
+            <dt class="font-mono">@ArtworkImportHeaders.Depth</dt>
+            <dd>Only with a height and width.</dd>
+          }
+
+          @if (Has(ArtworkField.Duration))
+          {
+            <dt class="font-mono">@ArtworkImportHeaders.Duration</dt>
+            <dd>h:mm:ss or m:ss.</dd>
+          }
+
+          <dt class="font-mono">@ArtworkImportHeaders.Series</dt>
+          <dd>Series names, separated by the list separator. A name that isn't a series yet is created, and the review
+            lists
+            the new ones before anything is imported.</dd>
+
+            <dt class="font-mono">@ArtworkImportHeaders.Price</dt>
+            <dd>Digits and a decimal point, no currency sign. A row with no price isn't for sale.</dd>
+
+            <dt class="font-mono">@ArtworkImportHeaders.Sold</dt>
+            <dd>One of a kind only: TRUE, FALSE or blank. A sold row may have no price.</dd>
+
+            <dt class="font-mono">@ArtworkImportHeaders.EditionSize</dt>
+            <dd>Not one of a kind: how many were made. Blank for an edition that can always be restocked.</dd>
+
+            <dt class="font-mono">@ArtworkImportHeaders.Stock</dt>
+            <dd>Not one of a kind: how many are left, no more than the edition size.</dd>
+
+            @foreach (var vocabulary in TypeVocabularies)
+            {
+              var header = ArtworkImportHeaders.ForVocabulary(vocabulary.Name.Value);
+              <dt class="font-mono">@header</dt>
+              <dd>
+                Names of existing terms, separated by the list separator.
+                @if (header != vocabulary.Name.Value)
+                {
+                  <text>Starts with @ArtworkImportHeaders.VocabularyPrefix, since @vocabulary.Name.Value alone is one of the
+                    columns above.</text>
+                  }
+                </dd>
+              }
+            </dl>
+          </ChildContent>
+        </Disclosure>
+      </Notice>

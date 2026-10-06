@@ -9,14 +9,11 @@
 
 <AdminPanel>
   <h1 class="mb-4 text-xl">Import into your website</h1>
-  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <h2 class="mb-1 text-lg">Move a whole website</h2>
-      <p class="text-sm">
-        The unzipped folder from Download everything on the other website's Export page: its catalog, images and posts
-        in one go.
-      </p>
-    </div>
+  <div class="mb-6">
+    <h2 class="mb-1 text-lg">All at once:</h2>
+    <p class="mb-2">
+      Upload the full site folder exported from another Picture Cord website. It must be unzipped.
+    </p>
     <LinkButton href="@PageUrls.WebsiteImport" Variant="ButtonVariant.Primary">
       <IconLabel Icon="folder-open">Import</IconLabel>
     </LinkButton>
@@ -24,38 +21,35 @@
 
   <Divider Class="mb-6" />
 
-  <h2 class="mb-1 text-lg">One piece at a time</h2>
-  <p class="mb-6 text-sm">
-    For a new website's first artworks and images, or to fill in what a move left out. Import in this order, from the
-    separate downloads on the other website's Export page. Every import only adds: something that already exists is
-    skipped.
+  <h2 class="mb-1 text-lg">Step by step:</h2>
+  <p class="mb-6">
+    If you need finer control over imports you can do them one step at a time. Some steps depend on previous steps.
+    Imports are only additive. Entries already existing are skipped.
   </p>
 
   <div class="flex flex-col gap-6">
     <ImportStep Title="1. Artwork types" Href="@PageUrls.ArtworkTypeImport" Icon="csv" ButtonLabel="Import">
-      Each artwork type and its fields, from <code>@CatalogExportArchive.ArtworkTypesFileName</code> in the catalog
+      Each artwork type and its fields, from <span>@CatalogExportArchive.ArtworkTypesFileName</span> in the catalog
       download.
     </ImportStep>
 
     <ImportStep Title="2. Vocabularies" Href="@PageUrls.VocabularyImport" Icon="csv" ButtonLabel="Import">
-      Each vocabulary and its terms, from <code>@CatalogExportArchive.VocabulariesFileName</code>, after the artwork
+      Each vocabulary and its terms, from <span>@CatalogExportArchive.VocabulariesFileName</span>, and the artwork
       types they apply to.
     </ImportStep>
 
     <ImportStep Title="3. Artworks" Href="@PageUrls.ArtworkImport" Icon="csv" ButtonLabel="Import">
-      Each file in the catalog download's <code>@CatalogExportArchive.ArtworksFolder</code> folder, one artwork type at
-      a time.
+      Each file in the catalog download's <span>@CatalogExportArchive.ArtworksFolder</span> folder. Every artwork type
+      gets its own .csv file.
     </ImportStep>
 
     <ImportStep Title="4. Images" Href="@PageUrls.ArtworkBulkImageUpload(typeId: null)" Icon="folder-open"
                 ButtonLabel="Upload">
-      An artwork type's folder from the image download. Each image goes to the artwork with its title, and an
-      artwork's other images, named (2), (3) and so on, go after it.
+      Image files whose names match existing artworks in the catalog.
     </ImportStep>
 
     <ImportStep Title="5. Posts" Href="@PageUrls.PostImport" Icon="folder-open" ButtonLabel="Import">
-      The whole post download, unzipped. Artwork pictures in posts link to their artworks again when the artworks and
-      their images are here.
+      Upload the blog posts last because they may link to artworks uploaded in previous steps.
     </ImportStep>
   </div>
 </AdminPanel>

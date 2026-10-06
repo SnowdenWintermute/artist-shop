@@ -1,5 +1,7 @@
 @page "/admin/catalog/types/import"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Sites
@@ -19,6 +21,8 @@
 
   protected override async Task OnInitializedAsync() => _fields = await ArtworkFieldRepository.GetAllAsync();
 
+  private string FieldName(ArtworkField field) => _fields.First(definition => definition.Field == field).Name;
+
   private async Task<ArtworkTypeImportPlan> PlanAsync(string csvText, char listSeparator) =>
     ArtworkTypeImportPlanner.Plan(
       csvText,
@@ -35,18 +39,37 @@
   <AdminPanel>
     <h1 class="mb-4 text-xl">Import artwork types from a spreadsheet</h1>
 
-    <CatalogImportPanel TPlan="ArtworkTypeImportPlan" ImportUrl="@PageUrls.ArtworkTypeImport" ImportedCount="ImportedCount"
-                        Singular="artwork type" Plural="artwork types" PlanAsync="PlanAsync" ApplyAsync="ApplyAsync">
+    <CatalogImportPanel TPlan="ArtworkTypeImportPlan" ImportUrl="@PageUrls.ArtworkTypeImport"
+                        ImportedCount="ImportedCount" Singular="artwork type" Plural="artwork types" PlanAsync="PlanAsync"
+                        ApplyAsync="ApplyAsync">
       <ColumnsHelp>
-        <p class="mb-4 text-sm">
-          One row per type. Columns: <code>@ArtworkTypeImportHeaders.ArtworkType</code>, the type's name, and
-          <code>@ArtworkTypeImportHeaders.Fields</code>, the fields it has, from
-          @string.Join(", ", _fields.Select(field => field.Name)). A type that already exists is skipped, so its fields don't change.
-        </p>
-      </ColumnsHelp>
-      <Review Context="plan">
-        <ArtworkTypeImportReview Plan="plan" Fields="_fields" />
-      </Review>
-    </CatalogImportPanel>
-  </AdminPanel>
-</main>
+        <Notice>
+          <p class="mb-2">
+            To add one type at a time, <a class="underline" href="@PageUrls.NewArtworkType">create an artwork type</a>
+            instead.
+          </p>
+          <p class="mb-2">Columns the spreadsheet .csv file can have:</p>
+          <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
+            <dt class="font-mono">@ArtworkTypeImportHeaders.ArtworkType</dt>
+            <dd>
+              The type's name, at most @ArtistShopLimits.ArtworkTypeNameMaximumLength characters.</dd>
+
+              <dt class="font-mono">@ArtworkTypeImportHeaders.Fields</dt>
+              <dd>
+                Which fields the type has, separated by the list separator. Options are
+                <span class="font-bold"> @string.Join(", ", _fields.Select(field => field.Name))</span>.
+                @foreach (var field in _fields.Where(field => field.HasRequirement))
+                {
+                  <text> <span class="font-bold">@field.Name</span> requires <span
+                    class="font-bold">@FieldName(field.RequiredField)</span>.</text>
+                  }
+                </dd>
+              </dl>
+            </Notice>
+          </ColumnsHelp>
+          <Review Context="plan">
+            <ArtworkTypeImportReview Plan="plan" Fields="_fields" />
+          </Review>
+        </CatalogImportPanel>
+      </AdminPanel>
+    </main>

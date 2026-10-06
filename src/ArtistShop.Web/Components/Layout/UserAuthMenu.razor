@@ -23,8 +23,7 @@
     else
     {
       <Divider Class="my-6 md:hidden md:group-data-collapsed:block" />
-      <AccountLinks Email="@(context.User.Identity?.Name ?? throw new InvalidOperationException("A signed-in account has no name."))"
-                    Class="flex flex-col items-start gap-4" />
+      <AccountLinks Email="@(context.User.Identity?.Name ?? throw new InvalidOperationException("A signed-in account has no name."))" />
     }
   </Authorized>
   <NotAuthorized>

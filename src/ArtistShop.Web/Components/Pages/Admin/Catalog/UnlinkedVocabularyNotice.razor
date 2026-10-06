@@ -1,0 +1,16 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public VocabularyName Name { get; set; } = default!;
+
+  // what to do about it, which differs by page
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<Notice>
+  @Name.Value isn't linked to any artwork type yet, so it doesn't show on any artwork's form.
+  @ChildContent
+</Notice>

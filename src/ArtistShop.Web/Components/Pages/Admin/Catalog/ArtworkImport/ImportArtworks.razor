@@ -9,7 +9,6 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Commerce
-@using ArtistShop.Web.Domain.Sites
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
@@ -47,9 +46,6 @@
   private ArtworkImportPlan? _plan;
   private bool _catalogChangedSinceReview;
   private bool _reviewLost;
-
-  private List<(string Value, string Label)> TypeOptions =>
-    [.. _artworkTypes.Select(type => (RememberedArtworkType.ValueOf(type.Id), type.Name.Value))];
 
   private static string ConfirmFieldName(string property) => $"{nameof(Confirm)}.{property}";
 
@@ -189,9 +185,7 @@
 
     @* the type decides which columns and fields the page asks for *@
     <ArtworkTypeQueryForm>
-      <RememberedSelect Name="type" InputName="@RememberedInputs.ArtworkType" Options="TypeOptions"
-                        Value="@(_type is null ? null : RememberedArtworkType.ValueOf(_type.Id))" Placeholder="Choose a type"
-                        Class="artist-shop-field-input" />
+      <RememberedArtworkTypeSelect Name="type" ArtworkTypes="_artworkTypes" Value="_type?.Id" Placeholder="Choose a type" />
     </ArtworkTypeQueryForm>
 
     @if (_type is not null)

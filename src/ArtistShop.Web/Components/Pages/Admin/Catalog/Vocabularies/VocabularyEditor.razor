@@ -44,48 +44,61 @@
   }
 }
 
-<PageTitle>@(_loaded is null ? "New vocabulary" : _loaded.Vocabulary.Name.Value)</PageTitle>
 
-@if (Id is not null && _loaded is null)
+@* only on the new vocabulary page, which is where the admin's Vocabularies links land *@
+@if (Id is null)
 {
-  <p>This vocabulary doesn't exist. It may have been deleted.</p>
-}
-else
-{
-  <div class="mb-4 flex items-baseline justify-between">
-    <h1 class="text-xl">@(_loaded is null ? "New vocabulary" : $"Edit {_loaded.Vocabulary.Name.Value}")</h1>
-    @if (_loaded is not null)
+  <Notice>
+    <p>Controlled
+      vocabularies provide a way
+      to associate
+      your artworks with a defined list of terms. For example, a painting could have a vocabulary called "Support" whose
+      terms could be "Canvas", "Paper" or "Stone Slab".</p>
+
+    </Notice>
+  }
+
+  <PageTitle>@(_loaded is null ? "New vocabulary" : _loaded.Vocabulary.Name.Value)</PageTitle>
+
+  @if (Id is not null && _loaded is null)
+  {
+    <p>This vocabulary doesn't exist. It may have been deleted.</p>
+  }
+  else
+  {
+    <div class="mb-4 flex items-baseline justify-between">
+      <h1 class="text-xl">@(_loaded is null ? "New vocabulary" : $"Edit {_loaded.Vocabulary.Name.Value}")</h1>
+      @if (_loaded is not null)
+      {
+        <a href="@PageUrls.VocabularyTerms(_loaded.Vocabulary.Id)">Edit associated terms</a>
+      }
+    </div>
+
+    @if (_unlinkedVocabularies.Count > 0)
     {
-      <a href="@($"/admin/catalog/vocabularies/{Id}")">Edit associated terms</a>
+      <Notice>
+        <p class="mb-2">
+          @(_unlinkedVocabularies.Count is 1 ? "This vocabulary isn't" : "These vocabularies aren't") linked to any
+          artwork type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show on any artwork's form.
+        </p>
+        <ul class="list-disc pl-5">
+          @foreach (var vocabulary in _unlinkedVocabularies)
+          {
+            <li @key="vocabulary.Id.Value">
+              <a href="@PageUrls.EditVocabulary(vocabulary.Id)" class="underline">@vocabulary.Name.Value</a>
+            </li>
+          }
+        </ul>
+      </Notice>
     }
-  </div>
 
-  @if (_unlinkedVocabularies.Count > 0)
-  {
-    <Notice>
-      <p class="mb-2">
-        @(_unlinkedVocabularies.Count is 1 ? "This vocabulary isn't" : "These vocabularies aren't") linked to any
-        artwork type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show on any artwork's form.
-      </p>
-      <ul class="list-disc pl-5">
-        @foreach (var vocabulary in _unlinkedVocabularies)
-        {
-          <li @key="vocabulary.Id.Value">
-            <a href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}/edit")" class="underline">@vocabulary.Name.Value</a>
-          </li>
-        }
-      </ul>
-    </Notice>
+    @if (_loaded is { Vocabulary.ArtworkTypeIds.Count: 0 })
+    {
+      <UnlinkedVocabularyNotice Name="_loaded.Vocabulary.Name">
+        Check the types it applies to below and save.
+      </UnlinkedVocabularyNotice>
+    }
+
+    @* @key: a different vocabulary gets a fresh island rather than inheriting this one's state *@
+    <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" ArtworkTypes="_artworkTypes" Loaded="_loaded" />
   }
-
-  @if (_loaded is { Vocabulary.ArtworkTypeIds.Count: 0 })
-  {
-    <Notice>
-      @_loaded.Vocabulary.Name.Value isn't linked to any artwork type yet, so it doesn't show on any artwork's form.
-      Check the types it applies to below and save.
-    </Notice>
-  }
-
-  @* @key: a different vocabulary gets a fresh island rather than inheriting this one's state *@
-  <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" ArtworkTypes="_artworkTypes" Loaded="_loaded" />
-}

@@ -1,6 +1,17 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
-## Remembered artwork type everywhere, 2026-10-05 (From Claude)
+## Review of de4c060 and 0d425f0, 2026-10-05 (From Claude)
+
+Uncommitted, not browser-checked, 921 tests pass. `SiteDeletionTests.MyWebsitesSaysHowToDownloadAWebsiteBeingDeleted`
+deleted, as 0d425f0 removed that notice. `Divider.Class` is optional. New `RememberedArtworkTypeSelect` (Add one, Import,
+the table filter), `UnlinkedVocabularyNotice`, and `PageUrls.NewVocabulary` / `EditVocabulary` / `VocabularyTerms`
+in place of every hardcoded vocabulary address. `ArtworkTypeSelect` changes the value first and only logs a failed
+save. The dashboard's artwork list holds only `<li>`s. `AccountLinks` lost its `Class` parameter.
+Later: the new vocabulary page alone shows Mike's controlled-vocabularies notice, and Import artwork types
+and Import vocabularies list their columns in a Notice and disclosure like the artwork import's
+(Mike's layout); the vocabulary one names the existing artwork types.
+
+## Remembered artwork type everywhere, 2026-10-05 (From Claude), committed by Mike as de4c060
 
 Uncommitted, 922 tests pass, not browser-checked. Add from images' type select was inside the
 fieldset that stays disabled until a type is chosen, so with no `?type=` it couldn't be clicked; it

@@ -1,9 +1,8 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
 @using ArtistShop.Web.Domain.Catalog
-@using ArtistShop.Web.Domain.Sites
-@using ArtistShop.Web.Sites
 
 @code {
   [Parameter, EditorRequired]
@@ -38,12 +37,6 @@
   private List<(int Value, string Label)> TypeOptions =>
     [.. Types.Select(type => (type.Id.Value, type.Name.Value))];
 
-  private List<(string Value, string Label)> SingleTypeOptions =>
-    [.. Types.Select(type => (RememberedArtworkType.ValueOf(type.Id), type.Name.Value))];
-
-  private string? SingleTypeValue =>
-    Filter.ArtworkTypeIds.FirstOrDefault() is { } id ? RememberedArtworkType.ValueOf(id) : null;
-
   private HashSet<int> SelectedTypeIds => [.. Filter.ArtworkTypeIds.Select(id => id.Value)];
 
   private static List<(int Value, string Label)> TermOptions(VocabularyWithTerms vocabulary) =>
@@ -69,8 +62,8 @@
         <label>
           <span class="artist-shop-field-label">Work type</span>
           @* the browser has already settled on one type, so the address names it *@
-          <RememberedSelect Name="@ArtworkListQuery.TypeKey" InputName="@RememberedInputs.ArtworkType"
-                            Options="SingleTypeOptions" Value="@SingleTypeValue" Class="artist-shop-field-input" />
+          <RememberedArtworkTypeSelect Name="@ArtworkListQuery.TypeKey" ArtworkTypes="Types"
+                                       Value="Filter.ArtworkTypeIds.FirstOrDefault()" />
         </label>
       }
 

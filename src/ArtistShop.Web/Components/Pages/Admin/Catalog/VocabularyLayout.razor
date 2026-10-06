@@ -16,12 +16,12 @@
 
 <AdminPanel>
   <SectionNav>
-    <NavLink href="/admin/catalog/vocabularies/new" ActiveClass="underline">+ New vocabulary</NavLink>
+    <NavLink href="@PageUrls.NewVocabulary" ActiveClass="underline">+ New vocabulary</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var vocabulary in _vocabularies)
     {
-      <SectionNavLink href="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}/edit")"
-                      ActivePath="@($"/admin/catalog/vocabularies/{vocabulary.Id.Value}")" ActiveClass="underline">
+      <SectionNavLink href="@PageUrls.EditVocabulary(vocabulary.Id)"
+                      ActivePath="@PageUrls.VocabularyTerms(vocabulary.Id)" ActiveClass="underline">
         @vocabulary.Name.Value
       </SectionNavLink>
     }

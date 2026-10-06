@@ -9,10 +9,6 @@
   [Parameter, EditorRequired]
   public string Email { get; set; } = default!;
 
-  // their layout, which differs by where they sit
-  [Parameter, EditorRequired]
-  public string Class { get; set; } = default!;
-
   // the account page is the platform's, whichever host this is
   private string AccountUrl =>
     CurrentHost is CurrentHost.Site ? PageUrls.PlatformAccount(NavigationManager.BaseUri, PlatformSettings.Host) :
@@ -20,7 +16,7 @@ PageUrls.AccountPage;
 }
 
 @* the signed-in account's links, in the nav drawer *@
-<div class="@Class">
+<div class="flex flex-col items-start gap-4">
   <p class="truncate text-sm text-theme-muted" title="@Email">@Email</p>
   <a href="@AccountUrl" class="hover:underline">Manage account</a>
   <form action="Account/Logout" method="post">

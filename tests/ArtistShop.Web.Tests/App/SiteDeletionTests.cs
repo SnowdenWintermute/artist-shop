@@ -62,18 +62,6 @@ public sealed class SiteDeletionTests(TestApp app)
         Assert.Contains($"http://{site.Host}/admin/export", await ReadAsync(await OwnerClientAsync(site), DeletePath(site)));
     }
 
-    [Fact]
-    public async Task MyWebsitesSaysHowToDownloadAWebsiteBeingDeleted()
-    {
-        var site = await app.MakeSiteAsync();
-        var client = await OwnerClientAsync(site);
-        const string howTo = "To download one, keep it";
-
-        Assert.DoesNotContain(howTo, await ReadAsync(client, "/sites"));
-        await DeleteAsync(client, site, site.Host);
-        Assert.Contains(howTo, await ReadAsync(client, "/sites"));
-    }
-
     // the delete page is on the platform; an admin can't delete, so isn't shown it
     [Fact]
     public async Task TheDashboardLinksOnlyTheOwnerToTheDeletePage()

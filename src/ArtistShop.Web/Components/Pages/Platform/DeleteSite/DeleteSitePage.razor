@@ -67,14 +67,16 @@
   <AdminPanel>
     <h1 class="mb-4 text-xl">Delete @site.MainHost.Value</h1>
     <p class="mb-4">
-      It goes offline now for everyone, admins included. On
-      <LocalDate Moment="SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /> it's erased with all its artworks, posts
-      and images. Until then you can keep it from <a class="underline" href="@PageUrls.MySites">My websites</a>.
+      You may wish to
+      <a class="underline" href="@PageUrls.SiteExport(NavigationManager.BaseUri, site.MainHost)">export your website</a>
+      before deleting it. You can
+      import them into another website later.
     </p>
     <p class="mb-4">
-      Want a copy first? Download its catalog, images and posts from its
-      <a class="underline" href="@PageUrls.SiteExport(NavigationManager.BaseUri, site.MainHost)">Export page</a>. You can
-      import them into another website. Once it's deleted, the Export page goes offline with it.
+      The site will go offline. On
+      <LocalDate Moment="SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" /> all data will be erased with all its artworks,
+      posts
+      and images. Until then you can keep it from <a class="underline" href="@PageUrls.MySites">My websites</a>.
     </p>
 
     <EditForm EditContext="Input.EditContext" FormName="delete-site" OnValidSubmit="() => DeleteAsync(site)" Enhance
