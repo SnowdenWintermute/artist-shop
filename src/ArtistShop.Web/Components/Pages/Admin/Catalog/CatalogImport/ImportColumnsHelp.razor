@@ -1,0 +1,45 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* an import page's help: what else the admin could do, then the columns the file can have, as ImportColumns *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment Intro { get; set; } = default!;
+
+  // what holds for every column, before the list
+  [Parameter]
+  public RenderFragment? Note { get; set; }
+
+  [Parameter, EditorRequired]
+  public RenderFragment Columns { get; set; } = default!;
+
+  // a long list starts closed behind a summary, so it doesn't push the upload down the page
+  [Parameter]
+  public bool Collapsed { get; set; }
+
+  private const string Heading = "Columns the spreadsheet .csv file can have";
+
+  private RenderFragment ColumnList => @<text>
+    @if (Note is not null)
+    {
+      <p class="mb-2">@Note</p>
+    }
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">@Columns</dl>
+  </text>;
+}
+
+<Notice>
+  <p class="mb-2">@Intro</p>
+  @if (Collapsed)
+  {
+    <Disclosure>
+      <Summary>@Heading</Summary>
+      <ChildContent>@ColumnList</ChildContent>
+    </Disclosure>
+  }
+  else
+  {
+    <p class="mb-2">@Heading:</p>
+    @ColumnList
+  }
+</Notice>

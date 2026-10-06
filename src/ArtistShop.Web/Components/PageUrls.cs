@@ -16,6 +16,9 @@ public static class PageUrls
     public static string Series(SeriesSlug slug) => $"/series/{slug.Value}";
 
     public const string ArtworkList = "/admin/catalog/artworks";
+
+    public static string ArtworkListOfType(ArtworkTypeId typeId) =>
+        WithQuery(ArtworkList, (ArtworkListQuery.TypeKey, typeId.Value.ToString(CultureInfo.InvariantCulture)));
     // with no type, the one its admin last chose, else the page asks for one
     public static string ArtworkBulkImageUpload(ArtworkTypeId? typeId) =>
         WithQuery(
@@ -36,6 +39,8 @@ public static class PageUrls
     public const string ArtworkTable = "/admin/catalog/artworks/table";
 
     public const string NewArtworkType = "/admin/catalog/types/new";
+
+    public static string EditArtworkType(ArtworkTypeId id) => $"/admin/catalog/types/{id.Value}/edit";
 
     public const string ArtworkTypeImport = "/admin/catalog/types/import";
 

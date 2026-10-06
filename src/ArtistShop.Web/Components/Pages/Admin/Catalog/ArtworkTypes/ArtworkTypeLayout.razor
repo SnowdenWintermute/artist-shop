@@ -20,8 +20,8 @@
     <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var artworkType in _artworkTypes)
     {
-      <SectionNavLink href="@($"/admin/catalog/types/{artworkType.Id.Value}/edit")"
-                      ActivePath="@($"/admin/catalog/types/{artworkType.Id.Value}")" ActiveClass="underline">
+      <SectionNavLink href="@PageUrls.EditArtworkType(artworkType.Id)"
+                      ActivePath="@PageUrls.EditArtworkType(artworkType.Id)" ActiveClass="underline">
         @artworkType.Name.Value
       </SectionNavLink>
     }

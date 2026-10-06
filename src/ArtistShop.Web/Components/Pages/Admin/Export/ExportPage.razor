@@ -1,7 +1,6 @@
 @page "/admin/export"
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Exports
 @using ArtistShop.Web.Images
@@ -22,7 +21,7 @@
     Only one image or post download can run at a time.
   </p>
 
-  <div class="mb-6 flex flex-col items-start justify-between gap-4">
+  <div class="mb-6">
     @* no download attribute, as for the images below *@
     <LinkButton Variant="ButtonVariant.Primary" href="@ExportEndpoints.EverythingPath" data-enhance-nav="false">
       Download all site data
@@ -32,10 +31,10 @@
   <Divider Class="mb-6" />
 
   <p class="mb-4">
-    The full download may be large. You may wish download each step individually.
+    The full download may be large. You may wish to download each step individually.
   </p>
 
-  <div class="mb-6 ">
+  <div class="mb-6">
     <div class="mb-2">
       <h2 class="mb-1 text-lg">Artworks and products</h2>
       <p class="text-sm">
@@ -97,7 +96,7 @@
       </div>
 
       <Divider Class="my-2" />
-      <h3 class="">Download images by type and series</h3>
+      <h3>Download images by type and series</h3>
       <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download a series' images</p>
 
       <ul>

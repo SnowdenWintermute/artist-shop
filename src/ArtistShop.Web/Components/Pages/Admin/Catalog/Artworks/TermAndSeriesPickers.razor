@@ -106,7 +106,7 @@ series.Name.Value))];
                       OnToggle="value => Toggle(_selectedSeriesIds, value)">
     <EmptyContent>No series yet.</EmptyContent>
   </CheckboxGroupField>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 " @onclick="() => _addSeriesDialogOpen = true">
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" @onclick="() => _addSeriesDialogOpen = true">
     New series
   </ButtonBasic>
   <AddSeriesDialog @bind-Open="_addSeriesDialogOpen" OnAdded="SeriesAddedAsync" />

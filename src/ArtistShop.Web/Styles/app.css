@@ -3,9 +3,8 @@
 @source "../Components";
 
 :root {
-  --theme-recessed: #f5f5f5; /* furthest back: cards, insets */
-  --theme-sunken: #e9e7e2; /* body background */
-  --theme-sunken: #e9e7e2; /* body background */
+  --theme-recessed: #f5f5f5; /* the pages' background, notices */
+  --theme-sunken: #e9e7e2; /* nav bar and drawer */
   --theme-base: black; /* header / footer */
   --theme-muted: grey; /* secondary text, borders */
   --theme-hovered: blue; /* primary text */
@@ -124,7 +123,9 @@ html {
 
 /* an iPhone zooms in on a field smaller than 16px when it's tapped, and once zoomed a drag pans
    the page behind an open modal, past its overflow: hidden. Touch screens only, so desktop keeps
-   the smaller text, like the artwork table's */
+   the smaller text, like the artwork table's.
+   Outside tailwind's layers, so on a touch screen it beats any text-* class on a field: a field
+   given text-xs or text-sm still shows 16px on a phone */
 @media (pointer: coarse) {
   input,
   select,

@@ -67,7 +67,7 @@
       if (Loaded is null)
       {
         var id = await ArtworkTypeRepository.AddAsync(name, _form.Fields);
-        NavigationManager.NavigateTo($"/admin/catalog/types/{id.Value}/edit");
+        NavigationManager.NavigateTo(PageUrls.EditArtworkType(id));
         return;
       }
 
@@ -137,7 +137,7 @@
         {
           <p class="text-sm text-gray-500">
             Used by
-            <a href="@($"/admin/catalog/artworks?type={loaded.ArtworkType.Id.Value}")" class="underline">
+            <a href="@PageUrls.ArtworkListOfType(loaded.ArtworkType.Id)" class="underline">
               @CountText.Of(loaded.ArtworkCounts.Total, "artwork")</a>, so it can't be deleted.
           </p>
         }

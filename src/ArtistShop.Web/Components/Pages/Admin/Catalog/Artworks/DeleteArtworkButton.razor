@@ -24,7 +24,7 @@
     try
     {
       await ArtworkRepository.DeleteAsync(ArtworkId);
-      NavigationManager.NavigateTo("/admin/catalog/artworks");
+      NavigationManager.NavigateTo(PageUrls.ArtworkList);
     }
     finally
     {

@@ -1,5 +1,4 @@
 @page "/admin/catalog/types/import"
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Catalog
@@ -43,30 +42,28 @@
                         ImportedCount="ImportedCount" Singular="artwork type" Plural="artwork types" PlanAsync="PlanAsync"
                         ApplyAsync="ApplyAsync">
       <ColumnsHelp>
-        <Notice>
-          <p class="mb-2">
+        <ImportColumnsHelp>
+          <Intro>
             To add one type at a time, <a class="underline" href="@PageUrls.NewArtworkType">create an artwork type</a>
             instead.
-          </p>
-          <p class="mb-2">Columns the spreadsheet .csv file can have:</p>
-          <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-            <dt class="font-mono">@ArtworkTypeImportHeaders.ArtworkType</dt>
-            <dd>
-              The type's name, at most @ArtistShopLimits.ArtworkTypeNameMaximumLength characters.</dd>
+          </Intro>
+          <Columns>
+            <ImportColumn Header="@ArtworkTypeImportHeaders.ArtworkType">
+              The type's name, at most @ArtistShopLimits.ArtworkTypeNameMaximumLength characters.
+            </ImportColumn>
 
-              <dt class="font-mono">@ArtworkTypeImportHeaders.Fields</dt>
-              <dd>
-                Which fields the type has, separated by the list separator. Options are
-                <span class="font-bold"> @string.Join(", ", _fields.Select(field => field.Name))</span>.
-                @foreach (var field in _fields.Where(field => field.HasRequirement))
-                {
-                  <text> <span class="font-bold">@field.Name</span> requires <span
-                    class="font-bold">@FieldName(field.RequiredField)</span>.</text>
-                  }
-                </dd>
-              </dl>
-            </Notice>
-          </ColumnsHelp>
+            <ImportColumn Header="@ArtworkTypeImportHeaders.Fields">
+              Which fields the type has, separated by the list separator. Options are
+              <span class="font-bold"> @string.Join(", ", _fields.Select(field => field.Name))</span>.
+              @foreach (var field in _fields.Where(field => field.HasRequirement))
+              {
+                <text> <span class="font-bold">@field.Name</span> requires <span
+                  class="font-bold">@FieldName(field.RequiredField)</span>.</text>
+              }
+            </ImportColumn>
+          </Columns>
+        </ImportColumnsHelp>
+      </ColumnsHelp>
           <Review Context="plan">
             <ArtworkTypeImportReview Plan="plan" Fields="_fields" />
           </Review>

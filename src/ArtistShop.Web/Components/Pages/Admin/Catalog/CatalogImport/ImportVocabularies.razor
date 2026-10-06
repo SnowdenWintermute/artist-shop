@@ -1,5 +1,4 @@
 @page "/admin/catalog/vocabularies/import"
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain
@@ -45,38 +44,35 @@
                         ImportedCount="ImportedCount" Singular="vocabulary" Plural="vocabularies" PlanAsync="PlanAsync"
                         ApplyAsync="ApplyAsync">
       <ColumnsHelp>
-        <Notice>
-          <p class="mb-2">
+        <ImportColumnsHelp>
+          <Intro>
             To add one vocabulary at a time, <a class="underline" href="@PageUrls.NewVocabulary">create a vocabulary</a>
             instead.
-          </p>
-          <p class="mb-2">Columns the spreadsheet .csv file can have:</p>
-          <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-            <dt class="font-mono">@VocabularyImportHeaders.Vocabulary</dt>
-            <dd>
-              The vocabulary's name, at most @ArtistShopLimits.VocabularyNameMaximumLength characters. </dd>
+          </Intro>
+          <Columns>
+            <ImportColumn Header="@VocabularyImportHeaders.Vocabulary">
+              The vocabulary's name, at most @ArtistShopLimits.VocabularyNameMaximumLength characters.
+            </ImportColumn>
 
-              <dt class="font-mono">@VocabularyImportHeaders.ArtworkTypes</dt>
-              <dd>
-                The artwork types it applies to, separated by the list separator.
-                @if (_artworkTypes.Count == 0)
-                {
-                  <text>There are none yet, so import or create the artwork types first.</text>
-                }
-                else
-                {
-                  <text>They must exist already (@string.Join(", ", _artworkTypes.Select(type =>type.Name.Value))).</text>
-                }
-              </dd>
+            <ImportColumn Header="@VocabularyImportHeaders.ArtworkTypes">
+              The artwork types it applies to, separated by the list separator.
+              @if (_artworkTypes.Count == 0)
+              {
+                <text>There are none yet, so import or create the artwork types first.</text>
+              }
+              else
+              {
+                <text>They must exist already (@string.Join(", ", _artworkTypes.Select(type =>type.Name.Value))).</text>
+              }
+            </ImportColumn>
 
-              <dt class="font-mono">@VocabularyImportHeaders.Terms</dt>
-              <dd>
-                Separated by the list separator, each at most
-                @ArtistShopLimits.VocabularyTermNameMaximumLength characters.
-              </dd>
-            </dl>
-          </Notice>
-        </ColumnsHelp>
+            <ImportColumn Header="@VocabularyImportHeaders.Terms">
+              Separated by the list separator, each at most
+              @ArtistShopLimits.VocabularyTermNameMaximumLength characters.
+            </ImportColumn>
+          </Columns>
+        </ImportColumnsHelp>
+      </ColumnsHelp>
         <Review Context="plan">
           <VocabularyImportReview Plan="plan" />
         </Review>

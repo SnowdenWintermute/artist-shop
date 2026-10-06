@@ -1,5 +1,13 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Review of 664ffa3 and 404fb15, 2026-10-06 (From Claude)
+
+Uncommitted, 921 tests pass, not browser-checked. Text fixes, "PictureCord" everywhere. Every remaining hardcoded
+address now comes from `PageUrls` (new `EditArtworkType`, `ArtworkListOfType`). The three import pages' column help
+is `ImportColumnsHelp` + `ImportColumn` (CatalogImport folder; `Collapsed` for the artwork one's disclosure).
+`DataTableHeading.Pinned` lets `DataTable` choose each heading's z-index, so no element gets two. Empty and
+space-padded class attributes removed; the Import page's file names are bold.
+
 ## Review of de4c060 and 0d425f0, 2026-10-05 (From Claude)
 
 Uncommitted, not browser-checked, 921 tests pass. `SiteDeletionTests.MyWebsitesSaysHowToDownloadAWebsiteBeingDeleted`

@@ -92,11 +92,11 @@
   @if (Folders.Count > 0)
   {
     <Notice>
-      <p class="mb-2 ">
+      <p class="mb-2">
         Uploaded folder names can create a new series or match existing series. The containing images will be added to
         that series.
       </p>
-      <p class="">
+      <p>
         Uncheck any folder name that doesn't correspond to a series name. </p>
 
       </Notice>
@@ -110,7 +110,7 @@
     {
       @if (CheckablePaths.Count() > 1)
       {
-        <label class="mb-1 flex cursor-pointer items-center gap-2 ">
+        <label class="mb-1 flex cursor-pointer items-center gap-2">
           <input type="checkbox" class="cursor-pointer" checked="@AllFoldersChecked" @onchange="ToggleAllFolders" />
           Toggle all checked
         </label>

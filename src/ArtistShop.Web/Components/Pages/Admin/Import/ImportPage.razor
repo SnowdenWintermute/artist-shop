@@ -12,7 +12,7 @@
   <div class="mb-6">
     <h2 class="mb-1 text-lg">All at once:</h2>
     <p class="mb-2">
-      Upload the full site folder exported from another Picture Cord website. It must be unzipped.
+      Upload the full site folder exported from another PictureCord website. It must be unzipped.
     </p>
     <LinkButton href="@PageUrls.WebsiteImport" Variant="ButtonVariant.Primary">
       <IconLabel Icon="folder-open">Import</IconLabel>
@@ -29,17 +29,17 @@
 
   <div class="flex flex-col gap-6">
     <ImportStep Title="1. Artwork types" Href="@PageUrls.ArtworkTypeImport" Icon="csv" ButtonLabel="Import">
-      Each artwork type and its fields, from <span>@CatalogExportArchive.ArtworkTypesFileName</span> in the catalog
+      Each artwork type and its fields, from <span class="font-bold">@CatalogExportArchive.ArtworkTypesFileName</span> in the catalog
       download.
     </ImportStep>
 
     <ImportStep Title="2. Vocabularies" Href="@PageUrls.VocabularyImport" Icon="csv" ButtonLabel="Import">
-      Each vocabulary and its terms, from <span>@CatalogExportArchive.VocabulariesFileName</span>, and the artwork
+      Each vocabulary and its terms, from <span class="font-bold">@CatalogExportArchive.VocabulariesFileName</span>, and the artwork
       types they apply to.
     </ImportStep>
 
     <ImportStep Title="3. Artworks" Href="@PageUrls.ArtworkImport" Icon="csv" ButtonLabel="Import">
-      Each file in the catalog download's <span>@CatalogExportArchive.ArtworksFolder</span> folder. Every artwork type
+      Each file in the catalog download's <span class="font-bold">@CatalogExportArchive.ArtworksFolder</span> folder. Every artwork type
       gets its own .csv file.
     </ImportStep>
 

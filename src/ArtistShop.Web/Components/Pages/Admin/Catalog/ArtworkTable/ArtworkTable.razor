@@ -44,12 +44,10 @@
   private ArtworkTableRow? _vocabularyRow;
   private ArtworkTableRow? _imagesRow;
 
-  // the images and title stay in view as the other columns scroll sideways under them. Their headings
-  // sit above both the other headings and the pinned cells scrolling up under them
+  // the images and title stay in view as the other columns scroll sideways under them
   private const string ImagesColumnClass = "sticky left-0 w-16 min-w-16 bg-white";
   private const string TitleColumnClass = "sticky left-16 bg-white";
   private const string PinnedCellClass = "z-10";
-  private const string PinnedHeadingClass = "z-30";
 
   private const string InputClass = "artist-shop-field-input";
 
@@ -101,7 +99,8 @@
   {
     get
     {
-      List<DataTableHeading> headings = [new("", $"{ImagesColumnClass} {PinnedHeadingClass}"), new("Title", $"{TitleColumnClass} {PinnedHeadingClass}")];
+      List<DataTableHeading> headings =
+        [new("", ImagesColumnClass, Pinned: true), new("Title", TitleColumnClass, Pinned: true)];
 
       if (Fields.Contains(ArtworkField.DateCreated))
       {
@@ -256,7 +255,7 @@ series.Name.Value));
       </DataTableCell>
 
       <DataTableCell Class="@($"align-top {TitleColumnClass} {PinnedCellClass}")">
-        <input class="@($"{InputClass} w-24 xs:w-32 sm:w-48")" aria-label="Title" @bind="row.Form.Name"
+        <input class="@($"{InputClass} w-24 sm:w-32 md:w-48")" aria-label="Title" @bind="row.Form.Name"
                @bind:after="() => SaveAsync(row)" />
         <RowFieldError Message="@row.ErrorFor(nameof(ArtworkForm.Name))" />
         <RowFieldError Message="@row.SaveError" />

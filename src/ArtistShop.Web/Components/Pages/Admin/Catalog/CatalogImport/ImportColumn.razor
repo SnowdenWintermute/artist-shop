@@ -1,0 +1,13 @@
+@* one entry in ImportColumnsHelp's list *@
+
+@code {
+  // the column's header, as the file names it
+  [Parameter, EditorRequired]
+  public string Header { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<dt class="font-mono">@Header</dt>
+<dd>@ChildContent</dd>
