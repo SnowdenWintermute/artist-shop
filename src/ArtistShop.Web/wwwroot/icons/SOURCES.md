@@ -17,3 +17,4 @@ file.
 | `user-settings.svg` | [SVG Repo](https://www.svgrepo.com/svg/449326/user-settings) | Apache 2.0, in `licenses/Apache-2.0.txt`. Changed: an unused inner `id` removed |
 | `arrow-left.svg` | Drawn for this project | This project's |
 | `arrow-right.svg` | Drawn for this project | This project's |
+| `undo.svg` | [SVG Repo](https://www.svgrepo.com/svg/489197/undo). Redo is the same icon flipped in CSS | Public domain |

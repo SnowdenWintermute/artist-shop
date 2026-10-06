@@ -140,9 +140,10 @@ export function showPressed(toolbar, key, value) {
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
  * @param {EmbedKind<V>} kind
+ * @param {import("/js/embed-lines.js").EmbedLines} lines
  * @param {AbortSignal} signal
  */
-export function attachEmbedToolbar(quill, toolbar, kind, signal) {
+export function attachEmbedToolbar(quill, toolbar, kind, lines, signal) {
   const floatingUiSource = toolbar.dataset.floatingUiSrc;
 
   if (floatingUiSource === undefined) {
@@ -311,6 +312,21 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
     return opened;
   }
 
+  // Text above or below: an empty line next to the embed, with the cursor in it. The toolbar
+  // closes, since the artist is going on to type
+  /**
+   * @param {HTMLElement} node
+   * @param {0 | 1} offset 0 for above, 1 for below
+   */
+  function addLine(node, offset) {
+    const index = indexOf(node);
+    close();
+
+    if (index !== null) {
+      lines.add(index + offset);
+    }
+  }
+
   /** @param {HTMLElement} node */
   function remove(node) {
     const index = indexOf(node);
@@ -389,6 +405,10 @@ export function attachEmbedToolbar(quill, toolbar, kind, signal) {
 
       if (action === "done") {
         closeBackToText();
+      } else if (action === "text-above") {
+        addLine(node, 0);
+      } else if (action === "text-below") {
+        addLine(node, 1);
       } else if (action === "remove") {
         remove(node);
       } else {

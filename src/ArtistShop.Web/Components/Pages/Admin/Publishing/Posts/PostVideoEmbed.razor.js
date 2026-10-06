@@ -173,9 +173,10 @@ export function addVideoEmbed(quill, toolbar, dialog) {
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
  * @param {() => VideoAddressAsker} dialog
+ * @param {import("/js/embed-lines.js").EmbedLines} lines
  * @param {AbortSignal} signal
  */
-export function attachVideoEmbedToolbar(quill, toolbar, dialog, signal) {
+export function attachVideoEmbedToolbar(quill, toolbar, dialog, lines, signal) {
   const addresses = videoAddresses(toolbar);
   const link = toolbar.querySelector('a[data-part="video-link"]');
 
@@ -211,6 +212,7 @@ export function attachVideoEmbedToolbar(quill, toolbar, dialog, signal) {
         }
       },
     },
+    lines,
     signal
   );
 }

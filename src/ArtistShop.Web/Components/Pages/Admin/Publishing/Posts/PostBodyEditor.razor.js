@@ -18,6 +18,8 @@ import {
 } from "./PostImageEmbed.razor.js";
 import { VIDEO_EMBED, addVideoEmbed, attachVideoEmbedToolbar, registerVideoEmbed } from "./PostVideoEmbed.razor.js";
 import { VideoAddressDialog } from "./VideoAddressDialog.razor.js";
+import { attachEmbedLines, quillEmbedArrowBindingsOff } from "/js/embed-lines.js";
+import { attachEmbedSelection } from "/js/embed-selection.js";
 
 // Must stay within what PostDocumentParser reads. Leaving out indent also turns off Tab-to-indent,
 // since the parser would flatten a nested list anyway
@@ -36,7 +38,9 @@ const FORMATS = [
   VIDEO_EMBED,
 ];
 
+// Undo and Redo first, as a phone's browser has no undo of its own for the text
 const TOOLBAR = [
+  ["undo", "redo"],
   [{ header: [2, 3, false] }],
   ["bold", "italic", "underline", "link"],
   ["blockquote"],
@@ -134,6 +138,7 @@ customElements.define(
       const imageFileInput = this.querySelector('input[data-part="image-file"]');
       const videoToolbar = this.querySelector('[data-part="video-embed-toolbar"]');
       const artworkPicker = this.querySelector('dialog[data-part="artwork-picker"]');
+      const undoIcon = this.querySelector('template[data-part="undo-icon"]');
       const quillSource = this.dataset.quillSrc;
 
       // Only a move would connect this element again, and Blazor never moves one: it keeps a
@@ -151,10 +156,11 @@ customElements.define(
         !(imageFileInput instanceof HTMLInputElement) ||
         !(videoToolbar instanceof HTMLElement) ||
         !(artworkPicker instanceof HTMLDialogElement) ||
+        !(undoIcon instanceof HTMLTemplateElement) ||
         quillSource === undefined
       ) {
         throw new Error(
-          "The post body editor is missing its input, an embed toolbar, the image file input, the artwork picker or Quill's address."
+          "The post body editor is missing its input, an embed toolbar, the image file input, the artwork picker, the undo icon or Quill's address."
         );
       }
 
@@ -187,6 +193,8 @@ customElements.define(
             container: TOOLBAR,
             // only ever called once quill below is set
             handlers: {
+              undo: () => quill.getModule("history").undo(),
+              redo: () => quill.getModule("history").redo(),
               [ARTWORK_EMBED]: () => addArtworkEmbed(quill, picker),
               [IMAGE_EMBED]: () => addPostImageEmbed(quill, imagePicker, imageUploads),
               [VIDEO_EMBED]: () => addVideoEmbed(quill, videoToolbar, this.#videoAddressDialog()),
@@ -195,6 +203,8 @@ customElements.define(
           // Only the artist's own edits are undone. Anything else, such as an upload's placeholder
           // coming and going, is left out, and the steps kept are adjusted around it
           history: { userOnly: true },
+          // embed-lines.js and embed-selection.js move the cursor past embeds in their place
+          keyboard: { bindings: quillEmbedArrowBindingsOff },
           // Quill's own drop and paste handling, which hands over the files of a type it takes.
           // Its default puts each image in the Delta as a data: address. Also only ever called
           // once imageUploads below is set
@@ -212,14 +222,17 @@ customElements.define(
       const toolbar = quill.getModule("toolbar").container;
 
       // Quill draws its own buttons' icons and leaves ours empty. Image and Video take its own image
-      // and video icons; it has none for an artwork, so that one says what it is
+      // and video icons; it has none for an artwork, so that one says what it is, and none for
+      // Undo and Redo
       const icons = Quill.import("ui/icons");
-      for (const [embedName, content] of [
+      for (const [name, content] of [
+        ["undo", undoIcon.innerHTML],
+        ["redo", undoIcon.innerHTML],
         [ARTWORK_EMBED, "Artwork"],
         [IMAGE_EMBED, icons.image],
         [VIDEO_EMBED, icons.video],
       ]) {
-        const button = toolbar.querySelector(`button.ql-${embedName}`);
+        const button = toolbar.querySelector(`button.ql-${name}`);
         if (button !== null) {
           button.innerHTML = content;
         }
@@ -228,6 +241,8 @@ customElements.define(
       // Quill gives its controls no tooltip, and names them to screen readers by their format, such
       // as "bold". The heading picker's label is what takes the clicks
       for (const [selector, label] of [
+        ["button.ql-undo", "Undo"],
+        ["button.ql-redo", "Redo"],
         [".ql-header .ql-picker-label", "Heading"],
         ["button.ql-bold", "Bold"],
         ["button.ql-italic", "Italic"],
@@ -263,9 +278,11 @@ customElements.define(
       });
 
       this.#labelEditingArea(input, quill, this.#listeners.signal);
-      attachArtworkEmbedToolbar(quill, artworkToolbar, picker, this.#listeners.signal);
-      attachPostImageEmbedToolbar(quill, imageToolbar, imagePicker, imageUploads, this.#listeners.signal);
-      attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), this.#listeners.signal);
+      const lines = attachEmbedLines(quill, this.#listeners.signal);
+      attachEmbedSelection(quill);
+      attachArtworkEmbedToolbar(quill, artworkToolbar, picker, lines, this.#listeners.signal);
+      attachPostImageEmbedToolbar(quill, imageToolbar, imagePicker, imageUploads, lines, this.#listeners.signal);
+      attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), lines, this.#listeners.signal);
       this.#mounted.resolve(quill);
     }
 

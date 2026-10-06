@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Components.Publishing
 @using System.Linq.Expressions
 
@@ -38,5 +39,8 @@
     <PostImageEmbed />
     <PostVideoEmbed />
     <ArtworkPickerDialog />
+    @* Quill draws its own toolbar, so the script copies this into Undo and Redo. ql-stroke gives it
+       Quill's colours, as on its own icons *@
+    <template data-part="undo-icon"><SvgIcon Name="undo" Class="ql-stroke" /></template>
   </post-body-editor>
 </FieldLayout>

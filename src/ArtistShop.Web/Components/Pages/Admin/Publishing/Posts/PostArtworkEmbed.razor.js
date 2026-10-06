@@ -226,9 +226,10 @@ export function addArtworkEmbed(quill, picker) {
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
  * @param {ArtworkPicker} picker
+ * @param {import("/js/embed-lines.js").EmbedLines} lines
  * @param {AbortSignal} signal
  */
-export function attachArtworkEmbedToolbar(quill, toolbar, picker, signal) {
+export function attachArtworkEmbedToolbar(quill, toolbar, picker, lines, signal) {
   const controls = attachImageEmbedControls(toolbar);
 
   attachEmbedToolbar(
@@ -256,6 +257,7 @@ export function attachArtworkEmbedToolbar(quill, toolbar, picker, signal) {
         controls.onInput(field, embed.update);
       },
     },
+    lines,
     signal
   );
 }

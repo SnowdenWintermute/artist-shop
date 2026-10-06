@@ -41,7 +41,20 @@ declare class QuillBlot {
   static create(value?: unknown): Node;
   static value(node: Node): unknown;
   domNode: Node;
+  length(): number;
 }
+
+type QuillRange = { index: number; length: number };
+
+// called with the keyboard module as this; returning true lets the next binding, or the browser, have the key
+// a modifier left out must not be held
+type QuillKeyBinding = {
+  key: string;
+  shiftKey?: boolean;
+  // only when nothing is selected
+  collapsed?: boolean;
+  handler: (this: { quill: Quill }, range: QuillRange) => boolean;
+};
 
 declare class QuillLink extends QuillBlot {
   static sanitize(url: string): string;
@@ -60,6 +73,8 @@ declare class Quill {
       modules?: {
         toolbar?: { container: unknown[]; handlers?: Record<string, () => void> };
         history?: { userOnly: boolean };
+        // merged into Quill's own bindings by name; null turns one of Quill's off
+        keyboard?: { bindings: Record<string, QuillKeyBinding | null> };
         // a dropped or pasted file of one of mimetypes goes to handler, with where it goes
         uploader?: { mimetypes: string[]; handler: (range: { index: number; length: number }, files: File[]) => void };
       };
@@ -67,19 +82,26 @@ declare class Quill {
   );
   root: HTMLElement;
   setContents(delta: QuillDelta | { ops: QuillOperation[] }, source?: QuillSource): void;
-  getContents(): QuillDelta;
+  getContents(index?: number, length?: number): QuillDelta;
   updateContents(delta: QuillDelta, source?: QuillSource): void;
   insertEmbed(index: number, type: string, value: unknown, source?: QuillSource): void;
   on(event: "text-change", handler: (change: QuillDelta, old: QuillDelta, source: QuillSource) => void): this;
+  on(event: "selection-change", handler: (range: QuillRange | null, old: QuillRange | null, source: QuillSource) => void): this;
   off(event: "text-change", handler: (change: QuillDelta, old: QuillDelta, source: QuillSource) => void): this;
   focus(): void;
   hasFocus(): boolean;
   // with focus true, the editor takes the focus first, so there is always a selection
   getSelection(focus: true): { index: number; length: number };
+  // null while the editor doesn't have the focus
+  getSelection(): QuillRange | null;
   setSelection(index: number, length: number, source?: QuillSource): void;
   getIndex(blot: QuillBlot): number;
   getLine(index: number): [QuillBlot | null, number];
   getModule(name: "toolbar"): QuillToolbar;
+  getModule(name: "keyboard"): { addBinding(binding: QuillKeyBinding): void };
+  getModule(name: "history"): { undo(): void; redo(): void };
+  // relative to the editor; null where there is nothing to measure
+  getBounds(index: number, length?: number): { top: number; bottom: number; left: number; right: number } | null;
   static import(path: "formats/link"): typeof QuillLink;
   static import(path: "blots/block/embed"): typeof QuillBlot;
   static import(path: "delta"): typeof QuillDelta;

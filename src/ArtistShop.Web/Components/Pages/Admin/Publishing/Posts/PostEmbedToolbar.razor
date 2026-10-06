@@ -44,6 +44,10 @@
     @Lines
     <div class="flex flex-wrap items-center gap-4">
       @ChildContent
+      @* an embed can't hold the cursor, so these are the way to a line next to one, such as between
+         two embeds *@
+      <EmbedToolbarButton data-action="text-above">Text above</EmbedToolbarButton>
+      <EmbedToolbarButton data-action="text-below">Text below</EmbedToolbarButton>
       @* coloured on the icon, so it keeps its colour when the button turns blue on hover *@
       <EmbedToolbarButton aria-label="Remove" title="Remove" data-action="remove">
         <SvgIcon Name="image-remove" Class="text-red-600" />

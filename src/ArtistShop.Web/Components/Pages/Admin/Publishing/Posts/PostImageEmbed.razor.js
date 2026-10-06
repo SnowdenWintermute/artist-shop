@@ -455,9 +455,10 @@ export function addPostImageEmbed(quill, picker, uploads) {
  * @param {HTMLElement} toolbar
  * @param {ImagePicker} picker
  * @param {ImageUploads} uploads
+ * @param {import("/js/embed-lines.js").EmbedLines} lines
  * @param {AbortSignal} signal
  */
-export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, signal) {
+export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, lines, signal) {
   const controls = attachImageEmbedControls(toolbar);
   const altField = toolbar.querySelector('input[data-part="alt"]');
   const altHelpButton = toolbar.querySelector('button[data-action="alt-help"]');
@@ -578,6 +579,7 @@ export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, sig
         }
       },
     },
+    lines,
     signal
   );
 }
