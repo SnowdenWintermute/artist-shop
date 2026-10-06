@@ -1,4 +1,6 @@
 @page "/admin/catalog/vocabularies/import"
+@layout ImportLayout
+@using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain
@@ -36,8 +38,6 @@
 
 <PageTitle>Import vocabularies</PageTitle>
 
-<main>
-  <AdminPanel>
     <h1 class="mb-4 text-xl">Import vocabularies from a spreadsheet</h1>
 
     <CatalogImportPanel TPlan="VocabularyImportPlan" ImportUrl="@PageUrls.VocabularyImport"
@@ -77,5 +77,5 @@
           <VocabularyImportReview Plan="plan" />
         </Review>
       </CatalogImportPanel>
-    </AdminPanel>
-  </main>
+
+<ImportStepButtons Step="ImportSteps.Vocabularies" />

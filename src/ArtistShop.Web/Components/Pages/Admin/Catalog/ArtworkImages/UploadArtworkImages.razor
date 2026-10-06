@@ -1,4 +1,6 @@
 @page "/admin/catalog/artworks/images"
+@layout ImportLayout
+@using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -11,8 +13,6 @@
 
 <PageTitle>Upload artwork images</PageTitle>
 
-<main>
-  <AdminPanel>
     <h1 class="mb-4 text-xl">Upload images for artworks you have already added</h1>
 
     <Notice>
@@ -42,5 +42,5 @@
     <AntiforgeryToken />
 
     <BulkImageUpload InitialArtworkTypeId="TypeIdValue" />
-  </AdminPanel>
-</main>
+
+<ImportStepButtons Step="ImportSteps.Images" />

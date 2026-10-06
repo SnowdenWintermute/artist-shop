@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+
+<main>
+  <AdminPanel>
+    <SectionNav>
+      <NavLink href="@PageUrls.Import" Match="NavLinkMatch.All" ActiveClass="underline">All steps</NavLink>
+      <div aria-hidden="true" class="pointer-events-none">|</div>
+      @foreach (var step in ImportSteps.All)
+      {
+        @* ActivePath: the images and artworks pages may add the artwork type to the address *@
+        <SectionNavLink href="@step.Href" ActivePath="@step.Href" ActiveClass="underline">@step.Title</SectionNavLink>
+      }
+    </SectionNav>
+    <ChildContent>
+      @Body
+    </ChildContent>
+  </AdminPanel>
+</main>

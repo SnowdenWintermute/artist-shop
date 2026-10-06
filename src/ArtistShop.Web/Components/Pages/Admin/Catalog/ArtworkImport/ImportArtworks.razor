@@ -1,4 +1,6 @@
 @page "/admin/catalog/artworks/import"
+@layout ImportLayout
+@using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Dialogs
@@ -179,8 +181,6 @@
 
 <PageTitle>Import artworks</PageTitle>
 
-<main>
-  <AdminPanel>
     <h1 class="mb-4 text-xl">Import artworks from a spreadsheet</h1>
 
     @* the type decides which columns and fields the page asks for *@
@@ -286,9 +286,6 @@
           </ModalDialog>
         }
 
-        <LinkButton href="@PageUrls.ArtworkBulkImageUpload(_type.Id)" Variant="@ButtonVariant.PrimaryOutline">
-          Upload matching images
-        </LinkButton>
     }
-  </AdminPanel>
-</main>
+
+<ImportStepButtons Step="ImportSteps.Artworks" NextHref="@PageUrls.ArtworkBulkImageUpload(_type?.Id)" />

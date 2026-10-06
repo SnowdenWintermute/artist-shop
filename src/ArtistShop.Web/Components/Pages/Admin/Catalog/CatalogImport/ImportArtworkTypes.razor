@@ -1,4 +1,6 @@
 @page "/admin/catalog/types/import"
+@layout ImportLayout
+@using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Catalog
@@ -34,8 +36,6 @@
 
 <PageTitle>Import artwork types</PageTitle>
 
-<main>
-  <AdminPanel>
     <h1 class="mb-4 text-xl">Import artwork types from a spreadsheet</h1>
 
     <CatalogImportPanel TPlan="ArtworkTypeImportPlan" ImportUrl="@PageUrls.ArtworkTypeImport"
@@ -68,5 +68,5 @@
             <ArtworkTypeImportReview Plan="plan" Fields="_fields" />
           </Review>
         </CatalogImportPanel>
-      </AdminPanel>
-    </main>
+
+<ImportStepButtons Step="ImportSteps.ArtworkTypes" />

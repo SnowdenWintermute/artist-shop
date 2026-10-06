@@ -1,16 +1,5 @@
-@using ArtistShop.Web.Components.Atoms
-
 @* list items for the dashboard's artwork list. Each page asks for the artwork type itself, starting at
    the one its admin last chose *@
 
 <DashboardLink Href="@PageUrls.AddArtwork">Add one</DashboardLink>
 <DashboardLink Href="@PageUrls.AddArtworksFromImages">Add many</DashboardLink>
-<li aria-hidden="true">
-  <Divider Class="mb-3" />
-</li>
-<DashboardLink Href="@PageUrls.ArtworkImport">
-  Import from spreadsheet
-</DashboardLink>
-<DashboardLink Href="@PageUrls.ArtworkBulkImageUpload(null)">
-  Upload images to match existing
-</DashboardLink>

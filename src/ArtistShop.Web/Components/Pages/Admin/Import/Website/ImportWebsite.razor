@@ -1,4 +1,5 @@
 @page "/admin/import/website"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
@@ -9,11 +10,12 @@
   <AdminPanel>
     <h1 class="mb-4 text-xl">Move a whole website here</h1>
 
-    <p class="mb-4 text-sm">
-      Choose the folder from Download everything on the other website's Export page, unzipped. You'll see what importing
-      it would add before anything is imported. Every step only adds: something already here is skipped.
-    </p>
-
+    <Notice>
+      <p>
+        Choose the folder from downloaded from "Download all site data" on the other website's Export page, unzipped.
+        You'll see a review before anything is imported.
+      </p>
+    </Notice>
     @* the island posts each image to an endpoint that checks the antiforgery token, and there is
        no form on this page to carry one *@
     <AntiforgeryToken />

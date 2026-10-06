@@ -1,0 +1,35 @@
+@using ArtistShop.Web.Components.Atoms
+@* links to the previous and next step, at the bottom of a step-by-step import page *@
+
+@code {
+  [Parameter, EditorRequired]
+  public ImportStepPage Step { get; set; } = default!;
+
+  // for a next page that can carry on from this one, like images for the artwork type just imported
+  [Parameter]
+  public string? NextHref { get; set; }
+
+  private ImportStepPage? Previous => ImportSteps.Previous(Step);
+  private ImportStepPage? Next => ImportSteps.Next(Step);
+}
+
+<Divider Class="my-6" />
+
+<div class="flex flex-wrap gap-4">
+  @if (Previous is { } previous)
+  {
+    <LinkButton href="@previous.Href" Variant="ButtonVariant.Outline">
+      <IconLabel Icon="arrow-left">@previous.Action first</IconLabel>
+    </LinkButton>
+  }
+
+  @if (Next is { } next)
+  {
+    <LinkButton href="@(NextHref ?? next.Href)" Variant="ButtonVariant.Outline" Class="ml-auto">
+      <span class="flex items-center gap-2">
+        @next.Action next
+        <SvgIcon Name="arrow-right" Class="size-5 shrink-0" />
+      </span>
+    </LinkButton>
+  }
+</div>
