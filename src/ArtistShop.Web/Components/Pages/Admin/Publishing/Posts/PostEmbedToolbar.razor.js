@@ -2,6 +2,7 @@
 // its own buttons and says what they do; this places the toolbar and handles Remove and Done.
 // A change replaces the embed with a new one holding the new value, as one edit, so a single undo
 // takes it back
+import { indexOfNode } from "/js/quill-document.js";
 
 // the same module for every toolbar, so the first import is the one that loads it
 /** @type {Promise<FloatingUi> | null} */
@@ -249,8 +250,7 @@ export function attachEmbedToolbar(quill, toolbar, kind, lines, signal) {
   // where an embed is in the document, or null if an edit has removed it
   /** @param {HTMLElement | null} node */
   function indexOf(node) {
-    const blot = node?.isConnected ? Quill.find(node) : null;
-    return blot === null || blot instanceof Quill ? null : quill.getIndex(blot);
+    return node?.isConnected ? indexOfNode(quill, node) : null;
   }
 
   // swaps the embed for one holding the changed value, and returns the new node

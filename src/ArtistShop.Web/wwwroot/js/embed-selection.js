@@ -3,7 +3,8 @@
 // selecting them all. Near an embed the selection's moving end is moved here instead, one embed at
 // a time
 
-import { isEmbedAt, placeBeyondLine } from "/js/embed-lines.js";
+import { placeBeyondLine } from "/js/embed-lines.js";
+import { isEmbedAt } from "/js/quill-document.js";
 
 // Which end of the selection moves with Shift and an arrow key: the one the browser calls its focus
 function isSelectionBackward() {

@@ -7,19 +7,7 @@
 // with the arrow keys, by clicking it, or with an embed toolbar's Text above and Text below. The
 // line stays once something is typed in it, and is taken out if the cursor leaves it empty, since
 // the post page shows an empty line as a gap
-
-/**
- * @param {Quill} quill
- * @param {number} index
- */
-export function isEmbedAt(quill, index) {
-  if (index < 0) {
-    return false;
-  }
-
-  const [op] = quill.getContents(index, 1).ops;
-  return typeof op?.insert === "object";
-}
+import { indexOfNode, isEmbedAt, isEmbedLine } from "/js/quill-document.js";
 
 // whether two places in the text are on the same row on screen, as in a paragraph that wraps
 /**
@@ -72,7 +60,6 @@ export const quillEmbedArrowBindingsOff = {
  * @returns {EmbedLines}
  */
 export function attachEmbedLines(quill, signal) {
-  const BlockEmbed = Quill.import("blots/block/embed");
   const Delta = Quill.import("delta");
   const quillToolbar = quill.getModule("toolbar").container;
 
@@ -300,13 +287,12 @@ export function attachEmbedLines(quill, signal) {
     let previous = null;
 
     for (const child of quill.root.children) {
-      const blot = Quill.find(child);
-      const isEmbed = blot instanceof BlockEmbed;
+      const isEmbed = isEmbedLine(child);
       const { top, bottom } = child.getBoundingClientRect();
 
       if (y < top) {
         const isBetweenEmbeds = previous === null || (previous.isEmbed && y >= previous.bottom);
-        return isEmbed && isBetweenEmbeds ? blot : null;
+        return isEmbed && isBetweenEmbeds ? child : null;
       }
 
       previous = { isEmbed, bottom };
@@ -324,11 +310,12 @@ export function attachEmbedLines(quill, signal) {
       }
 
       const embed = embedBelowGap(event.clientY);
+      const index = embed === null ? null : indexOfNode(quill, embed);
 
-      if (embed !== null) {
+      if (index !== null) {
         // otherwise the browser puts the cursor on the nearest line it can
         event.preventDefault();
-        add(quill.getIndex(embed));
+        add(index);
       }
     },
     { signal }

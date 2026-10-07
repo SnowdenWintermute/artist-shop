@@ -3,6 +3,7 @@
 // a mouse or pen moves a little with its button down, so a click stays a click. Once the gesture
 // has started, the page doesn't scroll under it and the click its release would make is swallowed
 import {
+  gestureClickSwallowMilliseconds,
   gestureHoldMilliseconds,
   gestureHoldTolerancePixels,
   gestureMouseDragPixels,
@@ -80,7 +81,7 @@ export function listenForGesture(element, gesture, signal) {
     };
 
     window.addEventListener("click", swallow, { capture: true, once: true });
-    setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 300);
+    setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), gestureClickSwallowMilliseconds);
   }
 
   element.addEventListener(

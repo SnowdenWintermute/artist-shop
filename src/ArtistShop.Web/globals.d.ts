@@ -81,6 +81,8 @@ declare class Quill {
     }
   );
   root: HTMLElement;
+  // the box round root, which getBounds measures from
+  container: HTMLElement;
   setContents(delta: QuillDelta | { ops: QuillOperation[] }, source?: QuillSource): void;
   getContents(index?: number, length?: number): QuillDelta;
   updateContents(delta: QuillDelta, source?: QuillSource): void;

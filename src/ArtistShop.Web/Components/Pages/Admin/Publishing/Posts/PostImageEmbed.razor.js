@@ -7,6 +7,7 @@
 // what it writes to the form. Imported by PostBodyEditor.razor.js; nothing here runs until an
 // editor calls it
 import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
+import { indexOfNode } from "/js/quill-document.js";
 import { createEmbedFigure } from "../../../../Publishing/EmbedFigure.razor.js";
 import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
@@ -269,8 +270,7 @@ export function createImageUploads(quill, toolbar) {
   /** @param {string} uploadId */
   function placeholderIndex(uploadId) {
     const node = findPlaceholder(uploadId);
-    const blot = node === null ? null : Quill.find(node);
-    return blot === null || blot instanceof Quill ? null : quill.getIndex(blot);
+    return node === null ? null : indexOfNode(quill, node);
   }
 
   /** @param {string} uploadId */

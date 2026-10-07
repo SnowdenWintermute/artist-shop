@@ -25,6 +25,10 @@ export const gestureHoldTolerancePixels = 10;
 // how far a mouse moves with its button down before a drag begins, so a click stays a click
 export const gestureMouseDragPixels = 5;
 
+// how long after a gesture ends its release's click is swallowed. One comes at once if it comes at
+// all, so this only needs to outlast it, and stay short of a click the artist makes next
+export const gestureClickSwallowMilliseconds = 300;
+
 // how near the top or bottom of the window a drag scrolls the page, and how fast at the very edge
 export const dragScrollEdgePixels = 60;
 export const dragScrollMaxPixelsPerFrame = 16;
