@@ -35,7 +35,8 @@
 
     <DashboardBox Title="Artworks">
       <ul class="mb-4">
-        <DashboardLink Href="@PageUrls.ArtworkList">Search and edit</DashboardLink>
+        <DashboardLink Href="@PageUrls.ArtworkList">Search and edit single</DashboardLink>
+        <DashboardLink Href="@PageUrls.ArtworkTable">Search and edit many</DashboardLink>
         @if (_artworkTypes.Count == 0)
         {
           <li>
@@ -44,7 +45,8 @@
         }
         else
         {
-          <AddArtworkLinks />
+          <DashboardLink Href="@PageUrls.AddArtwork">Add one</DashboardLink>
+          <DashboardLink Href="@PageUrls.AddArtworksFromImages">Add many</DashboardLink>
         }
       </ul>
     </DashboardBox>

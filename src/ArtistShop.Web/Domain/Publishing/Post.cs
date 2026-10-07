@@ -4,7 +4,18 @@ using System.Text.Json;
 
 public record PostId(int Value);
 
-public record PostTitle(string Value);
+public record PostTitle(string Value)
+{
+    // A copy's title: "Title (copy)", then "Title (copy 2)" and on while those are taken. Kept short
+    // enough that its slug is never cut, or every number past the cut would make the same slug
+    public PostTitle ForCopy(int number)
+    {
+        var suffix = number is 1 ? " (copy)" : $" (copy {number})";
+        var room = ArtistShopLimits.BaseSlugMaximumLength - suffix.Length;
+
+        return new((Value.Length > room ? Value[..room].TrimEnd() : Value) + suffix);
+    }
+}
 
 public record PostSlug(string Value)
 {

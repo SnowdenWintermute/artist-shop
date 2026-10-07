@@ -22,6 +22,8 @@
   private PostForm Input { get; set; } = default!;
   [SupplyParameterFromQuery(Name = "saved")]
   private bool Saved { get; set; }
+  [SupplyParameterFromQuery(Name = "copied")]
+  private bool Copied { get; set; }
   // A post keeps the address, ?saved=true from the last save included, and a successful save
   // redirects, so a page rendered from a post is always a save that didn't go through
   private bool _formWasPosted;
@@ -41,14 +43,16 @@
   private RenderFragment? PostAddress =>
     _post is { } post
       ? @<p class="mb-4 text-sm text-gray-500">
-          Address: <a class="underline" href="@PageUrls.Post(post.Slug)">@PageUrls.Post(post.Slug)</a>
-        </p>
-      : null;
+        Address: <a class="underline" href="@PageUrls.Post(post.Slug)">@PageUrls.Post(post.Slug)</a>
+      </p>
+  : null;
 
   // keyed by the post, so enhanced navigation to another post's page can't patch this island onto it
   private string DeleteKey => $"delete-{Id}";
 
   private string BodyEditorKey => $"post-body-{Id}";
+
+  private const string CopyFormName = "copy-post";
 
   protected override async Task OnInitializedAsync()
   {
@@ -117,9 +121,40 @@
       return;
     }
 
-    // reloading is what shows the saved values, including the new status
+    // reloading is what shows the saved values, including the new status. A copy's "Copied." goes,
+    // so it isn't shown with "Saved."
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-    { ["saved"] = true }));
+    { ["saved"] = true, ["copied"] = null }));
+  }
+
+  // A draft holding the post as last saved, opened for editing. Edits not saved yet stay with this
+  // post, kept by PostBackup
+  private async Task CopyAsync()
+  {
+    if (_post is null)
+    {
+      return;
+    }
+
+    var id = await AddCopyAsync(_post);
+    NavigationManager.NavigateTo($"{PageUrls.EditPost(id)}?copied=true");
+  }
+
+  // each title tried and taken belongs to another post, so a free one comes before the posts run out
+  private async Task<PostId> AddCopyAsync(Post post)
+  {
+    for (var number = 1; ; number++)
+    {
+      var title = post.Title.ForCopy(number);
+
+      try
+      {
+        return await PostRepository.AddAsync(title, PostSlug.FromTitle(title.Value), post.Body, PostStatus.Draft);
+      }
+      catch (NameAlreadyInUseException)
+      {
+      }
+    }
   }
 }
 
@@ -148,6 +183,11 @@
         <SavedNotice>Saved.</SavedNotice>
       }
 
+      @if (Copied && !_formWasPosted)
+      {
+        <SavedNotice>Copied. This is the new draft; the original is unchanged.</SavedNotice>
+      }
+
       @if (_deletedElsewhere)
       {
         <p class="mb-4 text-red-400">
@@ -161,7 +201,16 @@
           <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
             <DataAnnotationsValidator />
 
-            <TextField Label="Title" @bind-Value="Input.Title" />
+            <div class="flex justify-between items-end">
+              <TextField Label="Title" @bind-Value="Input.Title" />
+              @if (_post is not null)
+              {
+                @* submits the copy form below, as forms can't nest *@
+                <ButtonBasic type="submit" form="@CopyFormName" class="mb-4" Variant="@ButtonVariant.Outline">
+                  Make a copy
+                </ButtonBasic>
+              }
+            </div>
             <PostBodyEditor Label="Text" DocumentKey="@BodyEditorKey" @bind-Value="Input.Body" />
 
             @* Each button posts the status it asks for. The first one is what Enter in the title
@@ -194,6 +243,16 @@
           </EditForm>
         </EnableSaveOnChange>
       </PostBackup>
+
+      @* Rendered whenever there's a post, as a post is matched to its form by rendering the page before
+         the handler runs. Outside PostBackup, whose submit handler is the edit form's. Not enhanced, so
+         leaving the page runs PostBackup's pagehide, which writes edits typed a moment before *@
+      @if (_post is not null)
+      {
+        <form method="post" @formname="@CopyFormName" @onsubmit="CopyAsync" id="@CopyFormName">
+          <AntiforgeryToken />
+        </form>
+      }
 
       @* the editor's Video button opens this. Outside the post's form, since it has a form of its own *@
       <VideoAddressDialog />

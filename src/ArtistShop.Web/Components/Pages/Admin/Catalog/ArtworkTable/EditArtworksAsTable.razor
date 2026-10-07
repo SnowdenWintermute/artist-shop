@@ -1,5 +1,4 @@
 @page "/admin/catalog/artworks/table"
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Artworks
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -10,8 +9,6 @@
 
 <main>
   <AdminPanel Wide>
-    <BackLink Href="@PageUrls.AdminDashboard" Label="Admin" />
-
     <p class="mb-4 flex items-center">
       <span class="text-theme-base flex items-center justify-center mr-2">
         <SvgIcon Name="floppy-disc" Class="size-5" />
@@ -26,8 +23,7 @@
     <ArtworkListBrowser RowHref="_ => null" ClearFiltersHref="@PageUrls.ArtworkTable" SingleType>
       <Rows Context="loaded">
         <ArtworkTableEditor ArtworkTypeId="loaded.Filter.ArtworkTypeIds[0].Value"
-                            ArtworkIds="[.. loaded.Artworks.Items.Select(item => item.Id.Value)]"
-                            Address="@NavigationManager.Uri" />
+                            ArtworkIds="[.. loaded.Artworks.Items.Select(item => item.Id.Value)]" Address="@NavigationManager.Uri" />
       </Rows>
     </ArtworkListBrowser>
   </AdminPanel>
