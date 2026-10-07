@@ -36,10 +36,7 @@ public class VocabularyForm : ServerValidatedForm
 
     public void ToggleArtworkType(ArtworkTypeId artworkTypeId)
     {
-        if (!_artworkTypeIds.Remove(artworkTypeId))
-        {
-            _artworkTypeIds.Add(artworkTypeId);
-        }
+        _artworkTypeIds.Toggle(artworkTypeId);
     }
 
     public bool WasUnselected(ArtworkTypeId artworkTypeId) =>

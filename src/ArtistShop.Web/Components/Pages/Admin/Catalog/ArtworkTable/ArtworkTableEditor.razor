@@ -82,7 +82,9 @@
   // the refresh brings the count and the page links up to date, and leaves the rows that remain
   private void RowsDeleted(IReadOnlyList<ArtworkTableRow> rows)
   {
-    _loaded?.Rows.RemoveAll(rows.Contains);
+    // the table, which deleted them, shows only once the rows have loaded
+    var loaded = _loaded ?? throw new InvalidOperationException("Rows were deleted before any had loaded.");
+    loaded.Rows.RemoveAll(rows.Contains);
     NavigationManager.Refresh();
   }
 }

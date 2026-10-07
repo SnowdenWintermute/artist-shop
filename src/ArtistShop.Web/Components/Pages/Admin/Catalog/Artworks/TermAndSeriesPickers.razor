@@ -6,6 +6,7 @@
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
 @rendermode InteractiveServer
 @inject VocabularyRepository VocabularyRepository
 @inject SeriesRepository SeriesRepository
@@ -89,21 +90,13 @@ VocabularyRepository.GetAllWithTermsForArtworkTypeAsync(ArtworkTypeId));
 
   private List<(int Value, string Label)> SeriesOptions => [.. _series.Select(series => (series.Id.Value,
 series.Name.Value))];
-
-  private static void Toggle(HashSet<int> selected, int value)
-  {
-    if (!selected.Remove(value))
-    {
-      selected.Add(value);
-    }
-  }
 }
 
 <DisabledUntilInteractive>
   <TabReturnWatcher OnTabReturn="ReloadOptionsAsync" />
 
   <CheckboxGroupField Legend="Series" Name="Input.SeriesIds" Options="SeriesOptions" SelectedValues="_selectedSeriesIds"
-                      OnToggle="value => Toggle(_selectedSeriesIds, value)">
+                      OnToggle="value => _selectedSeriesIds.Toggle(value)">
     <EmptyContent>No series yet.</EmptyContent>
   </CheckboxGroupField>
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" @onclick="() => _addSeriesDialogOpen = true">
@@ -120,7 +113,7 @@ series.Name.Value))];
   {
     <CheckboxGroupField @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="Input.VocabularyTermIds"
                         Options="TermOptions(vocabulary)" SelectedValues="_selectedTermIds"
-                        OnToggle="value => Toggle(_selectedTermIds, value)">
+                        OnToggle="value => _selectedTermIds.Toggle(value)">
       <EmptyContent>No terms yet.</EmptyContent>
     </CheckboxGroupField>
   }

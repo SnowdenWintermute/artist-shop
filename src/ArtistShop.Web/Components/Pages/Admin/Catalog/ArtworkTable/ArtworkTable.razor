@@ -273,24 +273,30 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
              @onchange="() => SetAllSelected(!IsAllSelected)" />
     </div>;
 
-  // for removing: only the series a selected row is in
-  private List<Series> SeriesOfSelected =>
-    [.. AllSeries.Where(series => SelectedRows.Any(row => row.Form.SeriesIds.Contains(series.Id.Value)))];
+  // for removing: only the series one of these rows is in
+  private List<Series> SeriesOf(IReadOnlyList<ArtworkTableRow> rows)
+  {
+    var seriesIds = rows.SelectMany(row => row.Form.SeriesIds).ToHashSet();
+    return [.. AllSeries.Where(series => seriesIds.Contains(series.Id.Value))];
+  }
 
-  // for removing: only the terms a selected row has, under their vocabularies
-  private List<VocabularyWithTerms> VocabulariesOfSelected =>
+  // for removing: only the terms one of these rows has, under their vocabularies
+  private List<VocabularyWithTerms> VocabulariesOf(IReadOnlyList<ArtworkTableRow> rows)
+  {
+    var termIds = rows.SelectMany(row => row.Form.VocabularyTermIds).ToHashSet();
+
+    return
     [
       .. _vocabularies
-        .Select(vocabulary => vocabulary with
-        {
-          Terms = [.. vocabulary.Terms.Where(term => SelectedRows.Any(row => row.Form.VocabularyTermIds.Contains(term.Id.Value)))],
-        })
+        .Select(vocabulary => vocabulary with { Terms = [.. vocabulary.Terms.Where(term => termIds.Contains(term.Id.Value))] })
         .Where(vocabulary => vocabulary.Terms.Count > 0),
     ];
+  }
 
-  // each row is saved as if edited by hand, so a bulk change waits for any save the row is running
-  // rather than racing it
-  private async Task ApplyAsync(IReadOnlyList<ArtworkTableRow> rows, Action<ArtworkTableRow> change)
+  // Each row the change alters is saved as if edited by hand: a row already saving picks the change up
+  // and saves again once that save ends, rather than a second save racing it. change says whether it
+  // altered the row, and a row it left as it was isn't saved
+  private async Task ApplyAsync(IReadOnlyList<ArtworkTableRow> rows, Func<ArtworkTableRow, bool> change)
   {
     _isApplying = true;
 
@@ -298,8 +304,10 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     {
       foreach (var row in rows)
       {
-        change(row);
-        await SaveAsync(row);
+        if (change(row))
+        {
+          await SaveAsync(row);
+        }
       }
     }
     finally
@@ -308,7 +316,6 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     }
   }
 
-  // in the order the series are listed, so each row reads the same as the list
   private async Task BulkSeriesOkAsync(IReadOnlySet<int> seriesIds)
   {
     if (_bulkSeriesChange is not { } change)
@@ -319,9 +326,21 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     var rows = SelectedRows;
     _bulkSeriesChange = null;
 
-    await ApplyAsync(rows, row => row.Form.SeriesIds = change is BulkChange.Add
-      ? [.. AllSeries.Select(series => series.Id.Value).Where(id => seriesIds.Contains(id) || row.Form.SeriesIds.Contains(id))]
-      : [.. row.Form.SeriesIds.Where(id => !seriesIds.Contains(id))]);
+    await ApplyAsync(rows, row =>
+    {
+      // added ones go in the order the series are listed, so each row reads the same as the list
+      List<int> updated = change is BulkChange.Add
+        ? SeriesOrder.SeriesIdsInListOrder(AllSeries, seriesIds.Union(row.Form.SeriesIds).ToHashSet())
+        : [.. row.Form.SeriesIds.Where(id => !seriesIds.Contains(id))];
+
+      if (updated.SequenceEqual(row.Form.SeriesIds))
+      {
+        return false;
+      }
+
+      row.Form.SeriesIds = updated;
+      return true;
+    });
 
     await ChoiceDialogClosedAsync();
   }
@@ -336,9 +355,20 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     var rows = SelectedRows;
     _bulkVocabularyChange = null;
 
-    await ApplyAsync(rows, row => row.Form.VocabularyTermIds = change is BulkChange.Add
-      ? VocabularyOrder.TermIdsInListOrder(_vocabularies, termIds.Union(row.Form.VocabularyTermIds).ToHashSet())
-      : [.. row.Form.VocabularyTermIds.Where(id => !termIds.Contains(id))]);
+    await ApplyAsync(rows, row =>
+    {
+      List<int> updated = change is BulkChange.Add
+        ? VocabularyOrder.TermIdsInListOrder(_vocabularies, termIds.Union(row.Form.VocabularyTermIds).ToHashSet())
+        : [.. row.Form.VocabularyTermIds.Where(id => !termIds.Contains(id))];
+
+      if (updated.SequenceEqual(row.Form.VocabularyTermIds))
+      {
+        return false;
+      }
+
+      row.Form.VocabularyTermIds = updated;
+      return true;
+    });
 
     await ChoiceDialogClosedAsync();
   }
@@ -376,23 +406,25 @@ series.Name.Value));
    On a touch screen the box scrolls both ways: a sideways scroll still coasting inside a box that
    scrolls only sideways holds on to the next drag, so the page wouldn't scroll down until it stopped *@
 @{
-  var selectedCount = SelectedRows.Count;
-  var isIdle = selectedCount > 0 && !_isApplying;
+  var selectedRows = SelectedRows;
+  var canChangeSelected = selectedRows.Count > 0 && !_isApplying;
+  var isUploadingSelected = selectedRows.Any(row => row.HasImagesUploading);
 }
 
 <div class="mb-2 flex flex-wrap items-center gap-2">
-  <span class="mr-2 text-sm" role="status">@selectedCount selected</span>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+  <span class="mr-2 text-sm" role="status">@selectedRows.Count selected</span>
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
                @onclick="() => _bulkSeriesChange = BulkChange.Add">Add to series</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
                @onclick="() => _bulkSeriesChange = BulkChange.Remove">Remove from series</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
                @onclick="() => _bulkVocabularyChange = BulkChange.Add">Add terms</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
                @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
   @* an artwork deleted mid-upload would leave its upload failing *@
   <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline"
-               disabled="@(!isIdle || SelectedRows.Any(row => row.HasImagesUploading))"
+               disabled="@(!canChangeSelected || isUploadingSelected)"
+               title="@(isUploadingSelected ? "Waits for image uploads to finish" : null)"
                @onclick="() => _isConfirmingDelete = true">Delete</ButtonBasic>
 </div>
 
@@ -528,26 +560,20 @@ series.Name.Value));
 
 @if (_bulkSeriesChange is { } seriesChange)
 {
-  <BulkSeriesDialog Change="seriesChange" ArtworkCount="SelectedRows.Count"
-                    Series="@(seriesChange is BulkChange.Add ? AllSeries : SeriesOfSelected)" OnOk="BulkSeriesOkAsync"
+  <BulkSeriesDialog Change="seriesChange" ArtworkCount="selectedRows.Count"
+                    Series="@(seriesChange is BulkChange.Add ? AllSeries : SeriesOf(selectedRows))" OnOk="BulkSeriesOkAsync"
                     OnClose="ChoiceDialogClosedAsync" OnSeriesAdded="SeriesAddedAsync" />
 }
 
 @if (_bulkVocabularyChange is { } vocabularyChange)
 {
-  <BulkVocabularyDialog Change="vocabularyChange" ArtworkCount="SelectedRows.Count" ArtworkTypeId="Type.Id"
-                        Vocabularies="@(vocabularyChange is BulkChange.Add ? _vocabularies : VocabulariesOfSelected)"
+  <BulkVocabularyDialog Change="vocabularyChange" ArtworkCount="selectedRows.Count" ArtworkTypeId="Type.Id"
+                        Vocabularies="@(vocabularyChange is BulkChange.Add ? _vocabularies : VocabulariesOf(selectedRows))"
                         OnOk="BulkVocabularyOkAsync" OnClose="ChoiceDialogClosedAsync"
                         OnVocabulariesChanged="VocabulariesChangedAsync" />
 }
 
-@{
-  var selectedRows = SelectedRows;
-}
-
 <ConfirmDialog @bind-Open="_isConfirmingDelete" Title="@($"Delete {CountText.Of(selectedRows.Count, "artwork")}?")"
                ConfirmLabel="Delete" OnConfirm="DeleteSelectedAsync" IsWorking="_isDeleting">
-  This removes them from the catalog for good, along with
-  @CountText.Of(selectedRows.Sum(row => row.SavedImages.Count), "image"), their places in any series and anything
-  listed for sale from them.
+  <DeleteArtworksWarning ArtworkCount="selectedRows.Count" ImageCount="selectedRows.Sum(row => row.SavedImages.Count)" />
 </ConfirmDialog>

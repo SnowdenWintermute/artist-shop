@@ -1,0 +1,16 @@
+@using ArtistShop.Web.Utilities
+
+@* What deleting takes with it, for the confirm dialogs that delete one artwork or several *@
+
+@code {
+  [Parameter, EditorRequired]
+  public int ArtworkCount { get; set; }
+  // across all of them
+  [Parameter, EditorRequired]
+  public int ImageCount { get; set; }
+
+  private bool IsOne => ArtworkCount is 1;
+}
+
+This removes @(IsOne ? "it" : "them") from the catalog for good, along with @CountText.Of(ImageCount, "image"),
+@(IsOne ? "its place" : "their places") in any series and anything listed for sale from @(IsOne ? "it" : "them").

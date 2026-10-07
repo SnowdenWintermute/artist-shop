@@ -35,14 +35,6 @@
   private EventCallback<Series> AddedCallback =>
     Change is BulkChange.Add ? EventCallback.Factory.Create<Series>(this, SeriesAddedAsync) : default;
 
-  private void Toggle(int seriesId)
-  {
-    if (!_checked.Remove(seriesId))
-    {
-      _checked.Add(seriesId);
-    }
-  }
-
   private async Task SeriesAddedAsync(Series series)
   {
     _checked.Add(series.Id.Value);
@@ -51,7 +43,7 @@
 }
 
 <ModalDialog Title="@Title" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isAddingSeries">
-  <SeriesChoices AllSeries="Series" Checked="_checked" OnToggle="Toggle" OnSeriesAdded="AddedCallback"
+  <SeriesChoices AllSeries="Series" Checked="_checked" OnToggle="id => _checked.Toggle(id)" OnSeriesAdded="AddedCallback"
                  EmptyText="@(Change is BulkChange.Remove ? "None of these artworks are in a series." : null)"
                  @bind-IsAdding="_isAddingSeries" />
 

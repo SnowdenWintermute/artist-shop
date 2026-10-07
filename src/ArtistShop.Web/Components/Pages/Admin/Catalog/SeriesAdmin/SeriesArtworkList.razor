@@ -33,14 +33,6 @@
   private string? StarredValue =>
     _artworks.FirstOrDefault(artwork => artwork.IsCover) is { } cover ? StarValueOf(cover) : null;
 
-  private void ToggleSelected(ArtworkId id)
-  {
-    if (!_selected.Remove(id))
-    {
-      _selected.Add(id);
-    }
-  }
-
   private Task MoveAsync((int OldIndex, int NewIndex) move) =>
     SaveAsync(async () =>
     {
@@ -135,7 +127,7 @@
       </RowContent>
       <RowActions Context="artwork">
         <RowSelectCheckbox ItemName="@artwork.Name.Value" checked="@_selected.Contains(artwork.Id)"
-                           @onchange="() => ToggleSelected(artwork.Id)" />
+                           @onchange="() => _selected.Toggle(artwork.Id)" />
       </RowActions>
     </StarredSortableList>
   }

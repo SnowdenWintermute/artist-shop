@@ -1,6 +1,7 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
 
 @* rendered only while open, so each opening starts from the row's saved series *@
 
@@ -26,14 +27,6 @@
 
   protected override void OnInitialized() => _checked.UnionWith(SelectedSeriesIds);
 
-  private void Toggle(int seriesId)
-  {
-    if (!_checked.Remove(seriesId))
-    {
-      _checked.Add(seriesId);
-    }
-  }
-
   private async Task SeriesAddedAsync(Series series)
   {
     _checked.Add(series.Id.Value);
@@ -46,7 +39,7 @@
 }
 
 <ModalDialog Title="@(ArtworkName is null ? "Series" : $"Series of {ArtworkName}")" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isAddingSeries">
-  <SeriesChoices AllSeries="AllSeries" Checked="_checked" OnToggle="Toggle" OnSeriesAdded="SeriesAddedAsync"
+  <SeriesChoices AllSeries="AllSeries" Checked="_checked" OnToggle="id => _checked.Toggle(id)" OnSeriesAdded="SeriesAddedAsync"
                  @bind-IsAdding="_isAddingSeries" />
 
   <ModalDialogActions>

@@ -409,16 +409,10 @@ public class ArtworkRepository(SiteDatabase database)
         }
     }
 
-    // the images, series rows, term rows and products go with it, through the foreign keys'
+    public Task DeleteAsync(ArtworkId id) => DeleteManyAsync([id]);
+
+    // the images, series rows, term rows and products go with them, through the foreign keys'
     // ON DELETE CASCADE. The image files wait for OrphanedImageSweeper
-    public async Task DeleteAsync(ArtworkId id)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        await connection.ExecuteAsync("SELECT delete_artwork(@Id)", new { Id = id.Value });
-    }
-
-    // DeleteAsync for several at once
     public async Task DeleteManyAsync(IReadOnlyCollection<ArtworkId> ids)
     {
         await using var connection = await database.OpenConnectionAsync();

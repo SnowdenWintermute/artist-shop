@@ -50,22 +50,6 @@
     }
   }
 
-  private void ToggleFolder(DroppedFolder folder)
-  {
-    if (!_checkedFolders.Remove(folder.Path))
-    {
-      _checkedFolders.Add(folder.Path);
-    }
-  }
-
-  private void ToggleSeries(int seriesId)
-  {
-    if (!_checkedSeries.Remove(seriesId))
-    {
-      _checkedSeries.Add(seriesId);
-    }
-  }
-
   private async Task SeriesAddedAsync(Series series)
   {
     _checkedSeries.Add(series.Id.Value);
@@ -125,7 +109,7 @@
         {
           <label @key="folder.Path" class="flex cursor-pointer items-start gap-2 py-1">
             <input type="checkbox" class="mt-1 cursor-pointer" checked="@_checkedFolders.Contains(folder.Path)"
-                   disabled="@(folder.Type is DroppedFolderSeriesType.CannotBeSeries)" @onchange="() => ToggleFolder(folder)" />
+                   disabled="@(folder.Type is DroppedFolderSeriesType.CannotBeSeries)" @onchange="() => _checkedFolders.Toggle(folder.Path)" />
             <span>
               <span class="font-medium">@(folder.Existing is { } existing ? existing.Name.Value : folder.Name)</span>
               <span class="text-sm text-gray-600">
@@ -146,7 +130,7 @@
       <h2 class="mb-1 font-medium">@CountText.Of(LooseImageCount, "image") not in a folder</h2>
       <p class="mb-2">Check all series you wish to add these artworks to.</p>
 
-      <SeriesChoices AllSeries="AllSeries" Checked="_checkedSeries" OnToggle="ToggleSeries" OnSeriesAdded="SeriesAddedAsync"
+      <SeriesChoices AllSeries="AllSeries" Checked="_checkedSeries" OnToggle="id => _checkedSeries.Toggle(id)" OnSeriesAdded="SeriesAddedAsync"
                      @bind-IsAdding="_isAddingSeries" />
     }
   </div>

@@ -34,18 +34,10 @@
 
   // nothing to remove from a vocabulary or term made here
   private EventCallback ChangedCallback => Change is BulkChange.Add ? OnVocabulariesChanged : default;
-
-  private void Toggle(int termId)
-  {
-    if (!_checked.Remove(termId))
-    {
-      _checked.Add(termId);
-    }
-  }
 }
 
 <ModalDialog Title="@Title" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isSaving">
-  <VocabularyChoices ArtworkTypeId="ArtworkTypeId" Vocabularies="Vocabularies" Checked="_checked" OnToggle="Toggle"
+  <VocabularyChoices ArtworkTypeId="ArtworkTypeId" Vocabularies="Vocabularies" Checked="_checked" OnToggle="id => _checked.Toggle(id)"
                      OnVocabulariesChanged="ChangedCallback" @bind-IsSaving="_isSaving"
                      EmptyText="@(Change is BulkChange.Remove ? "None of these artworks have terms." : null)">
     <Actions>
