@@ -1,4 +1,5 @@
 @page "/admin/import/website"
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -10,12 +11,12 @@
   <AdminPanel>
     <h1 class="mb-4 text-xl">Move a whole website here</h1>
 
-    <Notice>
+    <Hint Type="HintType.WebsiteImport">
       <p>
         Choose the folder from downloaded from "Download all site data" on the other website's Export page, unzipped.
         You'll see a review before anything is imported.
       </p>
-    </Notice>
+    </Hint>
     @* the island posts each image to an endpoint that checks the antiforgery token, and there is
        no form on this page to carry one *@
     <AntiforgeryToken />

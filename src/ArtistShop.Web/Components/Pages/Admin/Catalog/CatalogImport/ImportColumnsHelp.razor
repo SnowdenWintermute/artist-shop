@@ -1,8 +1,13 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Hints
 
 @* an import page's help: what else the admin could do, then the columns the file can have, as ImportColumns *@
 
 @code {
+  // which import page's, as each is dismissed on its own
+  [Parameter, EditorRequired]
+  public HintType Hint { get; set; }
+
   [Parameter, EditorRequired]
   public RenderFragment Intro { get; set; } = default!;
 
@@ -28,7 +33,7 @@
   </text>;
 }
 
-<Notice>
+<Hint Type="Hint" Variant="HintVariant.Collapses">
   <p class="mb-2">@Intro</p>
   @if (Collapsed)
   {
@@ -42,4 +47,4 @@
     <p class="mb-2">@Heading:</p>
     @ColumnList
   }
-</Notice>
+</Hint>

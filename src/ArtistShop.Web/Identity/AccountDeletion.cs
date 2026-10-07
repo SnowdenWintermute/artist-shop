@@ -11,12 +11,13 @@ using Microsoft.AspNetCore.Identity;
 // Deletes an account, which is the whole platform's: the websites it owns go into their grace
 // period, which nobody can end now, and it stops being an admin of the rest. The platform changes
 // come first, since it's a different database: if Identity's delete then fails, the account still
-// exists and its owner can keep their websites. Only once it's gone are its owner rows removed, so
-// no member row names an account that doesn't exist, and anyone emailed, since the emails say it's
-// gone and nobody can keep its websites
+// exists and its owner can keep their websites. Only once it's gone are its owner rows and its
+// profile removed, so no platform row names an account that doesn't exist, and anyone emailed, since
+// the emails say it's gone and nobody can keep its websites
 public sealed class AccountDeletion(
     UserManager<ApplicationUser> userManager,
     SiteRepository siteRepository,
+    AccountProfileRepository accountProfiles,
     SiteMemberAccounts siteMemberAccounts,
     HostDirectory hostDirectory,
     SiteEmails siteEmails,
@@ -69,6 +70,7 @@ public sealed class AccountDeletion(
         }
 
         await siteRepository.RemoveDeletedSitesOwnerAsync(account.Id);
+        await accountProfiles.DeleteAsync(account.Id);
 
         foreach (var (admin, site) in adminsToTell)
         {

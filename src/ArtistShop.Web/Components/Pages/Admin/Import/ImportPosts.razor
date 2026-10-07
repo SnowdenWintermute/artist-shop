@@ -1,5 +1,6 @@
 @page "/admin/import/posts"
 @layout ImportLayout
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -9,14 +10,14 @@
 
 <h1 class="mb-4 text-xl">Import posts from another website</h1>
 
-<Notice>
+<Hint Type="HintType.PostImport" Variant="HintVariant.Collapses">
   <p class="mb-4">
     Use the posts folder download from another PictureCord website's Export page. It must be unzipped first.
     An artwork linked in a post will re-link to an existing artwork on this website with the same image, otherwise it
     will show as a standalone picture.
   </p>
   <p>Posts keep their publish dates. Drafts stay drafts.</p>
-</Notice>
+</Hint>
 
 @* the island posts each image to an endpoint that checks the antiforgery token, and there is
        no form on this page to carry one *@

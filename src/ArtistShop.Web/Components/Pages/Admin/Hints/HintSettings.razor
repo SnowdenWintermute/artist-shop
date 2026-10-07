@@ -1,0 +1,70 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Identity
+@inject DismissedHintRepository DismissedHints
+
+@* every hint, checked while it shows, each saved as it's changed *@
+
+@code {
+  [CascadingParameter]
+  private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+  private string _userId = "";
+  private readonly HashSet<HintType> _dismissed = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _userId = (await AuthenticationState).User.RequiredUserId();
+    _dismissed.UnionWith(await DismissedHints.GetAsync(_userId));
+  }
+
+  // Nothing is disabled while saving, so the boxes stay as they are. Each save applies only its own
+  // change once it's done, so saves finishing in another order than they were made can't undo each other
+  // from the box's new state, so two quick clicks save what it ends up showing
+  private Task SetShownAsync(HintType type, ChangeEventArgs change) =>
+    change.Value is true ? ShowAsync([type]) : DismissAsync([type]);
+
+  private async Task ShowAsync(IReadOnlyCollection<HintType> types)
+  {
+    await DismissedHints.ShowAsync(_userId, types);
+    _dismissed.ExceptWith(types);
+  }
+
+  private async Task DismissAsync(IReadOnlyCollection<HintType> types)
+  {
+    await DismissedHints.DismissAsync(_userId, types);
+    _dismissed.UnionWith(types);
+  }
+}
+
+<DisabledUntilInteractive>
+  <fieldset class="mb-4">
+    <legend class="sr-only">Hints to show</legend>
+    <ul>
+      @foreach (var type in Enum.GetValues<HintType>())
+      {
+        <li @key="type" class="mb-2 flex flex-wrap items-baseline gap-x-2">
+          <label class="inline-flex cursor-pointer items-center gap-2">
+            <input type="checkbox" class="cursor-pointer" checked="@(!_dismissed.Contains(type))"
+                   @onchange="change => SetShownAsync(type, change)" />
+            @HintListing.Title(type)
+          </label>
+          <a href="@HintListing.PageUrl(type)" class="text-sm text-theme-muted underline">Where it shows</a>
+        </li>
+      }
+    </ul>
+  </fieldset>
+
+  <div class="flex gap-2">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(_dismissed.Count == 0)"
+                 @onclick="() => ShowAsync(Enum.GetValues<HintType>())">
+      Show all
+    </ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline"
+                 disabled="@(_dismissed.Count == Enum.GetValues<HintType>().Length)"
+                 @onclick="() => DismissAsync(Enum.GetValues<HintType>())">
+      Dismiss all
+    </ButtonBasic>
+  </div>
+</DisabledUntilInteractive>

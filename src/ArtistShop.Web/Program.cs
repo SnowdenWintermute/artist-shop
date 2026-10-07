@@ -78,6 +78,12 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton(services =>
     new SiteMemberInputValueRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
 );
+builder.Services.AddSingleton(services =>
+    new AccountProfileRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
+builder.Services.AddSingleton(services =>
+    new DismissedHintRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
 
 // every site's schema, in the platform database and reached through one shared pool
 const string SitesDataSourceKey = "sites";
@@ -372,5 +378,8 @@ app.MapExportEndpoints();
 
 // inputs that save the value an admin leaves them at
 app.MapRememberedInputEndpoints();
+
+// the hints an admin dismisses
+app.MapDismissedHintEndpoints();
 
 app.Run();

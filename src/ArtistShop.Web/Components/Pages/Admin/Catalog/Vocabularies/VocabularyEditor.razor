@@ -1,6 +1,7 @@
 @page "/admin/catalog/vocabularies/new"
 @page "/admin/catalog/vocabularies/{Id:int}/edit"
 @layout VocabularyLayout
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
@@ -48,14 +49,14 @@
 @* only on the new vocabulary page, which is where the admin's Vocabularies links land *@
 @if (Id is null)
 {
-  <Notice>
+  <Hint Type="HintType.Vocabularies">
     <p>Controlled
       vocabularies provide a way
       to associate
       your artworks with a defined list of terms. For example, a painting could have a vocabulary called "Support" whose
       terms could be "Canvas", "Paper" or "Stone Slab".</p>
 
-    </Notice>
+    </Hint>
   }
 
   <PageTitle>@(_loaded is null ? "New vocabulary" : _loaded.Vocabulary.Name.Value)</PageTitle>

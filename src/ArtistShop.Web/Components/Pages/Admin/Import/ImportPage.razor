@@ -1,5 +1,6 @@
 @page "/admin/import"
 @layout ImportLayout
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Exports
 @using ArtistShop.Web.Sites
@@ -24,7 +25,7 @@
   <h2 class="mb-1 text-lg">Step by step:</h2>
 
 
-  <Notice>
+  <Hint Type="HintType.StepByStepImport">
     <p class="mb-4">If you need finer control over imports you can do them one step at a time. If you are starting a new
       site and you already have a structured spreadsheet of artwork data and images that match the names of those
       artworks you may wish to use
@@ -33,7 +34,7 @@
         Some steps depend on previous steps.
         Imports are only additive. Existing entries are skipped.
       </p>
-    </Notice>
+    </Hint>
 
     <div class="flex flex-col gap-6">
       <ImportStep Title="@ImportSteps.ArtworkTypes.Title" Href="@ImportSteps.ArtworkTypes.Href" Icon="csv" ButtonLabel="Import">

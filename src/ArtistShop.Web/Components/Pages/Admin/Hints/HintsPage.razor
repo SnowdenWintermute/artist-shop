@@ -1,0 +1,19 @@
+@page "/admin/hints"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+<PageTitle>Hints</PageTitle>
+
+<main>
+  <AdminPanel>
+    <BackLink title="Admin" Href="@PageUrls.AdminDashboard" Label="Admin"></BackLink>
+    <h1 class="mb-4 text-xl">Hints</h1>
+    <p class="mb-4">
+      Hints explain how the admin pages work. Check the ones to show; they're shown or hidden on every website
+      you administer.
+    </p>
+    <HintSettings @rendermode="InteractiveServer" />
+  </AdminPanel>
+</main>

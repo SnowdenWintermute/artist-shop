@@ -1,5 +1,6 @@
 @page "/admin/catalog/vocabularies/import"
 @layout ImportLayout
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
@@ -44,7 +45,7 @@
                         ImportedCount="ImportedCount" Singular="vocabulary" Plural="vocabularies" PlanAsync="PlanAsync"
                         ApplyAsync="ApplyAsync">
       <ColumnsHelp>
-        <ImportColumnsHelp>
+        <ImportColumnsHelp Hint="HintType.VocabularyImport">
           <Intro>
             To add one vocabulary at a time, <a class="underline" href="@PageUrls.NewVocabulary">create a vocabulary</a>
             instead.

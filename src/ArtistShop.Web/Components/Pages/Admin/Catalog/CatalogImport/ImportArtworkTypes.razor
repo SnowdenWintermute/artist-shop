@@ -1,5 +1,6 @@
 @page "/admin/catalog/types/import"
 @layout ImportLayout
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Pages.Admin.Import
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain
@@ -42,7 +43,7 @@
                         ImportedCount="ImportedCount" Singular="artwork type" Plural="artwork types" PlanAsync="PlanAsync"
                         ApplyAsync="ApplyAsync">
       <ColumnsHelp>
-        <ImportColumnsHelp>
+        <ImportColumnsHelp Hint="HintType.ArtworkTypeImport">
           <Intro>
             To add one type at a time, <a class="underline" href="@PageUrls.NewArtworkType">create an artwork type</a>
             instead.

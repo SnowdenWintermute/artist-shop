@@ -1,0 +1,81 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@inject DismissedHintRepository DismissedHints
+@inject AntiforgeryStateProvider AntiforgeryStateProvider
+
+@* An explanation of how a page works, which its admin can dismiss for good with its X: then a
+   Disappears one renders nothing and a Collapses one only "Show help text", which shows it again for
+   good. The Hints page shows any of them again. Renders nothing until it's known whether it was
+   dismissed, so a dismissed one never flashes *@
+
+@code {
+  [Parameter, EditorRequired]
+  public HintType Type { get; set; }
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  [Parameter]
+  public HintVariant Variant { get; set; }
+  [Parameter]
+  public string Class { get; set; } = default!;
+
+  [CascadingParameter]
+  private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+  private bool _loaded;
+  private bool _dismissed;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var userId = (await AuthenticationState).User.RequiredUserId();
+    _dismissed = (await DismissedHints.GetAsync(userId)).Contains(Type);
+    _loaded = true;
+  }
+
+  private AntiforgeryRequestToken? Token => AntiforgeryStateProvider.GetAntiforgeryToken();
+}
+
+@* <hint-toggle>, defined in Hint.razor.js, hides or shows the element marked data-hint and saves
+   that. Around a collapsing hint it's the marked element itself, holding both the notice and its
+   Show help text; otherwise it sits inside the notice and has nothing to lay out ("contents") *@
+@{
+  RenderFragment closeButton =
+    @<button type="button" aria-label="Dismiss hint" title="Dismiss hint" data-hint-action="dismiss"
+             class="absolute top-2 right-2 cursor-pointer">
+      <SvgIcon Name="close" Class="h-5 w-5" />
+    </button>;
+}
+
+@if (_loaded && Variant is HintVariant.Collapses)
+{
+  @* data-dismissed picks which of the two shows. The button comes first, so the notice is the last
+     child and drops its bottom margin to this element's *@
+  <hint-toggle class="group/hint mb-4 block last:mb-0" data-hint="@Type" data-collapses data-dismissed="@_dismissed"
+               data-save-url="@DismissedHintEndpoints.Path" data-hint-field="@DismissedHintEndpoints.HintField"
+               data-dismissed-field="@DismissedHintEndpoints.DismissedField" data-token-field="@Token?.FormFieldName"
+               data-token="@Token?.Value">
+    <button type="button" data-hint-action="show"
+            class="hidden cursor-pointer text-sm text-theme-muted hover:underline group-data-dismissed/hint:block">
+      ⓘ Show help text
+    </button>
+    <Notice Class="@ClassNames.Join("relative pr-10 group-data-dismissed/hint:hidden", Class)">
+      @ChildContent
+      @closeButton
+    </Notice>
+  </hint-toggle>
+}
+else if (_loaded && !_dismissed)
+{
+  <Notice Class="@ClassNames.Join("relative pr-10", Class)" data-hint="@Type">
+    @ChildContent
+    <hint-toggle class="contents" data-save-url="@DismissedHintEndpoints.Path"
+                 data-hint-field="@DismissedHintEndpoints.HintField" data-dismissed-field="@DismissedHintEndpoints.DismissedField"
+                 data-token-field="@Token?.FormFieldName" data-token="@Token?.Value">
+      @closeButton
+    </hint-toggle>
+  </Notice>
+}

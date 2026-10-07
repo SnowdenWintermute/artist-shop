@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
 @using ArtistShop.Web.Database.Repositories
@@ -25,6 +26,14 @@
 
 <main class="@AdminPanel.WidthClass">
   <div class="grid gap-4 sm:grid-cols-2">
+    <Panel Class="col-span-full">
+      <h1 class="text-lg font-bold">Admin Dashboard</h1>
+      <Hint Type="HintType.AdminDashboard" Class="mt-2">If you are starting from scratch,
+        <a class="underline" href="@PageUrls.AddArtworksFromImages">start with "Add many".</a>
+      </Hint>
+      <Divider Class="my-2"></Divider>
+      <a href="@PageUrls.Hints" class="mt-8">Toggle hints</a>
+    </Panel>
     <DashboardBox Title="Catalog">
       <ul>
         <DashboardLink Href="@PageUrls.SeriesList">Series</DashboardLink>

@@ -1,4 +1,5 @@
 using System.Net;
+using ArtistShop.Web.Components.Hints;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;
@@ -53,6 +54,22 @@ public sealed class AccountDeletionTests(TestApp app)
         Assert.Equal($"http://{TestApp.PlatformHost}/", response.Headers.Location?.AbsoluteUri);
         Assert.False(await HasAccountAsync(email));
         Assert.Contains("Your PictureCord account was deleted", Assert.Single(app.Mailer.SentTo(email)).Subject);
+    }
+
+    // they hang off the platform profile, which goes with the account
+    [Fact]
+    public async Task DeletingAnAccountDeletesItsDismissedHints()
+    {
+        var email = await app.MakeAccountAsync();
+        var userId = await app.UserIdAsync(email);
+        var client = await app.SignedInClientAsync(TestApp.PlatformHost, email);
+        var dismissedHints = app.Services.GetRequiredService<DismissedHintRepository>();
+        await dismissedHints.DismissAsync(userId, [HintType.Series]);
+        Assert.NotEmpty(await dismissedHints.GetAsync(userId));
+
+        await DeleteAsync(client, email);
+
+        Assert.Empty(await dismissedHints.GetAsync(userId));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
@@ -91,7 +92,7 @@
              KeepOpen="_isAddingSeries">
   @if (Folders.Count > 0)
   {
-    <Notice>
+    <Hint Type="HintType.SeriesFromFolders">
       <p class="mb-2">
         Uploaded folder names can create a new series or match existing series. The containing images will be added to
         that series.
@@ -99,7 +100,7 @@
       <p>
         Uncheck any folder name that doesn't correspond to a series name. </p>
 
-      </Notice>
+      </Hint>
   }
 
   @* one scrolling area for the folders and the loose images' series, so a long series list can't

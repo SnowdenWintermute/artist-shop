@@ -98,6 +98,9 @@ public static class PageUrls
     // on a site's host
     public const string Export = "/admin/export";
 
+    // on a site's host: which hints show, for the signed-in account
+    public const string Hints = "/admin/hints";
+
     // on a site's host
     public const string Import = "/admin/import";
 
