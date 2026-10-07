@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Domain.Catalog
 
@@ -23,35 +24,10 @@
   [Parameter, EditorRequired]
   public EventCallback OnVocabulariesChanged { get; set; }
 
-  // with this many terms in all, each vocabulary starts closed, so the dialog isn't one long column of checkboxes
-  private const int CollapseFromTermCount = 8;
-
   private readonly HashSet<int> _checked = [];
   private bool _isSaving;
 
-  // the entry view shows while this is set: a new vocabulary until it's saved, then the vocabulary terms go into
-  private EntryView? _entry;
-
-  private sealed record EntryView(VocabularyId? VocabularyId);
-
-  // the vocabulary the entry view returned from, open so its new terms can be checked
-  private VocabularyId? _openVocabularyId;
-
-  private bool IsCollapsed => Vocabularies.Sum(vocabulary => vocabulary.Terms.Count) >= CollapseFromTermCount;
-
-  protected override void OnInitialized()
-  {
-    _checked.UnionWith(SelectedTermIds);
-
-    // nothing to check yet, so start on making one
-    if (Vocabularies.Count is 0)
-    {
-      _entry = new EntryView(VocabularyId: null);
-    }
-  }
-
-  private VocabularyWithTerms? EntryVocabulary =>
-    _entry?.VocabularyId is { } id ? Vocabularies.FirstOrDefault(vocabulary => vocabulary.Id == id) : null;
+  protected override void OnInitialized() => _checked.UnionWith(SelectedTermIds);
 
   private void Toggle(int termId)
   {
@@ -61,101 +37,20 @@
     }
   }
 
-  private void LeaveEntry()
-  {
-    _openVocabularyId = _entry?.VocabularyId;
-    _entry = null;
-  }
-
-  private string SummaryText(VocabularyWithTerms vocabulary)
-  {
-    var checkedCount = vocabulary.Terms.Count(term => _checked.Contains(term.Id.Value));
-    return checkedCount is 0 ? vocabulary.Name.Value : $"{vocabulary.Name.Value} ({checkedCount} checked)";
-  }
-
-  // shared by the open and the collapsed layouts
-  private RenderFragment VocabularyTerms(VocabularyWithTerms vocabulary) =>
-    @<text>
-      @if (vocabulary.Terms.Count is 0)
-      {
-        <p class="text-sm">No terms yet.</p>
-      }
-
-      @foreach (var term in vocabulary.Terms)
-      {
-        <label @key="term.Id.Value" class="flex cursor-pointer items-center gap-2 py-1">
-          <input type="checkbox" class="cursor-pointer" checked="@_checked.Contains(term.Id.Value)"
-                 @onchange="() => Toggle(term.Id.Value)" />
-          @term.Name.Value
-        </label>
-      }
-
-      <button type="button" class="cursor-pointer text-sm underline" @onclick="() => _entry = new EntryView(vocabulary.Id)">
-        Add term
-      </button>
-    </text>;
-
-  private async Task VocabularySavedAsync(VocabularyId id)
-  {
-    await OnVocabulariesChanged.InvokeAsync();
-    _entry = new EntryView(id);
-  }
-
   // in the order the terms are listed, so the row reads the same as this list
-  private Task OkAsync() =>
-    OnOk.InvokeAsync([.. Vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value).Where(_checked.Contains)]);
+  private Task OkAsync() => OnOk.InvokeAsync(VocabularyOrder.TermIdsInListOrder(Vocabularies, _checked));
 }
 
 <ModalDialog Title="@(ArtworkName is null ? "Vocabularies" : $"Vocabularies of {ArtworkName}")" Width="ModalDialogWidth.Narrow"
              OnClose="OnClose" KeepOpen="_isSaving">
-  @if (_entry is not null)
-  {
-    <VocabularyTermEntry ArtworkTypeId="ArtworkTypeId" Vocabulary="EntryVocabulary" OnVocabularySaved="VocabularySavedAsync"
-                         OnTermAdded="OnVocabulariesChanged" OnDone="LeaveEntry" @bind-IsSaving="_isSaving" />
-  }
-  else
-  {
-    @if (Vocabularies.Count is 0)
-    {
-      <p class="mb-4 text-sm">No vocabularies for this type yet.</p>
-    }
-    else
-    {
-      @* the padding keeps a focused checkbox's outline inside the scrolling box, which clips it *@
-      <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
-        @foreach (var vocabulary in Vocabularies)
-        {
-          @if (IsCollapsed)
-          {
-            <Disclosure @key="vocabulary.Id.Value" Class="mb-3" SummaryClass="text-sm text-gray-600"
-                        Open="vocabulary.Id == _openVocabularyId">
-              <Summary>@SummaryText(vocabulary)</Summary>
-              <ChildContent>
-                <div class="ml-4">@VocabularyTerms(vocabulary)</div>
-              </ChildContent>
-            </Disclosure>
-          }
-          else
-          {
-            <fieldset @key="vocabulary.Id.Value" class="mb-3">
-              <legend class="mb-1 text-sm text-gray-600">@vocabulary.Name.Value</legend>
-              @VocabularyTerms(vocabulary)
-            </fieldset>
-          }
-        }
-      </div>
-    }
-
-    <div class="mb-4 shrink-0">
-      <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => _entry = new EntryView(VocabularyId: null)">
-        New vocabulary
-      </ButtonBasic>
-    </div>
-
-    <ModalDialogActions>
-      <ModalCloseButton Label="Cancel" />
-      @* focused when the dialog opens, so Enter is OK; the browser would focus the first checkbox *@
-      <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="OkAsync" autofocus>OK</ButtonBasic>
-    </ModalDialogActions>
-  }
+  <VocabularyChoices ArtworkTypeId="ArtworkTypeId" Vocabularies="Vocabularies" Checked="_checked" OnToggle="Toggle"
+                     OnVocabulariesChanged="OnVocabulariesChanged" @bind-IsSaving="_isSaving">
+    <Actions>
+      <ModalDialogActions>
+        <ModalCloseButton Label="Cancel" />
+        @* focused when the dialog opens, so Enter is OK; the browser would focus the first checkbox *@
+        <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="OkAsync" autofocus>OK</ButtonBasic>
+      </ModalDialogActions>
+    </Actions>
+  </VocabularyChoices>
 </ModalDialog>

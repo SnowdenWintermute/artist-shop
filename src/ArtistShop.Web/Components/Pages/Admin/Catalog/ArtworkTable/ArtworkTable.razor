@@ -6,6 +6,9 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Utilities
 @inject ArtworkRepository ArtworkRepository
 @inject VocabularyRepository VocabularyRepository
 
@@ -32,6 +35,9 @@
   // its own, like filters, to read them again
   [Parameter]
   public EventCallback OnChoicesAdded { get; set; }
+  // deleted from the bulk bar, for the caller to take out of Rows
+  [Parameter, EditorRequired]
+  public EventCallback<IReadOnlyList<ArtworkTableRow>> OnRowsDeleted { get; set; }
 
   private bool _choicesAdded;
 
@@ -44,9 +50,19 @@
   private ArtworkTableRow? _vocabularyRow;
   private ArtworkTableRow? _imagesRow;
 
-  // the images and title stay in view as the other columns scroll sideways under them
-  private const string ImagesColumnClass = "sticky left-0 w-16 min-w-16 bg-white";
-  private const string TitleColumnClass = "sticky left-16 bg-white";
+  private BulkChange? _bulkSeriesChange;
+  private BulkChange? _bulkVocabularyChange;
+  private bool _isConfirmingDelete;
+  private bool _isDeleting;
+  // saving each selected row after a bulk change
+  private bool _isApplying;
+
+  // the checkboxes, images and title stay in view as the other columns scroll sideways under them
+  private const string SelectColumnClass = "sticky left-0 w-10 min-w-10 bg-white";
+  private const string ImagesColumnClass = "sticky left-10 w-16 min-w-16 bg-white";
+  private const string TitleColumnClass = "sticky left-26 bg-white";
+
+  private const string CheckboxClass = "size-5 cursor-pointer";
   private const string PinnedCellClass = "z-10";
 
   private const string InputClass = "artist-shop-field-input";
@@ -87,6 +103,8 @@
   {
     _seriesRow = null;
     _vocabularyRow = null;
+    _bulkSeriesChange = null;
+    _bulkVocabularyChange = null;
 
     if (_choicesAdded)
     {
@@ -100,7 +118,11 @@
     get
     {
       List<DataTableHeading> headings =
-        [new("", ImagesColumnClass, Pinned: true), new("Title", TitleColumnClass, Pinned: true)];
+      [
+        new("", SelectColumnClass, Pinned: true, Content: SelectAllCheckbox),
+        new("", ImagesColumnClass, Pinned: true),
+        new("Title", TitleColumnClass, Pinned: true),
+      ];
 
       if (Fields.Contains(ArtworkField.DateCreated))
       {
@@ -233,6 +255,112 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     await OnSaveFinished.InvokeAsync(row);
   }
 
+  private List<ArtworkTableRow> SelectedRows => [.. Rows.Where(row => row.IsSelected)];
+
+  private bool IsAllSelected => Rows.All(row => row.IsSelected);
+
+  private void SetAllSelected(bool selected)
+  {
+    foreach (var row in Rows)
+    {
+      row.IsSelected = selected;
+    }
+  }
+
+  private RenderFragment SelectAllCheckbox =>
+    @<div class="flex justify-center">
+      <input type="checkbox" class="@CheckboxClass" aria-label="Select all" checked="@IsAllSelected"
+             @onchange="() => SetAllSelected(!IsAllSelected)" />
+    </div>;
+
+  // for removing: only the series a selected row is in
+  private List<Series> SeriesOfSelected =>
+    [.. AllSeries.Where(series => SelectedRows.Any(row => row.Form.SeriesIds.Contains(series.Id.Value)))];
+
+  // for removing: only the terms a selected row has, under their vocabularies
+  private List<VocabularyWithTerms> VocabulariesOfSelected =>
+    [
+      .. _vocabularies
+        .Select(vocabulary => vocabulary with
+        {
+          Terms = [.. vocabulary.Terms.Where(term => SelectedRows.Any(row => row.Form.VocabularyTermIds.Contains(term.Id.Value)))],
+        })
+        .Where(vocabulary => vocabulary.Terms.Count > 0),
+    ];
+
+  // each row is saved as if edited by hand, so a bulk change waits for any save the row is running
+  // rather than racing it
+  private async Task ApplyAsync(IReadOnlyList<ArtworkTableRow> rows, Action<ArtworkTableRow> change)
+  {
+    _isApplying = true;
+
+    try
+    {
+      foreach (var row in rows)
+      {
+        change(row);
+        await SaveAsync(row);
+      }
+    }
+    finally
+    {
+      _isApplying = false;
+    }
+  }
+
+  // in the order the series are listed, so each row reads the same as the list
+  private async Task BulkSeriesOkAsync(IReadOnlySet<int> seriesIds)
+  {
+    if (_bulkSeriesChange is not { } change)
+    {
+      return;
+    }
+
+    var rows = SelectedRows;
+    _bulkSeriesChange = null;
+
+    await ApplyAsync(rows, row => row.Form.SeriesIds = change is BulkChange.Add
+      ? [.. AllSeries.Select(series => series.Id.Value).Where(id => seriesIds.Contains(id) || row.Form.SeriesIds.Contains(id))]
+      : [.. row.Form.SeriesIds.Where(id => !seriesIds.Contains(id))]);
+
+    await ChoiceDialogClosedAsync();
+  }
+
+  private async Task BulkVocabularyOkAsync(IReadOnlySet<int> termIds)
+  {
+    if (_bulkVocabularyChange is not { } change)
+    {
+      return;
+    }
+
+    var rows = SelectedRows;
+    _bulkVocabularyChange = null;
+
+    await ApplyAsync(rows, row => row.Form.VocabularyTermIds = change is BulkChange.Add
+      ? VocabularyOrder.TermIdsInListOrder(_vocabularies, termIds.Union(row.Form.VocabularyTermIds).ToHashSet())
+      : [.. row.Form.VocabularyTermIds.Where(id => !termIds.Contains(id))]);
+
+    await ChoiceDialogClosedAsync();
+  }
+
+  private async Task DeleteSelectedAsync()
+  {
+    var rows = SelectedRows;
+    _isDeleting = true;
+
+    try
+    {
+      await ArtworkRepository.DeleteManyAsync([.. rows.Select(row => row.Id)]);
+    }
+    finally
+    {
+      _isDeleting = false;
+    }
+
+    _isConfirmingDelete = false;
+    await OnRowsDeleted.InvokeAsync(rows);
+  }
+
   private string SeriesText(ArtworkTableRow row) =>
     string.Join(", ", AllSeries.Where(series => row.Form.SeriesIds.Contains(series.Id.Value)).Select(series =>
 series.Name.Value));
@@ -247,9 +375,37 @@ series.Name.Value));
 @* the right padding keeps the last column's focus outline inside the scrolling box, which clips it.
    On a touch screen the box scrolls both ways: a sideways scroll still coasting inside a box that
    scrolls only sideways holds on to the next drag, so the page wouldn't scroll down until it stopped *@
+@{
+  var selectedCount = SelectedRows.Count;
+  var isIdle = selectedCount > 0 && !_isApplying;
+}
+
+<div class="mb-2 flex flex-wrap items-center gap-2">
+  <span class="mr-2 text-sm" role="status">@selectedCount selected</span>
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+               @onclick="() => _bulkSeriesChange = BulkChange.Add">Add to series</ButtonBasic>
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+               @onclick="() => _bulkSeriesChange = BulkChange.Remove">Remove from series</ButtonBasic>
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+               @onclick="() => _bulkVocabularyChange = BulkChange.Add">Add terms</ButtonBasic>
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!isIdle)"
+               @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
+  @* an artwork deleted mid-upload would leave its upload failing *@
+  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline"
+               disabled="@(!isIdle || SelectedRows.Any(row => row.HasImagesUploading))"
+               @onclick="() => _isConfirmingDelete = true">Delete</ButtonBasic>
+</div>
+
 <div class="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
   <DataTable Items="Rows" Headings="Headings" Class="text-sm" FitsContent StickyHeadings>
     <Row Context="row">
+      <DataTableCell Class="@($"align-top {SelectColumnClass} {PinnedCellClass}")">
+        @* as tall as the inputs, so the box lines up with the title *@
+        <div class="flex h-10 items-center justify-center">
+          <input type="checkbox" class="@CheckboxClass" aria-label="@($"Select {row.Form.Name}")" @bind="row.IsSelected" />
+        </div>
+      </DataTableCell>
+
       <DataTableCell Class="@($"align-top {ImagesColumnClass} {PinnedCellClass}")">
         <RowImagesCell Row="row" OnEdit="() => _imagesRow = row" />
       </DataTableCell>
@@ -369,3 +525,29 @@ series.Name.Value));
   <ArtworkImagesDialog ArtworkName="@imagesRow.Form.Name" Images="imagesRow.SavedImages"
                        MainImageKey="@imagesRow.MainImageKey" OnOk="ImagesOkAsync" OnClose="() => _imagesRow = null" />
 }
+
+@if (_bulkSeriesChange is { } seriesChange)
+{
+  <BulkSeriesDialog Change="seriesChange" ArtworkCount="SelectedRows.Count"
+                    Series="@(seriesChange is BulkChange.Add ? AllSeries : SeriesOfSelected)" OnOk="BulkSeriesOkAsync"
+                    OnClose="ChoiceDialogClosedAsync" OnSeriesAdded="SeriesAddedAsync" />
+}
+
+@if (_bulkVocabularyChange is { } vocabularyChange)
+{
+  <BulkVocabularyDialog Change="vocabularyChange" ArtworkCount="SelectedRows.Count" ArtworkTypeId="Type.Id"
+                        Vocabularies="@(vocabularyChange is BulkChange.Add ? _vocabularies : VocabulariesOfSelected)"
+                        OnOk="BulkVocabularyOkAsync" OnClose="ChoiceDialogClosedAsync"
+                        OnVocabulariesChanged="VocabulariesChangedAsync" />
+}
+
+@{
+  var selectedRows = SelectedRows;
+}
+
+<ConfirmDialog @bind-Open="_isConfirmingDelete" Title="@($"Delete {CountText.Of(selectedRows.Count, "artwork")}?")"
+               ConfirmLabel="Delete" OnConfirm="DeleteSelectedAsync" IsWorking="_isDeleting">
+  This removes them from the catalog for good, along with
+  @CountText.Of(selectedRows.Sum(row => row.SavedImages.Count), "image"), their places in any series and anything
+  listed for sale from them.
+</ConfirmDialog>

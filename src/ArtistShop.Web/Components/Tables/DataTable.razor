@@ -45,7 +45,14 @@
       @foreach (var heading in Headings)
       {
         <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null, Layer(heading), heading.Class)">
-          @heading.Text
+          @if (heading.Content is { } content)
+          {
+            @content
+          }
+          else
+          {
+            @heading.Text
+          }
         </th>
       }
     </tr>

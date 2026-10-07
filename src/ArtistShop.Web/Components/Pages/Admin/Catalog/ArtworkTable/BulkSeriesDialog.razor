@@ -1,0 +1,65 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.SeriesAdmin
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+
+@* Adds the checked series to, or removes them from, every selected row. Starts with nothing checked,
+   since the rows' series differ *@
+
+@code {
+  [Parameter, EditorRequired]
+  public BulkChange Change { get; set; }
+  [Parameter, EditorRequired]
+  public int ArtworkCount { get; set; }
+  // in the artist's order; for removing, only those a selected row is in
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Series> Series { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<IReadOnlySet<int>> OnOk { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+  // a series is saved as soon as it's added, so every row can choose it, even if this is cancelled
+  [Parameter, EditorRequired]
+  public EventCallback<Series> OnSeriesAdded { get; set; }
+
+  private readonly HashSet<int> _checked = [];
+  private bool _isAddingSeries;
+
+  private string Title =>
+    Change is BulkChange.Add
+      ? $"Add {CountText.Of(ArtworkCount, "artwork")} to series"
+      : $"Remove {CountText.Of(ArtworkCount, "artwork")} from series";
+
+  // nothing to add to a series made here when removing
+  private EventCallback<Series> AddedCallback =>
+    Change is BulkChange.Add ? EventCallback.Factory.Create<Series>(this, SeriesAddedAsync) : default;
+
+  private void Toggle(int seriesId)
+  {
+    if (!_checked.Remove(seriesId))
+    {
+      _checked.Add(seriesId);
+    }
+  }
+
+  private async Task SeriesAddedAsync(Series series)
+  {
+    _checked.Add(series.Id.Value);
+    await OnSeriesAdded.InvokeAsync(series);
+  }
+}
+
+<ModalDialog Title="@Title" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isAddingSeries">
+  <SeriesChoices AllSeries="Series" Checked="_checked" OnToggle="Toggle" OnSeriesAdded="AddedCallback"
+                 EmptyText="@(Change is BulkChange.Remove ? "None of these artworks are in a series." : null)"
+                 @bind-IsAdding="_isAddingSeries" />
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" Disabled="_isAddingSeries" />
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@(_isAddingSeries || _checked.Count is 0)"
+                 @onclick="() => OnOk.InvokeAsync(_checked)">
+      @(Change is BulkChange.Add ? "Add" : "Remove")
+    </ButtonBasic>
+  </ModalDialogActions>
+</ModalDialog>

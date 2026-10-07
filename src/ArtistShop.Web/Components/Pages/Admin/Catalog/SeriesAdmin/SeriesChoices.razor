@@ -15,9 +15,13 @@
   public IReadOnlySet<int> Checked { get; set; } = default!;
   [Parameter, EditorRequired]
   public EventCallback<int> OnToggle { get; set; }
-  // the caller lists the new series and checks it
-  [Parameter, EditorRequired]
+  // the caller lists the new series and checks it. Without one, there is no field to add one, as
+  // when removing series
+  [Parameter]
   public EventCallback<Series> OnSeriesAdded { get; set; }
+  // in place of "No series yet. Add one below."
+  [Parameter]
+  public string? EmptyText { get; set; }
   // for the dialog to stay open and hold its buttons while a series is being added
   [Parameter]
   public bool IsAdding { get; set; }
@@ -47,7 +51,7 @@
 
 @if (AllSeries.Count is 0)
 {
-  <p class="mb-4 text-sm">No series yet. Add one below.</p>
+  <p class="mb-4 text-sm">@(EmptyText ?? "No series yet. Add one below.")</p>
 }
 else
 {
@@ -66,12 +70,15 @@ else
   </fieldset>
 }
 
-<EditForm EditContext="_newSeries.EditContext" OnValidSubmit="AddSeriesAsync" class="mb-4 shrink-0">
-  <DataAnnotationsValidator />
+@if (OnSeriesAdded.HasDelegate)
+{
+  <EditForm EditContext="_newSeries.EditContext" OnValidSubmit="AddSeriesAsync" class="mb-4 shrink-0">
+    <DataAnnotationsValidator />
 
-  <TextField Label="New series" @bind-Value="_newSeries.Name" UpdatesPerKeystroke />
-  <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="IsAdding"
-               disabled="@(IsAdding || string.IsNullOrWhiteSpace(_newSeries.Name))">
-    Add series
-  </ButtonBasic>
-</EditForm>
+    <TextField Label="New series" @bind-Value="_newSeries.Name" UpdatesPerKeystroke />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="IsAdding"
+                 disabled="@(IsAdding || string.IsNullOrWhiteSpace(_newSeries.Name))">
+      Add series
+    </ButtonBasic>
+  </EditForm>
+}

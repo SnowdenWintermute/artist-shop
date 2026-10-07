@@ -260,6 +260,20 @@ public sealed class ArtworkRepositoryTests(TestDatabaseFixture database)
         Assert.Null(await _artworks.GetBySlugAsync(first.CandidateSlug.Value));
     }
 
+    [Fact]
+    public async Task DeleteManyDeletesOnlyTheGivenArtworks()
+    {
+        var first = await _catalog.AddPaintingAsync($"Deleted {Guid.NewGuid():n}", termIds: [], seriesIds: [], images: []);
+        var second = await _catalog.AddPaintingAsync($"Deleted {Guid.NewGuid():n}", termIds: [], seriesIds: [], images: []);
+        var kept = await _catalog.AddPaintingAsync($"Kept {Guid.NewGuid():n}", termIds: [], seriesIds: [], images: []);
+
+        await _artworks.DeleteManyAsync([first.Id, second.Id]);
+
+        Assert.Null(await _artworks.GetByIdAsync(first.Id));
+        Assert.Null(await _artworks.GetByIdAsync(second.Id));
+        Assert.NotNull(await _artworks.GetByIdAsync(kept.Id));
+    }
+
     private static ArtworkCatalogUpdate UpdateOf(
         ArtworkId id,
         string name,

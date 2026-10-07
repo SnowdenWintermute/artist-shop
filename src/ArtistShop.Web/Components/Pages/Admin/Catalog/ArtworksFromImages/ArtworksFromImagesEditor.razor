@@ -369,6 +369,8 @@ artwork))]);
 
   private void SeriesAdded(Series series) => _series.Add(series);
 
+  private void RowsDeleted(IReadOnlyList<ArtworkTableRow> rows) => _rows.RemoveAll(rows.Contains);
+
   // as the artist's clock reads it, once the browser has said where that is
   private string? LastSavedText =>
     _lastSavedAt is { } savedAt && _browserUtcOffset is { } offset
@@ -466,7 +468,8 @@ else if (UnsentCount > 0)
     @CountText.Of(_rows.Count, "artwork") added. Each change saves when you leave its field.
   </p>
 
-  <ArtworkTable Rows="_rows" Type="rowsType" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnSaveFinished="SaveFinished" />
+  <ArtworkTable Rows="_rows" Type="rowsType" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnSaveFinished="SaveFinished"
+                OnRowsDeleted="RowsDeleted" />
 
   <p class="text-sm text-gray-600">
     @CountText.Of(_rows.Count, "artwork") added.

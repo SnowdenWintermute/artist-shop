@@ -32,4 +32,8 @@ public static class VocabularyOrder
                 .GroupBy(term => term.VocabularyId)
                 .Select(group => new VocabularyWithTerms(group.Key, group.First().VocabularyName, [.. group]))
         );
+
+    // of these term ids, the ones listed here, in the order they're listed, as a row shows its terms
+    public static List<int> TermIdsInListOrder(IEnumerable<VocabularyWithTerms> vocabularies, IReadOnlySet<int> termIds) =>
+        [.. vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value).Where(termIds.Contains)];
 }

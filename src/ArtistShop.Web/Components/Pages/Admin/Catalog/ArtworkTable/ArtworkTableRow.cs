@@ -167,6 +167,9 @@ public class ArtworkTableRow
 
     public bool IsSaving { get; set; }
 
+    // checked for the table's bulk changes
+    public bool IsSelected { get; set; }
+
     // a field changed while a save was running, so another save follows it
     public bool SaveAgain { get; set; }
 

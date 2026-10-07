@@ -418,6 +418,17 @@ public class ArtworkRepository(SiteDatabase database)
         await connection.ExecuteAsync("SELECT delete_artwork(@Id)", new { Id = id.Value });
     }
 
+    // DeleteAsync for several at once
+    public async Task DeleteManyAsync(IReadOnlyCollection<ArtworkId> ids)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        await connection.ExecuteAsync(
+            "SELECT delete_artworks(@Ids)",
+            new { Ids = (int[])[.. ids.Select(id => id.Value)] }
+        );
+    }
+
     private async Task<Artwork?> GetAsync(int id)
     {
         await using var connection = await database.OpenConnectionAsync();

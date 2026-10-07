@@ -1,0 +1,61 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+
+@* Adds the checked terms to, or removes them from, every selected row. Starts with nothing checked,
+   since the rows' terms differ *@
+
+@code {
+  [Parameter, EditorRequired]
+  public BulkChange Change { get; set; }
+  [Parameter, EditorRequired]
+  public int ArtworkCount { get; set; }
+  [Parameter, EditorRequired]
+  public ArtworkTypeId ArtworkTypeId { get; set; } = default!;
+  // sorted by name; for removing, only the terms a selected row has
+  [Parameter, EditorRequired]
+  public IReadOnlyList<VocabularyWithTerms> Vocabularies { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<IReadOnlySet<int>> OnOk { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+  // a vocabulary or term was saved, so the list should be read again
+  [Parameter, EditorRequired]
+  public EventCallback OnVocabulariesChanged { get; set; }
+
+  private readonly HashSet<int> _checked = [];
+  private bool _isSaving;
+
+  private string Title =>
+    Change is BulkChange.Add
+      ? $"Add terms to {CountText.Of(ArtworkCount, "artwork")}"
+      : $"Remove terms from {CountText.Of(ArtworkCount, "artwork")}";
+
+  // nothing to remove from a vocabulary or term made here
+  private EventCallback ChangedCallback => Change is BulkChange.Add ? OnVocabulariesChanged : default;
+
+  private void Toggle(int termId)
+  {
+    if (!_checked.Remove(termId))
+    {
+      _checked.Add(termId);
+    }
+  }
+}
+
+<ModalDialog Title="@Title" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isSaving">
+  <VocabularyChoices ArtworkTypeId="ArtworkTypeId" Vocabularies="Vocabularies" Checked="_checked" OnToggle="Toggle"
+                     OnVocabulariesChanged="ChangedCallback" @bind-IsSaving="_isSaving"
+                     EmptyText="@(Change is BulkChange.Remove ? "None of these artworks have terms." : null)">
+    <Actions>
+      <ModalDialogActions>
+        <ModalCloseButton Label="Cancel" />
+        <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@(_checked.Count is 0)"
+                     @onclick="() => OnOk.InvokeAsync(_checked)">
+          @(Change is BulkChange.Add ? "Add" : "Remove")
+        </ButtonBasic>
+      </ModalDialogActions>
+    </Actions>
+  </VocabularyChoices>
+</ModalDialog>

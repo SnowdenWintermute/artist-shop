@@ -78,6 +78,13 @@
 
   // an enhanced refresh, so the filters list what was added; the address is unchanged, so the rows stay
   private void ChoicesAdded() => NavigationManager.Refresh();
+
+  // the refresh brings the count and the page links up to date, and leaves the rows that remain
+  private void RowsDeleted(IReadOnlyList<ArtworkTableRow> rows)
+  {
+    _loaded?.Rows.RemoveAll(rows.Contains);
+    NavigationManager.Refresh();
+  }
 }
 
 @if (_isLoading)
@@ -100,5 +107,6 @@ else
 {
   <p class="mb-2 text-sm text-gray-600">Each change saves when you leave its field.</p>
 
-  <ArtworkTable Rows="_loaded.Rows" Type="_loaded.Type" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnChoicesAdded="ChoicesAdded" />
+  <ArtworkTable Rows="_loaded.Rows" Type="_loaded.Type" AllSeries="_series" OnSeriesAdded="SeriesAdded" OnChoicesAdded="ChoicesAdded"
+                OnRowsDeleted="RowsDeleted" />
 }
