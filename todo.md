@@ -1,5 +1,16 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Operator Websites page, 2026-10-07 (From Claude)
+
+Uncommitted, 957 tests pass, not browser-checked. `/operator/sites` (Sign-up codes · Websites links via
+`OperatorLayout`): every website with its other hosts, owner email (`OperatorSites` joins Identity), admin count,
+created date, an Example checkbox (static form, `SubmitOnChange`) and Delete. Examples are `sites.example_sort_order`
+(migration 0009), dragged in `ExampleSiteOrderList` (island, takes `ExampleSiteItem`s because HostName can't cross as
+JSON) and linked from `PlatformHome` while online. Delete goes to `/operator/sites/{id}/delete` (a page like the
+owner's, not a dialog): type the address, "Email the owner" checked by default with editable default text;
+`SiteDeletions.EraseNowAsync` makes it due now (`schedule_site_erasing_now`), reloads hosts, emails, then
+`SiteEraser.EraseAsync` (split out of `EraseDueAsync`; a failure is left for the daily cleanup).
+
 ## Review of 664ffa3 and 404fb15, 2026-10-06 (From Claude)
 
 Uncommitted, 921 tests pass, not browser-checked. Text fixes, "PictureCord" everywhere. Every remaining hardcoded

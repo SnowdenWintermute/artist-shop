@@ -1,0 +1,14 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+
+<AdminPanel>
+  <SectionNav>
+    <NavLink href="@PageUrls.Operator" Match="NavLinkMatch.All" ActiveClass="underline">Sign-up codes</NavLink>
+    <SectionNavLink href="@PageUrls.OperatorSites" ActivePath="@PageUrls.OperatorSites" ActiveClass="underline">
+      Websites
+    </SectionNavLink>
+  </SectionNav>
+  <ChildContent>
+    @Body
+  </ChildContent>
+</AdminPanel>

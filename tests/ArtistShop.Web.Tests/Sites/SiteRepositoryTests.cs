@@ -287,6 +287,125 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
         Assert.Empty(await _sites.GetMembersAsync(deleting));
     }
 
+    // the operator's list: every host, the owner and how many admins
+    [Fact]
+    public async Task ListsASiteWithItsHostsOwnerAndAdmins()
+    {
+        var main = NewHost("listed");
+        var other = NewHost("listed-other");
+        var siteId = await _sites.AddNewAsync([main, other], OwnerUserId);
+        await AddAdminAsync(siteId, "admin");
+
+        var site = Assert.Single(await _sites.GetAllAsync(), listing => listing.SiteId == siteId);
+
+        Assert.Equal(main, site.MainHost);
+        Assert.Equal([other], site.OtherHosts);
+        Assert.Equal(OwnerUserId, site.OwnerUserId);
+        Assert.Equal(1, site.AdminCount);
+        Assert.False(site.IsExample);
+        Assert.False(site.IsBeingDeleted);
+    }
+
+    [Fact]
+    public async Task AnAddedExampleComesLastAndARemovedOneGoes()
+    {
+        var first = NewHost("example-first");
+        var second = NewHost("example-second");
+        var firstId = await _sites.AddNewAsync([first], OwnerUserId);
+        var secondId = await _sites.AddNewAsync([second], OwnerUserId);
+
+        await _sites.AddExampleAsync(firstId);
+        await _sites.AddExampleAsync(secondId);
+        // a second add leaves it where it is
+        await _sites.AddExampleAsync(firstId);
+
+        Assert.Equal([first, second], (await _sites.GetExampleHostsAsync())[^2..]);
+
+        await _sites.RemoveExampleAsync(firstId);
+
+        Assert.DoesNotContain(first, await _sites.GetExampleHostsAsync());
+    }
+
+    [Fact]
+    public async Task ReorderingSetsTheExamplesOrder()
+    {
+        var first = NewHost("reordered-first");
+        var second = NewHost("reordered-second");
+        var firstId = await _sites.AddNewAsync([first], OwnerUserId);
+        var secondId = await _sites.AddNewAsync([second], OwnerUserId);
+        await _sites.AddExampleAsync(firstId);
+        await _sites.AddExampleAsync(secondId);
+        var others = await OtherExampleIdsAsync(firstId, secondId);
+
+        await _sites.ReorderExamplesAsync([secondId, firstId, .. others]);
+
+        Assert.Equal([second, first], (await _sites.GetExampleHostsAsync())[..2]);
+    }
+
+    // another tab added or removed an example since the page loaded
+    [Fact]
+    public async Task ReorderingAListThatIsntEveryExampleChangesNothing()
+    {
+        var host = NewHost("unlisted-example");
+        var siteId = await _sites.AddNewAsync([host], OwnerUserId);
+        await _sites.AddExampleAsync(siteId);
+        var before = await _sites.GetExampleHostsAsync();
+        var withoutIt = await OtherExampleIdsAsync(siteId);
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _sites.ReorderExamplesAsync(withoutIt));
+
+        Assert.Equal(before, await _sites.GetExampleHostsAsync());
+    }
+
+    // offline, so the home page has nothing to link to
+    [Fact]
+    public async Task AnExampleBeingDeletedIsLeftOffTheHomePage()
+    {
+        var host = NewHost("deleting-example");
+        var siteId = await _sites.AddNewAsync([host], OwnerUserId);
+        await _sites.AddExampleAsync(siteId);
+
+        await _sites.ScheduleDeletionAsync(siteId, OwnerUserId, DateTimeOffset.UtcNow.AddDays(1));
+
+        Assert.DoesNotContain(host, await _sites.GetExampleHostsAsync());
+    }
+
+    // the operator's deletion: online or already being deleted, it's due now
+    [Fact]
+    public async Task ErasingNowMakesASiteDueWhateverItsState()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var online = await _sites.AddNewAsync([NewHost("erase-online")], OwnerUserId);
+        var deleting = await _sites.AddNewAsync([NewHost("erase-deleting")], OwnerUserId);
+        await _sites.ScheduleDeletionAsync(deleting, OwnerUserId, now.AddDays(30));
+
+        Assert.True(await _sites.ScheduleErasingNowAsync(online, now));
+        Assert.True(await _sites.ScheduleErasingNowAsync(deleting, now));
+
+        var due = await _sites.GetDueForErasingAsync(now);
+        Assert.Contains(online, due);
+        Assert.Contains(deleting, due);
+    }
+
+    [Fact]
+    public async Task ErasingNowASiteAlreadyErasedSaysSo()
+    {
+        var siteId = await _sites.AddNewAsync([NewHost("erased")], OwnerUserId);
+        await _sites.ScheduleErasingNowAsync(siteId, DateTimeOffset.UtcNow);
+        await _sites.EraseAsync(siteId);
+
+        Assert.False(await _sites.ScheduleErasingNowAsync(siteId, DateTimeOffset.UtcNow));
+    }
+
+    // the examples other tests left, in their order, since reordering takes every example
+    private async Task<List<SiteId>> OtherExampleIdsAsync(params SiteId[] leftOut) =>
+    [
+        .. (await _sites.GetAllAsync())
+            .Where(site => site.IsExample && !leftOut.Contains(site.SiteId))
+            .OrderBy(site => site.ExampleSortOrder)
+            .Select(site => site.SiteId),
+    ];
+
     // as an accepted invitation makes one
     private async Task AddAdminAsync(SiteId siteId, string userId)
     {

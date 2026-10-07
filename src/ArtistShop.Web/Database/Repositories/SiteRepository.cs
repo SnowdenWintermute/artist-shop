@@ -105,6 +105,60 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         return [.. rows.Select(row => row.ToSiteHost())];
     }
 
+    // every site, for the operator, in no particular order
+    public async Task<List<SiteListing>> GetAllAsync()
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        var rows = await connection.QueryAsync<SiteListingRow>("SELECT * FROM get_sites()");
+
+        return [.. rows.Select(row => row.ToSiteListing())];
+    }
+
+    // the main hosts of the examples that are online, in the operator's order
+    public async Task<List<HostName>> GetExampleHostsAsync()
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        var hosts = await connection.QueryAsync<string>("SELECT * FROM get_example_sites()");
+
+        return [.. hosts.Select(ReadStoredHost)];
+    }
+
+    // last among the examples; does nothing to a site that already is one
+    public async Task AddExampleAsync(SiteId siteId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync("SELECT add_example_site(@SiteId)", new { SiteId = siteId.Value });
+    }
+
+    public async Task RemoveExampleAsync(SiteId siteId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        await connection.ExecuteAsync("SELECT remove_example_site(@SiteId)", new { SiteId = siteId.Value });
+    }
+
+    // siteIds is every example, in the new order
+    public async Task ReorderExamplesAsync(IReadOnlyList<SiteId> siteIds)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "SELECT reorder_example_sites(@SiteIds)",
+                new { SiteIds = (int[])[.. siteIds.Select(id => id.Value)] }
+            );
+        }
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.ExampleSitesChangedSincePageLoad))
+        {
+            throw new ChangedSincePageLoadException(exception.Message, exception);
+        }
+    }
+
     // null when the user isn't one of the site's members
     public async Task<SiteRole?> GetMemberRoleAsync(SiteId siteId, string userId)
     {
@@ -213,6 +267,19 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         );
     }
 
+    // The operator's deletion: offline and due for erasing from now, with no grace period and no owner
+    // to check, whether it was online or already being deleted. False when there's no such site, as
+    // when it was erased since the page loaded
+    public async Task<bool> ScheduleErasingNowAsync(SiteId siteId, DateTimeOffset now)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT schedule_site_erasing_now(@SiteId, @Now)",
+            new { SiteId = siteId.Value, Now = now }
+        );
+    }
+
     // the sites whose erase_at has come by now, in no particular order
     public async Task<List<SiteId>> GetDueForErasingAsync(DateTimeOffset now)
     {
@@ -257,6 +324,32 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
                 ReadStoredHost(MainHost),
                 Role,
                 EraseAt is { } eraseAt ? new DateTimeOffset(eraseAt) : null
+            );
+    }
+
+    private sealed class SiteListingRow
+    {
+        public required int SiteId { get; init; }
+
+        // Npgsql reads a timestamptz as a DateTime in UTC
+        public required DateTime CreatedAt { get; init; }
+        public required DateTime? EraseAt { get; init; }
+        public required int? ExampleSortOrder { get; init; }
+        public required string MainHost { get; init; }
+        public required string[] OtherHosts { get; init; }
+        public required string? OwnerUserId { get; init; }
+        public required int AdminCount { get; init; }
+
+        public SiteListing ToSiteListing() =>
+            new(
+                new SiteId(SiteId),
+                ReadStoredHost(MainHost),
+                [.. OtherHosts.Select(ReadStoredHost)],
+                new DateTimeOffset(CreatedAt),
+                EraseAt is { } eraseAt ? new DateTimeOffset(eraseAt) : null,
+                ExampleSortOrder,
+                OwnerUserId,
+                AdminCount
             );
     }
 

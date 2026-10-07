@@ -88,6 +88,20 @@ public sealed class SiteEmails(EmailQueue emailQueue)
             )
         );
 
+    // the operator's own words, each line its own paragraph
+    public Task SendErasedByOperatorToOwnerAsync(EmailAddress to, HostName site, string message) =>
+        emailQueue.EnqueueAsync(
+            new EmailMessage(
+                to.Value,
+                $"{site.Value} was deleted",
+                string.Concat(
+                    message
+                        .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                        .Select(line => $"<p>{HtmlEncoder.Default.Encode(line)}</p>")
+                )
+            )
+        );
+
     // the owner deleted their account, which takes their websites with it; nobody can keep them now
     public Task SendOwnerAccountDeletedToAdminAsync(EmailAddress to, EmailAddress owner, HostName site, DateTimeOffset eraseAt) =>
         emailQueue.EnqueueAsync(

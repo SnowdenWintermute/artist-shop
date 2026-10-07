@@ -1,0 +1,112 @@
+@page "/operator/sites"
+@layout OperatorLayout
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [ServedOn(HostTypes.Platform)]
+@attribute [Authorize(Policy = PlatformPolicies.Operator)]
+@inject OperatorSites OperatorSites
+@inject SiteRepository SiteRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  private List<OperatorSite> _sites = [];
+
+  // newest first, so a site just signed up for is at the top
+  protected override async Task OnInitializedAsync() =>
+    _sites = [.. (await OperatorSites.GetAllAsync()).OrderByDescending(site => site.Site.CreatedAt)];
+
+  private List<ExampleSiteItem> Examples =>
+  [
+    .. _sites
+      .Select(site => site.Site)
+      .Where(site => site.IsExample)
+      .OrderBy(site => site.ExampleSortOrder)
+      .Select(site => new ExampleSiteItem(site.SiteId.Value, site.MainHost.Value, site.IsBeingDeleted)),
+  ];
+
+  // The checkbox posts its form when it changes, so which way it went is read from how the site stands
+  // now. Enhanced, so the page keeps its place and the order list above is passed its new examples
+  private async Task ToggleExampleAsync(SiteListing site)
+  {
+    if (site.IsExample)
+    {
+      await SiteRepository.RemoveExampleAsync(site.SiteId);
+    }
+    else
+    {
+      await SiteRepository.AddExampleAsync(site.SiteId);
+    }
+
+    NavigationManager.NavigateTo(NavigationManager.Uri);
+  }
+}
+
+<PageTitle>Websites</PageTitle>
+
+<h1 class="mb-4 text-xl">Websites</h1>
+
+<h2 class="mb-2 text-lg">Examples on the home page</h2>
+<ExampleSiteOrderList @rendermode="InteractiveServer" Sites="Examples" />
+
+<Divider Class="my-6" />
+
+<h2 class="mb-2 text-lg">All websites</h2>
+
+@if (_sites.Count == 0)
+{
+  <p>No websites yet.</p>
+}
+else
+{
+  <DataTable Items="_sites" Headings="@(["Address", "Owner", "Admins", "Created", "Example", ""])">
+    <Row Context="operatorSite">
+      @{
+        var site = operatorSite.Site;
+      }
+
+      @* a long address breaks rather than widening the table past a phone's screen *@
+      <DataTableCell Class="wrap-anywhere">
+        @* a site being deleted is offline, so there's nothing to link to *@
+        @if (site.EraseAt is { } eraseAt)
+        {
+          @site.MainHost.Value
+          <span class="text-red-600"> (erasing on <LocalDate Moment="eraseAt" />)</span>
+        }
+        else
+        {
+          <a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, site.MainHost)">@site.MainHost.Value</a>
+        }
+
+        @foreach (var host in site.OtherHosts)
+        {
+          <div class="text-xs text-gray-500">@host.Value</div>
+        }
+      </DataTableCell>
+      @* none while the owner's account is deleted and the site waits to be erased *@
+      <DataTableCell Class="wrap-anywhere">@(operatorSite.OwnerEmail?.Value ?? "None")</DataTableCell>
+      <DataTableCell>@site.AdminCount</DataTableCell>
+      <DataTableCell><LocalDate Moment="site.CreatedAt" /></DataTableCell>
+      <DataTableCell>
+        <form method="post" @formname="@($"example-site-{site.SiteId.Value}")" @onsubmit="() => ToggleExampleAsync(site)"
+              data-enhance>
+          <AntiforgeryToken />
+          <SubmitOnChange>
+            <input type="checkbox" class="size-5 cursor-pointer" checked="@site.IsExample"
+                   aria-label="@($"Show {site.MainHost.Value} as an example")" />
+            @* app.css hides this unless the browser runs no scripts *@
+            <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>
+          </SubmitOnChange>
+        </form>
+      </DataTableCell>
+      <DataTableCell Class="text-right">
+        <LinkButton Variant="ButtonVariant.Danger" href="@PageUrls.OperatorDeleteSite(site.SiteId)">Delete</LinkButton>
+      </DataTableCell>
+    </Row>
+  </DataTable>
+}

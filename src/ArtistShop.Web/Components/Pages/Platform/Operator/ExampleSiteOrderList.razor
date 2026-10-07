@@ -1,0 +1,82 @@
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@inject SiteRepository SiteRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  // List, not IReadOnlyList: an island parameter is rebuilt from its runtime type, and a declared List
+  // can't be a compiler-generated collection type that JSON can't create
+  [Parameter, EditorRequired]
+  public List<ExampleSiteItem> Sites { get; set; } = default!;
+
+  private List<ExampleSiteItem> _sites = [];
+  private bool _isSaving;
+  private bool _changedElsewhere;
+
+  // after a change on the page, Refresh re-renders it, which passes the saved list back in here
+  protected override void OnParametersSet() => _sites = [.. Sites];
+
+  private async Task MoveAsync((int OldIndex, int NewIndex) move)
+  {
+    // a second drag while the first is saving would send an order built from the old list
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      List<ExampleSiteItem> reordered = [.. _sites];
+      var site = reordered[move.OldIndex];
+      reordered.RemoveAt(move.OldIndex);
+      reordered.Insert(move.NewIndex, site);
+
+      await SiteRepository.ReorderExamplesAsync([.. reordered.Select(item => new SiteId(item.SiteId))]);
+      _sites = reordered;
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+
+    NavigationManager.Refresh();
+  }
+}
+
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-red-600">An example was added or removed somewhere else, so the list has been reloaded.</p>
+  }
+
+  @if (_sites.Count == 0)
+  {
+    <p>None yet. Check Example on a website below.</p>
+  }
+  else
+  {
+    <p class="mb-2 text-sm text-gray-500">Drag to set the order the home page lists them in.</p>
+
+    <SortableList TItem="ExampleSiteItem" Items="_sites" AriaLabel="Example order" OnMove="MoveAsync">
+      <RowContent Context="site">
+        <span class="grow wrap-anywhere">
+          @site.Host
+          @if (site.IsBeingDeleted)
+          {
+            <span class="text-red-600">(being deleted, so not shown)</span>
+          }
+        </span>
+      </RowContent>
+      <RowActions Context="site" />
+    </SortableList>
+  }
+</DisabledUntilInteractive>

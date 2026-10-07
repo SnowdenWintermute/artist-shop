@@ -4,13 +4,15 @@ using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Email;
 
-// An owner deleting their site, and keeping it again within the grace period. Each change is
-// followed by reloading the hosts, which is what takes the site offline or puts it back
+// An owner deleting their site, and keeping it again within the grace period, and the operator
+// deleting one outright. Each change is followed by reloading the hosts, which is what takes the site
+// offline or puts it back
 public sealed class SiteDeletions(
     SiteRepository siteRepository,
     SiteMemberAccounts siteMemberAccounts,
     HostDirectory hostDirectory,
     SiteEmails siteEmails,
+    SiteEraser siteEraser,
     TimeProvider timeProvider
 )
 {
@@ -39,6 +41,30 @@ public sealed class SiteDeletions(
             await siteEmails.SendDeletedToAdminAsync(admin.Email, owner.Email, site.MainHost, eraseAt);
         }
 
+        return true;
+    }
+
+    // The operator's deletion, with no grace period: offline at once, then erased. ownerMessage, if
+    // given, is emailed to the owner, who must then have one. False when there's no such site, as when
+    // it was erased since the page loaded. Erasing that fails partway is logged and left to the daily
+    // cleanup, as the site is offline and due by then
+    public async Task<bool> EraseNowAsync(OperatorSite site, string? ownerMessage)
+    {
+        if (!await siteRepository.ScheduleErasingNowAsync(site.Site.SiteId, timeProvider.GetUtcNow()))
+        {
+            return false;
+        }
+
+        await hostDirectory.ReloadAsync();
+
+        if (ownerMessage is not null)
+        {
+            var ownerEmail =
+                site.OwnerEmail ?? throw new InvalidOperationException($"Site {site.Site.SiteId.Value} has no owner to email.");
+            await siteEmails.SendErasedByOperatorToOwnerAsync(ownerEmail, site.Site.MainHost, ownerMessage);
+        }
+
+        await siteEraser.EraseAsync(site.Site.SiteId);
         return true;
     }
 

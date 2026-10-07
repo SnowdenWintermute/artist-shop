@@ -5,10 +5,11 @@ using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Images;
 
-// Erases the sites whose grace period is over: the schema, the image folders, then the platform's
-// row, and with it the hosts, which can then be signed up for again. The row goes last, so a site
-// erased partway is still due and is finished next time; every step can run again. Until then,
-// a restart's SiteProvisioner.Prepare may make its schema again, empty, for this to drop
+// Erases the sites whose grace period is over, and those the operator deleted, which have none: the
+// schema, the image folders, then the platform's row, and with it the hosts, which can then be signed
+// up for again. The row goes last, so a site erased partway is still due and is finished next time;
+// every step can run again. Until then, a restart's SiteProvisioner.Prepare may make its schema
+// again, empty, for this to drop
 public sealed class SiteEraser(
     SiteRepository siteRepository,
     SiteSchemas siteSchemas,
@@ -19,19 +20,28 @@ public sealed class SiteEraser(
 {
     public async Task EraseDueAsync()
     {
+        // each site on its own, so one failing doesn't stop the rest being erased
         foreach (var siteId in await siteRepository.GetDueForErasingAsync(timeProvider.GetUtcNow()))
         {
-            // each site on its own, so one failing doesn't stop the rest being erased
-            try
-            {
-                await siteSchemas.DropAsync(siteId);
-                ImageStorage.ForSite(imageStorageSettings, siteId).DeleteAll();
-                await siteRepository.EraseAsync(siteId);
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(exception, "Erasing site {SiteId} failed", siteId.Value);
-            }
+            await EraseAsync(siteId);
+        }
+    }
+
+    // A site that's due. False when a step failed, which is logged; the site stays due, so the next
+    // EraseDueAsync finishes it
+    public async Task<bool> EraseAsync(SiteId siteId)
+    {
+        try
+        {
+            await siteSchemas.DropAsync(siteId);
+            ImageStorage.ForSite(imageStorageSettings, siteId).DeleteAll();
+            await siteRepository.EraseAsync(siteId);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Erasing site {SiteId} failed", siteId.Value);
+            return false;
         }
     }
 }

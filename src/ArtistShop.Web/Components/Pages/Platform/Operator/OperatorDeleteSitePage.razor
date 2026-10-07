@@ -1,0 +1,96 @@
+@page "/operator/sites/{Id:int}/delete"
+@layout OperatorLayout
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [ServedOn(HostTypes.Platform)]
+@attribute [Authorize(Policy = PlatformPolicies.Operator)]
+@inject OperatorSites OperatorSites
+@inject SiteDeletions SiteDeletions
+@inject PlatformSettings PlatformSettings
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public int Id { get; set; }
+
+  [SupplyParameterFromForm(FormName = "operator-delete-site")]
+  private OperatorDeleteSiteForm? Input { get; set; }
+
+  private OperatorSite? _site;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _site = await OperatorSites.GetAsync(new SiteId(Id));
+
+    if (_site is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    // the first showing, not a post: the owner is emailed unless unchecked, with words to start from
+    Input ??= new OperatorDeleteSiteForm
+    {
+      EmailOwner = _site.OwnerEmail is not null,
+      Message = OperatorDeleteSiteForm.DefaultMessage(_site.Site.MainHost, PlatformSettings.Name),
+    };
+  }
+
+  private async Task DeleteAsync(OperatorSite site, OperatorDeleteSiteForm input)
+  {
+    if (!input.Names(site.Site.MainHost))
+    {
+      input.AddWrongAddressError();
+      return;
+    }
+
+    var ownerMessage = input.EmailOwner && site.OwnerEmail is not null ? input.Message : null;
+
+    if (input.EmailOwner && site.OwnerEmail is not null && string.IsNullOrWhiteSpace(ownerMessage))
+    {
+      input.AddNoMessageError();
+      return;
+    }
+
+    // false only if it was erased since the page loaded, which the list then shows
+    await SiteDeletions.EraseNowAsync(site, ownerMessage);
+    NavigationManager.NavigateTo(PageUrls.OperatorSites);
+  }
+}
+
+@if (_site is { } site && Input is { } input)
+{
+  <PageTitle>Delete @site.Site.MainHost.Value</PageTitle>
+
+  <h1 class="mb-4 text-xl">Delete @site.Site.MainHost.Value</h1>
+  <p class="mb-4">
+    It goes offline and is erased now, with all its artworks, posts and images. There's no grace period, so nobody
+    can keep it.
+  </p>
+
+  <EditForm EditContext="input.EditContext" FormName="operator-delete-site" OnValidSubmit="() => DeleteAsync(site, input)"
+            Enhance class="mb-6">
+    <DataAnnotationsValidator />
+
+    @if (site.OwnerEmail is { } ownerEmail)
+    {
+      <CheckboxField Label="@($"Email the owner, {ownerEmail.Value}, to tell them")" @bind-Value="input.EmailOwner" />
+      <TextAreaField Label="Email" @bind-Value="input.Message" />
+    }
+    else
+    {
+      <p class="mb-4">It has no owner to email: they deleted their account.</p>
+    }
+
+    <TextField Label="@($"To confirm, type its address: {site.Site.MainHost.Value}")" @bind-Value="input.Address"
+               autocomplete="off" />
+    <div class="flex gap-4">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Danger">Delete website now</ButtonBasic>
+      <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.OperatorSites">Cancel</LinkButton>
+    </div>
+  </EditForm>
+}

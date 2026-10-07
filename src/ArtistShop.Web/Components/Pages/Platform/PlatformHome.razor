@@ -1,9 +1,32 @@
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Sites
+@inject SiteRepository SiteRepository
+@inject NavigationManager NavigationManager
+
 @* the platform's home page, which Home shows at / on the platform's host *@
+
+@code {
+  // the operator's choice and order
+  private List<HostName> _examples = [];
+
+  protected override async Task OnInitializedAsync() => _examples = await SiteRepository.GetExampleHostsAsync();
+}
 
 <PageTitle>PictureCord</PageTitle>
 
 <main class="mx-auto max-w-[1200px] p-4">
   <h1 class="mb-4 text-2xl">PictureCord</h1>
   <p class="mb-4">Your portfolio and blog on a website of your own.</p>
-  <p>Have a sign-up code? <a class="underline" href="@PageUrls.SignUp">Make your website</a>.</p>
+  <p class="mb-4">Have a sign-up code? <a class="underline" href="@PageUrls.SignUp">Make your website</a>.</p>
+
+  @if (_examples.Count > 0)
+  {
+    <h2 class="mb-2 text-lg">Example websites</h2>
+    <ul class="list-disc pl-6">
+      @foreach (var host in _examples)
+      {
+        <li><a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, host)">@host.Value</a></li>
+      }
+    </ul>
+  }
 </main>

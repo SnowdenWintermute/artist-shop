@@ -56,4 +56,7 @@ public static class SqlStates
 
     // AddSiteWithSignUpCode, in the platform database
     public const string SignUpCodeNotUsable = "SH016";
+
+    // ReorderExampleSites, in the platform database
+    public const string ExampleSitesChangedSincePageLoad = "SH017";
 }

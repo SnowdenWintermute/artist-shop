@@ -84,6 +84,12 @@ public static class PageUrls
     public const string Operator = "/operator";
 
     // on the platform's host
+    public const string OperatorSites = "/operator/sites";
+
+    // on the platform's host
+    public static string OperatorDeleteSite(SiteId id) => $"{OperatorSites}/{id.Value}/delete";
+
+    // on the platform's host
     public const string SignUp = "/signup";
 
     // on the platform's host

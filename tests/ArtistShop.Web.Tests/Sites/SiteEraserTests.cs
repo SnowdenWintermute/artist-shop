@@ -89,6 +89,20 @@ public sealed class SiteEraserTests : IDisposable
         Assert.False(Directory.Exists(ImageStorage.ForSite(_storageSettings, siteId).Originals));
     }
 
+    // the operator's deletion, which has no grace period
+    [Fact]
+    public async Task ErasesASiteMadeDueNowAtOnce()
+    {
+        var siteId = await NewSiteAsync();
+        await _sites.ScheduleErasingNowAsync(siteId, _time.GetUtcNow());
+
+        Assert.True(await _eraser.EraseAsync(siteId));
+
+        Assert.False(await SchemaExistsAsync(siteId));
+        Assert.False(Directory.Exists(ImageStorage.ForSite(_storageSettings, siteId).Originals));
+        Assert.DoesNotContain(siteId, await _sites.GetIdsAsync());
+    }
+
     // as sign-up makes one: its schema, its image folders and its row
     private async Task<SiteId> NewSiteAsync()
     {

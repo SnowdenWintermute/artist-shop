@@ -115,6 +115,7 @@ builder.Services.AddSingleton<SiteProvisioner>();
 builder.Services.AddScoped<SiteSignUp>();
 builder.Services.AddScoped<SiteMemberAccounts>();
 builder.Services.AddScoped<SiteDeletions>();
+builder.Services.AddScoped<OperatorSites>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(CurrentHost.From);
