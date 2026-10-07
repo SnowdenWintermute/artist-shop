@@ -1,5 +1,7 @@
 namespace ArtistShop.Web.Components.Hints;
 
+using ArtistShop.Web.Domain.Platform;
+
 // what the Hints page says about each hint: the switches have no default, so a new HintType fails
 // the build until it's given both
 public static class HintListing

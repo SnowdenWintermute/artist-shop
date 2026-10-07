@@ -2,13 +2,14 @@ using System.Net;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Hints;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Sites;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-// Hints dismissed with their X, for the account on every website it administers, and shown again from Help.
+// Hints dismissed with their X, for the account on every website it administers, and shown again from the Hints page.
 // Signing in gives the account the profile its dismissals hang off, so these save without making one
 [Collection(TestAppCollection.Name)]
 public sealed partial class HintTests(TestApp app)
@@ -167,7 +168,7 @@ public sealed partial class HintTests(TestApp app)
 
     // the island's first render, before its circuit connects
     [Fact]
-    public async Task HelpChecksTheHintsThatShow()
+    public async Task TheHintsPageChecksTheHintsThatShow()
     {
         var (_, client) = await SiteWithOwnerAsync();
         await DismissAsync(client, nameof(HintType.Series));

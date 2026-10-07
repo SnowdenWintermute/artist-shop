@@ -1,6 +1,6 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using ArtistShop.Web.Components.Hints;
+using ArtistShop.Web.Domain.Platform;
 using Dapper;
 using Npgsql;
 

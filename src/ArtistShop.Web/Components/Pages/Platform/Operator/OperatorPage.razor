@@ -1,4 +1,5 @@
 @page "/operator"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Identity
@@ -25,4 +26,13 @@
 
   <h2 class="mb-2 text-lg">Unused codes</h2>
   <SignUpCodeTable @rendermode="InteractiveServer" Codes="_codes" />
+
+  <Divider Class="my-6" />
+
+  <h2 class="mb-2 text-lg">Sign everyone out</h2>
+  <p class="mb-4">
+    Ends every sign-in, so each account passes through signing in again. For a change that signing in sets up for an
+    account, such as the profile its dismissed hints are saved on.
+  </p>
+  <SignEveryoneOut @rendermode="InteractiveServer" />
 </AdminPanel>

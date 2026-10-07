@@ -1,4 +1,4 @@
-using ArtistShop.Web.Components.Hints;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Tests.Database;
 

@@ -1,0 +1,29 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Identity
+@inject DatabaseTicketStore TicketStore
+@inject NavigationManager NavigationManager
+
+@code {
+  private bool _isConfirming;
+  private bool _isSigningOut;
+
+  // the operator's own sign-in ends too, so this browser goes to sign in like every other
+  private async Task SignOutAllAsync()
+  {
+    _isSigningOut = true;
+    await TicketStore.EndAllAsync();
+    NavigationManager.NavigateTo(PageUrls.Login, forceLoad: true);
+  }
+}
+
+<DisabledUntilInteractive>
+  <ButtonBasic type="button" Variant="ButtonVariant.Danger" @onclick="() => _isConfirming = true">
+    Sign everyone out
+  </ButtonBasic>
+
+  <ConfirmDialog @bind-Open="_isConfirming" Title="Sign everyone out?" ConfirmLabel="Sign everyone out"
+                 OnConfirm="SignOutAllAsync" IsWorking="_isSigningOut">
+    Every account will have to sign in again, on the platform and on every website, yours included.
+  </ConfirmDialog>
+</DisabledUntilInteractive>

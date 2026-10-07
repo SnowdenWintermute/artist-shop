@@ -1,5 +1,6 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Identity
 @inject DismissedHintRepository DismissedHints
@@ -19,9 +20,10 @@
     _dismissed.UnionWith(await DismissedHints.GetAsync(_userId));
   }
 
-  // Nothing is disabled while saving, so the boxes stay as they are. Each save applies only its own
-  // change once it's done, so saves finishing in another order than they were made can't undo each other
-  // from the box's new state, so two quick clicks save what it ends up showing
+  // Nothing is disabled while saving, so the boxes stay as they are. Each change saves the box's new
+  // state, and applies only its own change to _dismissed once it's saved, so saves finishing in another
+  // order than they were made can't undo each other here. Two quick changes to one box are still two
+  // writes the database may apply in either order, which only the next load would show
   private Task SetShownAsync(HintType type, ChangeEventArgs change) =>
     change.Value is true ? ShowAsync([type]) : DismissAsync([type]);
 

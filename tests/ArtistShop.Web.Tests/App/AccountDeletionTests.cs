@@ -1,5 +1,5 @@
 using System.Net;
-using ArtistShop.Web.Components.Hints;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Identity;

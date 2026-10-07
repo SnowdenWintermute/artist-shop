@@ -1,7 +1,7 @@
 namespace ArtistShop.Web.Sites;
 
 using System.Security.Claims;
-using ArtistShop.Web.Components.Hints;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Identity;

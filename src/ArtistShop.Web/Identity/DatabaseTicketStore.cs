@@ -147,6 +147,14 @@ public sealed class DatabaseTicketStore(
             .ExecuteDeleteAsync();
     }
 
+    // the operator's Sign everyone out, for when every account must pass through sign-in again, as
+    // when signing in starts making a row an account needs
+    public async Task EndAllAsync()
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        await Database(scope).UserSessions.ExecuteDeleteAsync();
+    }
+
     // for the interactive revalidation, which has the claims but no cookie
     public async Task<bool> IsLiveAsync(ClaimsPrincipal user) =>
         user.FindFirstValue(SessionIdClaimType) is { } id && await IsLiveAsync(id);
