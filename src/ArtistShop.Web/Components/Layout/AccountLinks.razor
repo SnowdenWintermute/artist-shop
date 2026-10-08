@@ -19,7 +19,7 @@ PageUrls.AccountPage;
 <div class="flex flex-col items-start gap-4">
   <p class="truncate text-sm text-theme-muted" title="@Email">@Email</p>
   <a href="@PageUrls.PlatformMySites(NavigationManager.BaseUri, PlatformSettings.Host)"
-     class="hover:underline">PictureCord Platform</a>
+     class="hover:underline">@PlatformSettings.Name Platform</a>
   <a href="@AccountUrl" class="hover:underline">Manage account</a>
   <form action="Account/Logout" method="post">
     <AntiforgeryToken />

@@ -113,6 +113,7 @@ builder.Services.AddSingleton(services =>
 );
 builder.Services.AddSingleton<SiteProvisioner>();
 builder.Services.AddScoped<SiteSignUp>();
+builder.Services.AddScoped<UserEmails>();
 builder.Services.AddScoped<SiteMemberAccounts>();
 builder.Services.AddScoped<SiteDeletions>();
 builder.Services.AddScoped<OperatorSites>();

@@ -1,8 +1,9 @@
 DROP FUNCTION IF EXISTS get_sites;
 
--- Every site, for the operator: its hosts, its owner's user id (NULL once the owner deleted their
--- account, for the rest of the grace period that started) and how many admins it has
-CREATE FUNCTION get_sites () RETURNS TABLE (
+-- Every site, or only p_site_id's when given, for the operator: its hosts, its owner's user id (NULL
+-- once the owner deleted their account, for the rest of the grace period that started) and how many
+-- admins it has
+CREATE FUNCTION get_sites (p_site_id int DEFAULT NULL) RETURNS TABLE (
     site_id int,
     created_at timestamptz,
     erase_at timestamptz,
@@ -52,5 +53,8 @@ SELECT
 FROM
     sites AS site
     JOIN site_hosts AS main_host ON main_host.site_id = site.id
-    AND main_host.is_main;
+    AND main_host.is_main
+WHERE
+    p_site_id IS NULL
+    OR site.id = p_site_id;
 $$;

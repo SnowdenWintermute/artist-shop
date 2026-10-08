@@ -36,10 +36,7 @@
   private Task MoveAsync((int OldIndex, int NewIndex) move) =>
     SaveAsync(async () =>
     {
-      List<SeriesArtwork> reordered = [.. _artworks];
-      var artwork = reordered[move.OldIndex];
-      reordered.RemoveAt(move.OldIndex);
-      reordered.Insert(move.NewIndex, artwork);
+      var reordered = _artworks.Moved(move);
 
       await SeriesRepository.ReorderArtworksAsync(Series.Id, [.. reordered.Select(item => item.Id)]);
       // shown only once saved, so a failed save can't leave an order on screen that isn't in the database

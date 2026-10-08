@@ -115,6 +115,19 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         return [.. rows.Select(row => row.ToSiteListing())];
     }
 
+    // null when there's no such site
+    public async Task<SiteListing?> GetAsync(SiteId siteId)
+    {
+        await using var connection = platformDataSource.CreateConnection();
+
+        var row = await connection.QuerySingleOrDefaultAsync<SiteListingRow>(
+            "SELECT * FROM get_sites(@SiteId)",
+            new { SiteId = siteId.Value }
+        );
+
+        return row?.ToSiteListing();
+    }
+
     // the main hosts of the examples that are online, in the operator's order
     public async Task<List<HostName>> GetExampleHostsAsync()
     {

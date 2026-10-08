@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using ArtistShop.Web.Images;
+using Microsoft.Extensions.Logging.Abstractions;
 using NetVips;
 
 namespace ArtistShop.Web.Tests.Images;
@@ -20,7 +21,7 @@ public sealed class ImageUploadStoreTests : IDisposable
     public void Dispose() => _storageRoot.Delete(recursive: true);
 
     private ImageUploadStore CreateStore(ImageProcessingLimiter limiter, ImageProcessingSettings settings) =>
-        new(_imageStorage, new ImageProcessor(_imageStorage), limiter, settings);
+        new(_imageStorage, new ImageProcessor(_imageStorage, NullLogger<ImageProcessor>.Instance), limiter, settings);
 
     private static MemoryStream CreateJpeg(int width, int height)
     {

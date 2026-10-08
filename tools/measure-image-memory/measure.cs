@@ -17,6 +17,7 @@
 
 using System.Diagnostics;
 using ArtistShop.Web.Images;
+using Microsoft.Extensions.Logging.Abstractions;
 
 // the same libvips settings as Program.cs
 NetVips.NetVips.BlockUntrusted = true;
@@ -36,7 +37,7 @@ try
     var storage = new ImageStorage(root.FullName);
     Directory.CreateDirectory(storage.Originals);
     Directory.CreateDirectory(storage.Variants);
-    var processor = new ImageProcessor(storage);
+    var processor = new ImageProcessor(storage, NullLogger<ImageProcessor>.Instance);
 
     // warm-up: loads libvips and compiles the code path, so the measurement is only the image itself
     var warmUpKey = NewStorageKey();

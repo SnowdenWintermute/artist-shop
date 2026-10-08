@@ -32,10 +32,7 @@
 
     try
     {
-      List<SeriesWithCover> reordered = [.. _series];
-      var series = reordered[move.OldIndex];
-      reordered.RemoveAt(move.OldIndex);
-      reordered.Insert(move.NewIndex, series);
+      var reordered = _series.Moved(move);
 
       await SeriesRepository.ReorderAsync([.. reordered.Select(item => item.Id)]);
       _series = reordered;

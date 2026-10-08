@@ -307,6 +307,20 @@ public sealed class SiteRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task GetReadsOnlyTheOneSiteAndNullForNone()
+    {
+        var main = NewHost("get-one");
+        var siteId = await _sites.AddNewAsync([main], OwnerUserId);
+        await _sites.AddNewAsync([NewHost("get-other")], OwnerUserId);
+
+        var site = await _sites.GetAsync(siteId);
+
+        Assert.Equal(siteId, site?.SiteId);
+        Assert.Equal(main, site?.MainHost);
+        Assert.Null(await _sites.GetAsync(new SiteId(int.MaxValue)));
+    }
+
+    [Fact]
     public async Task AnAddedExampleComesLastAndARemovedOneGoes()
     {
         var first = NewHost("example-first");

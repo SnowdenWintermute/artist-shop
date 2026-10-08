@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Utilities
 @inject SiteRepository SiteRepository
 @inject NavigationManager NavigationManager
 
@@ -31,10 +32,7 @@
 
     try
     {
-      List<ExampleSiteItem> reordered = [.. _sites];
-      var site = reordered[move.OldIndex];
-      reordered.RemoveAt(move.OldIndex);
-      reordered.Insert(move.NewIndex, site);
+      var reordered = _sites.Moved(move);
 
       await SiteRepository.ReorderExamplesAsync([.. reordered.Select(item => new SiteId(item.SiteId))]);
       _sites = reordered;

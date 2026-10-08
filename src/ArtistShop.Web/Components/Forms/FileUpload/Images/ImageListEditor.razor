@@ -3,6 +3,7 @@
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
 
 @* An artwork's images: drop to upload, drag to order, star the main one. ImagesField posts them with
    the edit page's form; the artwork table's images dialog saves them itself *@
@@ -22,7 +23,7 @@
   [Parameter]
   public EventCallback<string> OnFirstFileSelected { get; set; }
 
-  private readonly List<SelectedImage> _files = [];
+  private List<SelectedImage> _files = [];
   private string? _mainImageKey;
   private FileDropZone<ImageUploadResult>? _dropZone;
 
@@ -128,9 +129,7 @@
 
   private async Task MoveFileAsync((int OldIndex, int NewIndex) move)
   {
-    var file = _files[move.OldIndex];
-    _files.RemoveAt(move.OldIndex);
-    _files.Insert(move.NewIndex, file);
+    _files = _files.Moved(move);
     await ChangedAsync();
   }
 
