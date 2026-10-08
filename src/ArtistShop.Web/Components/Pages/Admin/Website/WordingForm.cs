@@ -36,8 +36,8 @@ public class WordingForm : IValidatableObject
 
     public SiteWording ToWording() =>
         new(
-            new NounChoice(Word(CollectionSingular), Word(CollectionPlural), CollectionKeepsCase),
-            new NounChoice(Word(WorkSingular), Word(WorkPlural), WorkKeepsCase)
+            new NounChoice(NounChoice.Word(CollectionSingular), NounChoice.Word(CollectionPlural), CollectionKeepsCase),
+            new NounChoice(NounChoice.Word(WorkSingular), NounChoice.Word(WorkPlural), WorkKeepsCase)
         );
 
     // both forms or neither, so the website never has to guess a plural
@@ -56,15 +56,13 @@ public class WordingForm : IValidatableObject
 
     private static IEnumerable<ValidationResult> BothOrNeither(string? singular, string singularName, string? plural, string pluralName)
     {
-        if (Word(singular) is null && Word(plural) is not null)
+        if (NounChoice.Word(singular) is null && NounChoice.Word(plural) is not null)
         {
             yield return new ValidationResult("Fill in the singular too, or leave both blank for the default.", [singularName]);
         }
-        else if (Word(singular) is not null && Word(plural) is null)
+        else if (NounChoice.Word(singular) is not null && NounChoice.Word(plural) is null)
         {
             yield return new ValidationResult("Fill in the plural too, or leave both blank for the default.", [pluralName]);
         }
     }
-
-    private static string? Word(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 }

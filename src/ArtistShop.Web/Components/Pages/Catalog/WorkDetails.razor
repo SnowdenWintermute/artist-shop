@@ -94,7 +94,7 @@
 
     @if (Work.Collections.Count > 0)
     {
-      <dt class="text-gray-500">@Wording.Collection.PluralHeading</dt>
+      <dt class="text-gray-500">@(Work.Collections.Count is 1 ? Wording.Collection.SingularHeading : Wording.Collection.PluralHeading)</dt>
       <dd class="mb-2">
         @foreach (var (collection, index) in CollectionOrder.SortedByName(Work.Collections).Select((collection, index) => (collection, index)))
         {

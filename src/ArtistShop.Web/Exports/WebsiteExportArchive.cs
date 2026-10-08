@@ -18,7 +18,7 @@ public static class WebsiteExportArchive
     // each work CSV's type, since a type whose name can't be a file name has a file named after its
     // id on this website, and the website's wording
     public const string ManifestFileName = "website.json";
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
     public const string FormatVersionProperty = "formatVersion";
     public const string ListSeparatorProperty = "listSeparator";
     public const string WorkFilesProperty = "workFiles";

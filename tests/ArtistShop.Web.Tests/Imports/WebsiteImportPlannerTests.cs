@@ -11,7 +11,7 @@ public sealed class WebsiteImportPlannerTests
     private static readonly WebsiteImportFolder EveryFile = new(
         """
         {
-          "formatVersion": 1,
+          "formatVersion": 2,
           "listSeparator": ";",
           "workFiles": [ { "file": "Painting.csv", "workType": "Painting" } ],
           "wording": {

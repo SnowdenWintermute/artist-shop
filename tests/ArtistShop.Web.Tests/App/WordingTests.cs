@@ -65,7 +65,7 @@ public sealed partial class WordingTests(TestApp app)
         Assert.Contains(">Collections</h1>", home);
         Assert.Contains("1 work", home);
         Assert.Contains("All collections", await PageAsync(visitor, collectionPath));
-        Assert.Contains(">Collections</dt>", await PageAsync(visitor, workPath));
+        Assert.Contains(">Collection</dt>", await PageAsync(visitor, workPath));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed partial class WordingTests(TestApp app)
         Assert.Contains(">Projects</h1>", home);
         Assert.Contains("1 piece", home);
         Assert.Contains("All projects", await PageAsync(visitor, collectionPath));
-        Assert.Contains(">Projects</dt>", await PageAsync(visitor, workPath));
+        Assert.Contains(">Project</dt>", await PageAsync(visitor, workPath));
     }
 
     [Fact]

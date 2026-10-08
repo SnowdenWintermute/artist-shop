@@ -5,13 +5,16 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Sites
-@using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject WordingRepository WordingRepository
 @inject NavigationManager NavigationManager
 
 @code {
+  // the saved wording, which the previews show rather than what's typed but not yet saved: a
+  // successful save redirects, so this request saved nothing
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
   [SupplyParameterFromForm]
   private WordingForm Input { get; set; } = default!;
   [SupplyParameterFromQuery(Name = "saved")]
@@ -19,14 +22,10 @@
   // a successful save redirects, so a page rendered from a post is one that didn't go through
   private bool _formWasPosted;
 
-  // what the previews show, rather than what's typed but not yet saved
-  private SiteWording? _saved;
-
-  protected override async Task OnInitializedAsync()
+  protected override void OnInitialized()
   {
     _formWasPosted = Input is not null;
-    _saved = await WordingRepository.GetAsync();
-    Input ??= WordingForm.From(_saved);
+    Input ??= WordingForm.From(Wording);
   }
 
   private async Task SaveAsync()
@@ -40,15 +39,12 @@
     [collection.PluralHeading, $"All {collection.PluralInSentence}"];
 
   private static IReadOnlyList<string> WorkExamples(DisplayNoun work) =>
-    [CountText.Of(1, work.SingularInSentence, work.PluralInSentence), CountText.Of(12, work.SingularInSentence,
-work.PluralInSentence)];
+    [work.CountOf(1), work.CountOf(12)];
 }
 
 <PageTitle>Wording</PageTitle>
 
-@if (_saved is not null)
-{
-  <main>
+<main>
     <AdminPanel>
       <BackLink Href="@PageUrls.AdminDashboard" Label="Admin" />
       <h1 class="mb-4 text-xl">Wording</h1>
@@ -77,7 +73,7 @@ work.PluralInSentence)];
               <TextField Label="Plural" @bind-Value="Input.WorkPlural" placeholder="@SiteWording.DefaultWorkPlural" />
               <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.WorkKeepsCase"
                              Hint="Otherwise the word is capitalised in headings and lowercase inside sentences." />
-              <WordingPreview Examples="WorkExamples(_saved.Work)" />
+              <WordingPreview Examples="WorkExamples(Wording.Work)" />
             </section>
 
             <section class="mb-6">
@@ -94,11 +90,10 @@ work.PluralInSentence)];
                          placeholder="@SiteWording.DefaultCollectionPlural" />
               <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.CollectionKeepsCase"
                              Hint="Otherwise the word is capitalised in headings and lowercase inside sentences." />
-              <WordingPreview Examples="CollectionExamples(_saved.Collection)" />
+              <WordingPreview Examples="CollectionExamples(Wording.Collection)" />
             </section>
             <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
           </EditForm>
         </EnableSaveOnChange>
       </AdminPanel>
     </main>
-  }

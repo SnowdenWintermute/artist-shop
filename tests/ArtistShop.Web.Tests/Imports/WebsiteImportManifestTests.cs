@@ -8,7 +8,7 @@ public sealed class WebsiteImportManifestTests
 {
     private const string Valid = """
         {
-          "formatVersion": 1,
+          "formatVersion": 2,
           "listSeparator": "|",
           "workFiles": [ { "file": "work-type-3.csv", "workType": "Photo/Print" } ],
           "wording": {
@@ -38,6 +38,16 @@ public sealed class WebsiteImportManifestTests
         );
     }
 
+    // as the Wording page saves a word, so a hand-edited file can't add spaces
+    [Fact]
+    public void WordsAreTrimmed()
+    {
+        var json = Valid.Replace("\"Project\", \"plural\": \"Projects\"", "\" Project \", \"plural\": \"Projects \"");
+
+        Assert.True(WebsiteImportManifest.TryRead(json, out var manifest, out _));
+        Assert.Equal(new NounChoice("Project", "Projects", KeepsCase: false), manifest.Wording.CollectionChoice);
+    }
+
     // words the Wording page couldn't have saved
     [Theory]
     [InlineData("""{ "singular": "Project", "plural": null, "keepsCase": false }""")]
@@ -55,8 +65,8 @@ public sealed class WebsiteImportManifestTests
     [Fact]
     public void WithoutWordingItIsUnreadable()
     {
-        Assert.False(WebsiteImportManifest.TryRead("""{ "formatVersion": 1, "listSeparator": "|", "workFiles": [] }""", out _, out _));
-        Assert.True(WebsiteImportManifest.TryRead($$"""{ "formatVersion": 1, "listSeparator": "|", "workFiles": [], {{DefaultWording}} }""", out var manifest, out _));
+        Assert.False(WebsiteImportManifest.TryRead("""{ "formatVersion": 2, "listSeparator": "|", "workFiles": [] }""", out _, out _));
+        Assert.True(WebsiteImportManifest.TryRead($$"""{ "formatVersion": 2, "listSeparator": "|", "workFiles": [], {{DefaultWording}} }""", out var manifest, out _));
         Assert.Equal(SiteWording.Default, manifest.Wording);
     }
 
@@ -70,10 +80,10 @@ public sealed class WebsiteImportManifestTests
     [Theory]
     [InlineData("not json")]
     [InlineData("[]")]
-    [InlineData("""{ "formatVersion": 1, "listSeparator": "||", "workFiles": [] }""")]
-    [InlineData("""{ "formatVersion": 1, "listSeparator": "|" }""")]
-    [InlineData("""{ "formatVersion": 1, "listSeparator": "|", "workFiles": [ { "file": "a.csv" } ] }""")]
-    [InlineData("""{ "formatVersion": 1, "listSeparator": "|", "workFiles": [ { "file": 3, "workType": "Painting" } ] }""")]
+    [InlineData("""{ "formatVersion": 2, "listSeparator": "||", "workFiles": [] }""")]
+    [InlineData("""{ "formatVersion": 2, "listSeparator": "|" }""")]
+    [InlineData("""{ "formatVersion": 2, "listSeparator": "|", "workFiles": [ { "file": "a.csv" } ] }""")]
+    [InlineData("""{ "formatVersion": 2, "listSeparator": "|", "workFiles": [ { "file": 3, "workType": "Painting" } ] }""")]
     public void OneItCantReadIsUnreadable(string json)
     {
         Assert.False(WebsiteImportManifest.TryRead(json, out var manifest, out var problem));
@@ -82,8 +92,10 @@ public sealed class WebsiteImportManifestTests
     }
 
     [Theory]
-    [InlineData("""{ "formatVersion": 2, "listSeparator": "|", "workFiles": [] }""")]
-    [InlineData("""{ "formatVersion": "1", "listSeparator": "|", "workFiles": [] }""")]
+    // 1 is from before the wording and the rename to works
+    [InlineData("""{ "formatVersion": 1, "listSeparator": "|", "workFiles": [] }""")]
+    [InlineData("""{ "formatVersion": 3, "listSeparator": "|", "workFiles": [] }""")]
+    [InlineData("""{ "formatVersion": "2", "listSeparator": "|", "workFiles": [] }""")]
     [InlineData("""{ "listSeparator": "|", "workFiles": [] }""")]
     public void AnotherVersionIsRefused(string json)
     {

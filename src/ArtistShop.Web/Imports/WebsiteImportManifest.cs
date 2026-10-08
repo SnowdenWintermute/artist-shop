@@ -97,9 +97,8 @@ public record WebsiteImportManifest(
     // a missing word is null, the default; one that's there has to be a word the database takes
     private static bool TryWordOf(JsonNode? node, out string? word)
     {
-        word = StringOf(node);
-        return node is null
-            || word is { Length: <= ArtistShopLimits.WordingWordMaximumLength } && !string.IsNullOrWhiteSpace(word);
+        word = NounChoice.Word(StringOf(node));
+        return node is null || word is { Length: <= ArtistShopLimits.WordingWordMaximumLength };
     }
 
     private static bool? BoolOf(JsonNode? node) =>
