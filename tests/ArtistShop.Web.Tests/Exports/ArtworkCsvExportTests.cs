@@ -11,8 +11,8 @@ public sealed class ArtworkCsvExportTests
     private static readonly VocabularyName MediumName = new("Medium");
     private static readonly VocabularyTerm Oil = new(new VocabularyTermId(11), new VocabularyTermName("Oil"), MediumId, MediumName);
     private static readonly VocabularyTerm Bronze = new(new VocabularyTermId(12), new VocabularyTermName("Bronze"), MediumId, MediumName);
-    private static readonly VocabularyWithTerms Medium = new(MediumId, MediumName, IsSingleChoice: false, [Oil, Bronze]);
-    private static readonly VocabularySetup MediumSetup = new(MediumId, MediumName, IsSingleChoice: false, [new ArtworkTypeId(1)], [Oil, Bronze]);
+    private static readonly VocabularyWithTerms Medium = new(MediumId, MediumName, IsMutuallyExclusive: false, [Oil, Bronze]);
+    private static readonly VocabularySetup MediumSetup = new(MediumId, MediumName, IsMutuallyExclusive: false, [new ArtworkTypeId(1)], [Oil, Bronze]);
     private static readonly Series SunriseSunset = new(new SeriesId(21), new SeriesName("Sunrise, Sunset"), new SeriesSlug("sunrise-sunset"));
     private static readonly Series Gardens = new(new SeriesId(22), new SeriesName("Gardens"), new SeriesSlug("gardens"));
     private static readonly ProductType Original = new(new ProductTypeId(31), new ProductTypeName("Original"), IsDefault: true);
@@ -107,7 +107,7 @@ public sealed class ArtworkCsvExportTests
     public void AVocabularyNamedLikeAColumnIsPrefixed()
     {
         var screenshot = new ArtworkTypeWithFields(new ArtworkTypeId(2), new ArtworkTypeName("Screenshot"), []);
-        var seriesVocabulary = new VocabularySetup(new VocabularyId(4), new VocabularyName("Series"), IsSingleChoice: false, [screenshot.Id], []);
+        var seriesVocabulary = new VocabularySetup(new VocabularyId(4), new VocabularyName("Series"), IsMutuallyExclusive: false, [screenshot.Id], []);
 
         var csv = ArtworkCsvExport.ForType(screenshot, [seriesVocabulary], [], ';');
 

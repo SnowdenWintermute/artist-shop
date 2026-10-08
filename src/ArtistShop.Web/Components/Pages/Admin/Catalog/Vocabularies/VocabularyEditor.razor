@@ -43,7 +43,7 @@
         _loaded = new LoadedVocabulary(
           vocabulary,
           await VocabularyRepository.CountUsageAsync(vocabularyId),
-          vocabulary.IsSingleChoice ? [] : await VocabularyRepository.GetArtworksWithSeveralTermsAsync(vocabularyId)
+          vocabulary.IsMutuallyExclusive ? [] : await VocabularyRepository.GetArtworksWithSeveralTermsAsync(vocabularyId)
         );
       }
     }

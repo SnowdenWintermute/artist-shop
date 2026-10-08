@@ -10,21 +10,21 @@ public static class VocabularyImportHeaders
     public const string ArtworkTypes = "artworkTypes";
     public const string Terms = "terms";
     // yes or no; blank is no
-    public const string SingleChoice = "singleChoice";
+    public const string MutuallyExclusive = "mutuallyExclusive";
 
-    public static readonly IReadOnlyList<string> All = [Vocabulary, ArtworkTypes, Terms, SingleChoice];
+    public static readonly IReadOnlyList<string> All = [Vocabulary, ArtworkTypes, Terms, MutuallyExclusive];
 
     public const string Yes = "yes";
     public const string No = "no";
 }
 
 // What importing a row adds. ExistingId is null for a new vocabulary; for one that exists, Name and
-// IsSingleChoice are its own, and the added types and terms are only the ones it doesn't have yet
+// IsMutuallyExclusive are its own, and the added types and terms are only the ones it doesn't have yet
 public record VocabularyImportChange(
     int RowNumber,
     VocabularyName Name,
     VocabularyId? ExistingId,
-    bool IsSingleChoice,
+    bool IsMutuallyExclusive,
     IReadOnlyList<ArtworkType> ExistingArtworkTypes,
     IReadOnlyList<ArtworkType> AddedArtworkTypes,
     IReadOnlyList<VocabularyTermName> AddedTerms
@@ -79,8 +79,8 @@ public static class VocabularyImportPlanner
         List<string> ListIn(CsvRow row, string header) =>
             columns.TryGetValue(header, out var column) ? ImportLists.Split(row.Cells[column], listSeparator) : [];
 
-        string SingleChoiceIn(CsvRow row) =>
-            columns.TryGetValue(VocabularyImportHeaders.SingleChoice, out var column) ? row.Cells[column].Trim() : "";
+        string MutuallyExclusiveIn(CsvRow row) =>
+            columns.TryGetValue(VocabularyImportHeaders.MutuallyExclusive, out var column) ? row.Cells[column].Trim() : "";
 
         var changes = new List<VocabularyImportChange>();
         var skippedRows = new List<ImportSkippedRow>();
@@ -133,24 +133,24 @@ public static class VocabularyImportPlanner
                 AddError(VocabularyImportHeaders.Terms, $"\"{term}\" is longer than {ArtistShopLimits.VocabularyTermNameMaximumLength} characters.");
             }
 
-            var singleChoiceText = SingleChoiceIn(row);
-            var isSingleChoice = StringComparer.OrdinalIgnoreCase.Equals(singleChoiceText, VocabularyImportHeaders.Yes);
+            var mutuallyExclusiveText = MutuallyExclusiveIn(row);
+            var isMutuallyExclusive = StringComparer.OrdinalIgnoreCase.Equals(mutuallyExclusiveText, VocabularyImportHeaders.Yes);
 
-            if (!isSingleChoice && singleChoiceText.Length > 0 && !StringComparer.OrdinalIgnoreCase.Equals(singleChoiceText, VocabularyImportHeaders.No))
+            if (!isMutuallyExclusive && mutuallyExclusiveText.Length > 0 && !StringComparer.OrdinalIgnoreCase.Equals(mutuallyExclusiveText, VocabularyImportHeaders.No))
             {
-                AddError(VocabularyImportHeaders.SingleChoice, $"Write {VocabularyImportHeaders.Yes} or {VocabularyImportHeaders.No}, or leave it blank for {VocabularyImportHeaders.No}.");
+                AddError(VocabularyImportHeaders.MutuallyExclusive, $"Write {VocabularyImportHeaders.Yes} or {VocabularyImportHeaders.No}, or leave it blank for {VocabularyImportHeaders.No}.");
             }
 
             var existing = snapshot.Vocabularies.FirstOrDefault(vocabulary => ImportNames.Comparer.Equals(vocabulary.Name.Value, name));
 
-            // the import only adds, and making a vocabulary single-choice can take terms off artworks
-            if (existing is not null && existing.IsSingleChoice != isSingleChoice)
+            // the import only adds, and making a vocabulary mutually exclusive can take terms off artworks
+            if (existing is not null && existing.IsMutuallyExclusive != isMutuallyExclusive)
             {
                 AddError(
-                    VocabularyImportHeaders.SingleChoice,
-                    existing.IsSingleChoice
-                        ? $"{existing.Name.Value} is already here and is single-choice. Write {VocabularyImportHeaders.Yes}, or change it on the vocabulary's page."
-                        : $"{existing.Name.Value} is already here and allows several terms. Write {VocabularyImportHeaders.No}, or change it on the vocabulary's page."
+                    VocabularyImportHeaders.MutuallyExclusive,
+                    existing.IsMutuallyExclusive
+                        ? $"{existing.Name.Value} is already here and is mutually exclusive. Write {VocabularyImportHeaders.Yes}, or change it on the vocabulary's page."
+                        : $"{existing.Name.Value} is already here and isn't mutually exclusive. Write {VocabularyImportHeaders.No}, or change it on the vocabulary's page."
                 );
             }
 
@@ -165,7 +165,7 @@ public static class VocabularyImportPlanner
                     row.RowNumber,
                     new VocabularyName(name),
                     ExistingId: null,
-                    isSingleChoice,
+                    isMutuallyExclusive,
                     ExistingArtworkTypes: [],
                     types,
                     [.. terms.Select(term => new VocabularyTermName(term))]
@@ -190,7 +190,7 @@ public static class VocabularyImportPlanner
                 .Select(type => new ArtworkType(type.Id, type.Name))
                 .ToList();
 
-            changes.Add(new VocabularyImportChange(row.RowNumber, existing.Name, existing.Id, existing.IsSingleChoice, existingTypes, addedTypes, addedTerms));
+            changes.Add(new VocabularyImportChange(row.RowNumber, existing.Name, existing.Id, existing.IsMutuallyExclusive, existingTypes, addedTypes, addedTerms));
         }
 
         return new VocabularyImportPlan(changes, skippedRows, errors);
@@ -216,12 +216,12 @@ public static class VocabularyImportPlanner
 
                 if (change.AddedArtworkTypes.Count > 0)
                 {
-                    await vocabularyRepository.UpdateAsync(id, change.Name, change.IsSingleChoice, [.. change.ExistingArtworkTypes.Select(type => type.Id), .. addedTypeIds]);
+                    await vocabularyRepository.UpdateAsync(id, change.Name, change.IsMutuallyExclusive, [.. change.ExistingArtworkTypes.Select(type => type.Id), .. addedTypeIds]);
                 }
             }
             else
             {
-                id = await vocabularyRepository.AddAsync(change.Name, change.IsSingleChoice, addedTypeIds);
+                id = await vocabularyRepository.AddAsync(change.Name, change.IsMutuallyExclusive, addedTypeIds);
             }
 
             foreach (var term in change.AddedTerms)

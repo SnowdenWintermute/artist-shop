@@ -4,7 +4,7 @@
 @using ArtistShop.Web.Utilities
 
 @* Confirms a save that takes terms off artworks: unselecting a type in use, making the vocabulary
-   single-choice, or both *@
+   mutually exclusive, or both *@
 
 @code {
   [Parameter]
@@ -23,7 +23,7 @@
   [Parameter, EditorRequired]
   public VocabularyUsage Usage { get; set; } = default!;
 
-  // empty unless it's being made single-choice
+  // empty unless it's being made mutually exclusive
   [Parameter, EditorRequired]
   public IReadOnlyList<ArtworkName> ArtworksWithSeveralTerms { get; set; } = default!;
 
@@ -49,7 +49,7 @@
     <p class="mb-2">
       Making a vocabulary mutually exclusive allows one term per artwork, so all "@VocabularyName.Value" terms are removed
       from
-      @(ArtworksWithSeveralTerms.Count is 1 ? "this artwork, which has" : $"these    {CountText.Of(ArtworksWithSeveralTerms.Count, "artwork")}, which have")
+      @(ArtworksWithSeveralTerms.Count is 1 ? "this artwork, which has" : $"these {CountText.Of(ArtworksWithSeveralTerms.Count, "artwork")}, which have")
       more than one.
     </p>
     <ul class="max-h-48 list-disc overflow-y-auto pl-5">

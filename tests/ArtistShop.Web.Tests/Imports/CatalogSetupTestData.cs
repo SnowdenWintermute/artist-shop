@@ -32,7 +32,7 @@ public static class CatalogSetupTestData
     public static readonly VocabularySetup Medium = new(
         MediumId,
         new VocabularyName("Medium"),
-        IsSingleChoice: false,
+        IsMutuallyExclusive: false,
         [Painting.Id],
         [new VocabularyTerm(new VocabularyTermId(11), new VocabularyTermName("Oil"), MediumId, new VocabularyName("Medium"))]
     );

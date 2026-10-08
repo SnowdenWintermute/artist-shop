@@ -53,11 +53,11 @@ public class VocabularyRepository(SiteDatabase database)
         IEnumerable<VocabularyWithTermRow> rows
     ) =>
         [
-            .. rows.GroupBy(row => (row.Id, row.Name, row.IsSingleChoice))
+            .. rows.GroupBy(row => (row.Id, row.Name, row.IsMutuallyExclusive))
                 .Select(group => new VocabularyWithTerms(
                     new VocabularyId(group.Key.Id),
                     new VocabularyName(group.Key.Name),
-                    group.Key.IsSingleChoice,
+                    group.Key.IsMutuallyExclusive,
                     [
                         .. group
                             .Where(row => row.TermId is not null)
@@ -73,7 +73,7 @@ public class VocabularyRepository(SiteDatabase database)
 
     public async Task<VocabularyId> AddAsync(
         VocabularyName name,
-        bool isSingleChoice,
+        bool isMutuallyExclusive,
         IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
@@ -83,11 +83,11 @@ public class VocabularyRepository(SiteDatabase database)
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "SELECT add_vocabulary(@Name, @IsSingleChoice, @ArtworkTypeIds)",
+                "SELECT add_vocabulary(@Name, @IsMutuallyExclusive, @ArtworkTypeIds)",
                 new
                 {
                     Name = name.Value,
-                    IsSingleChoice = isSingleChoice,
+                    IsMutuallyExclusive = isMutuallyExclusive,
                     ArtworkTypeIds = artworkTypeIdList,
                 }
             );
@@ -138,7 +138,7 @@ public class VocabularyRepository(SiteDatabase database)
         return new VocabularyWithArtworkTypes(
             new VocabularyId(row.Id),
             new VocabularyName(row.Name),
-            row.IsSingleChoice,
+            row.IsMutuallyExclusive,
             [.. artworkTypeIds.Select(artworkTypeId => new ArtworkTypeId(artworkTypeId))]
         );
     }
@@ -169,7 +169,7 @@ public class VocabularyRepository(SiteDatabase database)
         );
     }
 
-    // the artworks that making it single-choice would take its terms off
+    // the artworks that making it mutually exclusive would take its terms off
     public async Task<List<ArtworkName>> GetArtworksWithSeveralTermsAsync(VocabularyId id)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -182,11 +182,11 @@ public class VocabularyRepository(SiteDatabase database)
         return [.. names.Select(name => new ArtworkName(name))];
     }
 
-    // making it single-choice removes its terms from every artwork that has more than one of them
+    // making it mutually exclusive removes its terms from every artwork that has more than one of them
     public async Task UpdateAsync(
         VocabularyId id,
         VocabularyName name,
-        bool isSingleChoice,
+        bool isMutuallyExclusive,
         IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
@@ -197,12 +197,12 @@ public class VocabularyRepository(SiteDatabase database)
         {
             // ExecuteAsync: for calls whose result nobody reads
             await connection.ExecuteAsync(
-                "SELECT update_vocabulary(@Id, @Name, @IsSingleChoice, @ArtworkTypeIds)",
+                "SELECT update_vocabulary(@Id, @Name, @IsMutuallyExclusive, @ArtworkTypeIds)",
                 new
                 {
                     Id = id.Value,
                     Name = name.Value,
-                    IsSingleChoice = isSingleChoice,
+                    IsMutuallyExclusive = isMutuallyExclusive,
                     ArtworkTypeIds = artworkTypeIdList,
                 }
             );
@@ -239,7 +239,7 @@ public class VocabularyRepository(SiteDatabase database)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
-        public required bool IsSingleChoice { get; init; }
+        public required bool IsMutuallyExclusive { get; init; }
         public int? TermId { get; init; }
         public string? TermName { get; init; }
     }
@@ -248,7 +248,7 @@ public class VocabularyRepository(SiteDatabase database)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
-        public required bool IsSingleChoice { get; init; }
+        public required bool IsMutuallyExclusive { get; init; }
     }
 
     private sealed class VocabularyRow

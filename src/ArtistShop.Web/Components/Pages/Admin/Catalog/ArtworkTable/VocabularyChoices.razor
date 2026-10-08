@@ -2,7 +2,7 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Domain.Catalog
 
-@* A checkbox for each of a type's vocabulary terms, or one select for a single-choice vocabulary, for a dialog, and the entry view that makes
+@* A checkbox for each of a type's vocabulary terms, or one select for a mutually exclusive vocabulary, for a dialog, and the entry view that makes
    vocabularies and terms. The dialog's buttons go in Actions, which only the checkboxes show: the
    entry view has its own *@
 
@@ -18,7 +18,7 @@
   public EventCallback<int> OnToggle { get; set; }
   [Parameter, EditorRequired]
   public EventCallback<TermChoice> OnChoose { get; set; }
-  // any of a single-choice vocabulary's terms can be removed, so they are checkboxes too
+  // any of a mutually exclusive vocabulary's terms can be removed, so they are checkboxes too
   [Parameter]
   public bool IsRemoving { get; set; }
   // a vocabulary or term was saved, so the list should be read again. Without one, nothing can be
@@ -71,7 +71,7 @@
     _entry = null;
   }
 
-  private bool IsSelect(VocabularyWithTerms vocabulary) => vocabulary.IsSingleChoice && !IsRemoving;
+  private bool IsSelect(VocabularyWithTerms vocabulary) => vocabulary.IsMutuallyExclusive && !IsRemoving;
 
   private string SummaryText(VocabularyWithTerms vocabulary)
   {

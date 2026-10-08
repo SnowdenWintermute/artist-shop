@@ -41,12 +41,12 @@
       : [.. ArtworkTypes.Where(artworkType =>
           _form.WasUnselected(artworkType.Id) && Loaded.Usage.ArtworkCountFor(artworkType.Id) > 0)];
 
-  private IReadOnlyList<ArtworkName> ArtworksLosingTermsToSingleChoice =>
-    Loaded is not null && _form.BecameSingleChoice ? Loaded.ArtworksWithSeveralTerms : [];
+  private IReadOnlyList<ArtworkName> ArtworksLosingTermsToMutuallyExclusive =>
+    Loaded is not null && _form.BecameMutuallyExclusive ? Loaded.ArtworksWithSeveralTerms : [];
 
   private async Task HandleValidSubmit()
   {
-    if (UnselectedArtworkTypesInUse.Count > 0 || ArtworksLosingTermsToSingleChoice.Count > 0)
+    if (UnselectedArtworkTypesInUse.Count > 0 || ArtworksLosingTermsToMutuallyExclusive.Count > 0)
     {
       _removeTermsDialogOpen = true;
       return;
@@ -65,12 +65,12 @@
 
       if (Loaded is null)
       {
-        var id = await VocabularyRepository.AddAsync(name, _form.IsSingleChoice, _form.ArtworkTypeIds);
+        var id = await VocabularyRepository.AddAsync(name, _form.IsMutuallyExclusive, _form.ArtworkTypeIds);
         NavigationManager.NavigateTo(PageUrls.EditVocabulary(id));
         return;
       }
 
-      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.IsSingleChoice, _form.ArtworkTypeIds);
+      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.IsMutuallyExclusive, _form.ArtworkTypeIds);
       _saveCount++;
       NavigationManager.Refresh();
     }
@@ -113,7 +113,7 @@
     <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
     <ArtworkTypeCheckboxes ArtworkTypes="ArtworkTypes" Selected="_form.ArtworkTypeIds"
                            OnToggle="_form.ToggleArtworkType" />
-    <CheckboxField Label="Mutually exclusive" @bind-Value="_form.IsSingleChoice"
+    <CheckboxField Label="Mutually exclusive" @bind-Value="_form.IsMutuallyExclusive"
                    Hint="An artwork may only choose one of these terms." />
 
     @if (_saveCount > 0)
@@ -141,7 +141,7 @@
   {
     <RemoveArtworkTermsDialog @bind-Open="_removeTermsDialogOpen" VocabularyName="loaded.Vocabulary.Name"
                               UnselectedArtworkTypes="UnselectedArtworkTypesInUse" Usage="loaded.Usage"
-                              ArtworksWithSeveralTerms="ArtworksLosingTermsToSingleChoice" OnConfirm="SaveAsync" IsWorking="_isSaving" />
+                              ArtworksWithSeveralTerms="ArtworksLosingTermsToMutuallyExclusive" OnConfirm="SaveAsync" IsWorking="_isSaving" />
 
     <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
                             OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />

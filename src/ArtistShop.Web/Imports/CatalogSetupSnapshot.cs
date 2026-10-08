@@ -7,7 +7,7 @@ namespace ArtistShop.Web.Imports;
 public record VocabularySetup(
     VocabularyId Id,
     VocabularyName Name,
-    bool IsSingleChoice,
+    bool IsMutuallyExclusive,
     IReadOnlyList<ArtworkTypeId> ArtworkTypeIds,
     IReadOnlyList<VocabularyTerm> Terms
 );
@@ -53,7 +53,7 @@ public record CatalogSetupSnapshot(
             .Select(vocabulary => new VocabularySetup(
                 vocabulary.Id,
                 vocabulary.Name,
-                vocabulary.IsSingleChoice,
+                vocabulary.IsMutuallyExclusive,
                 typeIdsByVocabulary.GetValueOrDefault(vocabulary.Id) ?? [],
                 vocabulary.Terms
             ))

@@ -55,6 +55,7 @@
   private void DropMissingSelections()
   {
     _selectedTermIds.IntersectWith(_vocabularies.SelectMany(vocabulary => vocabulary.Terms).Select(term => term.Id.Value));
+    TermChoices.DropSeveralInMutuallyExclusive(_selectedTermIds, _vocabularies);
     _selectedSeriesIds.IntersectWith(_series.Select(series => series.Id.Value));
   }
 
@@ -111,7 +112,7 @@ series.Name.Value))];
 
   @foreach (var vocabulary in _vocabularies)
   {
-    @if (vocabulary.IsSingleChoice && vocabulary.Terms.Count > 0)
+    @if (vocabulary.IsMutuallyExclusive && vocabulary.Terms.Count > 0)
     {
       <div @key="vocabulary.Id" class="mb-4">
         <TermSelect Vocabulary="vocabulary" ChosenTermId="TermChoices.ChosenTermId(_selectedTermIds, vocabulary)"

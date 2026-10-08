@@ -26,7 +26,7 @@ public sealed class ArtworkImportPlannerTests
     private static ArtworkImportCatalogSnapshot Snapshot(IReadOnlyList<ArtworkField> fields) =>
         new(
             new ArtworkTypeWithFields(new ArtworkTypeId(1), new ArtworkTypeName("Painting"), fields),
-            [new VocabularyWithTerms(MediumId, MediumName, IsSingleChoice: false, [Oil, Acrylic])],
+            [new VocabularyWithTerms(MediumId, MediumName, IsMutuallyExclusive: false, [Oil, Acrylic])],
             [new Vocabulary(MediumId, MediumName), Glaze],
             [SunriseSunset, Gardens],
             [Original, Print],
@@ -365,7 +365,7 @@ public sealed class ArtworkImportPlannerTests
         var snapshot = Snapshot(PaintingFields) with
         {
             AllVocabularies = [new Vocabulary(seriesVocabularyId, seriesVocabularyName)],
-            TypeVocabularies = [new VocabularyWithTerms(seriesVocabularyId, seriesVocabularyName, IsSingleChoice: false, [blue])],
+            TypeVocabularies = [new VocabularyWithTerms(seriesVocabularyId, seriesVocabularyName, IsMutuallyExclusive: false, [blue])],
         };
 
         var plan = ArtworkImportPlanner.Plan("title,series,vocabulary:Series\nDawn,Gardens,Blue\n", OneOfAKindInInches, snapshot);
@@ -377,11 +377,11 @@ public sealed class ArtworkImportPlannerTests
     }
 
     [Fact]
-    public void ASingleChoiceVocabularyTakesOneTerm()
+    public void AMutuallyExclusiveVocabularyTakesOneTerm()
     {
         var snapshot = Snapshot(PaintingFields) with
         {
-            TypeVocabularies = [new VocabularyWithTerms(MediumId, MediumName, IsSingleChoice: true, [Oil, Acrylic])],
+            TypeVocabularies = [new VocabularyWithTerms(MediumId, MediumName, IsMutuallyExclusive: true, [Oil, Acrylic])],
         };
 
         var plan = ArtworkImportPlanner.Plan(
@@ -647,8 +647,8 @@ public sealed class ArtworkImportPlannerTests
             AllVocabularies = [new Vocabulary(MediumId, new VocabularyName("drawingMaterial")), new Vocabulary(new VocabularyId(3), new VocabularyName("support"))],
             TypeVocabularies =
             [
-                new VocabularyWithTerms(MediumId, new VocabularyName("drawingMaterial"), IsSingleChoice: false, []),
-                new VocabularyWithTerms(new VocabularyId(3), new VocabularyName("support"), IsSingleChoice: false, []),
+                new VocabularyWithTerms(MediumId, new VocabularyName("drawingMaterial"), IsMutuallyExclusive: false, []),
+                new VocabularyWithTerms(new VocabularyId(3), new VocabularyName("support"), IsMutuallyExclusive: false, []),
             ],
         };
 

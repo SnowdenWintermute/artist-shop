@@ -258,7 +258,7 @@ public static class ArtworkImportPlanner
                 }
             }
 
-            if (vocabulary.IsSingleChoice && vocabularyTermIds.Distinct().Count() > 1)
+            if (vocabulary.IsMutuallyExclusive && vocabularyTermIds.Distinct().Count() > 1)
             {
                 reader.AddError(vocabulary.Name.Value, $"{vocabulary.Name.Value} allows only one term per artwork.");
             }

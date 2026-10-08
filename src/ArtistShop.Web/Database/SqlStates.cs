@@ -61,5 +61,5 @@ public static class SqlStates
     public const string ExampleSitesChangedSincePageLoad = "SH017";
 
     // CheckArtworkChoicesAreCurrent
-    public const string VocabularyBecameSingleChoice = "SH018";
+    public const string VocabularyBecameMutuallyExclusive = "SH018";
 }

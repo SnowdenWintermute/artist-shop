@@ -47,7 +47,7 @@ public static class CatalogSetupCsvExport
                 vocabulary.Name.Value,
                 ImportLists.Join(typeNames, listSeparator),
                 ImportLists.Join(termNames, listSeparator),
-                vocabulary.IsSingleChoice ? VocabularyImportHeaders.Yes : VocabularyImportHeaders.No,
+                vocabulary.IsMutuallyExclusive ? VocabularyImportHeaders.Yes : VocabularyImportHeaders.No,
             ]);
         }
 

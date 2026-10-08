@@ -89,45 +89,45 @@ public sealed class VocabularyImportPlannerTests
     }
 
     [Fact]
-    public void ANewVocabularyCanBeSingleChoice()
+    public void ANewVocabularyCanBeMutuallyExclusive()
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms,singleChoice
+            vocabulary,artworkTypes,terms,mutuallyExclusive
             Time of day,Painting,Noon; Midnight,YES
             Style,Painting,Abstract,
             """
         );
 
         Assert.Empty(plan.Errors);
-        Assert.Equal([true, false], plan.Changes.Select(change => change.IsSingleChoice));
+        Assert.Equal([true, false], plan.Changes.Select(change => change.IsMutuallyExclusive));
     }
 
     [Fact]
-    public void SingleChoiceMustBeYesOrNo()
+    public void MutuallyExclusiveMustBeYesOrNo()
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms,singleChoice
+            vocabulary,artworkTypes,terms,mutuallyExclusive
             Time of day,Painting,Noon,maybe
             """
         );
 
-        Assert.Equal(VocabularyImportHeaders.SingleChoice, Assert.Single(plan.Errors).Column);
+        Assert.Equal(VocabularyImportHeaders.MutuallyExclusive, Assert.Single(plan.Errors).Column);
     }
 
-    // the import only adds, and making it single-choice could take terms off artworks
+    // the import only adds, and making it mutually exclusive could take terms off artworks
     [Fact]
-    public void AnExistingVocabularysSingleChoiceIsNotChanged()
+    public void AnExistingVocabularysMutuallyExclusiveIsNotChanged()
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms,singleChoice
+            vocabulary,artworkTypes,terms,mutuallyExclusive
             Medium,Painting,Bronze,yes
             """
         );
 
         Assert.Empty(plan.Changes);
-        Assert.Equal(VocabularyImportHeaders.SingleChoice, Assert.Single(plan.Errors).Column);
+        Assert.Equal(VocabularyImportHeaders.MutuallyExclusive, Assert.Single(plan.Errors).Column);
     }
 }

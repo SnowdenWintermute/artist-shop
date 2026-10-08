@@ -62,7 +62,7 @@ public class CatalogTestData(SiteDatabase database)
     public async Task<VocabularyId> AddPaintingVocabularyAsync() =>
         await _vocabularies.AddAsync(
             new VocabularyName($"Medium {Guid.NewGuid():n}"),
-            isSingleChoice: false,
+            isMutuallyExclusive: false,
             [await GetPaintingTypeIdAsync()]
         );
 

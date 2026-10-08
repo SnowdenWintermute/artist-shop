@@ -2,10 +2,10 @@ namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Domain.Catalog;
 
-// a single-choice vocabulary's select changed: TermId is null for "None"
+// a mutually exclusive vocabulary's select changed: TermId is null for "None"
 public record TermChoice(VocabularyWithTerms Vocabulary, int? TermId);
 
-// Term ids are held as one set across every vocabulary, so a single-choice vocabulary's one term is
+// Term ids are held as one set across every vocabulary, so a mutually exclusive vocabulary's one term is
 // found and replaced within it here
 public static class TermChoices
 {
@@ -32,7 +32,23 @@ public static class TermChoices
         }
     }
 
-    // a term added to a single-choice vocabulary replaces the one the artwork had there
+    // A vocabulary made mutually exclusive in another tab can leave several of its terms chosen here.
+    // All of them go, as update_vocabulary took them off the artwork, rather than the select quietly
+    // keeping whichever it shows
+    public static void DropSeveralInMutuallyExclusive(ISet<int> termIds, IEnumerable<VocabularyWithTerms> vocabularies)
+    {
+        foreach (var vocabulary in vocabularies.Where(vocabulary => vocabulary.IsMutuallyExclusive))
+        {
+            var vocabularyTermIds = vocabulary.Terms.Select(term => term.Id.Value).ToList();
+
+            if (vocabularyTermIds.Count(termIds.Contains) > 1)
+            {
+                termIds.ExceptWith(vocabularyTermIds);
+            }
+        }
+    }
+
+    // a term added to a mutually exclusive vocabulary replaces the one the artwork had there
     public static HashSet<int> WithAdded(
         IEnumerable<VocabularyWithTerms> vocabularies,
         IEnumerable<int> termIds,
@@ -40,7 +56,7 @@ public static class TermChoices
     )
     {
         var replaced = vocabularies
-            .Where(vocabulary => vocabulary.IsSingleChoice && vocabulary.Terms.Any(term => addedTermIds.Contains(term.Id.Value)))
+            .Where(vocabulary => vocabulary.IsMutuallyExclusive && vocabulary.Terms.Any(term => addedTermIds.Contains(term.Id.Value)))
             .SelectMany(vocabulary => vocabulary.Terms.Select(term => term.Id.Value))
             .ToHashSet();
 

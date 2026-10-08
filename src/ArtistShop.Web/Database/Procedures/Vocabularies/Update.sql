@@ -1,6 +1,6 @@
 DROP FUNCTION IF EXISTS update_vocabulary;
 
-CREATE FUNCTION update_vocabulary (p_id int, p_name text, p_is_single_choice boolean, p_artwork_type_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
+CREATE FUNCTION update_vocabulary (p_id int, p_name text, p_is_mutually_exclusive boolean, p_artwork_type_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     -- FOR UPDATE holds off check_artwork_choices_are_current, which locks the vocabularies of the
     -- chosen terms, so no artwork gains a second term between the DELETE below and the UPDATE
@@ -17,8 +17,8 @@ BEGIN
 
     -- An artwork with several of the terms has all of them removed, since there's no telling which
     -- one the artist meant to keep. It goes first: the UPDATE cascades the flag into the junction,
-    -- and the single-choice index refuses it while any artwork still has two
-    IF p_is_single_choice THEN
+    -- and the mutually exclusive index refuses it while any artwork still has two
+    IF p_is_mutually_exclusive THEN
         DELETE FROM artwork_and_vocabulary_terms_junction AS artwork_term
         WHERE
             artwork_term.vocabulary_id = p_id
@@ -26,20 +26,14 @@ BEGIN
                 SELECT
                     several.artwork_id
                 FROM
-                    artwork_and_vocabulary_terms_junction AS several
-                WHERE
-                    several.vocabulary_id = p_id
-                GROUP BY
-                    several.artwork_id
-                HAVING
-                    COUNT(*) > 1
+                    vocabulary_artwork_ids_with_several_terms(p_id) AS several
             );
     END IF;
 
     UPDATE vocabularies
     SET
         name = p_name,
-        is_single_choice = p_is_single_choice
+        is_mutually_exclusive = p_is_mutually_exclusive
     WHERE
         id = p_id;
 

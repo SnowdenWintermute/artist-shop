@@ -8,18 +8,18 @@ public record Vocabulary(VocabularyId Id, VocabularyName Name);
 
 // lists, not a set or dictionary: these are passed to interactive islands as JSON,
 // and System.Text.Json can't read IReadOnlySet or dictionaries keyed by a record
-// a single-choice vocabulary allows an artwork at most one of its terms
+// a mutually exclusive vocabulary allows an artwork at most one of its terms
 public record VocabularyWithArtworkTypes(
     VocabularyId Id,
     VocabularyName Name,
-    bool IsSingleChoice,
+    bool IsMutuallyExclusive,
     IReadOnlyList<ArtworkTypeId> ArtworkTypeIds
 );
 
 public record VocabularyWithTerms(
     VocabularyId Id,
     VocabularyName Name,
-    bool IsSingleChoice,
+    bool IsMutuallyExclusive,
     IReadOnlyList<VocabularyTerm> Terms
 );
 

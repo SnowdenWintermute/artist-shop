@@ -51,7 +51,7 @@ public sealed partial class CatalogImportPageTests(TestApp app)
         var types = await new ArtworkTypeRepository(database).GetAllAsync();
         ArtworkTypeId TypeId(string name) => types.Single(type => type.Name.Value == name).Id;
         var vocabularies = new VocabularyRepository(database);
-        var medium = await vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [TypeId("Painting"), TypeId("Photograph")]);
+        var medium = await vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [TypeId("Painting"), TypeId("Photograph")]);
         await new VocabularyTermRepository(database).AddAsync(medium, new VocabularyTermName("Oil"));
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 

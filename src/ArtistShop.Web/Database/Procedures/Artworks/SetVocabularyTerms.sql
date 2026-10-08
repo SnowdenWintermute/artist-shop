@@ -7,18 +7,18 @@ DELETE FROM artwork_and_vocabulary_terms_junction
 WHERE
     artwork_id = p_artwork_id;
 
--- vocabulary_id and is_single_choice are looked up from each term rather than passed in, and
--- artwork_type_id is copied in, so the foreign keys and the single-choice index on the junction can
+-- vocabulary_id and is_mutually_exclusive are looked up from each term rather than passed in, and
+-- artwork_type_id is copied in, so the foreign keys and the mutually exclusive index on the junction can
 -- check the row. If a term's vocabulary isn't checked for this type, the insert fails with a foreign
 -- key violation
 INSERT INTO
-    artwork_and_vocabulary_terms_junction (artwork_id, artwork_type_id, term_id, vocabulary_id, is_single_choice)
+    artwork_and_vocabulary_terms_junction (artwork_id, artwork_type_id, term_id, vocabulary_id, is_mutually_exclusive)
 SELECT
     p_artwork_id,
     p_artwork_type_id,
     term.id,
     term.vocabulary_id,
-    vocabulary.is_single_choice
+    vocabulary.is_mutually_exclusive
 FROM
     vocabulary_terms AS term
     JOIN vocabularies AS vocabulary ON vocabulary.id = term.vocabulary_id

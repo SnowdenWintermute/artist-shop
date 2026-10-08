@@ -13,7 +13,7 @@ public sealed class TermChoicesTests
     private static readonly VocabularyWithTerms TimeOfDay = new(
         TimeOfDayId,
         TimeOfDayName,
-        IsSingleChoice: true,
+        IsMutuallyExclusive: true,
         [
             new VocabularyTerm(new VocabularyTermId(11), new VocabularyTermName("Noon"), TimeOfDayId, TimeOfDayName),
             new VocabularyTerm(new VocabularyTermId(12), new VocabularyTermName("Midnight"), TimeOfDayId, TimeOfDayName),
@@ -23,12 +23,32 @@ public sealed class TermChoicesTests
     private static readonly VocabularyWithTerms Medium = new(
         MediumId,
         MediumName,
-        IsSingleChoice: false,
+        IsMutuallyExclusive: false,
         [
             new VocabularyTerm(new VocabularyTermId(21), new VocabularyTermName("Oil"), MediumId, MediumName),
             new VocabularyTerm(new VocabularyTermId(22), new VocabularyTermName("Ink"), MediumId, MediumName),
         ]
     );
+
+    [Fact]
+    public void SeveralChosenInAMutuallyExclusiveVocabularyAreAllDropped()
+    {
+        HashSet<int> termIds = [11, 12, 21, 22];
+
+        TermChoices.DropSeveralInMutuallyExclusive(termIds, [TimeOfDay, Medium]);
+
+        Assert.Equal([21, 22], termIds.Order());
+    }
+
+    [Fact]
+    public void OneChosenInAMutuallyExclusiveVocabularyIsKept()
+    {
+        HashSet<int> termIds = [12, 21];
+
+        TermChoices.DropSeveralInMutuallyExclusive(termIds, [TimeOfDay, Medium]);
+
+        Assert.Equal([12, 21], termIds.Order());
+    }
 
     [Fact]
     public void ChoosingReplacesOnlyThatVocabularysTerm()
@@ -53,7 +73,7 @@ public sealed class TermChoicesTests
     }
 
     [Fact]
-    public void AddingReplacesSingleChoiceTermsAndKeepsOthers()
+    public void AddingReplacesMutuallyExclusiveTermsAndKeepsOthers()
     {
         var added = TermChoices.WithAdded([TimeOfDay, Medium], [11, 21], new HashSet<int> { 12, 22 });
 
@@ -61,7 +81,7 @@ public sealed class TermChoicesTests
     }
 
     [Fact]
-    public void AddingToAnotherVocabularyKeepsTheSingleChoiceTerm()
+    public void AddingToAnotherVocabularyKeepsTheMutuallyExclusiveTerm()
     {
         var added = TermChoices.WithAdded([TimeOfDay, Medium], [11], new HashSet<int> { 22 });
 

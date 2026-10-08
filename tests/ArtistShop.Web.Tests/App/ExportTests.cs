@@ -401,7 +401,7 @@ public sealed class ExportTests(TestApp app)
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
         var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
-        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [painting, installation]);
+        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
         var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
         var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
         var dawnImage = await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 1]);
@@ -472,7 +472,7 @@ public sealed class ExportTests(TestApp app)
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
         var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
-        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [painting, installation]);
+        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
         var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
         var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
         await fromCatalog.Artworks.AddManyAsync(
@@ -625,7 +625,7 @@ public sealed class ExportTests(TestApp app)
             new ArtworkTypeName("Installation"),
             [ArtworkField.DateCreated, ArtworkField.HeightAndWidth, ArtworkField.Depth, ArtworkField.Duration]
         );
-        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [painting, installation]);
+        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
         var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
         var bronze = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Bronze"));
         await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Unused"));
@@ -828,7 +828,7 @@ public sealed class ExportTests(TestApp app)
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
-        await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [installation]);
+        await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [installation]);
         var downloaded = await DownloadEverythingAsync(from);
         // as though Installation were gone by the time the import ran
         var folder = downloaded with
@@ -850,13 +850,13 @@ public sealed class ExportTests(TestApp app)
     {
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
-        var fromMedium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [await TypeIdAsync(fromCatalog, "Painting")]);
+        var fromMedium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [await TypeIdAsync(fromCatalog, "Painting")]);
         await fromCatalog.Terms.AddAsync(fromMedium, new VocabularyTermName("Oil"));
         await fromCatalog.Terms.AddAsync(fromMedium, new VocabularyTermName("Acrylic"));
         var folder = await DownloadEverythingAsync(from);
         var to = await app.MakeSiteAsync();
         var toCatalog = Catalog(to.Id);
-        var toMedium = await toCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isSingleChoice: false, [await TypeIdAsync(toCatalog, "Painting")]);
+        var toMedium = await toCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [await TypeIdAsync(toCatalog, "Painting")]);
         await toCatalog.Terms.AddAsync(toMedium, new VocabularyTermName("Oil"));
         var stages = new List<WebsiteImportStageDone>();
 

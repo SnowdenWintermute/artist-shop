@@ -90,7 +90,7 @@ BEGIN
         RAISE EXCEPTION 'A chosen vocabulary term no longer exists.' USING ERRCODE = 'SH001';
     END IF;
 
-    -- FOR SHARE waits for update_vocabulary, so a vocabulary made single-choice in another tab is
+    -- FOR SHARE waits for update_vocabulary, so a vocabulary made mutually exclusive in another tab is
     -- seen here and not only by the junction's index, whose error wouldn't say which choice was stale
     PERFORM
     FROM
@@ -113,7 +113,7 @@ BEGIN
             JOIN vocabularies AS vocabulary ON vocabulary.id = term.vocabulary_id
         WHERE
             term.id = ANY (p_vocabulary_term_ids)
-            AND vocabulary.is_single_choice
+            AND vocabulary.is_mutually_exclusive
         GROUP BY
             term.vocabulary_id
         HAVING
