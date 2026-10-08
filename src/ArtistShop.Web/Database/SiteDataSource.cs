@@ -21,9 +21,9 @@ public static class SiteDataSource
                 ConnectionIdleLifetime = (int)settings.ConnectionIdleLifetime.TotalSeconds,
             },
         };
-        builder.MapComposite<ArtworkImageInput>($"{SiteSchema.TypesSchema}.artwork_image_input");
+        builder.MapComposite<WorkImageInput>($"{SiteSchema.TypesSchema}.work_image_input");
         builder.MapComposite<ProductInput>($"{SiteSchema.TypesSchema}.product_input");
-        builder.MapComposite<SeriesNameAndSlug>($"{SiteSchema.TypesSchema}.series_name_and_slug");
+        builder.MapComposite<CollectionNameAndSlug>($"{SiteSchema.TypesSchema}.collection_name_and_slug");
         return builder.Build();
     }
 }

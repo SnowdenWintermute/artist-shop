@@ -1,0 +1,35 @@
+@page "/admin/catalog/works/table"
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
+<PageTitle>Edit @Wording.Work.PluralInSentence as a table</PageTitle>
+
+<main>
+  <AdminPanel Wide>
+    <p class="mb-4 flex items-center">
+      <span class="text-theme-base flex items-center justify-center mr-2">
+        <SvgIcon Name="floppy-disc" Class="size-5" />
+      </span>
+      <span>@Wording.Work.PluralHeading are saved after each edit</span>
+    </p>
+
+    @* the images dialog posts each upload to an endpoint that checks the antiforgery token, and there
+       is no form on this page to carry one *@
+    <AntiforgeryToken />
+
+    <WorkListBrowser RowHref="_ => null" ClearFiltersHref="@PageUrls.WorkTable" SingleType>
+      <Rows Context="loaded">
+        <WorkTableEditor WorkTypeId="loaded.Filter.WorkTypeIds[0].Value"
+                            WorkIds="[.. loaded.Works.Items.Select(item => item.Id.Value)]" Address="@NavigationManager.Uri" />
+      </Rows>
+    </WorkListBrowser>
+  </AdminPanel>
+</main>

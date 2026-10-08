@@ -1,0 +1,87 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject CollectionRepository CollectionRepository
+
+@* A checkbox for each collection and a field to add one, for a dialog. A collection is saved as soon as
+   it's added, so it stays even if the dialog is cancelled *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // in the artist's order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Collection> AllCollections { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlySet<int> Checked { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<int> OnToggle { get; set; }
+  // the caller lists the new collection and checks it. Without one, there is no field to add one, as
+  // when removing collections
+  [Parameter]
+  public EventCallback<Collection> OnCollectionAdded { get; set; }
+  // in place of "No collections yet. Add one below."
+  [Parameter]
+  public string? EmptyText { get; set; }
+  // for the dialog to stay open and hold its buttons while a collection is being added
+  [Parameter]
+  public bool IsAdding { get; set; }
+  [Parameter]
+  public EventCallback<bool> IsAddingChanged { get; set; }
+
+  private CollectionNameForm _newCollection = new();
+
+  private async Task AddCollectionAsync()
+  {
+    await IsAddingChanged.InvokeAsync(true);
+
+    try
+    {
+      if (await _newCollection.AddAsync(CollectionRepository) is { } collection)
+      {
+        _newCollection = new();
+        await OnCollectionAdded.InvokeAsync(collection);
+      }
+    }
+    finally
+    {
+      await IsAddingChanged.InvokeAsync(false);
+    }
+  }
+}
+
+@if (AllCollections.Count is 0)
+{
+  <p class="mb-4 text-sm">@(EmptyText ?? $"No {Wording.Collection.PluralInSentence} yet. Add one below.")</p>
+}
+else
+{
+  @* the padding keeps a focused checkbox's outline inside the scrolling box, which clips it; the
+     negative margin keeps the boxes lined up with the rest of the dialog *@
+  <fieldset class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
+    <legend class="sr-only">@Wording.Collection.PluralHeading</legend>
+    @foreach (var collection in AllCollections)
+    {
+      <label @key="collection.Id.Value" class="flex cursor-pointer items-center gap-2 py-1">
+        <input type="checkbox" class="cursor-pointer" checked="@Checked.Contains(collection.Id.Value)"
+               @onchange="() => OnToggle.InvokeAsync(collection.Id.Value)" />
+        @collection.Name.Value
+      </label>
+    }
+  </fieldset>
+}
+
+@if (OnCollectionAdded.HasDelegate)
+{
+  <EditForm EditContext="_newCollection.EditContext" OnValidSubmit="AddCollectionAsync" class="mb-4 shrink-0">
+    <DataAnnotationsValidator />
+
+    <TextField Label="@($"New {Wording.Collection.SingularInSentence}")" @bind-Value="_newCollection.Name" UpdatesPerKeystroke />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="IsAdding"
+                 disabled="@(IsAdding || string.IsNullOrWhiteSpace(_newCollection.Name))">
+      Add @Wording.Collection.SingularInSentence
+    </ButtonBasic>
+  </EditForm>
+}

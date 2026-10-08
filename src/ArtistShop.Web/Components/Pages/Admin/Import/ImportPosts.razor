@@ -7,6 +7,11 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
 <PageTitle>Import posts</PageTitle>
 
 <h1 class="mb-4 text-xl">Import posts from another website</h1>
@@ -14,8 +19,8 @@
 <Hint Type="HintType.PostImport" Variant="HintVariant.Collapses">
   <p class="mb-4">
     Use the posts folder download from another PictureCord website's Export page. It must be unzipped first.
-    An artwork linked in a post will re-link to an existing artwork on this website with the same image, otherwise it
-    will show as a standalone picture.
+    Each @Wording.Work.SingularInSentence linked in a post re-links to the one on this website with the same image,
+    otherwise it shows as a standalone picture.
   </p>
   <p>Posts keep their publish dates. Drafts stay drafts.</p>
 </Hint>

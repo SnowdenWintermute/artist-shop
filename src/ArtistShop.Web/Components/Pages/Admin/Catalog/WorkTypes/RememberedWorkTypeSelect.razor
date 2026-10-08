@@ -1,0 +1,30 @@
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Sites
+@using ArtistShop.Web.Sites
+
+@* A static page's work type select, in a GET form. Each choice is saved as the type every work
+   type select starts at. WorkTypeSelect is the islands' *@
+
+@code {
+  // the form field the select submits as
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkType> WorkTypes { get; set; } = default!;
+
+  // the type the page shows, such as from its address; with none, the saved one
+  [Parameter]
+  public WorkTypeId? Value { get; set; }
+
+  [Parameter]
+  public string? Placeholder { get; set; }
+
+  private List<(string Value, string Label)> Options =>
+    [.. WorkTypes.Select(type => (RememberedWorkType.ValueOf(type.Id), type.Name.Value))];
+}
+
+<RememberedSelect Name="@Name" InputName="@RememberedInputs.WorkType" Options="Options"
+                  Value="@(Value is null ? null : RememberedWorkType.ValueOf(Value))" Placeholder="@Placeholder"
+                  Class="artist-shop-field-input" />

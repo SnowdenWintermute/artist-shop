@@ -3,7 +3,7 @@ namespace ArtistShop.Web.Imports;
 // What the Upload images and Add from images pages take from one drop
 public static class BulkImageDrop
 {
-    // one drop at a time. Well past any artwork folder, and it keeps the name pre-check's
+    // one drop at a time. Well past any work folder, and it keeps the name pre-check's
     // table-valued parameter and the report to a size worth rendering
     public const int MaximumFiles = 5_000;
 

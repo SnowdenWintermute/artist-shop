@@ -14,7 +14,7 @@ public class OperatorDeleteSiteForm : DeleteSiteForm
     public string? Message { get; set; }
 
     public static string DefaultMessage(HostName site, string platformName) =>
-        $"Your website {site.Value} has been deleted from {platformName}, along with all its artworks, posts and images.";
+        $"Your website {site.Value} has been deleted from {platformName}, along with all its works, posts and images.";
 
     public void AddNoMessageError() => AddServerError(nameof(Message), "Write the email, or uncheck emailing the owner.");
 }

@@ -63,7 +63,7 @@ public sealed class AccountEmails(EmailQueue emailQueue)
                 $"<p>Your {HtmlEncoder.Default.Encode(platformName)} account was deleted, so it no longer signs you in "
                     + "on any website.</p>"
                     + SiteList(
-                        "Your websites went offline with it, and will be erased with all their artworks, posts and images:",
+                        "Your websites went offline with it, and will be erased with all their works, posts and images:",
                         deletedSites.Select(site =>
                             $"{HtmlEncoder.Default.Encode(site.MainHost.Value)}, on {EmailDates.Text(Unwrap.Value(site.EraseAt))}"
                         )

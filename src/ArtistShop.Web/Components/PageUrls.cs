@@ -1,7 +1,7 @@
 using System.Globalization;
 using ArtistShop.Web.Components.Catalog;
 using ArtistShop.Web.Components.Forms;
-using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.ArtworkPicker;
+using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.WorkPicker;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
@@ -9,40 +9,40 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace ArtistShop.Web.Components;
 
-// The one place each page's address is spelled, other than its own @page line. The artwork page
-// has query parameters too, so it has its own, ArtworkPageQuery
+// The one place each page's address is spelled, other than its own @page line. The work page
+// has query parameters too, so it has its own, WorkPageQuery
 public static class PageUrls
 {
-    public static string Series(SeriesSlug slug) => $"/series/{slug.Value}";
+    public static string Collection(CollectionSlug slug) => $"/collections/{slug.Value}";
 
-    public const string ArtworkList = "/admin/catalog/artworks";
+    public const string WorkList = "/admin/catalog/works";
 
-    public static string ArtworkListOfType(ArtworkTypeId typeId) =>
-        WithQuery(ArtworkList, (ArtworkListQuery.TypeKey, typeId.Value.ToString(CultureInfo.InvariantCulture)));
+    public static string WorkListOfType(WorkTypeId typeId) =>
+        WithQuery(WorkList, (WorkListQuery.TypeKey, typeId.Value.ToString(CultureInfo.InvariantCulture)));
     // with no type, the one its admin last chose, else the page asks for one
-    public static string ArtworkBulkImageUpload(ArtworkTypeId? typeId) =>
+    public static string WorkBulkImageUpload(WorkTypeId? typeId) =>
         WithQuery(
-            "/admin/catalog/artworks/images",
+            "/admin/catalog/works/images",
             ("type", typeId?.Value.ToString(CultureInfo.InvariantCulture))
         );
 
     // ?type= picks the type; with none, the page goes to the type its admin last chose
-    public const string AddArtwork = "/admin/catalog/artworks/add";
+    public const string AddWork = "/admin/catalog/works/add";
 
     // with no type, the one its admin last chose, else the page asks for one
-    public const string ArtworkImport = "/admin/catalog/artworks/import";
+    public const string WorkImport = "/admin/catalog/works/import";
 
     // ?type= picks the type to start with; with none, the one its admin last chose, else the page asks
-    public const string AddArtworksFromImages = "/admin/catalog/artworks/add-from-images";
+    public const string AddWorksFromImages = "/admin/catalog/works/add-from-images";
 
-    // takes the artwork list's filters, with one type; with none, the type its admin last chose, else the first by name
-    public const string ArtworkTable = "/admin/catalog/artworks/table";
+    // takes the work list's filters, with one type; with none, the type its admin last chose, else the first by name
+    public const string WorkTable = "/admin/catalog/works/table";
 
-    public const string NewArtworkType = "/admin/catalog/types/new";
+    public const string NewWorkType = "/admin/catalog/types/new";
 
-    public static string EditArtworkType(ArtworkTypeId id) => $"/admin/catalog/types/{id.Value}/edit";
+    public static string EditWorkType(WorkTypeId id) => $"/admin/catalog/types/{id.Value}/edit";
 
-    public const string ArtworkTypeImport = "/admin/catalog/types/import";
+    public const string WorkTypeImport = "/admin/catalog/types/import";
 
     // where the admin's Vocabularies links land, as it lists the vocabularies not linked to a type
     public const string NewVocabulary = "/admin/catalog/vocabularies/new";
@@ -53,24 +53,24 @@ public static class PageUrls
 
     public const string VocabularyImport = "/admin/catalog/vocabularies/import";
 
-    public static string EditArtwork(ArtworkId id) => $"/admin/catalog/artworks/{id.Value}/edit";
+    public static string EditWork(WorkId id) => $"/admin/catalog/works/{id.Value}/edit";
 
-    public const string SeriesList = "/admin/catalog/series";
+    public const string CollectionList = "/admin/catalog/collections";
 
-    public static string EditSeries(SeriesId id) => $"{SeriesList}/{id.Value}";
+    public static string EditCollection(CollectionId id) => $"{CollectionList}/{id.Value}";
 
-    // one parameter per artwork checked on the page that adds artworks to a series
-    public const string AddSeriesArtworksCheckedKey = "add";
+    // one parameter per work checked on the page that adds works to a collection
+    public const string AddCollectionWorksCheckedKey = "add";
 
-    public static string AddSeriesArtworks(SeriesId id) => $"{EditSeries(id)}/add-artworks";
+    public static string AddCollectionWorks(CollectionId id) => $"{EditCollection(id)}/add-works";
 
-    // the page with these artworks checked and no filters, which is where Clear filters goes
-    public static string AddSeriesArtworks(SeriesId id, IReadOnlyList<ArtworkId> checkedIds) =>
+    // the page with these works checked and no filters, which is where Clear filters goes
+    public static string AddCollectionWorks(CollectionId id, IReadOnlyList<WorkId> checkedIds) =>
         WithQuery(
-            AddSeriesArtworks(id),
+            AddCollectionWorks(id),
             [
                 .. checkedIds.Select(checkedId =>
-                    (AddSeriesArtworksCheckedKey, (string?)checkedId.Value.ToString(CultureInfo.InvariantCulture))
+                    (AddCollectionWorksCheckedKey, (string?)checkedId.Value.ToString(CultureInfo.InvariantCulture))
                 ),
             ]
         );
@@ -103,6 +103,9 @@ public static class PageUrls
 
     // on a site's host
     public const string Export = "/admin/export";
+
+    // on a site's host: what the website calls collections and works
+    public const string Wording = "/admin/website/wording";
 
     // on a site's host: which hints show, for the signed-in account
     public const string Hints = "/admin/hints";
@@ -198,46 +201,46 @@ public static class PageUrls
 
     public static string Post(PostSlug slug) => $"/posts/{slug.Value}";
 
-    // the post editor's artwork picker, which runs in a frame: the list, then one artwork's
+    // the post editor's work picker, which runs in a frame: the list, then one work's
     // images, then the choice of the image picked. The trail rides along in each address
-    public const string ArtworkPicker = "/admin/posts/pick-artwork";
+    public const string WorkPicker = "/admin/posts/pick-work";
 
-    public const string ArtworkPickerImageKey = "image";
+    public const string WorkPickerImageKey = "image";
 
     // The list's own query string holds the mode already, if it was opened in one. The trail's list
     // query only ever follows the picker's own path, so it can't send the frame anywhere else
-    // With no list query, the picker's starting list: only artworks with images, since those are
+    // With no list query, the picker's starting list: only works with images, since those are
     // all it can embed. The filter shows that, and the artist can switch it off
-    public static string ArtworkPickerList(ArtworkPickerTrail trail) =>
+    public static string WorkPickerList(WorkPickerTrail trail) =>
         trail.ListQuery is { Length: > 0 } listQuery
-            ? $"{ArtworkPicker}?{listQuery}"
+            ? $"{WorkPicker}?{listQuery}"
             : WithQuery(
-                ArtworkPicker,
-                (ArtworkListQuery.ImagesKey, YesNoSelect.Yes),
-                (ArtworkPickerTrail.ModeKey, trail.ModeValue)
+                WorkPicker,
+                (WorkListQuery.ImagesKey, YesNoSelect.Yes),
+                (WorkPickerTrail.ModeKey, trail.ModeValue)
             );
 
-    public static string ArtworkPickerImages(ArtworkId id, ArtworkPickerTrail trail) =>
-        ArtworkPickerImages(id.Value.ToString(CultureInfo.InvariantCulture), trail);
+    public static string WorkPickerImages(WorkId id, WorkPickerTrail trail) =>
+        WorkPickerImages(id.Value.ToString(CultureInfo.InvariantCulture), trail);
 
-    // with a placeholder for a script to put an artwork's id in
-    public static string ArtworkPickerImages(string artworkId, ArtworkPickerTrail trail) =>
+    // with a placeholder for a script to put a work's id in
+    public static string WorkPickerImages(string workId, WorkPickerTrail trail) =>
         WithQuery(
-            $"{ArtworkPicker}/{artworkId}",
-            (ArtworkPickerTrail.ModeKey, trail.ModeValue),
-            (ArtworkPickerTrail.ListKey, trail.ListQuery)
+            $"{WorkPicker}/{workId}",
+            (WorkPickerTrail.ModeKey, trail.ModeValue),
+            (WorkPickerTrail.ListKey, trail.ListQuery)
         );
 
-    public static string ArtworkPickerChoice(
-        ArtworkId id,
+    public static string WorkPickerChoice(
+        WorkId id,
         string storageKey,
-        ArtworkPickerTrail trail
+        WorkPickerTrail trail
     ) =>
         WithQuery(
-            $"{ArtworkPicker}/{id.Value}",
-            (ArtworkPickerImageKey, storageKey),
-            (ArtworkPickerTrail.ModeKey, trail.ModeValue),
-            (ArtworkPickerTrail.ListKey, trail.ListQuery)
+            $"{WorkPicker}/{id.Value}",
+            (WorkPickerImageKey, storageKey),
+            (WorkPickerTrail.ModeKey, trail.ModeValue),
+            (WorkPickerTrail.ListKey, trail.ListQuery)
         );
 
     // leaves out a parameter with no value, so the default case has a plain address

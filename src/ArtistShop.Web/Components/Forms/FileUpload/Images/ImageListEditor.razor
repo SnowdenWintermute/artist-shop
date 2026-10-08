@@ -5,12 +5,12 @@
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Utilities
 
-@* An artwork's images: drop to upload, drag to order, star the main one. ImagesField posts them with
-   the edit page's form; the artwork table's images dialog saves them itself *@
+@* A work's images: drop to upload, drag to order, star the main one. ImagesField posts them with
+   the edit page's form; the work table's images dialog saves them itself *@
 
 @code {
   [Parameter, EditorRequired]
-  public IReadOnlyList<ArtworkImage> SavedImages { get; set; } = default!;
+  public IReadOnlyList<WorkImage> SavedImages { get; set; } = default!;
   // null for the first image
   [Parameter]
   public string? SavedMainImageKey { get; set; }
@@ -27,7 +27,7 @@
   private string? _mainImageKey;
   private FileDropZone<ImageUploadResult>? _dropZone;
 
-  // seeded once: a different artwork's images make a new editor
+  // seeded once: a different work's images make a new editor
   protected override void OnInitialized()
   {
     _files.AddRange(SavedImages.Select(SelectedImage.ForSavedImage));
@@ -38,7 +38,7 @@
     OnChanged.InvokeAsync(
       new ImageListState(
         // an image still uploading has nothing to save yet
-        [.. _files.Select(file => file.Result).OfType<ArtworkImage>()],
+        [.. _files.Select(file => file.Result).OfType<WorkImage>()],
         _mainImageKey,
         IsUploading: _files.Any(file => file.Result is null && file.Error is null)
       )
@@ -84,7 +84,7 @@
       var uploaded = completion.Result;
       file.UploadPercentComplete = 100;
       // from here on a fresh upload and a saved image are the same thing to this component
-      file.Result = new ArtworkImage(
+      file.Result = new WorkImage(
         uploaded.StorageKey,
         uploaded.OriginalFileName,
         uploaded.Width,
@@ -136,7 +136,7 @@
   private SelectedImage? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
 }
 
-<FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.ArtworkImageUploadPath" Prompt="Drop images here"
+<FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.WorkImageUploadPath" Prompt="Drop images here"
               Accept="@ImageUploadValidation.FileInputAccept" Multiple="true" OnSelected="OnSelectedAsync" OnProgress="OnProgress"
               OnCompleted="OnCompletedAsync" OnFailed="OnFailedAsync" />
 <StarredSortableList TItem="SelectedImage" Items="_files" AriaLabel="Image order" StarName="@StarName"

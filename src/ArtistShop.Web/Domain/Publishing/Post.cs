@@ -71,7 +71,7 @@ public record PostSummary(
     DateTimeOffset UpdatedAt
 );
 
-// a published post that embeds an artwork, for the artwork's page
+// a published post that embeds a work, for the work's page
 public record PostMention(PostId Id, PostTitle Title, PostSlug Slug, DateTimeOffset PublishedAt);
 
 // a post on the public blog list, with its body for the excerpt

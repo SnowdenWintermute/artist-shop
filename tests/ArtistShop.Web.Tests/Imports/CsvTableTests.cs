@@ -17,7 +17,7 @@ public sealed class CsvTableTests
     public void ReadsQuotedCells()
     {
         var table = CsvTable.Parse(
-            "title,series,description\n"
+            "title,collections,description\n"
                 + "Dawn,\"Sunrise, Sunset\",\"She said \"\"hello\"\"\nand left\"\n"
         );
 
@@ -126,12 +126,12 @@ public sealed class CsvTableTests
         Assert.Empty(table.Rows);
     }
 
-    // our series separator must not be mistaken for the column separator
+    // our collection separator must not be mistaken for the column separator
     [Fact]
     public void OnlySplitsOnCommas()
     {
-        var table = CsvTable.Parse("title;series\nSunset;Gardens\n");
+        var table = CsvTable.Parse("title;collections\nSunset;Gardens\n");
 
-        Assert.Equal(["title;series"], table.Headers);
+        Assert.Equal(["title;collections"], table.Headers);
     }
 }

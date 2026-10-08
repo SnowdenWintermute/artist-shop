@@ -1,0 +1,104 @@
+@page "/admin/website/wording"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Platform
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject WordingRepository WordingRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromForm]
+  private WordingForm Input { get; set; } = default!;
+  [SupplyParameterFromQuery(Name = "saved")]
+  private bool Saved { get; set; }
+  // a successful save redirects, so a page rendered from a post is one that didn't go through
+  private bool _formWasPosted;
+
+  // what the previews show, rather than what's typed but not yet saved
+  private SiteWording? _saved;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _formWasPosted = Input is not null;
+    _saved = await WordingRepository.GetAsync();
+    Input ??= WordingForm.From(_saved);
+  }
+
+  private async Task SaveAsync()
+  {
+    await WordingRepository.UpdateAsync(Input.ToWording());
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["saved"] = true }));
+  }
+
+  private static IReadOnlyList<string> CollectionExamples(DisplayNoun collection) =>
+    [collection.PluralHeading, $"All {collection.PluralInSentence}"];
+
+  private static IReadOnlyList<string> WorkExamples(DisplayNoun work) =>
+    [CountText.Of(1, work.SingularInSentence, work.PluralInSentence), CountText.Of(12, work.SingularInSentence,
+work.PluralInSentence)];
+}
+
+<PageTitle>Wording</PageTitle>
+
+@if (_saved is not null)
+{
+  <main>
+    <AdminPanel>
+      <BackLink Href="@PageUrls.AdminDashboard" Label="Admin" />
+      <h1 class="mb-4 text-xl">Wording</h1>
+      <p class="mb-4">
+        Choose what your website calls <span class="font-bold">works</span> and <span
+        class="font-bold">collections</span>. Leave both words blank to use the default.
+      </p>
+
+      @if (Saved && !_formWasPosted)
+      {
+        <SavedNotice>Saved.</SavedNotice>
+      }
+
+      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+        <EditForm Model="Input" FormName="wording" OnValidSubmit="SaveAsync" Enhance data-waits-for-pending class="mb-8">
+          <DataAnnotationsValidator />
+
+          <section class="mb-6">
+            <h2 class="mb-2 text-lg">Works</h2>
+            <Hint Type="HintType.WordingWorks">
+              <p>
+                A <span class="font-bold">work</span> is one piece in your catalog, with its own page, images and details.
+                Example work types are "Painting", "Photograph" or "Sculpture".</p>
+              </Hint>
+              <TextField Label="Singular" @bind-Value="Input.WorkSingular" placeholder="@SiteWording.DefaultWorkSingular" />
+              <TextField Label="Plural" @bind-Value="Input.WorkPlural" placeholder="@SiteWording.DefaultWorkPlural" />
+              <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.WorkKeepsCase"
+                             Hint="Otherwise the word is capitalised in headings and lowercase inside sentences." />
+              <WordingPreview Examples="WorkExamples(_saved.Work)" />
+            </section>
+
+            <section class="mb-6">
+              <h2 class="mb-2 text-lg">Collections</h2>
+              <Hint Type="HintType.WordingCollections">
+                <p>
+                  A <span class="font-bold">collection</span> is a group of <span class="font-bold">works</span>. A single
+                  work may be in more than one collection.
+                </p>
+              </Hint>
+              <TextField Label="Singular" @bind-Value="Input.CollectionSingular"
+                         placeholder="@SiteWording.DefaultCollectionSingular" />
+              <TextField Label="Plural" @bind-Value="Input.CollectionPlural"
+                         placeholder="@SiteWording.DefaultCollectionPlural" />
+              <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.CollectionKeepsCase"
+                             Hint="Otherwise the word is capitalised in headings and lowercase inside sentences." />
+              <WordingPreview Examples="CollectionExamples(_saved.Collection)" />
+            </section>
+            <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+          </EditForm>
+        </EnableSaveOnChange>
+      </AdminPanel>
+    </main>
+  }

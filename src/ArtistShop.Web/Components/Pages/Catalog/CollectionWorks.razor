@@ -1,0 +1,91 @@
+@page "/collections/{slug}"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+@inject CollectionRepository CollectionRepository
+@inject WorkRepository WorkRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public string Slug { get; set; } = default!;
+
+  [SupplyParameterFromQuery(Name = PageLinks.PageKey)]
+  private string? PageValue { get; set; }
+
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  private LoadedCollection? _loaded;
+
+  // not OnInitializedAsync: turning a page is the same page with a new query parameter
+  protected override async Task OnParametersSetAsync()
+  {
+    var collection = await CollectionRepository.GetBySlugAsync(Slug);
+
+    if (collection is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    var works = await WorkRepository.GetListAsync(FilterFor(collection.Id), searchMatches: null, excludedCollectionId: null);
+
+    // the same cover the home page shows, for the card a pasted link turns into
+    var cover = (await CollectionRepository.GetVisibleWithCoversAsync())
+      .FirstOrDefault(collectionWithCover => collectionWithCover.Id == collection.Id)
+      ?.Cover;
+
+    _loaded = new LoadedCollection(collection, works, cover);
+  }
+
+  // what a visitor may see: a work with no photograph has nothing to show, while one with
+  // nothing for sale is still the artist's work. The artist's own order inside this collection
+  private WorkListFilter FilterFor(CollectionId collectionId) =>
+    new(
+      WorkTypeIds: [],
+      VocabularyTermIds: [],
+      Collection: new WorkCollectionFilter.InCollection(collectionId),
+      SearchText: null,
+      HasImages: true,
+      IsForSale: null,
+      Sort: WorkListSort.CollectionOrder,
+      PageNumber: PageLinks.ReadPageNumber(PageValue)
+    );
+}
+
+@if (_loaded is { } loaded)
+{
+  <PageTitle>@loaded.Collection.Name.Value</PageTitle>
+  <LinkPreview Title="@loaded.Collection.Name.Value" Image="loaded.Cover" />
+
+  <main class="mx-auto max-w-[1200px] p-4">
+    <BackLink Href="/" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+
+    <h1 class="mb-4">@loaded.Collection.Name.Value</h1>
+
+    @if (loaded.Works.Items.Count == 0)
+    {
+      <p>Nothing here yet.</p>
+    }
+    else
+    {
+      <div class="mb-4">
+        <TileGrid>
+          @foreach (var work in loaded.Works.Items)
+          {
+            <LinkTile @key="work.Id" Href="@WorkPageQuery.Url(work.Slug.Value, loaded.Collection.Slug.Value, imageNumber: null)"
+                      Title="@work.Name.Value" Image="work.PrimaryImage" />
+          }
+        </TileGrid>
+      </div>
+
+      <div class="flex justify-end">
+        <PageLinks PageNumber="loaded.Works.PageNumber" PageCount="loaded.Works.PageCount" />
+      </div>
+    }
+  </main>
+}

@@ -1,0 +1,43 @@
+@page "/admin/catalog/collections/{Id:int}"
+@layout CollectionLayout
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject CollectionRepository CollectionRepository
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public int Id { get; set; }
+
+  private CollectionWithWorks? _collection;
+
+  protected override async Task OnInitializedAsync() =>
+    _collection = await CollectionRepository.GetAsync(new CollectionId(Id));
+}
+
+<PageTitle>@(_collection?.Name.Value ?? Wording.Collection.SingularHeading)</PageTitle>
+
+<BackLink Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+
+@if (_collection is null)
+{
+  <p>This @Wording.Collection.SingularInSentence doesn't exist. It may have been deleted.</p>
+}
+else
+{
+  <div class="mb-4 flex items-baseline justify-between">
+    <h1 class="text-xl">@_collection.Name.Value</h1>
+    <CollectionActions @rendermode="InteractiveServer" @key="Id" CollectionId="_collection.Id" CollectionName="_collection.Name"
+                   WorkCount="_collection.Works.Count" />
+  </div>
+
+  @* the whole record, not _series.Works: an island parameter is rebuilt from its runtime type, and a
+     list made by a collection expression is a compiler-generated type JSON can't create *@
+  <CollectionWorkList @rendermode="InteractiveServer" @key="Id" Collection="_collection" />
+}

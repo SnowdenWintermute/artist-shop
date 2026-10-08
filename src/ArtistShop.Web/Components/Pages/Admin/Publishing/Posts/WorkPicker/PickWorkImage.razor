@@ -1,0 +1,88 @@
+@page "/admin/posts/pick-work/{Id:int}"
+@layout FrameLayout
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject WorkRepository WorkRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public int Id { get; set; }
+
+  // with no image named, or one that isn't this work's, this is the step that picks one
+  [SupplyParameterFromQuery(Name = PageUrls.WorkPickerImageKey)]
+  private string? ImageKey { get; set; }
+
+  [SupplyParameterFromQuery(Name = WorkPickerTrail.ModeKey)]
+  private string? ModeValue { get; set; }
+
+  [SupplyParameterFromQuery(Name = WorkPickerTrail.ListKey)]
+  private string? ListQuery { get; set; }
+
+  private WorkPickerTrail Trail => WorkPickerTrail.Read(ModeValue, ListQuery);
+
+  private LoadedWork? _loaded;
+
+  private record LoadedWork(Work Work, WorkImage? Image);
+
+  protected override async Task OnParametersSetAsync()
+  {
+    var work = await WorkRepository.GetByIdAsync(new WorkId(Id));
+
+    if (work is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    var image = work.Images.FirstOrDefault(image => image.StorageKey == ImageKey);
+
+    // one image is nothing to choose between, so this goes straight to the next step. The
+    // redirect never lands in the frame's history, so Back from there returns to the list
+    if (image is null && work.Images is [var only])
+    {
+      NavigationManager.NavigateTo(PageUrls.WorkPickerChoice(work.Id, only.StorageKey, Trail));
+      return;
+    }
+
+    _loaded = new LoadedWork(work, image);
+  }
+}
+
+@* Steps two and three of the post editor's work picker, shown in its frame *@
+@if (_loaded is { Image: { } image } chosen)
+{
+  <WorkPickerPage Heading="@(Trail.Mode is WorkPickerMode.ChangeImage ? $"Use this image of {chosen.Work.Name.Value}?" : $"How {chosen.Work.Name.Value} sits in the post")"
+                     BackHref="@(chosen.Work.Images.Count > 1 ? PageUrls.WorkPickerImages(chosen.Work.Id, Trail) : PageUrls.WorkPickerList(Trail))"
+                     BackLabel="@(chosen.Work.Images.Count > 1 ? "Images" : Wording.Work.PluralHeading)">
+    <WorkEmbedChoice WorkId="chosen.Work.Id" Image="image" Mode="Trail.Mode" />
+  </WorkPickerPage>
+}
+else if (_loaded is { } loaded)
+{
+  <WorkPickerPage Heading="@($"Choose an image of {loaded.Work.Name.Value}")"
+                     BackHref="@PageUrls.WorkPickerList(Trail)" BackLabel="@Wording.Work.PluralHeading">
+    @if (loaded.Work.Images.Count == 0)
+    {
+      <p>This @Wording.Work.SingularInSentence has no images to add.</p>
+    }
+    else
+    {
+      <TileGrid>
+        @foreach (var (workImage, index) in loaded.Work.Images.Select((workImage, index) => (workImage, index)))
+        {
+          <a href="@PageUrls.WorkPickerChoice(loaded.Work.Id, workImage.StorageKey, Trail)" class="block">
+            <TileImage Image="workImage" Alt="@(workImage.OriginalFileName ?? $"Image {index + 1}")" />
+          </a>
+        }
+      </TileGrid>
+    }
+  </WorkPickerPage>
+}

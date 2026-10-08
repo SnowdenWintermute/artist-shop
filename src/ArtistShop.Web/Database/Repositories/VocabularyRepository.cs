@@ -18,31 +18,31 @@ public class VocabularyRepository(SiteDatabase database)
         return [.. rows.Select(ToVocabulary)];
     }
 
-    public async Task<List<Vocabulary>> GetAllWithoutArtworkTypesAsync()
+    public async Task<List<Vocabulary>> GetAllWithoutWorkTypesAsync()
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<VocabularyRow>(
-            "SELECT * FROM get_vocabularies_without_artwork_types()"
+            "SELECT * FROM get_vocabularies_without_work_types()"
         );
 
         return [.. rows.Select(ToVocabulary)];
     }
 
     public Task<List<VocabularyWithTerms>> GetAllWithTermsAsync() =>
-        GetAllWithTermsAsync(artworkTypeId: null);
+        GetAllWithTermsAsync(workTypeId: null);
 
-    public Task<List<VocabularyWithTerms>> GetAllWithTermsForArtworkTypeAsync(
-        ArtworkTypeId artworkTypeId
-    ) => GetAllWithTermsAsync(artworkTypeId.Value);
+    public Task<List<VocabularyWithTerms>> GetAllWithTermsForWorkTypeAsync(
+        WorkTypeId workTypeId
+    ) => GetAllWithTermsAsync(workTypeId.Value);
 
-    private async Task<List<VocabularyWithTerms>> GetAllWithTermsAsync(int? artworkTypeId)
+    private async Task<List<VocabularyWithTerms>> GetAllWithTermsAsync(int? workTypeId)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<VocabularyWithTermRow>(
-            "SELECT * FROM get_vocabularies_with_terms(@ArtworkTypeId)",
-            new { ArtworkTypeId = artworkTypeId }
+            "SELECT * FROM get_vocabularies_with_terms(@WorkTypeId)",
+            new { WorkTypeId = workTypeId }
         );
 
         return GroupIntoVocabularies(rows);
@@ -74,21 +74,21 @@ public class VocabularyRepository(SiteDatabase database)
     public async Task<VocabularyId> AddAsync(
         VocabularyName name,
         bool isMutuallyExclusive,
-        IEnumerable<ArtworkTypeId> artworkTypeIds
+        IEnumerable<WorkTypeId> workTypeIds
     )
     {
-        int[] artworkTypeIdList = [.. artworkTypeIds.Select(id => id.Value)];
+        int[] workTypeIdList = [.. workTypeIds.Select(id => id.Value)];
 
         await using var connection = await database.OpenConnectionAsync();
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "SELECT add_vocabulary(@Name, @IsMutuallyExclusive, @ArtworkTypeIds)",
+                "SELECT add_vocabulary(@Name, @IsMutuallyExclusive, @WorkTypeIds)",
                 new
                 {
                     Name = name.Value,
                     IsMutuallyExclusive = isMutuallyExclusive,
-                    ArtworkTypeIds = artworkTypeIdList,
+                    WorkTypeIds = workTypeIdList,
                 }
             );
 
@@ -102,26 +102,26 @@ public class VocabularyRepository(SiteDatabase database)
     }
 
     // a vocabulary already named this gains the type rather than being refused
-    public async Task<VocabularyId> AddOrLinkAsync(VocabularyName name, ArtworkTypeId artworkTypeId)
+    public async Task<VocabularyId> AddOrLinkAsync(VocabularyName name, WorkTypeId workTypeId)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var id = await connection.QuerySingleAsync<int>(
-            "SELECT add_or_link_vocabulary(@Name, @ArtworkTypeId)",
-            new { Name = name.Value, ArtworkTypeId = artworkTypeId.Value }
+            "SELECT add_or_link_vocabulary(@Name, @WorkTypeId)",
+            new { Name = name.Value, WorkTypeId = workTypeId.Value }
         );
 
         return new VocabularyId(id);
     }
 
-    public async Task<VocabularyWithArtworkTypes?> GetAsync(VocabularyId id)
+    public async Task<VocabularyWithWorkTypes?> GetAsync(VocabularyId id)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         await using var results = await connection.QueryMultipleAsync(
             """
             SELECT * FROM get_vocabulary(@Id);
-            SELECT * FROM get_vocabulary_artwork_type_ids(@Id);
+            SELECT * FROM get_vocabulary_work_type_ids(@Id);
             """,
             new { Id = id.Value }
         );
@@ -133,13 +133,13 @@ public class VocabularyRepository(SiteDatabase database)
             return null;
         }
 
-        var artworkTypeIds = await results.ReadAsync<int>();
+        var workTypeIds = await results.ReadAsync<int>();
 
-        return new VocabularyWithArtworkTypes(
+        return new VocabularyWithWorkTypes(
             new VocabularyId(row.Id),
             new VocabularyName(row.Name),
             row.IsMutuallyExclusive,
-            [.. artworkTypeIds.Select(artworkTypeId => new ArtworkTypeId(artworkTypeId))]
+            [.. workTypeIds.Select(workTypeId => new WorkTypeId(workTypeId))]
         );
     }
 
@@ -150,60 +150,60 @@ public class VocabularyRepository(SiteDatabase database)
         await using var results = await connection.QueryMultipleAsync(
             """
             SELECT count_vocabulary_terms(@Id);
-            SELECT * FROM count_vocabulary_artworks_by_type(@Id);
+            SELECT * FROM count_vocabulary_works_by_type(@Id);
             """,
             new { Id = id.Value }
         );
 
         var termCount = await results.ReadSingleAsync<int>();
-        var artworkCounts = await results.ReadAsync<ArtworkCountRow>();
+        var workCounts = await results.ReadAsync<WorkCountRow>();
 
         return new VocabularyUsage(
             termCount,
             [
-                .. artworkCounts.Select(row => new ArtworkTypeUsage(
-                    new ArtworkTypeId(row.ArtworkTypeId),
-                    row.ArtworkCount
+                .. workCounts.Select(row => new WorkTypeUsage(
+                    new WorkTypeId(row.WorkTypeId),
+                    row.WorkCount
                 )),
             ]
         );
     }
 
-    // the artworks that making it mutually exclusive would take its terms off
-    public async Task<List<ArtworkName>> GetArtworksWithSeveralTermsAsync(VocabularyId id)
+    // the works that making it mutually exclusive would take its terms off
+    public async Task<List<WorkName>> GetWorksWithSeveralTermsAsync(VocabularyId id)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var names = await connection.QueryAsync<string>(
-            "SELECT * FROM get_vocabulary_artworks_with_several_terms(@Id)",
+            "SELECT * FROM get_vocabulary_works_with_several_terms(@Id)",
             new { Id = id.Value }
         );
 
-        return [.. names.Select(name => new ArtworkName(name))];
+        return [.. names.Select(name => new WorkName(name))];
     }
 
-    // making it mutually exclusive removes its terms from every artwork that has more than one of them
+    // making it mutually exclusive removes its terms from every work that has more than one of them
     public async Task UpdateAsync(
         VocabularyId id,
         VocabularyName name,
         bool isMutuallyExclusive,
-        IEnumerable<ArtworkTypeId> artworkTypeIds
+        IEnumerable<WorkTypeId> workTypeIds
     )
     {
-        int[] artworkTypeIdList = [.. artworkTypeIds.Select(artworkTypeId => artworkTypeId.Value)];
+        int[] workTypeIdList = [.. workTypeIds.Select(workTypeId => workTypeId.Value)];
 
         await using var connection = await database.OpenConnectionAsync();
         try
         {
             // ExecuteAsync: for calls whose result nobody reads
             await connection.ExecuteAsync(
-                "SELECT update_vocabulary(@Id, @Name, @IsMutuallyExclusive, @ArtworkTypeIds)",
+                "SELECT update_vocabulary(@Id, @Name, @IsMutuallyExclusive, @WorkTypeIds)",
                 new
                 {
                     Id = id.Value,
                     Name = name.Value,
                     IsMutuallyExclusive = isMutuallyExclusive,
-                    ArtworkTypeIds = artworkTypeIdList,
+                    WorkTypeIds = workTypeIdList,
                 }
             );
         }
@@ -229,10 +229,10 @@ public class VocabularyRepository(SiteDatabase database)
     private static Vocabulary ToVocabulary(VocabularyRow row) =>
         new(new VocabularyId(row.Id), new VocabularyName(row.Name));
 
-    private sealed class ArtworkCountRow
+    private sealed class WorkCountRow
     {
-        public required int ArtworkTypeId { get; init; }
-        public required int ArtworkCount { get; init; }
+        public required int WorkTypeId { get; init; }
+        public required int WorkCount { get; init; }
     }
 
     private sealed class VocabularyWithTermRow

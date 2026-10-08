@@ -1,5 +1,5 @@
 // Where the focus goes after an enhanced navigation. Blazor keeps an element the old and new pages
-// share, such as a menu link or an artwork's Next, and the focus stays on it. When the focused
+// share, such as a menu link or a work's Next, and the focus stays on it. When the focused
 // element was removed instead, the focus has fallen to the page itself, and this moves it to the new
 // page's h1, which a screen reader reads out as the page it has arrived on. Blazor's FocusOnNavigate
 // would move it to the h1 after every navigation, even from a link that is still there

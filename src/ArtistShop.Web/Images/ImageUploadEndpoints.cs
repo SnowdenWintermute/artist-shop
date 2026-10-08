@@ -18,11 +18,11 @@ public record ImageUploadResult(
 );
 
 // what the bulk page's report shows for one file. Outcome is the same classification the
-// pre-check uses; OneImagelessArtwork means the image was attached
-public record ArtworkImageMatchResult(
-    string ArtworkName,
-    ArtworkNameMatchType Outcome,
-    IReadOnlyList<int> ArtworkIds
+// pre-check uses; OneImagelessWork means the image was attached
+public record WorkImageMatchResult(
+    string WorkName,
+    WorkNameMatchType Outcome,
+    IReadOnlyList<int> WorkIds
 );
 
 public static class ImageUploadEndpoints
@@ -32,19 +32,19 @@ public static class ImageUploadEndpoints
     private const string UnreadableImageMessage =
         "We couldn't read this file as an image. It may be damaged, or in a format we don't support.";
 
-    public const string ArtworkImageUploadPath = "/admin/uploads/artwork-image";
+    public const string WorkImageUploadPath = "/admin/uploads/work-image";
 
     // the post editor's script sends its images here
     public const string PostImageUploadPath = "/admin/uploads/post-image";
 
-    // the whole-website import's script sends each image here with the artwork it's for
-    public const string AppendArtworkImagePath = "/admin/uploads/artwork-image-appended";
+    // the whole-website import's script sends each image here with the work it's for
+    public const string AppendWorkImagePath = "/admin/uploads/work-image-appended";
 
     public static void MapImageUploadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints
             .MapPost(
-                ArtworkImageUploadPath,
+                WorkImageUploadPath,
                 (
                     IFormFile file, // binds the form field named "file", the names must match
                     ImageUploadStore imageUploadStore,
@@ -63,9 +63,9 @@ public static class ImageUploadEndpoints
             )
             .AsImageUpload();
 
-        endpoints.MapPost("/admin/uploads/artwork-image-by-name", UploadAndAttachByNameAsync).AsImageUpload();
+        endpoints.MapPost("/admin/uploads/work-image-by-name", UploadAndAttachByNameAsync).AsImageUpload();
 
-        endpoints.MapPost(AppendArtworkImagePath, UploadAndAppendAsync).AsImageUpload();
+        endpoints.MapPost(AppendWorkImagePath, UploadAndAppendAsync).AsImageUpload();
 
         endpoints
             .MapPost(
@@ -148,14 +148,14 @@ public static class ImageUploadEndpoints
     }
 
     private static async Task<
-        Results<Ok<ArtworkImageMatchResult>, ContentHttpResult, StatusCodeHttpResult>
+        Results<Ok<WorkImageMatchResult>, ContentHttpResult, StatusCodeHttpResult>
     > UploadAndAttachByNameAsync(
         IFormFile file,
         // a form field rather than a route value, so it travels in the same multipart body as the file
-        [FromForm] int artworkTypeId,
+        [FromForm] int workTypeId,
         ImageUploadStore imageUploadStore,
         ImageStorage imageStorage,
-        ArtworkImageRepository artworkImageRepository,
+        WorkImageRepository workImageRepository,
         HttpResponse response,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken
@@ -167,11 +167,11 @@ public static class ImageUploadEndpoints
         }
 
         var originalFileName = ImageUploadValidation.OriginalFileName(file);
-        var artworkName = ArtworkName.FromFileName(originalFileName);
+        var workName = WorkName.FromFileName(originalFileName);
 
-        if (!artworkName.CanMatchAnArtwork)
+        if (!workName.CanMatchAnWork)
         {
-            return TypedResults.Ok(NoMatch(artworkName));
+            return TypedResults.Ok(NoMatch(workName));
         }
 
         try
@@ -181,10 +181,10 @@ public static class ImageUploadEndpoints
 
             try
             {
-                var attached = await artworkImageRepository.AttachPrimaryImageToImagelessArtworkByNameAsync(
-                    new ArtworkTypeId(artworkTypeId),
-                    artworkName,
-                    stored.ToArtworkImage(originalFileName),
+                var attached = await workImageRepository.AttachPrimaryImageToImagelessWorkByNameAsync(
+                    new WorkTypeId(workTypeId),
+                    workName,
+                    stored.ToWorkImage(originalFileName),
                     stored.Sha256
                 );
 
@@ -196,10 +196,10 @@ public static class ImageUploadEndpoints
                 }
 
                 return TypedResults.Ok(
-                    new ArtworkImageMatchResult(
-                        artworkName.Value,
+                    new WorkImageMatchResult(
+                        workName.Value,
                         attached.MatchType,
-                        [.. attached.ArtworkIds.Select(artworkId => artworkId.Value)]
+                        [.. attached.WorkIds.Select(workId => workId.Value)]
                     )
                 );
             }
@@ -232,20 +232,20 @@ public static class ImageUploadEndpoints
         }
     }
 
-    // After the artwork's other images, unless it has this image already. The page worked out which
-    // images the artwork is missing, but any artwork on the site is one its admin could add an
+    // After the work's other images, unless it has this image already. The page worked out which
+    // images the work is missing, but any work on the site is one its admin could add an
     // image to anyway
-    // Answers with the image the artwork now holds, and a 200 even when it already had it, so a
+    // Answers with the image the work now holds, and a 200 even when it already had it, so a
     // retry gets the same answer as the upload whose answer was lost
     private static async Task<
-        Results<Ok<ArtworkImage>, ContentHttpResult, StatusCodeHttpResult>
+        Results<Ok<WorkImage>, ContentHttpResult, StatusCodeHttpResult>
     > UploadAndAppendAsync(
         IFormFile file,
         // a form field, as above
-        [FromForm] int artworkId,
+        [FromForm] int workId,
         ImageUploadStore imageUploadStore,
         ImageStorage imageStorage,
-        ArtworkImageRepository artworkImageRepository,
+        WorkImageRepository workImageRepository,
         HttpResponse response,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken
@@ -263,13 +263,13 @@ public static class ImageUploadEndpoints
 
             try
             {
-                var result = await artworkImageRepository.AppendImageAsync(
-                    new ArtworkId(artworkId),
-                    stored.ToArtworkImage(ImageUploadValidation.OriginalFileName(file)),
+                var result = await workImageRepository.AppendImageAsync(
+                    new WorkId(workId),
+                    stored.ToWorkImage(ImageUploadValidation.OriginalFileName(file)),
                     stored.Sha256
                 );
 
-                // the artwork has this image already, as when a retry follows an upload that got
+                // the work has this image already, as when a retry follows an upload that got
                 // in but whose answer was lost, so this copy isn't needed
                 if (!result.Appended)
                 {
@@ -285,7 +285,7 @@ public static class ImageUploadEndpoints
                 throw;
             }
         }
-        // the artist deleted the artwork while the import was running
+        // the artist deleted the work while the import was running
         catch (ChangedSincePageLoadException exception)
         {
             return Rejected(exception.Message);
@@ -308,8 +308,8 @@ public static class ImageUploadEndpoints
         }
     }
 
-    private static ArtworkImageMatchResult NoMatch(ArtworkName artworkName) =>
-        new(artworkName.Value, ArtworkNameMatchType.NoArtwork, []);
+    private static WorkImageMatchResult NoMatch(WorkName workName) =>
+        new(workName.Value, WorkNameMatchType.NoWork, []);
 
     // these carry a message written for the artist; libvips's own messages are caught above
     private static bool IsRejectedImage(Exception exception) =>

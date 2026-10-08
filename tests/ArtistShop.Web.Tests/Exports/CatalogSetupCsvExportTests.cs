@@ -9,9 +9,9 @@ public sealed class CatalogSetupCsvExportTests
     [Fact]
     public void TheTypeImportReadsBackEveryType()
     {
-        var csv = CatalogSetupCsvExport.ArtworkTypes(Snapshot(), ';');
+        var csv = CatalogSetupCsvExport.WorkTypes(Snapshot(), ';');
 
-        var plan = ArtworkTypeImportPlanner.Plan(csv, ';', EmptySnapshot());
+        var plan = WorkTypeImportPlanner.Plan(csv, ';', EmptySnapshot());
 
         Assert.Empty(plan.Errors);
         Assert.Equal([Painting.Name, Sculpture.Name], plan.Additions.Select(addition => addition.Name));
@@ -30,15 +30,15 @@ public sealed class CatalogSetupCsvExportTests
         Assert.Empty(plan.Errors);
         var change = Assert.Single(plan.Changes);
         Assert.Equal(Medium.Name, change.Name);
-        Assert.Equal(Medium.ArtworkTypeIds, change.AddedArtworkTypes.Select(type => type.Id));
+        Assert.Equal(Medium.WorkTypeIds, change.AddedWorkTypes.Select(type => type.Id));
         Assert.Equal(Medium.Terms.Select(term => term.Name), change.AddedTerms);
     }
 
     [Fact]
     public void ListsAreWrittenWithTheSeparator()
     {
-        var csv = CatalogSetupCsvExport.ArtworkTypes(Snapshot(), '|');
+        var csv = CatalogSetupCsvExport.WorkTypes(Snapshot(), '|');
 
-        Assert.Equal("artworkType,fields\r\nPainting,Date created| Height and width\r\nSculpture,Height and width| Depth\r\n", csv);
+        Assert.Equal("workType,fields\r\nPainting,Date created| Height and width\r\nSculpture,Height and width| Depth\r\n", csv);
     }
 }

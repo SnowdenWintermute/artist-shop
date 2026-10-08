@@ -33,7 +33,7 @@
 //
 // Artist
 //
-// ArtworkSeries
+// WorkCollection
 // - id
 // - title
 //

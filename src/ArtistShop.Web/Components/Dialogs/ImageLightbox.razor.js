@@ -1,6 +1,6 @@
 // A picture filling the screen, and the others it can be swiped or stepped to. It is told what to
 // show rather than knowing where the pictures came from, so any page can hold one: a post hands it
-// the pictures on the page, and an artwork hands it slides it is still fetching, filling each in
+// the pictures on the page, and a work hands it slides it is still fetching, filling each in
 // as it arrives. A slide not in yet shows black.
 //
 // The picture on screen is PhotoSwipe's, for its swiping and pinch zoom, and the buttons over it

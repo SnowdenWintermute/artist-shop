@@ -49,7 +49,7 @@ public sealed class ImageUploadStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task RejectsAndDeletesAnArtworkImageNarrowerThanTheMinimum()
+    public async Task RejectsAndDeletesAnWorkImageNarrowerThanTheMinimum()
     {
         var store = CreateStore(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings);
         using var content = CreateJpeg(300, 200);

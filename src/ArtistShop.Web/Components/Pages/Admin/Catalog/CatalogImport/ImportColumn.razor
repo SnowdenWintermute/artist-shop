@@ -9,5 +9,7 @@
   public RenderFragment ChildContent { get; set; } = default!;
 }
 
-<dt class="font-mono">@Header</dt>
+@* translate="no": a fixed name, which stays as it is even where the website calls its works
+   something else *@
+<dt class="font-mono" translate="no">@Header</dt>
 <dd>@ChildContent</dd>

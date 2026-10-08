@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.Hints;
 using ArtistShop.Web.Domain.Platform;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Sites;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +30,7 @@ public sealed partial class HintTests(TestApp app)
 
     private static async Task<HttpResponseMessage> SetAsync(HttpClient client, string? hint, bool dismissed)
     {
-        var token = SaveToken().Match(await PageAsync(client, PageUrls.SeriesList));
+        var token = SaveToken().Match(await PageAsync(client, PageUrls.CollectionList));
         var fields = new Dictionary<string, string>
         {
             [token.Groups["field"].Value] = token.Groups["token"].Value,
@@ -52,12 +53,12 @@ public sealed partial class HintTests(TestApp app)
     public async Task ADismissedHintNoLongerShows()
     {
         var (_, client) = await SiteWithOwnerAsync();
-        Assert.Equal(["Series"], Hints(await PageAsync(client, PageUrls.SeriesList)));
+        Assert.Equal(["Collections"], Hints(await PageAsync(client, PageUrls.CollectionList)));
 
-        var response = await DismissAsync(client, nameof(HintType.Series));
+        var response = await DismissAsync(client, nameof(HintType.Collections));
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Empty(Hints(await PageAsync(client, PageUrls.SeriesList)));
+        Assert.Empty(Hints(await PageAsync(client, PageUrls.CollectionList)));
         Assert.Equal(["StepByStepImport"], Hints(await PageAsync(client, PageUrls.Import)));
     }
 
@@ -71,7 +72,7 @@ public sealed partial class HintTests(TestApp app)
             .Services.GetRequiredService<DismissedHintRepository>()
             .DismissAsync(await app.UserIdAsync(site.OwnerEmail), Enum.GetValues<HintType>());
 
-        Assert.Empty(Hints(await PageAsync(client, PageUrls.SeriesList)));
+        Assert.Empty(Hints(await PageAsync(client, PageUrls.CollectionList)));
         Assert.Empty(Hints(await PageAsync(client, PageUrls.Import)));
         Assert.Empty(Hints(await PageAsync(client, PageUrls.AdminDashboard)));
     }
@@ -83,10 +84,10 @@ public sealed partial class HintTests(TestApp app)
         var other = await app.MakeSiteAsync();
         await app.AddAdminAsync(other.Id, site.OwnerEmail);
 
-        await DismissAsync(client, nameof(HintType.Series));
+        await DismissAsync(client, nameof(HintType.Collections));
 
         var otherClient = await app.SignedInClientAsync(other.Host, site.OwnerEmail);
-        Assert.Empty(Hints(await PageAsync(otherClient, PageUrls.SeriesList)));
+        Assert.Empty(Hints(await PageAsync(otherClient, PageUrls.CollectionList)));
     }
 
     [Fact]
@@ -95,9 +96,9 @@ public sealed partial class HintTests(TestApp app)
         var (site, client) = await SiteWithOwnerAsync();
         var adminClient = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
 
-        await DismissAsync(client, nameof(HintType.Series));
+        await DismissAsync(client, nameof(HintType.Collections));
 
-        Assert.Equal(["Series"], Hints(await PageAsync(adminClient, PageUrls.SeriesList)));
+        Assert.Equal(["Collections"], Hints(await PageAsync(adminClient, PageUrls.CollectionList)));
     }
 
     // an import page's columns stay a click away, so its hint folds to Show help text rather than going
@@ -158,7 +159,7 @@ public sealed partial class HintTests(TestApp app)
         var response = await client.PostAsync(
             DismissedHintEndpoints.Path,
             new FormUrlEncodedContent(
-                new Dictionary<string, string> { [DismissedHintEndpoints.HintField] = nameof(HintType.Series) }
+                new Dictionary<string, string> { [DismissedHintEndpoints.HintField] = nameof(HintType.Collections) }
             ),
             TestContext.Current.CancellationToken
         );
@@ -171,15 +172,15 @@ public sealed partial class HintTests(TestApp app)
     public async Task TheHintsPageChecksTheHintsThatShow()
     {
         var (_, client) = await SiteWithOwnerAsync();
-        await DismissAsync(client, nameof(HintType.Series));
+        await DismissAsync(client, nameof(HintType.Collections));
 
         var page = await PageAsync(client, PageUrls.Hints);
 
         Assert.Equal(
-            [.. Enum.GetValues<HintType>().Where(type => type is not HintType.Series).Select(HintListing.Title)],
+            [.. Enum.GetValues<HintType>().Where(type => type is not HintType.Collections).Select(type => HintListing.Title(type, SiteWording.Default))],
             [.. CheckedHint().Matches(page).Select(match => match.Groups["title"].Value.Trim())]
         );
-        Assert.Contains(HintListing.Title(HintType.Series), page);
+        Assert.Contains(HintListing.Title(HintType.Collections, SiteWording.Default), page);
     }
 
     [Fact]
@@ -190,9 +191,9 @@ public sealed partial class HintTests(TestApp app)
         var userId = await app.UserIdAsync(site.OwnerEmail);
         await dismissedHints.DismissAsync(userId, Enum.GetValues<HintType>());
 
-        await dismissedHints.ShowAsync(userId, [HintType.Series]);
+        await dismissedHints.ShowAsync(userId, [HintType.Collections]);
 
-        Assert.Equal(["Series"], Hints(await PageAsync(client, PageUrls.SeriesList)));
+        Assert.Equal(["Collections"], Hints(await PageAsync(client, PageUrls.CollectionList)));
         Assert.Empty(Hints(await PageAsync(client, PageUrls.Import)));
     }
 

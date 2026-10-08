@@ -121,7 +121,10 @@ builder.Services.AddScoped<OperatorSites>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(CurrentHost.From);
 builder.Services.AddScoped(CurrentSite.From);
-builder.Services.AddScoped<RememberedArtworkType>();
+builder.Services.AddScoped<RememberedWorkType>();
+// The website's wording, for any component to take as a [CascadingParameter], islands included.
+// Read once per request or circuit, by the first component that asks
+builder.Services.AddCascadingValue(services => services.GetRequiredService<WordingRepository>().Get());
 builder.Services.AddScoped<CircuitHandler, HostCircuitStart>();
 
 builder.Services.AddScoped(services =>
@@ -175,7 +178,7 @@ builder.Services.AddSingleton<ExportLock>();
 // a site's own schema
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 
-// the database's artwork_type_id fills the ArtworkTypeId property
+// the database's work_type_id fills the WorkTypeId property
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // each built on the current site's schema, so everything they read and write is that site's
@@ -185,16 +188,17 @@ void AddSiteRepository<T>(Func<SiteDatabase, T> create)
         create(services.GetRequiredService<SiteDatabases>().For(services.GetRequiredService<CurrentSite>().Id))
     );
 
-AddSiteRepository(database => new ArtworkRepository(database));
-AddSiteRepository(database => new SeriesRepository(database));
-AddSiteRepository(database => new ArtworkImageRepository(database));
-AddSiteRepository(database => new ArtworkFieldRepository(database));
-AddSiteRepository(database => new ArtworkTypeRepository(database));
+AddSiteRepository(database => new WorkRepository(database));
+AddSiteRepository(database => new CollectionRepository(database));
+AddSiteRepository(database => new WorkImageRepository(database));
+AddSiteRepository(database => new WorkFieldRepository(database));
+AddSiteRepository(database => new WorkTypeRepository(database));
 AddSiteRepository(database => new ProductTypeRepository(database));
 AddSiteRepository(database => new VocabularyRepository(database));
 AddSiteRepository(database => new VocabularyTermRepository(database));
 AddSiteRepository(database => new PostRepository(database));
-AddSiteRepository<ArtworkSearch>(database => new SqlArtworkTitleSearch(database));
+AddSiteRepository(database => new WordingRepository(database));
+AddSiteRepository<WorkSearch>(database => new SqlWorkTitleSearch(database));
 
 // identity
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -370,7 +374,7 @@ app.MapImageUploadEndpoints();
 app.MapVariantEndpoints();
 
 // the lightbox's walk through the catalogue
-app.MapArtworkWalkEndpoints();
+app.MapWorkWalkEndpoints();
 
 // post editor endpoints
 app.MapVideoLinkEndpoints();

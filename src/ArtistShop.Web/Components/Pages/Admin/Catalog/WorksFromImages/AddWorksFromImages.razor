@@ -1,0 +1,44 @@
+@page "/admin/catalog/works/add-from-images"
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // the type to start with; without one the island starts at the type its admin last chose
+  [SupplyParameterFromQuery(Name = "type")]
+  private int? TypeIdValue { get; set; }
+}
+
+<PageTitle>Add @Wording.Work.PluralInSentence from images</PageTitle>
+
+<main>
+  <AdminPanel Wide>
+    <h1 class="mb-4 text-xl">Add @Wording.Work.PluralInSentence from images</h1>
+
+    <Hint Type="HintType.AddWorksFromImages">
+      <p>
+        @Wording.Work.PluralHeading are saved in the catalog under the name of each image uploaded. Edits made on this page are
+        automatically saved.
+      </p>
+    </Hint>
+
+    <p class="mb-4 flex items-center">
+      <span class="text-theme-base flex items-center justify-center mr-2">
+        <SvgIcon Name="floppy-disc" Class="size-5" />
+      </span>
+      <span>@Wording.Work.PluralHeading are saved after each edit</span>
+    </p>
+
+    @* the island posts each image to an endpoint that checks the antiforgery token, and there is
+       no form on this page to carry one *@
+    <AntiforgeryToken />
+
+    <WorksFromImagesEditor InitialWorkTypeId="TypeIdValue" />
+  </AdminPanel>
+</main>

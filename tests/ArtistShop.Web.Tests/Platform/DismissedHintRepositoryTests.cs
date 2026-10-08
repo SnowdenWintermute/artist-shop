@@ -23,11 +23,11 @@ public sealed class DismissedHintRepositoryTests(TestDatabaseFixture database)
     {
         var userId = await NewProfileAsync();
 
-        await _dismissedHints.DismissAsync(userId, [HintType.Series, HintType.Vocabularies, HintType.PostImport]);
-        await _dismissedHints.DismissAsync(userId, [HintType.Series]);
+        await _dismissedHints.DismissAsync(userId, [HintType.Collections, HintType.Vocabularies, HintType.PostImport]);
+        await _dismissedHints.DismissAsync(userId, [HintType.Collections]);
         await _dismissedHints.ShowAsync(userId, [HintType.Vocabularies]);
 
-        Assert.Equal([HintType.Series, HintType.PostImport], (await _dismissedHints.GetAsync(userId)).Order());
+        Assert.Equal([HintType.Collections, HintType.PostImport], (await _dismissedHints.GetAsync(userId)).Order());
     }
 
     // a profile is made on signing in, so this is an account deleted since its page loaded
@@ -36,7 +36,7 @@ public sealed class DismissedHintRepositoryTests(TestDatabaseFixture database)
     {
         var userId = Guid.NewGuid().ToString();
 
-        await _dismissedHints.DismissAsync(userId, [HintType.Series]);
+        await _dismissedHints.DismissAsync(userId, [HintType.Collections]);
 
         Assert.Empty(await _dismissedHints.GetAsync(userId));
     }
@@ -45,11 +45,11 @@ public sealed class DismissedHintRepositoryTests(TestDatabaseFixture database)
     public async Task AddingAProfileAgainKeepsItsHints()
     {
         var userId = await NewProfileAsync();
-        await _dismissedHints.DismissAsync(userId, [HintType.Series]);
+        await _dismissedHints.DismissAsync(userId, [HintType.Collections]);
 
         await _profiles.AddAsync(userId);
 
-        Assert.Equal([HintType.Series], await _dismissedHints.GetAsync(userId));
+        Assert.Equal([HintType.Collections], await _dismissedHints.GetAsync(userId));
     }
 
     [Fact]
@@ -57,12 +57,12 @@ public sealed class DismissedHintRepositoryTests(TestDatabaseFixture database)
     {
         var userId = await NewProfileAsync();
         var otherUserId = await NewProfileAsync();
-        await _dismissedHints.DismissAsync(userId, [HintType.Series]);
-        await _dismissedHints.DismissAsync(otherUserId, [HintType.Series]);
+        await _dismissedHints.DismissAsync(userId, [HintType.Collections]);
+        await _dismissedHints.DismissAsync(otherUserId, [HintType.Collections]);
 
         await _profiles.DeleteAsync(userId);
 
         Assert.Empty(await _dismissedHints.GetAsync(userId));
-        Assert.Equal([HintType.Series], await _dismissedHints.GetAsync(otherUserId));
+        Assert.Equal([HintType.Collections], await _dismissedHints.GetAsync(otherUserId));
     }
 }

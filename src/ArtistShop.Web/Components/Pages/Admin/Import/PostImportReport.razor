@@ -2,6 +2,9 @@
 @using ArtistShop.Web.Imports
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public IReadOnlyList<PostImportItem> Items { get; set; } = default!;
 
@@ -63,15 +66,15 @@
         {
           <li class="text-red-400">@problem</li>
         }
-        @if (item.RelinkedArtworkCount > 0)
+        @if (item.RelinkedWorkCount > 0)
         {
-          <li>Artwork pictures linked to their artworks on this website: @item.RelinkedArtworkCount</li>
+          <li>@Wording.Work.SingularHeading pictures linked to their @Wording.Work.PluralInSentence on this website: @item.RelinkedWorkCount</li>
         }
-        @if (item.PictureOnlyArtworks.Count > 0)
+        @if (item.PictureOnlyWorks.Count > 0)
         {
           <li>
-            Shown as pictures without a link, since this website has no artwork with the same image:
-            @string.Join(", ", item.PictureOnlyArtworks.Distinct())
+            Shown as pictures without a link, since no @Wording.Work.SingularInSentence on this website has the same image:
+            @string.Join(", ", item.PictureOnlyWorks.Distinct())
           </li>
         }
         @if (item.BrokenLinks.Count > 0)

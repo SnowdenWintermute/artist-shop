@@ -1,0 +1,58 @@
+@page "/admin/catalog/types/new"
+@page "/admin/catalog/types/{Id:int}/edit"
+@layout WorkTypeLayout
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject WorkTypeRepository WorkTypeRepository
+@inject WorkFieldRepository WorkFieldRepository
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  private string NewTypeHeading => $"New {Wording.Work.SingularInSentence} type";
+
+  [Parameter]
+  public int? Id { get; set; }
+
+  private List<WorkFieldDefinition> _fieldDefinitions = [];
+  // null when creating, or when the id doesn't exist
+  private LoadedWorkType? _loaded;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _fieldDefinitions = await WorkFieldRepository.GetAllAsync();
+
+    if (Id is int id)
+    {
+      var workTypeId = new WorkTypeId(id);
+      var workType = await WorkTypeRepository.GetAsync(workTypeId);
+
+      if (workType is not null)
+      {
+        _loaded = new LoadedWorkType(workType, await WorkTypeRepository.CountWorksAsync(workTypeId));
+      }
+    }
+  }
+}
+
+<PageTitle>@(_loaded is null ? NewTypeHeading : _loaded.WorkType.Name.Value)</PageTitle>
+
+@if (Id is not null && _loaded is null)
+{
+  <p>This @Wording.Work.SingularInSentence type doesn't exist. It may have been deleted.</p>
+}
+else
+{
+  <h1 class="mb-4 text-xl">@(_loaded is null ? NewTypeHeading : $"Edit {_loaded.WorkType.Name.Value}")</h1>
+  <p class="mb-4 text-sm text-gray-500">
+    Choose which <a class="underline" href="@PageUrls.NewVocabulary">vocabularies</a> apply to a type on each
+    vocabulary's page.
+  </p>
+
+  @* @key: a different type gets a fresh island rather than inheriting this one's state *@
+  <WorkTypeEditorForm @rendermode="InteractiveServer" @key="Id" FieldDefinitions="_fieldDefinitions" Loaded="_loaded" />
+}

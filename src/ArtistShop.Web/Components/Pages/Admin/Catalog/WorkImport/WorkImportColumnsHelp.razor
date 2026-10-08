@@ -1,0 +1,95 @@
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Imports
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public WorkTypeWithFields WorkType { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<VocabularyWithTerms> TypeVocabularies { get; set; } = default!;
+
+  private bool Has(WorkField field) => WorkType.Fields.Contains(field);
+}
+
+<ImportColumnsHelp Hint="HintType.WorkImport" Collapsed>
+  <Intro>
+    Upload your existing spreadsheet of @Wording.Work.PluralInSentence and their associated data. If you don't have
+    such a spreadsheet, <a class="underline" href="@PageUrls.AddWorksFromImages">add @Wording.Work.PluralInSentence from
+    images directly</a>
+  </Intro>
+  <Note>The first row names the columns, in any order and with any capitals. Only a title column is needed.</Note>
+  <Columns>
+    <ImportColumn Header="@WorkImportHeaders.Title">
+      Every row needs one. A title already in the catalog, or on two rows of the file, is skipped,
+      unless those rows each have their own slug.
+    </ImportColumn>
+
+    <ImportColumn Header="@WorkImportHeaders.Slug">
+      The @Wording.Work.SingularInSentence's web address name, like "dawn-2": lower case letters, numbers and dashes.
+      It tells apart @Wording.Work.PluralInSentence that share a title. Without one, the address comes from the title.
+    </ImportColumn>
+
+    <ImportColumn Header="@WorkImportHeaders.Description">Any text.</ImportColumn>
+
+    @if (Has(WorkField.DateCreated))
+    {
+      <ImportColumn Header="@WorkImportHeaders.DateCreated">yyyy, yyyy-MM or yyyy-MM-dd. Blank or 0 when unknown.</ImportColumn>
+    }
+
+    @if (Has(WorkField.HeightAndWidth))
+    {
+      <ImportColumn Header="@($"{WorkImportHeaders.Height}, {WorkImportHeaders.Width}")">
+        Both or neither, in the unit chosen below.
+      </ImportColumn>
+    }
+
+    @if (Has(WorkField.Depth))
+    {
+      <ImportColumn Header="@WorkImportHeaders.Depth">Only with a height and width.</ImportColumn>
+    }
+
+    @if (Has(WorkField.Duration))
+    {
+      <ImportColumn Header="@WorkImportHeaders.Duration">h:mm:ss or m:ss.</ImportColumn>
+    }
+
+    <ImportColumn Header="@WorkImportHeaders.Collections">
+      @Wording.Collection.SingularHeading names, separated by the list separator. A name that isn't one of your
+      @Wording.Collection.PluralInSentence yet becomes a new one, and the review lists those before anything is imported.
+    </ImportColumn>
+
+    <ImportColumn Header="@WorkImportHeaders.Price">
+      Digits and a decimal point, no currency sign. A row with no price isn't for sale.
+    </ImportColumn>
+
+    <ImportColumn Header="@WorkImportHeaders.Sold">
+      One of a kind only: TRUE, FALSE or blank. A sold row may have no price.
+    </ImportColumn>
+
+    <ImportColumn Header="@WorkImportHeaders.EditionSize">
+      Not one of a kind: how many were made. Blank for an edition that can always be restocked.
+    </ImportColumn>
+
+    <ImportColumn Header="@WorkImportHeaders.Stock">
+      Not one of a kind: how many are left, no more than the edition size.
+    </ImportColumn>
+
+    @foreach (var vocabulary in TypeVocabularies)
+    {
+      var header = WorkImportHeaders.ForVocabulary(vocabulary.Name.Value);
+      <ImportColumn Header="@header">
+        Names of existing terms, separated by the list separator.
+        @if (header != vocabulary.Name.Value)
+        {
+          <text>Starts with @WorkImportHeaders.VocabularyPrefix, since @vocabulary.Name.Value alone is one of the
+            columns above.</text>
+        }
+      </ImportColumn>
+    }
+  </Columns>
+</ImportColumnsHelp>

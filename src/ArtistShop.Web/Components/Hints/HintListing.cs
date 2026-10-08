@@ -1,26 +1,29 @@
 namespace ArtistShop.Web.Components.Hints;
 
 using ArtistShop.Web.Domain.Platform;
+using ArtistShop.Web.Domain.Website;
 
 // what the Hints page says about each hint: the switches have no default, so a new HintType fails
-// the build until it's given both
+// the build until it's given both. Titles are in the website's words
 public static class HintListing
 {
-    public static string Title(HintType type) =>
+    public static string Title(HintType type, SiteWording wording) =>
         type switch
         {
             HintType.AdminDashboard => "Where to start",
-            HintType.AddArtworksFromImages => "Adding artworks from images",
-            HintType.SeriesFromFolders => "Series from folder names",
-            HintType.UploadArtworkImages => "Uploading images for artworks already added",
-            HintType.Series => "What series are",
+            HintType.AddWorksFromImages => $"Adding {wording.Work.PluralInSentence} from images",
+            HintType.CollectionsFromFolders => $"{wording.Collection.PluralHeading} from folder names",
+            HintType.UploadWorkImages => $"Uploading images for {wording.Work.PluralInSentence} already added",
+            HintType.Collections => $"What {wording.Collection.PluralInSentence} are",
             HintType.Vocabularies => "What vocabularies are",
             HintType.StepByStepImport => "Importing step by step",
-            HintType.ArtworkTypeImport => "Importing artwork types",
+            HintType.WorkTypeImport => $"Importing {wording.Work.SingularInSentence} types",
             HintType.VocabularyImport => "Importing vocabularies",
-            HintType.ArtworkImport => "Importing artworks",
+            HintType.WorkImport => $"Importing {wording.Work.PluralInSentence}",
             HintType.PostImport => "Importing posts",
             HintType.WebsiteImport => "Moving a whole website here",
+            HintType.WordingCollections => $"Wording for {wording.Collection.PluralInSentence}",
+            HintType.WordingWorks => $"Wording for {wording.Work.PluralInSentence}",
         };
 
     // the page it shows on
@@ -28,17 +31,19 @@ public static class HintListing
         type switch
         {
             HintType.AdminDashboard => PageUrls.AdminDashboard,
-            HintType.AddArtworksFromImages => PageUrls.AddArtworksFromImages,
+            HintType.AddWorksFromImages => PageUrls.AddWorksFromImages,
             // in the dialog that opens after dropping folders there
-            HintType.SeriesFromFolders => PageUrls.AddArtworksFromImages,
-            HintType.UploadArtworkImages => PageUrls.ArtworkBulkImageUpload(null),
-            HintType.Series => PageUrls.SeriesList,
+            HintType.CollectionsFromFolders => PageUrls.AddWorksFromImages,
+            HintType.UploadWorkImages => PageUrls.WorkBulkImageUpload(null),
+            HintType.Collections => PageUrls.CollectionList,
             HintType.Vocabularies => PageUrls.NewVocabulary,
             HintType.StepByStepImport => PageUrls.Import,
-            HintType.ArtworkTypeImport => PageUrls.ArtworkTypeImport,
+            HintType.WorkTypeImport => PageUrls.WorkTypeImport,
             HintType.VocabularyImport => PageUrls.VocabularyImport,
-            HintType.ArtworkImport => PageUrls.ArtworkImport,
+            HintType.WorkImport => PageUrls.WorkImport,
             HintType.PostImport => PageUrls.PostImport,
             HintType.WebsiteImport => PageUrls.WebsiteImport,
+            HintType.WordingCollections => PageUrls.Wording,
+            HintType.WordingWorks => PageUrls.Wording,
         };
 }

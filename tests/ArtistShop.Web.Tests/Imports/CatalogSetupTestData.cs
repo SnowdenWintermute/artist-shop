@@ -7,24 +7,24 @@ namespace ArtistShop.Web.Tests.Imports;
 // them, a Painting type and a Medium vocabulary for paintings
 public static class CatalogSetupTestData
 {
-    public static readonly ArtworkFieldDefinition[] Fields =
+    public static readonly WorkFieldDefinition[] Fields =
     [
-        new(ArtworkField.DateCreated, "Date created", ArtworkField.DateCreated),
-        new(ArtworkField.HeightAndWidth, "Height and width", ArtworkField.HeightAndWidth),
-        new(ArtworkField.Depth, "Depth", ArtworkField.HeightAndWidth),
-        new(ArtworkField.Duration, "Duration", ArtworkField.Duration),
+        new(WorkField.DateCreated, "Date created", WorkField.DateCreated),
+        new(WorkField.HeightAndWidth, "Height and width", WorkField.HeightAndWidth),
+        new(WorkField.Depth, "Depth", WorkField.HeightAndWidth),
+        new(WorkField.Duration, "Duration", WorkField.Duration),
     ];
 
-    public static readonly ArtworkTypeWithFields Painting = new(
-        new ArtworkTypeId(1),
-        new ArtworkTypeName("Painting"),
-        [ArtworkField.DateCreated, ArtworkField.HeightAndWidth]
+    public static readonly WorkTypeWithFields Painting = new(
+        new WorkTypeId(1),
+        new WorkTypeName("Painting"),
+        [WorkField.DateCreated, WorkField.HeightAndWidth]
     );
 
-    public static readonly ArtworkTypeWithFields Sculpture = new(
-        new ArtworkTypeId(2),
-        new ArtworkTypeName("Sculpture"),
-        [ArtworkField.HeightAndWidth, ArtworkField.Depth]
+    public static readonly WorkTypeWithFields Sculpture = new(
+        new WorkTypeId(2),
+        new WorkTypeName("Sculpture"),
+        [WorkField.HeightAndWidth, WorkField.Depth]
     );
 
     public static readonly VocabularyId MediumId = new(10);

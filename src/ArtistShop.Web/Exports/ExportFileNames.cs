@@ -3,7 +3,7 @@ using System.Text;
 namespace ArtistShop.Web.Exports;
 
 // Whether a name can be a file's name on Windows, macOS and Linux alike. An export uses the name as
-// it is or not at all: a title with a character replaced would no longer match its artwork when the
+// it is or not at all: a title with a character replaced would no longer match its work when the
 // images are uploaded again
 public static class ExportFileNames
 {

@@ -108,13 +108,13 @@ public class PostRepository(SiteDatabase database)
         return new PostListPage([.. rows.Select(row => row.ToPostListItem())], totalCount, pageNumber, pageSize);
     }
 
-    public async Task<List<PostMention>> GetPublishedMentioningArtworkAsync(ArtworkId artworkId)
+    public async Task<List<PostMention>> GetPublishedMentioningWorkAsync(WorkId workId)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<PostMentionRow>(
-            "SELECT * FROM get_published_posts_mentioning_artwork(@ArtworkId)",
-            new { ArtworkId = artworkId.Value }
+            "SELECT * FROM get_published_posts_mentioning_work(@WorkId)",
+            new { WorkId = workId.Value }
         );
 
         return [.. rows.Select(row => row.ToPostMention())];

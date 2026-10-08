@@ -68,13 +68,13 @@ public static class PostDeltaWriter
     public static JsonObject? Embed(PostBlock block) =>
         block switch
         {
-            ArtworkEmbedBlock artwork => new JsonObject
+            WorkEmbedBlock work => new JsonObject
             {
-                [PostDocumentParser.ArtworkEmbedName] = WithLook(
-                    new JsonObject { ["artworkId"] = artwork.ArtworkId.Value, ["storageKey"] = artwork.StorageKey },
-                    artwork.Size,
-                    artwork.Layout,
-                    artwork.Caption
+                [PostDocumentParser.WorkEmbedName] = WithLook(
+                    new JsonObject { ["workId"] = work.WorkId.Value, ["storageKey"] = work.StorageKey },
+                    work.Size,
+                    work.Layout,
+                    work.Caption
                 ),
             },
             PostImageEmbedBlock image => new JsonObject

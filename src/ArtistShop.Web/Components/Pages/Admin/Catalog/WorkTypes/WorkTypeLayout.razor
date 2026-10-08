@@ -1,0 +1,35 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject WorkTypeRepository WorkTypeRepository
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  private List<WorkType> _workTypes = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _workTypes = WorkTypeOrder.SortedByName(await WorkTypeRepository.GetAllAsync());
+  }
+}
+
+<AdminPanel>
+  <SectionNav>
+    <NavLink href="@PageUrls.NewWorkType" ActiveClass="underline">+ New @Wording.Work.SingularInSentence type</NavLink>
+    <div aria-hidden="true" class="pointer-events-none">|</div>
+    @foreach (var workType in _workTypes)
+    {
+      <SectionNavLink href="@PageUrls.EditWorkType(workType.Id)"
+                      ActivePath="@PageUrls.EditWorkType(workType.Id)" ActiveClass="underline">
+        @workType.Name.Value
+      </SectionNavLink>
+    }
+  </SectionNav>
+  <ChildContent>
+    @Body
+  </ChildContent>
+</AdminPanel>

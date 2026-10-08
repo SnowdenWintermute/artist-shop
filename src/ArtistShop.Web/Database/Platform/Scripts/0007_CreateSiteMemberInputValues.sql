@@ -1,4 +1,4 @@
--- The value a member last left an input at, such as the dashboard's artwork type, so the page comes
+-- The value a member last left an input at, such as the dashboard's work type, so the page comes
 -- back with it. Hung off the membership: removing an admin, deleting an account or erasing a site
 -- deletes the member's row, and these go with it. A value is only ever a hint about which of the
 -- page's current options to show, so one the page no longer offers is ignored

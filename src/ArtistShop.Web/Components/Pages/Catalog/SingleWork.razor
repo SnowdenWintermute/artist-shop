@@ -1,0 +1,97 @@
+@page "/works/{slug}"
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject WorkRepository WorkRepository
+@inject PostRepository PostRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public string Slug { get; set; } = default!;
+
+  [SupplyParameterFromQuery(Name = WorkPageQuery.CollectionKey)]
+  private string? CollectionValue { get; set; }
+
+  [SupplyParameterFromQuery(Name = WorkPageQuery.ImageKey)]
+  private string? ImageValue { get; set; }
+
+  private LoadedWork? _loaded;
+
+  // the address counts from one, the way a person reads "image 2", and everything inside counts
+  // from zero. A number that is missing, isn't one, or names an image the work no longer has
+  // falls back to the starred image, so a stale link still shows the work
+  private int CurrentImageIndex(Work work) =>
+    int.TryParse(ImageValue, out var number) && number >= 1 && number <= work.Images.Count
+      ? number - 1
+      : work.MainImageIndex;
+
+  // where stepping past either end of the images goes: the previous work's last image, or the
+  // next one's first, rather than their starred ones, so the steps run on without a jump
+  private static string? PreviousStepUrl(LoadedWork loaded) =>
+    loaded.Walk.Neighbours.Previous is { } previous
+      ? WorkPageQuery.Url(previous.Slug.Value, previous.CollectionSlug.Value, previous.ImageCount)
+      : null;
+
+  private static string? NextStepUrl(LoadedWork loaded) =>
+    loaded.Walk.Neighbours.Next is { } next
+      ? WorkPageQuery.Url(next.Slug.Value, next.CollectionSlug.Value, imageNumber: 1)
+      : null;
+
+  // where Previous and Next go from the image the page opens on, the same as the arrow keys: the
+  // image beside it, or past either end the step to the neighbouring work
+  private static string? PreviousLinkUrl(LoadedWork loaded, int currentIndex) =>
+    currentIndex > 0
+      ? WorkPageQuery.ImageUrl(loaded.Work.Slug.Value, loaded.Walk.Collection?.Slug.Value, currentIndex - 1)
+      : PreviousStepUrl(loaded);
+
+  private static string? NextLinkUrl(LoadedWork loaded, int currentIndex) =>
+    currentIndex < loaded.Work.Images.Count - 1
+      ? WorkPageQuery.ImageUrl(loaded.Work.Slug.Value, loaded.Walk.Collection?.Slug.Value, currentIndex + 1)
+      : NextStepUrl(loaded);
+
+  protected override async Task OnParametersSetAsync()
+  {
+    var work = await WorkRepository.GetBySlugAsync(Slug);
+
+    if (work is null)
+    {
+      NavigationManager.NotFound();
+      return;
+    }
+
+    var walk = await WorkWalk.LoadAsync(WorkRepository, work, CollectionValue);
+    var mentions = await PostRepository.GetPublishedMentioningWorkAsync(work.Id);
+
+    _loaded = new LoadedWork(work, walk, mentions);
+  }
+}
+
+@if (_loaded is { } loaded)
+{
+  <PageTitle>@loaded.Work.Name.Value</PageTitle>
+  <LinkPreview Title="@loaded.Work.Name.Value" Description="@loaded.Work.Description"
+               Image="loaded.Work.Images.ElementAtOrDefault(loaded.Work.MainImageIndex)" />
+
+  <main class="mx-auto max-w-[1200px] p-4">
+    @if (loaded.Walk.Collection is { } collection)
+    {
+      <WorkCollectionNav Collection="collection"
+                        PreviousUrl="@PreviousLinkUrl(loaded, CurrentImageIndex(loaded.Work))"
+                        NextUrl="@NextLinkUrl(loaded, CurrentImageIndex(loaded.Work))" />
+    }
+
+    @* one column on a phone, the panel beside the work once there is room. minmax(0,…) rather
+       than a bare 2fr: a grid track's smallest size is its content by default, which a wide
+       image would stretch past the page *@
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <WorkGallery Images="loaded.Work.Images" CurrentImageIndex="CurrentImageIndex(loaded.Work)"
+                      Slug="@loaded.Work.Slug.Value" CollectionSlug="@loaded.Walk.Collection?.Slug.Value"
+                      Alt="@loaded.Work.Name.Value" PreviousUrl="@PreviousStepUrl(loaded)"
+                      NextUrl="@NextStepUrl(loaded)"
+                      WalkStep="WorkWalkStep.For(loaded.Work, loaded.Walk)" />
+
+      <WorkDetails Work="loaded.Work" Mentions="loaded.Mentions" />
+    </div>
+  </main>
+}

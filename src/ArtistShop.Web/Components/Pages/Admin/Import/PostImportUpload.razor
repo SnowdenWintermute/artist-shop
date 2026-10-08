@@ -7,9 +7,9 @@
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Utilities
 @inject PostRepository PostRepository
-@inject SeriesRepository SeriesRepository
-@inject ArtworkRepository ArtworkRepository
-@inject ArtworkImageRepository ArtworkImageRepository
+@inject CollectionRepository CollectionRepository
+@inject WorkRepository WorkRepository
+@inject WorkImageRepository WorkImageRepository
 @inject ImageStorage ImageStorage
 @inject IJSRuntime JS
 @inject ILogger<PostImportUpload> Logger
@@ -63,7 +63,7 @@
 
       if (folders.Count > 0)
       {
-        _run = new(PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, SeriesRepository, ArtworkRepository, ArtworkImageRepository, ImageStorage)));
+        _run = new(PostImportPlanner.Plan(folders, await PostImportTarget.LoadAsync(folders, PostRepository, CollectionRepository, WorkRepository, WorkImageRepository, ImageStorage)));
       }
     }
     catch (JSDisconnectedException)

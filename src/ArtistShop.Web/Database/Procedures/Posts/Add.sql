@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS add_post;
 
 -- plpgsql, because a plain sql function has its body checked when it's created, and
--- set_post_artworks is created after this file. plpgsql looks names up when it runs.
+-- set_post_works is created after this file. plpgsql looks names up when it runs.
 -- p_published_at is the post import's date from the other website; a published post without
 -- one is dated now
 CREATE FUNCTION add_post (p_title text, p_slug text, p_body jsonb, p_is_published boolean, p_published_at timestamptz) RETURNS int LANGUAGE plpgsql AS $$
@@ -22,7 +22,7 @@ BEGIN
     RETURNING
         id INTO new_id;
 
-    PERFORM set_post_artworks(new_id);
+    PERFORM set_post_works(new_id);
 
     RETURN new_id;
 END;

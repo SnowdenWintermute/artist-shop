@@ -1,25 +1,26 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Imports;
 
 // the website's catalog, which the whole-website import adds to
 public record CatalogRepositories(
-    ArtworkFieldRepository Fields,
-    ArtworkTypeRepository Types,
+    WorkFieldRepository Fields,
+    WorkTypeRepository Types,
     VocabularyRepository Vocabularies,
     VocabularyTermRepository Terms,
-    SeriesRepository Series,
+    CollectionRepository Collections,
     ProductTypeRepository ProductTypes,
-    ArtworkRepository Artworks
+    WorkRepository Works
 );
 
 // one stage of the import done: what it was, and how many things it added
 public record WebsiteImportStageDone(string Stage, int AddedCount);
 
-// The catalog stages of the whole-website import: artwork types, then vocabularies, then each
-// artwork file. Each is planned again against the website as the stage before left it, and
+// The catalog stages of the whole-website import: work types, then vocabularies, then each
+// work file. Each is planned again against the website as the stage before left it, and
 // applied, rather than applying the review's plans, whose ids are placeholders. A stage whose plan
 // has errors stops the import there: the website changed since the review. What the stages before
 // it added stays, and importing again skips it
@@ -31,6 +32,8 @@ public static class WebsiteCatalogImporter
     public static async Task<string?> ImportAsync(
         WebsiteImportFolder folder,
         CatalogRepositories repositories,
+        // the stages are named in the website's words
+        SiteWording wording,
         Func<WebsiteImportStageDone, Task> onStageDone
     )
     {
@@ -41,8 +44,8 @@ public static class WebsiteCatalogImporter
 
         try
         {
-            var types = ArtworkTypeImportPlanner.Plan(
-                Unwrap.Value(folder.ArtworkTypesCsv),
+            var types = WorkTypeImportPlanner.Plan(
+                Unwrap.Value(folder.WorkTypesCsv),
                 manifest.ListSeparator,
                 await SetupAsync(repositories)
             );
@@ -52,8 +55,8 @@ public static class WebsiteCatalogImporter
                 return ChangedSinceReviewProblem;
             }
 
-            await ArtworkTypeImportPlanner.ApplyAsync(types, repositories.Types);
-            await onStageDone(new WebsiteImportStageDone("Artwork types", types.Additions.Count));
+            await WorkTypeImportPlanner.ApplyAsync(types, repositories.Types);
+            await onStageDone(new WebsiteImportStageDone($"{wording.Work.SingularHeading} types", types.Additions.Count));
 
             var vocabularies = VocabularyImportPlanner.Plan(
                 Unwrap.Value(folder.VocabulariesCsv),
@@ -67,26 +70,26 @@ public static class WebsiteCatalogImporter
             }
 
             await VocabularyImportPlanner.ApplyAsync(vocabularies, repositories.Vocabularies, repositories.Terms);
-            // a change can be new terms or artwork types for a vocabulary already here, so the
+            // a change can be new terms or work types for a vocabulary already here, so the
             // vocabularies added are only the new ones
             await onStageDone(new WebsiteImportStageDone("Vocabularies", vocabularies.Changes.Count(change => change.ExistingId is null)));
             await onStageDone(new WebsiteImportStageDone("Vocabulary terms", vocabularies.Changes.Sum(change => change.AddedTerms.Count)));
 
-            var settings = WebsiteImportPlanner.ArtworkSettings(await repositories.ProductTypes.GetAllAsync(), manifest.ListSeparator);
+            var settings = WebsiteImportPlanner.WorkSettings(await repositories.ProductTypes.GetAllAsync(), manifest.ListSeparator);
             var allTypes = await repositories.Types.GetAllAsync();
 
-            foreach (var (fileName, typeName) in manifest.ArtworkFiles)
+            foreach (var (fileName, typeName) in manifest.WorkFiles)
             {
                 var type = allTypes.FirstOrDefault(type => ImportNames.Comparer.Equals(type.Name.Value, typeName));
                 var snapshot = type is null
                     ? null
-                    : await ArtworkImportCatalogSnapshot.LoadAsync(
+                    : await WorkImportCatalogSnapshot.LoadAsync(
                         type.Id,
                         repositories.Types,
                         repositories.Vocabularies,
-                        repositories.Series,
+                        repositories.Collections,
                         repositories.ProductTypes,
-                        repositories.Artworks
+                        repositories.Works
                     );
 
                 if (snapshot is null)
@@ -94,20 +97,20 @@ public static class WebsiteCatalogImporter
                     return ChangedSinceReviewProblem;
                 }
 
-                var artworks = ArtworkImportPlanner.Plan(folder.ArtworkCsvsByFileName[fileName], settings, snapshot);
+                var works = WorkImportPlanner.Plan(folder.WorkCsvsByFileName[fileName], settings, snapshot);
 
-                if (artworks.Errors.Count > 0)
+                if (works.Errors.Count > 0)
                 {
                     return ChangedSinceReviewProblem;
                 }
 
                 // one transaction a file, so a file is in whole or not at all
-                if (artworks.Additions.Count > 0)
+                if (works.Additions.Count > 0)
                 {
-                    await repositories.Artworks.AddManyAsync([.. artworks.Additions.Select(addition => addition.Addition)]);
+                    await repositories.Works.AddManyAsync([.. works.Additions.Select(addition => addition.Addition)]);
                 }
 
-                await onStageDone(new WebsiteImportStageDone($"Artworks: {snapshot.ArtworkType.Name.Value}", artworks.Additions.Count));
+                await onStageDone(new WebsiteImportStageDone($"{wording.Work.PluralHeading}: {snapshot.WorkType.Name.Value}", works.Additions.Count));
             }
         }
         catch (Exception exception) when (exception is NameAlreadyInUseException or ChangedSincePageLoadException)

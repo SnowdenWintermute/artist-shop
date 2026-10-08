@@ -3,7 +3,7 @@
 // changes, while the page being left is still showing, so a long post comes back at the top. This
 // takes over: it notes where a page was when it's left, and scrolls there once the page is back.
 // A new visit by an ordinary link still starts at the top; a link marked data-restores-scroll, such
-// as the artwork picker's Back links, returns to where that page was left too.
+// as the work picker's Back links, returns to where that page was left too.
 //
 // Needed because neither side handles it (checked 2026-09-24, .NET 10.0.11 and 11.0 RC1). Blazor
 // closed its issue leaving Back to the browser: https://github.com/dotnet/aspnetcore/issues/51646
@@ -14,7 +14,7 @@
 history.scrollRestoration = "manual";
 
 // per tab, like the history it follows, so a reload finds it. One key per address rather than one
-// shared object, since the artwork picker's frame writes here too and would overwrite the page's
+// shared object, since the work picker's frame writes here too and would overwrite the page's
 const storageKey = (/** @type {string} */ address) => `scroll-position:${address}`;
 
 const currentAddress = () => location.pathname + location.search;

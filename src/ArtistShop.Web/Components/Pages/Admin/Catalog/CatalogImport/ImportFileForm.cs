@@ -3,7 +3,7 @@ using ArtistShop.Web.Imports;
 namespace ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport;
 
 // the file part of an import's check form, which ImportFileFields renders. Each form declares these
-// itself, since the artwork import's check form already inherits its settings
+// itself, since the work import's check form already inherits its settings
 public interface IImportFileForm
 {
     // a browser never keeps a chosen file across a page load, so this is null on every post after the

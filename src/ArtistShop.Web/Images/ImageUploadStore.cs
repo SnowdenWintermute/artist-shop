@@ -6,7 +6,7 @@ namespace ArtistShop.Web.Images;
 // Sha256 is the original's, in lower case hex
 public record StoredImage(string StorageKey, string Sha256, ProcessedImage Processed)
 {
-    public ArtworkImage ToArtworkImage(string originalFileName) =>
+    public WorkImage ToWorkImage(string originalFileName) =>
         new(StorageKey, originalFileName, Processed.Width, Processed.Height, Processed.BlurDataUri);
 }
 

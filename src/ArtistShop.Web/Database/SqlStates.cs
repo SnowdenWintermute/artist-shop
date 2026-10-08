@@ -10,46 +10,46 @@ namespace ArtistShop.Web.Database;
 // on a reply that uses it.
 public static class SqlStates
 {
-    // CheckArtworkChoicesAreCurrent, RenameVocabularyTerm
+    // CheckWorkChoicesAreCurrent, RenameVocabularyTerm
     public const string VocabularyTermNoLongerExists = "SH001";
 
     // UpdateVocabulary
     public const string VocabularyNoLongerExists = "SH002";
 
-    // UpdateArtwork
-    public const string ArtworkNoLongerExists = "SH003";
+    // UpdateWork
+    public const string WorkNoLongerExists = "SH003";
 
-    // RenameSeries, CheckArtworkChoicesAreCurrent, AddArtworksToSeries
-    public const string SeriesNoLongerExists = "SH004";
+    // RenameCollection, CheckWorkChoicesAreCurrent, AddWorksToCollection
+    public const string CollectionNoLongerExists = "SH004";
 
-    // ReorderSeriesArtworks
-    public const string ArtworksChangedSincePageLoad = "SH005";
+    // ReorderCollectionWorks
+    public const string WorksChangedSincePageLoad = "SH005";
 
-    // SetSeriesCover
-    public const string ArtworkNoLongerInSeries = "SH006";
+    // SetCollectionCover
+    public const string WorkNoLongerInCollection = "SH006";
 
-    // SetSeriesCover
-    public const string ArtworkHasNoImage = "SH007";
+    // SetCollectionCover
+    public const string WorkHasNoImage = "SH007";
 
-    // ReorderSeries
-    public const string SeriesChangedSincePageLoad = "SH008";
+    // ReorderCollections
+    public const string CollectionChangedSincePageLoad = "SH008";
 
-    // SH009 free: it was a second code for SeriesNoLongerExists
+    // SH009 free: it was a second code for CollectionNoLongerExists
 
-    // CheckArtworkChoicesAreCurrent, UpdateArtworkType, GetArtworkNameMatches,
-    // AttachPrimaryImageToImagelessArtworkByName
-    public const string ArtworkTypeNoLongerExists = "SH010";
+    // CheckWorkChoicesAreCurrent, UpdateWorkType, GetWorkNameMatches,
+    // AttachPrimaryImageToImagelessWorkByName
+    public const string WorkTypeNoLongerExists = "SH010";
 
-    // CheckArtworkChoicesAreCurrent
-    public const string ArtworkFieldSwitchedOff = "SH011";
+    // CheckWorkChoicesAreCurrent
+    public const string WorkFieldSwitchedOff = "SH011";
 
-    // AddArtwork
+    // AddWork
     public const string ProductTypeNoLongerExists = "SH012";
 
-    // SH013 free: it was a second code for ArtworkTypeNoLongerExists
+    // SH013 free: it was a second code for WorkTypeNoLongerExists
 
-    // DeleteArtworkType
-    public const string ArtworkTypeInUse = "SH014";
+    // DeleteWorkType
+    public const string WorkTypeInUse = "SH014";
 
     // UpdatePost
     public const string PostNoLongerExists = "SH015";
@@ -60,6 +60,6 @@ public static class SqlStates
     // ReorderExampleSites, in the platform database
     public const string ExampleSitesChangedSincePageLoad = "SH017";
 
-    // CheckArtworkChoicesAreCurrent
+    // CheckWorkChoicesAreCurrent
     public const string VocabularyBecameMutuallyExclusive = "SH018";
 }

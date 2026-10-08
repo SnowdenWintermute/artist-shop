@@ -1,0 +1,57 @@
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@inject RememberedWorkType RememberedWorkType
+@inject ILogger<WorkTypeSelect> Logger
+
+@* For an island with no form. SelectField builds on InputSelect, which needs an EditContext. Each
+   choice is saved for the other work type selects to start at; the island reads it back itself *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkType> WorkTypes { get; set; } = default!;
+  [Parameter]
+  public int? Value { get; set; }
+  [Parameter]
+  public EventCallback<int?> ValueChanged { get; set; }
+  [Parameter]
+  public bool Disabled { get; set; }
+  [Parameter]
+  public string? Class { get; set; }
+
+  private async Task ChangedAsync(ChangeEventArgs change)
+  {
+    int? value = int.TryParse(change.Value?.ToString(), out var typeId) ? typeId : null;
+
+    await ValueChanged.InvokeAsync(value);
+
+    if (value is not int chosen)
+    {
+      return;
+    }
+
+    // only a convenience, like RememberedSelect's save, so a failure costs the next page its
+    // starting type and nothing more
+    try
+    {
+      await RememberedWorkType.SetAsync(new WorkTypeId(chosen));
+    }
+    catch (Exception exception)
+    {
+      Logger.LogWarning(exception, "Couldn't save the chosen work type");
+    }
+  }
+}
+
+<label class="mb-1 block text-sm" for="work-type">@Wording.Work.SingularHeading type</label>
+<select id="work-type" class="@ClassNames.Join("artist-shop-field-input", Class)" value="@Value"
+        @onchange="ChangedAsync" disabled="@Disabled">
+  <option value="">Choose a type</option>
+  @foreach (var workType in WorkTypes)
+  {
+    <option value="@workType.Id.Value">@workType.Name.Value</option>
+  }
+</select>

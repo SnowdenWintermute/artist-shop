@@ -10,130 +10,130 @@ public enum BulkImageOutcome : byte
 {
     WillAttach = 1,
     Attached = 2,
-    NoArtwork = 3,
-    SeveralArtworks = 4,
-    ArtworkHasImages = 5,
+    NoWork = 3,
+    SeveralWorks = 4,
+    WorkHasImages = 5,
     DuplicateNameInUpload = 6,
     Failed = 7,
 
-    // "Dawn (2)": another image of an artwork, after the ones it has
+    // "Dawn (2)": another image of a work, after the ones it has
     WillAddExtra = 8,
     ExtraAdded = 9,
-    ArtworkHasThisFile = 10,
+    WorkHasThisFile = 10,
 }
 
 // one image the page found: the id its script knows the file by, and its path in what was dropped
 public record BulkImageCandidate(string Id, string Path);
 
-// What happens to one file. ArtworkIds are the artworks its name matched, so the report can link to
-// them; ExtraNumber is set for another image of an artwork, like "Dawn (2)", and orders it after the
+// What happens to one file. WorkIds are the works its name matched, so the report can link to
+// them; ExtraNumber is set for another image of a work, like "Dawn (2)", and orders it after the
 // others
 public record BulkImagePlanItem(
     string Id,
     string Path,
-    ArtworkName ArtworkName,
+    WorkName WorkName,
     BulkImageOutcome Outcome,
-    IReadOnlyList<int> ArtworkIds,
+    IReadOnlyList<int> WorkIds,
     int? ExtraNumber
 );
 
-// The artworks of the chosen type the files' names can go to. MatchesByName holds every name
+// The works of the chosen type the files' names can go to. MatchesByName holds every name
 // BulkImagePlanner.NamesToMatch gives, compared as the database compares names; FileNames holds
-// the names the images of the artworks an extra image would go to were uploaded under
-public record BulkImageTarget(IReadOnlyDictionary<string, ArtworkNameMatch> MatchesByName, ILookup<ArtworkId, string> FileNames)
+// the names the images of the works an extra image would go to were uploaded under
+public record BulkImageTarget(IReadOnlyDictionary<string, WorkNameMatch> MatchesByName, ILookup<WorkId, string> FileNames)
 {
-    // Throws ChangedSincePageLoadException when the artwork type is gone
+    // Throws ChangedSincePageLoadException when the work type is gone
     public static async Task<BulkImageTarget> LoadAsync(
-        ArtworkTypeId typeId,
+        WorkTypeId typeId,
         IReadOnlyList<BulkImageCandidate> candidates,
-        ArtworkImageRepository artworkImageRepository
+        WorkImageRepository workImageRepository
     )
     {
-        var matches = (await artworkImageRepository.GetArtworkNameMatchesAsync(typeId, BulkImagePlanner.NamesToMatch(candidates)))
+        var matches = (await workImageRepository.GetWorkNameMatchesAsync(typeId, BulkImagePlanner.NamesToMatch(candidates)))
             .ToDictionary(entry => entry.Key.Value, entry => entry.Value, DatabaseCollationComparer.Instance);
-        var extraArtworkIds = BulkImagePlanner.ArtworksOfExtraImages(candidates, matches);
+        var extraWorkIds = BulkImagePlanner.WorksOfExtraImages(candidates, matches);
 
-        return new BulkImageTarget(matches, await artworkImageRepository.GetFileNamesAsync(extraArtworkIds));
+        return new BulkImageTarget(matches, await workImageRepository.GetFileNamesAsync(extraWorkIds));
     }
 }
 
-// Matches the bulk image upload's files to artworks by name, without touching the database or the
+// Matches the bulk image upload's files to works by name, without touching the database or the
 // files. "Dawn.jpg" is Dawn's first image when Dawn has none; "Dawn (2).jpg" is another image of
-// Dawn, after the ones it has, unless an artwork is titled "Dawn (2)" or Dawn already has an image
+// Dawn, after the ones it has, unless a work is titled "Dawn (2)" or Dawn already has an image
 // uploaded under that file name, so uploading a folder twice adds nothing twice
 public static class BulkImagePlanner
 {
-    private static readonly ILookup<ArtworkId, string> NoFileNames = Array.Empty<(ArtworkId ArtworkId, string Name)>()
-        .ToLookup(entry => entry.ArtworkId, entry => entry.Name);
+    private static readonly ILookup<WorkId, string> NoFileNames = Array.Empty<(WorkId WorkId, string Name)>()
+        .ToLookup(entry => entry.WorkId, entry => entry.Name);
 
     // each file's own name, and for "Dawn (2)" also "Dawn", once each as the database compares them
-    public static IReadOnlyList<ArtworkName> NamesToMatch(IEnumerable<BulkImageCandidate> candidates)
+    public static IReadOnlyList<WorkName> NamesToMatch(IEnumerable<BulkImageCandidate> candidates)
     {
         var names = Matchable(candidates).ToList();
 
         return
         [
             .. names
-                .Concat(names.Select(name => name.AsExtraImage()?.Artwork).OfType<ArtworkName>())
+                .Concat(names.Select(name => name.AsExtraImage()?.Work).OfType<WorkName>())
                 .Select(name => name.Value)
                 .Distinct(DatabaseCollationComparer.Instance)
-                .Select(name => new ArtworkName(name)),
+                .Select(name => new WorkName(name)),
         ];
     }
 
-    // the artworks extra images would go to, whose images' file names the plan then checks: the plan
+    // the works extra images would go to, whose images' file names the plan then checks: the plan
     // without them
-    public static IReadOnlyList<ArtworkId> ArtworksOfExtraImages(
+    public static IReadOnlyList<WorkId> WorksOfExtraImages(
         IEnumerable<BulkImageCandidate> candidates,
-        IReadOnlyDictionary<string, ArtworkNameMatch> matchesByName
+        IReadOnlyDictionary<string, WorkNameMatch> matchesByName
     ) =>
         [
             .. Plan(candidates, new BulkImageTarget(matchesByName, NoFileNames))
                 .Where(item => item.Outcome is BulkImageOutcome.WillAddExtra)
-                .Select(item => new ArtworkId(item.ArtworkIds[0]))
+                .Select(item => new WorkId(item.WorkIds[0]))
                 .Distinct(),
         ];
 
     public static IReadOnlyList<BulkImagePlanItem> Plan(IEnumerable<BulkImageCandidate> candidates, BulkImageTarget target)
     {
-        var files = candidates.Select(candidate => (Candidate: candidate, Name: ArtworkName.FromFileName(candidate.Path))).ToList();
+        var files = candidates.Select(candidate => (Candidate: candidate, Name: WorkName.FromFileName(candidate.Path))).ToList();
         var items = new Dictionary<string, BulkImagePlanItem>();
 
-        foreach (var (candidate, name) in files.Where(file => !file.Name.CanMatchAnArtwork))
+        foreach (var (candidate, name) in files.Where(file => !file.Name.CanMatchAnWork))
         {
-            items[candidate.Id] = new BulkImagePlanItem(candidate.Id, candidate.Path, name, BulkImageOutcome.NoArtwork, [], ExtraNumber: null);
+            items[candidate.Id] = new BulkImagePlanItem(candidate.Id, candidate.Path, name, BulkImageOutcome.NoWork, [], ExtraNumber: null);
         }
 
         // one group per name as the database compares them: "Sunset.jpg" and "sunset.png" are one
         // name and neither is used
-        foreach (var sameName in files.Where(file => file.Name.CanMatchAnArtwork).GroupBy(file => file.Name.Value, DatabaseCollationComparer.Instance))
+        foreach (var sameName in files.Where(file => file.Name.CanMatchAnWork).GroupBy(file => file.Name.Value, DatabaseCollationComparer.Instance))
         {
             var match = target.MatchesByName[sameName.Key];
             var isRepeated = sameName.Count() > 1;
 
-            // an artwork with this exact title takes the file, even one named like another image
-            if (match.Type is not ArtworkNameMatchType.NoArtwork || sameName.First().Name.AsExtraImage() is not { } extra)
+            // a work with this exact title takes the file, even one named like another image
+            if (match.Type is not WorkNameMatchType.NoWork || sameName.First().Name.AsExtraImage() is not { } extra)
             {
                 var outcome = isRepeated ? BulkImageOutcome.DuplicateNameInUpload : OutcomeOf(match.Type);
                 AddAll(sameName, outcome, match, extraNumber: null);
                 continue;
             }
 
-            var artworkMatch = target.MatchesByName[extra.Artwork.Value];
+            var workMatch = target.MatchesByName[extra.Work.Value];
             var extraOutcome =
                 isRepeated ? BulkImageOutcome.DuplicateNameInUpload
-                : artworkMatch.Type is ArtworkNameMatchType.NoArtwork ? BulkImageOutcome.NoArtwork
-                : artworkMatch.Type is ArtworkNameMatchType.SeveralArtworks ? BulkImageOutcome.SeveralArtworks
-                : target.FileNames[artworkMatch.ArtworkIds[0]].Contains(FileNameOf(sameName.First().Candidate.Path), StringComparer.OrdinalIgnoreCase)
-                    ? BulkImageOutcome.ArtworkHasThisFile
+                : workMatch.Type is WorkNameMatchType.NoWork ? BulkImageOutcome.NoWork
+                : workMatch.Type is WorkNameMatchType.SeveralWorks ? BulkImageOutcome.SeveralWorks
+                : target.FileNames[workMatch.WorkIds[0]].Contains(FileNameOf(sameName.First().Candidate.Path), StringComparer.OrdinalIgnoreCase)
+                    ? BulkImageOutcome.WorkHasThisFile
                 : BulkImageOutcome.WillAddExtra;
 
-            AddAll(sameName, extraOutcome, artworkMatch, extra.Number);
+            AddAll(sameName, extraOutcome, workMatch, extra.Number);
         }
 
         return [.. files.Select(file => items[file.Candidate.Id])];
 
-        void AddAll(IEnumerable<(BulkImageCandidate Candidate, ArtworkName Name)> sameName, BulkImageOutcome outcome, ArtworkNameMatch match, int? extraNumber)
+        void AddAll(IEnumerable<(BulkImageCandidate Candidate, WorkName Name)> sameName, BulkImageOutcome outcome, WorkNameMatch match, int? extraNumber)
         {
             foreach (var (candidate, name) in sameName)
             {
@@ -142,7 +142,7 @@ public static class BulkImagePlanner
                     candidate.Path,
                     name,
                     outcome,
-                    [.. match.ArtworkIds.Select(artworkId => artworkId.Value)],
+                    [.. match.WorkIds.Select(workId => workId.Value)],
                     extraNumber
                 );
             }
@@ -150,17 +150,17 @@ public static class BulkImagePlanner
     }
 
     // the outcome the server's answer for a first image means, as the plan's is
-    public static BulkImageOutcome OutcomeOf(ArtworkNameMatchType matchType) =>
+    public static BulkImageOutcome OutcomeOf(WorkNameMatchType matchType) =>
         matchType switch
         {
-            ArtworkNameMatchType.OneImagelessArtwork => BulkImageOutcome.WillAttach,
-            ArtworkNameMatchType.NoArtwork => BulkImageOutcome.NoArtwork,
-            ArtworkNameMatchType.SeveralArtworks => BulkImageOutcome.SeveralArtworks,
-            ArtworkNameMatchType.ArtworkWithImages => BulkImageOutcome.ArtworkHasImages,
+            WorkNameMatchType.OneImagelessWork => BulkImageOutcome.WillAttach,
+            WorkNameMatchType.NoWork => BulkImageOutcome.NoWork,
+            WorkNameMatchType.SeveralWorks => BulkImageOutcome.SeveralWorks,
+            WorkNameMatchType.WorkWithImages => BulkImageOutcome.WorkHasImages,
         };
 
-    private static IEnumerable<ArtworkName> Matchable(IEnumerable<BulkImageCandidate> candidates) =>
-        candidates.Select(candidate => ArtworkName.FromFileName(candidate.Path)).Where(name => name.CanMatchAnArtwork);
+    private static IEnumerable<WorkName> Matchable(IEnumerable<BulkImageCandidate> candidates) =>
+        candidates.Select(candidate => WorkName.FromFileName(candidate.Path)).Where(name => name.CanMatchAnWork);
 
     // what the upload stores as the image's file name
     private static string FileNameOf(string path) => Path.GetFileName(path.Trim('/'));

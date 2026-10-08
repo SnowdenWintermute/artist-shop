@@ -3,8 +3,8 @@ namespace ArtistShop.Web.Domain;
 // updates to these must be mirrored in sql
 public static class ArtistShopLimits
 {
-    public const int ArtworkImageFileNameMaximumLength = 260;
-    public const int ArtworkNameMaximumLength = 200;
+    public const int WorkImageFileNameMaximumLength = 260;
+    public const int WorkNameMaximumLength = 200;
     public const int SlugMaximumLength = 200;
     public const int BaseSlugMaximumLength = SlugMaximumLength - 10;
 
@@ -22,11 +22,14 @@ public static class ArtistShopLimits
     public const int VocabularyNameMaximumLength = 100;
     public const int VocabularyTermNameMaximumLength = 100;
 
-    public const int ArtworkTypeNameMaximumLength = 50;
+    public const int WorkTypeNameMaximumLength = 50;
 
-    public const int SeriesNameMaximumLength = 256;
+    public const int CollectionNameMaximumLength = 256;
 
-    public const int ArtworkListPageSize = 25;
+    // wording's word columns
+    public const int WordingWordMaximumLength = 40;
+
+    public const int WorkListPageSize = 25;
 
     public const int BlogPageSize = 10;
 

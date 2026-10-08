@@ -39,10 +39,10 @@
             }
           </DataTableCell>
           <DataTableCell>
-            @foreach (var (index, type) in change.ExistingArtworkTypes.Concat(change.AddedArtworkTypes).Index())
+            @foreach (var (index, type) in change.ExistingWorkTypes.Concat(change.AddedWorkTypes).Index())
             {
               <span>@(index > 0 ? ", " : "")@type.Name.Value</span>
-              @if (change.AddedArtworkTypes.Contains(type))
+              @if (change.AddedWorkTypes.Contains(type))
               {
                 <span class="text-green-600"> (new)</span>
               }

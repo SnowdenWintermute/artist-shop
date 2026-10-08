@@ -1,4 +1,4 @@
-// What the artwork embed and the uploaded image embed share: the caption, size and layout
+// What the work embed and the uploaded image embed share: the caption, size and layout
 // controls ImageEmbedControls renders into their toolbars, and the widths their sizes are shown at
 import { readToolbarSetting, showPressed } from "./PostEmbedToolbar.razor.js";
 

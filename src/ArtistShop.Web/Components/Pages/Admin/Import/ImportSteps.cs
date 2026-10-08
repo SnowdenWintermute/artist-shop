@@ -1,35 +1,41 @@
 namespace ArtistShop.Web.Components.Pages.Admin.Import;
 
-// Title is the step's tab, like "1. Artwork types". Action reads "Import vocabularies" for the buttons
-// "Import vocabularies first" and "Import vocabularies next"
-public record ImportStepPage(string Title, string Href, string Action);
+using ArtistShop.Web.Domain.Website;
+
+// Title is the step's tab, like "1. Work types". Action reads "Import vocabularies" for the buttons
+// "Import vocabularies first" and "Import vocabularies next". Both in the website's own words
+public record ImportStepPage(Func<SiteWording, string> Title, string Href, Func<SiteWording, string> Action);
 
 // the step-by-step imports, in the order they must run
 public static class ImportSteps
 {
-    public static readonly ImportStepPage ArtworkTypes = new(
-        "1. Artwork types",
-        PageUrls.ArtworkTypeImport,
-        "Import artwork types"
+    public static readonly ImportStepPage WorkTypes = new(
+        wording => $"1. {wording.Work.SingularHeading} types",
+        PageUrls.WorkTypeImport,
+        wording => $"Import {wording.Work.SingularInSentence} types"
     );
 
     public static readonly ImportStepPage Vocabularies = new(
-        "2. Vocabularies",
+        _ => "2. Vocabularies",
         PageUrls.VocabularyImport,
-        "Import vocabularies"
+        _ => "Import vocabularies"
     );
 
-    public static readonly ImportStepPage Artworks = new("3. Artworks", PageUrls.ArtworkImport, "Import artworks");
+    public static readonly ImportStepPage Works = new(
+        wording => $"3. {wording.Work.PluralHeading}",
+        PageUrls.WorkImport,
+        wording => $"Import {wording.Work.PluralInSentence}"
+    );
 
     public static readonly ImportStepPage Images = new(
-        "4. Images",
-        PageUrls.ArtworkBulkImageUpload(typeId: null),
-        "Upload images"
+        _ => "4. Images",
+        PageUrls.WorkBulkImageUpload(typeId: null),
+        _ => "Upload images"
     );
 
-    public static readonly ImportStepPage Posts = new("5. Posts", PageUrls.PostImport, "Import posts");
+    public static readonly ImportStepPage Posts = new(_ => "5. Posts", PageUrls.PostImport, _ => "Import posts");
 
-    public static readonly ImportStepPage[] All = [ArtworkTypes, Vocabularies, Artworks, Images, Posts];
+    public static readonly ImportStepPage[] All = [WorkTypes, Vocabularies, Works, Images, Posts];
 
     // null for the first step
     public static ImportStepPage? Previous(ImportStepPage step) => All.ElementAtOrDefault(Array.IndexOf(All, step) - 1);

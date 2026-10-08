@@ -1,0 +1,14 @@
+@code {
+  // each as the website prints it, from the saved wording
+  [Parameter, EditorRequired]
+  public IReadOnlyList<string> Examples { get; set; } = default!;
+}
+
+<p class="mb-4 text-sm text-gray-500">
+  Your website shows:
+  @for (var index = 0; index < Examples.Count; index++)
+  {
+    @(index > 0 ? ", " : "")
+    <span class="text-gray-800">“@Examples[index]”</span>
+  }
+</p>

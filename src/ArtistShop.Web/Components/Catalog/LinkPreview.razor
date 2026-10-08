@@ -10,11 +10,11 @@
   public string? Description { get; set; }
 
   [Parameter]
-  public ArtworkImage? Image { get; set; }
+  public WorkImage? Image { get; set; }
 
   // fetched by another company's server, so the address must be complete; WebP because not
   // every site that reads these tags can read AVIF
-  private string ImageAddress(ArtworkImage image) =>
+  private string ImageAddress(WorkImage image) =>
     NavigationManager.ToAbsoluteUri(
       ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.LinkPreviewWidth, ImageVariantFormat.Webp)
     ).ToString();

@@ -1,0 +1,83 @@
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Utilities
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // List, not IReadOnlyList: an island parameter is rebuilt from its runtime type, and a declared List
+  // can't be a compiler-generated collection type that JSON can't create
+  [Parameter, EditorRequired]
+  public List<CollectionWithCover> Collections { get; set; } = default!;
+
+  private List<CollectionWithCover> _collections = [];
+  private bool _isSaving;
+  private bool _changedElsewhere;
+
+  protected override void OnParametersSet() => _collections = [.. Collections];
+
+  private async Task MoveAsync((int OldIndex, int NewIndex) move)
+  {
+    // a second drag while the first is saving would send an order built from the old list
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      var reordered = _collections.Moved(move);
+
+      await CollectionRepository.ReorderAsync([.. reordered.Select(item => item.Id)]);
+      _collections = reordered;
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+
+    NavigationManager.Refresh();
+  }
+}
+
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-red-600">@Wording.Collection.PluralHeading were added or deleted somewhere else, so the list has
+      been reloaded.</p>
+  }
+
+  @if (_collections.Count == 0)
+  {
+    <p>No @Wording.Collection.PluralInSentence yet.</p>
+  }
+  else
+  {
+    <p class="mb-2 text-sm text-gray-500">Drag to set the order visitors see.</p>
+
+    <SortableList TItem="CollectionWithCover" Items="_collections" AriaLabel="@($"{Wording.Collection.SingularHeading} order")" OnMove="MoveAsync">
+      <RowContent Context="collection">
+        <a href="@PageUrls.EditCollection(collection.Id)" class="flex grow items-center gap-4">
+          <WorkThumbnail Image="collection.Cover" Class="size-16" />
+
+          <span class="grow">@collection.Name.Value</span>
+          <span>@Wording.Work.CountOf(collection.WorkCount)</span>
+        </a>
+      </RowContent>
+      <RowActions Context="collection" />
+    </SortableList>
+  }
+</DisabledUntilInteractive>

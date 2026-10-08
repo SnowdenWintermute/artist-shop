@@ -13,17 +13,17 @@ public record ExportedPost(Post Post, PostDocument Document);
 // images and the post.json the post import reads
 public static class PostExportArchive
 {
-    // An artwork's picture is a web copy about this wide: sharp at twice the medium embed, the
+    // A work's picture is a web copy about this wide: sharp at twice the medium embed, the
     // widest a post shows it
     public const int WebCopyWidth = 800;
 
     // A post's image files, in the order the post shows them, named image-1, image-2 and so on.
-    // An image the post shows twice is one file. ArtworkImages holds every artwork embed's image by
+    // An image the post shows twice is one file. WorkImages holds every work embed's image by
     // storage key, as the post page loads them
     public static async Task WriteAsync(
         Stream destination,
         IReadOnlyList<ExportedPost> posts,
-        IReadOnlyDictionary<string, ArtworkImageWithArtwork> artworkImages,
+        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
         string folderName,
         string host,
         string siteOrigin,
@@ -32,13 +32,13 @@ public static class PostExportArchive
     )
     {
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
-        await AddAsync(zip, posts, artworkImages, folderName, host, siteOrigin, imageStorage, cancellationToken);
+        await AddAsync(zip, posts, workImages, folderName, host, siteOrigin, imageStorage, cancellationToken);
     }
 
     public static async Task AddAsync(
         ZipArchive zip,
         IReadOnlyList<ExportedPost> posts,
-        IReadOnlyDictionary<string, ArtworkImageWithArtwork> artworkImages,
+        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
         string folderName,
         string host,
         string siteOrigin,
@@ -58,7 +58,7 @@ public static class PostExportArchive
 
             foreach (var block in document.Blocks)
             {
-                if (ImageOf(block, artworkImages) is not { } source)
+                if (ImageOf(block, workImages) is not { } source)
                 {
                     continue;
                 }
@@ -92,7 +92,7 @@ public static class PostExportArchive
                     ? await AddOriginalAsync(zip, postFolder, name, imageStorage.OriginalPath(source.StorageKey), cancellationToken)
                     : null;
 
-                // an artwork's original is in the image download, not here, so post.json names it by its hash
+                // a work's original is in the image download, not here, so post.json names it by its hash
                 if (!source.KeepsOriginal)
                 {
                     sha256ByStorageKey[source.StorageKey] = await Sha256Async(imageStorage.OriginalPath(source.StorageKey), cancellationToken);
@@ -113,7 +113,7 @@ public static class PostExportArchive
             await ExportZip.AddTextAsync(
                 zip,
                 $"{postFolder}/{PostExportJson.FileName}",
-                PostExportJson.Write(post, document, images, artworkImages, sha256ByStorageKey),
+                PostExportJson.Write(post, document, images, workImages, sha256ByStorageKey),
                 cancellationToken
             );
         }
@@ -152,7 +152,7 @@ public static class PostExportArchive
           folder and can be copied into another blog.
           - An image uploaded into the post also has its original, such as image-2-original.jpg, which
             clicking the image opens. It isn't in any other download.
-          - An artwork's picture is a smaller copy, up to {WebCopyWidth} pixels wide. Its original is
+          - A work's picture is a smaller copy, up to {WebCopyWidth} pixels wide. Its original is
             in the image download on the Export page.
           - Videos are links to where they're hosted.
           - Links to pages of the website point to the website.
@@ -162,7 +162,7 @@ public static class PostExportArchive
           In each post's folder, the post as the post import reads it. Don't change it by hand.
 
         Importing into another website here
-          Import the catalog and images first, so the posts' artwork pictures link to their artworks
+          Import the catalog and images first, so the posts' work pictures link to their works
           again. Then choose this whole folder, unzipped, under Import > Posts. A post whose title is
           already there is skipped, so running it again only adds what's missing.
         """;
@@ -178,12 +178,12 @@ public static class PostExportArchive
     // KeepsOriginal is true for an image uploaded into the post
     private record ImageSource(string StorageKey, int Width, int Height, string Alt, bool KeepsOriginal);
 
-    // null for a block that isn't an image, and for an artwork embed the post page leaves out
-    private static ImageSource? ImageOf(PostBlock block, IReadOnlyDictionary<string, ArtworkImageWithArtwork> artworkImages) =>
+    // null for a block that isn't an image, and for a work embed the post page leaves out
+    private static ImageSource? ImageOf(PostBlock block, IReadOnlyDictionary<string, WorkImageWithWork> workImages) =>
         block switch
         {
-            ArtworkEmbedBlock embed when ArtworkEmbeds.SourceOf(embed, artworkImages) is { } source =>
-                new ImageSource(source.Image.StorageKey, source.Image.Width, source.Image.Height, source.Artwork.Name.Value, KeepsOriginal: false),
+            WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, workImages) is { } source =>
+                new ImageSource(source.Image.StorageKey, source.Image.Width, source.Image.Height, source.Work.Name.Value, KeepsOriginal: false),
             PostImageEmbedBlock embed => new ImageSource(embed.StorageKey, embed.Width, embed.Height, embed.Alt, KeepsOriginal: true),
             _ => null,
         };

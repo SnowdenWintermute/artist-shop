@@ -5,29 +5,29 @@ namespace ArtistShop.Web.Tests.Exports;
 
 public sealed class ImageExportPlanTests
 {
-    private static readonly ArtworkType Painting = new(new ArtworkTypeId(1), new ArtworkTypeName("Painting"));
-    private static readonly ArtworkType Sculpture = new(new ArtworkTypeId(2), new ArtworkTypeName("Sculpture"));
-    private static readonly Series Gardens = new(new SeriesId(21), new SeriesName("Gardens"), new SeriesSlug("gardens"));
-    private static readonly Series Coast = new(new SeriesId(22), new SeriesName("Coast"), new SeriesSlug("coast"));
+    private static readonly WorkType Painting = new(new WorkTypeId(1), new WorkTypeName("Painting"));
+    private static readonly WorkType Sculpture = new(new WorkTypeId(2), new WorkTypeName("Sculpture"));
+    private static readonly Collection Gardens = new(new CollectionId(21), new CollectionName("Gardens"), new CollectionSlug("gardens"));
+    private static readonly Collection Coast = new(new CollectionId(22), new CollectionName("Coast"), new CollectionSlug("coast"));
 
-    private static Artwork MakeArtwork(
+    private static Work MakeWork(
         string name,
         int imageCount = 1,
-        ArtworkType? type = null,
-        IReadOnlyList<Series>? series = null,
+        WorkType? type = null,
+        IReadOnlyList<Collection>? collections = null,
         string? slug = null
     ) =>
         new(
-            new ArtworkId(Random.Shared.Next()),
+            new WorkId(Random.Shared.Next()),
             type ?? Painting,
-            new ArtworkName(name),
-            slug is null ? ArtworkSlug.FromName(name) : new ArtworkSlug(slug),
+            new WorkName(name),
+            slug is null ? WorkSlug.FromName(name) : new WorkSlug(slug),
             description: null,
             dateCreated: null,
             dimensions: null,
             duration: null,
-            Enumerable.Range(0, imageCount).Select(_ => new ArtworkImage(Guid.NewGuid().ToString("N"), null, 10, 10, null)),
-            series ?? [],
+            Enumerable.Range(0, imageCount).Select(_ => new WorkImage(Guid.NewGuid().ToString("N"), null, 10, 10, null)),
+            collections ?? [],
             vocabularyTerms: [],
             products: []
         );
@@ -35,21 +35,21 @@ public sealed class ImageExportPlanTests
     private static List<string> Paths(ImageExportPart part) => [.. part.Entries.Select(entry => entry.PathWithoutExtension)];
 
     [Fact]
-    public void OnePartPerTypeAndFirstSeriesWithNoSeriesLast()
+    public void OnePartPerTypeAndFirstCollectionWithNoCollectionLast()
     {
         var parts = ImageExportPlan.Parts(
             [
-                MakeArtwork("Dawn", type: Sculpture),
-                MakeArtwork("Rose", series: [Gardens, Coast]),
-                MakeArtwork("Wave", series: [Coast]),
-                MakeArtwork("Alone"),
-                MakeArtwork("No images", imageCount: 0),
+                MakeWork("Dawn", type: Sculpture),
+                MakeWork("Rose", collections: [Gardens, Coast]),
+                MakeWork("Wave", collections: [Coast]),
+                MakeWork("Alone"),
+                MakeWork("No images", imageCount: 0),
             ]
         );
 
         Assert.Equal(
             [("Painting", "Coast"), ("Painting", "Gardens"), ("Painting", null), ("Sculpture", null)],
-            parts.Select(part => (part.Type.Name.Value, part.Series?.Name.Value))
+            parts.Select(part => (part.Type.Name.Value, part.Collection?.Name.Value))
         );
         Assert.Equal(["Painting/Gardens/Rose"], Paths(parts[1]));
         Assert.Equal(["Painting/Alone"], Paths(parts[2]));
@@ -58,38 +58,38 @@ public sealed class ImageExportPlanTests
     [Fact]
     public void ExtraImagesAreNumberedInOrder()
     {
-        var artwork = MakeArtwork("Dawn", imageCount: 3);
+        var work = MakeWork("Dawn", imageCount: 3);
 
-        var part = Assert.Single(ImageExportPlan.Parts([artwork]));
+        var part = Assert.Single(ImageExportPlan.Parts([work]));
 
         Assert.Equal(["Painting/Dawn", "Painting/Dawn (2)", "Painting/Dawn (3)"], Paths(part));
-        Assert.Equal(artwork.Images, part.Entries.Select(entry => entry.Image));
+        Assert.Equal(work.Images, part.Entries.Select(entry => entry.Image));
     }
 
     [Fact]
     public void TitlesSharedInAFolderIgnoringCaseUseSlugs()
     {
         var part = Assert.Single(
-            ImageExportPlan.Parts([MakeArtwork("Dawn", slug: "dawn"), MakeArtwork("dawn", slug: "dawn-2"), MakeArtwork("Dusk")])
+            ImageExportPlan.Parts([MakeWork("Dawn", slug: "dawn"), MakeWork("dawn", slug: "dawn-2"), MakeWork("Dusk")])
         );
 
         Assert.Equal(["Painting/dawn", "Painting/dawn-2", "Painting/Dusk"], Paths(part));
     }
 
     [Fact]
-    public void ATitleMatchingAnotherArtworksExtraImageUsesSlugs()
+    public void ATitleMatchingAnotherWorksExtraImageUsesSlugs()
     {
         var part = Assert.Single(
-            ImageExportPlan.Parts([MakeArtwork("Dawn", imageCount: 2), MakeArtwork("Dawn (2)", slug: "dawn-2")])
+            ImageExportPlan.Parts([MakeWork("Dawn", imageCount: 2), MakeWork("Dawn (2)", slug: "dawn-2")])
         );
 
         Assert.Equal(["Painting/dawn", "Painting/dawn (2)", "Painting/dawn-2"], Paths(part));
     }
 
     [Fact]
-    public void TheSameTitleInAnotherSeriesKeepsIt()
+    public void TheSameTitleInAnotherCollectionKeepsIt()
     {
-        var parts = ImageExportPlan.Parts([MakeArtwork("Dawn", series: [Gardens]), MakeArtwork("Dawn", series: [Coast], slug: "dawn-2")]);
+        var parts = ImageExportPlan.Parts([MakeWork("Dawn", collections: [Gardens]), MakeWork("Dawn", collections: [Coast], slug: "dawn-2")]);
 
         Assert.Equal(["Painting/Coast/Dawn", "Painting/Gardens/Dawn"], parts.SelectMany(Paths));
     }
@@ -98,7 +98,7 @@ public sealed class ImageExportPlanTests
     public void NamesThatCantBeFileNamesUseSlugs()
     {
         var parts = ImageExportPlan.Parts(
-            [MakeArtwork("Yes/No", series: [new Series(new SeriesId(23), new SeriesName("A: B"), new SeriesSlug("a-b"))])]
+            [MakeWork("Yes/No", collections: [new Collection(new CollectionId(23), new CollectionName("A: B"), new CollectionSlug("a-b"))])]
         );
 
         Assert.Equal(["Painting/a-b/yes-no"], parts.SelectMany(Paths));

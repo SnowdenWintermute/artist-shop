@@ -5,34 +5,37 @@
 @using ArtistShop.Web.Utilities
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public WebsiteImportImagesPlan Images { get; set; } = default!;
 
-  private int AlreadyThereCount => Images.Artworks.Sum(artwork => artwork.AlreadyThereCount);
+  private int AlreadyThereCount => Images.Works.Sum(work => work.AlreadyThereCount);
 }
 
 <p class="mb-4">
   @CountText.Of(Images.ToAddCount, "image") to add, @AlreadyThereCount already here,
-  @CountText.Of(Images.WithoutArtwork.Count + Images.MissingFiles.Count + Images.UnlistedFiles.Count, "file") left out.
+  @CountText.Of(Images.WithoutWork.Count + Images.MissingFiles.Count + Images.UnlistedFiles.Count, "file") left out.
 </p>
 
 <ImportProblems Errors="Images.Errors" />
 
-@if (Images.Artworks.Any(artwork => artwork.ToAdd.Count > 0))
+@if (Images.Works.Any(work => work.ToAdd.Count > 0))
 {
   <div class="mb-6">
-    <DataTable Items="@(Images.Artworks.Where(artwork => artwork.ToAdd.Count > 0).ToList())"
-               Headings="@(["Artwork type", "Artwork", "Images to add"])" Class="text-sm" StickyHeadings>
-      <Row Context="artwork">
-        <DataTableCell>@artwork.TypeName.Value</DataTableCell>
-        <DataTableCell>@artwork.Title.Value</DataTableCell>
-        <DataTableCell>@artwork.ToAdd.Count</DataTableCell>
+    <DataTable Items="@(Images.Works.Where(work => work.ToAdd.Count > 0).ToList())"
+               Headings="@([$"{Wording.Work.SingularHeading} type", Wording.Work.SingularHeading, "Images to add"])" Class="text-sm" StickyHeadings>
+      <Row Context="work">
+        <DataTableCell>@work.TypeName.Value</DataTableCell>
+        <DataTableCell>@work.Title.Value</DataTableCell>
+        <DataTableCell>@work.ToAdd.Count</DataTableCell>
       </Row>
     </DataTable>
   </div>
 }
 
-<ReportGroup Heading="Left out, their artworks won't be on this website" Items="Images.WithoutArtwork" Context="path">
+<ReportGroup Heading="@($"Left out, their {Wording.Work.PluralInSentence} won't be on this website")" Items="Images.WithoutWork" Context="path">
   <ItemContent>@path</ItemContent>
 </ReportGroup>
 <ReportGroup Heading="Left out, listed in images.csv but not in the folder" Items="Images.MissingFiles" Context="path">

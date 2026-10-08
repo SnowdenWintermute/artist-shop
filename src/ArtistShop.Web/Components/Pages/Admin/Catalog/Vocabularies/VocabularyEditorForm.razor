@@ -7,8 +7,11 @@
 @inject NavigationManager NavigationManager
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
-  public IReadOnlyList<ArtworkType> ArtworkTypes { get; set; } = default!;
+  public IReadOnlyList<WorkType> WorkTypes { get; set; } = default!;
 
   // null when creating
   [Parameter]
@@ -35,18 +38,18 @@
     }
   }
 
-  private List<ArtworkType> UnselectedArtworkTypesInUse =>
+  private List<WorkType> UnselectedWorkTypesInUse =>
     Loaded is null
       ? []
-      : [.. ArtworkTypes.Where(artworkType =>
-          _form.WasUnselected(artworkType.Id) && Loaded.Usage.ArtworkCountFor(artworkType.Id) > 0)];
+      : [.. WorkTypes.Where(workType =>
+          _form.WasUnselected(workType.Id) && Loaded.Usage.WorkCountFor(workType.Id) > 0)];
 
-  private IReadOnlyList<ArtworkName> ArtworksLosingTermsToMutuallyExclusive =>
-    Loaded is not null && _form.BecameMutuallyExclusive ? Loaded.ArtworksWithSeveralTerms : [];
+  private IReadOnlyList<WorkName> WorksLosingTermsToMutuallyExclusive =>
+    Loaded is not null && _form.BecameMutuallyExclusive ? Loaded.WorksWithSeveralTerms : [];
 
   private async Task HandleValidSubmit()
   {
-    if (UnselectedArtworkTypesInUse.Count > 0 || ArtworksLosingTermsToMutuallyExclusive.Count > 0)
+    if (UnselectedWorkTypesInUse.Count > 0 || WorksLosingTermsToMutuallyExclusive.Count > 0)
     {
       _removeTermsDialogOpen = true;
       return;
@@ -65,12 +68,12 @@
 
       if (Loaded is null)
       {
-        var id = await VocabularyRepository.AddAsync(name, _form.IsMutuallyExclusive, _form.ArtworkTypeIds);
+        var id = await VocabularyRepository.AddAsync(name, _form.IsMutuallyExclusive, _form.WorkTypeIds);
         NavigationManager.NavigateTo(PageUrls.EditVocabulary(id));
         return;
       }
 
-      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.IsMutuallyExclusive, _form.ArtworkTypeIds);
+      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.IsMutuallyExclusive, _form.WorkTypeIds);
       _saveCount++;
       NavigationManager.Refresh();
     }
@@ -111,10 +114,10 @@
     <DataAnnotationsValidator />
 
     <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
-    <ArtworkTypeCheckboxes ArtworkTypes="ArtworkTypes" Selected="_form.ArtworkTypeIds"
-                           OnToggle="_form.ToggleArtworkType" />
+    <WorkTypeCheckboxes WorkTypes="WorkTypes" Selected="_form.WorkTypeIds"
+                           OnToggle="_form.ToggleWorkType" />
     <CheckboxField Label="Mutually exclusive" @bind-Value="_form.IsMutuallyExclusive"
-                   Hint="An artwork may only choose one of these terms." />
+                   Hint="@($"Each {Wording.Work.SingularInSentence} may only have one of these terms.")" />
 
     @if (_saveCount > 0)
     {
@@ -139,9 +142,9 @@
 
   @if (Loaded is { } loaded)
   {
-    <RemoveArtworkTermsDialog @bind-Open="_removeTermsDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                              UnselectedArtworkTypes="UnselectedArtworkTypesInUse" Usage="loaded.Usage"
-                              ArtworksWithSeveralTerms="ArtworksLosingTermsToMutuallyExclusive" OnConfirm="SaveAsync" IsWorking="_isSaving" />
+    <RemoveWorkTermsDialog @bind-Open="_removeTermsDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+                              UnselectedWorkTypes="UnselectedWorkTypesInUse" Usage="loaded.Usage"
+                              WorksWithSeveralTerms="WorksLosingTermsToMutuallyExclusive" OnConfirm="SaveAsync" IsWorking="_isSaving" />
 
     <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
                             OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />

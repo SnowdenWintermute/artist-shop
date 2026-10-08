@@ -1,0 +1,34 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public bool Open { get; set; }
+
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkFieldDefinition> SwitchedOffFields { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public WorkTypeWorkCounts WorkCounts { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback OnConfirm { get; set; }
+
+  [Parameter]
+  public bool IsWorking { get; set; }
+
+  private string ClearedValues =>
+    string.Join(", ", SwitchedOffFields.Select(definition =>
+      $"{definition.Name} on {Wording.Work.CountOf(WorkCounts.WithValueIn(definition.Field))}"));
+}
+
+<ConfirmDialog Open="Open" OpenChanged="OpenChanged" Title="@($"Clear values from {Wording.Work.PluralInSentence}?")"
+               ConfirmLabel="Save and clear" OnConfirm="OnConfirm" IsWorking="IsWorking">
+  Switching these fields off clears @ClearedValues (count as of page load).
+</ConfirmDialog>

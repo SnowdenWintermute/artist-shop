@@ -8,6 +8,11 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
 <PageTitle>Import into your website</PageTitle>
 
   <h1 class="mb-4 text-xl">Import into your website</h1>
@@ -28,8 +33,8 @@
 
   <Hint Type="HintType.StepByStepImport">
     <p class="mb-4">If you need finer control over imports you can do them one step at a time. If you are starting a new
-      site and you already have a structured spreadsheet of artwork data and images that match the names of those
-      artworks you may wish to use
+      site and you already have a structured spreadsheet of @Wording.Work.SingularInSentence data and images that match
+      the names of those @Wording.Work.PluralInSentence you may wish to use
       steps 3 and 4.</p>
       <p class="">
         Some steps depend on previous steps.
@@ -38,30 +43,29 @@
     </Hint>
 
     <div class="flex flex-col gap-6">
-      <ImportStep Title="@ImportSteps.ArtworkTypes.Title" Href="@ImportSteps.ArtworkTypes.Href" Icon="csv" ButtonLabel="Import">
-        Each artwork type and its fields, from <span class="font-bold">@CatalogExportArchive.ArtworkTypesFileName</span>
+      <ImportStep Title="@ImportSteps.WorkTypes.Title(Wording)" Href="@ImportSteps.WorkTypes.Href" Icon="csv" ButtonLabel="Import">
+        Each @Wording.Work.SingularInSentence type and its fields, from <span class="font-bold" translate="no">@CatalogExportArchive.WorkTypesFileName</span>
         in the catalog
         download.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.Vocabularies.Title" Href="@ImportSteps.Vocabularies.Href" Icon="csv" ButtonLabel="Import">
-        Each vocabulary and its terms, from <span class="font-bold">@CatalogExportArchive.VocabulariesFileName</span>, and
-        the artwork
-        types they apply to.
+      <ImportStep Title="@ImportSteps.Vocabularies.Title(Wording)" Href="@ImportSteps.Vocabularies.Href" Icon="csv" ButtonLabel="Import">
+        Each vocabulary and its terms, from <span class="font-bold" translate="no">@CatalogExportArchive.VocabulariesFileName</span>, and
+        the @Wording.Work.SingularInSentence types they apply to.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.Artworks.Title" Href="@ImportSteps.Artworks.Href" Icon="csv" ButtonLabel="Import">
-        Bring your own artwork data in a spreadsheet. If using data exported from another PictureCord site, this is each
-        file in the catalog download's <span class="font-bold">@CatalogExportArchive.ArtworksFolder</span> folder.
-        Every artwork type gets its own .csv file.
+      <ImportStep Title="@ImportSteps.Works.Title(Wording)" Href="@ImportSteps.Works.Href" Icon="csv" ButtonLabel="Import">
+        Bring your own @Wording.Work.SingularInSentence data in a spreadsheet. If using data exported from another PictureCord site, this is each
+        file in the catalog download's <span class="font-bold" translate="no">@CatalogExportArchive.WorksFolder</span> folder.
+        Every @Wording.Work.SingularInSentence type gets its own .csv file.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.Images.Title" Href="@ImportSteps.Images.Href" Icon="folder-open"
+      <ImportStep Title="@ImportSteps.Images.Title(Wording)" Href="@ImportSteps.Images.Href" Icon="folder-open"
                   ButtonLabel="Upload">
-        Image files whose names match existing artworks in the catalog.
+        Image files whose names match existing @Wording.Work.PluralInSentence in the catalog.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.Posts.Title" Href="@ImportSteps.Posts.Href" Icon="folder-open" ButtonLabel="Import">
-        Upload the blog posts last because they may link to artworks uploaded in previous steps.
+      <ImportStep Title="@ImportSteps.Posts.Title(Wording)" Href="@ImportSteps.Posts.Href" Icon="folder-open" ButtonLabel="Import">
+        Upload the blog posts last because they may link to @Wording.Work.PluralInSentence uploaded in previous steps.
       </ImportStep>
     </div>

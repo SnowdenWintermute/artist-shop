@@ -1,0 +1,14 @@
+@* for a page that adds or lists works on a site with no work types yet *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+<p class="@Class">
+  Before adding @Wording.Work.PluralInSentence, <a href="@PageUrls.NewWorkType" class="underline">create the first
+    @Wording.Work.SingularInSentence type</a>.
+</p>

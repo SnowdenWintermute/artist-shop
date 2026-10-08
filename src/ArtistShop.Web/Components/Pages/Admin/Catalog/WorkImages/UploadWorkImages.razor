@@ -1,0 +1,51 @@
+@page "/admin/catalog/works/images"
+@layout ImportLayout
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
+@using ArtistShop.Web.Components.Pages.Admin.Import
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [SupplyParameterFromQuery(Name = "type")]
+  private int? TypeIdValue { get; set; }
+}
+
+<PageTitle>Upload @Wording.Work.SingularInSentence images</PageTitle>
+
+<h1 class="mb-4 text-xl">Upload images for @Wording.Work.PluralInSentence you have already added</h1>
+
+<Hint Type="HintType.UploadWorkImages" Variant="HintVariant.Collapses">
+  <p class="mb-4">
+    Use this feature if you have already <a class="underline" href="@PageUrls.WorkImport">uploaded
+    @Wording.Work.PluralInSentence from a spreadsheet.</a>
+    If you don't have such a
+    spreadsheet, <a class="underline" href="@PageUrls.AddWorksFromImages">add @Wording.Work.PluralInSentence from
+    images directly</a>
+  </p>
+  <p class="mb-4">
+    Each image is matched to the @Wording.Work.SingularInSentence named the same as the image's file name. File extensions (like
+    .jpg, .png) are not included.
+  </p>
+  <p class="mb-4">
+    Images named like "Dawn (2).png" will match the @Wording.Work.SingularInSentence named "Dawn" and add a second (or
+    third, etc)
+    image to it.
+  </p>
+  <p>
+    You can upload a folder of folders of images, but images beyond two levels deep will be ignored.
+  </p>
+</Hint>
+
+@* the island posts each image to an endpoint that checks the antiforgery token, and there is
+       no form on this page to carry one *@
+<AntiforgeryToken />
+
+<BulkImageUpload InitialWorkTypeId="TypeIdValue" />
+
+<ImportStepButtons Step="ImportSteps.Images" />

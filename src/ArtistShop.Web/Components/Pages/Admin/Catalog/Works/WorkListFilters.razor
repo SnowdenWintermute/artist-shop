@@ -1,0 +1,134 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTypes
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public WorkListFilter Filter { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkType> Types { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public IReadOnlyList<VocabularyWithTerms> Vocabularies { get; set; } = default!;
+  // in the artist's order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Collection> Collections { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string ClearFiltersHref { get; set; } = default!;
+  // a name can repeat, like one per checked work
+  [Parameter]
+  public IReadOnlyList<(string Name, string Value)>? KeptFields { get; set; }
+  // a select of one type in place of the type checkboxes, for the work table
+  [Parameter]
+  public bool SingleType { get; set; }
+
+  // Hidden when clearing would change nothing. Compared as filters, not addresses: the form sends
+  // its empty fields too, so a list back at the cleared filters never has the same address. The
+  // picker's cleared list keeps its images filter
+  private string ClearFiltersClass =>
+    Filter.HasSameFiltersAs(WorkListQuery.ReadAddress(ClearFiltersHref)) ? "invisible" : "underline";
+
+  // the artist's order inside a collection can only sort a list that is one collection's worth
+  private IEnumerable<WorkListSort> SortOptions =>
+    Enum.GetValues<WorkListSort>()
+      .Where(sort => sort != WorkListSort.CollectionOrder || Filter.Collection is WorkCollectionFilter.InCollection);
+
+  private List<(int Value, string Label)> TypeOptions =>
+    [.. Types.Select(type => (type.Id.Value, type.Name.Value))];
+
+  private HashSet<int> SelectedTypeIds => [.. Filter.WorkTypeIds.Select(id => id.Value)];
+
+  private static List<(int Value, string Label)> TermOptions(VocabularyWithTerms vocabulary) =>
+    [.. vocabulary.Terms.Select(term => (term.Id.Value, term.Name.Value))];
+
+  private HashSet<int> SelectedTermIds => [.. Filter.VocabularyTermIds.Select(id => id.Value)];
+}
+
+@* a GET form, so submitting it writes the filters into the address bar. It carries no page
+   number, which is what sends a changed filter back to the first page.
+   data-enhance: blazor builds the address from the fields and patches the page in, instead of
+   the browser reloading it, which is what put the address in the tab's title mid-submit *@
+<form method="get" data-enhance class="mb-4 border p-4">
+  @foreach (var (name, value) in KeptFields ?? [])
+  {
+    <input type="hidden" name="@name" value="@value" />
+  }
+
+  <SubmitOnChange>
+    <div class="mb-3 flex flex-wrap items-end gap-4">
+      @if (SingleType)
+      {
+        <label>
+          <span class="artist-shop-field-label">@Wording.Work.SingularHeading type</span>
+          @* the browser has already settled on one type, so the address names it *@
+          <RememberedWorkTypeSelect Name="@WorkListQuery.TypeKey" WorkTypes="Types"
+                                       Value="Filter.WorkTypeIds.FirstOrDefault()" />
+        </label>
+      }
+
+      <label>
+        <span class="artist-shop-field-label">Search titles</span>
+        <input type="search" name="@WorkListQuery.SearchKey" value="@Filter.SearchText"
+               class="artist-shop-field-input" />
+      </label>
+
+      <label>
+        <span class="artist-shop-field-label">@Wording.Collection.SingularHeading</span>
+        <select name="@WorkListQuery.CollectionKey" class="artist-shop-field-input">
+          <option value="">Any @Wording.Collection.SingularInSentence</option>
+          <option value="@WorkListQuery.NoCollectionValue" selected="@(Filter.Collection is WorkCollectionFilter.InNoCollection)">
+            No @Wording.Collection.SingularInSentence</option>
+            @foreach (var collection in Collections)
+            {
+              <option value="@collection.Id.Value" selected="@(Filter.Collection == new WorkCollectionFilter.InCollection(collection.Id))">
+                @collection.Name.Value</option>
+              }
+            </select>
+          </label>
+
+          <YesNoSelect Label="Images" Name="@WorkListQuery.ImagesKey" Value="Filter.HasImages"
+                       EitherLabel="With or without" YesLabel="With images" NoLabel="Without images" />
+
+          <YesNoSelect Label="For sale" Name="@WorkListQuery.SaleKey" Value="Filter.IsForSale"
+                       EitherLabel="For sale or not" YesLabel="For sale" NoLabel="Not for sale" />
+
+          <label>
+            <span class="artist-shop-field-label">Sort by</span>
+            <select name="@WorkListQuery.SortKey" class="artist-shop-field-input">
+              @foreach (var sort in SortOptions)
+              {
+                <option value="@WorkListQuery.Value(sort)" selected="@(Filter.Sort == sort)">
+                  @WorkListQuery.Label(sort, Wording)
+                </option>
+              }
+            </select>
+          </label>
+        </div>
+
+        @if (!SingleType && Types.Count > 1)
+        {
+          <CheckboxGroup Legend="@($"{Wording.Work.SingularHeading} type")" Name="@WorkListQuery.TypeKey" Options="TypeOptions"
+                         SelectedValues="SelectedTypeIds" />
+        }
+
+        @* several terms from one vocabulary widen the search, while a term from a second
+       vocabulary narrows it: a work has to match one term in each *@
+        @foreach (var vocabulary in Vocabularies.Where(vocabulary => vocabulary.Terms.Count > 0))
+        {
+          <CheckboxGroup @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="@WorkListQuery.TermKey"
+                         Options="TermOptions(vocabulary)" SelectedValues="SelectedTermIds" />
+        }
+
+        <div class="flex items-center gap-4">
+          @* app.css hides this unless the browser runs no scripts, which is the only case that
+         can't submit the filter bar by itself *@
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Apply filters</ButtonBasic>
+
+          <a href="@ClearFiltersHref" class="@ClearFiltersClass">Clear filters</a>
+        </div>
+      </SubmitOnChange>
+    </form>

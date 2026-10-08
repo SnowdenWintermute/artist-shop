@@ -1,12 +1,18 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ArtistShop.Web.Domain;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Exports;
 
 namespace ArtistShop.Web.Imports;
 
-// website.json from Download everything: the list separator, and each artwork file's type
-public record WebsiteImportManifest(char ListSeparator, IReadOnlyList<(string FileName, string ArtworkType)> ArtworkFiles)
+// website.json from Download everything: the list separator, each work file's type, and the wording
+public record WebsiteImportManifest(
+    char ListSeparator,
+    IReadOnlyList<(string FileName, string WorkType)> WorkFiles,
+    SiteWording Wording
+)
 {
     public static bool TryRead(string? json, [NotNullWhen(true)] out WebsiteImportManifest? manifest, out string problem)
     {
@@ -43,30 +49,61 @@ public record WebsiteImportManifest(char ListSeparator, IReadOnlyList<(string Fi
         }
 
         if (StringOf(file[WebsiteExportArchive.ListSeparatorProperty]) is not { Length: 1 } separator
-            || file[WebsiteExportArchive.ArtworkFilesProperty] is not JsonArray artworkFiles)
+            || file[WebsiteExportArchive.WorkFilesProperty] is not JsonArray workFiles
+            || file[WebsiteExportArchive.WordingProperty] is not JsonObject wording
+            || NounOf(wording[WebsiteExportArchive.CollectionWordingProperty]) is not { } collectionChoice
+            || NounOf(wording[WebsiteExportArchive.WorkWordingProperty]) is not { } workChoice)
         {
             return false;
         }
 
         var files = new List<(string, string)>();
 
-        foreach (var entry in artworkFiles)
+        foreach (var entry in workFiles)
         {
             if (
-                entry is not JsonObject artworkFile
-                || StringOf(artworkFile[WebsiteExportArchive.FileProperty]) is not { } fileName
-                || StringOf(artworkFile[WebsiteExportArchive.ArtworkTypeProperty]) is not { } artworkType
+                entry is not JsonObject workFile
+                || StringOf(workFile[WebsiteExportArchive.FileProperty]) is not { } fileName
+                || StringOf(workFile[WebsiteExportArchive.WorkTypeProperty]) is not { } workType
             )
             {
                 return false;
             }
 
-            files.Add((fileName, artworkType));
+            files.Add((fileName, workType));
         }
 
-        manifest = new WebsiteImportManifest(separator[0], files);
+        manifest = new WebsiteImportManifest(separator[0], files, new SiteWording(collectionChoice, workChoice));
         return true;
     }
+
+    // null for anything the Wording page couldn't have saved
+    private static NounChoice? NounOf(JsonNode? node)
+    {
+        if (
+            node is not JsonObject noun
+            || !TryWordOf(noun[WebsiteExportArchive.SingularProperty], out var singular)
+            || !TryWordOf(noun[WebsiteExportArchive.PluralProperty], out var plural)
+            || (singular is null) != (plural is null)
+            || BoolOf(noun[WebsiteExportArchive.KeepsCaseProperty]) is not { } keepsCase
+        )
+        {
+            return null;
+        }
+
+        return new NounChoice(singular, plural, keepsCase);
+    }
+
+    // a missing word is null, the default; one that's there has to be a word the database takes
+    private static bool TryWordOf(JsonNode? node, out string? word)
+    {
+        word = StringOf(node);
+        return node is null
+            || word is { Length: <= ArtistShopLimits.WordingWordMaximumLength } && !string.IsNullOrWhiteSpace(word);
+    }
+
+    private static bool? BoolOf(JsonNode? node) =>
+        node is JsonValue value && value.GetValueKind() is JsonValueKind.True or JsonValueKind.False ? value.GetValue<bool>() : null;
 
     private static string? StringOf(JsonNode? node) =>
         node is JsonValue value && value.GetValueKind() is JsonValueKind.String ? value.GetValue<string>() : null;

@@ -1,0 +1,184 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Vocabularies
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.VocabularyTerms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject VocabularyRepository VocabularyRepository
+@inject VocabularyTermRepository VocabularyTermRepository
+
+@* The vocabulary dialog's second view: a vocabulary's name, then its terms, Enter after each. Each is
+   saved as it's entered, so it stays even if the dialog is cancelled *@
+
+@code {
+  [Parameter, EditorRequired]
+  public WorkTypeId WorkTypeId { get; set; } = default!;
+  // null until a new vocabulary is saved, then that vocabulary as the dialog's list now holds it
+  [Parameter, EditorRequired]
+  public VocabularyWithTerms? Vocabulary { get; set; }
+  // the dialog reloads its list, which this then finds the vocabulary in
+  [Parameter, EditorRequired]
+  public EventCallback<VocabularyId> OnVocabularySaved { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnTermAdded { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnDone { get; set; }
+  // for the dialog to stay open and hold its buttons while saving
+  [Parameter]
+  public bool IsSaving { get; set; }
+  [Parameter]
+  public EventCallback<bool> IsSavingChanged { get; set; }
+
+  // one form each for the whole view: a new form would rebuild its field and take the cursor out of it
+  private readonly VocabularyForm _vocabulary = new();
+  private readonly VocabularyTermNameForm _term = new();
+
+  private TextField? _nameField;
+  private TextField? _termField;
+
+  private enum FocusTarget : byte
+  {
+    None = 1,
+    Name = 2,
+    Term = 3,
+  }
+
+  // waits for its field to be drawn: the term field only appears once the dialog's reloaded list has the new vocabulary
+  private FocusTarget _focus;
+
+  protected override void OnInitialized() => _focus = Vocabulary is null ? FocusTarget.Name : FocusTarget.Term;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    var field = _focus switch
+    {
+      FocusTarget.Name when Vocabulary is null => _nameField,
+      FocusTarget.Term when Vocabulary is not null => _termField,
+      _ => null,
+    };
+
+    if (field is not null)
+    {
+      _focus = FocusTarget.None;
+      await field.FocusAsync();
+    }
+  }
+
+  // Enter still submits while the buttons are disabled, and a second save would find the name taken
+  private async Task<bool> SaveVocabularyAsync()
+  {
+    if (IsSaving)
+    {
+      return false;
+    }
+
+    await IsSavingChanged.InvokeAsync(true);
+
+    try
+    {
+      var id = await VocabularyRepository.AddOrLinkAsync(_vocabulary.ToVocabularyName(), WorkTypeId);
+      _focus = FocusTarget.Term;
+      await OnVocabularySaved.InvokeAsync(id);
+      return true;
+    }
+    finally
+    {
+      await IsSavingChanged.InvokeAsync(false);
+    }
+  }
+
+  private async Task<bool> SaveTermAsync(VocabularyWithTerms vocabulary)
+  {
+    if (IsSaving)
+    {
+      return false;
+    }
+
+    await IsSavingChanged.InvokeAsync(true);
+
+    try
+    {
+      await VocabularyTermRepository.AddAsync(vocabulary.Id, _term.ToVocabularyTermName());
+      _term.Name = null;
+      await OnTermAdded.InvokeAsync();
+      return true;
+    }
+    catch (NameAlreadyInUseException exception)
+    {
+      _term.AddNameTakenError(exception.Name);
+      return false;
+    }
+    finally
+    {
+      await IsSavingChanged.InvokeAsync(false);
+    }
+  }
+
+  private async Task SaveTermAsync()
+  {
+    if (Vocabulary is { } vocabulary)
+    {
+      await SaveTermAsync(vocabulary);
+    }
+  }
+
+  // what's typed and not yet entered is saved too, rather than lost; a message keeps the view open
+  private async Task DoneAsync()
+  {
+    var saved = Vocabulary switch
+    {
+      null when !string.IsNullOrWhiteSpace(_vocabulary.Name) =>
+        await _vocabulary.EditContext.ValidateAsync() && await SaveVocabularyAsync(),
+      { } vocabulary when !string.IsNullOrWhiteSpace(_term.Name) =>
+        await _term.EditContext.ValidateAsync() && await SaveTermAsync(vocabulary),
+      _ => true,
+    };
+
+    if (saved)
+    {
+      await OnDone.InvokeAsync();
+    }
+  }
+}
+
+@if (Vocabulary is null)
+{
+  <EditForm EditContext="_vocabulary.EditContext" OnValidSubmit="SaveVocabularyAsync" class="mb-4 shrink-0">
+    <DataAnnotationsValidator />
+
+    <TextField @ref="_nameField" Label="Vocabulary name" @bind-Value="_vocabulary.Name" UpdatesPerKeystroke
+               placeholder="" />
+    <p class="text-sm text-gray-600">Press Enter to save it, then add its terms.</p>
+  </EditForm>
+}
+else
+{
+  <p class="mb-2 shrink-0">@Vocabulary.Name.Value</p>
+
+  @if (Vocabulary.Terms.Count > 0)
+  {
+    <ul class="mb-2 min-h-0 list-disc overflow-y-auto pl-6 text-sm">
+      @foreach (var term in Vocabulary.Terms)
+      {
+        <li @key="term.Id.Value">@term.Name.Value</li>
+      }
+    </ul>
+  }
+
+  <EditForm EditContext="_term.EditContext" OnValidSubmit="SaveTermAsync" class="mb-4 shrink-0">
+    <DataAnnotationsValidator />
+
+    <TextField @ref="_termField" Label="New term" @bind-Value="_term.Name" UpdatesPerKeystroke />
+    <p class="text-sm text-gray-600">Press Enter after each term.</p>
+  </EditForm>
+}
+
+<ModalDialogActions>
+  @* the same as Done, for an artist looking for the way back to the list *@
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@IsSaving" @onclick="DoneAsync">Go back</ButtonBasic>
+  <ButtonBasic type="button" Variant="ButtonVariant.Primary" Busy="IsSaving" disabled="@IsSaving" @onclick="DoneAsync">
+    Done
+  </ButtonBasic>
+</ModalDialogActions>

@@ -15,43 +15,43 @@ namespace ArtistShop.Web.Imports;
 // name, as the id the page's script knows the file by
 public record PostImportFolder(string Name, string Json, IReadOnlyDictionary<string, string> FileIdsByName);
 
-// What a post's artwork picture says about its artwork on the website it came from
-public record PostArtworkReference(string? Slug, string? Title, string Sha256);
+// What a post's work picture says about its work on the website it came from
+public record PostWorkReference(string? Slug, string? Title, string Sha256);
 
-// the artwork a post's artwork picture links to here, and which of its images it shows
-public record PostArtworkLink(ArtworkId ArtworkId, string StorageKey);
+// the work a post's work picture links to here, and which of its images it shows
+public record PostWorkLink(WorkId WorkId, string StorageKey);
 
-// Where a post's artwork pictures find their artworks, and which artwork pages its links can reach.
-// The post import asks the website's own artworks; the whole-website review answers for the
-// artworks it would add as well
-public interface IPostImportArtworks
+// Where a post's work pictures find their works, and which work pages its links can reach.
+// The post import asks the website's own works; the whole-website review answers for the
+// works it would add as well
+public interface IPostImportWorks
 {
     IReadOnlySet<string> Slugs { get; }
 
-    PostArtworkLink? Find(PostArtworkReference reference);
+    PostWorkLink? Find(PostWorkReference reference);
 }
 
-// The website's artworks. Sha256ByStorageKey holds the hash of each image original
-// ArtworkImagesToHash asked for
-public sealed class WebsiteArtworks(IReadOnlyList<Artwork> artworks, IReadOnlyDictionary<string, string> sha256ByStorageKey)
-    : IPostImportArtworks
+// The website's works. Sha256ByStorageKey holds the hash of each image original
+// WorkImagesToHash asked for
+public sealed class WebsiteWorks(IReadOnlyList<Work> works, IReadOnlyDictionary<string, string> sha256ByStorageKey)
+    : IPostImportWorks
 {
-    public IReadOnlySet<string> Slugs { get; } = artworks.Select(artwork => artwork.Slug.Value).ToHashSet();
+    public IReadOnlySet<string> Slugs { get; } = works.Select(work => work.Slug.Value).ToHashSet();
 
-    // the artwork with the same slug, or failing that the same title, that has an image whose
+    // the work with the same slug, or failing that the same title, that has an image whose
     // original hashes the same
-    public PostArtworkLink? Find(PostArtworkReference reference)
+    public PostWorkLink? Find(PostWorkReference reference)
     {
-        foreach (var artwork in PostImportPlanner.Candidates(reference.Slug, reference.Title, artworks))
+        foreach (var work in PostImportPlanner.Candidates(reference.Slug, reference.Title, works))
         {
-            foreach (var image in artwork.Images)
+            foreach (var image in work.Images)
             {
                 if (
                     sha256ByStorageKey.TryGetValue(image.StorageKey, out var imageSha256)
                     && string.Equals(imageSha256, reference.Sha256, StringComparison.OrdinalIgnoreCase)
                 )
                 {
-                    return new PostArtworkLink(artwork.Id, image.StorageKey);
+                    return new PostWorkLink(work.Id, image.StorageKey);
                 }
             }
         }
@@ -61,29 +61,29 @@ public sealed class WebsiteArtworks(IReadOnlyList<Artwork> artworks, IReadOnlyDi
 }
 
 // The website being imported into
-public record PostImportTarget(IReadOnlySet<string> PostSlugs, IReadOnlySet<string> SeriesSlugs, IPostImportArtworks Artworks)
+public record PostImportTarget(IReadOnlySet<string> PostSlugs, IReadOnlySet<string> CollectionSlugs, IPostImportWorks Works)
 {
-    // Hashes only the originals of artworks a post may show, rather than every image on the website
+    // Hashes only the originals of works a post may show, rather than every image on the website
     public static async Task<PostImportTarget> LoadAsync(
         IReadOnlyList<PostImportFolder> folders,
         PostRepository posts,
-        SeriesRepository series,
-        ArtworkRepository artworkRepository,
-        ArtworkImageRepository artworkImageRepository,
+        CollectionRepository collections,
+        WorkRepository workRepository,
+        WorkImageRepository workImageRepository,
         ImageStorage imageStorage
     )
     {
-        var artworks = await artworkRepository.GetAllAsync();
+        var works = await workRepository.GetAllAsync();
         var sha256ByStorageKey = await ImageHashes.LoadAsync(
-            PostImportPlanner.ArtworkImagesToHash(folders, artworks),
-            artworkImageRepository,
+            PostImportPlanner.WorkImagesToHash(folders, works),
+            workImageRepository,
             imageStorage
         );
 
         return new PostImportTarget(
             (await posts.GetAllAsync()).Select(post => post.Slug.Value).ToHashSet(),
-            (await series.GetAllAsync()).Select(oneSeries => oneSeries.Slug.Value).ToHashSet(),
-            new WebsiteArtworks(artworks, sha256ByStorageKey)
+            (await collections.GetAllAsync()).Select(collection => collection.Slug.Value).ToHashSet(),
+            new WebsiteWorks(works, sha256ByStorageKey)
         );
     }
 }
@@ -98,9 +98,9 @@ public enum PostImportOutcome
 // Document is the post as it will be saved, but for its uploaded images, whose storage keys are
 // placeholders until their files are uploaded: FileIdsByPlaceholder says which file each one is.
 // Problems say why a post is skipped or refused. BrokenLinks are links to this website's pages
-// that don't exist here, which don't stop the import. PictureOnlyArtworks are the titles of
-// artworks the post shows that aren't on this website with the same image, so the post shows
-// the picture without linking to an artwork
+// that don't exist here, which don't stop the import. PictureOnlyWorks are the titles of
+// works the post shows that aren't on this website with the same image, so the post shows
+// the picture without linking to a work
 public record PostImportItem(
     string FolderName,
     PostTitle? Title,
@@ -111,32 +111,32 @@ public record PostImportItem(
     PostImportOutcome Outcome,
     IReadOnlyList<string> Problems,
     IReadOnlyList<string> BrokenLinks,
-    IReadOnlyList<string> PictureOnlyArtworks,
-    int RelinkedArtworkCount
+    IReadOnlyList<string> PictureOnlyWorks,
+    int RelinkedWorkCount
 );
 
 // Turns the folders of a post download into the posts importing them would add, without touching
 // the database or the files. Nothing the file says about this website is trusted: an uploaded
-// image is always a new upload of a file in its folder, and an artwork embed is only linked to an
-// artwork found here with the same image. Everything else goes through PostDocumentParser, as a
+// image is always a new upload of a file in its folder, and a work embed is only linked to an
+// work found here with the same image. Everything else goes through PostDocumentParser, as a
 // save does
 public static class PostImportPlanner
 {
     // Checked first, so the review can say what it found: the storage keys of the images whose
-    // originals need hashing, those of every artwork a post's artwork embed may be
-    public static IReadOnlyList<string> ArtworkImagesToHash(IEnumerable<PostImportFolder> folders, IReadOnlyList<Artwork> artworks)
+    // originals need hashing, those of every work a post's work embed may be
+    public static IReadOnlyList<string> WorkImagesToHash(IEnumerable<PostImportFolder> folders, IReadOnlyList<Work> works)
     {
         var embeds = folders
             .Select(folder => TryRead(folder.Json, out var file, out _) ? file : null)
             .OfType<PostFile>()
-            .SelectMany(file => ArtworkEmbedValues(file.Ops))
+            .SelectMany(file => WorkEmbedValues(file.Ops))
             .ToList();
 
         return
         [
             .. embeds
-                .SelectMany(embed => Candidates(StringOf(embed[PostExportJson.ArtworkSlugProperty]), StringOf(embed[PostExportJson.ArtworkTitleProperty]), artworks))
-                .SelectMany(artwork => artwork.Images)
+                .SelectMany(embed => Candidates(StringOf(embed[PostExportJson.WorkSlugProperty]), StringOf(embed[PostExportJson.WorkTitleProperty]), works))
+                .SelectMany(work => work.Images)
                 .Select(image => image.StorageKey)
                 .Distinct(),
         ];
@@ -234,8 +234,8 @@ public static class PostImportPlanner
             skippedBecause is null ? PostImportOutcome.WillAdd : PostImportOutcome.Skipped,
             skippedBecause is null ? [] : [skippedBecause],
             BrokenLinks: [],
-            localized.PictureOnlyArtworks,
-            localized.RelinkedArtworkCount
+            localized.PictureOnlyWorks,
+            localized.RelinkedWorkCount
         );
     }
 
@@ -250,8 +250,8 @@ public static class PostImportPlanner
             PostImportOutcome.Refused,
             problems,
             BrokenLinks: [],
-            PictureOnlyArtworks: [],
-            RelinkedArtworkCount: 0
+            PictureOnlyWorks: [],
+            RelinkedWorkCount: 0
         );
 
     private record PostFile(string Title, DateTimeOffset? PublishedAt, JsonArray Ops);
@@ -323,12 +323,12 @@ public static class PostImportPlanner
     private record Localized(
         JsonArray Ops,
         IReadOnlyDictionary<string, string> FileIdsByPlaceholder,
-        IReadOnlyList<string> PictureOnlyArtworks,
-        int RelinkedArtworkCount
+        IReadOnlyList<string> PictureOnlyWorks,
+        int RelinkedWorkCount
     );
 
     // The file's ops with every embed rebuilt from the parts that are safe to take from it. An
-    // uploaded image, and an artwork not found here, becomes an image embed whose storage key is a
+    // uploaded image, and a work not found here, becomes an image embed whose storage key is a
     // placeholder for its file. Each file gets one placeholder however often the post shows it
     private static Localized Localize(JsonArray ops, PostImportFolder folder, PostImportTarget target, List<string> problems)
     {
@@ -379,19 +379,19 @@ public static class PostImportPlanner
                     localized.Add(ImageOp(placeholder, image, alt: StringOf(image["alt"]) ?? ""));
                 }
             }
-            else if (insert[PostDocumentParser.ArtworkEmbedName] is JsonObject artwork)
+            else if (insert[PostDocumentParser.WorkEmbedName] is JsonObject work)
             {
-                if (Relink(artwork, target) is { } found)
+                if (Relink(work, target) is { } found)
                 {
-                    var value = CopyLook(artwork, new JsonObject { ["artworkId"] = found.ArtworkId.Value, ["storageKey"] = found.StorageKey });
-                    localized.Add(new JsonObject { ["insert"] = new JsonObject { [PostDocumentParser.ArtworkEmbedName] = value } });
+                    var value = CopyLook(work, new JsonObject { ["workId"] = found.WorkId.Value, ["storageKey"] = found.StorageKey });
+                    localized.Add(new JsonObject { ["insert"] = new JsonObject { [PostDocumentParser.WorkEmbedName] = value } });
                     relinked++;
                 }
-                else if (PlaceholderFor(artwork) is { } placeholder)
+                else if (PlaceholderFor(work) is { } placeholder)
                 {
-                    var artworkTitle = StringOf(artwork[PostExportJson.ArtworkTitleProperty]) ?? "";
-                    localized.Add(ImageOp(placeholder, artwork, alt: artworkTitle));
-                    pictureOnly.Add(artworkTitle);
+                    var workTitle = StringOf(work[PostExportJson.WorkTitleProperty]) ?? "";
+                    localized.Add(ImageOp(placeholder, work, alt: workTitle));
+                    pictureOnly.Add(workTitle);
                 }
             }
             else if (insert[PostDocumentParser.VideoEmbedName] is JsonObject video)
@@ -432,30 +432,30 @@ public static class PostImportPlanner
         return to;
     }
 
-    private static PostArtworkLink? Relink(JsonObject embed, PostImportTarget target) =>
+    private static PostWorkLink? Relink(JsonObject embed, PostImportTarget target) =>
         StringOf(embed[PostExportJson.ImageSha256Property]) is { } sha256
-            ? target.Artworks.Find(
-                new PostArtworkReference(
-                    StringOf(embed[PostExportJson.ArtworkSlugProperty]),
-                    StringOf(embed[PostExportJson.ArtworkTitleProperty]),
+            ? target.Works.Find(
+                new PostWorkReference(
+                    StringOf(embed[PostExportJson.WorkSlugProperty]),
+                    StringOf(embed[PostExportJson.WorkTitleProperty]),
                     sha256
                 )
             )
             : null;
 
-    // the catalog import makes a slug from the title, so an artwork whose slug was taken here has
+    // the catalog import makes a slug from the title, so a work whose slug was taken here has
     // another one but still its title
-    public static IEnumerable<Artwork> Candidates(string? slug, string? title, IReadOnlyList<Artwork> artworks) =>
-        artworks
-            .Where(artwork => artwork.Slug.Value == slug || artwork.Name.Value == title)
-            .OrderByDescending(artwork => artwork.Slug.Value == slug);
+    public static IEnumerable<Work> Candidates(string? slug, string? title, IReadOnlyList<Work> works) =>
+        works
+            .Where(work => work.Slug.Value == slug || work.Name.Value == title)
+            .OrderByDescending(work => work.Slug.Value == slug);
 
-    private static IEnumerable<JsonObject> ArtworkEmbedValues(JsonArray ops) =>
+    private static IEnumerable<JsonObject> WorkEmbedValues(JsonArray ops) =>
         ops.OfType<JsonObject>()
-            .Select(op => op["insert"] is JsonObject insert ? insert[PostDocumentParser.ArtworkEmbedName] as JsonObject : null)
+            .Select(op => op["insert"] is JsonObject insert ? insert[PostDocumentParser.WorkEmbedName] as JsonObject : null)
             .OfType<JsonObject>();
 
-    // The links to this website's own pages that go nowhere here: a post, series or artwork that
+    // The links to this website's own pages that go nowhere here: a post, collection or work that
     // isn't here, or a path that isn't one of the public pages
     private static IReadOnlyList<string> BrokenLinks(PostDocument? document, PostImportTarget target, IReadOnlySet<string> slugsInImport)
     {
@@ -474,8 +474,8 @@ public static class PostImportPlanner
             {
                 [] or ["posts"] => true,
                 ["posts", var slug] => target.PostSlugs.Contains(slug) || slugsInImport.Contains(slug),
-                ["series", var slug] => target.SeriesSlugs.Contains(slug),
-                ["artworks", var slug] => target.Artworks.Slugs.Contains(slug),
+                ["collections", var slug] => target.CollectionSlugs.Contains(slug),
+                ["works", var slug] => target.Works.Slugs.Contains(slug),
                 _ => false,
             };
         }

@@ -9,6 +9,9 @@
 
 @code {
   [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [CascadingParameter]
   private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
   private string _userId = "";
@@ -50,7 +53,7 @@
           <label class="inline-flex cursor-pointer items-center gap-2">
             <input type="checkbox" class="cursor-pointer" checked="@(!_dismissed.Contains(type))"
                    @onchange="change => SetShownAsync(type, change)" />
-            @HintListing.Title(type)
+            @HintListing.Title(type, Wording)
           </label>
           <a href="@HintListing.PageUrl(type)" class="text-sm text-theme-muted underline">Where it shows</a>
         </li>

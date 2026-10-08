@@ -1,0 +1,156 @@
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Collections
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+
+@* rendered only while open, after a drop and before anything is created *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<DroppedFolder> Folders { get; set; } = default!;
+  // images dropped on their own rather than in a folder
+  [Parameter, EditorRequired]
+  public int LooseImageCount { get; set; }
+  // in the artist's order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Collection> AllCollections { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<DropCollectionChoice> OnOk { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+  // saved as soon as it's added, so it stays even if this dialog is cancelled
+  [Parameter, EditorRequired]
+  public EventCallback<Collection> OnCollectionAdded { get; set; }
+
+  private readonly HashSet<string> _checkedFolders = [];
+  private readonly HashSet<int> _checkedCollections = [];
+  private bool _isAddingCollection;
+
+  private IEnumerable<string> CheckablePaths =>
+    Folders.Where(folder => folder.Type is not DroppedFolderCollectionType.CannotBeCollection).Select(folder =>
+folder.Path);
+
+  private bool AllFoldersChecked => CheckablePaths.All(_checkedFolders.Contains);
+
+  // every folder that can be a collection starts checked
+  protected override void OnInitialized() => _checkedFolders.UnionWith(CheckablePaths);
+
+  private void ToggleAllFolders()
+  {
+    if (AllFoldersChecked)
+    {
+      _checkedFolders.Clear();
+    }
+    else
+    {
+      _checkedFolders.UnionWith(CheckablePaths);
+    }
+  }
+
+  private async Task CollectionAddedAsync(Collection collection)
+  {
+    _checkedCollections.Add(collection.Id.Value);
+    await OnCollectionAdded.InvokeAsync(collection);
+  }
+
+  private Task OkAsync() =>
+    OnOk.InvokeAsync(
+      new DropCollectionChoice(
+        [.. Folders.Where(folder => _checkedFolders.Contains(folder.Path))],
+        [.. AllCollections.Where(collection => _checkedCollections.Contains(collection.Id.Value)).Select(collection =>
+collection.Id)]
+      )
+    );
+
+  private string Kind(DroppedFolder folder) =>
+    folder.Type switch
+    {
+      DroppedFolderCollectionType.Existing => $"existing {Wording.Collection.SingularInSentence}",
+      DroppedFolderCollectionType.New => $"new {Wording.Collection.SingularInSentence}",
+      DroppedFolderCollectionType.CannotBeCollection => "can't be used as a name",
+    };
+}
+
+<ModalDialog Title="@($"{Wording.Collection.PluralHeading} for these {Wording.Work.PluralInSentence}")"
+             Width="ModalDialogWidth.Wide" OnClose="OnClose" KeepOpen="_isAddingCollection">
+  @if (Folders.Count > 0)
+  {
+    <Hint Type="HintType.CollectionsFromFolders">
+      <p class="mb-2">
+        Each uploaded folder's name can make a new @Wording.Collection.SingularInSentence or match an existing one. The
+        images inside are added to it.
+      </p>
+      <p>
+        Uncheck any folder whose name has nothing to do with your @Wording.Collection.PluralInSentence. </p>
+
+      </Hint>
+    }
+
+    @* one scrolling area for the folders and the loose images' collections, so a long collection list can't
+     squeeze the folders out of view. The padding keeps a focused checkbox's outline inside it, which
+     clips it; the negative margin keeps the boxes lined up with the rest of the dialog *@
+    <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
+      @if (Folders.Count > 0)
+      {
+        @if (CheckablePaths.Count() > 1)
+        {
+          <label class="mb-1 flex cursor-pointer items-center gap-2">
+            <input type="checkbox" class="cursor-pointer" checked="@AllFoldersChecked" @onchange="ToggleAllFolders" />
+            Toggle all checked
+          </label>
+          <Divider />
+        }
+
+        <fieldset class="mb-4">
+          <legend class="sr-only">Folders</legend>
+          @foreach (var folder in Folders)
+          {
+            <label @key="folder.Path" class="flex cursor-pointer items-start gap-2 py-1">
+              <input type="checkbox" class="mt-1 cursor-pointer" checked="@_checkedFolders.Contains(folder.Path)"
+                     disabled="@(folder.Type is DroppedFolderCollectionType.CannotBeCollection)"
+                     @onchange="() => _checkedFolders.Toggle(folder.Path)" />
+              <span>
+                <span class="font-medium">@(folder.Existing is { } existing ? existing.Name.Value : folder.Name)</span>
+                <span class="text-sm text-gray-600">
+                  @CountText.Of(folder.ImageCount, "image"), @Kind(folder)@(folder.IsDropped ? ", the folder you dropped" :
+                  "")
+                </span>
+                @if (folder.SimilarCollectionName is { } similar)
+                {
+                  <span class="block text-sm text-gray-600">Close to the existing @Wording.Collection.SingularInSentence
+                    @similar</span>
+                  }
+                </span>
+              </label>
+            }
+          </fieldset>
+        }
+
+        @if (LooseImageCount > 0)
+        {
+          <h2 class="mb-1 font-medium">@CountText.Of(LooseImageCount, "image") not in a folder</h2>
+          <p class="mb-2">Check all @Wording.Collection.PluralInSentence you wish to add these @Wording.Work.PluralInSentence
+            to.</p>
+
+            <CollectionChoices AllCollections="AllCollections" Checked="_checkedCollections"
+                               OnToggle="id => _checkedCollections.Toggle(id)" OnCollectionAdded="CollectionAddedAsync"
+                               @bind-IsAdding="_isAddingCollection" />
+          }
+        </div>
+
+        <ModalDialogActions>
+          <ModalCloseButton Label="Cancel" Disabled="_isAddingCollection" />
+          @* focused when the dialog opens, so Enter adds the works; the browser would focus the first checkbox *@
+          <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isAddingCollection" @onclick="OkAsync"
+                       autofocus>
+            Add @Wording.Work.PluralInSentence
+          </ButtonBasic>
+        </ModalDialogActions>
+      </ModalDialog>

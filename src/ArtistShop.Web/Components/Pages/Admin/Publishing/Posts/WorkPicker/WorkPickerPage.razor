@@ -1,0 +1,29 @@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public string Heading { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+  // the step before this one, if there is one
+  [Parameter]
+  public string? BackHref { get; set; }
+  [Parameter]
+  public string? BackLabel { get; set; }
+}
+
+<PageTitle>@Heading</PageTitle>
+
+@* <work-picker-page>, defined in WorkPickerPage.razor.js, passes Escape on to the editor
+   around the frame, which never hears a key pressed inside it *@
+<work-picker-page class="block">
+  @if (BackHref is not null && BackLabel is not null)
+  {
+    @* returns to where that step was scrolled, as the browser's Back would *@
+    <BackLink Href="@BackHref" Label="@BackLabel" data-restores-scroll />
+  }
+
+  <h1 class="mb-4 text-lg">@Heading</h1>
+
+  @ChildContent
+</work-picker-page>

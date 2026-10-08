@@ -22,7 +22,7 @@ public static class ExportEndpoints
     public const string ExportRunningMessage = "Another download from this website is running. Try again when it has finished.";
 
     public static string ImagesUrl(ImageExportPart part) =>
-        part.Series is null ? $"{ImagesPath}?type={part.Type.Id.Value}" : $"{ImagesPath}?type={part.Type.Id.Value}&series={part.Series.Id.Value}";
+        part.Collection is null ? $"{ImagesPath}?type={part.Type.Id.Value}" : $"{ImagesPath}?type={part.Type.Id.Value}&collection={part.Collection.Id.Value}";
 
     public static void MapExportEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -42,35 +42,35 @@ public static class ExportEndpoints
     private static async Task<FileContentHttpResult> DownloadCatalogAsync(
         CurrentSite currentSite,
         TimeProvider timeProvider,
-        ArtworkRepository artworkRepository,
-        ArtworkFieldRepository artworkFieldRepository,
-        ArtworkTypeRepository artworkTypeRepository,
+        WorkRepository workRepository,
+        WorkFieldRepository workFieldRepository,
+        WorkTypeRepository workTypeRepository,
         VocabularyRepository vocabularyRepository
     )
     {
-        var snapshot = await CatalogSetupSnapshot.LoadAsync(artworkFieldRepository, artworkTypeRepository, vocabularyRepository);
+        var snapshot = await CatalogSetupSnapshot.LoadAsync(workFieldRepository, workTypeRepository, vocabularyRepository);
         var date = DateText.FileNameDay(timeProvider.GetUtcNow());
         var name = $"{currentSite.MainHost.Value}-catalog-{date}";
-        var archive = CatalogExportArchive.Create(snapshot, await artworkRepository.GetAllAsync(), name);
+        var archive = CatalogExportArchive.Create(snapshot, await workRepository.GetAllAsync(), name);
 
         return TypedResults.File(archive, "application/zip", $"{name}.zip");
     }
 
-    // the series is left out for the type's artworks in no series
+    // the collection is left out for the type's works in no collection
     private static async Task<IResult> DownloadImagesAsync(
         int type,
-        int? series,
+        int? collection,
         HttpContext context,
         CurrentSite currentSite,
         TimeProvider timeProvider,
-        ArtworkRepository artworkRepository,
+        WorkRepository workRepository,
         ImageStorage imageStorage,
         ExportLock exportLock
     )
     {
         var part = ImageExportPlan
-            .Parts(await artworkRepository.GetAllAsync())
-            .SingleOrDefault(part => part.Type.Id == new ArtworkTypeId(type) && part.Series?.Id.Value == series);
+            .Parts(await workRepository.GetAllAsync())
+            .SingleOrDefault(part => part.Type.Id == new WorkTypeId(type) && part.Collection?.Id.Value == collection);
 
         if (part is null)
         {
@@ -95,12 +95,12 @@ public static class ExportEndpoints
         HttpContext context,
         CurrentSite currentSite,
         TimeProvider timeProvider,
-        ArtworkRepository artworkRepository,
+        WorkRepository workRepository,
         ImageStorage imageStorage,
         ExportLock exportLock
     )
     {
-        var entries = ImageExportPlan.Parts(await artworkRepository.GetAllAsync()).SelectMany(part => part.Entries);
+        var entries = ImageExportPlan.Parts(await workRepository.GetAllAsync()).SelectMany(part => part.Entries);
         var date = DateText.FileNameDay(timeProvider.GetUtcNow());
 
         var name = $"{currentSite.MainHost.Value}-images-{date}";
@@ -120,12 +120,12 @@ public static class ExportEndpoints
         CurrentSite currentSite,
         TimeProvider timeProvider,
         PostRepository postRepository,
-        ArtworkRepository artworkRepository,
+        WorkRepository workRepository,
         ImageStorage imageStorage,
         ExportLock exportLock
     )
     {
-        var (posts, artworkImages) = await LoadPostsAsync(postRepository, artworkRepository, imageStorage);
+        var (posts, workImages) = await LoadPostsAsync(postRepository, workRepository, imageStorage);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-posts-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
         var siteOrigin = SiteOrigin(context);
@@ -136,7 +136,7 @@ public static class ExportEndpoints
             exportLock,
             name,
             (body, cancellationToken) =>
-                PostExportArchive.WriteAsync(body, posts, artworkImages, name, host, siteOrigin, imageStorage, cancellationToken)
+                PostExportArchive.WriteAsync(body, posts, workImages, name, host, siteOrigin, imageStorage, cancellationToken)
         );
     }
 
@@ -145,18 +145,20 @@ public static class ExportEndpoints
         HttpContext context,
         CurrentSite currentSite,
         TimeProvider timeProvider,
-        ArtworkRepository artworkRepository,
-        ArtworkFieldRepository artworkFieldRepository,
-        ArtworkTypeRepository artworkTypeRepository,
+        WorkRepository workRepository,
+        WorkFieldRepository workFieldRepository,
+        WorkTypeRepository workTypeRepository,
         VocabularyRepository vocabularyRepository,
         PostRepository postRepository,
+        WordingRepository wordingRepository,
         ImageStorage imageStorage,
         ExportLock exportLock
     )
     {
-        var snapshot = await CatalogSetupSnapshot.LoadAsync(artworkFieldRepository, artworkTypeRepository, vocabularyRepository);
-        var artworks = await artworkRepository.GetAllAsync();
-        var (posts, artworkImages) = await LoadPostsAsync(postRepository, artworkRepository, imageStorage);
+        var snapshot = await CatalogSetupSnapshot.LoadAsync(workFieldRepository, workTypeRepository, vocabularyRepository);
+        var works = await workRepository.GetAllAsync();
+        var wording = await wordingRepository.GetAsync();
+        var (posts, workImages) = await LoadPostsAsync(postRepository, workRepository, imageStorage);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-website-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
         var siteOrigin = SiteOrigin(context);
@@ -170,9 +172,10 @@ public static class ExportEndpoints
                 WebsiteExportArchive.WriteAsync(
                     body,
                     snapshot,
-                    artworks,
+                    works,
+                    wording,
                     posts,
-                    artworkImages,
+                    workImages,
                     name,
                     host,
                     siteOrigin,
@@ -182,9 +185,9 @@ public static class ExportEndpoints
         );
     }
 
-    private static async Task<(List<ExportedPost> Posts, IReadOnlyDictionary<string, ArtworkImageWithArtwork> ArtworkImages)> LoadPostsAsync(
+    private static async Task<(List<ExportedPost> Posts, IReadOnlyDictionary<string, WorkImageWithWork> WorkImages)> LoadPostsAsync(
         PostRepository postRepository,
-        ArtworkRepository artworkRepository,
+        WorkRepository workRepository,
         ImageStorage imageStorage
     )
     {
@@ -197,17 +200,17 @@ public static class ExportEndpoints
             )),
         ];
 
-        // every artwork embed's image in one query, however many posts there are
-        var artworkImages = await artworkRepository.GetImagesByStorageKeyAsync(
+        // every work embed's image in one query, however many posts there are
+        var workImages = await workRepository.GetImagesByStorageKeyAsync(
             [
                 .. posts
-                    .SelectMany(post => post.Document.Blocks.OfType<ArtworkEmbedBlock>())
+                    .SelectMany(post => post.Document.Blocks.OfType<WorkEmbedBlock>())
                     .Select(embed => embed.StorageKey)
                     .Distinct(),
             ]
         );
 
-        return (posts, artworkImages);
+        return (posts, workImages);
     }
 
     private static string SiteOrigin(HttpContext context) => $"{context.Request.Scheme}://{context.Request.Host}";
@@ -242,8 +245,8 @@ public static class ExportEndpoints
     // named after the folders, or their ids when that name is too long for a file
     private static string DownloadName(string host, ImageExportPart part, string date)
     {
-        var folders = part.SeriesFolder is null ? part.TypeFolder : $"{part.TypeFolder}-{part.SeriesFolder}";
-        var ids = part.Series is null ? $"{part.Type.Id.Value}" : $"{part.Type.Id.Value}-{part.Series.Id.Value}";
+        var folders = part.CollectionFolder is null ? part.TypeFolder : $"{part.TypeFolder}-{part.CollectionFolder}";
+        var ids = part.Collection is null ? $"{part.Type.Id.Value}" : $"{part.Type.Id.Value}-{part.Collection.Id.Value}";
         var name = $"{host}-images-{folders}-{date}";
 
         return ExportFileNames.IsPortable($"{name}.zip") ? name : $"{host}-images-{ids}-{date}";

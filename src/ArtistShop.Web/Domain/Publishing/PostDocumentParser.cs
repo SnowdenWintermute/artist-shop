@@ -11,8 +11,8 @@ using ArtistShop.Web.Domain.Catalog;
 public static partial class PostDocumentParser
 {
     // the names the editor registers its embeds under. Prefixed so they can't be mistaken for, or
-    // collide with, one of Quill's own formats. set_post_artworks reads the artwork one too
-    public const string ArtworkEmbedName = "artshop-artwork";
+    // collide with, one of Quill's own formats. set_post_works reads the work one too
+    public const string WorkEmbedName = "artshop-work";
     public const string PostImageEmbedName = "artshop-image";
     public const string VideoEmbedName = "artshop-video";
 
@@ -163,14 +163,14 @@ public static partial class PostDocumentParser
 
     private static PostBlock? ReadEmbed(JsonElement insert)
     {
-        if (insert.TryGetProperty(ArtworkEmbedName, out var artwork) && artwork.ValueKind is JsonValueKind.Object)
+        if (insert.TryGetProperty(WorkEmbedName, out var work) && work.ValueKind is JsonValueKind.Object)
         {
-            if (GetInt(artwork, "artworkId") is not int artworkId)
+            if (GetInt(work, "workId") is not int workId)
             {
                 return null;
             }
 
-            var storageKey = GetString(artwork, "storageKey");
+            var storageKey = GetString(work, "storageKey");
 
             // it becomes part of an image address, so it must look like one of ours
             if (storageKey is null || !StorageKeyPattern().IsMatch(storageKey))
@@ -178,12 +178,12 @@ public static partial class PostDocumentParser
                 return null;
             }
 
-            return new ArtworkEmbedBlock(
-                new ArtworkId(artworkId),
+            return new WorkEmbedBlock(
+                new WorkId(workId),
                 storageKey,
-                ReadSize(artwork),
-                EmbedLayoutNames.Parse(GetString(artwork, "layout")),
-                ReadCaption(artwork)
+                ReadSize(work),
+                EmbedLayoutNames.Parse(GetString(work, "layout")),
+                ReadCaption(work)
             );
         }
 
@@ -252,7 +252,7 @@ public static partial class PostDocumentParser
             ? link
             : null;
 
-    // A page on this site, like /artworks/some-slug. Browsers read "//host" and "/\host" as another
+    // A page on this site, like /works/some-slug. Browsers read "//host" and "/\host" as another
     // site's address, and strip tabs and newlines before reading one, so a tab between the two
     // slashes is the same trap
     private static bool IsSitePath(string link) =>
@@ -270,7 +270,7 @@ public static partial class PostDocumentParser
             ? value.GetString()
             : null;
 
-    // read as a decimal so the rule is exactly set_post_artworks's: any whole number an int can
+    // read as a decimal so the rule is exactly set_post_works's: any whole number an int can
     // hold, written as 42, 42.0 or 4.2e1
     private static int? GetInt(JsonElement? element, string name) =>
         element is { } found
@@ -287,7 +287,7 @@ public static partial class PostDocumentParser
     [GeneratedRegex(@"^[0-9a-f]{32}\z")]
     private static partial Regex StorageKeyPattern();
 
-    // what ImageProcessor makes, in no more room than artwork_images.blur_data_uri gives it
+    // what ImageProcessor makes, in no more room than work_images.blur_data_uri gives it
     private const int MaximumBlurLength = 1000;
 
     [GeneratedRegex(@"^data:image/webp;base64,[A-Za-z0-9+/]+={0,2}\z")]

@@ -27,9 +27,9 @@ post-body-editor ::deep .ql-snow.ql-toolbar button.ql-redo svg {
   transform: scaleX(-1);
 }
 
-/* The Artwork button, which has text where the others have an icon. Quill sets the text at the
+/* The Work button, which has text where the others have an icon. Quill sets the text at the
    top of the button, so it's centred here */
-post-body-editor ::deep .ql-snow.ql-toolbar button.ql-artshop-artwork {
+post-body-editor ::deep .ql-snow.ql-toolbar button.ql-artshop-work {
   display: inline-flex;
   align-items: center;
   width: auto;
@@ -37,26 +37,26 @@ post-body-editor ::deep .ql-snow.ql-toolbar button.ql-artshop-artwork {
 
 /* Where an image embed sits comes from EmbedLayoutClasses, the same classes the post page uses.
    Only what belongs to editing is here: quill.snow.css gives every line a text cursor */
-post-body-editor ::deep .artshop-artwork,
+post-body-editor ::deep .artshop-work,
 post-body-editor ::deep .artshop-image {
   cursor: pointer;
 }
 
 /* the figure is the size's width, from the script, and the image fills it, stretched if the file
    is narrower, as on the page */
-post-body-editor ::deep .artshop-artwork img,
+post-body-editor ::deep .artshop-work img,
 post-body-editor ::deep .artshop-image img {
   display: block;
   width: 100%;
   height: auto;
 }
 
-post-body-editor ::deep .artshop-artwork:hover img,
+post-body-editor ::deep .artshop-work:hover img,
 post-body-editor ::deep .artshop-image:hover img {
   outline: 2px solid var(--color-blue-400);
 }
 
-post-body-editor ::deep .artshop-artwork span,
+post-body-editor ::deep .artshop-work span,
 post-body-editor ::deep .artshop-image span {
   border: 1px dashed var(--color-gray-400);
   padding: 1rem;
@@ -104,7 +104,7 @@ post-body-editor ::deep .artshop-video:hover [data-part="cover"] {
    phone's menu for its image. Only on a touch screen: with a mouse, a selection made with Shift and
    the arrow keys shows the embeds in it highlighted */
 @media (pointer: coarse) {
-  post-body-editor ::deep .artshop-artwork,
+  post-body-editor ::deep .artshop-work,
   post-body-editor ::deep .artshop-image,
   post-body-editor ::deep .artshop-image-upload,
   post-body-editor ::deep .artshop-video {

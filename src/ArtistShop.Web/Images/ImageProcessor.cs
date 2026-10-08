@@ -58,7 +58,7 @@ public class ImageProcessor(ImageStorage imageStorage)
         return new ImageHeader(image.Width, image.Height, decodedBytes);
     }
 
-    // minimumWidth is what the image is for: MinimumSourceWidth for an artwork, and
+    // minimumWidth is what the image is for: MinimumSourceWidth for a work, and
     // MinimumPostImageWidth for an image in a post
     public ProcessedImage Process(string storageKey, int minimumWidth)
     {

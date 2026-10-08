@@ -2,8 +2,8 @@ using ArtistShop.Web.Imports;
 
 namespace ArtistShop.Web.Exports;
 
-// the artwork types and vocabularies as the files their imports read back, so another website can
-// be set up before its artworks are imported
+// the work types and vocabularies as the files their imports read back, so another website can
+// be set up before its works are imported
 public static class CatalogSetupCsvExport
 {
     // every name that can appear inside a list cell of these files
@@ -12,10 +12,10 @@ public static class CatalogSetupCsvExport
             .Concat(snapshot.Types.Select(type => type.Name.Value))
             .Concat(snapshot.Vocabularies.SelectMany(vocabulary => vocabulary.Terms.Select(term => term.Name.Value)));
 
-    public static string ArtworkTypes(CatalogSetupSnapshot snapshot, char listSeparator)
+    public static string WorkTypes(CatalogSetupSnapshot snapshot, char listSeparator)
     {
         var csv = new CsvText();
-        csv.AddRow(ArtworkTypeImportHeaders.All);
+        csv.AddRow(WorkTypeImportHeaders.All);
 
         foreach (var type in snapshot.Types.OrderBy(type => type.Name.Value, ImportNames.Comparer))
         {
@@ -38,7 +38,7 @@ public static class CatalogSetupCsvExport
         foreach (var vocabulary in snapshot.Vocabularies.OrderBy(vocabulary => vocabulary.Name.Value, ImportNames.Comparer))
         {
             var typeNames = snapshot.Types
-                .Where(type => vocabulary.ArtworkTypeIds.Contains(type.Id))
+                .Where(type => vocabulary.WorkTypeIds.Contains(type.Id))
                 .Select(type => type.Name.Value)
                 .Order(ImportNames.Comparer);
             var termNames = vocabulary.Terms.Select(term => term.Name.Value).Order(ImportNames.Comparer);

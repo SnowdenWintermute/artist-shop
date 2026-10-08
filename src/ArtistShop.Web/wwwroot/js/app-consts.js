@@ -4,11 +4,11 @@
 // how long a navigation has to be taking before the loading indicator appears
 export const loadingIndicatorDelayMilliseconds = 250;
 
-// how many artworks the lightbox fetches ahead of the one showing, each way, so a run of quick
+// how many works the lightbox fetches ahead of the one showing, each way, so a run of quick
 // swipes finds pictures rather than black
-export const lightboxArtworksFetchedAhead = 2;
+export const lightboxWorksFetchedAhead = 2;
 
-// how long the lightbox rests on another artwork's picture before the page behind it goes there
+// how long the lightbox rests on another work's picture before the page behind it goes there
 // too: long enough that a run of swipes is one page load, not one each
 export const lightboxPageCatchUpDelayMilliseconds = 400;
 

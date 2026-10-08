@@ -6,9 +6,9 @@
   [Parameter, EditorRequired]
   public PostDocument Document { get; set; } = default!;
 
-  // the images the artwork embeds name, by storage key, loaded together by the page
+  // the images the work embeds name, by storage key, loaded together by the page
   [Parameter, EditorRequired]
-  public IReadOnlyDictionary<string, ArtworkImageWithArtwork> ArtworkImages { get; set; } = default!;
+  public IReadOnlyDictionary<string, WorkImageWithWork> WorkImages { get; set; } = default!;
 
   private bool HasLightboxImages =>
     Document.Blocks.OfType<PostImageEmbedBlock>().Any(PostImageEmbedView.OpensLightbox);
@@ -60,8 +60,8 @@
         </ol>
         break;
 
-      case ArtworkEmbedBlock embed when ArtworkEmbeds.SourceOf(embed, ArtworkImages) is { } source:
-        <ArtworkEmbedView Embed="embed" Source="source" />
+      case WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, WorkImages) is { } source:
+        <WorkEmbedView Embed="embed" Source="source" />
         break;
 
       case PostImageEmbedBlock image:

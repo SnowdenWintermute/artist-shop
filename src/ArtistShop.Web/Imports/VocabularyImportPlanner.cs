@@ -7,12 +7,12 @@ namespace ArtistShop.Web.Imports;
 public static class VocabularyImportHeaders
 {
     public const string Vocabulary = "vocabulary";
-    public const string ArtworkTypes = "artworkTypes";
+    public const string WorkTypes = "workTypes";
     public const string Terms = "terms";
     // yes or no; blank is no
     public const string MutuallyExclusive = "mutuallyExclusive";
 
-    public static readonly IReadOnlyList<string> All = [Vocabulary, ArtworkTypes, Terms, MutuallyExclusive];
+    public static readonly IReadOnlyList<string> All = [Vocabulary, WorkTypes, Terms, MutuallyExclusive];
 
     public const string Yes = "yes";
     public const string No = "no";
@@ -25,8 +25,8 @@ public record VocabularyImportChange(
     VocabularyName Name,
     VocabularyId? ExistingId,
     bool IsMutuallyExclusive,
-    IReadOnlyList<ArtworkType> ExistingArtworkTypes,
-    IReadOnlyList<ArtworkType> AddedArtworkTypes,
+    IReadOnlyList<WorkType> ExistingWorkTypes,
+    IReadOnlyList<WorkType> AddedWorkTypes,
     IReadOnlyList<VocabularyTermName> AddedTerms
 );
 
@@ -110,19 +110,19 @@ public static class VocabularyImportPlanner
                 AddError(VocabularyImportHeaders.Vocabulary, $"Names can be at most {ArtistShopLimits.VocabularyNameMaximumLength} characters.");
             }
 
-            var types = new List<ArtworkType>();
+            var types = new List<WorkType>();
 
-            foreach (var typeName in ListIn(row, VocabularyImportHeaders.ArtworkTypes))
+            foreach (var typeName in ListIn(row, VocabularyImportHeaders.WorkTypes))
             {
                 var type = snapshot.Types.FirstOrDefault(type => ImportNames.Comparer.Equals(type.Name.Value, typeName));
 
                 if (type is null)
                 {
-                    AddError(VocabularyImportHeaders.ArtworkTypes, $"\"{typeName}\" isn't an artwork type here. Import the artwork types first.");
+                    AddError(VocabularyImportHeaders.WorkTypes, $"\"{typeName}\" isn't a work type here. Import the work types first.");
                 }
                 else
                 {
-                    types.Add(new ArtworkType(type.Id, type.Name));
+                    types.Add(new WorkType(type.Id, type.Name));
                 }
             }
 
@@ -143,7 +143,7 @@ public static class VocabularyImportPlanner
 
             var existing = snapshot.Vocabularies.FirstOrDefault(vocabulary => ImportNames.Comparer.Equals(vocabulary.Name.Value, name));
 
-            // the import only adds, and making a vocabulary mutually exclusive can take terms off artworks
+            // the import only adds, and making a vocabulary mutually exclusive can take terms off works
             if (existing is not null && existing.IsMutuallyExclusive != isMutuallyExclusive)
             {
                 AddError(
@@ -166,14 +166,14 @@ public static class VocabularyImportPlanner
                     new VocabularyName(name),
                     ExistingId: null,
                     isMutuallyExclusive,
-                    ExistingArtworkTypes: [],
+                    ExistingWorkTypes: [],
                     types,
                     [.. terms.Select(term => new VocabularyTermName(term))]
                 ));
                 continue;
             }
 
-            var addedTypes = types.Where(type => !existing.ArtworkTypeIds.Contains(type.Id)).ToList();
+            var addedTypes = types.Where(type => !existing.WorkTypeIds.Contains(type.Id)).ToList();
             var addedTerms = terms
                 .Where(term => !existing.Terms.Any(existingTerm => ImportNames.Comparer.Equals(existingTerm.Name.Value, term)))
                 .Select(term => new VocabularyTermName(term))
@@ -186,8 +186,8 @@ public static class VocabularyImportPlanner
             }
 
             var existingTypes = snapshot.Types
-                .Where(type => existing.ArtworkTypeIds.Contains(type.Id))
-                .Select(type => new ArtworkType(type.Id, type.Name))
+                .Where(type => existing.WorkTypeIds.Contains(type.Id))
+                .Select(type => new WorkType(type.Id, type.Name))
                 .ToList();
 
             changes.Add(new VocabularyImportChange(row.RowNumber, existing.Name, existing.Id, existing.IsMutuallyExclusive, existingTypes, addedTypes, addedTerms));
@@ -207,16 +207,16 @@ public static class VocabularyImportPlanner
     {
         foreach (var change in plan.Changes)
         {
-            var addedTypeIds = change.AddedArtworkTypes.Select(type => type.Id);
+            var addedTypeIds = change.AddedWorkTypes.Select(type => type.Id);
             VocabularyId id;
 
             if (change.ExistingId is { } existingId)
             {
                 id = existingId;
 
-                if (change.AddedArtworkTypes.Count > 0)
+                if (change.AddedWorkTypes.Count > 0)
                 {
-                    await vocabularyRepository.UpdateAsync(id, change.Name, change.IsMutuallyExclusive, [.. change.ExistingArtworkTypes.Select(type => type.Id), .. addedTypeIds]);
+                    await vocabularyRepository.UpdateAsync(id, change.Name, change.IsMutuallyExclusive, [.. change.ExistingWorkTypes.Select(type => type.Id), .. addedTypeIds]);
                 }
             }
             else

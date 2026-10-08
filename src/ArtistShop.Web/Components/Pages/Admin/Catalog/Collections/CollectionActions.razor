@@ -1,0 +1,52 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public CollectionId CollectionId { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public CollectionName CollectionName { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public int WorkCount { get; set; }
+
+  private bool _renameDialogOpen;
+  private bool _deleteDialogOpen;
+  private bool _isDeleting;
+
+  private async Task DeleteAsync()
+  {
+    _isDeleting = true;
+
+    try
+    {
+      await CollectionRepository.DeleteAsync(CollectionId);
+      NavigationManager.NavigateTo(PageUrls.CollectionList);
+    }
+    finally
+    {
+      _isDeleting = false;
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  <div class="flex gap-2">
+    <ButtonBasic type="button" @onclick="() => _renameDialogOpen = true">Rename</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerText" @onclick="() => _deleteDialogOpen = true">Delete @Wording.Collection.SingularInSentence</ButtonBasic>
+  </div>
+
+  <RenameCollectionDialog @bind-Open="_renameDialogOpen" CollectionId="CollectionId" CollectionName="CollectionName" />
+
+  <ConfirmDialog @bind-Open="_deleteDialogOpen" Title="@($"Delete {CollectionName.Value}?")" ConfirmLabel="Delete"
+                 OnConfirm="DeleteAsync" IsWorking="_isDeleting">
+    Its @Wording.Work.PluralInSentence stay in the catalog. It holds @Wording.Work.CountOf(WorkCount) (count as of page
+    load).
+  </ConfirmDialog>
+</DisabledUntilInteractive>

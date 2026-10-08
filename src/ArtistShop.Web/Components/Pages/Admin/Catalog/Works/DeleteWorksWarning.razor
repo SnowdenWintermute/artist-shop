@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Utilities
+
+@* What deleting takes with it, for the confirm dialogs that delete one work or several *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public int WorkCount { get; set; }
+  // across all of them
+  [Parameter, EditorRequired]
+  public int ImageCount { get; set; }
+
+  private bool IsOne => WorkCount is 1;
+}
+
+This removes @(IsOne ? "it" : "them") from the catalog for good, along with @CountText.Of(ImageCount, "image"),
+@(IsOne ? "its place" : "their places") in any @Wording.Collection.SingularInSentence and anything listed for sale from @(IsOne ? "it" : "them").

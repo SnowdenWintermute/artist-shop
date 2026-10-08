@@ -49,7 +49,7 @@ public class OrphanedImageSweepService(
 
                 await sweeper.SweepAsync(
                     ImageStorage.ForSite(storageSettings, siteId),
-                    new ArtworkImageRepository(database),
+                    new WorkImageRepository(database),
                     new PostRepository(database)
                 );
             }

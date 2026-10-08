@@ -9,8 +9,8 @@ public class PostExcerptTests
 
     private static PostDocument Document(params PostBlock[] blocks) => new(blocks);
 
-    private static readonly ArtworkEmbedBlock Artwork = new(
-        new ArtworkId(1),
+    private static readonly WorkEmbedBlock Work = new(
+        new WorkId(1),
         "0123456789abcdef0123456789abcdef",
         EmbedImageSize.Medium,
         EmbedLayout.Center,
@@ -24,7 +24,7 @@ public class PostExcerptTests
             PostExcerpt.From(
                 Document(
                     new HeadingBlock(HeadingLevel.Two, Plain("Heading")),
-                    Artwork,
+                    Work,
                     new ParagraphBlock(Plain("Opening line.")),
                     new ParagraphBlock([]),
                     new BlockquoteBlock(Plain("Quoted")),
@@ -74,5 +74,5 @@ public class PostExcerptTests
         Assert.Equal("Just this.", PostExcerpt.From(Document(new ParagraphBlock(Plain("Just this.")))));
 
     [Fact]
-    public void APostWithNoTextHasNone() => Assert.Null(PostExcerpt.From(Document(Artwork, new ParagraphBlock([]))));
+    public void APostWithNoTextHasNone() => Assert.Null(PostExcerpt.From(Document(Work, new ParagraphBlock([]))));
 }

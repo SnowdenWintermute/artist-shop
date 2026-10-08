@@ -10,6 +10,7 @@ using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Exports;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
@@ -29,8 +30,8 @@ public sealed class ExportTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
         var catalog = Catalog(site.Id);
-        await catalog.Artworks.AddAsync(
-            Addition(await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [])
+        await catalog.Works.AddAsync(
+            Addition(await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [])
         );
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
 
@@ -42,34 +43,34 @@ public sealed class ExportTests(TestApp app)
 
         var files = await ReadZipAsync(response);
         Assert.Contains(ExportZip.ReadmeFileName, files.Keys);
-        Assert.Contains(CatalogExportArchive.ArtworkTypesFileName, files.Keys);
+        Assert.Contains(CatalogExportArchive.WorkTypesFileName, files.Keys);
         Assert.Contains(CatalogExportArchive.VocabulariesFileName, files.Keys);
         Assert.Contains(CatalogExportArchive.ProductsFileName, files.Keys);
-        // only the types that have artworks
+        // only the types that have works
         Assert.Equal(
-            [$"{CatalogExportArchive.ArtworksFolder}/Painting.csv"],
-            files.Keys.Where(path => path.StartsWith($"{CatalogExportArchive.ArtworksFolder}/"))
+            [$"{CatalogExportArchive.WorksFolder}/Painting.csv"],
+            files.Keys.Where(path => path.StartsWith($"{CatalogExportArchive.WorksFolder}/"))
         );
     }
 
     [Fact]
-    public async Task AnAdminDownloadsATypesImagesNamedAfterTheirArtworks()
+    public async Task AnAdminDownloadsATypesImagesNamedAfterTheirWorks()
     {
         var site = await app.MakeSiteAsync();
         var catalog = Catalog(site.Id);
         var painting = await TypeIdAsync(catalog, "Painting");
-        var gardens = await catalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        var gardens = await catalog.Collections.AddAsync(new CollectionName("Gardens"), new CollectionSlug("gardens"));
         byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
         byte[] tiff = [(byte)'I', (byte)'I', 0x2A, 0, 4, 5, 6];
-        await catalog.Artworks.AddManyAsync(
+        await catalog.Works.AddManyAsync(
             [
                 Addition(
-                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                     images: [await SaveOriginalAsync(site.Id, jpeg), await SaveOriginalAsync(site.Id, tiff)]
                 ),
                 // in its own download
                 Addition(
-                    painting, "Rose", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [gardens], products: [],
+                    painting, "Rose", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [gardens], products: [],
                     images: [await SaveOriginalAsync(site.Id, jpeg)]
                 ),
             ]
@@ -89,7 +90,7 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(tiff, files["Painting/Dawn (2).tiff"]);
         Assert.Equal(
             [
-                "file,artworkType,title,slug,sha256",
+                "file,workType,title,slug,sha256",
                 $"Painting/Dawn.jpg,Painting,Dawn,dawn,{Sha256(jpeg)}",
                 $"Painting/Dawn (2).tiff,Painting,Dawn,dawn,{Sha256(tiff)}",
             ],
@@ -98,26 +99,26 @@ public sealed class ExportTests(TestApp app)
     }
 
     [Fact]
-    public async Task DownloadAllHoldsEveryTypeAndSeriesInOneFolder()
+    public async Task DownloadAllHoldsEveryTypeAndCollectionInOneFolder()
     {
         var site = await app.MakeSiteAsync();
         var catalog = Catalog(site.Id);
         var painting = await TypeIdAsync(catalog, "Painting");
         var sculpture = await TypeIdAsync(catalog, "Sculpture");
-        var gardens = await catalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        var gardens = await catalog.Collections.AddAsync(new CollectionName("Gardens"), new CollectionSlug("gardens"));
         byte[] png = [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A];
-        await catalog.Artworks.AddManyAsync(
+        await catalog.Works.AddManyAsync(
             [
                 Addition(
-                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                     images: [await SaveOriginalAsync(site.Id, png)]
                 ),
                 Addition(
-                    painting, "Rose", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [gardens], products: [],
+                    painting, "Rose", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [gardens], products: [],
                     images: [await SaveOriginalAsync(site.Id, png)]
                 ),
                 Addition(
-                    sculpture, "Stone", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                    sculpture, "Stone", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                     images: [await SaveOriginalAsync(site.Id, png)]
                 ),
             ]
@@ -135,8 +136,8 @@ public sealed class ExportTests(TestApp app)
         );
     }
 
-    // each download in its own folder, and a post's artwork picture names the same hash images.csv
-    // gives its image, which is how the whole-website import finds the artwork before uploading anything
+    // each download in its own folder, and a post's work picture names the same hash images.csv
+    // gives its image, which is how the whole-website import finds the work before uploading anything
     [Fact]
     public async Task TheEverythingDownloadHoldsTheCatalogImagesAndPostsInOneFolder()
     {
@@ -145,16 +146,16 @@ public sealed class ExportTests(TestApp app)
         byte[] jpeg = [0xFF, 0xD8, 0xFF, 7, 8, 9];
         var dawnImage = await SaveOriginalAsync(site.Id, jpeg);
         await SaveWebCopyAsync(site.Id, dawnImage.StorageKey);
-        var dawn = await catalog.Artworks.AddAsync(
+        var dawn = await catalog.Works.AddAsync(
             Addition(
-                await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                 images: [dawnImage]
             )
         );
         var body = new PostBody(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY"}}},{"insert":"\n"}]}"""
-                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
-                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+            """{"ops":[{"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},{"insert":"\n"}]}"""
+                .Replace("WORK_ID", $"{dawn.Id.Value}")
+                .Replace("WORK_KEY", dawnImage.StorageKey)
         );
         await Posts(site.Id).AddAsync(new PostTitle("Morning"), new PostSlug("morning"), body, PostStatus.Published);
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
@@ -165,8 +166,8 @@ public sealed class ExportTests(TestApp app)
         Assert.StartsWith($"{site.Host}-website-", response.Content.Headers.ContentDisposition?.FileNameStar);
         var files = await ReadZipAsync(response, ReadBytesAsync);
         Assert.Contains(ExportZip.ReadmeFileName, files.Keys);
-        Assert.Contains($"catalog/{CatalogExportArchive.ArtworkTypesFileName}", files.Keys);
-        Assert.Contains($"catalog/{CatalogExportArchive.ArtworksFolder}/Painting.csv", files.Keys);
+        Assert.Contains($"catalog/{CatalogExportArchive.WorkTypesFileName}", files.Keys);
+        Assert.Contains($"catalog/{CatalogExportArchive.WorksFolder}/Painting.csv", files.Keys);
         Assert.Equal(jpeg, files["images/Painting/Dawn.jpg"]);
         Assert.Contains("posts/index.html", files.Keys);
 
@@ -180,9 +181,9 @@ public sealed class ExportTests(TestApp app)
         var site = await app.MakeSiteAsync();
         var catalog = Catalog(site.Id);
         var painting = await TypeIdAsync(catalog, "Painting");
-        await catalog.Artworks.AddAsync(
+        await catalog.Works.AddAsync(
             Addition(
-                painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                 images: [await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF])]
             )
         );
@@ -208,9 +209,9 @@ public sealed class ExportTests(TestApp app)
         var catalog = Catalog(site.Id);
         var dawnImage = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
         await SaveWebCopyAsync(site.Id, dawnImage.StorageKey);
-        var dawn = await catalog.Artworks.AddAsync(
+        var dawn = await catalog.Works.AddAsync(
             Addition(
-                await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                await TypeIdAsync(catalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                 images: [dawnImage]
             )
         );
@@ -221,15 +222,15 @@ public sealed class ExportTests(TestApp app)
         var body = new PostBody(
             """
             {"ops":[
-              {"insert":"See "},{"insert":"the gardens","attributes":{"bold":true,"link":"/series/gardens"}},{"insert":"\n"},
-              {"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY","layout":"floatLeft"}}},
+              {"insert":"See "},{"insert":"the gardens","attributes":{"bold":true,"link":"/collections/gardens"}},{"insert":"\n"},
+              {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY","layout":"floatLeft"}}},
               {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","width":10,"height":10,"alt":"A study","caption":"Early"}}},
               {"insert":{"artshop-video":{"provider":"youtube","videoId":"dQw4w9WgXcQ"}}},
               {"insert":"\n"}
             ]}
             """
-                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
-                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+                .Replace("WORK_ID", $"{dawn.Id.Value}")
+                .Replace("WORK_KEY", dawnImage.StorageKey)
                 .Replace("UPLOAD_KEY", upload.StorageKey)
         );
         await posts.AddAsync(new PostTitle("Spring notes"), new PostSlug("spring-notes"), body, PostStatus.Published);
@@ -259,7 +260,7 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(webCopy, files["spring-notes/image-2.webp"]);
 
         var page = Encoding.UTF8.GetString(files["spring-notes/spring-notes.html"]);
-        Assert.Contains($"""<a href="http://{site.Host}/series/gardens"><strong>the gardens</strong></a>""", page);
+        Assert.Contains($"""<a href="http://{site.Host}/collections/gardens"><strong>the gardens</strong></a>""", page);
         Assert.Contains("""<figure class="floatLeft" style="width: 400px"><img src="image-1.webp" alt="Dawn" width="400" height="400"></figure>""", page);
         Assert.Contains("""<a href="image-2-original.tiff"><img src="image-2.webp" alt="A study" """, page);
         Assert.Contains("<figcaption>Early</figcaption>", page);
@@ -305,19 +306,19 @@ public sealed class ExportTests(TestApp app)
         Assert.DoesNotContain("Gone", page);
     }
 
-    // Downloaded from one website and imported into another that has the same artwork, as the Import
+    // Downloaded from one website and imported into another that has the same work, as the Import
     // page's post import does, with the browser's uploads written straight to the new website's disk
     [Fact]
-    public async Task ImportedPostsKeepTheirDateAndLinkToTheArtworkWithTheSameImage()
+    public async Task ImportedPostsKeepTheirDateAndLinkToTheWorkWithTheSameImage()
     {
         byte[] dawnBytes = [0xFF, 0xD8, 0xFF, 1, 2, 3];
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var fromImage = await SaveOriginalAsync(from.Id, dawnBytes);
         await SaveWebCopyAsync(from.Id, fromImage.StorageKey);
-        var fromDawn = await fromCatalog.Artworks.AddAsync(
+        var fromDawn = await fromCatalog.Works.AddAsync(
             Addition(
-                await TypeIdAsync(fromCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                await TypeIdAsync(fromCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                 images: [fromImage]
             )
         );
@@ -326,13 +327,13 @@ public sealed class ExportTests(TestApp app)
         var body = new PostBody(
             """
             {"ops":[
-              {"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY","layout":"floatLeft","caption":"Early light"}}},
+              {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY","layout":"floatLeft","caption":"Early light"}}},
               {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","width":10,"height":10,"alt":"A study"}}},
-              {"insert":"More at "},{"insert":"the gardens","attributes":{"link":"/series/gardens"}},{"insert":"\n"}
+              {"insert":"More at "},{"insert":"the gardens","attributes":{"link":"/collections/gardens"}},{"insert":"\n"}
             ]}
             """
-                .Replace("ARTWORK_ID", $"{fromDawn.Id.Value}")
-                .Replace("ARTWORK_KEY", fromImage.StorageKey)
+                .Replace("WORK_ID", $"{fromDawn.Id.Value}")
+                .Replace("WORK_KEY", fromImage.StorageKey)
                 .Replace("UPLOAD_KEY", upload.StorageKey)
         );
         var fromPosts = Posts(from.Id);
@@ -345,9 +346,9 @@ public sealed class ExportTests(TestApp app)
         var to = await app.MakeSiteAsync();
         var toCatalog = Catalog(to.Id);
         var toImage = await SaveOriginalAsync(to.Id, dawnBytes);
-        var toDawn = await toCatalog.Artworks.AddAsync(
+        var toDawn = await toCatalog.Works.AddAsync(
             Addition(
-                await TypeIdAsync(toCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                await TypeIdAsync(toCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                 images: [toImage]
             )
         );
@@ -360,12 +361,12 @@ public sealed class ExportTests(TestApp app)
         var toStorage = ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), to.Id);
 
         var item = Assert.Single(
-            PostImportPlanner.Plan([folder], await PostImportTarget.LoadAsync([folder], toPosts, toCatalog.Series, toCatalog.Artworks, toCatalog.Images, toStorage))
+            PostImportPlanner.Plan([folder], await PostImportTarget.LoadAsync([folder], toPosts, toCatalog.Collections, toCatalog.Works, toCatalog.Images, toStorage))
         );
 
         Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
-        Assert.Equal(1, item.RelinkedArtworkCount);
-        Assert.Equal(["/series/gardens"], item.BrokenLinks);
+        Assert.Equal(1, item.RelinkedWorkCount);
+        Assert.Equal(["/collections/gardens"], item.BrokenLinks);
         var fileId = Assert.Single(item.FileIdsByPlaceholder.Values);
         Assert.Equal("spring-notes/image-2-original.tiff", fileId);
         var uploaded = await SaveOriginalAsync(to.Id, files[fileId]);
@@ -382,53 +383,53 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(DateText.DateTimeAttribute(published.Value), DateText.DateTimeAttribute(imported.PublishedAt.Value));
         var blocks = PostDocumentParser.Parse(imported.Body).Blocks;
         Assert.Equal(
-            new ArtworkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.FloatLeft, "Early light"),
-            blocks.OfType<ArtworkEmbedBlock>().Single()
+            new WorkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.FloatLeft, "Early light"),
+            blocks.OfType<WorkEmbedBlock>().Single()
         );
         var image = blocks.OfType<PostImageEmbedBlock>().Single();
         Assert.Equal((uploaded.StorageKey, "A study"), (image.StorageKey, image.Alt));
-        // the post shows on the artwork's page, as one written here would
-        Assert.Single(await toPosts.GetPublishedMentioningArtworkAsync(toDawn.Id));
+        // the post shows on the work's page, as one written here would
+        Assert.Single(await toPosts.GetPublishedMentioningWorkAsync(toDawn.Id));
     }
 
     // Download everything from one website, reviewed on a new website and on the one it came from:
     // each stage is planned as though the ones before it had run, so a post's picture already links
-    // to an artwork the import would add, and the website it came from has everything already
+    // to a work the import would add, and the website it came from has everything already
     [Fact]
     public async Task TheWholeWebsiteReviewPlansEachStageAsThoughTheOnesBeforeHadRun()
     {
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
-        var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
+        var installation = await fromCatalog.Types.AddAsync(new WorkTypeName("Installation"), [WorkField.DateCreated]);
         var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
         var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
-        var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
+        var gardens = await fromCatalog.Collections.AddAsync(new CollectionName("Gardens"), new CollectionSlug("gardens"));
         var dawnImage = await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 1]);
         await SaveWebCopyAsync(from.Id, dawnImage.StorageKey);
-        await fromCatalog.Artworks.AddManyAsync(
+        await fromCatalog.Works.AddManyAsync(
             [
                 Addition(
-                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: [],
+                    painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [oil], collectionIds: [gardens], products: [],
                     images: [dawnImage, await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 2])]
                 ),
                 Addition(
-                    installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: [],
+                    installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], collectionIds: [gardens], products: [],
                     images: [await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 3])]
                 ),
             ]
         );
-        var dawn = (await fromCatalog.Artworks.GetAllAsync()).Single(artwork => artwork.Name.Value == "Dawn");
+        var dawn = (await fromCatalog.Works.GetAllAsync()).Single(work => work.Name.Value == "Dawn");
         var body = new PostBody(
             """
             {"ops":[
-              {"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY"}}},
-              {"insert":"See "},{"insert":"Dawn","attributes":{"link":"/artworks/dawn"}},{"insert":" in "},
-              {"insert":"the gardens","attributes":{"link":"/series/gardens"}},{"insert":"\n"}
+              {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},
+              {"insert":"See "},{"insert":"Dawn","attributes":{"link":"/works/dawn"}},{"insert":" in "},
+              {"insert":"the gardens","attributes":{"link":"/collections/gardens"}},{"insert":"\n"}
             ]}
             """
-                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
-                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+                .Replace("WORK_ID", $"{dawn.Id.Value}")
+                .Replace("WORK_KEY", dawnImage.StorageKey)
         );
         await Posts(from.Id).AddAsync(new PostTitle("Morning"), new PostSlug("morning"), body, PostStatus.Published);
         var folder = await DownloadEverythingAsync(from);
@@ -436,31 +437,55 @@ public sealed class ExportTests(TestApp app)
         var onNew = await ReviewAsync(folder, (await app.MakeSiteAsync()).Id);
 
         Assert.Empty(onNew.Problems);
-        Assert.Equal(["Installation"], onNew.ArtworkTypes.Additions.Select(addition => addition.Name.Value));
+        Assert.Equal(["Installation"], onNew.WorkTypes.Additions.Select(addition => addition.Name.Value));
         Assert.Equal(["Medium"], onNew.Vocabularies.Changes.Select(change => change.Name.Value));
-        Assert.Equal(["Installation.csv", "Painting.csv"], onNew.ArtworkFiles.Select(file => file.FileName).Order(StringComparer.Ordinal));
-        Assert.All(onNew.ArtworkFiles, file => Assert.Empty(file.Plan.Errors));
-        Assert.All(onNew.ArtworkFiles, file => Assert.Single(file.Plan.Additions));
+        Assert.Equal(["Installation.csv", "Painting.csv"], onNew.WorkFiles.Select(file => file.FileName).Order(StringComparer.Ordinal));
+        Assert.All(onNew.WorkFiles, file => Assert.Empty(file.Plan.Errors));
+        Assert.All(onNew.WorkFiles, file => Assert.Single(file.Plan.Additions));
         // the first file creates it, and the second finds it
-        Assert.Equal(["Gardens"], onNew.ArtworkFiles.SelectMany(file => file.Plan.NewSeries).Select(series => series.Name));
+        Assert.Equal(["Gardens"], onNew.WorkFiles.SelectMany(file => file.Plan.NewCollections).Select(collection => collection.Name));
         Assert.Equal(3, onNew.Images.ToAddCount);
-        Assert.Equal(2, onNew.Images.Artworks.Single(artwork => artwork.Title.Value == "Dawn").ToAdd.Count);
+        Assert.Equal(2, onNew.Images.Works.Single(work => work.Title.Value == "Dawn").ToAdd.Count);
         Assert.Empty(onNew.Images.MissingFiles);
         Assert.Empty(onNew.Images.UnlistedFiles);
         var post = Assert.Single(onNew.Posts);
         Assert.Equal(PostImportOutcome.WillAdd, post.Outcome);
-        Assert.Equal(1, post.RelinkedArtworkCount);
-        Assert.Empty(post.PictureOnlyArtworks);
+        Assert.Equal(1, post.RelinkedWorkCount);
+        Assert.Empty(post.PictureOnlyWorks);
         Assert.Empty(post.BrokenLinks);
 
         var onSame = await ReviewAsync(folder, from.Id);
 
-        Assert.Empty(onSame.ArtworkTypes.Additions);
+        Assert.Empty(onSame.WorkTypes.Additions);
         Assert.Empty(onSame.Vocabularies.Changes);
-        Assert.All(onSame.ArtworkFiles, file => Assert.Empty(file.Plan.Additions));
+        Assert.All(onSame.WorkFiles, file => Assert.Empty(file.Plan.Additions));
         Assert.Equal(0, onSame.Images.ToAddCount);
-        Assert.Equal(3, onSame.Images.Artworks.Sum(artwork => artwork.AlreadyThereCount));
+        Assert.Equal(3, onSame.Images.Works.Sum(work => work.AlreadyThereCount));
         Assert.Equal(PostImportOutcome.Skipped, Assert.Single(onSame.Posts).Outcome);
+    }
+
+    // the wording goes only to a website still on the defaults: words a website chose itself are
+    // kept, as the import only adds
+    [Fact]
+    public async Task TheWholeWebsiteImportBringsTheWordingToAWebsiteOnTheDefaults()
+    {
+        var from = await app.MakeSiteAsync();
+        var wording = new SiteWording(new NounChoice("Project", "Projects", KeepsCase: false), new NounChoice("NFT", "NFTs", KeepsCase: true));
+        await Wording(from.Id).UpdateAsync(wording);
+        var folder = await DownloadEverythingAsync(from);
+        var fresh = await app.MakeSiteAsync();
+        var own = await app.MakeSiteAsync();
+        var ownWording = new SiteWording(new NounChoice("Body of work", "Bodies of work", KeepsCase: false), NounChoice.Default);
+        await Wording(own.Id).UpdateAsync(ownWording);
+
+        var onFresh = (await ReviewAsync(folder, fresh.Id)).Wording;
+        var onOwn = (await ReviewAsync(folder, own.Id)).Wording;
+        await WordingImportPlanner.ImportAsync(onFresh.Wording, Wording(fresh.Id));
+        await WordingImportPlanner.ImportAsync(onOwn.Wording, Wording(own.Id));
+
+        Assert.Equal(WordingImportOutcome.Same, (await ReviewAsync(folder, from.Id)).Wording.Outcome);
+        Assert.Equal((WordingImportOutcome.Set, wording), (onFresh.Outcome, await Wording(fresh.Id).GetAsync()));
+        Assert.Equal((WordingImportOutcome.Kept, ownWording), (onOwn.Outcome, await Wording(own.Id).GetAsync()));
     }
 
     // Each catalog stage runs against the website as the one before left it, and a second run adds nothing
@@ -471,17 +496,17 @@ public sealed class ExportTests(TestApp app)
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
-        var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
+        var installation = await fromCatalog.Types.AddAsync(new WorkTypeName("Installation"), [WorkField.DateCreated]);
         var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
         var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
-        var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens"), new SeriesSlug("gardens"));
-        await fromCatalog.Artworks.AddManyAsync(
+        var gardens = await fromCatalog.Collections.AddAsync(new CollectionName("Gardens"), new CollectionSlug("gardens"));
+        await fromCatalog.Works.AddManyAsync(
             [
                 Addition(
-                    painting, "Dawn", "Early light.", dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: [],
+                    painting, "Dawn", "Early light.", dimensions: null, duration: null, termIds: [oil], collectionIds: [gardens], products: [],
                     images: [await SaveOriginalAsync(from.Id, dawnBytes)]
                 ),
-                Addition(installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], seriesIds: [gardens], products: []),
+                Addition(installation, "Room", description: null, dimensions: null, duration: null, termIds: [oil], collectionIds: [gardens], products: []),
             ]
         );
         var folder = await DownloadEverythingAsync(from);
@@ -490,50 +515,50 @@ public sealed class ExportTests(TestApp app)
         var repositories = Repositories(toCatalog);
         var stages = new List<WebsiteImportStageDone>();
 
-        var problem = await WebsiteCatalogImporter.ImportAsync(folder, repositories, stage => { stages.Add(stage); return Task.CompletedTask; });
+        var problem = await WebsiteCatalogImporter.ImportAsync(folder, repositories, SiteWording.Default, stage => { stages.Add(stage); return Task.CompletedTask; });
 
         Assert.Null(problem);
         Assert.Equal(
-            ["Artwork types: 1", "Vocabularies: 1", "Vocabulary terms: 1", "Artworks: Painting: 1", "Artworks: Installation: 1"],
+            ["Work types: 1", "Vocabularies: 1", "Vocabulary terms: 1", "Works: Painting: 1", "Works: Installation: 1"],
             stages.Select(stage => $"{stage.Stage}: {stage.AddedCount}")
         );
-        Assert.Equal(Describe(await fromCatalog.Artworks.GetAllAsync()), Describe(await toCatalog.Artworks.GetAllAsync()));
+        Assert.Equal(Describe(await fromCatalog.Works.GetAllAsync()), Describe(await toCatalog.Works.GetAllAsync()));
 
         stages.Clear();
-        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, repositories, stage => { stages.Add(stage); return Task.CompletedTask; }));
+        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, repositories, SiteWording.Default, stage => { stages.Add(stage); return Task.CompletedTask; }));
         Assert.All(stages, stage => Assert.Equal(0, stage.AddedCount));
 
-        // the images stage then sends Dawn's image to the artwork now here, and a second run finds it there
-        var toDawn = (await toCatalog.Artworks.GetAllAsync()).Single(artwork => artwork.Name.Value == "Dawn");
-        var images = Assert.Single((await ReviewAsync(folder, to.Id)).Images.Artworks);
-        Assert.Equal((toDawn.Id, 1), (images.ArtworkId, images.ToAdd.Count));
+        // the images stage then sends Dawn's image to the work now here, and a second run finds it there
+        var toDawn = (await toCatalog.Works.GetAllAsync()).Single(work => work.Name.Value == "Dawn");
+        var images = Assert.Single((await ReviewAsync(folder, to.Id)).Images.Works);
+        Assert.Equal((toDawn.Id, 1), (images.WorkId, images.ToAdd.Count));
 
         await toCatalog.Images.AppendImageAsync(toDawn.Id, await SaveOriginalAsync(to.Id, dawnBytes), Sha256(dawnBytes));
 
-        var again = Assert.Single((await ReviewAsync(folder, to.Id)).Images.Artworks);
+        var again = Assert.Single((await ReviewAsync(folder, to.Id)).Images.Works);
         Assert.Equal((0, 1), (again.ToAdd.Count, again.AlreadyThereCount));
     }
 
     // The posts stage plans against the website as the images left it: a picture links to its
-    // artwork only once the artwork's image is here, never to a placeholder
+    // work only once the work's image is here, never to a placeholder
     [Fact]
-    public async Task TheWholeWebsitePostsLinkOnlyToArtworksWhoseImagesAreHere()
+    public async Task TheWholeWebsitePostsLinkOnlyToWorksWhoseImagesAreHere()
     {
         byte[] dawnBytes = [0xFF, 0xD8, 0xFF, 5];
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var dawnImage = await SaveOriginalAsync(from.Id, dawnBytes);
         await SaveWebCopyAsync(from.Id, dawnImage.StorageKey);
-        var dawn = await fromCatalog.Artworks.AddAsync(
+        var dawn = await fromCatalog.Works.AddAsync(
             Addition(
-                await TypeIdAsync(fromCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [],
+                await TypeIdAsync(fromCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [],
                 images: [dawnImage]
             )
         );
         var body = new PostBody(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":ARTWORK_ID,"storageKey":"ARTWORK_KEY"}}},{"insert":"\n"}]}"""
-                .Replace("ARTWORK_ID", $"{dawn.Id.Value}")
-                .Replace("ARTWORK_KEY", dawnImage.StorageKey)
+            """{"ops":[{"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},{"insert":"\n"}]}"""
+                .Replace("WORK_ID", $"{dawn.Id.Value}")
+                .Replace("WORK_KEY", dawnImage.StorageKey)
         );
         await Posts(from.Id).AddAsync(new PostTitle("Morning"), new PostSlug("morning"), body, PostStatus.Published);
         var folder = await DownloadEverythingAsync(from);
@@ -545,23 +570,24 @@ public sealed class ExportTests(TestApp app)
         await WebsiteCatalogImporter.ImportAsync(
             folder,
             Repositories(toCatalog),
+            SiteWording.Default,
             _ => Task.CompletedTask
         );
 
         async Task<PostImportItem> PlanAsync() =>
-            Assert.Single(PostImportPlanner.Plan(folder.Posts, await PostImportTarget.LoadAsync(folder.Posts, toPosts, toCatalog.Series, toCatalog.Artworks, toCatalog.Images, toStorage)));
+            Assert.Single(PostImportPlanner.Plan(folder.Posts, await PostImportTarget.LoadAsync(folder.Posts, toPosts, toCatalog.Collections, toCatalog.Works, toCatalog.Images, toStorage)));
 
         // Dawn is here, but not its image: the images stage didn't get it in
         var beforeImages = await PlanAsync();
-        Assert.Equal(0, beforeImages.RelinkedArtworkCount);
-        Assert.Equal(["Dawn"], beforeImages.PictureOnlyArtworks);
+        Assert.Equal(0, beforeImages.RelinkedWorkCount);
+        Assert.Equal(["Dawn"], beforeImages.PictureOnlyWorks);
 
-        var toDawn = (await toCatalog.Artworks.GetAllAsync()).Single(artwork => artwork.Name.Value == "Dawn");
+        var toDawn = (await toCatalog.Works.GetAllAsync()).Single(work => work.Name.Value == "Dawn");
         var toImage = await SaveOriginalAsync(to.Id, dawnBytes);
         await toCatalog.Images.AppendImageAsync(toDawn.Id, toImage, Sha256(dawnBytes));
 
         var run = new PostImportRun([await PlanAsync()]);
-        Assert.Equal(1, run.Items[0].RelinkedArtworkCount);
+        Assert.Equal(1, run.Items[0].RelinkedWorkCount);
         var batch = Assert.Single(run.Start());
         Assert.Empty(batch.FileIds);
 
@@ -572,8 +598,8 @@ public sealed class ExportTests(TestApp app)
         var imported = await toPosts.GetBySlugAsync(new PostSlug("morning"));
         Assert.NotNull(imported);
         Assert.Equal(
-            new ArtworkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.Center, Caption: null),
-            Assert.Single(PostDocumentParser.Parse(imported.Body).Blocks.OfType<ArtworkEmbedBlock>())
+            new WorkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.Center, Caption: null),
+            Assert.Single(PostDocumentParser.Parse(imported.Body).Blocks.OfType<WorkEmbedBlock>())
         );
     }
 
@@ -614,7 +640,7 @@ public sealed class ExportTests(TestApp app)
     }
 
     // Exported from one website and imported into a new one in the README's order (types, then
-    // vocabularies, then each type's artworks), the catalog comes back the same
+    // vocabularies, then each type's works), the catalog comes back the same
     [Fact]
     public async Task ImportingTheExportIntoAnotherWebsiteGivesTheSameCatalog()
     {
@@ -622,17 +648,17 @@ public sealed class ExportTests(TestApp app)
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
         var installation = await fromCatalog.Types.AddAsync(
-            new ArtworkTypeName("Installation"),
-            [ArtworkField.DateCreated, ArtworkField.HeightAndWidth, ArtworkField.Depth, ArtworkField.Duration]
+            new WorkTypeName("Installation"),
+            [WorkField.DateCreated, WorkField.HeightAndWidth, WorkField.Depth, WorkField.Duration]
         );
         var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
         var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
         var bronze = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Bronze"));
         await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Unused"));
-        var gardens = await fromCatalog.Series.AddAsync(new SeriesName("Gardens; Summer"), new SeriesSlug("gardens-summer"));
+        var gardens = await fromCatalog.Collections.AddAsync(new CollectionName("Gardens; Summer"), new CollectionSlug("gardens-summer"));
         var original = (await fromCatalog.ProductTypes.GetAllAsync()).Single(type => type.IsDefault);
 
-        await fromCatalog.Artworks.AddManyAsync(
+        await fromCatalog.Works.AddManyAsync(
             [
                 Addition(
                     painting,
@@ -641,10 +667,10 @@ public sealed class ExportTests(TestApp app)
                     new DimensionsCentimeters(new Dimensions(60.96m, 45.72m, null)),
                     duration: null,
                     termIds: [oil],
-                    seriesIds: [gardens],
+                    collectionIds: [gardens],
                     products: [new ProductAddition(original.Id, Label: null, 950m, EditionSize: 1, Stock: 1)]
                 ),
-                Addition(painting, "=Untitled", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: []),
+                Addition(painting, "=Untitled", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: []),
                 Addition(
                     installation,
                     "Room of echoes",
@@ -652,7 +678,7 @@ public sealed class ExportTests(TestApp app)
                     new DimensionsCentimeters(new Dimensions(300m, 400m, 250.5m)),
                     TimeSpan.FromMinutes(12),
                     termIds: [bronze],
-                    seriesIds: [gardens],
+                    collectionIds: [gardens],
                     products: []
                 ),
             ]
@@ -662,16 +688,16 @@ public sealed class ExportTests(TestApp app)
         var files = await ReadZipAsync(await client.GetAsync(ExportEndpoints.CatalogPath, TestContext.Current.CancellationToken));
         Assert.Contains("Painting,\"Roses, at dusk\",roses-at-dusk,Original,,950.00,1,1", files[CatalogExportArchive.ProductsFileName]);
         // a spreadsheet would run it as a formula without the '
-        Assert.Contains("\"'=Untitled\"", files[$"{CatalogExportArchive.ArtworksFolder}/Painting.csv"]);
+        Assert.Contains("\"'=Untitled\"", files[$"{CatalogExportArchive.WorksFolder}/Painting.csv"]);
 
         var to = await app.MakeSiteAsync();
         var toCatalog = Catalog(to.Id);
-        // the series name has a semicolon, so the export chose the next separator
+        // the collection name has a semicolon, so the export chose the next separator
         const char listSeparator = '|';
 
-        var typePlan = ArtworkTypeImportPlanner.Plan(files[CatalogExportArchive.ArtworkTypesFileName], listSeparator, await SetupAsync(toCatalog));
+        var typePlan = WorkTypeImportPlanner.Plan(files[CatalogExportArchive.WorkTypesFileName], listSeparator, await SetupAsync(toCatalog));
         Assert.Empty(typePlan.Errors);
-        await ArtworkTypeImportPlanner.ApplyAsync(typePlan, toCatalog.Types);
+        await WorkTypeImportPlanner.ApplyAsync(typePlan, toCatalog.Types);
 
         var vocabularyPlan = VocabularyImportPlanner.Plan(files[CatalogExportArchive.VocabulariesFileName], listSeparator, await SetupAsync(toCatalog));
         Assert.Empty(vocabularyPlan.Errors);
@@ -679,87 +705,87 @@ public sealed class ExportTests(TestApp app)
 
         foreach (var typeName in (string[])["Painting", "Installation"])
         {
-            var snapshot = await ArtworkImportCatalogSnapshot.LoadAsync(
+            var snapshot = await WorkImportCatalogSnapshot.LoadAsync(
                 await TypeIdAsync(toCatalog, typeName),
                 toCatalog.Types,
                 toCatalog.Vocabularies,
-                toCatalog.Series,
+                toCatalog.Collections,
                 toCatalog.ProductTypes,
-                toCatalog.Artworks
+                toCatalog.Works
             );
             Assert.NotNull(snapshot);
-            var plan = ArtworkImportPlanner.Plan(
-                files[$"{CatalogExportArchive.ArtworksFolder}/{typeName}.csv"],
-                new ArtworkImportSettings(LengthUnit.Centimeters, original.Id, IsOneOfAKind: true, listSeparator),
+            var plan = WorkImportPlanner.Plan(
+                files[$"{CatalogExportArchive.WorksFolder}/{typeName}.csv"],
+                new WorkImportSettings(LengthUnit.Centimeters, original.Id, IsOneOfAKind: true, listSeparator),
                 snapshot
             );
             Assert.Empty(plan.Errors);
-            await toCatalog.Artworks.AddManyAsync([.. plan.Additions.Select(addition => addition.Addition)]);
+            await toCatalog.Works.AddManyAsync([.. plan.Additions.Select(addition => addition.Addition)]);
         }
 
         var fromSetup = await SetupAsync(fromCatalog);
         var toSetup = await SetupAsync(toCatalog);
-        Assert.Equal(CatalogSetupCsvExport.ArtworkTypes(fromSetup, listSeparator), CatalogSetupCsvExport.ArtworkTypes(toSetup, listSeparator));
+        Assert.Equal(CatalogSetupCsvExport.WorkTypes(fromSetup, listSeparator), CatalogSetupCsvExport.WorkTypes(toSetup, listSeparator));
         Assert.Equal(CatalogSetupCsvExport.Vocabularies(fromSetup, listSeparator), CatalogSetupCsvExport.Vocabularies(toSetup, listSeparator));
-        Assert.Equal(Describe(await fromCatalog.Artworks.GetAllAsync()), Describe(await toCatalog.Artworks.GetAllAsync()));
+        Assert.Equal(Describe(await fromCatalog.Works.GetAllAsync()), Describe(await toCatalog.Works.GetAllAsync()));
     }
 
-    // Two artworks of a type titled "Dawn", told apart by their slugs: both come over, and each
-    // image goes only to the artwork with its images.csv slug, never to whichever Dawn comes first.
-    // Back on the website it came from, each image is found on its own artwork
+    // Two works of a type titled "Dawn", told apart by their slugs: both come over, and each
+    // image goes only to the work with its images.csv slug, never to whichever Dawn comes first.
+    // Back on the website it came from, each image is found on its own work
     [Fact]
-    public async Task TheWholeWebsiteMoveKeepsTwoSameTitledArtworksApart()
+    public async Task TheWholeWebsiteMoveKeepsTwoSameTitledWorksApart()
     {
         byte[] firstBytes = [0xFF, 0xD8, 0xFF, 6];
         byte[] secondBytes = [0xFF, 0xD8, 0xFF, 7];
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
-        await fromCatalog.Artworks.AddAsync(
-            Addition(painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [], images: [await SaveOriginalAsync(from.Id, firstBytes)])
+        await fromCatalog.Works.AddAsync(
+            Addition(painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [], images: [await SaveOriginalAsync(from.Id, firstBytes)])
         );
-        await fromCatalog.Artworks.AddAsync(
-            Addition(painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [], images: [await SaveOriginalAsync(from.Id, secondBytes)])
+        await fromCatalog.Works.AddAsync(
+            Addition(painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [], images: [await SaveOriginalAsync(from.Id, secondBytes)])
         );
         var folder = await DownloadEverythingAsync(from);
 
-        // the artwork file's slugs tell the two apart, so both come over, each with its own image
+        // the work file's slugs tell the two apart, so both come over, each with its own image
         var onNew = await ReviewAsync(folder, (await app.MakeSiteAsync()).Id);
 
-        Assert.Equal(["dawn", "dawn-2"], Assert.Single(onNew.ArtworkFiles).Plan.Additions.Select(addition => addition.Addition.CandidateSlug.Value));
+        Assert.Equal(["dawn", "dawn-2"], Assert.Single(onNew.WorkFiles).Plan.Additions.Select(addition => addition.Addition.CandidateSlug.Value));
         Assert.Equal(
             [[Sha256(firstBytes)], [Sha256(secondBytes)]],
-            onNew.Images.Artworks.Select(artwork => artwork.ToAdd.Select(image => image.Sha256).ToList()).ToList()
+            onNew.Images.Works.Select(work => work.ToAdd.Select(image => image.Sha256).ToList()).ToList()
         );
-        Assert.Empty(onNew.Images.WithoutArtwork);
+        Assert.Empty(onNew.Images.WithoutWork);
 
         var to = await app.MakeSiteAsync();
-        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, Repositories(Catalog(to.Id)), _ => Task.CompletedTask));
-        Assert.Equal(["dawn", "dawn-2"], (await Catalog(to.Id).Artworks.GetAllAsync()).Select(artwork => artwork.Slug.Value).Order(StringComparer.Ordinal));
+        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, Repositories(Catalog(to.Id)), SiteWording.Default, _ => Task.CompletedTask));
+        Assert.Equal(["dawn", "dawn-2"], (await Catalog(to.Id).Works.GetAllAsync()).Select(work => work.Slug.Value).Order(StringComparer.Ordinal));
 
         // a website with one Dawn of its own, under the first one's slug, takes only its image and
         // adds the second Dawn
         var withDawn = await app.MakeSiteAsync();
         var withDawnCatalog = Catalog(withDawn.Id);
-        await withDawnCatalog.Artworks.AddAsync(
-            Addition(await TypeIdAsync(withDawnCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [])
+        await withDawnCatalog.Works.AddAsync(
+            Addition(await TypeIdAsync(withDawnCatalog, "Painting"), "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [])
         );
 
         var onOneDawn = await ReviewAsync(folder, withDawn.Id);
 
-        Assert.Equal(["dawn-2"], Assert.Single(onOneDawn.ArtworkFiles).Plan.Additions.Select(addition => addition.Addition.CandidateSlug.Value));
+        Assert.Equal(["dawn-2"], Assert.Single(onOneDawn.WorkFiles).Plan.Additions.Select(addition => addition.Addition.CandidateSlug.Value));
         Assert.Equal(2, onOneDawn.Images.ToAddCount);
-        Assert.Empty(onOneDawn.Images.WithoutArtwork);
+        Assert.Empty(onOneDawn.Images.WithoutWork);
 
         var onSame = await ReviewAsync(folder, from.Id);
 
         Assert.Equal(0, onSame.Images.ToAddCount);
-        Assert.All(onSame.Images.Artworks, artwork => Assert.Equal(1, artwork.AlreadyThereCount));
-        Assert.Equal(2, onSame.Images.Artworks.Count);
+        Assert.All(onSame.Images.Works, work => Assert.Equal(1, work.AlreadyThereCount));
+        Assert.Equal(2, onSame.Images.Works.Count);
     }
 
     // images.csv against the folder: a listed file that isn't there, a file that isn't listed, an
-    // image for an artwork that won't be here, and rows it can't read. None stops the import
+    // image for a work that won't be here, and rows it can't read. None stops the import
     [Fact]
     public async Task TheWholeWebsiteReviewListsTheImagesItCantImport()
     {
@@ -768,10 +794,10 @@ public sealed class ExportTests(TestApp app)
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
-        await fromCatalog.Artworks.AddManyAsync(
+        await fromCatalog.Works.AddManyAsync(
             [
-                Addition(painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [], images: [await SaveOriginalAsync(from.Id, dawnBytes)]),
-                Addition(painting, "Dusk", description: null, dimensions: null, duration: null, termIds: [], seriesIds: [], products: [], images: [await SaveOriginalAsync(from.Id, duskBytes)]),
+                Addition(painting, "Dawn", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [], images: [await SaveOriginalAsync(from.Id, dawnBytes)]),
+                Addition(painting, "Dusk", description: null, dimensions: null, duration: null, termIds: [], collectionIds: [], products: [], images: [await SaveOriginalAsync(from.Id, duskBytes)]),
             ]
         );
         var downloaded = await DownloadEverythingAsync(from);
@@ -795,11 +821,11 @@ public sealed class ExportTests(TestApp app)
         Assert.True(review.CanImport);
         Assert.Equal(["Painting/Dawn.jpg"], review.Images.MissingFiles);
         Assert.Equal(["Painting/Stray.jpg"], review.Images.UnlistedFiles);
-        Assert.Equal(["Painting/Ghost.jpg"], review.Images.WithoutArtwork);
+        Assert.Equal(["Painting/Ghost.jpg"], review.Images.WithoutWork);
         Assert.Equal(2, review.Images.Errors.Count);
         Assert.Contains(review.Images.Errors, error => error.Column == ImageExportArchive.ImageListHeaders.File);
         // Dusk's own row still counts
-        Assert.Equal([Sha256(duskBytes)], Assert.Single(review.Images.Artworks).ToAdd.Select(image => image.Sha256));
+        Assert.Equal([Sha256(duskBytes)], Assert.Single(review.Images.Works).ToAdd.Select(image => image.Sha256));
     }
 
     [Fact]
@@ -812,7 +838,7 @@ public sealed class ExportTests(TestApp app)
         var stages = new List<WebsiteImportStageDone>();
 
         var review = await ReviewAsync(folder, to.Id);
-        var problem = await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), stage => { stages.Add(stage); return Task.CompletedTask; });
+        var problem = await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), SiteWording.Default, stage => { stages.Add(stage); return Task.CompletedTask; });
 
         const string missing = "catalog/vocabularies.csv is missing.";
         Assert.False(review.CanImport);
@@ -827,18 +853,18 @@ public sealed class ExportTests(TestApp app)
     {
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
-        var installation = await fromCatalog.Types.AddAsync(new ArtworkTypeName("Installation"), [ArtworkField.DateCreated]);
+        var installation = await fromCatalog.Types.AddAsync(new WorkTypeName("Installation"), [WorkField.DateCreated]);
         await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [installation]);
         var downloaded = await DownloadEverythingAsync(from);
         // as though Installation were gone by the time the import ran
         var folder = downloaded with
         {
-            ArtworkTypesCsv = string.Join("\r\n", Unwrap.Value(downloaded.ArtworkTypesCsv).Split("\r\n").Where(line => !line.StartsWith("Installation"))),
+            WorkTypesCsv = string.Join("\r\n", Unwrap.Value(downloaded.WorkTypesCsv).Split("\r\n").Where(line => !line.StartsWith("Installation"))),
         };
         var to = await app.MakeSiteAsync();
         var toCatalog = Catalog(to.Id);
 
-        var problem = await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), _ => Task.CompletedTask);
+        var problem = await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), SiteWording.Default, _ => Task.CompletedTask);
 
         Assert.Equal(WebsiteCatalogImporter.ChangedSinceReviewProblem, problem);
         Assert.DoesNotContain((await toCatalog.Vocabularies.GetAllAsync()), vocabulary => vocabulary.Name.Value == "Medium");
@@ -860,10 +886,10 @@ public sealed class ExportTests(TestApp app)
         await toCatalog.Terms.AddAsync(toMedium, new VocabularyTermName("Oil"));
         var stages = new List<WebsiteImportStageDone>();
 
-        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), stage => { stages.Add(stage); return Task.CompletedTask; }));
+        Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), SiteWording.Default, stage => { stages.Add(stage); return Task.CompletedTask; }));
 
         Assert.Equal(
-            ["Artwork types: 0", "Vocabularies: 0", "Vocabulary terms: 1"],
+            ["Work types: 0", "Vocabularies: 0", "Vocabulary terms: 1"],
             stages.Select(stage => $"{stage.Stage}: {stage.AddedCount}")
         );
     }
@@ -875,7 +901,7 @@ public sealed class ExportTests(TestApp app)
     }
 
     private static CatalogRepositories Repositories(SiteCatalog catalog) =>
-        new(catalog.Fields, catalog.Types, catalog.Vocabularies, catalog.Terms, catalog.Series, catalog.ProductTypes, catalog.Artworks);
+        new(catalog.Fields, catalog.Types, catalog.Vocabularies, catalog.Terms, catalog.Collections, catalog.ProductTypes, catalog.Works);
 
     private async Task<WebsiteImportReview> ReviewAsync(WebsiteImportFolder folder, SiteId siteId)
     {
@@ -885,11 +911,12 @@ public sealed class ExportTests(TestApp app)
             catalog.Fields,
             catalog.Types,
             catalog.Vocabularies,
-            catalog.Series,
+            catalog.Collections,
             catalog.ProductTypes,
-            catalog.Artworks,
+            catalog.Works,
             catalog.Images,
             Posts(siteId),
+            Wording(siteId),
             ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId)
         );
 
@@ -911,21 +938,21 @@ public sealed class ExportTests(TestApp app)
         return reader.ReadToEnd();
     }
 
-    private static ArtworkCatalogAddition Addition(
-        ArtworkTypeId typeId,
+    private static WorkCatalogAddition Addition(
+        WorkTypeId typeId,
         string name,
         string? description,
         DimensionsCentimeters? dimensions,
         TimeSpan? duration,
         IReadOnlyList<VocabularyTermId> termIds,
-        IReadOnlyList<SeriesId> seriesIds,
+        IReadOnlyList<CollectionId> collectionIds,
         IReadOnlyList<ProductAddition> products,
-        IReadOnlyList<ArtworkImage>? images = null
+        IReadOnlyList<WorkImage>? images = null
     ) =>
         new(
             typeId,
-            new ArtworkName(name),
-            ArtworkSlug.FromName(name),
+            new WorkName(name),
+            WorkSlug.FromName(name),
             description,
             DateCreated: null,
             dimensions,
@@ -933,39 +960,39 @@ public sealed class ExportTests(TestApp app)
             Images: images ?? [],
             MainImageIndex: 0,
             termIds,
-            seriesIds,
-            NewSeriesNames: [],
+            collectionIds,
+            NewCollectionNames: [],
             products
         );
 
     private sealed record SiteCatalog(
-        ArtworkRepository Artworks,
-        ArtworkFieldRepository Fields,
-        ArtworkTypeRepository Types,
+        WorkRepository Works,
+        WorkFieldRepository Fields,
+        WorkTypeRepository Types,
         VocabularyRepository Vocabularies,
         VocabularyTermRepository Terms,
-        SeriesRepository Series,
+        CollectionRepository Collections,
         ProductTypeRepository ProductTypes,
-        ArtworkImageRepository Images
+        WorkImageRepository Images
     );
 
     private SiteCatalog Catalog(SiteId siteId)
     {
         SiteDatabase database = app.Services.GetRequiredService<SiteDatabases>().For(siteId);
         return new SiteCatalog(
-            new ArtworkRepository(database),
-            new ArtworkFieldRepository(database),
-            new ArtworkTypeRepository(database),
+            new WorkRepository(database),
+            new WorkFieldRepository(database),
+            new WorkTypeRepository(database),
             new VocabularyRepository(database),
             new VocabularyTermRepository(database),
-            new SeriesRepository(database),
+            new CollectionRepository(database),
             new ProductTypeRepository(database),
-            new ArtworkImageRepository(database)
+            new WorkImageRepository(database)
         );
     }
 
     // an original on the site's disk, as an upload leaves it
-    private async Task<ArtworkImage> SaveOriginalAsync(SiteId siteId, byte[] bytes)
+    private async Task<WorkImage> SaveOriginalAsync(SiteId siteId, byte[] bytes)
     {
         var storageKey = Guid.NewGuid().ToString("N");
         await File.WriteAllBytesAsync(
@@ -974,10 +1001,13 @@ public sealed class ExportTests(TestApp app)
             TestContext.Current.CancellationToken
         );
 
-        return new ArtworkImage(storageKey, OriginalFileName: null, Width: 10, Height: 10, BlurDataUri: null);
+        return new WorkImage(storageKey, OriginalFileName: null, Width: 10, Height: 10, BlurDataUri: null);
     }
 
     private PostRepository Posts(SiteId siteId) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+
+    private WordingRepository Wording(SiteId siteId) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
 
     // the web copy an upload of an image 10 pixels wide gets, at its own width
@@ -994,25 +1024,25 @@ public sealed class ExportTests(TestApp app)
     private static Task<CatalogSetupSnapshot> SetupAsync(SiteCatalog catalog) =>
         CatalogSetupSnapshot.LoadAsync(catalog.Fields, catalog.Types, catalog.Vocabularies);
 
-    private static async Task<ArtworkTypeId> TypeIdAsync(SiteCatalog catalog, string name) =>
+    private static async Task<WorkTypeId> TypeIdAsync(SiteCatalog catalog, string name) =>
         (await catalog.Types.GetAllAsync()).Single(type => type.Name.Value == name).Id;
 
-    // what an artwork holds, less its ids, which differ between websites, and its products, which the
+    // what a work holds, less its ids, which differ between websites, and its products, which the
     // import can't bring back
-    private static List<string> Describe(IEnumerable<Artwork> artworks) =>
+    private static List<string> Describe(IEnumerable<Work> works) =>
         [
-            .. artworks
-                .Select(artwork => string.Join(
+            .. works
+                .Select(work => string.Join(
                     " | ",
-                    artwork.Type.Name.Value,
-                    artwork.Name.Value,
-                    artwork.Slug.Value,
-                    artwork.Description,
-                    artwork.DateCreated?.Text,
-                    artwork.Dimensions?.Text,
-                    artwork.Duration,
-                    string.Join(", ", artwork.Series.Select(series => series.Name.Value)),
-                    string.Join(", ", artwork.VocabularyTerms.Select(term => $"{term.VocabularyName.Value}: {term.Name.Value}"))
+                    work.Type.Name.Value,
+                    work.Name.Value,
+                    work.Slug.Value,
+                    work.Description,
+                    work.DateCreated?.Text,
+                    work.Dimensions?.Text,
+                    work.Duration,
+                    string.Join(", ", work.Collections.Select(collection => collection.Name.Value)),
+                    string.Join(", ", work.VocabularyTerms.Select(term => $"{term.VocabularyName.Value}: {term.Name.Value}"))
                 ))
                 .Order(),
         ];

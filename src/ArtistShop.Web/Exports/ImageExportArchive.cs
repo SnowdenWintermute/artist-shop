@@ -8,12 +8,12 @@ public static class ImageExportArchive
 {
     public const string ImageListFileName = "images.csv";
 
-    // images.csv's columns: the file's path inside the download's folder, its artwork, and the
-    // SHA-256 of the file, which post.json names an artwork picture by
+    // images.csv's columns: the file's path inside the download's folder, its work, and the
+    // SHA-256 of the file, which post.json names a work picture by
     public static class ImageListHeaders
     {
         public const string File = "file";
-        public const string ArtworkType = "artworkType";
+        public const string WorkType = "workType";
         public const string Title = "title";
         public const string Slug = "slug";
         public const string Sha256 = "sha256";
@@ -32,7 +32,7 @@ public static class ImageExportArchive
     }
 
     // Each file is read from the start again after its first bytes, so this streams every original
-    // once. An original gone since the page listed it (the artwork was deleted) is left out
+    // once. An original gone since the page listed it (the work was deleted) is left out
     public static async Task AddAsync(
         ZipArchive zip,
         IEnumerable<ImageExportEntry> entries,
@@ -42,7 +42,7 @@ public static class ImageExportArchive
     )
     {
         var imageList = new CsvText();
-        imageList.AddRow([ImageListHeaders.File, ImageListHeaders.ArtworkType, ImageListHeaders.Title, ImageListHeaders.Slug, ImageListHeaders.Sha256]);
+        imageList.AddRow([ImageListHeaders.File, ImageListHeaders.WorkType, ImageListHeaders.Title, ImageListHeaders.Slug, ImageListHeaders.Sha256]);
 
         foreach (var entry in entries)
         {
@@ -60,7 +60,7 @@ public static class ImageExportArchive
 
             var path = $"{entry.PathWithoutExtension}{extension}";
             var sha256 = await ExportZip.AddFileWithSha256Async(zip, $"{folderName}/{path}", original, ExportZip.CompressionFor(format), cancellationToken);
-            imageList.AddRow([path, entry.Artwork.Type.Name.Value, entry.Artwork.Name.Value, entry.Artwork.Slug.Value, sha256]);
+            imageList.AddRow([path, entry.Work.Type.Name.Value, entry.Work.Name.Value, entry.Work.Slug.Value, sha256]);
         }
 
         // last, since each file's hash is only known once it's been copied

@@ -1,0 +1,117 @@
+@rendermode InteractiveServer
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject WorkRepository WorkRepository
+@inject WorkTypeRepository WorkTypeRepository
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@* One page of the filtered work list as an editable table. The rows are read again only when the
+   address changes, with a filter or the page, so a row edited out of the filter stays until then, even
+   through the refresh that shows a newly added vocabulary in the filters *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public int WorkTypeId { get; set; }
+  // in the list's order. A List, not IReadOnlyList: an island parameter is rebuilt from its runtime
+  // type, and a collection expression's type is one the compiler made, which JSON can't create
+  [Parameter, EditorRequired]
+  public List<int> WorkIds { get; set; } = default!;
+  // the page's address, filters and all
+  [Parameter, EditorRequired]
+  public string Address { get; set; } = default!;
+
+  private record LoadedRows(WorkTypeWithFields Type, List<WorkTableRow> Rows);
+
+  // null while loading, and for a type deleted since the list was read
+  private LoadedRows? _loaded;
+  private bool _isLoading = true;
+  private string? _loadedAddress;
+
+  // in the artist's order; a collection added from the collection dialog joins the end, as it does in the database
+  private List<Collection> _collections = [];
+
+  protected override async Task OnParametersSetAsync()
+  {
+    // the rows wait for the circuit, rather than being read for the prerender and then again
+    if (!RendererInfo.IsInteractive)
+    {
+      return;
+    }
+
+    if (_loadedAddress == Address)
+    {
+      return;
+    }
+
+    // read before the awaits, during which a refresh can change the ids without changing the address
+    var address = Address;
+    var typeId = new WorkTypeId(WorkTypeId);
+    List<WorkId> ids = [.. WorkIds.Select(id => new WorkId(id))];
+    _loadedAddress = address;
+    _isLoading = true;
+    _loaded = null;
+
+    var type = await WorkTypeRepository.GetAsync(typeId);
+    var collections = await CollectionRepository.GetAllAsync();
+    var works = (await WorkRepository.GetManyAsync(ids)).ToDictionary(work => work.Id);
+
+    // the address changed while this was loading, and that change's load is the one to show
+    if (_loadedAddress != address)
+    {
+      return;
+    }
+
+    _collections = collections;
+
+    // one deleted since the list was read is left out
+    _loaded = type is null
+      ? null
+      : new LoadedRows(
+        type,
+        [.. ids.Select(works.GetValueOrDefault).OfType<Work>().Select(WorkTableRow.FromWork)]
+      );
+    _isLoading = false;
+  }
+
+  private void CollectionAdded(Collection collection) => _collections.Add(collection);
+
+  // an enhanced refresh, so the filters list what was added; the address is unchanged, so the rows stay
+  private void ChoicesAdded() => NavigationManager.Refresh();
+
+  // the refresh brings the count and the page links up to date, and leaves the rows that remain
+  private void RowsDeleted(IReadOnlyList<WorkTableRow> rows)
+  {
+    // the table, which deleted them, shows only once the rows have loaded
+    var loaded = _loaded ?? throw new InvalidOperationException("Rows were deleted before any had loaded.");
+    loaded.Rows.RemoveAll(rows.Contains);
+    NavigationManager.Refresh();
+  }
+}
+
+@if (_isLoading)
+{
+  <p class="flex items-center gap-2" role="status">
+    <span class="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" aria-hidden="true"></span>
+    Loading @Wording.Work.PluralInSentence
+  </p>
+}
+else if (_loaded is null)
+{
+  <p>This @Wording.Work.SingularInSentence type was deleted. Reload the page.</p>
+}
+@* the loaded rows rather than the ids, which a refresh can empty while the rows stay *@
+else if (_loaded.Rows.Count is 0)
+{
+  <p>No @Wording.Work.PluralInSentence match these filters.</p>
+}
+else
+{
+  <p class="mb-2 text-sm text-gray-600">Each change saves when you leave its field.</p>
+
+  <WorkTable Rows="_loaded.Rows" Type="_loaded.Type" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnChoicesAdded="ChoicesAdded"
+                OnRowsDeleted="RowsDeleted" />
+}

@@ -13,7 +13,7 @@ public static class ImageUrls
         $"{VariantsRequestPath}/{storageKey}/"
         + ImageVariants.FileName(ImageVariants.LargestWidthUpTo(imageWidth, wantedWidth), format);
 
-    // needs no image width, since every artwork image has both embed sizes
+    // needs no image width, since every work image has both embed sizes
     public static string EmbedVariant(string storageKey, EmbedImageSize size) =>
         $"{VariantsRequestPath}/{storageKey}/"
         + ImageVariants.FileName(ImageVariants.EmbedWidth(size), ImageVariantFormat.Avif);

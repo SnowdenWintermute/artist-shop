@@ -4,7 +4,7 @@ using ArtistShop.Web.Imports;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport;
 
-// the artwork type and vocabulary imports' file and list separator. Form posts create this, and they
+// the work type and vocabulary imports' file and list separator. Form posts create this, and they
 // need exactly one public constructor
 public class CatalogImportCheckForm : ServerValidatedForm, IImportFileForm
 {

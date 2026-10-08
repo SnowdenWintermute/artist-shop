@@ -12,26 +12,29 @@
 @using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
-@inject ArtworkFieldRepository ArtworkFieldRepository
-@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject WorkFieldRepository WorkFieldRepository
+@inject WorkTypeRepository WorkTypeRepository
 @inject VocabularyRepository VocabularyRepository
 @inject VocabularyTermRepository VocabularyTermRepository
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [SupplyParameterFromQuery(Name = "imported")]
   private int? ImportedCount { get; set; }
 
   // for the column help, sorted by name
-  private List<ArtworkType> _artworkTypes = [];
+  private List<WorkType> _workTypes = [];
 
   protected override async Task OnInitializedAsync() =>
-    _artworkTypes = ArtworkTypeOrder.SortedByName(await ArtworkTypeRepository.GetAllAsync());
+    _workTypes = WorkTypeOrder.SortedByName(await WorkTypeRepository.GetAllAsync());
 
   private async Task<VocabularyImportPlan> PlanAsync(string csvText, char listSeparator) =>
     VocabularyImportPlanner.Plan(
       csvText,
       listSeparator,
-      await CatalogSetupSnapshot.LoadAsync(ArtworkFieldRepository, ArtworkTypeRepository, VocabularyRepository)
+      await CatalogSetupSnapshot.LoadAsync(WorkFieldRepository, WorkTypeRepository, VocabularyRepository)
     );
 
   private Task ApplyAsync(VocabularyImportPlan plan) =>
@@ -56,15 +59,15 @@
               The vocabulary's name, at most @ArtistShopLimits.VocabularyNameMaximumLength characters.
             </ImportColumn>
 
-            <ImportColumn Header="@VocabularyImportHeaders.ArtworkTypes">
-              The artwork types it applies to, separated by the list separator.
-              @if (_artworkTypes.Count == 0)
+            <ImportColumn Header="@VocabularyImportHeaders.WorkTypes">
+              The @Wording.Work.SingularInSentence types it applies to, separated by the list separator.
+              @if (_workTypes.Count == 0)
               {
-                <text>There are none yet, so import or create the artwork types first.</text>
+                <text>There are none yet, so import or create the @Wording.Work.SingularInSentence types first.</text>
               }
               else
               {
-                <text>They must exist already (@string.Join(", ", _artworkTypes.Select(type =>type.Name.Value))).</text>
+                <text>They must exist already (@string.Join(", ", _workTypes.Select(type =>type.Name.Value))).</text>
               }
             </ImportColumn>
 
@@ -74,7 +77,7 @@
             </ImportColumn>
 
             <ImportColumn Header="@VocabularyImportHeaders.MutuallyExclusive">
-              @VocabularyImportHeaders.Yes if an artwork can have only one of its terms, otherwise
+              @VocabularyImportHeaders.Yes if each @Wording.Work.SingularInSentence can have only one of its terms, otherwise
               @VocabularyImportHeaders.No or blank. A vocabulary that's already here must match its own setting.
             </ImportColumn>
           </Columns>

@@ -8,12 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-// the artwork type and vocabulary import pages; the planner and export tests cover what each plans
+// the work type and vocabulary import pages; the planner and export tests cover what each plans
 [Collection(TestAppCollection.Name)]
 public sealed partial class CatalogImportPageTests(TestApp app)
 {
     [Theory]
-    [InlineData(PageUrls.ArtworkTypeImport, "Import artwork types from a spreadsheet")]
+    [InlineData(PageUrls.WorkTypeImport, "Import work types from a spreadsheet")]
     [InlineData(PageUrls.VocabularyImport, "Import vocabularies from a spreadsheet")]
     public async Task AnAdminSeesThePage(string path, string heading)
     {
@@ -33,23 +33,23 @@ public sealed partial class CatalogImportPageTests(TestApp app)
         var site = await app.MakeSiteAsync();
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
-        var (reviewPage, confirmed) = await CheckThenConfirmAsync(client, PageUrls.ArtworkTypeImport, "artworkType,fields\nVideo,Duration\n");
+        var (reviewPage, confirmed) = await CheckThenConfirmAsync(client, PageUrls.WorkTypeImport, "workType,fields\nVideo,Duration\n");
 
-        Assert.Contains("Import 1 artwork type", reviewPage);
+        Assert.Contains("Import 1 work type", reviewPage);
         Assert.Equal(HttpStatusCode.Redirect, confirmed.StatusCode);
         Assert.Contains("imported=1", confirmed.Headers.Location?.Query);
-        var types = await new ArtworkTypeRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetAllAsync();
+        var types = await new WorkTypeRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetAllAsync();
         Assert.Contains(types, type => type.Name.Value == "Video");
     }
 
     // an existing vocabulary gains the type it's missing and keeps the ones it has
     [Fact]
-    public async Task AnExistingVocabularyGainsAnArtworkType()
+    public async Task AnExistingVocabularyGainsAnWorkType()
     {
         var site = await app.MakeSiteAsync();
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-        var types = await new ArtworkTypeRepository(database).GetAllAsync();
-        ArtworkTypeId TypeId(string name) => types.Single(type => type.Name.Value == name).Id;
+        var types = await new WorkTypeRepository(database).GetAllAsync();
+        WorkTypeId TypeId(string name) => types.Single(type => type.Name.Value == name).Id;
         var vocabularies = new VocabularyRepository(database);
         var medium = await vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [TypeId("Painting"), TypeId("Photograph")]);
         await new VocabularyTermRepository(database).AddAsync(medium, new VocabularyTermName("Oil"));
@@ -58,7 +58,7 @@ public sealed partial class CatalogImportPageTests(TestApp app)
         var (reviewPage, confirmed) = await CheckThenConfirmAsync(
             client,
             PageUrls.VocabularyImport,
-            "vocabulary,artworkTypes,terms\nMedium,Painting; Photograph; Sculpture,Oil\n"
+            "vocabulary,workTypes,terms\nMedium,Painting; Photograph; Sculpture,Oil\n"
         );
 
         Assert.Contains("Import 1 vocabulary", reviewPage);
@@ -67,7 +67,7 @@ public sealed partial class CatalogImportPageTests(TestApp app)
         Assert.NotNull(saved);
         Assert.Equal(
             [TypeId("Painting"), TypeId("Photograph"), TypeId("Sculpture")],
-            saved.ArtworkTypeIds.OrderBy(id => id.Value)
+            saved.WorkTypeIds.OrderBy(id => id.Value)
         );
     }
 
@@ -101,7 +101,7 @@ public sealed partial class CatalogImportPageTests(TestApp app)
     private static partial Regex FingerprintField();
 
     [Theory]
-    [InlineData(PageUrls.ArtworkTypeImport)]
+    [InlineData(PageUrls.WorkTypeImport)]
     [InlineData(PageUrls.VocabularyImport)]
     public async Task SomeoneWhoIsntAnAdminIsDenied(string path)
     {

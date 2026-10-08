@@ -17,9 +17,9 @@ public record BlockquoteBlock(IReadOnlyList<PostText> Text) : PostBlock;
 
 public record ListBlock(ListStyle Style, IReadOnlyList<IReadOnlyList<PostText>> Items) : PostBlock;
 
-// StorageKey names the one of the artwork's images it shows. Caption is null when there is none
-public record ArtworkEmbedBlock(
-    ArtworkId ArtworkId,
+// StorageKey names the one of the work's images it shows. Caption is null when there is none
+public record WorkEmbedBlock(
+    WorkId WorkId,
     string StorageKey,
     EmbedImageSize Size,
     EmbedLayout Layout,

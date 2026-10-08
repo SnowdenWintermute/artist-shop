@@ -22,7 +22,7 @@ CREATE COLLATION site_types.case_and_accent_insensitive (
 -- lists, text[] for the names, and an array of one of these composite types where a row has
 -- several columns. A composite type can't hold NOT NULL, a key or a UNIQUE, so the table each row
 -- lands in is what rejects a bad one.
-CREATE TYPE site_types.artwork_image_input AS (
+CREATE TYPE site_types.work_image_input AS (
     storage_key char(32),
     original_file_name varchar(260),
     sort_order int,
@@ -41,7 +41,7 @@ CREATE TYPE site_types.product_input AS (
     stock int
 );
 
-CREATE TYPE site_types.series_name_and_slug AS (
+CREATE TYPE site_types.collection_name_and_slug AS (
     name varchar(256) COLLATE site_types.case_insensitive,
     slug varchar(200)
 );

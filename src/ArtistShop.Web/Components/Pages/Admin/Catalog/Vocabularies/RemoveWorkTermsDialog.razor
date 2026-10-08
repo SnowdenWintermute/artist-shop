@@ -1,0 +1,64 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Catalog
+
+@* Confirms a save that takes terms off works: unselecting a type in use, making the vocabulary
+   mutually exclusive, or both *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public bool Open { get; set; }
+
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
+
+  [Parameter, EditorRequired]
+  public VocabularyName VocabularyName { get; set; } = default!;
+
+  // empty when no type in use was unselected
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkType> UnselectedWorkTypes { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public VocabularyUsage Usage { get; set; } = default!;
+
+  // empty unless it's being made mutually exclusive
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkName> WorksWithSeveralTerms { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback OnConfirm { get; set; }
+
+  [Parameter]
+  public bool IsWorking { get; set; }
+
+  private string AffectedItems =>
+    string.Join(", ", UnselectedWorkTypes.Select(workType =>
+      $"{Wording.Work.CountOf(Usage.WorkCountFor(workType.Id))} of type {workType.Name.Value}"));
+}
+
+<ConfirmDialog Open="Open" OpenChanged="OpenChanged" Title="@($"Remove terms from {Wording.Work.PluralInSentence}?")" ConfirmLabel="Save and remove"
+               OnConfirm="OnConfirm" IsWorking="IsWorking">
+  @if (UnselectedWorkTypes.Count > 0)
+  {
+    <p class="mb-2">Unselecting removes @VocabularyName.Value terms from @AffectedItems (count as of page load).</p>
+  }
+  @if (WorksWithSeveralTerms.Count > 0)
+  {
+    <p class="mb-2">
+      Making a vocabulary mutually exclusive allows one term per @Wording.Work.SingularInSentence, so all "@VocabularyName.Value" terms are removed
+      from
+      @(WorksWithSeveralTerms.Count is 1 ? $"this {Wording.Work.SingularInSentence}, which has" : $"these {Wording.Work.CountOf(WorksWithSeveralTerms.Count)}, which have")
+      more than one.
+    </p>
+    <ul class="max-h-48 list-disc overflow-y-auto pl-5">
+      @foreach (var name in WorksWithSeveralTerms.OrderBy(name => name.Value, NameOrder.ByName))
+      {
+        <li>@name.Value</li>
+      }
+    </ul>
+  }
+</ConfirmDialog>

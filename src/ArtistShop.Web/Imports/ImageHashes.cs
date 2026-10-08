@@ -10,12 +10,12 @@ public static class ImageHashes
     // else read from the file, for an image saved without one
     public static async Task<Dictionary<string, string>> LoadAsync(
         IEnumerable<string> storageKeys,
-        ArtworkImageRepository artworkImageRepository,
+        WorkImageRepository workImageRepository,
         ImageStorage imageStorage
     )
     {
         var onDisk = storageKeys.Distinct().Where(imageStorage.OriginalExists).ToList();
-        var stored = await artworkImageRepository.GetSha256ByStorageKeyAsync(onDisk);
+        var stored = await workImageRepository.GetSha256ByStorageKeyAsync(onDisk);
         var sha256ByStorageKey = new Dictionary<string, string>();
 
         foreach (var storageKey in onDisk)

@@ -1,9 +1,9 @@
 DROP FUNCTION IF EXISTS update_vocabulary;
 
-CREATE FUNCTION update_vocabulary (p_id int, p_name text, p_is_mutually_exclusive boolean, p_artwork_type_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
+CREATE FUNCTION update_vocabulary (p_id int, p_name text, p_is_mutually_exclusive boolean, p_work_type_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    -- FOR UPDATE holds off check_artwork_choices_are_current, which locks the vocabularies of the
-    -- chosen terms, so no artwork gains a second term between the DELETE below and the UPDATE
+    -- FOR UPDATE holds off check_work_choices_are_current, which locks the vocabularies of the
+    -- chosen terms, so no work gains a second term between the DELETE below and the UPDATE
     PERFORM
     FROM
         vocabularies
@@ -15,18 +15,18 @@ BEGIN
         RAISE EXCEPTION 'The vocabulary no longer exists.' USING ERRCODE = 'SH002';
     END IF;
 
-    -- An artwork with several of the terms has all of them removed, since there's no telling which
+    -- A work with several of the terms has all of them removed, since there's no telling which
     -- one the artist meant to keep. It goes first: the UPDATE cascades the flag into the junction,
-    -- and the mutually exclusive index refuses it while any artwork still has two
+    -- and the mutually exclusive index refuses it while any work still has two
     IF p_is_mutually_exclusive THEN
-        DELETE FROM artwork_and_vocabulary_terms_junction AS artwork_term
+        DELETE FROM work_and_vocabulary_terms_junction AS work_term
         WHERE
-            artwork_term.vocabulary_id = p_id
-            AND artwork_term.artwork_id IN (
+            work_term.vocabulary_id = p_id
+            AND work_term.work_id IN (
                 SELECT
-                    several.artwork_id
+                    several.work_id
                 FROM
-                    vocabulary_artwork_ids_with_several_terms(p_id) AS several
+                    vocabulary_work_ids_with_several_terms(p_id) AS several
             );
     END IF;
 
@@ -37,28 +37,28 @@ BEGIN
     WHERE
         id = p_id;
 
-    -- the terms come off the artworks first; the foreign key refuses removing a type from the
-    -- vocabulary while an artwork of that type still uses one of its terms
-    DELETE FROM artwork_and_vocabulary_terms_junction AS artwork_term
+    -- the terms come off the works first; the foreign key refuses removing a type from the
+    -- vocabulary while a work of that type still uses one of its terms
+    DELETE FROM work_and_vocabulary_terms_junction AS work_term
     WHERE
-        artwork_term.vocabulary_id = p_id
-        AND NOT artwork_term.artwork_type_id = ANY (p_artwork_type_ids);
+        work_term.vocabulary_id = p_id
+        AND NOT work_term.work_type_id = ANY (p_work_type_ids);
 
-    DELETE FROM vocabulary_and_artwork_types_junction AS applies
+    DELETE FROM vocabulary_and_work_types_junction AS applies
     WHERE
         applies.vocabulary_id = p_id
-        AND NOT applies.artwork_type_id = ANY (p_artwork_type_ids);
+        AND NOT applies.work_type_id = ANY (p_work_type_ids);
 
-    -- reading from artwork_types drops a type deleted in another tab, as in add_vocabulary
+    -- reading from work_types drops a type deleted in another tab, as in add_vocabulary
     INSERT INTO
-        vocabulary_and_artwork_types_junction (vocabulary_id, artwork_type_id)
+        vocabulary_and_work_types_junction (vocabulary_id, work_type_id)
     SELECT
         p_id,
-        artwork_type.id
+        work_type.id
     FROM
-        artwork_types AS artwork_type
+        work_types AS work_type
     WHERE
-        artwork_type.id = ANY (p_artwork_type_ids)
-    ON CONFLICT (vocabulary_id, artwork_type_id) DO NOTHING;
+        work_type.id = ANY (p_work_type_ids)
+    ON CONFLICT (vocabulary_id, work_type_id) DO NOTHING;
 END;
 $$;

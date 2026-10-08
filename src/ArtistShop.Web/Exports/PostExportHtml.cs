@@ -10,7 +10,7 @@ using ArtistShop.Web.Utilities;
 namespace ArtistShop.Web.Exports;
 
 // An image beside a post's page. ImageWidth and ImageHeight are the image's own, for its shape.
-// OriginalFileName is the upload a click opens; null for an artwork, whose original is in the
+// OriginalFileName is the upload a click opens; null for a work, whose original is in the
 // image download
 public record PostExportImage(string FileName, string? OriginalFileName, string Alt, int ImageWidth, int ImageHeight);
 
@@ -185,7 +185,7 @@ public static class PostExportHtml
                 html.Append($"</{tag}>\n");
                 break;
 
-            case ArtworkEmbedBlock embed when images.TryGetValue(embed, out var image):
+            case WorkEmbedBlock embed when images.TryGetValue(embed, out var image):
                 AppendFigure(html, image, embed.Size, embed.Layout, embed.Caption);
                 break;
 

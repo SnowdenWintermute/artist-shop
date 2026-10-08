@@ -10,7 +10,7 @@ namespace ArtistShop.Web.Exports;
 
 // The post.json beside each exported post's page, which the post import reads back: the post's
 // Delta with this website's ids swapped for what another website can find. An uploaded image names
-// its file in the folder. An artwork embed names its artwork's slug and title, and the SHA-256 of
+// its file in the folder. A work embed names its work's slug and title, and the SHA-256 of
 // its image's original, which is the same file on any website the image download went to
 public static class PostExportJson
 {
@@ -26,8 +26,8 @@ public static class PostExportJson
 
     // in an embed's value
     public const string FileProperty = "file";
-    public const string ArtworkSlugProperty = "artworkSlug";
-    public const string ArtworkTitleProperty = "artworkTitle";
+    public const string WorkSlugProperty = "workSlug";
+    public const string WorkTitleProperty = "workTitle";
     public const string ImageSha256Property = "imageSha256";
 
     // indented, and with accented letters as they are rather than as \u escapes, for a person reading it
@@ -38,12 +38,12 @@ public static class PostExportJson
     };
 
     // Images is the file for each image embed there is one for, as for the page; an embed missing
-    // from it is left out. Sha256ByStorageKey holds each artwork embed's original's hash
+    // from it is left out. Sha256ByStorageKey holds each work embed's original's hash
     public static string Write(
         Post post,
         PostDocument document,
         IReadOnlyDictionary<PostBlock, PostExportImage> images,
-        IReadOnlyDictionary<string, ArtworkImageWithArtwork> artworkImages,
+        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
         IReadOnlyDictionary<string, string> sha256ByStorageKey
     )
     {
@@ -52,15 +52,15 @@ public static class PostExportJson
             block =>
                 block switch
                 {
-                    ArtworkEmbedBlock embed
+                    WorkEmbedBlock embed
                         when images.TryGetValue(embed, out var image)
-                            && ArtworkEmbeds.SourceOf(embed, artworkImages) is { } source => new JsonObject
+                            && WorkEmbeds.SourceOf(embed, workImages) is { } source => new JsonObject
                         {
-                            [PostDocumentParser.ArtworkEmbedName] = PostDeltaWriter.WithLook(
+                            [PostDocumentParser.WorkEmbedName] = PostDeltaWriter.WithLook(
                                 new JsonObject
                                 {
-                                    [ArtworkSlugProperty] = source.Artwork.Slug.Value,
-                                    [ArtworkTitleProperty] = source.Artwork.Name.Value,
+                                    [WorkSlugProperty] = source.Work.Slug.Value,
+                                    [WorkTitleProperty] = source.Work.Name.Value,
                                     [ImageSha256Property] = sha256ByStorageKey[embed.StorageKey],
                                     [FileProperty] = image.FileName,
                                 },
@@ -83,7 +83,7 @@ public static class PostExportJson
                             blur: null
                         ),
                     },
-                    ArtworkEmbedBlock or PostImageEmbedBlock => null,
+                    WorkEmbedBlock or PostImageEmbedBlock => null,
                     _ => PostDeltaWriter.Embed(block),
                 }
         );

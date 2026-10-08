@@ -83,7 +83,7 @@ public sealed class SiteEmails(EmailQueue emailQueue)
                 to.Value,
                 $"{site.Value} was deleted",
                 $"<p>{HtmlEncoder.Default.Encode(owner.Value)} deleted {HtmlEncoder.Default.Encode(site.Value)}. It's "
-                    + $"offline, and on {EmailDates.Text(eraseAt)} it will be erased with all its artworks, posts and images, "
+                    + $"offline, and on {EmailDates.Text(eraseAt)} it will be erased with all its works, posts and images, "
                     + "unless its owner keeps it.</p>"
             )
         );
@@ -110,7 +110,7 @@ public sealed class SiteEmails(EmailQueue emailQueue)
                 $"{site.Value} was deleted",
                 $"<p>{HtmlEncoder.Default.Encode(owner.Value)} deleted their account, and with it "
                     + $"{HtmlEncoder.Default.Encode(site.Value)}. It's offline, and on {EmailDates.Text(eraseAt)} it will be "
-                    + "erased with all its artworks, posts and images.</p>"
+                    + "erased with all its works, posts and images.</p>"
             )
         );
 }

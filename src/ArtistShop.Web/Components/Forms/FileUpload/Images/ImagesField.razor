@@ -10,12 +10,12 @@
   [Parameter, EditorRequired]
   public string PrimaryFieldName { get; set; } = default!;
 
-  // what the form already holds: an artwork's saved images on the edit page, and on either page
+  // what the form already holds: a work's saved images on the edit page, and on either page
   // whatever was posted by a submit that came back with an error. A List, not IReadOnlyList: an
   // island parameter is rebuilt from its runtime type, and a collection expression's type is one
   // the compiler made, which JSON can't create
   [Parameter]
-  public List<ArtworkImage> SelectedImages { get; set; } = [];
+  public List<WorkImage> SelectedImages { get; set; } = [];
   [Parameter]
   public string? SelectedPrimaryImageKey { get; set; }
 

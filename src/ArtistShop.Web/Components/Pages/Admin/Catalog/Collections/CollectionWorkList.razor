@@ -1,0 +1,140 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public CollectionWithWorks Collection { get; set; } = default!;
+
+  private List<CollectionWork> _works = [];
+  private readonly HashSet<WorkId> _selected = [];
+  private bool _isSaving;
+  private bool _removeDialogOpen;
+  private bool _changedElsewhere;
+
+  // after a save, Refresh re-renders the page, which passes the saved list back in here
+  protected override void OnParametersSet()
+  {
+    _works = [.. Collection.Works];
+    _selected.RemoveWhere(id => !Collection.Works.Any(work => work.Id == id));
+  }
+
+  // only works with an image can be the cover
+  private static string? StarValueOf(CollectionWork work) =>
+    work.PrimaryImage is null ? null : work.Id.Value.ToString();
+
+  private string? StarredValue =>
+    _works.FirstOrDefault(work => work.IsCover) is { } cover ? StarValueOf(cover) : null;
+
+  private Task MoveAsync((int OldIndex, int NewIndex) move) =>
+    SaveAsync(async () =>
+    {
+      var reordered = _works.Moved(move);
+
+      await CollectionRepository.ReorderWorksAsync(Collection.Id, [.. reordered.Select(item => item.Id)]);
+      // shown only once saved, so a failed save can't leave an order on screen that isn't in the database
+      _works = reordered;
+    });
+
+  private Task StarAsync(CollectionWork work) =>
+    SaveAsync(() => CollectionRepository.SetCoverAsync(Collection.Id, work.Id));
+
+  private Task ClearStarAsync() => SaveAsync(() => CollectionRepository.ClearCoverAsync(Collection.Id));
+
+  private Task RemoveSelectedAsync() =>
+    SaveAsync(async () =>
+    {
+      await CollectionRepository.RemoveWorksAsync(Collection.Id, _selected);
+      _selected.Clear();
+      _removeDialogOpen = false;
+    });
+
+  private async Task SaveAsync(Func<Task> save)
+  {
+    // a second drag while the first is saving would send an order built from the old list
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      await save();
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+      _removeDialogOpen = false;
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+
+    NavigationManager.Refresh();
+  }
+}
+
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-red-600">This @Wording.Collection.SingularInSentence was changed somewhere else, so the list has been
+      reloaded.</p>
+  }
+
+  <div class="mb-2 flex items-center justify-between text-sm">
+    <span>@(_works.Count == 0 ? $"No {Wording.Work.PluralInSentence} in this {Wording.Collection.SingularInSentence} yet." : Wording.Work.CountOf(_works.Count))</span>
+
+    <div class="flex gap-2">
+      @if (_works.Count > 0)
+      {
+        <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" disabled="@(_selected.Count == 0 || _isSaving)"
+                     @onclick="() => _removeDialogOpen = true">
+          Remove selected (@_selected.Count)
+        </ButtonBasic>
+      }
+      <LinkButton href="@PageUrls.AddCollectionWorks(Collection.Id)" Variant="ButtonVariant.Primary">Add @Wording.Work.PluralInSentence</LinkButton>
+    </div>
+  </div>
+
+  @if (_works.Count > 0)
+  {
+    <StarredSortableList TItem="CollectionWork" Items="_works" AriaLabel="@($"{Wording.Work.SingularHeading} order")" StarName="collection-cover"
+                         StarTitle="@($"Use as the {Wording.Collection.SingularInSentence} cover")" StarValueOf="StarValueOf" StarredValue="@StarredValue"
+                         OnStar="StarAsync" ChosenStarMessage="Cover chosen by hand"
+                         ClearStarLabel="@($"Use the first {Wording.Work.SingularInSentence} instead")" OnClearStar="ClearStarAsync" OnMove="MoveAsync">
+      <RowContent Context="work">
+        <WorkThumbnail Image="work.PrimaryImage" />
+
+        <div class="grow">
+          <div>
+            <a href="@PageUrls.EditWork(work.Id)" class="underline">@work.Name.Value</a>
+          </div>
+          <div class="text-xs text-gray-500">@work.WorkTypeName.Value</div>
+        </div>
+      </RowContent>
+      <RowActions Context="work">
+        <RowSelectCheckbox ItemName="@work.Name.Value" checked="@_selected.Contains(work.Id)"
+                           @onchange="() => _selected.Toggle(work.Id)" />
+      </RowActions>
+    </StarredSortableList>
+  }
+
+  <ConfirmDialog @bind-Open="_removeDialogOpen" Title="@($"Remove {Wording.Work.CountOf(_selected.Count)} from {Collection.Name.Value}?")"
+                 ConfirmLabel="Remove" OnConfirm="RemoveSelectedAsync" IsWorking="_isSaving">
+    Nothing is deleted from the catalog.
+  </ConfirmDialog>
+</DisabledUntilInteractive>

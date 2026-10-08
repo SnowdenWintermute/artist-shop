@@ -6,6 +6,9 @@
 @inject NavigationManager NavigationManager
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public PostId PostId { get; set; } = default!;
   [Parameter, EditorRequired]
@@ -37,6 +40,6 @@
 
   <ConfirmDialog @bind-Open="_dialogOpen" Title="@($"Delete {PostTitle.Value}?")" ConfirmLabel="Delete"
                  OnConfirm="DeleteAsync" IsWorking="_isDeleting">
-    This deletes the post for good. Its page goes, and the artworks it shows stop listing it.
+    This deletes the post for good. Its page goes, and the @Wording.Work.PluralInSentence it shows stop listing it.
   </ConfirmDialog>
 </DisabledUntilInteractive>

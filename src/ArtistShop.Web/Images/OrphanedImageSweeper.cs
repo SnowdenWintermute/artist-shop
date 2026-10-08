@@ -25,7 +25,7 @@ public class OrphanedImageSweeper(
     // candidates, and never compared with a database that doesn't know them
     public async Task SweepAsync(
         ImageStorage imageStorage,
-        ArtworkImageRepository imageRepository,
+        WorkImageRepository imageRepository,
         PostRepository postRepository
     )
     {
@@ -38,7 +38,7 @@ public class OrphanedImageSweeper(
             return;
         }
 
-        // an artwork's images, and the ones uploaded into posts
+        // a work's images, and the ones uploaded into posts
         var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
         referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
 

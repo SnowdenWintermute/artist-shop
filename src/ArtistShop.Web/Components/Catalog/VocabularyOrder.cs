@@ -34,7 +34,7 @@ public static class VocabularyOrder
                 }),
         ];
 
-    // an artwork's terms arrive flat, each carrying its vocabulary, so they are gathered under
+    // a work's terms arrive flat, each carrying its vocabulary, so they are gathered under
     // their vocabularies first and then put in the same order as everywhere else
     public static List<VocabularyTermGroup> GroupedByVocabulary(IEnumerable<VocabularyTerm> terms) =>
         SortedByName(

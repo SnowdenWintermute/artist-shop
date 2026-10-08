@@ -11,6 +11,9 @@
 @inject NavigationManager NavigationManager
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   private List<SiteMemberAccount> _members = [];
   private List<SiteInvite> _invites = [];
   private string _mySitesLink = "";
@@ -34,7 +37,7 @@
 
 <AdminPanel>
   <h1 class="mb-4 text-xl">Admins</h1>
-  <p class="mb-4">Admins can edit this website's artworks and posts. Only you, its owner, can invite or remove them.</p>
+  <p class="mb-4">Admins can edit this website's @Wording.Work.PluralInSentence and posts. Only you, its owner, can invite or remove them.</p>
 
   <AdminTable Members="_members" />
 

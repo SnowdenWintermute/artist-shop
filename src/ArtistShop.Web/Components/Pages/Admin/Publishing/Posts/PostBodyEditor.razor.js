@@ -1,10 +1,10 @@
 import {
-  ARTWORK_EMBED,
-  addArtworkEmbed,
-  attachArtworkEmbedToolbar,
-  attachArtworkPicker,
-  registerArtworkEmbed,
-} from "./PostArtworkEmbed.razor.js";
+  WORK_EMBED,
+  addWorkEmbed,
+  attachWorkEmbedToolbar,
+  attachWorkPicker,
+  registerWorkEmbed,
+} from "./PostWorkEmbed.razor.js";
 import {
   IMAGE_EMBED,
   UPLOAD_PLACEHOLDER,
@@ -33,7 +33,7 @@ const FORMATS = [
   // no toolbar button: Quill makes a list when "1. " or "- " is typed, if the format is allowed
   "list",
   "blockquote",
-  ARTWORK_EMBED,
+  WORK_EMBED,
   IMAGE_EMBED,
   UPLOAD_PLACEHOLDER,
   VIDEO_EMBED,
@@ -45,7 +45,7 @@ const TOOLBAR = [
   [{ header: [2, 3, false] }],
   ["bold", "italic", "underline", "link"],
   ["blockquote"],
-  [ARTWORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
+  [WORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
   ["clean"],
 ];
 
@@ -134,11 +134,11 @@ customElements.define(
 
     async connectedCallback() {
       const input = this.querySelector('input[type="hidden"]');
-      const artworkToolbar = this.querySelector('[data-part="artwork-embed-toolbar"]');
+      const workToolbar = this.querySelector('[data-part="work-embed-toolbar"]');
       const imageToolbar = this.querySelector('[data-part="image-embed-toolbar"]');
       const imageFileInput = this.querySelector('input[data-part="image-file"]');
       const videoToolbar = this.querySelector('[data-part="video-embed-toolbar"]');
-      const artworkPicker = this.querySelector('dialog[data-part="artwork-picker"]');
+      const workPicker = this.querySelector('dialog[data-part="work-picker"]');
       const undoIcon = this.querySelector('template[data-part="undo-icon"]');
       const quillSource = this.dataset.quillSrc;
 
@@ -152,22 +152,22 @@ customElements.define(
 
       if (
         !(input instanceof HTMLInputElement) ||
-        !(artworkToolbar instanceof HTMLElement) ||
+        !(workToolbar instanceof HTMLElement) ||
         !(imageToolbar instanceof HTMLElement) ||
         !(imageFileInput instanceof HTMLInputElement) ||
         !(videoToolbar instanceof HTMLElement) ||
-        !(artworkPicker instanceof HTMLDialogElement) ||
+        !(workPicker instanceof HTMLDialogElement) ||
         !(undoIcon instanceof HTMLTemplateElement) ||
         quillSource === undefined
       ) {
         throw new Error(
-          "The post body editor is missing its input, an embed toolbar, the image file input, the artwork picker, the undo icon or Quill's address."
+          "The post body editor is missing its input, an embed toolbar, the image file input, the work picker, the undo icon or Quill's address."
         );
       }
 
       this.#isMounted = true;
       await loadQuill(quillSource, () => {
-        registerArtworkEmbed(artworkToolbar);
+        registerWorkEmbed(workToolbar);
         registerPostImageEmbed(imageToolbar);
         registerVideoEmbed(videoToolbar);
       });
@@ -183,7 +183,7 @@ customElements.define(
       this.append(editingArea);
 
       this.#listeners = new AbortController();
-      const picker = attachArtworkPicker(artworkPicker, this.#listeners.signal);
+      const picker = attachWorkPicker(workPicker, this.#listeners.signal);
       const imagePicker = createImagePicker(imageFileInput);
 
       const quill = new Quill(editingArea, {
@@ -196,7 +196,7 @@ customElements.define(
             handlers: {
               undo: () => quill.getModule("history").undo(),
               redo: () => quill.getModule("history").redo(),
-              [ARTWORK_EMBED]: () => addArtworkEmbed(quill, picker),
+              [WORK_EMBED]: () => addWorkEmbed(quill, picker),
               [IMAGE_EMBED]: () => addPostImageEmbed(quill, imagePicker, imageUploads),
               [VIDEO_EMBED]: () => addVideoEmbed(quill, videoToolbar, this.#videoAddressDialog()),
             },
@@ -223,13 +223,12 @@ customElements.define(
       const toolbar = quill.getModule("toolbar").container;
 
       // Quill draws its own buttons' icons and leaves ours empty. Image and Video take its own image
-      // and video icons; it has none for an artwork, so that one says what it is, and none for
-      // Undo and Redo
+      // and video icons; it has none for Undo and Redo, and none for a work, so that one says what
+      // it is
       const icons = Quill.import("ui/icons");
       for (const [name, content] of [
         ["undo", undoIcon.innerHTML],
         ["redo", undoIcon.innerHTML],
-        [ARTWORK_EMBED, "Artwork"],
         [IMAGE_EMBED, icons.image],
         [VIDEO_EMBED, icons.video],
       ]) {
@@ -237,6 +236,12 @@ customElements.define(
         if (button !== null) {
           button.innerHTML = content;
         }
+      }
+
+      // the website's own word, which the artist typed, so as text rather than markup
+      const workButton = toolbar.querySelector(`button.ql-${WORK_EMBED}`);
+      if (workButton !== null) {
+        workButton.textContent = this.dataset.workButtonText ?? "";
       }
 
       // Quill gives its controls no tooltip, and names them to screen readers by their format, such
@@ -250,7 +255,7 @@ customElements.define(
         ["button.ql-underline", "Underline"],
         ["button.ql-link", "Link"],
         ["button.ql-blockquote", "Quote"],
-        [`button.ql-${ARTWORK_EMBED}`, "Add an artwork"],
+        [`button.ql-${WORK_EMBED}`, this.dataset.workButtonLabel ?? ""],
         [`button.ql-${IMAGE_EMBED}`, "Upload an image"],
         [`button.ql-${VIDEO_EMBED}`, "Add a video"],
         ["button.ql-clean", "Clear formatting"],
@@ -282,7 +287,7 @@ customElements.define(
       const lines = attachEmbedLines(quill, this.#listeners.signal);
       attachEmbedSelection(quill);
       attachEmbedDrag(quill, this.#listeners.signal);
-      attachArtworkEmbedToolbar(quill, artworkToolbar, picker, lines, this.#listeners.signal);
+      attachWorkEmbedToolbar(quill, workToolbar, picker, lines, this.#listeners.signal);
       attachPostImageEmbedToolbar(quill, imageToolbar, imagePicker, imageUploads, lines, this.#listeners.signal);
       attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), lines, this.#listeners.signal);
       this.#mounted.resolve(quill);

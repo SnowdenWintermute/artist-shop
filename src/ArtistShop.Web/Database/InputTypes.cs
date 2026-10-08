@@ -2,7 +2,7 @@ namespace ArtistShop.Web.Database;
 
 // the composite types in Scripts/0002_CreateInputTypes.sql. SiteDataSource maps each one, and
 // Npgsql matches a field to the constructor parameter of the same name in snake_case
-public sealed record ArtworkImageInput(
+public sealed record WorkImageInput(
     string StorageKey,
     string? OriginalFileName,
     int SortOrder,
@@ -20,4 +20,4 @@ public sealed record ProductInput(
     int Stock
 );
 
-public sealed record SeriesNameAndSlug(string Name, string Slug);
+public sealed record CollectionNameAndSlug(string Name, string Slug);

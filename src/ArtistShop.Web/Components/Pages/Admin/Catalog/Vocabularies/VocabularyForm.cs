@@ -8,24 +8,24 @@ namespace ArtistShop.Web.Components.Pages.Admin.Catalog.Vocabularies;
 
 public class VocabularyForm : ServerValidatedForm
 {
-    private readonly HashSet<ArtworkTypeId> _artworkTypeIds = [];
+    private readonly HashSet<WorkTypeId> _workTypeIds = [];
     private string? _savedName;
     private bool _savedIsMutuallyExclusive;
-    private readonly HashSet<ArtworkTypeId> _savedArtworkTypeIds = [];
+    private readonly HashSet<WorkTypeId> _savedWorkTypeIds = [];
 
     // Loads into this form rather than making a new one, so the EditContext stays the same:
     // EditForm rebuilds every element inside it when handed a new one, which takes the focus out
     // of the field the artist just pressed Enter in
-    public void Load(VocabularyWithArtworkTypes saved)
+    public void Load(VocabularyWithWorkTypes saved)
     {
         Name = saved.Name.Value;
         _savedName = saved.Name.Value;
         IsMutuallyExclusive = saved.IsMutuallyExclusive;
         _savedIsMutuallyExclusive = saved.IsMutuallyExclusive;
-        _artworkTypeIds.Clear();
-        _artworkTypeIds.UnionWith(saved.ArtworkTypeIds);
-        _savedArtworkTypeIds.Clear();
-        _savedArtworkTypeIds.UnionWith(saved.ArtworkTypeIds);
+        _workTypeIds.Clear();
+        _workTypeIds.UnionWith(saved.WorkTypeIds);
+        _savedWorkTypeIds.Clear();
+        _savedWorkTypeIds.UnionWith(saved.WorkTypeIds);
     }
 
     [Required]
@@ -36,20 +36,20 @@ public class VocabularyForm : ServerValidatedForm
 
     public bool BecameMutuallyExclusive => IsMutuallyExclusive && !_savedIsMutuallyExclusive;
 
-    public IReadOnlySet<ArtworkTypeId> ArtworkTypeIds => _artworkTypeIds;
+    public IReadOnlySet<WorkTypeId> WorkTypeIds => _workTypeIds;
 
     public bool HasChanges =>
         Name != _savedName
         || IsMutuallyExclusive != _savedIsMutuallyExclusive
-        || !_artworkTypeIds.SetEquals(_savedArtworkTypeIds);
+        || !_workTypeIds.SetEquals(_savedWorkTypeIds);
 
-    public void ToggleArtworkType(ArtworkTypeId artworkTypeId)
+    public void ToggleWorkType(WorkTypeId workTypeId)
     {
-        _artworkTypeIds.Toggle(artworkTypeId);
+        _workTypeIds.Toggle(workTypeId);
     }
 
-    public bool WasUnselected(ArtworkTypeId artworkTypeId) =>
-        _savedArtworkTypeIds.Contains(artworkTypeId) && !_artworkTypeIds.Contains(artworkTypeId);
+    public bool WasUnselected(WorkTypeId workTypeId) =>
+        _savedWorkTypeIds.Contains(workTypeId) && !_workTypeIds.Contains(workTypeId);
 
     public void AddNameTakenError(string name)
     {

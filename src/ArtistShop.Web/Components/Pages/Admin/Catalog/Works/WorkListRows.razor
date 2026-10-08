@@ -1,0 +1,107 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkListItem> Items { get; set; } = default!;
+
+  // null leaves the title as text
+  [Parameter, EditorRequired]
+  public Func<WorkListItem, string?> RowHref { get; set; } = default!;
+
+  // gives each row a checkbox, which WorkListBrowser's form around this table submits. The
+  // whole row is its label, and on a phone the box is hidden. The label covers the row's links
+  // too, so a list with a selection passes a RowHref that returns null
+  [Parameter]
+  public WorkListSelection? Selection { get; set; }
+
+  // whether a work is for sale doesn't bear on picking it, so the checkbox takes that column
+  private IReadOnlyList<DataTableHeading> Headings =>
+    ["", "Title", new("Type", WideOnly), new(Wording.Collection.PluralHeading, WideOnly), new("Images", WideOnly),
+      new(Selection is null ? "For sale" : "", WideOnly)];
+
+  // a phone keeps only the thumbnail and the title
+  private const string WideOnly = "max-sm:hidden";
+
+  // the whole row shows the check, as a phone hides the box
+  private string? RowClass =>
+    Selection is null ? null : "has-checked:bg-theme-selected has-checked:hover:bg-theme-selected has-focus-visible:outline-2";
+
+  private string? CheckboxId(WorkListItem item) => Selection is null ? null : $"checkbox-{item.Id.Value}";
+}
+
+@if (Items.Count == 0)
+{
+  <div>
+    <p>No @Wording.Work.PluralInSentence match these filters.</p>
+    <LoadingIndicator />
+  </div>
+}
+else
+{
+  @* a table, so every row's cells take their width from the same column: a grid per row
+     sized each one to its own contents, which left the headings sitting over nothing *@
+  @* the indicator is positioned against this wrapper: a div inside the table itself is
+     foster-parented out by the html parser, which leaves it with nothing to sit against *@
+  <div class="relative">
+    <DataTable Items="Items" Headings="Headings" RowClass="@RowClass"
+               Class="artist-shop-fades-while-loading">
+      <Row Context="item">
+        <WorkListCell CheckboxId="@CheckboxId(item)">
+          <a href="@RowHref(item)" class="border block w-fit">
+            <WorkThumbnail Image="item.PrimaryImage" Class="size-15 sm:size-20" />
+          </a>
+        </WorkListCell>
+
+        @* on a phone the title takes the width that's left and stops at its edge: a cell's width
+           only holds back its text once max-w-0 stops it growing to fit *@
+        <WorkListCell CheckboxId="@CheckboxId(item)" Class="max-sm:w-full max-sm:max-w-0">
+          @if (RowHref(item) is { } href)
+          {
+            <a href="@href" class="underline max-sm:block max-sm:truncate">@item.Name.Value</a>
+          }
+          else
+          {
+            <span class="max-sm:block max-sm:truncate">@item.Name.Value</span>
+          }
+
+          @if (item.DateCreated is { } dateCreated)
+          {
+            <span class="block text-xs text-gray-500 max-sm:truncate">@dateCreated.Text</span>
+          }
+        </WorkListCell>
+
+        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm {WideOnly}")">
+          @item.WorkTypeName.Value
+        </WorkListCell>
+
+        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+          @item.CollectionNames
+        </WorkListCell>
+
+        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+          @item.ImageCount
+        </WorkListCell>
+
+        @if (Selection is null)
+        {
+          <DataTableCell Class="@($"text-sm text-gray-600 {WideOnly}")">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
+        }
+        else
+        {
+          @* sr-only rather than hidden, so a phone's keyboard and screen reader still reach the box *@
+          <WorkListCell CheckboxId="@CheckboxId(item)" Class="max-sm:sr-only">
+            <RowSelectCheckbox ItemName="@item.Name.Value" id="@CheckboxId(item)" name="@Selection.FieldName"
+                               value="@item.Id.Value" checked="@Selection.Contains(item.Id)" />
+          </WorkListCell>
+        }
+      </Row>
+    </DataTable>
+
+    <LoadingIndicator />
+  </div>
+}

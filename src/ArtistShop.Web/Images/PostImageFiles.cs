@@ -9,7 +9,7 @@ public static class PostImageFiles
     public static IReadOnlyList<PostImageEmbedBlock> MissingFrom(PostDocument document, ImageStorage imageStorage) =>
         [.. document.Blocks.OfType<PostImageEmbedBlock>().Where(image => IsMissing(image, imageStorage))];
 
-    // Left out rather than showing a blur with nothing over it, as an artwork embed whose image
+    // Left out rather than showing a blur with nothing over it, as a work embed whose image
     // was deleted is
     public static PostDocument WithoutMissing(PostDocument document, ImageStorage imageStorage) =>
         document with

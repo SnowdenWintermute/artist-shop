@@ -12,13 +12,16 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject VocabularyRepository VocabularyRepository
-@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject WorkTypeRepository WorkTypeRepository
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter]
   public int? Id { get; set; }
 
-  private List<ArtworkType> _artworkTypes = [];
+  private List<WorkType> _workTypes = [];
   // null when creating, or when the id doesn't exist
   private LoadedVocabulary? _loaded;
   // on the new vocabulary page only, which is where the admin's Vocabularies link lands
@@ -26,11 +29,11 @@
 
   protected override async Task OnInitializedAsync()
   {
-    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+    _workTypes = await WorkTypeRepository.GetAllAsync();
 
     if (Id is null)
     {
-      _unlinkedVocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllWithoutArtworkTypesAsync());
+      _unlinkedVocabularies = VocabularyOrder.SortedByName(await VocabularyRepository.GetAllWithoutWorkTypesAsync());
     }
 
     if (Id is int id)
@@ -43,7 +46,7 @@
         _loaded = new LoadedVocabulary(
           vocabulary,
           await VocabularyRepository.CountUsageAsync(vocabularyId),
-          vocabulary.IsMutuallyExclusive ? [] : await VocabularyRepository.GetArtworksWithSeveralTermsAsync(vocabularyId)
+          vocabulary.IsMutuallyExclusive ? [] : await VocabularyRepository.GetWorksWithSeveralTermsAsync(vocabularyId)
         );
       }
     }
@@ -58,7 +61,7 @@
     <p>Controlled
       vocabularies provide a way
       to associate
-      your artworks with a defined list of terms. For example, a painting could have a vocabulary called "Support" whose
+      your @Wording.Work.PluralInSentence with a defined list of terms. For example, a painting could have a vocabulary called "Support" whose
       terms could be "Canvas", "Paper" or "Stone Slab".</p>
 
     </Hint>
@@ -85,7 +88,8 @@
       <Notice>
         <p class="mb-2">
           @(_unlinkedVocabularies.Count is 1 ? "This vocabulary isn't" : "These vocabularies aren't") linked to any
-          artwork type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show on any artwork's form.
+          @Wording.Work.SingularInSentence type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show on
+          any @Wording.Work.SingularInSentence's form.
         </p>
         <ul class="list-disc pl-5">
           @foreach (var vocabulary in _unlinkedVocabularies)
@@ -98,7 +102,7 @@
       </Notice>
     }
 
-    @if (_loaded is { Vocabulary.ArtworkTypeIds.Count: 0 })
+    @if (_loaded is { Vocabulary.WorkTypeIds.Count: 0 })
     {
       <UnlinkedVocabularyNotice Name="_loaded.Vocabulary.Name">
         Check the types it applies to below and save.
@@ -106,5 +110,5 @@
     }
 
     @* @key: a different vocabulary gets a fresh island rather than inheriting this one's state *@
-    <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" ArtworkTypes="_artworkTypes" Loaded="_loaded" />
+    <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" WorkTypes="_workTypes" Loaded="_loaded" />
   }

@@ -11,26 +11,26 @@ public class PostImportPlannerTests
     private const string DawnKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string DawnSha256 = "d0d0";
 
-    private static readonly Artwork Dawn = new(
-        new ArtworkId(7),
-        new ArtworkType(new ArtworkTypeId(1), new ArtworkTypeName("Painting")),
-        new ArtworkName("Dawn"),
-        new ArtworkSlug("dawn"),
+    private static readonly Work Dawn = new(
+        new WorkId(7),
+        new WorkType(new WorkTypeId(1), new WorkTypeName("Painting")),
+        new WorkName("Dawn"),
+        new WorkSlug("dawn"),
         description: null,
         dateCreated: null,
         dimensions: null,
         duration: null,
-        [new ArtworkImage(DawnKey, OriginalFileName: null, Width: 800, Height: 600, BlurDataUri: null)],
-        series: [],
+        [new WorkImage(DawnKey, OriginalFileName: null, Width: 800, Height: 600, BlurDataUri: null)],
+        collections: [],
         vocabularyTerms: [],
         products: []
     );
 
-    private static PostImportTarget Target(IReadOnlyList<Artwork>? artworks = null, IReadOnlySet<string>? postSlugs = null) =>
+    private static PostImportTarget Target(IReadOnlyList<Work>? works = null, IReadOnlySet<string>? postSlugs = null) =>
         new(
             postSlugs ?? new HashSet<string>(),
             new HashSet<string> { "gardens" },
-            new WebsiteArtworks(artworks ?? [Dawn], new Dictionary<string, string> { [DawnKey] = DawnSha256 })
+            new WebsiteWorks(works ?? [Dawn], new Dictionary<string, string> { [DawnKey] = DawnSha256 })
         );
 
     private static string PostJson(string title, string ops, string publishedAt = "\"2025-03-04T05:06:07Z\"") =>
@@ -42,38 +42,38 @@ public class PostImportPlannerTests
     private static PostImportItem PlanOne(PostImportFolder folder, PostImportTarget? target = null) =>
         Assert.Single(PostImportPlanner.Plan([folder], target ?? Target()));
 
-    private static string ArtworkOp(string slug, string title, string sha256) =>
-        $$$$"""{"insert":{"artshop-artwork":{"artworkSlug":"{{{{slug}}}}","artworkTitle":"{{{{title}}}}","imageSha256":"{{{{sha256}}}}","file":"image-1.webp","size":"small","layout":"floatLeft","caption":"Early"}}}""";
+    private static string WorkOp(string slug, string title, string sha256) =>
+        $$$$"""{"insert":{"artshop-work":{"workSlug":"{{{{slug}}}}","workTitle":"{{{{title}}}}","imageSha256":"{{{{sha256}}}}","file":"image-1.webp","size":"small","layout":"floatLeft","caption":"Early"}}}""";
 
     [Fact]
-    public void AnArtworkWithTheSameImageIsLinkedAgain()
+    public void AWorkWithTheSameImageIsLinkedAgain()
     {
-        var item = PlanOne(Folder("spring", PostJson("Spring", ArtworkOp("dawn", "Dawn", DawnSha256)), "image-1.webp"));
+        var item = PlanOne(Folder("spring", PostJson("Spring", WorkOp("dawn", "Dawn", DawnSha256)), "image-1.webp"));
 
         Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
-        Assert.Equal(1, item.RelinkedArtworkCount);
-        var embed = Assert.Single(DocumentOf(item).Blocks.OfType<ArtworkEmbedBlock>());
-        Assert.Equal(new ArtworkEmbedBlock(Dawn.Id, DawnKey, EmbedImageSize.Small, EmbedLayout.FloatLeft, "Early"), embed);
+        Assert.Equal(1, item.RelinkedWorkCount);
+        var embed = Assert.Single(DocumentOf(item).Blocks.OfType<WorkEmbedBlock>());
+        Assert.Equal(new WorkEmbedBlock(Dawn.Id, DawnKey, EmbedImageSize.Small, EmbedLayout.FloatLeft, "Early"), embed);
         // its web copy isn't needed, so nothing is uploaded
         Assert.Empty(item.FileIdsByPlaceholder);
     }
 
-    // the catalog import makes a slug from the title, so one taken here gives the artwork another
+    // the catalog import makes a slug from the title, so one taken here gives the work another
     [Fact]
-    public void AnArtworkWhoseSlugChangedIsFoundByItsTitle()
+    public void AWorkWhoseSlugChangedIsFoundByItsTitle()
     {
-        var item = PlanOne(Folder("spring", PostJson("Spring", ArtworkOp("dawn-2", "Dawn", DawnSha256)), "image-1.webp"));
+        var item = PlanOne(Folder("spring", PostJson("Spring", WorkOp("dawn-2", "Dawn", DawnSha256)), "image-1.webp"));
 
-        Assert.Equal(1, item.RelinkedArtworkCount);
+        Assert.Equal(1, item.RelinkedWorkCount);
     }
 
     [Fact]
-    public void AnArtworkWithoutTheSameImageBecomesAPictureOfItsWebCopy()
+    public void AWorkWithoutTheSameImageBecomesAPictureOfItsWebCopy()
     {
-        var item = PlanOne(Folder("spring", PostJson("Spring", ArtworkOp("dawn", "Dawn", "another")), "image-1.webp"));
+        var item = PlanOne(Folder("spring", PostJson("Spring", WorkOp("dawn", "Dawn", "another")), "image-1.webp"));
 
         Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
-        Assert.Equal(["Dawn"], item.PictureOnlyArtworks);
+        Assert.Equal(["Dawn"], item.PictureOnlyWorks);
         var image = Assert.Single(DocumentOf(item).Blocks.OfType<PostImageEmbedBlock>());
         Assert.Equal("Dawn", image.Alt);
         Assert.Equal("Early", image.Caption);
@@ -130,7 +130,7 @@ public class PostImportPlannerTests
     [Fact]
     public void ALinkToAPageThatIsntHereIsAWarning()
     {
-        string[] paths = ["/series/gardens", "/series/lost", "/artworks/dawn", "/posts/summer", "/posts/gone", "/about"];
+        string[] paths = ["/collections/gardens", "/collections/lost", "/works/dawn", "/posts/summer", "/posts/gone", "/about"];
         var links = string.Join(
             ",",
             paths.Select(link =>
@@ -146,7 +146,7 @@ public class PostImportPlannerTests
         var spring = items.Single(item => item.FolderName == "spring");
         Assert.Equal(PostImportOutcome.WillAdd, spring.Outcome);
         // /posts/summer works, since that post comes in with it
-        Assert.Equal(["/series/lost", "/posts/gone", "/about"], spring.BrokenLinks);
+        Assert.Equal(["/collections/lost", "/posts/gone", "/about"], spring.BrokenLinks);
     }
 
     [Fact]
@@ -189,24 +189,24 @@ public class PostImportPlannerTests
     }
 
     [Fact]
-    public void OnlyTheImagesOfArtworksAPostMayShowAreHashed()
+    public void OnlyTheImagesOfWorksAPostMayShowAreHashed()
     {
-        var other = new Artwork(
-            new ArtworkId(8),
+        var other = new Work(
+            new WorkId(8),
             Dawn.Type,
-            new ArtworkName("Dusk"),
-            new ArtworkSlug("dusk"),
+            new WorkName("Dusk"),
+            new WorkSlug("dusk"),
             description: null,
             dateCreated: null,
             dimensions: null,
             duration: null,
-            [new ArtworkImage("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", OriginalFileName: null, Width: 800, Height: 600, BlurDataUri: null)],
-            series: [],
+            [new WorkImage("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", OriginalFileName: null, Width: 800, Height: 600, BlurDataUri: null)],
+            collections: [],
             vocabularyTerms: [],
             products: []
         );
 
-        var keys = PostImportPlanner.ArtworkImagesToHash([Folder("spring", PostJson("Spring", ArtworkOp("dawn", "Dawn", DawnSha256)))], [Dawn, other]);
+        var keys = PostImportPlanner.WorkImagesToHash([Folder("spring", PostJson("Spring", WorkOp("dawn", "Dawn", DawnSha256)))], [Dawn, other]);
 
         Assert.Equal([DawnKey], keys);
     }

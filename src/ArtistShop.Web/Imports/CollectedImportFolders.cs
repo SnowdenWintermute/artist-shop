@@ -14,7 +14,7 @@ public static class CollectedImportFolders
     // a post's text, which is small; its images are separate files
     public const long MaximumPostFileBytes = 5L * Units.BytesPerMebibyte;
 
-    // the catalog's CSV files and images.csv, which grow with the number of artworks
+    // the catalog's CSV files and images.csv, which grow with the number of works
     public const long MaximumListBytes = 50L * Units.BytesPerMebibyte;
 
     // Every post.json in a folder isPostFolder accepts, with the other files of its folder by name
@@ -79,16 +79,16 @@ public static class CollectedImportFolders
             byPath.TryGetValue(path, out var file) ? await TextAsync(file, maximumBytes, readText) : null;
 
         const string catalog = WebsiteExportArchive.CatalogFolder;
-        const string artworkFolder = $"{catalog}/{CatalogExportArchive.ArtworksFolder}";
+        const string workFolder = $"{catalog}/{CatalogExportArchive.WorksFolder}";
         const string images = WebsiteExportArchive.ImagesFolder;
-        var artworkCsvs = new Dictionary<string, string>();
+        var workCsvs = new Dictionary<string, string>();
         var imageFileIds = new Dictionary<string, string>();
 
         foreach (var (path, file) in byPath)
         {
-            if (CollectedPaths.FolderOf(path) == artworkFolder)
+            if (CollectedPaths.FolderOf(path) == workFolder)
             {
-                artworkCsvs[CollectedPaths.NameOf(path)] = await TextAsync(file, MaximumListBytes, readText);
+                workCsvs[CollectedPaths.NameOf(path)] = await TextAsync(file, MaximumListBytes, readText);
             }
 
             if (CollectedPaths.Inside(images, path) is { } imagePath)
@@ -99,9 +99,9 @@ public static class CollectedImportFolders
 
         return new WebsiteImportFolder(
             await TextAtAsync(WebsiteExportArchive.ManifestFileName, MaximumPostFileBytes),
-            await TextAtAsync($"{catalog}/{CatalogExportArchive.ArtworkTypesFileName}", MaximumListBytes),
+            await TextAtAsync($"{catalog}/{CatalogExportArchive.WorkTypesFileName}", MaximumListBytes),
             await TextAtAsync($"{catalog}/{CatalogExportArchive.VocabulariesFileName}", MaximumListBytes),
-            artworkCsvs,
+            workCsvs,
             await TextAtAsync($"{images}/{ImageExportArchive.ImageListFileName}", MaximumListBytes),
             imageFileIds,
             // a post's folder sits directly in posts/

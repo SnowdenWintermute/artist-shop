@@ -4,6 +4,9 @@
 @using System.Linq.Expressions
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public string Label { get; set; } = default!;
 
@@ -32,13 +35,15 @@
      data-quill-src. data-permanent stops enhanced navigation from patching its children, which
      would remove Quill's toolbar and editing area, since the server never renders them *@
   <post-body-editor class="block bg-white" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]"
-                    data-column-class="@PostColumn.WidthClass" data-video-address-dialog="@VideoAddressDialog.ElementId">
+                    data-column-class="@PostColumn.WidthClass" data-video-address-dialog="@VideoAddressDialog.ElementId"
+                    data-work-button-text="@Wording.Work.SingularHeading"
+                    data-work-button-label="@($"Add {Wording.Work.SingularInSentence}")">
     <InputText type="hidden" id="@elementId" Value="@Value" ValueChanged="ValueChanged"
                ValueExpression="ValueExpression" />
-    <PostArtworkEmbed />
+    <PostWorkEmbed />
     <PostImageEmbed />
     <PostVideoEmbed />
-    <ArtworkPickerDialog />
+    <WorkPickerDialog />
     @* Quill draws its own toolbar, so the script copies this into Undo and Redo. ql-stroke gives it
        Quill's colours, as on its own icons *@
     <template data-part="undo-icon"><SvgIcon Name="undo" Class="ql-stroke" /></template>

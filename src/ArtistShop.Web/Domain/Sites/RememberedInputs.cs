@@ -4,9 +4,9 @@ namespace ArtistShop.Web.Domain.Sites;
 // forgets every value saved under the old name
 public static class RememberedInputs
 {
-    // shared by every artwork type select, through RememberedArtworkType
-    public const string ArtworkType = "artwork-type";
+    // shared by every work type select, through RememberedWorkType
+    public const string WorkType = "work-type";
 
     // what the saving endpoint accepts, so it can't fill the table with names nothing reads
-    public static readonly IReadOnlySet<string> Names = new HashSet<string> { ArtworkType };
+    public static readonly IReadOnlySet<string> Names = new HashSet<string> { WorkType };
 }

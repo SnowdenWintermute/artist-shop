@@ -2,10 +2,10 @@
 @using ArtistShop.Web.Images
 
 @code {
-  // an artwork with no photograph never reaches a visitor, but the artist's own pages
+  // a work with no photograph never reaches a visitor, but the artist's own pages
   // show one, so the empty state stays
   [Parameter]
-  public ArtworkImage? Image { get; set; }
+  public WorkImage? Image { get; set; }
 
   // decorative by default: the tile writes the name beside it
   [Parameter]

@@ -140,7 +140,7 @@ public class PostDocumentParserTests
     [InlineData("https://example.com/a")]
     [InlineData("http://example.com")]
     [InlineData("mailto:someone@example.com")]
-    [InlineData("/artworks/some-slug")]
+    [InlineData("/works/some-slug")]
     [InlineData("/")]
     public void KeepsWebMailAndSiteLinks(string link)
     {
@@ -191,7 +191,7 @@ public class PostDocumentParserTests
     public void ListsNoLinksForAPostWhoseLinksAllWork() =>
         Assert.Empty(
             PostDocumentParser.LinksDropped(
-                new PostBody("""{"ops":[{"insert":"a","attributes":{"link":"/artworks/x"}},{"insert":"\n"}]}""")
+                new PostBody("""{"ops":[{"insert":"a","attributes":{"link":"/works/x"}},{"insert":"\n"}]}""")
             )
         );
 
@@ -206,32 +206,32 @@ public class PostDocumentParserTests
     }
 
     [Fact]
-    public void ReadsAnArtworkEmbed()
+    public void ReadsAnWorkEmbed()
     {
         var blocks = Parse(
             """
             {"ops":[
-                {"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","size":"small","layout":"floatLeft"}}},
+                {"insert":{"artshop-work":{"workId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","size":"small","layout":"floatLeft"}}},
                 {"insert":"\n"}
             ]}
             """
         );
 
         Assert.Equal(
-            new ArtworkEmbedBlock(new ArtworkId(42), "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Small, EmbedLayout.FloatLeft, null),
+            new WorkEmbedBlock(new WorkId(42), "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Small, EmbedLayout.FloatLeft, null),
             blocks[0]
         );
     }
 
     [Fact]
-    public void AnArtworkEmbedDefaultsToMediumAndCentred()
+    public void AWorkEmbedDefaultsToMediumAndCentred()
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f"}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-work":{"workId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f"}}},{"insert":"\n"}]}"""
         );
 
         Assert.Equal(
-            new ArtworkEmbedBlock(new ArtworkId(42), "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Medium, EmbedLayout.Center, null),
+            new WorkEmbedBlock(new WorkId(42), "0192f1c2a3b44c5d8e9f0a1b2c3d4e5f", EmbedImageSize.Medium, EmbedLayout.Center, null),
             blocks[0]
         );
     }
@@ -244,18 +244,18 @@ public class PostDocumentParserTests
     public void ReadsEachLayoutAndCentresAnUnknownOne(string layout, EmbedLayout expected)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","layout":"""
+            """{"ops":[{"insert":{"artshop-work":{"workId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","layout":"""
                 + JsonSerializer.Serialize(layout)
                 + """}}},{"insert":"\n"}]}"""
         );
 
-        Assert.Equal(expected, Assert.IsType<ArtworkEmbedBlock>(blocks[0]).Layout);
+        Assert.Equal(expected, Assert.IsType<WorkEmbedBlock>(blocks[0]).Layout);
     }
 
     [Fact]
-    public void DropsAnArtworkEmbedWithNoStorageKey()
+    public void DropsAnWorkEmbedWithNoStorageKey()
     {
-        var blocks = Parse("""{"ops":[{"insert":{"artshop-artwork":{"artworkId":42}}},{"insert":"\n"}]}""");
+        var blocks = Parse("""{"ops":[{"insert":{"artshop-work":{"workId":42}}},{"insert":"\n"}]}""");
 
         Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
     }
@@ -263,10 +263,10 @@ public class PostDocumentParserTests
     [Theory]
     [InlineData("../../etc/passwd")]
     [InlineData("0192f1c2a3b44c5d8e9f0a1b2c3d4e5f\n")]
-    public void DropsAnArtworkEmbedWhoseStorageKeyIsNotOneOfOurs(string storageKey)
+    public void DropsAnWorkEmbedWhoseStorageKeyIsNotOneOfOurs(string storageKey)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"""
+            """{"ops":[{"insert":{"artshop-work":{"workId":42,"storageKey":"""
                 + JsonSerializer.Serialize(storageKey)
                 + """}}},{"insert":"\n"}]}"""
         );
@@ -275,21 +275,21 @@ public class PostDocumentParserTests
     }
 
     [Fact]
-    public void DropsAnArtworkEmbedWhoseIdIsNotANumber()
+    public void DropsAnWorkEmbedWhoseIdIsNotANumber()
     {
-        var blocks = Parse("""{"ops":[{"insert":{"artshop-artwork":{"artworkId":"42","storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f"}}},{"insert":"\n"}]}""");
+        var blocks = Parse("""{"ops":[{"insert":{"artshop-work":{"workId":"42","storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f"}}},{"insert":"\n"}]}""");
 
         Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
     }
 
-    // the same rule set_post_artworks applies, so the page and "Mentioned in" agree
+    // the same rule set_post_works applies, so the page and "Mentioned in" agree
     [Theory]
     [InlineData("41.5")]
     [InlineData("2147483648")]
-    public void DropsAnArtworkEmbedWhoseIdIsNotAnInt(string artworkId)
+    public void DropsAnWorkEmbedWhoseIdIsNotAnInt(string workId)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artshop-artwork":{"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-work":{"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","workId":""" + workId + """}}},{"insert":"\n"}]}"""
         );
 
         Assert.IsType<ParagraphBlock>(Assert.Single(blocks));
@@ -298,13 +298,13 @@ public class PostDocumentParserTests
     [Theory]
     [InlineData("42.0")]
     [InlineData("4.2e1")]
-    public void ReadsAWholeArtworkIdWrittenAsADecimal(string artworkId)
+    public void ReadsAWholeWorkIdWrittenAsADecimal(string workId)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artshop-artwork":{"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","artworkId":""" + artworkId + """}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-work":{"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","workId":""" + workId + """}}},{"insert":"\n"}]}"""
         );
 
-        Assert.Equal(new ArtworkId(42), Assert.IsType<ArtworkEmbedBlock>(blocks[0]).ArtworkId);
+        Assert.Equal(new WorkId(42), Assert.IsType<WorkEmbedBlock>(blocks[0]).WorkId);
     }
 
     [Theory]
@@ -313,15 +313,15 @@ public class PostDocumentParserTests
     [InlineData("\"   \"", null)]
     [InlineData("\"\"", null)]
     [InlineData("42", null)]
-    public void ReadsAnArtworkEmbedsCaptionTrimmedAndBlankAsNone(string caption, string? expected)
+    public void ReadsAnWorkEmbedsCaptionTrimmedAndBlankAsNone(string caption, string? expected)
     {
         var blocks = Parse(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","caption":"""
+            """{"ops":[{"insert":{"artshop-work":{"workId":42,"storageKey":"0192f1c2a3b44c5d8e9f0a1b2c3d4e5f","caption":"""
                 + caption
                 + """}}},{"insert":"\n"}]}"""
         );
 
-        Assert.Equal(expected, Assert.IsType<ArtworkEmbedBlock>(blocks[0]).Caption);
+        Assert.Equal(expected, Assert.IsType<WorkEmbedBlock>(blocks[0]).Caption);
     }
 
     private const string ImageKey = "0123456789abcdef0123456789abcdef";

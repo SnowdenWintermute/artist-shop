@@ -22,7 +22,7 @@ public class VocabularyTermRepository(SiteDatabase database)
             .. rows.Select(row => new VocabularyTermWithUsage(
                 new VocabularyTermId(row.Id),
                 new VocabularyTermName(row.Name),
-                row.ArtworkCount
+                row.WorkCount
             )),
         ];
     }
@@ -81,6 +81,6 @@ public class VocabularyTermRepository(SiteDatabase database)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
-        public required int ArtworkCount { get; init; }
+        public required int WorkCount { get; init; }
     }
 }

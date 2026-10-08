@@ -1,5 +1,5 @@
-// The uploaded image embed: an image the artist put into the post itself, rather than an artwork's.
-// The file goes through the same upload pipeline as an artwork's, and the Delta holds everything
+// The uploaded image embed: an image the artist put into the post itself, rather than a work's.
+// The file goes through the same upload pipeline as a work's, and the Delta holds everything
 // the page needs to show it, since no table does.
 // While a new image uploads, a placeholder stands where it will go. The placeholder comes and
 // goes as "api" changes, which the editor's history (userOnly) never records, so the only undo
@@ -448,7 +448,7 @@ export function addPostImageEmbed(quill, picker, uploads) {
   picker.open({ multiple: true }, (files) => uploads.insert(index, files));
 }
 
-// The toolbar for an uploaded image: its alt text, the controls it shares with the artwork embed,
+// The toolbar for an uploaded image: its alt text, the controls it shares with the work embed,
 // and Replace image, which keeps everything but the picture itself
 /**
  * @param {Quill} quill

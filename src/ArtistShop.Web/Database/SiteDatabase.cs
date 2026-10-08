@@ -30,4 +30,25 @@ public sealed class SiteDatabase(NpgsqlDataSource sitesDataSource, SiteId siteId
 
         return connection;
     }
+
+    // For the one read a render can't await: the wording every page's cascade hands out
+    public NpgsqlConnection OpenConnection()
+    {
+        var connection = sitesDataSource.OpenConnection();
+
+        try
+        {
+            connection.Execute(
+                "SELECT set_config('search_path', @SearchPath, false)",
+                new { SearchPath = SiteSchema.SearchPath(siteId) }
+            );
+        }
+        catch
+        {
+            connection.Dispose();
+            throw;
+        }
+
+        return connection;
+    }
 }

@@ -1,0 +1,494 @@
+@rendermode InteractiveServer
+@using System.Globalization
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTable
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTypes
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@inject WorkRepository WorkRepository
+@inject WorkImageRepository WorkImageRepository
+@inject WorkTypeRepository WorkTypeRepository
+@inject RememberedWorkType RememberedWorkType
+@inject CollectionRepository CollectionRepository
+@inject IJSRuntime JS
+@inject TimeProvider TimeProvider
+@implements IAsyncDisposable
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public int? InitialWorkTypeId { get; set; }
+
+  private ElementReference _zone;
+  private InteropObject<WorksFromImagesEditor>? _uploader;
+
+  private List<WorkType> _workTypes = [];
+  private int? _workTypeId;
+  // the chosen type with the fields that make the table's columns. Fixed once there are rows, which are all of it
+  private WorkTypeWithFields? _type;
+
+  // in the artist's order; a collection added from the collection dialog joins the end, as it does in the database
+  private List<Collection> _collections = [];
+
+  // a drop waiting for the artist to choose its collections
+  private PendingDrop? _pendingDrop;
+
+  private readonly List<WorkTableRow> _rows = [];
+  // for the script's callbacks; an entry the images dialog has since dropped from its row is ignored
+  private readonly Dictionary<string, RowImage> _imagesByFileId = [];
+
+  private IEnumerable<RowImage> RowImages => _rows.SelectMany(row => row.Images);
+
+  private IReadOnlyList<SkippedImage> _skipped = [];
+  private UnusableFileCounts _unusable = UnusableFileCounts.None;
+  private bool _tooManyFiles;
+  private string? _dropError;
+
+  private bool _isCreating;
+  private bool _isUploading;
+  private int _percentComplete;
+
+  // the last time anything was created or saved, and the browser's offset from UTC to show it in
+  private DateTimeOffset? _lastSavedAt;
+  private TimeSpan? _browserUtcOffset;
+
+  private int UnsentCount =>
+    RowImages.Count(image => image.State is RowImageState.Waiting or RowImageState.Failed);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _workTypes = WorkTypeOrder.SortedByName(await WorkTypeRepository.GetAllAsync());
+    _collections = await CollectionRepository.GetAllAsync();
+    _workTypeId = InitialWorkTypeId ?? (await RememberedWorkType.FindInAsync(_workTypes))?.Id.Value;
+    await LoadTypeAsync();
+  }
+
+  // null for no choice, or a type deleted since the page loaded
+  private async Task LoadTypeAsync()
+  {
+    _type = _workTypeId is int typeId ? await WorkTypeRepository.GetAsync(new WorkTypeId(typeId)) : null;
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    // the page closed before the uploader started, so nothing will be dropped on it
+    try
+    {
+      await using var clock = await JS.InvokeAsync<IJSObjectReference>(
+        "import", "./Components/Pages/Admin/Catalog/WorksFromImages/WorksFromImagesEditor.razor.js");
+      _browserUtcOffset = TimeSpan.FromMinutes(await clock.InvokeAsync<int>("utcOffsetMinutes"));
+    }
+    catch (JSDisconnectedException)
+    {
+      return;
+    }
+
+    _uploader = await InteropObject<WorksFromImagesEditor>.CreateAsync(
+      JS, "./js/bulk-work-uploader.js", "createBulkUploader", this, self => [_zone, self, BulkImageDrop.MaximumFiles]);
+  }
+
+  [JSInvokable]
+  public async Task OnFilesCollected()
+  {
+    // the drop zone is disabled until a type is chosen
+    if (_type is not { } type)
+    {
+      return;
+    }
+
+    var collected = await ReadCollectedFilesAsync();
+
+    // the script now holds only the new drop's files, so ones from before that weren't sent never will be
+    foreach (var image in RowImages.Where(image => image.State is RowImageState.Waiting or RowImageState.Failed))
+    {
+      image.State = RowImageState.NotSent;
+    }
+
+    _tooManyFiles = false;
+    _dropError = null;
+    _unusable = UnusableFileCounts.Of(collected);
+
+    List<BulkImageCandidate> candidates =
+    [
+      .. collected
+        .Where(file => ImageUploadValidation.IsPermittedContentType(file.Type))
+        .Select(file => new BulkImageCandidate(file.Id, file.Path)),
+    ];
+
+    _skipped = [];
+    _pendingDrop = null;
+
+    // a drop with no images has only the files it couldn't use to report, and one whose images would
+    // all be skipped whatever collections they joined has nothing to ask about
+    if (candidates.Count > 0)
+    {
+      var plan = await PlanAsync(type.Id, candidates, new DropCollectionChoice([], []));
+
+      if (plan.Works.Count is 0)
+      {
+        _skipped = plan.Skipped;
+      }
+      else
+      {
+        _pendingDrop = new PendingDrop(type.Id, candidates, WorksFromImagesPlanner.Folders(candidates, _collections));
+      }
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // what a drop holds while the collection dialog is open
+  private record PendingDrop(WorkTypeId TypeId, IReadOnlyList<BulkImageCandidate> Candidates, IReadOnlyList<DroppedFolder> Folders);
+
+  private async Task CollectionChosenAsync(DropCollectionChoice choice)
+  {
+    if (_pendingDrop is { } drop)
+    {
+      _pendingDrop = null;
+      await AddAsync(drop.TypeId, drop.Candidates, choice);
+    }
+  }
+
+  // A folder named like the new collection is now that existing collection, rather than one to create again
+  private void DropCollectionAdded(Collection collection)
+  {
+    _collections.Add(collection);
+
+    if (_pendingDrop is { } drop)
+    {
+      _pendingDrop = drop with { Folders = WorksFromImagesPlanner.Folders(drop.Candidates, _collections) };
+    }
+  }
+
+  private async Task AddAsync(WorkTypeId typeId, IReadOnlyList<BulkImageCandidate> candidates, DropCollectionChoice choice)
+  {
+    _isCreating = true;
+    await InvokeAsync(StateHasChanged);
+
+    try
+    {
+      var newRows = await CreateWorksAsync(typeId, candidates, choice);
+      _rows.AddRange(newRows);
+
+      if (newRows.Count > 0)
+      {
+        _lastSavedAt = TimeProvider.GetUtcNow();
+      }
+
+      await UploadAsync(newRows, typeId);
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _dropError =
+        $"One of your {Wording.Collection.PluralInSentence} or this {Wording.Work.SingularInSentence} type changed in another tab. Reload the page and drop the images again.";
+    }
+    finally
+    {
+      _isCreating = false;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // all or nothing, new collections too, so a failure leaves no half-made drop behind
+  private async Task<List<WorkTableRow>> CreateWorksAsync(WorkTypeId typeId,
+IReadOnlyList<BulkImageCandidate> candidates, DropCollectionChoice choice)
+  {
+    // checked again rather than kept from the drop, since works may have been added while the collection dialog was open
+    var plan = await PlanAsync(typeId, candidates, choice);
+    _skipped = plan.Skipped;
+
+    var identifiers = await WorkRepository.AddManyAsync([.. plan.Works.Select(work => ToAddition(typeId,
+work))]);
+
+    if (plan.Works.Any(work => work.NewCollectionName is not null))
+    {
+      _collections = await CollectionRepository.GetAllAsync();
+    }
+
+    var rows = plan.Works
+      .Zip(identifiers, (work, added) => WorkTableRow.FromDrop(added.Id, work, CollectionIdsFor(work)))
+      .ToList();
+
+    foreach (var image in rows.SelectMany(row => row.Images))
+    {
+      _imagesByFileId[image.FileId] = image;
+    }
+
+    return rows;
+  }
+
+  // titles the type already has are skipped
+  private async Task<WorksFromImagesPlan> PlanAsync(WorkTypeId typeId, IReadOnlyList<BulkImageCandidate> candidates,
+    DropCollectionChoice choice)
+  {
+    var plan = WorksFromImagesPlanner.Plan(candidates, choice.CollectionFolders, choice.LooseCollectionIds);
+    var matches = await WorkImageRepository.GetWorkNameMatchesAsync(typeId, WorksFromImagesPlanner.NamesToCheck(plan));
+    return WorksFromImagesPlanner.WithoutExisting(plan, matches);
+  }
+
+  // a new collection has its id only once added, so it's found again by its web address
+  private IReadOnlyList<CollectionId> CollectionIdsFor(PlannedWorkFromImages work) =>
+    work.NewCollectionName is { } name
+      ? [.. work.CollectionIds, _collections.Single(collection => collection.Slug == CollectionSlug.FromName(name.Value)).Id]
+      : work.CollectionIds;
+
+  private static WorkCatalogAddition ToAddition(WorkTypeId typeId, PlannedWorkFromImages work) =>
+    new(
+      typeId,
+      work.Name,
+      WorkSlug.FromName(work.Name.Value),
+      Description: null,
+      DateCreated: null,
+      Dimensions: null,
+      Duration: null,
+      Images: [],
+      MainImageIndex: 0,
+      VocabularyTermIds: [],
+      CollectionIds: work.CollectionIds,
+      NewCollectionNames: work.NewCollectionName is { } newCollectionName ? [newCollectionName] : [],
+      Products: []
+    );
+
+  [JSInvokable]
+  public async Task OnTooManyFiles()
+  {
+    _tooManyFiles = true;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // Each work's images go one after another, in the row's order, so its first file becomes its main image
+  private async Task UploadAsync(IEnumerable<WorkTableRow> rows, WorkTypeId typeId)
+  {
+    var works = rows
+      .Select(row => row.Images
+        .Where(image => image.State is RowImageState.Waiting)
+        .Select(image => new UploadItem(image.FileId, row.Id.Value))
+        .ToList())
+      .Where(items => items.Count > 0)
+      .ToList();
+
+    if (_uploader is null || works.Count is 0)
+    {
+      return;
+    }
+
+    _isUploading = true;
+    _percentComplete = 0;
+
+    // nothing happens once the page has closed, taking the files with it
+    await _uploader.InvokeIfOpenAsync("upload", works, typeId.Value);
+  }
+
+  // what the script sends one file as; every one here names its work
+  private record UploadItem(string Id, int WorkId);
+
+  private async Task UploadUnsentAsync()
+  {
+    foreach (var image in RowImages.Where(image => image.State is RowImageState.Failed))
+    {
+      image.State = RowImageState.Waiting;
+      image.Error = null;
+    }
+
+    // there are rows, so the type is chosen and can't change
+    if (_type is { } type)
+    {
+      await UploadAsync(_rows, type.Id);
+    }
+  }
+
+  [JSInvokable]
+  public async Task OnUploadProgress(int percentComplete)
+  {
+    _percentComplete = percentComplete;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // the image the work holds, even when a retry found it already there
+  [JSInvokable]
+  public async Task OnExtraAdded(string id, WorkImage added)
+  {
+    if (_imagesByFileId.GetValueOrDefault(id) is { } image)
+    {
+      image.State = RowImageState.Added;
+      image.Image = added;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnFileFailed(string id, string message)
+  {
+    if (_imagesByFileId.GetValueOrDefault(id) is { } image)
+    {
+      image.State = RowImageState.Failed;
+      image.Error = message;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // An image the run ended without sending, as when the script stopped early, would otherwise spin
+  // for good and keep its row's images dialog shut. As a failure, Upload sends it again
+  [JSInvokable]
+  public async Task OnUploadFinished()
+  {
+    _isUploading = false;
+
+    foreach (var image in RowImages.Where(image => image.State is RowImageState.Waiting))
+    {
+      image.State = RowImageState.Failed;
+      image.Error = "Not uploaded";
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private void SaveFinished(WorkTableRow row)
+  {
+    if (row.IsSaved)
+    {
+      _lastSavedAt = TimeProvider.GetUtcNow();
+    }
+  }
+
+  // nothing unsaved in a row, uploading or failed to upload, so closing the tab loses nothing
+  private bool IsAllSaved => !_isUploading && UnsentCount is 0 && _rows.All(row => row.IsSaved);
+
+  private void CollectionAdded(Collection collection) => _collections.Add(collection);
+
+  private void RowsDeleted(IReadOnlyList<WorkTableRow> rows) => _rows.RemoveAll(rows.Contains);
+
+  // as the artist's clock reads it, once the browser has said where that is
+  private string? LastSavedText =>
+    _lastSavedAt is { } savedAt && _browserUtcOffset is { } offset
+      ? savedAt.ToOffset(offset).ToString("h:mm:ss tt", CultureInfo.InvariantCulture)
+      : null;
+
+  private async Task<List<CollectedFile>> ReadCollectedFilesAsync()
+  {
+    if (_uploader is null)
+    {
+      return [];
+    }
+
+    // the page closed while the files were being read, so there is no one left to show them to
+    try
+    {
+      return await CollectedFileStreams.ReadListAsync(_uploader.Reference, BulkImageDrop.MaximumMetadataBytes);
+    }
+    catch (JSDisconnectedException)
+    {
+      return [];
+    }
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    if (_uploader is not null)
+    {
+      await _uploader.DisposeAsync();
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  @* outside the fieldset below, which is disabled until a type is chosen here *@
+  <div class="mb-4">
+    @* the rows are works of this type, under its fields' columns *@
+    <WorkTypeSelect WorkTypes="_workTypes" @bind-Value="_workTypeId" @bind-Value:after="LoadTypeAsync"
+                       Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
+    @if (_rows.Count > 0)
+    {
+      <p class="text-sm text-gray-600">Reload the page to add @Wording.Work.PluralInSentence of another type.</p>
+    }
+  </div>
+
+  @* the script refuses new files while a run is going, as they would replace the ones it hasn't sent *@
+  <fieldset class="contents" disabled="@(_type is null || _isUploading || _isCreating || _pendingDrop is not null)">
+    @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
+    <div @ref="_zone" class="mb-4">
+      <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"
+                         DirectoryButtonLabel="Choose a folder">
+        <input type="file" multiple accept="@ImageUploadValidation.FileInputAccept" class="hidden" />
+        <input type="file" webkitdirectory class="hidden" />
+      </FileDropZoneFrame>
+    </div>
+  </fieldset>
+</DisabledUntilInteractive>
+
+
+
+@if (_tooManyFiles)
+{
+  <p class="mb-4 text-red-600">That's more than @BulkImageDrop.MaximumFiles files. Drop one folder at a time.</p>
+}
+
+@if (_dropError is not null)
+{
+  <p class="mb-4 text-red-600">@_dropError</p>
+}
+
+@if (_isCreating)
+{
+  <p class="mb-4 text-sm" role="status">Adding @Wording.Work.PluralInSentence…</p>
+}
+
+<SkippedImagesReport Skipped="_skipped" Unusable="_unusable" />
+
+@if (_isUploading)
+{
+  @* no Stop: the works are already added, so stopping would leave them without their images *@
+  <UploadProgress PercentComplete="_percentComplete" />
+}
+else if (UnsentCount > 0)
+{
+  <div class="mb-4">
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="UploadUnsentAsync">
+      Upload @CountText.Of(UnsentCount, "image")
+    </ButtonBasic>
+  </div>
+}
+
+@if (_rows.Count > 0 && _type is { } rowsType)
+{
+  <p class="mb-2 text-sm text-gray-600">
+    @Wording.Work.CountOf(_rows.Count) added. Each change saves when you leave its field.
+  </p>
+
+  <WorkTable Rows="_rows" Type="rowsType" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnSaveFinished="SaveFinished"
+                OnRowsDeleted="RowsDeleted" />
+
+  <p class="text-sm text-gray-600">
+    @Wording.Work.CountOf(_rows.Count) added.
+    @* no time before the first edit: the works and images were saved as they arrived *@
+    @if (IsAllSaved)
+    {
+      <text>All changes saved@(LastSavedText is { } savedText ? $" at {savedText}" : ""), it is safe to close the tab.</text>
+    }
+    <a class="underline" href="@PageUrls.AdminDashboard">Back to the dashboard</a>
+  </p>
+}
+
+@if (_pendingDrop is { } pendingDrop)
+{
+  <DropCollectionDialog Folders="pendingDrop.Folders" LooseImageCount="@WorksFromImagesPlanner.LooseImageCount(pendingDrop.Candidates)"
+                    AllCollections="_collections" OnOk="CollectionChosenAsync" OnClose="() => _pendingDrop = null"
+                    OnCollectionAdded="DropCollectionAdded" />
+}

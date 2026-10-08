@@ -1,0 +1,31 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [SupplyParameterFromForm(FormName = "add-collection")]
+  private CollectionNameForm Input { get; set; } = default!;
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task AddAsync()
+  {
+    if (await Input.AddAsync(CollectionRepository) is not null)
+    {
+      // redirect to this same page: the list reloads, and refreshing the browser won't post again
+      NavigationManager.NavigateTo(NavigationManager.Uri);
+    }
+  }
+}
+
+<EditForm EditContext="Input.EditContext" FormName="add-collection" OnValidSubmit="AddAsync" Enhance class="mb-6">
+  <DataAnnotationsValidator />
+
+  <TextField Label="@($"New {Wording.Collection.SingularInSentence}")" @bind-Value="Input.Name" />
+  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Add @Wording.Collection.SingularInSentence</ButtonBasic>
+</EditForm>

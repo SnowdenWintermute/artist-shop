@@ -1,13 +1,13 @@
 @using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkTypes
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTypes
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @page "/admin"
-@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject WorkTypeRepository WorkTypeRepository
 @inject PlatformSettings PlatformSettings
 @inject NavigationManager NavigationManager
 @inject CurrentSite CurrentSite
@@ -15,11 +15,14 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 
 @code {
-  private List<ArtworkType> _artworkTypes = [];
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  private List<WorkType> _workTypes = [];
 
   protected override async Task OnInitializedAsync()
   {
-    _artworkTypes = await ArtworkTypeRepository.GetAllAsync();
+    _workTypes = await WorkTypeRepository.GetAllAsync();
   }
 }
 
@@ -30,7 +33,7 @@
     <Panel Class="col-span-full">
       <h1 class="mb-2 text-lg font-bold">Admin Dashboard</h1>
       <Hint Type="HintType.AdminDashboard">If you are starting from scratch,
-        <a class="underline" href="@PageUrls.AddArtworksFromImages">start with "Add many".</a>
+        <a class="underline" href="@PageUrls.AddWorksFromImages">start with "Add many".</a>
       </Hint>
       <Divider Class="my-2"></Divider>
       <ul class="list-none">
@@ -39,27 +42,28 @@
     </Panel>
     <DashboardBox Title="Catalog">
       <ul>
-        <DashboardLink Href="@PageUrls.SeriesList">Series</DashboardLink>
+        <DashboardLink Href="@PageUrls.CollectionList">@Wording.Collection.PluralHeading</DashboardLink>
         <DashboardLink Href="@PageUrls.NewVocabulary">Vocabularies</DashboardLink>
-        <DashboardLink Href="@PageUrls.NewArtworkType">Artwork types</DashboardLink>
+        <DashboardLink Href="@PageUrls.NewWorkType">@Wording.Work.SingularHeading types</DashboardLink>
+        <DashboardLink Href="@PageUrls.Wording">Wording</DashboardLink>
       </ul>
     </DashboardBox>
 
-    <DashboardBox Title="Artworks">
+    <DashboardBox Title="@Wording.Work.PluralHeading">
       <ul class="mb-4">
-        @if (_artworkTypes.Count == 0)
+        @if (_workTypes.Count == 0)
         {
           <li>
-            <NoArtworkTypesNote Class="text-sm" />
+            <NoWorkTypesNote Class="text-sm" />
           </li>
         }
         else
         {
-          <DashboardLink Href="@PageUrls.AddArtwork">Add one</DashboardLink>
-          <DashboardLink Href="@PageUrls.AddArtworksFromImages">Add many</DashboardLink>
+          <DashboardLink Href="@PageUrls.AddWork">Add one</DashboardLink>
+          <DashboardLink Href="@PageUrls.AddWorksFromImages">Add many</DashboardLink>
         }
-        <DashboardLink Href="@PageUrls.ArtworkList">Edit single</DashboardLink>
-        <DashboardLink Href="@PageUrls.ArtworkTable">Edit many</DashboardLink>
+        <DashboardLink Href="@PageUrls.WorkList">Edit single</DashboardLink>
+        <DashboardLink Href="@PageUrls.WorkTable">Edit many</DashboardLink>
       </ul>
     </DashboardBox>
 

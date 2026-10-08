@@ -9,8 +9,18 @@ public sealed class WebsiteImportPlannerTests
     private static readonly ProductType Original = new(new ProductTypeId(31), new ProductTypeName("Original"), IsDefault: true);
 
     private static readonly WebsiteImportFolder EveryFile = new(
-        """{ "formatVersion": 1, "listSeparator": ";", "artworkFiles": [ { "file": "Painting.csv", "artworkType": "Painting" } ] }""",
-        ArtworkTypesCsv: "",
+        """
+        {
+          "formatVersion": 1,
+          "listSeparator": ";",
+          "workFiles": [ { "file": "Painting.csv", "workType": "Painting" } ],
+          "wording": {
+            "collection": { "singular": null, "plural": null, "keepsCase": false },
+            "work": { "singular": null, "plural": null, "keepsCase": false }
+          }
+        }
+        """,
+        WorkTypesCsv: "",
         VocabulariesCsv: "",
         new Dictionary<string, string> { ["Painting.csv"] = "" },
         ImageList: "",
@@ -29,21 +39,21 @@ public sealed class WebsiteImportPlannerTests
     [Fact]
     public void EachMissingFileIsAProblem()
     {
-        var folder = EveryFile with { ArtworkTypesCsv = null, ImageList = null, ArtworkCsvsByFileName = new Dictionary<string, string>() };
+        var folder = EveryFile with { WorkTypesCsv = null, ImageList = null, WorkCsvsByFileName = new Dictionary<string, string>() };
 
         Assert.False(WebsiteImportPlanner.TryCheckFolder(folder, [Original], out var manifest, out var problems));
         Assert.Null(manifest);
         Assert.Equal(
-            ["catalog/artworkTypes.csv is missing.", "catalog/artworks/Painting.csv is missing.", "images/images.csv is missing."],
+            ["catalog/workTypes.csv is missing.", "catalog/works/Painting.csv is missing.", "images/images.csv is missing."],
             problems
         );
     }
 
-    // every imported artwork gets a product of the website's default type
+    // every imported work gets a product of the website's default type
     [Fact]
-    public void AWebsiteWithNoProductTypesCantTakeTheArtworks()
+    public void AWebsiteWithNoProductTypesCantTakeTheWorks()
     {
         Assert.False(WebsiteImportPlanner.TryCheckFolder(EveryFile, [], out _, out var problems));
-        Assert.Equal(["This website has no product types for the artworks' products."], problems);
+        Assert.Equal(["This website has no product types for the works' products."], problems);
     }
 }

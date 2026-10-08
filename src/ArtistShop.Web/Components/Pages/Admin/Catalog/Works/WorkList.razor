@@ -1,0 +1,30 @@
+@page "/admin/catalog/works"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // the same filters, from the first page, since the table may count its pages differently
+  private string TableHref =>
+    PageUrls.WorkTable + new Uri(NavigationManager.GetUriWithQueryParameter(PageLinks.PageKey, (int?)null)).Query;
+}
+
+<PageTitle>@Wording.Work.PluralHeading</PageTitle>
+
+<main>
+  <AdminPanel>
+
+    <div class="mb-4 flex flex-wrap justify-between gap-4">
+      <h1>@Wording.Work.PluralHeading</h1>
+      <LinkButton href="@TableHref" Variant="ButtonVariant.PrimaryOutline">Edit as table</LinkButton>
+    </div>
+
+    <WorkListBrowser RowHref="item => PageUrls.EditWork(item.Id)" ClearFiltersHref="@PageUrls.WorkList" />
+  </AdminPanel>
+</main>

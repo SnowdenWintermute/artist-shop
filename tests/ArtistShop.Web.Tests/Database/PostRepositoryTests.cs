@@ -14,21 +14,21 @@ namespace ArtistShop.Web.Tests.Database;
 public sealed class PostRepositoryTests(TestDatabaseFixture database)
 {
     private readonly PostRepository _posts = new(database.Site);
-    private readonly ArtworkRepository _artworks = new(database.Site);
+    private readonly WorkRepository _works = new(database.Site);
     private readonly CatalogTestData _catalog = new(database.Site);
 
     private static readonly PostBody TextOnlyBody = new("""{"ops":[{"insert":"Hello\n"}]}""");
 
-    private static PostBody BodyEmbedding(params ArtworkId[] artworkIds) =>
+    private static PostBody BodyEmbedding(params WorkId[] workIds) =>
         new(
             JsonSerializer.Serialize(
                 new
                 {
                     ops = (object[])
                         [
-                            .. artworkIds.Select(id => new
+                            .. workIds.Select(id => new
                             {
-                                insert = new Dictionary<string, object> { ["artshop-artwork"] = new { artworkId = id.Value } },
+                                insert = new Dictionary<string, object> { ["artshop-work"] = new { workId = id.Value } },
                             }),
                             new { insert = "\n" },
                         ],
@@ -48,11 +48,11 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     private Task UpdateAsync(Post post, PostBody body, PostStatus status) =>
         _posts.UpdateAsync(post.Id, post.Title, post.Slug, body, status);
 
-    private async Task<ArtworkId> AddArtworkAsync() =>
+    private async Task<WorkId> AddWorkAsync() =>
         (await _catalog.AddPaintingAsync($"Painting {Guid.NewGuid():n}", [], [], [])).Id;
 
-    private async Task<List<PostId>> GetIdsMentioningAsync(ArtworkId artworkId) =>
-        [.. (await _posts.GetPublishedMentioningArtworkAsync(artworkId)).Select(post => post.Id)];
+    private async Task<List<PostId>> GetIdsMentioningAsync(WorkId workId) =>
+        [.. (await _posts.GetPublishedMentioningWorkAsync(workId)).Select(post => post.Id)];
 
     [Fact]
     public async Task KeepsWhatWasSaved()
@@ -239,30 +239,30 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task APublishedPostMentionsTheArtworksItEmbeds()
+    public async Task APublishedPostMentionsTheWorksItEmbeds()
     {
-        var artworkId = await AddArtworkAsync();
+        var workId = await AddWorkAsync();
 
-        var postId = await AddPostAsync(BodyEmbedding(artworkId, artworkId), PostStatus.Published);
+        var postId = await AddPostAsync(BodyEmbedding(workId, workId), PostStatus.Published);
 
-        Assert.Equal([postId], await GetIdsMentioningAsync(artworkId));
+        Assert.Equal([postId], await GetIdsMentioningAsync(workId));
     }
 
     [Fact]
     public async Task ADraftMentionsNothingToVisitors()
     {
-        var artworkId = await AddArtworkAsync();
+        var workId = await AddWorkAsync();
 
-        await AddPostAsync(BodyEmbedding(artworkId), PostStatus.Draft);
+        await AddPostAsync(BodyEmbedding(workId), PostStatus.Draft);
 
-        Assert.Empty(await GetIdsMentioningAsync(artworkId));
+        Assert.Empty(await GetIdsMentioningAsync(workId));
     }
 
     [Fact]
     public async Task RemovingAnEmbedRemovesTheMention()
     {
-        var keptId = await AddArtworkAsync();
-        var removedId = await AddArtworkAsync();
+        var keptId = await AddWorkAsync();
+        var removedId = await AddWorkAsync();
         var postId = await AddPostAsync(BodyEmbedding(keptId, removedId), PostStatus.Published);
 
         await UpdateAsync(await GetExistingAsync(postId), BodyEmbedding(keptId), PostStatus.Published);
@@ -272,12 +272,12 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task AnEmbedOfADeletedArtworkStillSaves()
+    public async Task AnEmbedOfADeletedWorkStillSaves()
     {
-        var artworkId = await AddArtworkAsync();
-        await _artworks.DeleteAsync(artworkId);
+        var workId = await AddWorkAsync();
+        await _works.DeleteAsync(workId);
 
-        var postId = await AddPostAsync(BodyEmbedding(artworkId), PostStatus.Published);
+        var postId = await AddPostAsync(BodyEmbedding(workId), PostStatus.Published);
 
         Assert.NotNull(await _posts.GetAsync(postId));
     }
@@ -285,7 +285,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task AnEmbedWhoseIdIsTextIsIgnored()
     {
-        var artworkId = await AddArtworkAsync();
+        var workId = await AddWorkAsync();
         var body = new PostBody(
             JsonSerializer.Serialize(
                 new
@@ -296,7 +296,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
                         {
                             insert = new Dictionary<string, object>
                             {
-                                ["artshop-artwork"] = new { artworkId = $"{artworkId.Value}" },
+                                ["artshop-work"] = new { workId = $"{workId.Value}" },
                             },
                         },
                     },
@@ -306,30 +306,30 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
 
         await AddPostAsync(body, PostStatus.Published);
 
-        Assert.Empty(await GetIdsMentioningAsync(artworkId));
+        Assert.Empty(await GetIdsMentioningAsync(workId));
     }
 
-    // casting 41.5 to int would round it onto the artwork
+    // casting 41.5 to int would round it onto the work
     [Fact]
     public async Task AnEmbedWhoseIdIsNotWholeIsIgnored()
     {
-        var artworkId = await AddArtworkAsync();
+        var workId = await AddWorkAsync();
         var body = new PostBody(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":"""
-                + (artworkId.Value - 0.5m).ToString(CultureInfo.InvariantCulture)
+            """{"ops":[{"insert":{"artshop-work":{"workId":"""
+                + (workId.Value - 0.5m).ToString(CultureInfo.InvariantCulture)
                 + """}}},{"insert":"\n"}]}"""
         );
 
         await AddPostAsync(body, PostStatus.Published);
 
-        Assert.Empty(await GetIdsMentioningAsync(artworkId));
+        Assert.Empty(await GetIdsMentioningAsync(workId));
     }
 
     [Fact]
     public async Task AnEmbedWhoseIdIsOutOfRangeStillSaves()
     {
         var body = new PostBody(
-            """{"ops":[{"insert":{"artshop-artwork":{"artworkId":2147483648}}},{"insert":"\n"}]}"""
+            """{"ops":[{"insert":{"artshop-work":{"workId":2147483648}}},{"insert":"\n"}]}"""
         );
 
         var postId = await AddPostAsync(body, PostStatus.Published);
@@ -338,12 +338,12 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
-    public async Task DeletingAnArtworkKeepsThePostsThatEmbedIt()
+    public async Task DeletingAnWorkKeepsThePostsThatEmbedIt()
     {
-        var artworkId = await AddArtworkAsync();
-        var postId = await AddPostAsync(BodyEmbedding(artworkId), PostStatus.Published);
+        var workId = await AddWorkAsync();
+        var postId = await AddPostAsync(BodyEmbedding(workId), PostStatus.Published);
 
-        await _artworks.DeleteAsync(artworkId);
+        await _works.DeleteAsync(workId);
 
         Assert.NotNull(await _posts.GetAsync(postId));
     }
@@ -351,11 +351,11 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task DeletingAPostRemovesItsMentions()
     {
-        var artworkId = await AddArtworkAsync();
-        var postId = await AddPostAsync(BodyEmbedding(artworkId), PostStatus.Published);
+        var workId = await AddWorkAsync();
+        var postId = await AddPostAsync(BodyEmbedding(workId), PostStatus.Published);
 
         await _posts.DeleteAsync(postId);
 
-        Assert.Empty(await GetIdsMentioningAsync(artworkId));
+        Assert.Empty(await GetIdsMentioningAsync(workId));
     }
 }

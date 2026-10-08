@@ -1,0 +1,60 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Collections
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+
+@* Adds the checked collections to, or removes them from, every selected row. Starts with nothing checked,
+   since the rows' collection differ *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public BulkChange Change { get; set; }
+  [Parameter, EditorRequired]
+  public int WorkCount { get; set; }
+  // in the artist's order; for removing, only those a selected row is in
+  [Parameter, EditorRequired]
+  public IReadOnlyList<Collection> Collections { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<IReadOnlySet<int>> OnOk { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+  // a collection is saved as soon as it's added, so every row can choose it, even if this is cancelled
+  [Parameter, EditorRequired]
+  public EventCallback<Collection> OnCollectionAdded { get; set; }
+
+  private readonly HashSet<int> _checked = [];
+  private bool _isAddingCollection;
+
+  private string Title =>
+    Change is BulkChange.Add
+      ? $"Add {Wording.Work.CountOf(WorkCount)} to {Wording.Collection.PluralInSentence}"
+      : $"Remove {Wording.Work.CountOf(WorkCount)} from {Wording.Collection.PluralInSentence}";
+
+  // nothing to add to a collection made here when removing
+  private EventCallback<Collection> AddedCallback =>
+    Change is BulkChange.Add ? EventCallback.Factory.Create<Collection>(this, CollectionAddedAsync) : default;
+
+  private async Task CollectionAddedAsync(Collection collection)
+  {
+    _checked.Add(collection.Id.Value);
+    await OnCollectionAdded.InvokeAsync(collection);
+  }
+}
+
+<ModalDialog Title="@Title" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isAddingCollection">
+  <CollectionChoices AllCollections="Collections" Checked="_checked" OnToggle="id => _checked.Toggle(id)" OnCollectionAdded="AddedCallback"
+                 EmptyText="@(Change is BulkChange.Remove ? $"None of these {Wording.Work.PluralInSentence} are in any {Wording.Collection.SingularInSentence}." : null)"
+                 @bind-IsAdding="_isAddingCollection" />
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" Disabled="_isAddingCollection" />
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@(_isAddingCollection || _checked.Count is 0)"
+                 @onclick="() => OnOk.InvokeAsync(_checked)">
+      @(Change is BulkChange.Add ? "Add" : "Remove")
+    </ButtonBasic>
+  </ModalDialogActions>
+</ModalDialog>

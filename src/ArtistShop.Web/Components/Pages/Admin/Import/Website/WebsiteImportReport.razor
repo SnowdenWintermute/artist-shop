@@ -1,18 +1,23 @@
-@using ArtistShop.Web.Components.Pages.Admin.Catalog.ArtworkImport
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkImport
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Imports
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public WebsiteImportReview Review { get; set; } = default!;
 
-  // every field there is, for the artwork type review
+  // every field there is, for the work type review
   [Parameter, EditorRequired]
-  public IReadOnlyList<ArtworkFieldDefinition> Fields { get; set; } = default!;
+  public IReadOnlyList<WorkFieldDefinition> Fields { get; set; } = default!;
 
   // nothing is imported from the review
   private static readonly IReadOnlyDictionary<int, string?> NoResults = new Dictionary<int, string?>();
+
+  private static string Words(DisplayNoun noun) => $"“{noun.Singular}” and “{noun.Plural}”";
 }
 
 @if (Review.Problems.Count > 0)
@@ -34,37 +39,37 @@ else
   </p>
 
   <section class="mb-6">
-    <h2 class="mb-2 text-lg">1. Artwork types</h2>
-    <ArtworkTypeImportReview Plan="Review.ArtworkTypes" Fields="Fields" />
+    <h2 class="mb-2 text-lg">@ImportSteps.WorkTypes.Title(Wording)</h2>
+    <WorkTypeImportReview Plan="Review.WorkTypes" Fields="Fields" />
   </section>
 
   <section class="mb-6">
-    <h2 class="mb-2 text-lg">2. Vocabularies</h2>
+    <h2 class="mb-2 text-lg">@ImportSteps.Vocabularies.Title(Wording)</h2>
     <VocabularyImportReview Plan="Review.Vocabularies" />
   </section>
 
   <section class="mb-6">
-    <h2 class="mb-2 text-lg">3. Artworks</h2>
-    @if (Review.ArtworkFiles.Count == 0)
+    <h2 class="mb-2 text-lg">@ImportSteps.Works.Title(Wording)</h2>
+    @if (Review.WorkFiles.Count == 0)
     {
-      <p class="text-sm">No artworks.</p>
+      <p class="text-sm">No @Wording.Work.PluralInSentence.</p>
     }
-    @foreach (var file in Review.ArtworkFiles)
+    @foreach (var file in Review.WorkFiles)
     {
       <div class="mb-4" @key="file.FileName">
         <h3 class="mb-1">@file.TypeName.Value</h3>
-        <ArtworkImportReview Plan="file.Plan" ArtworkTypeName="file.TypeName" />
+        <WorkImportReview Plan="file.Plan" WorkTypeName="file.TypeName" />
       </div>
     }
   </section>
 
   <section class="mb-6">
-    <h2 class="mb-2 text-lg">4. Images</h2>
+    <h2 class="mb-2 text-lg">@ImportSteps.Images.Title(Wording)</h2>
     <WebsiteImportImagesReport Images="Review.Images" />
   </section>
 
   <section class="mb-6">
-    <h2 class="mb-2 text-lg">5. Posts</h2>
+    <h2 class="mb-2 text-lg">@ImportSteps.Posts.Title(Wording)</h2>
     @if (Review.Posts.Count == 0)
     {
       <p class="text-sm">No posts.</p>
@@ -73,5 +78,29 @@ else
     {
       <PostImportReport Items="Review.Posts" Results="NoResults" />
     }
+  </section>
+
+  <section class="mb-6">
+    <h2 class="mb-2 text-lg">6. Wording</h2>
+    <p class="text-sm">
+      @switch (Review.Wording.Outcome)
+      {
+        case WordingImportOutcome.Same:
+          <text>The same as this website's.</text>
+          break;
+        case WordingImportOutcome.Set:
+          <text>
+            Collections will be called @Words(Review.Wording.Wording.Collection), and works
+            @Words(Review.Wording.Wording.Work).
+          </text>
+          break;
+        case WordingImportOutcome.Kept:
+          <text>
+            This website already has its own wording, which is kept. It can be changed on the
+            <a class="underline" href="@PageUrls.Wording">Wording page</a>.
+          </text>
+          break;
+      }
+    </p>
   </section>
 }

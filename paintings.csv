@@ -1,4 +1,4 @@
-title,height,width,year,drawingMaterial,support,price,sold,series,catalogueNumber,description
+title,height,width,year,drawingMaterial,support,price,sold,collections,catalogueNumber,description
 Abstract Forest Path,11,14,2019,Acrylic Collage,Canvas Board,400,,Abstract and Fantasy,,
 Atwood and McGuff-Silverman Collaborative Painting,29,42,2014,Acrylic,canvas,1000,,Abstract and Fantasy,,
 Beach Sunset,8,10,2019,Acrylic,paper,250,,Abstract and Fantasy,,
@@ -117,8 +117,8 @@ Bone Series 16,11,14,1977,Ink,paper,150,,Bone,,
 Bone Series 17,11,14,1977,mix media,paper,150,,Bone,,
 Bone Series 18,11,14,1977,mix media,paper,150,,Bone,,
 Bone Series 19,11,14,1977,mix media,paper,150,,Bone,,
-Bone Series XX,11,14,1977,Ink,paper,150,,Bone,,
-Bone Series XXI,11,14,1977,mix media,paper,150,,Bone,,
+Bone Collection XX,11,14,1977,Ink,paper,150,,Bone,,
+Bone Collection XXI,11,14,1977,mix media,paper,150,,Bone,,
 Figure Study 1,11,14,1977,mix media,paper,150,,Bone,,
 Figure Study 2,11,14,1977,mix media,paper,150,,Bone,,
 Figure Study 3,11,14,1977,mix media,paper,150,,Bone,,

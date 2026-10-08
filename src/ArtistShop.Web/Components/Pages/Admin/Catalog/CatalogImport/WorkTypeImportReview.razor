@@ -1,0 +1,43 @@
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public WorkTypeImportPlan Plan { get; set; } = default!;
+
+  // every field there is, for their names
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkFieldDefinition> Fields { get; set; } = default!;
+
+  private string FieldNames(WorkTypeImportAddition addition) =>
+    string.Join(", ", Fields.Where(field => addition.Fields.Contains(field.Field)).Select(field => field.Name));
+}
+
+<p class="mb-4 shrink-0">
+  @CountText.Of(Plan.Additions.Count, $"{Wording.Work.SingularInSentence} type") to add, @CountText.Of(Plan.SkippedRows.Count, "row") skipped,
+  @CountText.Of(Plan.Errors.Count, "problem").
+</p>
+
+<div class="mb-4 min-h-0 overflow-y-auto">
+  <ImportProblems Errors="Plan.Errors" />
+  <ImportSkippedRows SkippedRows="Plan.SkippedRows" AlreadyExistsText="@($"Already one of your {Wording.Work.SingularInSentence} types")" />
+
+  @if (Plan.Additions.Count > 0)
+  {
+    <div class="mb-6">
+      <h3 class="mb-1">To add</h3>
+      <DataTable Items="Plan.Additions" Headings="@(["Row", "Name", "Fields"])" Class="text-sm" StickyHeadings>
+        <Row Context="addition">
+          <DataTableCell>@addition.RowNumber</DataTableCell>
+          <DataTableCell>@addition.Name.Value</DataTableCell>
+          <DataTableCell>@FieldNames(addition)</DataTableCell>
+        </Row>
+      </DataTable>
+    </div>
+  }
+</div>

@@ -29,14 +29,14 @@ public sealed class CollectedImportFoldersTests
         CollectedFile[] files =
         [
             File("/moving/site/website.json", "outer"),
-            File("/moving/site/catalog/artworkTypes.csv", "types"),
+            File("/moving/site/catalog/workTypes.csv", "types"),
             File("/moving/site/catalog/vocabularies.csv", "vocabularies"),
-            File("/moving/site/catalog/artworks/Painting.csv", "paintings"),
+            File("/moving/site/catalog/works/Painting.csv", "paintings"),
             File("/moving/site/images/images.csv", "list"),
             File("/moving/site/images/Painting/Dawn.jpg"),
             // an older download kept inside it
             File("/moving/site/old/website.json", "inner"),
-            File("/moving/site/old/catalog/artworkTypes.csv", "old types"),
+            File("/moving/site/old/catalog/workTypes.csv", "old types"),
             // beside the download, not in it
             File("/moving/notes.txt"),
         ];
@@ -44,9 +44,9 @@ public sealed class CollectedImportFoldersTests
         var folder = await CollectedImportFolders.WebsiteAsync(files, ReadTextAsync);
 
         Assert.Equal("outer", folder.Manifest);
-        Assert.Equal("types", folder.ArtworkTypesCsv);
+        Assert.Equal("types", folder.WorkTypesCsv);
         Assert.Equal("vocabularies", folder.VocabulariesCsv);
-        Assert.Equal(new Dictionary<string, string> { ["Painting.csv"] = "paintings" }, folder.ArtworkCsvsByFileName);
+        Assert.Equal(new Dictionary<string, string> { ["Painting.csv"] = "paintings" }, folder.WorkCsvsByFileName);
         Assert.Equal("list", folder.ImageList);
         Assert.Equal(
             new Dictionary<string, string> { ["images.csv"] = "/moving/site/images/images.csv", ["Painting/Dawn.jpg"] = "/moving/site/images/Painting/Dawn.jpg" },
@@ -57,10 +57,10 @@ public sealed class CollectedImportFoldersTests
     [Fact]
     public async Task WithoutAWebsiteJsonNothingIsRead()
     {
-        var folder = await CollectedImportFolders.WebsiteAsync([File("/site/catalog/artworkTypes.csv", "types")], ReadTextAsync);
+        var folder = await CollectedImportFolders.WebsiteAsync([File("/site/catalog/workTypes.csv", "types")], ReadTextAsync);
 
         Assert.Null(folder.Manifest);
-        Assert.Null(folder.ArtworkTypesCsv);
+        Assert.Null(folder.WorkTypesCsv);
         Assert.Empty(_read);
     }
 

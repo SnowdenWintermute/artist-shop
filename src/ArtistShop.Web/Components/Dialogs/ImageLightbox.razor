@@ -3,11 +3,11 @@
 @* <image-lightbox> is defined in ImageLightbox.razor.js. It starts closed and is opened by script,
    which is why it isn't ModalDialog: that one opens as soon as it is rendered, and carries a title
    bar and padding a picture has no use for. What it shows is handed to it, so it knows nothing
-   about artworks. The picture itself, with its swiping and zooming, is PhotoSwipe's, loaded the
+   about works. The picture itself, with its swiping and zooming, is PhotoSwipe's, loaded the
    first time the lightbox opens; the buttons over it are ours *@
 
-@* data-permanent: enhanced navigation leaves it as it is, so it can stay open while an artwork's
-   arrows step on to the next artwork's page *@
+@* data-permanent: enhanced navigation leaves it as it is, so it can stay open while a work's
+   arrows step on to the next work's page *@
 <image-lightbox class="contents" data-permanent="image-lightbox"
                 data-photoswipe-src="@Assets["lib/photoswipe/photoswipe.esm.min.js"]">
   <link rel="stylesheet" href="@Assets["lib/photoswipe/photoswipe.css"]" />

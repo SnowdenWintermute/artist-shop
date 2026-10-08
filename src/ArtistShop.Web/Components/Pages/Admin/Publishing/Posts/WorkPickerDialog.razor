@@ -1,0 +1,27 @@
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.WorkPicker
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // stands in for the work's id in the change-image address, which the script fills in
+  private const string WorkIdPlaceholder = "{workId}";
+
+  private static readonly WorkPickerTrail AddTrail = new(WorkPickerMode.Add, ListQuery: null);
+  private static readonly WorkPickerTrail ChangeImageTrail = new(WorkPickerMode.ChangeImage, ListQuery: null);
+}
+
+@* The dialog the toolbar's Work button, and an embed's Change image, open. PostWorkEmbed.razor.js
+   opens it and hears back from the frame. The frame is only given a page on opening, so writing a
+   post that never adds a work never loads the list *@
+<ModalDialog Title="@($"Choose {Wording.Work.SingularInSentence}")" Width="ModalDialogWidth.Wide" StartsClosed data-part="work-picker">
+  <iframe title="@($"{Wording.Work.SingularHeading} picker")" class="mb-4 h-[65vh] w-full shrink-0 border border-theme-base"
+          data-add-src="@PageUrls.WorkPickerList(AddTrail)"
+          data-change-image-src="@PageUrls.WorkPickerImages(WorkIdPlaceholder, ChangeImageTrail)"
+          data-work-id-placeholder="@WorkIdPlaceholder"></iframe>
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" />
+  </ModalDialogActions>
+</ModalDialog>

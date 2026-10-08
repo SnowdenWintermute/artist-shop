@@ -11,12 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-// The artwork type every type select shares: a page without one in its address starts at the type
+// The work type every type select shares: a page without one in its address starts at the type
 // its admin last chose
 [Collection(TestAppCollection.Name)]
 public sealed partial class RememberedInputTests(TestApp app)
 {
-    private const string AddPath = PageUrls.AddArtwork;
+    private const string AddPath = PageUrls.AddWork;
 
     private async Task<(CatalogTestData Catalog, HttpClient Client)> SiteWithAdminAsync()
     {
@@ -51,12 +51,12 @@ public sealed partial class RememberedInputTests(TestApp app)
     }
 
     [Fact]
-    public async Task AddOneGoesToTheSavedArtworkType()
+    public async Task AddOneGoesToTheSavedWorkType()
     {
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
 
-        var response = await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+        var response = await SaveAsync(client, catalog, RememberedInputs.WorkType, photograph);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.EndsWith($"?type={photograph}", await RedirectFromAddAsync(client));
@@ -70,9 +70,9 @@ public sealed partial class RememberedInputTests(TestApp app)
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
         await app
             .Services.GetRequiredService<SiteMemberInputValueRepository>()
-            .SetAsync(site.Id, await app.UserIdAsync(site.OwnerEmail), RememberedInputs.ArtworkType, "999999");
+            .SetAsync(site.Id, await app.UserIdAsync(site.OwnerEmail), RememberedInputs.WorkType, "999999");
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
-        var first = ArtworkTypeOrder.SortedByName(await new ArtworkTypeRepository(database).GetAllAsync())[0];
+        var first = WorkTypeOrder.SortedByName(await new WorkTypeRepository(database).GetAllAsync())[0];
 
         Assert.EndsWith($"?type={first.Id.Value}", await RedirectFromAddAsync(client));
     }
@@ -83,7 +83,7 @@ public sealed partial class RememberedInputTests(TestApp app)
     {
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
-        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+        await SaveAsync(client, catalog, RememberedInputs.WorkType, photograph);
         var painting = (await catalog.GetPaintingTypeIdAsync()).Value.ToString(CultureInfo.InvariantCulture);
 
         var page = await client.GetStringAsync($"{AddPath}?type={painting}", TestContext.Current.CancellationToken);
@@ -93,13 +93,13 @@ public sealed partial class RememberedInputTests(TestApp app)
     }
 
     [Fact]
-    public async Task ImportGoesToTheSavedArtworkType()
+    public async Task ImportGoesToTheSavedWorkType()
     {
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
-        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+        await SaveAsync(client, catalog, RememberedInputs.WorkType, photograph);
 
-        Assert.EndsWith($"?type={photograph}", await RedirectFromAsync(client, PageUrls.ArtworkImport));
+        Assert.EndsWith($"?type={photograph}", await RedirectFromAsync(client, PageUrls.WorkImport));
     }
 
     // nothing saved, so the page asks rather than choosing for them
@@ -108,32 +108,32 @@ public sealed partial class RememberedInputTests(TestApp app)
     {
         var (_, client) = await SiteWithAdminAsync();
 
-        var page = await client.GetStringAsync(PageUrls.ArtworkImport, TestContext.Current.CancellationToken);
+        var page = await client.GetStringAsync(PageUrls.WorkImport, TestContext.Current.CancellationToken);
 
         Assert.Contains("disabled selected>Choose a type</option>", RememberedSelectOf(page));
     }
 
     [Fact]
-    public async Task TheTablePageStartsAtTheSavedArtworkType()
+    public async Task TheTablePageStartsAtTheSavedWorkType()
     {
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
-        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+        await SaveAsync(client, catalog, RememberedInputs.WorkType, photograph);
 
-        var page = await client.GetStringAsync(PageUrls.ArtworkTable, TestContext.Current.CancellationToken);
+        var page = await client.GetStringAsync(PageUrls.WorkTable, TestContext.Current.CancellationToken);
 
         Assert.Equal([photograph], SelectedOptions(RememberedSelectOf(page)));
     }
 
     // the island's first render, before its circuit connects
     [Fact]
-    public async Task AddFromImagesStartsAtTheSavedArtworkType()
+    public async Task AddFromImagesStartsAtTheSavedWorkType()
     {
         var (catalog, client) = await SiteWithAdminAsync();
         var photograph = (await catalog.GetTypeIdAsync("Photograph")).Value.ToString(CultureInfo.InvariantCulture);
-        await SaveAsync(client, catalog, RememberedInputs.ArtworkType, photograph);
+        await SaveAsync(client, catalog, RememberedInputs.WorkType, photograph);
 
-        var page = await client.GetStringAsync(PageUrls.AddArtworksFromImages, TestContext.Current.CancellationToken);
+        var page = await client.GetStringAsync(PageUrls.AddWorksFromImages, TestContext.Current.CancellationToken);
 
         Assert.Equal([photograph], SelectedOptions(page));
     }
@@ -171,7 +171,7 @@ public sealed partial class RememberedInputTests(TestApp app)
             new FormUrlEncodedContent(
                 new Dictionary<string, string>
                 {
-                    [RememberedInputEndpoints.NameField] = RememberedInputs.ArtworkType,
+                    [RememberedInputEndpoints.NameField] = RememberedInputs.WorkType,
                     [RememberedInputEndpoints.ValueField] = "1",
                 }
             ),

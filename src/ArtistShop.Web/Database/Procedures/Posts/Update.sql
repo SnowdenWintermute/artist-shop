@@ -20,6 +20,6 @@ BEGIN
         RAISE EXCEPTION 'The post no longer exists.' USING ERRCODE = 'SH015';
     END IF;
 
-    PERFORM set_post_artworks(p_id);
+    PERFORM set_post_works(p_id);
 END;
 $$;

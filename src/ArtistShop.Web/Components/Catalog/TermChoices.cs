@@ -33,7 +33,7 @@ public static class TermChoices
     }
 
     // A vocabulary made mutually exclusive in another tab can leave several of its terms chosen here.
-    // All of them go, as update_vocabulary took them off the artwork, rather than the select quietly
+    // All of them go, as update_vocabulary took them off the work, rather than the select quietly
     // keeping whichever it shows
     public static void DropSeveralInMutuallyExclusive(ISet<int> termIds, IEnumerable<VocabularyWithTerms> vocabularies)
     {
@@ -48,7 +48,7 @@ public static class TermChoices
         }
     }
 
-    // a term added to a mutually exclusive vocabulary replaces the one the artwork had there
+    // a term added to a mutually exclusive vocabulary replaces the one the work had there
     public static HashSet<int> WithAdded(
         IEnumerable<VocabularyWithTerms> vocabularies,
         IEnumerable<int> termIds,

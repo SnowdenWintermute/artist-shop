@@ -1,5 +1,5 @@
 /**
- * Calls NotifyTabReturn each time this tab becomes visible again, e.g. after creating a series in
+ * Calls NotifyTabReturn each time this tab becomes visible again, e.g. after creating a collection in
  * another tab.
  * @param {{ invokeMethodAsync: (method: string, ...args: unknown[]) => Promise<unknown> }} dotNetReference
  */

@@ -138,7 +138,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     private Task SweepAsync() =>
         _sweeper.SweepAsync(
             _imageStorage,
-            new ArtworkImageRepository(_database.Site),
+            new WorkImageRepository(_database.Site),
             new PostRepository(_database.Site)
         );
 
@@ -165,7 +165,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         return stored.StorageKey;
     }
 
-    // goes through the real AddArtwork procedure, so this test also proves the
+    // goes through the real AddWork procedure, so this test also proves the
     // procedure names and column mappings line up between C# and SQL
     private async Task AddPaintingReferencing(string storageKey)
     {
@@ -174,8 +174,8 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await catalog.AddPaintingAsync(
             "Sweeper test painting",
             termIds: [],
-            seriesIds: [],
-            images: [new ArtworkImage(storageKey, "test.jpg", 800, 600, BlurDataUri: null)]
+            collectionIds: [],
+            images: [new WorkImage(storageKey, "test.jpg", 800, 600, BlurDataUri: null)]
         );
     }
 }

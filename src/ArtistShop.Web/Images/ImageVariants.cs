@@ -15,7 +15,7 @@ public static partial class ImageVariants
 {
     public static readonly int[] Widths = [160, 400, 800, 1600];
 
-    // the narrowest image worth keeping for an artwork, not the narrowest variant: the admin
+    // the narrowest image worth keeping for a work, not the narrowest variant: the admin
     // thumbnail is small enough that Widths[0] would let in images too small for the gallery
     public const int MinimumSourceWidth = 400;
 
@@ -32,7 +32,7 @@ public static partial class ImageVariants
     // the picture in the card a chat app shows for a pasted link, which is never wide
     public const int LinkPreviewWidth = 800;
 
-    // the image an artwork page is built around may ask for anything there is. [^1] is the
+    // the image a work page is built around may ask for anything there is. [^1] is the
     // last item of the array
     public static readonly int MainImageWidth = Widths[^1];
 

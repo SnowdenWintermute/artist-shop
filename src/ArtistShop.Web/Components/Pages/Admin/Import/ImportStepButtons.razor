@@ -2,10 +2,13 @@
 @* links to the previous and next step, at the bottom of a step-by-step import page *@
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public ImportStepPage Step { get; set; } = default!;
 
-  // for a next page that can carry on from this one, like images for the artwork type just imported
+  // for a next page that can carry on from this one, like images for the work type just imported
   [Parameter]
   public string? NextHref { get; set; }
 
@@ -19,7 +22,7 @@
   @if (Previous is { } previous)
   {
     <LinkButton href="@previous.Href" Variant="ButtonVariant.Outline">
-      <IconLabel Icon="arrow-left">@previous.Action first</IconLabel>
+      <IconLabel Icon="arrow-left">@previous.Action(Wording) first</IconLabel>
     </LinkButton>
   }
 
@@ -27,7 +30,7 @@
   {
     <LinkButton href="@(NextHref ?? next.Href)" Variant="ButtonVariant.Outline" Class="ml-auto">
       <span class="flex items-center gap-2">
-        @next.Action next
+        @next.Action(Wording) next
         <SvgIcon Name="arrow-right" Class="size-5 shrink-0" />
       </span>
     </LinkButton>

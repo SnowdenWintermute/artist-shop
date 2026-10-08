@@ -7,8 +7,8 @@
 @typeparam TPlan where TPlan : IImportPlan
 @inject NavigationManager NavigationManager
 
-@* The artwork type and vocabulary imports: check a file, review what importing it would do, confirm.
-   The same steps as the artwork import, with only a list separator to choose *@
+@* The work type and vocabulary imports: check a file, review what importing it would do, confirm.
+   The same steps as the work import, with only a list separator to choose *@
 
 @code {
   private const string CheckFormName = "check-catalog-import";
@@ -29,7 +29,7 @@
   [Parameter]
   public int? ImportedCount { get; set; }
 
-  // what's imported, as counts say it: "artwork type" and "artwork types"
+  // what's imported, as counts say it: "work type" and "work types"
   [Parameter, EditorRequired]
   public string Singular { get; set; } = default!;
   [Parameter, EditorRequired]
@@ -125,7 +125,7 @@
 @ColumnsHelp
 
 @* multipart for the file; Enhance so the review arrives without a posted document the browser won't
-   redisplay on Back, as on the artwork import *@
+   redisplay on Back, as on the work import *@
 <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
           enctype="multipart/form-data" Enhance class="mb-4">
   <DataAnnotationsValidator />

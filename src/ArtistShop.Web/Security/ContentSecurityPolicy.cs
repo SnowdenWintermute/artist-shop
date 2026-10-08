@@ -24,7 +24,7 @@ public static class ContentSecurityNonce
 
 // Scripts only from this host, or inline with the request's nonce, so an encoding bug on a site's
 // page can't run script that sets cookies for the platform (see "same-site" in todo.md). Styles
-// allow inline, as Blazor and Quill write style attributes. Frames: this host (the artwork picker)
+// allow inline, as Blazor and Quill write style attributes. Frames: this host (the work picker)
 // and the two video players; only this host may frame its pages
 public static class ContentSecurityPolicy
 {

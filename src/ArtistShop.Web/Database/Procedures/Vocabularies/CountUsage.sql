@@ -9,16 +9,16 @@ WHERE
     term.vocabulary_id = p_id;
 $$;
 
-DROP FUNCTION IF EXISTS count_vocabulary_artworks_by_type;
+DROP FUNCTION IF EXISTS count_vocabulary_works_by_type;
 
-CREATE FUNCTION count_vocabulary_artworks_by_type (p_id int) RETURNS TABLE (artwork_type_id int, artwork_count int) LANGUAGE sql STABLE AS $$
+CREATE FUNCTION count_vocabulary_works_by_type (p_id int) RETURNS TABLE (work_type_id int, work_count int) LANGUAGE sql STABLE AS $$
 SELECT
-    junction.artwork_type_id,
-    COUNT(DISTINCT junction.artwork_id)::int
+    junction.work_type_id,
+    COUNT(DISTINCT junction.work_id)::int
 FROM
-    artwork_and_vocabulary_terms_junction AS junction
+    work_and_vocabulary_terms_junction AS junction
 WHERE
     junction.vocabulary_id = p_id
 GROUP BY
-    junction.artwork_type_id;
+    junction.work_type_id;
 $$;

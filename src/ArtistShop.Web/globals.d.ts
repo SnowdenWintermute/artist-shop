@@ -116,7 +116,7 @@ declare class Quill {
   static find(node: Node, bubble?: boolean): QuillBlot | Quill | null;
 }
 
-// wwwroot/lib/floating-ui, which PostArtworkEmbed.razor.js imports when an editor connects
+// wwwroot/lib/floating-ui, which PostWorkEmbed.razor.js imports when an editor connects
 type FloatingMiddleware = { name: string };
 
 type FloatingUi = {

@@ -1,0 +1,292 @@
+@rendermode InteractiveServer
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTypes
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
+@inject WorkTypeRepository WorkTypeRepository
+@inject RememberedWorkType RememberedWorkType
+@inject WorkImageRepository WorkImageRepository
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public int? InitialWorkTypeId { get; set; }
+
+  private ElementReference _zone;
+  private InteropObject<BulkImageUpload>? _uploader;
+
+  private List<WorkType> _workTypes = [];
+  private int? _workTypeId;
+
+  // the images found, before they are matched to works
+  private List<CollectedFile> _candidates = [];
+  private UnusableFileCounts _unusable = UnusableFileCounts.None;
+  private int _tooDeepCount;
+  private bool _tooManyFiles;
+
+  private List<BulkImageFile> _files = [];
+  private bool _isUploading;
+  private int _percentComplete;
+
+  private int WillAttachCount => _files.Count(file => file.Outcome is BulkImageOutcome.WillAttach or BulkImageOutcome.WillAddExtra);
+
+  protected override async Task OnInitializedAsync()
+  {
+    _workTypes = WorkTypeOrder.SortedByName(await WorkTypeRepository.GetAllAsync());
+    _workTypeId = InitialWorkTypeId ?? (await RememberedWorkType.FindInAsync(_workTypes))?.Id.Value;
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    // null when the page closed before the uploader started, so nothing will be dropped on it
+    _uploader = await InteropObject<BulkImageUpload>.CreateAsync(
+      JS, "./js/bulk-work-uploader.js", "createBulkUploader", this, self => [_zone, self, BulkImageDrop.MaximumFiles]);
+  }
+
+  [JSInvokable]
+  public async Task OnFilesCollected()
+  {
+    var collected = await ReadCollectedFilesAsync();
+
+    _tooManyFiles = false;
+    _unusable = UnusableFileCounts.Of(collected);
+
+    var images = collected.Where(file => ImageUploadValidation.IsPermittedContentType(file.Type)).ToList();
+    _candidates = [.. images.Where(file => BulkImageDrop.FoldersOf(file.Path).Length <= BulkImageDrop.MaximumDirectoryDepth)];
+    _tooDeepCount = images.Count - _candidates.Count;
+
+    await MatchToWorksAsync();
+
+    // a method JS called doesn't re-render on its own; InvokeAsync puts it back on the renderer
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnTooManyFiles()
+  {
+    _tooManyFiles = true;
+    _unusable = UnusableFileCounts.None;
+    _tooDeepCount = 0;
+    _candidates = [];
+    _files = [];
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // every name checked at once, so the artist sees the whole outcome before a byte is uploaded
+  // and only the files that will be used are sent
+  private async Task MatchToWorksAsync()
+  {
+    if (_workTypeId is not int typeId)
+    {
+      _files = [];
+      return;
+    }
+
+    List<BulkImageCandidate> candidates = [.. _candidates.Select(file => new BulkImageCandidate(file.Id, file.Path))];
+    var target = await BulkImageTarget.LoadAsync(new WorkTypeId(typeId), candidates, WorkImageRepository);
+
+    _files = [.. BulkImagePlanner.Plan(candidates, target).Select(item => new BulkImageFile(item))];
+  }
+
+  private async Task OnWorkTypeChangedAsync()
+  {
+    await MatchToWorksAsync();
+  }
+
+  private async Task StartUploadAsync()
+  {
+    if (_uploader is null || _workTypeId is not int typeId)
+    {
+      return;
+    }
+
+    _isUploading = true;
+    _percentComplete = 0;
+
+    // One work's files go one after another, its first image before the others and those by
+    // number, so they keep that order and the first finds the work still without an image.
+    // Different works go side by side. An extra image names its work; a first image is
+    // matched by name again on the server
+    var works = _files
+      .Where(file => file.Outcome is BulkImageOutcome.WillAttach or BulkImageOutcome.WillAddExtra)
+      .GroupBy(file => file.WorkIds[0])
+      .Select(work =>
+        work
+          .OrderBy(file => file.ExtraNumber is not null)
+          .ThenBy(file => file.ExtraNumber)
+          .Select(file => new UploadItem(file.Id, file.Outcome is BulkImageOutcome.WillAddExtra ? file.WorkIds[0] : null))
+      );
+
+    // nothing happens once the page has closed, taking the files with it
+    await _uploader.InvokeIfOpenAsync("upload", works, typeId);
+  }
+
+  // what the script sends one file as: an extra image names its work, and a first image has none
+  private record UploadItem(string Id, int? WorkId);
+
+  private async Task StopUploadAsync()
+  {
+    // closing the page stops the uploads anyway
+    if (_uploader is not null)
+    {
+      await _uploader.InvokeIfOpenAsync("stop");
+    }
+  }
+
+  [JSInvokable]
+  public async Task OnUploadProgress(int percentComplete)
+  {
+    _percentComplete = percentComplete;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnFileFinished(string id, WorkImageMatchResult result)
+  {
+    if (FindFile(id) is { } file)
+    {
+      // the server's answer, not the pre-check's: another upload may have taken the work since
+      file.Outcome = result.Outcome is WorkNameMatchType.OneImagelessWork
+        ? BulkImageOutcome.Attached
+        : BulkImagePlanner.OutcomeOf(result.Outcome);
+      file.WorkIds = result.WorkIds;
+    }
+
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  // the script sends the work's image too, for pages that show it; this report needs only the outcome
+  [JSInvokable]
+  public async Task OnExtraAdded(string id, WorkImage _)
+  {
+    if (FindFile(id) is { } file)
+    {
+      file.Outcome = BulkImageOutcome.ExtraAdded;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnFileFailed(string id, string message)
+  {
+    if (FindFile(id) is { } file)
+    {
+      file.Outcome = BulkImageOutcome.Failed;
+      file.Error = message;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnUploadFinished()
+  {
+    _isUploading = false;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private BulkImageFile? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
+
+  private async Task<List<CollectedFile>> ReadCollectedFilesAsync()
+  {
+    if (_uploader is null)
+    {
+      return [];
+    }
+
+    // the page closed while the files were being read, so there is no one left to show them to
+    try
+    {
+      return await CollectedFileStreams.ReadListAsync(_uploader.Reference, BulkImageDrop.MaximumMetadataBytes);
+    }
+    catch (JSDisconnectedException)
+    {
+      return [];
+    }
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    if (_uploader is not null)
+    {
+      await _uploader.DisposeAsync();
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  @* a run holds the files it hasn't started yet, so nothing new may be collected until it ends.
+     FileDropZoneFrame already refuses a drop onto an input inside a disabled fieldset *@
+  <fieldset class="contents" disabled="@_isUploading">
+    <div class="mb-4">
+      <WorkTypeSelect WorkTypes="_workTypes" @bind-Value="_workTypeId" @bind-Value:after="OnWorkTypeChangedAsync" />
+    </div>
+
+    @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
+    <div @ref="_zone">
+      <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"
+                         DirectoryButtonLabel="Choose a folder">
+        <input type="file" multiple accept="@ImageUploadValidation.FileInputAccept" class="hidden" />
+        <input type="file" webkitdirectory class="hidden" />
+      </FileDropZoneFrame>
+    </div>
+  </fieldset>
+</DisabledUntilInteractive>
+
+
+@if (_tooManyFiles)
+{
+  <p class="mb-4 text-red-400">
+    That's more than @BulkImageDrop.MaximumFiles files. Upload one folder at a time.
+  </p>
+}
+
+@if (_candidates.Count > 0 || _unusable.Any || _tooDeepCount > 0)
+{
+  <ul class="mb-4 text-sm">
+    <li>@CountText.Of(_candidates.Count, "image") found</li>
+    <UnusableFileItems Counts="_unusable" />
+    @if (_tooDeepCount > 0)
+    {
+      <li>@CountText.Of(_tooDeepCount, "file") skipped: images in deeply nested folders</li>
+    }
+  </ul>
+}
+
+@if (_candidates.Count > 0 && _workTypeId is null)
+{
+  <p class="mb-4 text-red-400">Choose the @Wording.Work.SingularInSentence type to match these against.</p>
+}
+
+@if (_isUploading)
+{
+  <UploadProgress PercentComplete="_percentComplete" OnStop="StopUploadAsync" />
+}
+else if (WillAttachCount > 0)
+{
+  <div class="mb-4">
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="StartUploadAsync">
+      Upload @CountText.Of(WillAttachCount, "image")
+    </ButtonBasic>
+  </div>
+}
+
+<BulkImageReport Files="_files" />

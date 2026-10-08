@@ -5,15 +5,17 @@ namespace ArtistShop.Web.Domain.Platform;
 public enum HintType
 {
     AdminDashboard,
-    AddArtworksFromImages,
-    SeriesFromFolders,
-    UploadArtworkImages,
-    Series,
+    AddWorksFromImages,
+    CollectionsFromFolders,
+    UploadWorkImages,
+    Collections,
     Vocabularies,
     StepByStepImport,
-    ArtworkTypeImport,
+    WorkTypeImport,
     VocabularyImport,
-    ArtworkImport,
+    WorkImport,
     PostImport,
     WebsiteImport,
+    WordingCollections,
+    WordingWorks,
 }

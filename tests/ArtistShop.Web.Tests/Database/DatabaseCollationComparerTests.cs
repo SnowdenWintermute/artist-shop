@@ -29,10 +29,10 @@ public sealed class DatabaseCollationComparerTests
     }
 
     [Fact]
-    public void ADecomposedFileNameMatchesAComposedArtworkNameOnceItIsANameAgain()
+    public void ADecomposedFileNameMatchesAComposedWorkNameOnceItIsANameAgain()
     {
         // what macOS hands over: "e" followed by U+0301, the combining acute accent
-        var fromFinder = ArtworkName.FromFileName("Café.jpg");
+        var fromFinder = WorkName.FromFileName("Café.jpg");
 
         Assert.Equal("Café", fromFinder.Value);
     }

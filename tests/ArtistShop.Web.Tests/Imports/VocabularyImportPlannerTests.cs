@@ -13,7 +13,7 @@ public sealed class VocabularyImportPlannerTests
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms
+            vocabulary,workTypes,terms
             Style,painting; Sculpture,Abstract; Figurative; abstract
             """
         );
@@ -21,7 +21,7 @@ public sealed class VocabularyImportPlannerTests
         Assert.Empty(plan.Errors);
         var change = Assert.Single(plan.Changes);
         Assert.Null(change.ExistingId);
-        Assert.Equal([Painting.Id, Sculpture.Id], change.AddedArtworkTypes.Select(type => type.Id));
+        Assert.Equal([Painting.Id, Sculpture.Id], change.AddedWorkTypes.Select(type => type.Id));
         // a term listed twice is added once
         Assert.Equal([new VocabularyTermName("Abstract"), new VocabularyTermName("Figurative")], change.AddedTerms);
     }
@@ -31,7 +31,7 @@ public sealed class VocabularyImportPlannerTests
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms
+            vocabulary,workTypes,terms
             medium,Painting; Sculpture,oil; Bronze
             """
         );
@@ -40,8 +40,8 @@ public sealed class VocabularyImportPlannerTests
         Assert.Equal(MediumId, change.ExistingId);
         // its own spelling, so adding types doesn't rename it
         Assert.Equal(new VocabularyName("Medium"), change.Name);
-        Assert.Equal([Painting.Id], change.ExistingArtworkTypes.Select(type => type.Id));
-        Assert.Equal([Sculpture.Id], change.AddedArtworkTypes.Select(type => type.Id));
+        Assert.Equal([Painting.Id], change.ExistingWorkTypes.Select(type => type.Id));
+        Assert.Equal([Sculpture.Id], change.AddedWorkTypes.Select(type => type.Id));
         Assert.Equal([new VocabularyTermName("Bronze")], change.AddedTerms);
     }
 
@@ -50,7 +50,7 @@ public sealed class VocabularyImportPlannerTests
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms
+            vocabulary,workTypes,terms
             Medium,Painting,Oil
             """
         );
@@ -61,17 +61,17 @@ public sealed class VocabularyImportPlannerTests
 
     // types come from their own import first
     [Fact]
-    public void AnArtworkTypeThatDoesntExistIsAProblem()
+    public void AWorkTypeThatDoesntExistIsAProblem()
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes
+            vocabulary,workTypes
             Style,Installation
             """
         );
 
         var error = Assert.Single(plan.Errors);
-        Assert.Equal((2, "artworkTypes"), (error.RowNumber, error.Column));
+        Assert.Equal((2, "workTypes"), (error.RowNumber, error.Column));
         Assert.Empty(plan.Changes);
     }
 
@@ -93,7 +93,7 @@ public sealed class VocabularyImportPlannerTests
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms,mutuallyExclusive
+            vocabulary,workTypes,terms,mutuallyExclusive
             Time of day,Painting,Noon; Midnight,YES
             Style,Painting,Abstract,
             """
@@ -108,7 +108,7 @@ public sealed class VocabularyImportPlannerTests
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms,mutuallyExclusive
+            vocabulary,workTypes,terms,mutuallyExclusive
             Time of day,Painting,Noon,maybe
             """
         );
@@ -116,13 +116,13 @@ public sealed class VocabularyImportPlannerTests
         Assert.Equal(VocabularyImportHeaders.MutuallyExclusive, Assert.Single(plan.Errors).Column);
     }
 
-    // the import only adds, and making it mutually exclusive could take terms off artworks
+    // the import only adds, and making it mutually exclusive could take terms off works
     [Fact]
     public void AnExistingVocabularysMutuallyExclusiveIsNotChanged()
     {
         var plan = Plan(
             """
-            vocabulary,artworkTypes,terms,mutuallyExclusive
+            vocabulary,workTypes,terms,mutuallyExclusive
             Medium,Painting,Bronze,yes
             """
         );

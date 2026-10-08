@@ -8,21 +8,25 @@
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Imports
 @using ArtistShop.Web.Utilities
-@inject ArtworkFieldRepository ArtworkFieldRepository
-@inject ArtworkTypeRepository ArtworkTypeRepository
+@inject WorkFieldRepository WorkFieldRepository
+@inject WorkTypeRepository WorkTypeRepository
 @inject VocabularyRepository VocabularyRepository
 @inject VocabularyTermRepository VocabularyTermRepository
-@inject SeriesRepository SeriesRepository
+@inject CollectionRepository CollectionRepository
 @inject ProductTypeRepository ProductTypeRepository
-@inject ArtworkRepository ArtworkRepository
-@inject ArtworkImageRepository ArtworkImageRepository
+@inject WorkRepository WorkRepository
+@inject WorkImageRepository WorkImageRepository
 @inject PostRepository PostRepository
+@inject WordingRepository WordingRepository
 @inject ImageStorage ImageStorage
 @inject IJSRuntime JS
 @inject ILogger<WebsiteImportUpload> Logger
 @implements IAsyncDisposable
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   // a website's images, its posts' folders and the catalog files, with room to spare
   private const int MaximumFiles = 50_000;
 
@@ -72,8 +76,8 @@
     return failures;
   }
 
-  // every field there is, for the artwork type review
-  private IReadOnlyList<ArtworkFieldDefinition> _fields = [];
+  // every field there is, for the work type review
+  private IReadOnlyList<WorkFieldDefinition> _fields = [];
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -130,14 +134,15 @@
   {
     var target = await WebsiteImportTarget.LoadAsync(
       folder,
-      ArtworkFieldRepository,
-      ArtworkTypeRepository,
+      WorkFieldRepository,
+      WorkTypeRepository,
       VocabularyRepository,
-      SeriesRepository,
+      CollectionRepository,
       ProductTypeRepository,
-      ArtworkRepository,
-      ArtworkImageRepository,
+      WorkRepository,
+      WorkImageRepository,
       PostRepository,
+      WordingRepository,
       ImageStorage
     );
     _fields = target.Setup.Fields;
@@ -161,13 +166,13 @@
     _postRun = new([]);
 
     var repositories = new CatalogRepositories(
-      ArtworkFieldRepository,
-      ArtworkTypeRepository,
+      WorkFieldRepository,
+      WorkTypeRepository,
       VocabularyRepository,
       VocabularyTermRepository,
-      SeriesRepository,
+      CollectionRepository,
       ProductTypeRepository,
-      ArtworkRepository
+      WorkRepository
     );
 
     try
@@ -175,6 +180,7 @@
       _importProblem = await WebsiteCatalogImporter.ImportAsync(
         folder,
         repositories,
+        Wording,
         async stage =>
         {
           _stagesDone.Add(stage);
@@ -194,7 +200,7 @@
       return;
     }
 
-    await GuardAsync(folder, () => StartImagesAsync(folder));
+    await GuardAsync(folder, () => ImportWordingThenImagesAsync(folder));
   }
 
   private const string SomethingWentWrongProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
@@ -222,39 +228,46 @@
   // GuardAsync catches JSDisconnectedException around these two; the analyzer checks each method
   // on its own
 #pragma warning disable BL0016
-  // Planned again now the artworks are here, for their real ids and the images they have. The
+  // the download's wording, read from the review the Import button was under
+  private async Task ImportWordingThenImagesAsync(WebsiteImportFolder folder)
+  {
+    await WordingImportPlanner.ImportAsync(Unwrap.Value(_review).Wording.Wording, WordingRepository);
+    await StartImagesAsync(folder);
+  }
+
+  // Planned again now the works are here, for their real ids and the images they have. The
   // script reports each image, then OnImagesFinished
   private async Task StartImagesAsync(WebsiteImportFolder folder)
   {
     await ReviewAsync(folder);
-    var artworks = Unwrap.Value(_review).Images.Artworks.Where(artwork => artwork.ToAdd.Count > 0).ToList();
+    var works = Unwrap.Value(_review).Images.Works.Where(work => work.ToAdd.Count > 0).ToList();
 
-    if (artworks.Count == 0)
+    if (works.Count == 0)
     {
       _stagesDone.Add(new WebsiteImportStageDone("Images", 0));
       await StartPostsAsync(folder);
       return;
     }
 
-    _imageCount = artworks.Sum(artwork => artwork.ToAdd.Count);
+    _imageCount = works.Sum(work => work.ToAdd.Count);
     _imagesAdded = 0;
     _percentComplete = 0;
-    _imagePathsByFileId = artworks.SelectMany(artwork => artwork.ToAdd).ToDictionary(image => image.FileId, image => image.Path);
+    _imagePathsByFileId = works.SelectMany(work => work.ToAdd).ToDictionary(image => image.FileId, image => image.Path);
     _isSendingImages = true;
 
     await Unwrap.Value(_importer).Reference.InvokeVoidAsync(
       "importImages",
-      artworks.Select(artwork => new { artworkId = artwork.ArtworkId.Value, fileIds = artwork.ToAdd.Select(image => image.FileId) })
+      works.Select(work => new { workId = work.WorkId.Value, fileIds = work.ToAdd.Select(image => image.FileId) })
     );
   }
 
   // Planned against the website as the images left it, as the post import page plans them, so a
-  // picture links only to an artwork that really has its image here
+  // picture links only to a work that really has its image here
   private async Task StartPostsAsync(WebsiteImportFolder folder)
   {
     _isSendingImages = false;
 
-    var target = await PostImportTarget.LoadAsync(folder.Posts, PostRepository, SeriesRepository, ArtworkRepository, ArtworkImageRepository, ImageStorage);
+    var target = await PostImportTarget.LoadAsync(folder.Posts, PostRepository, CollectionRepository, WorkRepository, WorkImageRepository, ImageStorage);
     _postRun = new PostImportRun(PostImportPlanner.Plan(folder.Posts, target));
     var batches = _postRun.Start();
 

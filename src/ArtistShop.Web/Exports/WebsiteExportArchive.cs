@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
 
@@ -14,22 +15,29 @@ public static class WebsiteExportArchive
     public const string PostsFolder = "posts";
 
     // What the whole-website import needs that the files don't say themselves: the list separator,
-    // and each artwork CSV's type, since a type whose name can't be a file name has a file named
-    // after its id on this website
+    // each work CSV's type, since a type whose name can't be a file name has a file named after its
+    // id on this website, and the website's wording
     public const string ManifestFileName = "website.json";
     public const int FormatVersion = 1;
     public const string FormatVersionProperty = "formatVersion";
     public const string ListSeparatorProperty = "listSeparator";
-    public const string ArtworkFilesProperty = "artworkFiles";
+    public const string WorkFilesProperty = "workFiles";
     public const string FileProperty = "file";
-    public const string ArtworkTypeProperty = "artworkType";
+    public const string WorkTypeProperty = "workType";
+    public const string WordingProperty = "wording";
+    public const string CollectionWordingProperty = "collection";
+    public const string WorkWordingProperty = "work";
+    public const string SingularProperty = "singular";
+    public const string PluralProperty = "plural";
+    public const string KeepsCaseProperty = "keepsCase";
 
     public static async Task WriteAsync(
         Stream destination,
         CatalogSetupSnapshot snapshot,
-        IReadOnlyList<Artwork> artworks,
+        IReadOnlyList<Work> works,
+        SiteWording wording,
         IReadOnlyList<ExportedPost> posts,
-        IReadOnlyDictionary<string, ArtworkImageWithArtwork> artworkImages,
+        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
         string folderName,
         string host,
         string siteOrigin,
@@ -40,36 +48,50 @@ public static class WebsiteExportArchive
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
 
         await ExportZip.AddTextAsync(zip, $"{folderName}/{ExportZip.ReadmeFileName}", Readme(host), cancellationToken);
-        await ExportZip.AddTextAsync(zip, $"{folderName}/{ManifestFileName}", Manifest(snapshot, artworks), cancellationToken);
-        await CatalogExportArchive.AddAsync(zip, snapshot, artworks, $"{folderName}/{CatalogFolder}", cancellationToken);
+        await ExportZip.AddTextAsync(zip, $"{folderName}/{ManifestFileName}", Manifest(snapshot, works, wording), cancellationToken);
+        await CatalogExportArchive.AddAsync(zip, snapshot, works, $"{folderName}/{CatalogFolder}", cancellationToken);
         await ImageExportArchive.AddAsync(
             zip,
-            ImageExportPlan.Parts(artworks).SelectMany(part => part.Entries),
+            ImageExportPlan.Parts(works).SelectMany(part => part.Entries),
             $"{folderName}/{ImagesFolder}",
             imageStorage,
             cancellationToken
         );
-        await PostExportArchive.AddAsync(zip, posts, artworkImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, cancellationToken);
+        await PostExportArchive.AddAsync(zip, posts, workImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, cancellationToken);
     }
 
-    public static string Manifest(CatalogSetupSnapshot snapshot, IReadOnlyList<Artwork> artworks)
+    public static string Manifest(CatalogSetupSnapshot snapshot, IReadOnlyList<Work> works, SiteWording wording)
     {
-        var artworkFiles = new JsonArray();
+        var workFiles = new JsonArray();
 
-        foreach (var (fileName, type) in CatalogExportArchive.ArtworkFiles(snapshot, artworks))
+        foreach (var (fileName, type) in CatalogExportArchive.WorkFiles(snapshot, works))
         {
-            artworkFiles.Add(new JsonObject { [FileProperty] = fileName, [ArtworkTypeProperty] = type.Name.Value });
+            workFiles.Add(new JsonObject { [FileProperty] = fileName, [WorkTypeProperty] = type.Name.Value });
         }
 
         var manifest = new JsonObject
         {
             [FormatVersionProperty] = FormatVersion,
-            [ListSeparatorProperty] = CatalogExportArchive.ListSeparator(snapshot, artworks).ToString(),
-            [ArtworkFilesProperty] = artworkFiles,
+            [ListSeparatorProperty] = CatalogExportArchive.ListSeparator(snapshot, works).ToString(),
+            [WorkFilesProperty] = workFiles,
+            [WordingProperty] = new JsonObject
+            {
+                [CollectionWordingProperty] = NounObject(wording.CollectionChoice),
+                [WorkWordingProperty] = NounObject(wording.WorkChoice),
+            },
         };
 
         return manifest.ToJsonString(PostExportJson.Readable);
     }
+
+    // null words stay null, so a default carries over as the default rather than as today's words
+    private static JsonObject NounObject(NounChoice choice) =>
+        new()
+        {
+            [SingularProperty] = choice.Singular,
+            [PluralProperty] = choice.Plural,
+            [KeepsCaseProperty] = choice.KeepsCase,
+        };
 
     private static string Readme(string host) =>
         $"""
@@ -79,11 +101,11 @@ public static class WebsiteExportArchive
           What the import needs to read the other files. Don't change it by hand.
 
         {CatalogFolder}/
-          Artwork types, vocabularies, artworks and products as CSV files. Its README explains them.
+          Work types, vocabularies, works and products as CSV files. Its README explains them.
 
         {ImagesFolder}/
-          The original of every artwork image, in a folder for each artwork type and series.
-          {ImageExportArchive.ImageListFileName} lists each file with its artwork.
+          The original of every work image, in a folder for each work type and collection.
+          {ImageExportArchive.ImageListFileName} lists each file with its work.
 
         {PostsFolder}/
           Every post, drafts included, as a web page in a folder with its images. Open index.html

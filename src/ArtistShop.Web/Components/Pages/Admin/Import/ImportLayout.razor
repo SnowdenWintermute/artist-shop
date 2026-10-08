@@ -1,6 +1,11 @@
 @inherits LayoutComponentBase
 @layout MainLayout
 
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
 <main>
   <AdminPanel>
     <SectionNav>
@@ -8,8 +13,8 @@
       <div aria-hidden="true" class="pointer-events-none">|</div>
       @foreach (var step in ImportSteps.All)
       {
-        @* ActivePath: the images and artworks pages may add the artwork type to the address *@
-        <SectionNavLink href="@step.Href" ActivePath="@step.Href" ActiveClass="underline">@step.Title</SectionNavLink>
+        @* ActivePath: the images and works pages may add the type to the address *@
+        <SectionNavLink href="@step.Href" ActivePath="@step.Href" ActiveClass="underline">@step.Title(Wording)</SectionNavLink>
       }
     </SectionNav>
     <ChildContent>

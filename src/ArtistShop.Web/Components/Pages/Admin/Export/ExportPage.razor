@@ -8,7 +8,7 @@
 @using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
-@inject ArtworkRepository ArtworkRepository
+@inject WorkRepository WorkRepository
 @inject ImageStorage ImageStorage
 @inject PostRepository PostRepository
 
@@ -36,9 +36,9 @@
 
   <div class="mb-6">
     <div class="mb-2">
-      <h2 class="mb-1 text-lg">Artworks and products</h2>
+      <h2 class="mb-1 text-lg">@Wording.Work.PluralHeading and products</h2>
       <p class="text-sm">
-        One CSV file per artwork type and a list of every product.
+        One CSV file per @Wording.Work.SingularInSentence type and a list of every product.
       </p>
     </div>
     @* not enhanced: the response is a file, not a page *@
@@ -74,11 +74,11 @@
 
   <h2 class="mb-1 text-lg">Images</h2>
   <p class="mb-2 text-sm">
-    The original highest resolution file of every artwork image</p>
+    The original highest resolution file of every @Wording.Work.SingularInSentence image</p>
 
     @if (_parts.Count == 0)
     {
-      <p class="text-sm">No artwork has an image yet.</p>
+      <p class="text-sm">No @Wording.Work.SingularInSentence has an image yet.</p>
     }
     else
     {
@@ -96,15 +96,15 @@
       </div>
 
       <Divider Class="my-2" />
-      <h3>Download images by type and series</h3>
-      <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download a series' images</p>
+      <h3>Download images by type and @Wording.Collection.SingularInSentence</h3>
+      <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download each @Wording.Collection.SingularInSentence's images</p>
 
       <ul>
         @foreach (var part in _parts)
         {
           <li class="mb-2 flex flex-wrap items-center justify-between gap-4" @key="ExportEndpoints.ImagesUrl(part.Part)">
             <div>
-              <div>@part.Part.Type.Name.Value — @(part.Part.Series?.Name.Value ?? "no series")</div>
+              <div>@part.Part.Type.Name.Value — @(part.Part.Collection?.Name.Value ?? $"no {Wording.Collection.SingularInSentence}")</div>
               <div class="text-sm">@CountText.Of(part.Size.Count, "image"), @Size(part.Size.Bytes)</div>
             </div>
             @* no download attribute, so a refusal ("another download is running") shows as a page
@@ -119,6 +119,9 @@
   </AdminPanel>
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   private List<(ImageExportPart Part, (int Count, long Bytes) Size)> _parts = [];
   private int _postCount;
 
@@ -127,7 +130,7 @@
     _parts =
     [
       .. ImageExportPlan
-        .Parts(await ArtworkRepository.GetAllAsync())
+        .Parts(await WorkRepository.GetAllAsync())
         .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
     ];
     _postCount = await PostRepository.CountAsync();

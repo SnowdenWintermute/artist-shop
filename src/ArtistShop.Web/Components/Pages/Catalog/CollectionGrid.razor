@@ -1,0 +1,26 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  // in the artist's order, and already narrowed to the ones a visitor may see
+  [Parameter, EditorRequired]
+  public IReadOnlyList<CollectionWithCover> Collections { get; set; } = default!;
+
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
+@if (Collections.Count == 0)
+{
+  <p>Nothing here yet.</p>
+}
+else
+{
+  <TileGrid>
+    @foreach (var collection in Collections)
+    {
+      <LinkTile @key="collection.Id" Href="@PageUrls.Collection(collection.Slug)" Title="@collection.Name.Value"
+                Image="collection.Cover" Caption="@Wording.Work.CountOf(collection.WorkCount)" />
+    }
+  </TileGrid>
+}

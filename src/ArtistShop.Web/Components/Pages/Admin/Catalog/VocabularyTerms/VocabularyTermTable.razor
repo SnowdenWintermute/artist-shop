@@ -24,7 +24,7 @@
     <DataTable Items="Terms" Headings="@(["Term", "Used on", ""])">
       <Row Context="term">
         <DataTableCell>@term.Name.Value</DataTableCell>
-        <DataTableCell>@term.ArtworkCount items</DataTableCell>
+        <DataTableCell>@term.WorkCount items</DataTableCell>
         <DataTableCell Class="text-right">
           <ButtonBasic type="button" @onclick="() => _termToRename = term">Rename</ButtonBasic>
           <ButtonBasic type="button" Variant="ButtonVariant.DangerText" @onclick="() => _termToDelete = term">Delete</ButtonBasic>

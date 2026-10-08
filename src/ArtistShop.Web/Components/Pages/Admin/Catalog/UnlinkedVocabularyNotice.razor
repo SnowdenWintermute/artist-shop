@@ -2,6 +2,9 @@
 @using ArtistShop.Web.Domain.Catalog
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public VocabularyName Name { get; set; } = default!;
 
@@ -11,6 +14,7 @@
 }
 
 <Notice>
-  @Name.Value isn't linked to any artwork type yet, so it doesn't show on any artwork's form.
+  @Name.Value isn't linked to any @Wording.Work.SingularInSentence type yet, so it doesn't show on any
+  @Wording.Work.SingularInSentence's form.
   @ChildContent
 </Notice>

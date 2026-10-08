@@ -14,7 +14,7 @@
   [Parameter]
   public int Id { get; set; }
 
-  private VocabularyWithArtworkTypes? _vocabulary;
+  private VocabularyWithWorkTypes? _vocabulary;
   private List<VocabularyTermWithUsage> _terms = [];
 
   private VocabularyId VocabularyId => new(Id);
@@ -39,7 +39,7 @@ else
     <a href="@PageUrls.EditVocabulary(VocabularyId)">Edit vocabulary</a>
   </div>
 
-  @if (_vocabulary.ArtworkTypeIds.Count is 0)
+  @if (_vocabulary.WorkTypeIds.Count is 0)
   {
     <UnlinkedVocabularyNotice Name="_vocabulary.Name">
       <a href="@PageUrls.EditVocabulary(VocabularyId)" class="underline">Choose the types it applies to</a>

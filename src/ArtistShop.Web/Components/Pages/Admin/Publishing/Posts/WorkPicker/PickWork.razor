@@ -1,0 +1,34 @@
+@page "/admin/posts/pick-work"
+@layout FrameLayout
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [SupplyParameterFromQuery(Name = WorkPickerTrail.ModeKey)]
+  private string? ModeValue { get; set; }
+
+  // this list's own query string, filters, page and mode included, which the next steps carry
+  // for their Back links
+  private WorkPickerTrail Trail =>
+    WorkPickerTrail.Read(ModeValue, new Uri(NavigationManager.Uri).Query.TrimStart('?'));
+
+  private IReadOnlyList<(string Name, string Value)>? KeptFields =>
+    Trail.ModeValue is { } mode ? [(WorkPickerTrail.ModeKey, mode)] : null;
+
+  // a work with no image has nothing to embed, so its row isn't a link
+  private string? RowHref(WorkListItem item) =>
+    item.ImageCount > 0 ? PageUrls.WorkPickerImages(item.Id, Trail) : null;
+}
+
+@* Step one of the post editor's work picker, shown in its frame *@
+<WorkPickerPage Heading="@($"Choose {Wording.Work.SingularInSentence}")">
+  <WorkListBrowser RowHref="RowHref" ClearFiltersHref="@PageUrls.WorkPickerList(Trail with { ListQuery = null })"
+                      KeptFields="KeptFields" />
+</WorkPickerPage>

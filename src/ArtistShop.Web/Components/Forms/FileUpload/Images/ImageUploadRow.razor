@@ -13,7 +13,7 @@
 
 @* the placeholder holds the box while the upload runs, so the row doesn't jump when the
    image lands *@
-<ArtworkThumbnail Image="SelectedImage.Result" />
+<WorkThumbnail Image="SelectedImage.Result" />
 
 @* data-failed: a submit that waited for uploads doesn't post while a row has it (static-form-submit.js) *@
 <div class="grow" data-failed="@(SelectedImage.Error is not null)">

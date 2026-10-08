@@ -87,11 +87,14 @@ SITE_DOMAIN=localhost
 if [[ $PHONE == true ]]; then
   SITE_DOMAIN=$PHONE_HOST
 fi
-docker exec -i artist-shop-postgres psql -U postgres -d artist_shop_platform -v ON_ERROR_STOP=1 -q <<SQL
+# The app creates the database at startup, so after a drop there's none yet, and no sites to rename
+if [[ -n "$(docker exec artist-shop-postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'artist_shop_platform'")" ]]; then
+  docker exec -i artist-shop-postgres psql -U postgres -d artist_shop_platform -v ON_ERROR_STOP=1 -q <<SQL
 UPDATE site_hosts
 SET host = regexp_replace(host, '\.(localhost|[0-9-]+\.nip\.io)$', '.$SITE_DOMAIN')
 WHERE host ~ '\.(localhost|[0-9-]+\.nip\.io)$';
 SQL
+fi
 
 # Not --no-hot-reload. That mode does rebuild and restart on every save, but its restart path never
 # sends the browser refresh socket anything -- no wait, no reload -- so the page only updates when

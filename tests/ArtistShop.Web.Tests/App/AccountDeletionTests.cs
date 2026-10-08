@@ -64,7 +64,7 @@ public sealed class AccountDeletionTests(TestApp app)
         var userId = await app.UserIdAsync(email);
         var client = await app.SignedInClientAsync(TestApp.PlatformHost, email);
         var dismissedHints = app.Services.GetRequiredService<DismissedHintRepository>();
-        await dismissedHints.DismissAsync(userId, [HintType.Series]);
+        await dismissedHints.DismissAsync(userId, [HintType.Collections]);
         Assert.NotEmpty(await dismissedHints.GetAsync(userId));
 
         await DeleteAsync(client, email);
