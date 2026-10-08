@@ -10,6 +10,7 @@ public class VocabularyForm : ServerValidatedForm
 {
     private readonly HashSet<ArtworkTypeId> _artworkTypeIds = [];
     private string? _savedName;
+    private bool _savedIsSingleChoice;
     private readonly HashSet<ArtworkTypeId> _savedArtworkTypeIds = [];
 
     // Loads into this form rather than making a new one, so the EditContext stays the same:
@@ -19,6 +20,8 @@ public class VocabularyForm : ServerValidatedForm
     {
         Name = saved.Name.Value;
         _savedName = saved.Name.Value;
+        IsSingleChoice = saved.IsSingleChoice;
+        _savedIsSingleChoice = saved.IsSingleChoice;
         _artworkTypeIds.Clear();
         _artworkTypeIds.UnionWith(saved.ArtworkTypeIds);
         _savedArtworkTypeIds.Clear();
@@ -29,10 +32,16 @@ public class VocabularyForm : ServerValidatedForm
     [StringLength(ArtistShopLimits.VocabularyNameMaximumLength)]
     public string? Name { get; set; }
 
+    public bool IsSingleChoice { get; set; }
+
+    public bool BecameSingleChoice => IsSingleChoice && !_savedIsSingleChoice;
+
     public IReadOnlySet<ArtworkTypeId> ArtworkTypeIds => _artworkTypeIds;
 
     public bool HasChanges =>
-        Name != _savedName || !_artworkTypeIds.SetEquals(_savedArtworkTypeIds);
+        Name != _savedName
+        || IsSingleChoice != _savedIsSingleChoice
+        || !_artworkTypeIds.SetEquals(_savedArtworkTypeIds);
 
     public void ToggleArtworkType(ArtworkTypeId artworkTypeId)
     {

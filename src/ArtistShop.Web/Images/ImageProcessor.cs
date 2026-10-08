@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using NetVips;
 
 namespace ArtistShop.Web.Images;
@@ -15,7 +14,7 @@ public class ImageTooLargeException(string message) : Exception(message);
 
 public class UnsupportedImageFormatException(string message) : Exception(message);
 
-public class ImageProcessor(ImageStorage imageStorage, ILogger<ImageProcessor> logger)
+public class ImageProcessor(ImageStorage imageStorage)
 {
     private const int BlurWidth = 20;
 
@@ -63,7 +62,6 @@ public class ImageProcessor(ImageStorage imageStorage, ILogger<ImageProcessor> l
     // MinimumPostImageWidth for an image in a post
     public ProcessedImage Process(string storageKey, int minimumWidth)
     {
-        var started = Stopwatch.GetTimestamp();
         var originalPath = imageStorage.OriginalPath(storageKey);
         using var source = Image.NewFromFile(originalPath).Autorot();
         if (source.Width < minimumWidth)
@@ -76,9 +74,6 @@ public class ImageProcessor(ImageStorage imageStorage, ILogger<ImageProcessor> l
         var variantDirectory = imageStorage.VariantDirectory(storageKey);
         Directory.CreateDirectory(variantDirectory);
 
-        // milliseconds per step, logged below to see where processing time goes
-        var stepTimings = new List<string>();
-
         // only the largest copy is made from the original, and each smaller one from the copy before
         // it, so the original is decoded once. Null until the largest copy is made
         Image? previousVariant = null;
@@ -89,30 +84,29 @@ public class ImageProcessor(ImageStorage imageStorage, ILogger<ImageProcessor> l
             // Enumerable.Reverse, because an array's own Reverse reverses it in place
             foreach (var width in Enumerable.Reverse(fittingWidths))
             {
-                var stepStarted = Stopwatch.GetTimestamp();
-                // CopyMemory makes libvips do the decode and resize now rather than during the first encode
-                var variant = (
-                    previousVariant is null
+                // CopyMemory makes libvips do the decode and resize now rather than during the first encode.
+                // resized is disposed straight after, so it stops holding the image it was made from
+                Image variant;
+                using (
+                    var resized = previousVariant is null
                         ? Image.Thumbnail(originalPath, width, height: source.Height)
                         : previousVariant.ThumbnailImage(width, height: previousVariant.Height)
-                ).CopyMemory();
+                )
+                {
+                    variant = resized.CopyMemory();
+                }
                 previousVariant?.Dispose();
                 previousVariant = variant;
-                var resizeMilliseconds = ElapsedMilliseconds(ref stepStarted);
 
                 variant.WriteToFile(
                     Path.Combine(variantDirectory, ImageVariants.FileName(width, ImageVariantFormat.Avif)),
                     new VOption { { "Q", 50 }, { "effort", AvifEffort }, { "keep", VariantMetadata } }
                 );
-                var avifMilliseconds = ElapsedMilliseconds(ref stepStarted);
 
                 variant.WriteToFile(
                     Path.Combine(variantDirectory, ImageVariants.FileName(width, ImageVariantFormat.Webp)),
                     new VOption { { "Q", 75 }, { "keep", VariantMetadata } }
                 );
-                var webpMilliseconds = ElapsedMilliseconds(ref stepStarted);
-
-                stepTimings.Add($"{width}: resize {resizeMilliseconds} avif {avifMilliseconds} webp {webpMilliseconds}");
             }
 
             if (previousVariant is null)
@@ -120,7 +114,6 @@ public class ImageProcessor(ImageStorage imageStorage, ILogger<ImageProcessor> l
                 throw new InvalidOperationException($"No variant widths fit an image {source.Width} pixels wide.");
             }
 
-            var blurStarted = Stopwatch.GetTimestamp();
             // made from the smallest copy, the last one made
             using var blur = previousVariant.ThumbnailImage(BlurWidth, outputProfile: "srgb");
 
@@ -128,38 +121,16 @@ public class ImageProcessor(ImageStorage imageStorage, ILogger<ImageProcessor> l
                 ".webp",
                 new VOption { { "Q", 40 }, { "keep", Enums.ForeignKeep.None } }
             );
-            stepTimings.Add($"blur {ElapsedMilliseconds(ref blurStarted)}");
         }
         finally
         {
             previousVariant?.Dispose();
         }
 
-#pragma warning disable CA1873
-        logger.LogInformation(
-            "Processed image {StorageKey} ({Loader}, {Width}x{Height}) in {TotalMilliseconds} ms; steps in ms: {StepTimings}",
-            storageKey,
-            source.Get("vips-loader"),
-            source.Width,
-            source.Height,
-            (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-            string.Join("; ", stepTimings)
-        );
-#pragma warning restore CA1873
-
         return new ProcessedImage(
             source.Width,
             source.Height,
             $"data:image/webp;base64,{Convert.ToBase64String(blurBytes)}"
         );
-    }
-
-    // returns the milliseconds since stepStarted, and restarts it for the next step
-    private static long ElapsedMilliseconds(ref long stepStarted)
-    {
-        var now = Stopwatch.GetTimestamp();
-        var milliseconds = (long)Stopwatch.GetElapsedTime(stepStarted, now).TotalMilliseconds;
-        stepStarted = now;
-        return milliseconds;
     }
 }

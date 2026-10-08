@@ -3,6 +3,7 @@ DROP FUNCTION IF EXISTS get_vocabularies_with_terms;
 CREATE FUNCTION get_vocabularies_with_terms (p_artwork_type_id int) RETURNS TABLE (
     id int,
     name text,
+    is_single_choice boolean,
     term_id int,
     term_name text
 ) LANGUAGE sql STABLE AS $$
@@ -11,6 +12,7 @@ CREATE FUNCTION get_vocabularies_with_terms (p_artwork_type_id int) RETURNS TABL
 SELECT
     vocabulary.id,
     vocabulary.name,
+    vocabulary.is_single_choice,
     term.id,
     term.name
 FROM

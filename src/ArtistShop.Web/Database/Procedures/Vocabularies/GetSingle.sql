@@ -1,9 +1,10 @@
 DROP FUNCTION IF EXISTS get_vocabulary;
 
-CREATE FUNCTION get_vocabulary (p_id int) RETURNS TABLE (id int, name text) LANGUAGE sql STABLE AS $$
+CREATE FUNCTION get_vocabulary (p_id int) RETURNS TABLE (id int, name text, is_single_choice boolean) LANGUAGE sql STABLE AS $$
 SELECT
     vocabulary.id,
-    vocabulary.name
+    vocabulary.name,
+    vocabulary.is_single_choice
 FROM
     vocabularies AS vocabulary
 WHERE

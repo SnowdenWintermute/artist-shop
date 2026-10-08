@@ -37,6 +37,7 @@
 <ModalDialog Title="@(ArtworkName is null ? "Vocabularies" : $"Vocabularies of {ArtworkName}")" Width="ModalDialogWidth.Narrow"
              OnClose="OnClose" KeepOpen="_isSaving">
   <VocabularyChoices ArtworkTypeId="ArtworkTypeId" Vocabularies="Vocabularies" Checked="_checked" OnToggle="id => _checked.Toggle(id)"
+                     OnChoose="choice => TermChoices.Choose(_checked, choice)"
                      OnVocabulariesChanged="OnVocabulariesChanged" @bind-IsSaving="_isSaving">
     <Actions>
       <ModalDialogActions>

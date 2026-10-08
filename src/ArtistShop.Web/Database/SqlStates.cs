@@ -59,4 +59,7 @@ public static class SqlStates
 
     // ReorderExampleSites, in the platform database
     public const string ExampleSitesChangedSincePageLoad = "SH017";
+
+    // CheckArtworkChoicesAreCurrent
+    public const string VocabularyBecameSingleChoice = "SH018";
 }

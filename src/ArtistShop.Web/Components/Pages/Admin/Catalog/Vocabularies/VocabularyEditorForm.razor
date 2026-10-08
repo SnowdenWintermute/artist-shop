@@ -19,10 +19,10 @@
 
   // only when Save itself was clicked; a dialog's confirm button spins for the saves and deletes
   // it starts
-  private bool SaveButtonBusy => _isSaving && !_unselectDialogOpen && !_deleteDialogOpen;
+  private bool SaveButtonBusy => _isSaving && !_removeTermsDialogOpen && !_deleteDialogOpen;
   // keys the notice, so each save draws a new one, visible until the first edit hides it
   private int _saveCount;
-  private bool _unselectDialogOpen;
+  private bool _removeTermsDialogOpen;
   private bool _deleteDialogOpen;
 
   // after a save, Refresh re-renders the page, which passes the saved values back in here. The
@@ -41,11 +41,14 @@
       : [.. ArtworkTypes.Where(artworkType =>
           _form.WasUnselected(artworkType.Id) && Loaded.Usage.ArtworkCountFor(artworkType.Id) > 0)];
 
+  private IReadOnlyList<ArtworkName> ArtworksLosingTermsToSingleChoice =>
+    Loaded is not null && _form.BecameSingleChoice ? Loaded.ArtworksWithSeveralTerms : [];
+
   private async Task HandleValidSubmit()
   {
-    if (UnselectedArtworkTypesInUse.Count > 0)
+    if (UnselectedArtworkTypesInUse.Count > 0 || ArtworksLosingTermsToSingleChoice.Count > 0)
     {
-      _unselectDialogOpen = true;
+      _removeTermsDialogOpen = true;
       return;
     }
 
@@ -62,12 +65,12 @@
 
       if (Loaded is null)
       {
-        var id = await VocabularyRepository.AddAsync(name, _form.ArtworkTypeIds);
+        var id = await VocabularyRepository.AddAsync(name, _form.IsSingleChoice, _form.ArtworkTypeIds);
         NavigationManager.NavigateTo(PageUrls.EditVocabulary(id));
         return;
       }
 
-      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.ArtworkTypeIds);
+      await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.IsSingleChoice, _form.ArtworkTypeIds);
       _saveCount++;
       NavigationManager.Refresh();
     }
@@ -83,7 +86,7 @@
     finally
     {
       _isSaving = false;
-      _unselectDialogOpen = false;
+      _removeTermsDialogOpen = false;
     }
   }
 
@@ -109,7 +112,9 @@
 
     <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
     <ArtworkTypeCheckboxes ArtworkTypes="ArtworkTypes" Selected="_form.ArtworkTypeIds"
-                            OnToggle="_form.ToggleArtworkType" />
+                           OnToggle="_form.ToggleArtworkType" />
+    <CheckboxField Label="Mutually exclusive" @bind-Value="_form.IsSingleChoice"
+                   Hint="An artwork may only choose one of these terms." />
 
     @if (_saveCount > 0)
     {
@@ -134,9 +139,9 @@
 
   @if (Loaded is { } loaded)
   {
-    <UnselectArtworkTypesDialog @bind-Open="_unselectDialogOpen" VocabularyName="loaded.Vocabulary.Name"
-                                 UnselectedArtworkTypes="UnselectedArtworkTypesInUse" Usage="loaded.Usage" OnConfirm="SaveAsync"
-                                 IsWorking="_isSaving" />
+    <RemoveArtworkTermsDialog @bind-Open="_removeTermsDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+                              UnselectedArtworkTypes="UnselectedArtworkTypesInUse" Usage="loaded.Usage"
+                              ArtworksWithSeveralTerms="ArtworksLosingTermsToSingleChoice" OnConfirm="SaveAsync" IsWorking="_isSaving" />
 
     <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
                             OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />

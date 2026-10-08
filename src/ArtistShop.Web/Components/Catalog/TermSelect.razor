@@ -1,0 +1,36 @@
+@using ArtistShop.Web.Domain.Catalog
+
+@* A single-choice vocabulary's terms as one select, with None for no term *@
+
+@code {
+  [Parameter, EditorRequired]
+  public VocabularyWithTerms Vocabulary { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public int? ChosenTermId { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<TermChoice> OnChoose { get; set; }
+  [Parameter]
+  public string LabelClass { get; set; } = "";
+  // In a posted form, the chosen term goes under this name. A hidden input carries it rather than
+  // the select itself, whose None would post an empty value the form can't read as an id
+  [Parameter]
+  public string? Name { get; set; }
+
+  private readonly string _id = $"term-select-{Guid.NewGuid():n}";
+
+  private Task ChooseAsync(ChangeEventArgs change) =>
+    OnChoose.InvokeAsync(new TermChoice(Vocabulary, int.TryParse(change.Value?.ToString(), out var termId) ? termId : null));
+}
+
+<label for="@_id" class="@LabelClass">@Vocabulary.Name.Value</label>
+<select id="@_id" class="artist-shop-field-input" value="@(ChosenTermId?.ToString() ?? "")" @onchange="ChooseAsync">
+  <option value="">None</option>
+  @foreach (var term in Vocabulary.Terms)
+  {
+    <option @key="term.Id.Value" value="@term.Id.Value">@term.Name.Value</option>
+  }
+</select>
+@if (Name is not null && ChosenTermId is { } chosen)
+{
+  <input type="hidden" name="@Name" value="@chosen" />
+}

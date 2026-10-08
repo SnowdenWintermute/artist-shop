@@ -242,6 +242,8 @@ public static class ArtworkImportPlanner
 
         foreach (var (index, vocabulary) in columns.Vocabularies)
         {
+            var vocabularyTermIds = new List<VocabularyTermId>();
+
             foreach (var name in reader.List(index, separator))
             {
                 var term = vocabulary.Terms.FirstOrDefault(term => ImportNames.Comparer.Equals(term.Name.Value, name));
@@ -252,9 +254,16 @@ public static class ArtworkImportPlanner
                 }
                 else
                 {
-                    termIds.Add(term.Id);
+                    vocabularyTermIds.Add(term.Id);
                 }
             }
+
+            if (vocabulary.IsSingleChoice && vocabularyTermIds.Distinct().Count() > 1)
+            {
+                reader.AddError(vocabulary.Name.Value, $"{vocabulary.Name.Value} allows only one term per artwork.");
+            }
+
+            termIds.AddRange(vocabularyTermIds);
         }
 
         return termIds;

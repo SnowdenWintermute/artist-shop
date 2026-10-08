@@ -1,13 +1,13 @@
 DROP FUNCTION IF EXISTS add_vocabulary;
 
-CREATE FUNCTION add_vocabulary (p_name text, p_artwork_type_ids int[]) RETURNS int LANGUAGE plpgsql AS $$
+CREATE FUNCTION add_vocabulary (p_name text, p_is_single_choice boolean, p_artwork_type_ids int[]) RETURNS int LANGUAGE plpgsql AS $$
 DECLARE
     new_id int;
 BEGIN
     INSERT INTO
-        vocabularies (name)
+        vocabularies (name, is_single_choice)
     VALUES
-        (p_name)
+        (p_name, p_is_single_choice)
     RETURNING
         id INTO new_id;
 

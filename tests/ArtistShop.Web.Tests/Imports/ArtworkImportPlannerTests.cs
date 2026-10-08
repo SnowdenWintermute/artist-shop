@@ -26,7 +26,7 @@ public sealed class ArtworkImportPlannerTests
     private static ArtworkImportCatalogSnapshot Snapshot(IReadOnlyList<ArtworkField> fields) =>
         new(
             new ArtworkTypeWithFields(new ArtworkTypeId(1), new ArtworkTypeName("Painting"), fields),
-            [new VocabularyWithTerms(MediumId, MediumName, [Oil, Acrylic])],
+            [new VocabularyWithTerms(MediumId, MediumName, IsSingleChoice: false, [Oil, Acrylic])],
             [new Vocabulary(MediumId, MediumName), Glaze],
             [SunriseSunset, Gardens],
             [Original, Print],
@@ -365,7 +365,7 @@ public sealed class ArtworkImportPlannerTests
         var snapshot = Snapshot(PaintingFields) with
         {
             AllVocabularies = [new Vocabulary(seriesVocabularyId, seriesVocabularyName)],
-            TypeVocabularies = [new VocabularyWithTerms(seriesVocabularyId, seriesVocabularyName, [blue])],
+            TypeVocabularies = [new VocabularyWithTerms(seriesVocabularyId, seriesVocabularyName, IsSingleChoice: false, [blue])],
         };
 
         var plan = ArtworkImportPlanner.Plan("title,series,vocabulary:Series\nDawn,Gardens,Blue\n", OneOfAKindInInches, snapshot);
@@ -374,6 +374,31 @@ public sealed class ArtworkImportPlannerTests
         var addition = Assert.Single(plan.Additions).Addition;
         Assert.Equal([Gardens.Id], addition.SeriesIds);
         Assert.Equal([blue.Id], addition.VocabularyTermIds);
+    }
+
+    [Fact]
+    public void ASingleChoiceVocabularyTakesOneTerm()
+    {
+        var snapshot = Snapshot(PaintingFields) with
+        {
+            TypeVocabularies = [new VocabularyWithTerms(MediumId, MediumName, IsSingleChoice: true, [Oil, Acrylic])],
+        };
+
+        var plan = ArtworkImportPlanner.Plan(
+            """
+            title,medium
+            Dawn,Oil
+            Dusk,Oil;oil
+            Night,Oil;Acrylic
+            """,
+            OneOfAKindInInches,
+            snapshot
+        );
+
+        // the same term twice is still one term
+        var error = Assert.Single(plan.Errors);
+        Assert.Equal(4, error.RowNumber);
+        Assert.Equal("Medium", error.Column);
     }
 
     [Fact]
@@ -622,8 +647,8 @@ public sealed class ArtworkImportPlannerTests
             AllVocabularies = [new Vocabulary(MediumId, new VocabularyName("drawingMaterial")), new Vocabulary(new VocabularyId(3), new VocabularyName("support"))],
             TypeVocabularies =
             [
-                new VocabularyWithTerms(MediumId, new VocabularyName("drawingMaterial"), []),
-                new VocabularyWithTerms(new VocabularyId(3), new VocabularyName("support"), []),
+                new VocabularyWithTerms(MediumId, new VocabularyName("drawingMaterial"), IsSingleChoice: false, []),
+                new VocabularyWithTerms(new VocabularyId(3), new VocabularyName("support"), IsSingleChoice: false, []),
             ],
         };
 

@@ -145,7 +145,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     private static ImageUploadStore UploadStoreFor(ImageStorage imageStorage) =>
         new(
             imageStorage,
-            new ImageProcessor(imageStorage, NullLogger<ImageProcessor>.Instance),
+            new ImageProcessor(imageStorage),
             TestImageProcessing.CreateAmpleLimiter(),
             TestImageProcessing.Settings
         );

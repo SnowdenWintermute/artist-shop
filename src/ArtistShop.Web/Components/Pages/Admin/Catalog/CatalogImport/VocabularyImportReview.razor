@@ -33,6 +33,10 @@
             {
               <span class="text-green-600">(new)</span>
             }
+            @if (change.IsSingleChoice)
+            {
+              <span class="text-gray-500">(single-choice)</span>
+            }
           </DataTableCell>
           <DataTableCell>
             @foreach (var (index, type) in change.ExistingArtworkTypes.Concat(change.AddedArtworkTypes).Index())

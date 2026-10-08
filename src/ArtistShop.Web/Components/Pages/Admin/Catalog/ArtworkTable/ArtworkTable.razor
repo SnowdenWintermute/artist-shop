@@ -358,7 +358,7 @@ ArtworkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     await ApplyAsync(rows, row =>
     {
       List<int> updated = change is BulkChange.Add
-        ? VocabularyOrder.TermIdsInListOrder(_vocabularies, termIds.Union(row.Form.VocabularyTermIds).ToHashSet())
+        ? VocabularyOrder.TermIdsInListOrder(_vocabularies, TermChoices.WithAdded(_vocabularies, row.Form.VocabularyTermIds, termIds))
         : [.. row.Form.VocabularyTermIds.Where(id => !termIds.Contains(id))];
 
       if (updated.SequenceEqual(row.Form.VocabularyTermIds))

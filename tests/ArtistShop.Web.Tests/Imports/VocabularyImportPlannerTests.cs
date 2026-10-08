@@ -87,4 +87,47 @@ public sealed class VocabularyImportPlannerTests
 
         Assert.Equal((2, "vocabulary"), (Assert.Single(plan.Errors).RowNumber, plan.Errors[0].Column));
     }
+
+    [Fact]
+    public void ANewVocabularyCanBeSingleChoice()
+    {
+        var plan = Plan(
+            """
+            vocabulary,artworkTypes,terms,singleChoice
+            Time of day,Painting,Noon; Midnight,YES
+            Style,Painting,Abstract,
+            """
+        );
+
+        Assert.Empty(plan.Errors);
+        Assert.Equal([true, false], plan.Changes.Select(change => change.IsSingleChoice));
+    }
+
+    [Fact]
+    public void SingleChoiceMustBeYesOrNo()
+    {
+        var plan = Plan(
+            """
+            vocabulary,artworkTypes,terms,singleChoice
+            Time of day,Painting,Noon,maybe
+            """
+        );
+
+        Assert.Equal(VocabularyImportHeaders.SingleChoice, Assert.Single(plan.Errors).Column);
+    }
+
+    // the import only adds, and making it single-choice could take terms off artworks
+    [Fact]
+    public void AnExistingVocabularysSingleChoiceIsNotChanged()
+    {
+        var plan = Plan(
+            """
+            vocabulary,artworkTypes,terms,singleChoice
+            Medium,Painting,Bronze,yes
+            """
+        );
+
+        Assert.Empty(plan.Changes);
+        Assert.Equal(VocabularyImportHeaders.SingleChoice, Assert.Single(plan.Errors).Column);
+    }
 }

@@ -111,11 +111,22 @@ series.Name.Value))];
 
   @foreach (var vocabulary in _vocabularies)
   {
-    <CheckboxGroupField @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="Input.VocabularyTermIds"
-                        Options="TermOptions(vocabulary)" SelectedValues="_selectedTermIds"
-                        OnToggle="value => _selectedTermIds.Toggle(value)">
-      <EmptyContent>No terms yet.</EmptyContent>
-    </CheckboxGroupField>
+    @if (vocabulary.IsSingleChoice && vocabulary.Terms.Count > 0)
+    {
+      <div @key="vocabulary.Id" class="mb-4">
+        <TermSelect Vocabulary="vocabulary" ChosenTermId="TermChoices.ChosenTermId(_selectedTermIds, vocabulary)"
+                    OnChoose="choice => TermChoices.Choose(_selectedTermIds, choice)" LabelClass="mb-1 block"
+                    Name="Input.VocabularyTermIds" />
+      </div>
+    }
+    else
+    {
+      <CheckboxGroupField @key="vocabulary.Id" Legend="@vocabulary.Name.Value" Name="Input.VocabularyTermIds"
+                          Options="TermOptions(vocabulary)" SelectedValues="_selectedTermIds"
+                          OnToggle="value => _selectedTermIds.Toggle(value)">
+        <EmptyContent>No terms yet.</EmptyContent>
+      </CheckboxGroupField>
+    }
   }
 
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" @onclick="() => _vocabularyDialogOpen = true">

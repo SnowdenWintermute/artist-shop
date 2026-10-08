@@ -40,7 +40,11 @@
 
       if (vocabulary is not null)
       {
-        _loaded = new LoadedVocabulary(vocabulary, await VocabularyRepository.CountUsageAsync(vocabularyId));
+        _loaded = new LoadedVocabulary(
+          vocabulary,
+          await VocabularyRepository.CountUsageAsync(vocabularyId),
+          vocabulary.IsSingleChoice ? [] : await VocabularyRepository.GetArtworksWithSeveralTermsAsync(vocabularyId)
+        );
       }
     }
   }

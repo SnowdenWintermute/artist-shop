@@ -90,6 +90,38 @@ BEGIN
         RAISE EXCEPTION 'A chosen vocabulary term no longer exists.' USING ERRCODE = 'SH001';
     END IF;
 
+    -- FOR SHARE waits for update_vocabulary, so a vocabulary made single-choice in another tab is
+    -- seen here and not only by the junction's index, whose error wouldn't say which choice was stale
+    PERFORM
+    FROM
+        vocabularies
+    WHERE
+        id IN (
+            SELECT
+                term.vocabulary_id
+            FROM
+                vocabulary_terms AS term
+            WHERE
+                term.id = ANY (p_vocabulary_term_ids)
+        )
+    FOR SHARE;
+
+    IF EXISTS (
+        SELECT
+        FROM
+            vocabulary_terms AS term
+            JOIN vocabularies AS vocabulary ON vocabulary.id = term.vocabulary_id
+        WHERE
+            term.id = ANY (p_vocabulary_term_ids)
+            AND vocabulary.is_single_choice
+        GROUP BY
+            term.vocabulary_id
+        HAVING
+            COUNT(*) > 1
+    ) THEN
+        RAISE EXCEPTION 'A vocabulary with several chosen terms allows only one.' USING ERRCODE = 'SH018';
+    END IF;
+
     -- the junction's foreign key would catch a deleted series too, but as a plain foreign key
     -- violation, which says nothing about which choice was stale
     PERFORM

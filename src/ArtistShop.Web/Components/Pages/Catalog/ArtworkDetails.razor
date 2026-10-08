@@ -20,8 +20,8 @@
     : "Price on request";
 
   // grouped under the vocabulary each term came from, so the panel reads "Medium: Oil, Pastel"
-  private static string TermNames(VocabularyWithTerms vocabulary) =>
-    string.Join(", ", vocabulary.Terms.Select(term => term.Name.Value));
+  private static string TermNames(VocabularyTermGroup group) =>
+    string.Join(", ", group.Terms.Select(term => term.Name.Value));
 }
 
 <div>
@@ -83,10 +83,10 @@
       <dd class="mb-2">@ArtworkDuration.ToText(duration)</dd>
     }
 
-    @foreach (var vocabulary in VocabularyOrder.GroupedByVocabulary(Artwork.VocabularyTerms))
+    @foreach (var group in VocabularyOrder.GroupedByVocabulary(Artwork.VocabularyTerms))
     {
-      <dt @key="vocabulary.Id" class="text-gray-500">@vocabulary.Name.Value</dt>
-      <dd class="mb-2">@TermNames(vocabulary)</dd>
+      <dt @key="group.VocabularyId" class="text-gray-500">@group.VocabularyName.Value</dt>
+      <dd class="mb-2">@TermNames(group)</dd>
     }
 
     @if (Artwork.Series.Count > 0)

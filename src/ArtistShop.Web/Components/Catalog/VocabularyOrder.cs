@@ -26,12 +26,17 @@ public static class VocabularyOrder
 
     // an artwork's terms arrive flat, each carrying its vocabulary, so they are gathered under
     // their vocabularies first and then put in the same order as everywhere else
-    public static List<VocabularyWithTerms> GroupedByVocabulary(IEnumerable<VocabularyTerm> terms) =>
-        SortedByName(
-            terms
+    public static List<VocabularyTermGroup> GroupedByVocabulary(IEnumerable<VocabularyTerm> terms) =>
+        [
+            .. terms
                 .GroupBy(term => term.VocabularyId)
-                .Select(group => new VocabularyWithTerms(group.Key, group.First().VocabularyName, [.. group]))
-        );
+                .Select(group => new VocabularyTermGroup(
+                    group.Key,
+                    group.First().VocabularyName,
+                    [.. group.OrderBy(term => term.Name.Value, NameOrder.ByName)]
+                ))
+                .OrderBy(group => group.VocabularyName.Value, NameOrder.ByName),
+        ];
 
     // of these term ids, the ones listed here, in the order they're listed, as a row shows its terms
     public static List<int> TermIdsInListOrder(IEnumerable<VocabularyWithTerms> vocabularies, IReadOnlySet<int> termIds) =>

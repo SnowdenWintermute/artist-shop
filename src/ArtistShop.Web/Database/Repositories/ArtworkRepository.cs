@@ -16,6 +16,7 @@ public class ArtworkRepository(SiteDatabase database)
         SqlStates.ArtworkTypeNoLongerExists,
         SqlStates.ArtworkFieldSwitchedOff,
         SqlStates.ProductTypeNoLongerExists,
+        SqlStates.VocabularyBecameSingleChoice,
     ];
 
     private static ArtworkImageInput[] CreateImageInputs(

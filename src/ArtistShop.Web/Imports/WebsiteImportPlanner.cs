@@ -269,7 +269,7 @@ public static class WebsiteImportPlanner
         {
             var id = change.ExistingId ?? new VocabularyId(nextVocabularyId--);
             var index = changed.FindIndex(vocabulary => vocabulary.Id == id);
-            var existing = index >= 0 ? changed[index] : new VocabularySetup(id, change.Name, [], []);
+            var existing = index >= 0 ? changed[index] : new VocabularySetup(id, change.Name, change.IsSingleChoice, [], []);
 
             var updated = existing with
             {
@@ -350,7 +350,7 @@ public static class WebsiteImportPlanner
 
             var snapshot = new ArtworkImportCatalogSnapshot(
                 type,
-                [.. setup.VocabulariesFor(type.Id).Select(vocabulary => new VocabularyWithTerms(vocabulary.Id, vocabulary.Name, vocabulary.Terms))],
+                [.. setup.VocabulariesFor(type.Id).Select(vocabulary => new VocabularyWithTerms(vocabulary.Id, vocabulary.Name, vocabulary.IsSingleChoice, vocabulary.Terms))],
                 [.. setup.Vocabularies.Select(vocabulary => new Vocabulary(vocabulary.Id, vocabulary.Name))],
                 [.. series],
                 target.ProductTypes,

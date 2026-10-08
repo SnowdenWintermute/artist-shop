@@ -43,7 +43,12 @@ public static class CatalogSetupCsvExport
                 .Order(ImportNames.Comparer);
             var termNames = vocabulary.Terms.Select(term => term.Name.Value).Order(ImportNames.Comparer);
 
-            csv.AddRow([vocabulary.Name.Value, ImportLists.Join(typeNames, listSeparator), ImportLists.Join(termNames, listSeparator)]);
+            csv.AddRow([
+                vocabulary.Name.Value,
+                ImportLists.Join(typeNames, listSeparator),
+                ImportLists.Join(termNames, listSeparator),
+                vocabulary.IsSingleChoice ? VocabularyImportHeaders.Yes : VocabularyImportHeaders.No,
+            ]);
         }
 
         return csv.ToString();

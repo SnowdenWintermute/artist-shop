@@ -33,7 +33,9 @@
         <a class="underline" href="@PageUrls.AddArtworksFromImages">start with "Add many".</a>
       </Hint>
       <Divider Class="my-2"></Divider>
-      <a href="@PageUrls.Hints" class="underline">Toggle hints</a>
+      <ul class="list-none">
+        <DashboardLink Href="@PageUrls.Hints">Toggle hints</DashboardLink>
+      </ul>
     </Panel>
     <DashboardBox Title="Catalog">
       <ul>
@@ -45,8 +47,6 @@
 
     <DashboardBox Title="Artworks">
       <ul class="mb-4">
-        <DashboardLink Href="@PageUrls.ArtworkList">Edit single</DashboardLink>
-        <DashboardLink Href="@PageUrls.ArtworkTable">Edit many</DashboardLink>
         @if (_artworkTypes.Count == 0)
         {
           <li>
@@ -58,6 +58,8 @@
           <DashboardLink Href="@PageUrls.AddArtwork">Add one</DashboardLink>
           <DashboardLink Href="@PageUrls.AddArtworksFromImages">Add many</DashboardLink>
         }
+        <DashboardLink Href="@PageUrls.ArtworkList">Edit single</DashboardLink>
+        <DashboardLink Href="@PageUrls.ArtworkTable">Edit many</DashboardLink>
       </ul>
     </DashboardBox>
 

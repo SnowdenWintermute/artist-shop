@@ -1,0 +1,62 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Utilities
+
+@* Confirms a save that takes terms off artworks: unselecting a type in use, making the vocabulary
+   single-choice, or both *@
+
+@code {
+  [Parameter]
+  public bool Open { get; set; }
+
+  [Parameter]
+  public EventCallback<bool> OpenChanged { get; set; }
+
+  [Parameter, EditorRequired]
+  public VocabularyName VocabularyName { get; set; } = default!;
+
+  // empty when no type in use was unselected
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkType> UnselectedArtworkTypes { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public VocabularyUsage Usage { get; set; } = default!;
+
+  // empty unless it's being made single-choice
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ArtworkName> ArtworksWithSeveralTerms { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public EventCallback OnConfirm { get; set; }
+
+  [Parameter]
+  public bool IsWorking { get; set; }
+
+  private string AffectedItems =>
+    string.Join(", ", UnselectedArtworkTypes.Select(artworkType =>
+      $"{Usage.ArtworkCountFor(artworkType.Id)} {artworkType.Name.Value} artworks"));
+}
+
+<ConfirmDialog Open="Open" OpenChanged="OpenChanged" Title="Remove terms from artworks?" ConfirmLabel="Save and remove"
+               OnConfirm="OnConfirm" IsWorking="IsWorking">
+  @if (UnselectedArtworkTypes.Count > 0)
+  {
+    <p class="mb-2">Unselecting removes @VocabularyName.Value terms from @AffectedItems (count as of page load).</p>
+  }
+  @if (ArtworksWithSeveralTerms.Count > 0)
+  {
+    <p class="mb-2">
+      Making a vocabulary mutually exclusive allows one term per artwork, so all "@VocabularyName.Value" terms are removed
+      from
+      @(ArtworksWithSeveralTerms.Count is 1 ? "this artwork, which has" : $"these    {CountText.Of(ArtworksWithSeveralTerms.Count, "artwork")}, which have")
+      more than one.
+    </p>
+    <ul class="max-h-48 list-disc overflow-y-auto pl-5">
+      @foreach (var name in ArtworksWithSeveralTerms.OrderBy(name => name.Value, NameOrder.ByName))
+      {
+        <li>@name.Value</li>
+      }
+    </ul>
+  }
+</ConfirmDialog>

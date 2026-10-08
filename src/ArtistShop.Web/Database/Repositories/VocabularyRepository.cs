@@ -53,10 +53,11 @@ public class VocabularyRepository(SiteDatabase database)
         IEnumerable<VocabularyWithTermRow> rows
     ) =>
         [
-            .. rows.GroupBy(row => (row.Id, row.Name))
+            .. rows.GroupBy(row => (row.Id, row.Name, row.IsSingleChoice))
                 .Select(group => new VocabularyWithTerms(
                     new VocabularyId(group.Key.Id),
                     new VocabularyName(group.Key.Name),
+                    group.Key.IsSingleChoice,
                     [
                         .. group
                             .Where(row => row.TermId is not null)
@@ -72,6 +73,7 @@ public class VocabularyRepository(SiteDatabase database)
 
     public async Task<VocabularyId> AddAsync(
         VocabularyName name,
+        bool isSingleChoice,
         IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
@@ -81,8 +83,13 @@ public class VocabularyRepository(SiteDatabase database)
         try
         {
             var id = await connection.QuerySingleAsync<int>(
-                "SELECT add_vocabulary(@Name, @ArtworkTypeIds)",
-                new { Name = name.Value, ArtworkTypeIds = artworkTypeIdList }
+                "SELECT add_vocabulary(@Name, @IsSingleChoice, @ArtworkTypeIds)",
+                new
+                {
+                    Name = name.Value,
+                    IsSingleChoice = isSingleChoice,
+                    ArtworkTypeIds = artworkTypeIdList,
+                }
             );
 
             return new VocabularyId(id);
@@ -119,7 +126,7 @@ public class VocabularyRepository(SiteDatabase database)
             new { Id = id.Value }
         );
 
-        var row = await results.ReadSingleOrDefaultAsync<VocabularyRow>();
+        var row = await results.ReadSingleOrDefaultAsync<SingleVocabularyRow>();
 
         if (row is null)
         {
@@ -131,6 +138,7 @@ public class VocabularyRepository(SiteDatabase database)
         return new VocabularyWithArtworkTypes(
             new VocabularyId(row.Id),
             new VocabularyName(row.Name),
+            row.IsSingleChoice,
             [.. artworkTypeIds.Select(artworkTypeId => new ArtworkTypeId(artworkTypeId))]
         );
     }
@@ -161,9 +169,24 @@ public class VocabularyRepository(SiteDatabase database)
         );
     }
 
+    // the artworks that making it single-choice would take its terms off
+    public async Task<List<ArtworkName>> GetArtworksWithSeveralTermsAsync(VocabularyId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var names = await connection.QueryAsync<string>(
+            "SELECT * FROM get_vocabulary_artworks_with_several_terms(@Id)",
+            new { Id = id.Value }
+        );
+
+        return [.. names.Select(name => new ArtworkName(name))];
+    }
+
+    // making it single-choice removes its terms from every artwork that has more than one of them
     public async Task UpdateAsync(
         VocabularyId id,
         VocabularyName name,
+        bool isSingleChoice,
         IEnumerable<ArtworkTypeId> artworkTypeIds
     )
     {
@@ -174,11 +197,12 @@ public class VocabularyRepository(SiteDatabase database)
         {
             // ExecuteAsync: for calls whose result nobody reads
             await connection.ExecuteAsync(
-                "SELECT update_vocabulary(@Id, @Name, @ArtworkTypeIds)",
+                "SELECT update_vocabulary(@Id, @Name, @IsSingleChoice, @ArtworkTypeIds)",
                 new
                 {
                     Id = id.Value,
                     Name = name.Value,
+                    IsSingleChoice = isSingleChoice,
                     ArtworkTypeIds = artworkTypeIdList,
                 }
             );
@@ -215,8 +239,16 @@ public class VocabularyRepository(SiteDatabase database)
     {
         public required int Id { get; init; }
         public required string Name { get; init; }
+        public required bool IsSingleChoice { get; init; }
         public int? TermId { get; init; }
         public string? TermName { get; init; }
+    }
+
+    private sealed class SingleVocabularyRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
+        public required bool IsSingleChoice { get; init; }
     }
 
     private sealed class VocabularyRow

@@ -13,6 +13,13 @@ public record VocabularyTerm(
     VocabularyName VocabularyName
 );
 
+// an artwork's terms in one vocabulary
+public record VocabularyTermGroup(
+    VocabularyId VocabularyId,
+    VocabularyName VocabularyName,
+    IReadOnlyList<VocabularyTerm> Terms
+);
+
 public record VocabularyTermWithUsage(
     VocabularyTermId Id,
     VocabularyTermName Name,

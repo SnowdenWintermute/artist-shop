@@ -72,6 +72,11 @@
               Separated by the list separator, each at most
               @ArtistShopLimits.VocabularyTermNameMaximumLength characters.
             </ImportColumn>
+
+            <ImportColumn Header="@VocabularyImportHeaders.SingleChoice">
+              @VocabularyImportHeaders.Yes if an artwork can have only one of its terms, otherwise
+              @VocabularyImportHeaders.No or blank. A vocabulary that's already here must match its own setting.
+            </ImportColumn>
           </Columns>
         </ImportColumnsHelp>
       </ColumnsHelp>

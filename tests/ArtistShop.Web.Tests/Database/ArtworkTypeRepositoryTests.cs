@@ -168,6 +168,7 @@ public sealed class ArtworkTypeRepositoryTests(TestDatabaseFixture database)
         var id = await _artworkTypes.AddAsync(UniqueName(), [ArtworkField.DateCreated]);
         var vocabularyId = await _vocabularies.AddAsync(
             new VocabularyName($"Medium {Guid.NewGuid():n}"),
+            isSingleChoice: false,
             [id]
         );
 
