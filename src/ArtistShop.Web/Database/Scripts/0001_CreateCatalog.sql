@@ -1,6 +1,5 @@
 -- the collations named here, case_insensitive and case_and_accent_insensitive, are in the
 -- site_types schema (Platform/Scripts/0004_CreateSiteTypes.sql)
-
 CREATE TABLE artwork_types (
     -- ALWAYS refuses an id the insert supplies, as IDENTITY does without IDENTITY_INSERT
     id int GENERATED ALWAYS AS IDENTITY,
@@ -14,7 +13,6 @@ INSERT INTO
 VALUES
     ('Painting'),
     ('Photograph'),
-    ('Screenshot'),
     ('Sculpture');
 
 -- defined by us; the ids must match the ArtworkField enum in C#
@@ -68,7 +66,6 @@ FROM
             ('Painting', 2),
             ('Photograph', 1),
             ('Photograph', 2),
-            ('Screenshot', 1),
             ('Sculpture', 1),
             ('Sculpture', 2),
             ('Sculpture', 3)
@@ -106,12 +103,24 @@ CREATE TABLE artworks (
         date_created_precision = 3
         OR (
             date_created_precision = 2
-            AND EXTRACT(DAY FROM date_created) = 1
+            AND EXTRACT(
+                DAY
+                FROM
+                    date_created
+            ) = 1
         )
         OR (
             date_created_precision = 1
-            AND EXTRACT(MONTH FROM date_created) = 1
-            AND EXTRACT(DAY FROM date_created) = 1
+            AND EXTRACT(
+                MONTH
+                FROM
+                    date_created
+            ) = 1
+            AND EXTRACT(
+                DAY
+                FROM
+                    date_created
+            ) = 1
         )
     ),
     -- 4 digits before the decimal point and 4 after, so an inch value with
@@ -143,7 +152,7 @@ CREATE TABLE artworks (
     CONSTRAINT check_artworks_duration_seconds CHECK (duration_seconds > 0),
     -- now() is when the transaction began, so every artwork a CSV import adds would share one time
     -- and "recently added" couldn't order them. clock_timestamp() is the moment of the insert
-    created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+    created_at timestamptz NOT NULL DEFAULT CLOCK_TIMESTAMP()
 );
 
 -- bulk image matching looks artworks up by type and name
@@ -204,7 +213,7 @@ CREATE TABLE artwork_images (
     CONSTRAINT unique_artwork_images_storage_key UNIQUE (storage_key),
     original_file_name varchar(260),
     sort_order int NOT NULL,
-    is_primary boolean NOT NULL DEFAULT false,
+    is_primary boolean NOT NULL DEFAULT FALSE,
     width int NOT NULL,
     height int NOT NULL,
     blur_data_uri varchar(1000)
@@ -231,7 +240,8 @@ CREATE TABLE series (
     sort_order int NOT NULL,
     -- Postgres checks a plain UNIQUE after every row, so an UPDATE that swaps two positions would
     -- collide halfway. DEFERRABLE moves the check to the end of the statement
-    CONSTRAINT unique_series_sort_order UNIQUE (sort_order) DEFERRABLE
+    CONSTRAINT unique_series_sort_order UNIQUE (sort_order)
+    DEFERRABLE
 );
 
 -- any artwork type can join any series, mixed freely
@@ -240,12 +250,13 @@ CREATE TABLE artwork_and_series_junction (
     series_id int NOT NULL,
     sort_order int NOT NULL,
     -- DEFERRABLE for the same reason as unique_series_sort_order
-    CONSTRAINT unique_artwork_and_series_junction_series_sort_order UNIQUE (series_id, sort_order) DEFERRABLE,
+    CONSTRAINT unique_artwork_and_series_junction_series_sort_order UNIQUE (series_id, sort_order)
+    DEFERRABLE,
     CONSTRAINT primary_key_artwork_and_series_junction PRIMARY KEY (artwork_id, series_id),
     CONSTRAINT foreign_key_artwork_series_artworks FOREIGN KEY (artwork_id) REFERENCES artworks (id) ON DELETE CASCADE,
     CONSTRAINT foreign_key_artwork_series_series FOREIGN KEY (series_id) REFERENCES series (id),
     -- the series cover is this artwork's primary image
-    is_cover boolean NOT NULL DEFAULT false
+    is_cover boolean NOT NULL DEFAULT FALSE
 );
 
 CREATE UNIQUE INDEX unique_index_artwork_and_series_junction_cover ON artwork_and_series_junction (series_id)
@@ -259,7 +270,7 @@ CREATE TABLE product_types (
     CONSTRAINT unique_product_types_name UNIQUE (name),
     -- the one a form offers before the artist chooses. An id can't be written into the code, since
     -- these are rows the artist will manage, so the row says so itself
-    is_default boolean NOT NULL DEFAULT false
+    is_default boolean NOT NULL DEFAULT FALSE
 );
 
 -- partial, so it only forbids a second default rather than a second of anything
@@ -270,9 +281,9 @@ WHERE
 INSERT INTO
     product_types (name, is_default)
 VALUES
-    ('Original', true),
-    ('Print', false),
-    ('Postcard', false);
+    ('Original', TRUE),
+    ('Print', FALSE),
+    ('Postcard', FALSE);
 
 CREATE TABLE products (
     id int GENERATED ALWAYS AS IDENTITY,
