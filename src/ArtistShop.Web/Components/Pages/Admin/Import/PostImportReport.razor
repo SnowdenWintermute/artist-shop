@@ -58,13 +58,13 @@
         @(item.Title?.Value ?? item.FolderName)
         @if (item.Title is not null && item.PublishedAt is null)
         {
-          <span class="text-gray-500"> (draft)</span>
+          <span class="text-ink-faded"> (draft)</span>
         }
       </div>
       <ul class="pl-4">
         @foreach (var problem in ProblemsOf(index))
         {
-          <li class="text-red-400">@problem</li>
+          <li class="text-error">@problem</li>
         }
         @if (item.RelinkedWorkCount > 0)
         {
@@ -79,7 +79,7 @@
         }
         @if (item.BrokenLinks.Count > 0)
         {
-          <li class="text-amber-600">Links to pages that aren't on this website: @string.Join(", ", item.BrokenLinks)</li>
+          <li class="text-warning">Links to pages that aren't on this website: @string.Join(", ", item.BrokenLinks)</li>
         }
       </ul>
     </ItemContent>

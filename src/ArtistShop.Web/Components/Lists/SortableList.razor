@@ -31,8 +31,8 @@
    list it shows after a drop into the dialog, where it can be seen; it finds the copy by .sortable-handle *@
 <BbSortable Items="Items" OnUpdate="OnMove" Handle=".sortable-handle" ForceFallback="true" AriaLabel="@AriaLabel">
   <ItemTemplate Context="item">
-    <div class="mb-2 flex items-center gap-2 border p-2 text-sm bg-theme-recessed">
-      <span class="sortable-handle cursor-grab px-1 text-lg text-gray-400 active:cursor-grabbing" title="Drag to reorder"
+    <div class="mb-2 flex items-center gap-2 border p-2 text-sm bg-page">
+      <span class="sortable-handle cursor-grab px-1 text-lg text-ink-unavailable active:cursor-grabbing" title="Drag to reorder"
             aria-hidden="true">⠿</span>
 
       @RowContent(item)

@@ -29,7 +29,7 @@
           <LocalDate Moment="signUpCode.ExpiresAt" />
           @if (signUpCode.IsExpiredAt(TimeProvider.GetUtcNow()))
           {
-            <span class="text-gray-500">(expired)</span>
+            <span class="text-ink-faded">(expired)</span>
           }
         </DataTableCell>
         <DataTableCell Class="text-right">

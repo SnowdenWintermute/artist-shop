@@ -424,12 +424,12 @@
 
 @if (_tooManyFiles)
 {
-  <p class="mb-4 text-red-400">That's more than @MaximumFiles files. Choose the Download everything folder itself.</p>
+  <p class="mb-4 text-error">That's more than @MaximumFiles files. Choose the Download everything folder itself.</p>
 }
 
 @if (_readProblem is not null)
 {
-  <p class="mb-4 text-red-400">@_readProblem</p>
+  <p class="mb-4 text-error">@_readProblem</p>
 }
 
 @if (_isReading)
@@ -464,20 +464,20 @@ else if (_isImporting)
     </ul>
     @if (_importProblem is not null)
     {
-      <p class="text-sm text-red-400">@_importProblem</p>
+      <p class="text-sm text-error">@_importProblem</p>
     }
   </div>
 }
 
 <ReportGroup Heading="Images that didn't upload" Items="_imageFailures" Context="failure">
   <ItemContent>
-    @failure.Path <span class="text-red-400"> — @failure.Problem</span>
+    @failure.Path <span class="text-error"> — @failure.Problem</span>
   </ItemContent>
 </ReportGroup>
 
 <ReportGroup Heading="Posts that didn't import" Items="PostFailures()" Context="failure">
   <ItemContent>
-    @failure.Title <span class="text-red-400"> — @failure.Problem</span>
+    @failure.Title <span class="text-error"> — @failure.Problem</span>
   </ItemContent>
 </ReportGroup>
 

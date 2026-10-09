@@ -42,7 +42,7 @@
       @if (site.EraseAt is { } eraseAt)
       {
         @site.MainHost.Value
-        <span class="text-red-600"> (deleting on
+        <span class="text-error"> (deleting on
           <LocalDate Moment="eraseAt" />)
         </span>
       }

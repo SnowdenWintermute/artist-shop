@@ -2,33 +2,56 @@
 
 @source "../Components";
 
+/* The colour roles every component uses. The ones an artist can choose, from page to backdrop, are
+   set in C# (ColorRoles), which App.razor writes onto :root and a website's public pages replace.
+   These are the platform's alone */
 :root {
-  --theme-recessed: #f5f5f5; /* the pages' background, notices */
-  --theme-sunken: #e9e7e2; /* nav bar and drawer */
-  --theme-base: black; /* header / footer */
-  --theme-muted: grey; /* secondary text, borders */
-  --theme-hovered: blue; /* primary text */
-  --theme-selected: var(--color-blue-200); /* a selected row */
-  --theme-primary: var(
-    --color-blue-500
-  ); /* the accent, like a row's saved mark */
+  --theme-selected: var(--color-blue-200); /* a selected row, admin only */
+  /* status, which a website never changes, so an artist's colours can't hide a problem */
+  --theme-error: var(--color-red-600);
+  --theme-warning: var(--color-amber-600);
+  --theme-success: var(--color-green-600);
 }
 
 @theme inline {
-  --color-theme-recessed: var(--theme-recessed);
-  --color-theme-sunken: var(--theme-sunken);
-  --color-theme-base: var(--theme-base);
-  --color-theme-muted: var(--theme-muted);
-  --color-theme-hovered: var(--theme-hovered);
-  --color-theme-selected: var(--theme-selected);
-  --color-theme-primary: var(--theme-primary);
+  --color-page: var(--theme-page);
+  --color-bar: var(--theme-bar);
+  --color-panel: var(--theme-panel);
+  --color-placeholder: var(--theme-placeholder);
+  --color-ink: var(--theme-ink);
+  --color-ink-faded: var(--theme-ink-faded);
+  --color-ink-unavailable: var(--theme-ink-unavailable);
+  --color-link: var(--theme-link);
+  --color-link-hover: var(--theme-link-hover);
+  --color-accent: var(--theme-accent);
+  --color-on-accent: var(--theme-on-accent);
+  --color-rule: var(--theme-rule);
+  --color-selected: var(--theme-selected);
+  --color-lightbox: var(--theme-lightbox);
+  --color-on-lightbox: var(--theme-on-lightbox);
+  --color-backdrop: var(--theme-backdrop);
+  --color-error: var(--theme-error);
+  --color-warning: var(--theme-warning);
+  --color-success: var(--theme-success);
 }
 
 /* what an iPhone shows past the page: below its end, and in the strip left uncovered once the
    keyboard has opened (an iOS 26 bug). Safari also tints its toolbar from it. The pages' own
-   background, so neither shows as a white bar */
+   background, so neither shows as a white bar. The text colour is set here too, for every page to
+   inherit */
 html {
-  @apply bg-theme-recessed;
+  @apply bg-page text-ink;
+}
+
+/* a browser gives a dialog or a popover colours of its own, Canvas and CanvasText, which ignore the
+   theme: text without a colour class, like the drawer's Log out, stayed black on a dark menu. Each
+   sets its own background; its text follows the page's. In the base layer, so a class like the
+   lightbox's text-on-lightbox still wins */
+@layer base {
+  dialog,
+  [popover] {
+    @apply text-ink;
+  }
 }
 
 @font-face {
@@ -114,11 +137,11 @@ html {
    open:flex rather than flex, which would override the browser hiding a closed dialog.
    backdrop: styles the ::backdrop the browser puts behind a modal */
 .artist-shop-modal {
-  @apply m-auto max-h-[85vh] w-[calc(100%-2rem)] flex-col bg-white p-6 open:flex backdrop:bg-black/40;
+  @apply m-auto max-h-[85vh] w-[calc(100%-2rem)] flex-col bg-panel p-6 open:flex backdrop:bg-backdrop;
 }
 
 .artist-shop-field-input {
-  @apply border border-theme-base px-2 h-10;
+  @apply border border-rule px-2 h-10;
 }
 
 /* an iPhone zooms in on a field smaller than 16px when it's tapped, and once zoomed a drag pans
@@ -149,10 +172,10 @@ button[data-busy] {
    dialog is its own frame. fixed, as the browser has an open modal, since anything else lays it
    out at the top of the page: opening it scrolled there to reach its focused button, and it
    scrolled with the page.
-   Clear, backdrop and all: the black is PhotoSwipe's, which fades as a pinch or a drag closes it
+   Clear, backdrop and all: the background is PhotoSwipe's, which fades as a pinch or a drag closes it
    to show the page behind. viewport-fit=cover in App.razor lets the page run under a phone's
    notch, and makes the browser report the notch's size to env(). The padding keeps the buttons
-   and the picture clear of it while the black reaches the edges */
+   and the picture clear of it while the background reaches the edges */
 .artist-shop-lightbox {
   @apply fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent;
   @apply backdrop:bg-transparent;
@@ -161,9 +184,10 @@ button[data-busy] {
 }
 
 /* PhotoSwipe stacks itself above everything on the page, which inside the dialog would be above
-   the buttons too */
+   the buttons too. Its background is the lightbox colour rather than its own black */
 .artist-shop-lightbox .pswp {
   --pswp-root-z-index: 0;
+  --pswp-bg: var(--theme-lightbox);
 }
 
 /* the page behind stays where it was while a lightbox or a menu covers it */

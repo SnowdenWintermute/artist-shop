@@ -55,14 +55,14 @@
 }
 
 #components-reconnect-modal button {
-  border: 1px solid var(--theme-base, black);
-  background-color: white;
+  border: 1px solid var(--theme-rule);
+  background-color: var(--theme-panel);
   padding: 0.5rem 1.5rem;
   cursor: pointer;
 }
 
 #components-reconnect-modal button:hover {
-  color: var(--theme-hovered, blue);
+  color: var(--theme-link-hover);
 }
 
 /* one ring growing outwards, the second half a turn behind it */
@@ -75,7 +75,7 @@
 .components-rejoining-animation div {
   position: absolute;
   inset: 50%;
-  border: 2px solid var(--theme-muted, grey);
+  border: 2px solid var(--theme-ink-faded);
   border-radius: 50%;
   animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1)
     infinite;

@@ -1,4 +1,4 @@
-const DRAG_OVER_CLASS = "bg-blue-50";
+const DRAG_OVER_CLASS = "bg-accent/10";
 
 customElements.define(
   "file-drop-zone",

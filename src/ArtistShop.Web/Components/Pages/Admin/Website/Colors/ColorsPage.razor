@@ -1,0 +1,145 @@
+@page "/admin/website/colors"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject ColorRepository ColorRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromForm]
+  private ColorsForm Input { get; set; } = default!;
+  [SupplyParameterFromQuery(Name = "saved")]
+  private bool Saved { get; set; }
+  // a save redirects, so a page rendered from a post is a preview, or a save that didn't go through
+  private bool _formWasPosted;
+
+  // what the page shows: the saved colours, or the ones being previewed
+  private SiteColors? _shown;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _formWasPosted = Input is not null;
+
+    if (Input is null)
+    {
+      _shown = await ColorRepository.GetAsync();
+      Input = ColorsForm.From(_shown);
+    }
+    else
+    {
+      _shown = Input.ToColors();
+    }
+  }
+
+  private async Task SubmitAsync()
+  {
+    var colors = Input.ToColors();
+
+    if (Input.Save)
+    {
+      await ColorRepository.UpdateAsync(colors);
+      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+      { ["saved"] = true }));
+      return;
+    }
+
+    // derived colours follow the ones just picked
+    _shown = colors;
+    Input = ColorsForm.From(colors);
+  }
+
+  // each with its place in Input.Roles, which names its inputs
+  private IEnumerable<(int Index, ColorChoiceInput Choice)> NumberedRoles =>
+    Input.Roles.Select((choice, index) => (index, choice)).Where(entry => Enum.IsDefined(entry.choice.Role));
+
+  private IEnumerable<(int Index, ColorChoiceInput Choice)> BaseRoles =>
+    NumberedRoles.Where(entry => ColorRoles.For(entry.Choice.Role).IsBase);
+
+  private IEnumerable<(int Index, ColorChoiceInput Choice)> OtherRoles =>
+    NumberedRoles.Where(entry => !ColorRoles.For(entry.Choice.Role).IsBase);
+
+  private static List<ContrastProblem> ProblemsOf(SiteColors shown, ColorRole role) =>
+    [.. shown.ContrastProblems().Where(problem => problem.Foreground == role)];
+}
+
+<PageTitle>Colors</PageTitle>
+
+@if (_shown is { } shown)
+{
+  <main>
+    <AdminPanel>
+      <BackLink Href="@PageUrls.AdminDashboard" Label="Admin" />
+      <h1 class="mb-4 text-xl">Colors</h1>
+      <p class="mb-4">
+        Choose the colors of your website's public pages. Picking a color or resetting one shows it in the preview;
+        Save puts it on your website. Your admin pages keep their own colors.
+      </p>
+
+      @if (Saved && !_formWasPosted)
+      {
+        <SavedNotice>Saved.</SavedNotice>
+      }
+
+      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+        <EditForm Model="Input" FormName="colors" OnValidSubmit="SubmitAsync" Enhance data-waits-for-pending>
+          <DataAnnotationsValidator />
+          <ValidationSummary class="mb-4 text-error" />
+
+          @if (shown.Chosen.Count > 0)
+          {
+            @* previews too: the defaults show until Save keeps them *@
+            <div class="mb-6">
+              <ButtonBasic type="submit" name="Input.ResetAll" value="true" Variant="ButtonVariant.Outline">
+                Reset all to defaults
+              </ButtonBasic>
+            </div>
+          }
+
+          <div class="mb-6 grid gap-6 md:grid-cols-[1fr_16rem]">
+            <SubmitOnChange>
+              <section class="mb-6">
+                <h2 class="mb-2 text-lg">Base colors</h2>
+                <p class="mb-4 text-sm text-ink-faded">The colors the rest are derived from.</p>
+                @foreach (var (index, choice) in BaseRoles)
+                {
+                  <ColorRoleField Index="index" Choice="choice" Problems="ProblemsOf(shown, choice.Role)" />
+                }
+              </section>
+
+              <section class="mb-4">
+                <h2 class="mb-2 text-lg">Everything else</h2>
+                <p class="mb-4 text-sm text-ink-faded">
+                  Derived from the base colors unless you pick one. Until you pick a base color, they keep the
+                  platform's.
+                </p>
+                @foreach (var (index, choice) in OtherRoles)
+                {
+                  <ColorRoleField Index="index" Choice="choice" Problems="ProblemsOf(shown, choice.Role)" />
+                }
+              </section>
+
+              @* for a browser that runs no scripts, where picking a color can't preview by itself *@
+              <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Preview</ButtonBasic>
+            </SubmitOnChange>
+
+            <div class="md:sticky md:top-4 md:self-start">
+              <div class="mb-2">
+                <ColorsPreview Colors="shown" />
+              </div>
+              @if (_formWasPosted)
+              {
+                <p class="text-sm text-ink-faded">Not saved yet.</p>
+              }
+            </div>
+          </div>
+
+          <ButtonBasic type="submit" name="Input.Save" value="true" Variant="ButtonVariant.Primary"
+                       data-waits-for-change>Save</ButtonBasic>
+        </EditForm>
+      </EnableSaveOnChange>
+    </AdminPanel>
+  </main>
+}

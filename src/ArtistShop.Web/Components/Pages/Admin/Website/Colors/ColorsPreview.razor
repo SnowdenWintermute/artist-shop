@@ -1,0 +1,65 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public SiteColors Colors { get; set; } = default!;
+
+  // shrunk from images/aunt tullie's living room.jpeg, small enough for a tile and the lightbox
+  private const string PaintingPath = "images/aunt-tullies-living-room.avif";
+}
+
+@* A small public page in the colours shown: ColorStyle sets them on this box alone, so the classes
+   inside read them instead of the admin's *@
+<ColorStyle Selector="[data-color-preview]" Colors="Colors" />
+<div data-color-preview class="border border-rule bg-page text-sm text-ink" aria-label="Preview" role="img">
+  <div class="mb-4 flex gap-4 bg-bar px-3 py-2 font-serif text-lg">
+    <span class="text-link">Home</span>
+    <span class="text-link-hover underline decoration-dotted" title="A link under the pointer">Blog</span>
+  </div>
+
+  <div class="px-3 pb-3">
+    <p class="mb-2 font-serif text-xl">@Wording.Collection.PluralHeading</p>
+    <div class="mb-3 flex gap-3">
+      <div class="w-24">
+        <img src="@Assets[PaintingPath]" alt="" class="mb-1 aspect-square w-full object-cover" />
+        <p>Interiors</p>
+        <p class="text-ink-faded">@Wording.Work.CountOf(12)</p>
+      </div>
+      @* the tile of an image still loading, which shows the placeholder *@
+      <div class="w-24">
+        <div class="mb-1 aspect-square bg-placeholder"></div>
+        <p>Gardens</p>
+        <p class="text-ink-faded">@Wording.Work.CountOf(4)</p>
+      </div>
+    </div>
+
+    <p class="mb-3">Text with <span class="text-link underline">a link</span> in it.</p>
+
+    <div class="mb-3 flex justify-between">
+      <span class="text-link">← Previous</span>
+      <span class="text-ink-unavailable">Next →</span>
+    </div>
+
+    <div class="mb-3 h-px bg-rule"></div>
+
+    <div class="mb-3 border border-rule bg-panel p-2">
+      <p class="mb-2">A panel</p>
+      <span class="inline-block border border-rule bg-accent px-3 py-1 text-on-accent">Button</span>
+    </div>
+
+    @* the close button in the corner, out of the way of centring the image *@
+    <div class="relative mb-3 flex h-24 items-center justify-center bg-lightbox p-1">
+      <img src="@Assets[PaintingPath]" alt="" class="max-h-full w-2/3 object-contain" />
+      <span class="absolute top-1 right-1 border border-on-lightbox/40 px-1.5 text-on-lightbox">✕</span>
+    </div>
+
+    @* the page as it shows round an open dialog *@
+    <div class="relative bg-page p-2">
+      <p>Text on the page behind a dialog</p>
+      <div class="absolute inset-0 bg-backdrop"></div>
+    </div>
+  </div>
+</div>

@@ -31,13 +31,13 @@
   <h1 class="mb-1 text-2xl flex justify-between items-center"><span>@Work.Name.Value</span>
     <AuthorizeView Policy="@SitePolicies.Admin">
       <Authorized>
-        <a class="cursor-pointer text-base underline" href="@PageUrls.EditWork(Work.Id)">
+        <a class="cursor-pointer text-base text-link underline" href="@PageUrls.EditWork(Work.Id)">
           Edit
         </a>
       </Authorized>
     </AuthorizeView>
   </h1>
-  <p class="mb-6 text-gray-500">@Work.Type.Name.Value</p>
+  <p class="mb-6 text-ink-faded">@Work.Type.Name.Value</p>
 
   @if (Work.Products.Count > 0)
   {
@@ -50,12 +50,12 @@
 
             @if (product.Label is { } label)
             {
-              <span class="text-sm text-gray-500">@label</span>
+              <span class="text-sm text-ink-faded">@label</span>
             }
 
             @if (product.EditionSize is > 1)
             {
-              <span class="text-sm text-gray-500">Edition of @product.EditionSize</span>
+              <span class="text-sm text-ink-faded">Edition of @product.EditionSize</span>
             }
           </span>
 
@@ -70,36 +70,36 @@
   <dl class="mb-6 text-sm">
     @if (Work.DateCreated is { } dateCreated)
     {
-      <dt class="text-gray-500">Date</dt>
+      <dt class="text-ink-faded">Date</dt>
       <dd class="mb-2">@dateCreated.Text</dd>
     }
 
     @if (Work.Dimensions is { } dimensions)
     {
-      <dt class="text-gray-500">Size</dt>
+      <dt class="text-ink-faded">Size</dt>
       <dd class="mb-2">@dimensions.Text</dd>
     }
 
     @if (Work.Duration is { } duration)
     {
-      <dt class="text-gray-500">Duration</dt>
+      <dt class="text-ink-faded">Duration</dt>
       <dd class="mb-2">@WorkDuration.ToText(duration)</dd>
     }
 
     @foreach (var group in VocabularyOrder.GroupedByVocabulary(Work.VocabularyTerms))
     {
-      <dt @key="group.VocabularyId" class="text-gray-500">@group.VocabularyName.Value</dt>
+      <dt @key="group.VocabularyId" class="text-ink-faded">@group.VocabularyName.Value</dt>
       <dd class="mb-2">@TermNames(group)</dd>
     }
 
     @if (Work.Collections.Count > 0)
     {
-      <dt class="text-gray-500">@(Work.Collections.Count is 1 ? Wording.Collection.SingularHeading : Wording.Collection.PluralHeading)</dt>
+      <dt class="text-ink-faded">@(Work.Collections.Count is 1 ? Wording.Collection.SingularHeading : Wording.Collection.PluralHeading)</dt>
       <dd class="mb-2">
         @foreach (var (collection, index) in CollectionOrder.SortedByName(Work.Collections).Select((collection, index) => (collection, index)))
         {
           @(index > 0 ? ", " : "")
-          <a href="@PageUrls.Collection(collection.Slug)">@collection.Name.Value</a>
+          <a href="@PageUrls.Collection(collection.Slug)" class="text-link hover:text-link-hover">@collection.Name.Value</a>
         }
       </dd>
     }

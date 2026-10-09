@@ -16,7 +16,7 @@
    opens it and hears back from the frame. The frame is only given a page on opening, so writing a
    post that never adds a work never loads the list *@
 <ModalDialog Title="@($"Choose {Wording.Work.SingularInSentence}")" Width="ModalDialogWidth.Wide" StartsClosed data-part="work-picker">
-  <iframe title="@($"{Wording.Work.SingularHeading} picker")" class="mb-4 h-[65vh] w-full shrink-0 border border-theme-base"
+  <iframe title="@($"{Wording.Work.SingularHeading} picker")" class="mb-4 h-[65vh] w-full shrink-0 border border-rule"
           data-add-src="@PageUrls.WorkPickerList(AddTrail)"
           data-change-image-src="@PageUrls.WorkPickerImages(WorkIdPlaceholder, ChangeImageTrail)"
           data-work-id-placeholder="@WorkIdPlaceholder"></iframe>

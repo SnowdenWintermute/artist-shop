@@ -33,7 +33,7 @@ else
         <LocalDate Moment="invite.ExpiresAt" />
         @if (invite.IsExpiredAt(TimeProvider.GetUtcNow()))
         {
-          <span class="text-gray-500">(expired)</span>
+          <span class="text-ink-faded">(expired)</span>
         }
       </DataTableCell>
       <DataTableCell Class="text-right">

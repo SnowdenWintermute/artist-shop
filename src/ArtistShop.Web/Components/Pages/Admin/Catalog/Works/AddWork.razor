@@ -169,7 +169,7 @@ else if (_type is not null)
 
       @if (AddedSlug is not null)
       {
-        <p class="text-green-600">
+        <p class="text-success">
           Added.
           <a href="@WorkPageQuery.Url(AddedSlug, collectionSlug: null, imageNumber: null)">View it</a>
         </p>
@@ -205,7 +205,7 @@ else if (_type is not null)
         <TermAndCollectionPickers @key="PickersKey" WorkTypeId="_type.Id" Vocabularies="_vocabularies" AllCollections="_collections"
                               SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedCollectionIds="Input.CollectionIds" />
 
-        <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+        <ValidationMessage For="() => Input.Images" class="mb-4 block text-error" />
         @* SelectedImages: a submit that came back with an error has already posted these, and the
            island renders the hidden inputs that carry them *@
         <ImagesField @key="AddedSlug" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
@@ -214,7 +214,7 @@ else if (_type is not null)
 
         @if (_staleChoices)
         {
-          <p class="mb-4 text-red-400">
+          <p class="mb-4 text-error">
             Something on this form was removed in another tab: one of its terms, fields or
             @Wording.Collection.PluralInSentence. The form has been updated to match. Check it and submit again.
           </p>

@@ -68,7 +68,7 @@
   <main class="@($"mx-auto p-4 {PostColumn.WidthClass}")">
     @if (loaded.Post.PublishedAt is null)
     {
-      <p class="mb-4 border border-theme-base bg-theme-recessed px-3 py-2">
+      <p class="mb-4 border border-rule bg-page px-3 py-2">
         Draft. Only admins can see this page until it's published.
       </p>
     }
@@ -79,14 +79,14 @@
         <span class="min-w-0 break-words">@loaded.Post.Title.Value</span>
         <AuthorizeView Policy="@SitePolicies.Admin">
           <Authorized>
-            <a class="text-base underline" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
+            <a class="text-base text-link underline" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
           </Authorized>
         </AuthorizeView>
       </h1>
 
       @if (loaded.Post.PublishedAt is { } publishedAt)
       {
-        <p class="text-gray-500">
+        <p class="text-ink-faded">
           <LocalDate Moment="publishedAt" />
         </p>
       }

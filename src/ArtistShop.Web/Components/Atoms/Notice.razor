@@ -17,13 +17,13 @@
     Variant switch
     {
       NoticeVariant.Info => "",
-      NoticeVariant.Success => "border-green-600 text-green-700",
-      NoticeVariant.Error => "border-red-600 text-red-600",
+      NoticeVariant.Success => "border-success text-success",
+      NoticeVariant.Error => "border-error text-error",
     };
 }
 
 @* a message set apart from the page around it, like a warning or the outcome of a form *@
 <div @attributes="AdditionalAttributes"
-     class="@ClassNames.Join("mb-4 border bg-theme-recessed p-3 last:mb-0", VariantClass, Class)">
+     class="@ClassNames.Join("mb-4 border bg-page p-3 last:mb-0", VariantClass, Class)">
   @ChildContent
 </div>

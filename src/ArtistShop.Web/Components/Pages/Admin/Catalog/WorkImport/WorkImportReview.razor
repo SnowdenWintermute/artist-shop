@@ -47,7 +47,7 @@
 
       @if (Plan.CollectionNameWarnings.Count > 0)
       {
-        <ul class="mb-2 text-sm text-amber-600">
+        <ul class="mb-2 text-sm text-warning">
           @foreach (var warning in Plan.CollectionNameWarnings)
           {
             <li>"@warning.Name" is nearly "@warning.MatchedName". Check the spelling of both.</li>

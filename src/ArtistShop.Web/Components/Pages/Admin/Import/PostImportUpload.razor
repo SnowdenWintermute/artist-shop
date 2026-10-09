@@ -185,12 +185,12 @@
 
 @if (_tooManyFiles)
 {
-  <p class="mb-4 text-red-400">That's more than @MaximumFiles files. Choose the post download's folder itself.</p>
+  <p class="mb-4 text-error">That's more than @MaximumFiles files. Choose the post download's folder itself.</p>
 }
 
 @if (_noPostFiles)
 {
-  <p class="mb-4 text-red-400">
+  <p class="mb-4 text-error">
     That folder has no @PostExportJson.FileName files. Choose the unzipped post download, which has a folder for each post.
   </p>
 }

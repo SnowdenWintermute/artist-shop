@@ -28,7 +28,7 @@ public sealed class AddWorkPageTests(TestApp app)
         var page = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("value=\"19a5\"", page);
         // the form's own message for a value it couldn't read, which names the typed text
-        Assert.Matches("text-red-400\">[^<]*19a5", page);
+        Assert.Matches("text-error\">[^<]*19a5", page);
         Assert.Empty(await new WorkRepository(database).GetAllAsync());
     }
 }

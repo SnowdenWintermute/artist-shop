@@ -9,7 +9,7 @@
   public string? Class { get; set; }
 }
 
-@* the white box admin content sits in *@
-<div class="@ClassNames.Join("border bg-white p-4", Class)">
+@* the panel admin content sits in *@
+<div class="@ClassNames.Join("border bg-panel p-4", Class)">
   @ChildContent
 </div>

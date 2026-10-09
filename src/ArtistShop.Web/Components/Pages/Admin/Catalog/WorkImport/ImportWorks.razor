@@ -195,8 +195,8 @@
     {
       @if (ImportedCount is int importedCount && _plan is null)
       {
-        <p class="mb-4 text-green-600">Imported @Wording.Work.CountOf(importedCount).</p>
-        <a href="@PageUrls.WorkBulkImageUpload(_type.Id)" class="block text-green-600 mb-2 underline">Upload matching
+        <p class="mb-4 text-success">Imported @Wording.Work.CountOf(importedCount).</p>
+        <a href="@PageUrls.WorkBulkImageUpload(_type.Id)" class="block text-success mb-2 underline">Upload matching
           images next.</a>
       }
 
@@ -240,7 +240,7 @@
 
         @if (_reviewLost)
         {
-          <p class="mb-4 text-red-400">The review didn't come back complete. Check the file again.</p>
+          <p class="mb-4 text-error">The review didn't come back complete. Check the file again.</p>
         }
 
         @* rendered on every request, even with nothing to confirm: a post is matched to its form by
@@ -269,7 +269,7 @@
           <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
             @if (_catalogChangedSinceReview)
             {
-              <p class="mb-4 shrink-0 text-red-400">
+              <p class="mb-4 shrink-0 text-error">
                 The catalog changed since the last review, so nothing was imported. This is the review as things
                 are now.
               </p>

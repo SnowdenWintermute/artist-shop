@@ -56,7 +56,7 @@
 <DisabledUntilInteractive>
   @if (_changedElsewhere)
   {
-    <p class="mb-2 text-red-600">@Wording.Collection.PluralHeading were added or deleted somewhere else, so the list has
+    <p class="mb-2 text-error">@Wording.Collection.PluralHeading were added or deleted somewhere else, so the list has
       been reloaded.</p>
   }
 
@@ -66,7 +66,7 @@
   }
   else
   {
-    <p class="mb-2 text-sm text-gray-500">Drag to set the order visitors see.</p>
+    <p class="mb-2 text-sm text-ink-faded">Drag to set the order visitors see.</p>
 
     <SortableList TItem="CollectionWithCover" Items="_collections" AriaLabel="@($"{Wording.Collection.SingularHeading} order")" OnMove="MoveAsync">
       <RowContent Context="collection">

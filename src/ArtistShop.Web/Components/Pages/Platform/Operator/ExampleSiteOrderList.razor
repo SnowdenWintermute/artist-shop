@@ -53,7 +53,7 @@
 <DisabledUntilInteractive>
   @if (_changedElsewhere)
   {
-    <p class="mb-2 text-red-600">An example was added or removed somewhere else, so the list has been reloaded.</p>
+    <p class="mb-2 text-error">An example was added or removed somewhere else, so the list has been reloaded.</p>
   }
 
   @if (_sites.Count == 0)
@@ -62,7 +62,7 @@
   }
   else
   {
-    <p class="mb-2 text-sm text-gray-500">Drag to set the order the home page lists them in.</p>
+    <p class="mb-2 text-sm text-ink-faded">Drag to set the order the home page lists them in.</p>
 
     <SortableList TItem="ExampleSiteItem" Items="_sites" AriaLabel="Example order" OnMove="MoveAsync">
       <RowContent Context="site">
@@ -70,7 +70,7 @@
           @site.Host
           @if (site.IsBeingDeleted)
           {
-            <span class="text-red-600">(being deleted, so not shown)</span>
+            <span class="text-error">(being deleted, so not shown)</span>
           }
         </span>
       </RowContent>

@@ -76,7 +76,7 @@ else
         @if (site.EraseAt is { } eraseAt)
         {
           @site.MainHost.Value
-          <span class="text-red-600"> (erasing on <LocalDate Moment="eraseAt" />)</span>
+          <span class="text-error"> (erasing on <LocalDate Moment="eraseAt" />)</span>
         }
         else
         {
@@ -85,7 +85,7 @@ else
 
         @foreach (var host in site.OtherHosts)
         {
-          <div class="text-xs text-gray-500">@host.Value</div>
+          <div class="text-xs text-ink-faded">@host.Value</div>
         }
       </DataTableCell>
       @* none while the owner's account is deleted and the site waits to be erased *@

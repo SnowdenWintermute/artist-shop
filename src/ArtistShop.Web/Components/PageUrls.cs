@@ -107,6 +107,9 @@ public static class PageUrls
     // on a site's host: what the website calls collections and works
     public const string Wording = "/admin/website/wording";
 
+    // on a site's host: the colours of the website's public pages
+    public const string Colors = "/admin/website/colors";
+
     // on a site's host: which hints show, for the signed-in account
     public const string Hints = "/admin/hints";
 

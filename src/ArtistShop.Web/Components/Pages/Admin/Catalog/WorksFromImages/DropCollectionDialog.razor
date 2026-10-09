@@ -88,7 +88,8 @@ collection.Id)]
         images inside are added to it.
       </p>
       <p>
-        Uncheck any folder whose name has nothing to do with your @Wording.Collection.PluralInSentence. </p>
+        Uncheck any folders which should not create @Wording.Collection.PluralInSentence. Their images will still be added
+        as @Wording.Work.PluralInSentence.</p>
 
       </Hint>
     }
@@ -118,13 +119,13 @@ collection.Id)]
                      @onchange="() => _checkedFolders.Toggle(folder.Path)" />
               <span>
                 <span class="font-medium">@(folder.Existing is { } existing ? existing.Name.Value : folder.Name)</span>
-                <span class="text-sm text-gray-600">
+                <span class="text-sm text-ink-faded">
                   @CountText.Of(folder.ImageCount, "image"), @Kind(folder)@(folder.IsDropped ? ", the folder you dropped" :
                   "")
                 </span>
                 @if (folder.SimilarCollectionName is { } similar)
                 {
-                  <span class="block text-sm text-gray-600">Close to the existing @Wording.Collection.SingularInSentence
+                  <span class="block text-sm text-ink-faded">Close to the existing @Wording.Collection.SingularInSentence
                     @similar</span>
                   }
                 </span>

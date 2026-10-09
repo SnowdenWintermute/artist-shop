@@ -308,7 +308,7 @@ export function createImageUploads(quill, toolbar) {
         const shown = say(`Couldn't upload ${fileName}: ${message}`);
 
         if (shown !== null) {
-          shown.classList.add("text-red-400");
+          shown.classList.add("text-error");
 
           const dismiss = document.createElement("button");
           dismiss.type = "button";
@@ -501,7 +501,7 @@ export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, lin
    */
   const toolbarReport = (storageKey, fileName) => {
     uploadStatusFor = storageKey;
-    uploadStatus.classList.remove("text-red-400");
+    uploadStatus.classList.remove("text-error");
     uploadStatus.textContent = `Uploading ${fileName}…`;
     uploadStatus.hidden = false;
 
@@ -515,7 +515,7 @@ export function attachPostImageEmbedToolbar(quill, toolbar, picker, uploads, lin
       },
       fail(message) {
         uploadStatus.textContent = `Couldn't upload ${fileName}: ${message}`;
-        uploadStatus.classList.add("text-red-400");
+        uploadStatus.classList.add("text-error");
       },
     };
   };

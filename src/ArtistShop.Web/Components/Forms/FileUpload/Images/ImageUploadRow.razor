@@ -24,8 +24,8 @@
 
   @if (SelectedImage.Error is null && SelectedImage.Result is null)
   {
-    <BbProgress Value="SelectedImage.UploadPercentComplete" Max="100" class="block h-1 bg-gray-200">
-      <BbProgressIndicator class="block h-1 bg-blue-500" style="@($"width: {SelectedImage.UploadPercentComplete}%")" />
+    <BbProgress Value="SelectedImage.UploadPercentComplete" Max="100" class="block h-1 bg-placeholder">
+      <BbProgressIndicator class="block h-1 bg-accent" style="@($"width: {SelectedImage.UploadPercentComplete}%")" />
     </BbProgress>
   }
 </div>

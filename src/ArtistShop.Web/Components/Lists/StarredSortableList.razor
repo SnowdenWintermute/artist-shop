@@ -44,15 +44,15 @@
     Items.Any(IsExplicitlyStarred) ? StarredValue : Items.Select(StarValueOf).FirstOrDefault(value => value is not null);
 
   private string StarClass(TItem item) =>
-    IsExplicitlyStarred(item) ? "text-blue-400"
+    IsExplicitlyStarred(item) ? "text-accent"
     : StarValueOf(item) == EffectiveStarredValue ? "text-yellow-500"
-    : "text-gray-300";
+    : "text-ink-unavailable";
 }
 
 @if (Items.Any(IsExplicitlyStarred))
 {
   <div class="mb-2 flex items-center gap-2 text-sm min-h-8">
-    <span><span class="text-blue-400">★</span> @ChosenStarMessage</span>
+    <span><span class="text-accent">★</span> @ChosenStarMessage</span>
     <button type="button" class="cursor-pointer border px-2" @onclick="OnClearStar">
       @ClearStarLabel
     </button>
@@ -61,7 +61,7 @@
 else if (Items.Count() > 0)
 {
   <div class="mb-2 flex items-center gap-2 text-sm min-h-8">
-    <span><span class="text-gray-400">★</span> Click a star to override default</span>
+    <span><span class="text-ink-unavailable">★</span> Click a star to override default</span>
   </div>
 
 }

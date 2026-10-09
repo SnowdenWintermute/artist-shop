@@ -11,13 +11,13 @@
   public string? NextUrl { get; set; }
 
   // an anchor without an href is no link: it isn't focusable, and these classes gray it
-  private const string StepClass = "[&:not([href])]:pointer-events-none [&:not([href])]:select-none [&:not([href])]:text-gray-400";
+  private const string StepClass = "text-link hover:text-link-hover [&:not([href])]:pointer-events-none [&:not([href])]:select-none [&:not([href])]:text-ink-unavailable";
 }
 
 @* WorkGallery.razor.js takes a plain click on these and steps as the arrow keys do, and moves
    their hrefs along as the image changes, so a middle click still opens the next step *@
 <nav class="mb-4 flex items-center justify-between gap-4" aria-label="@Collection.Name.Value">
-  <a href="@PageUrls.Collection(Collection.Slug)">← @Collection.Name.Value</a>
+  <a href="@PageUrls.Collection(Collection.Slug)" class="text-link hover:text-link-hover">← @Collection.Name.Value</a>
 
   <div class="flex gap-4">
     <a href="@PreviousUrl" data-work-step="-1" rel="prev" class="@StepClass">← Previous</a>

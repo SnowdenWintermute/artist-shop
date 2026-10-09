@@ -41,22 +41,22 @@
   <nav class="flex items-center gap-4 text-sm" aria-label="Pages">
     @if (IsOnFirstPage)
     {
-      <span class="text-gray-400">@PreviousText</span>
+      <span class="text-ink-unavailable">@PreviousText</span>
     }
     else
     {
-      <a href="@UrlFor(PageNumber - 1)">@PreviousText</a>
+      <a href="@UrlFor(PageNumber - 1)" class="text-link hover:text-link-hover">@PreviousText</a>
     }
 
     <span>Page @PageNumber of @PageCount</span>
 
     @if (IsOnLastPage)
     {
-      <span class="text-gray-400">@NextText</span>
+      <span class="text-ink-unavailable">@NextText</span>
     }
     else
     {
-      <a href="@UrlFor(PageNumber + 1)">@NextText</a>
+      <a href="@UrlFor(PageNumber + 1)" class="text-link hover:text-link-hover">@NextText</a>
     }
   </nav>
 }

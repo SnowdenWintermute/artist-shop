@@ -42,7 +42,7 @@
   // yet are kept by PostBackup and offered back on return
   private RenderFragment? PostAddress =>
     _post is { } post
-      ? @<p class="mb-4 text-sm text-gray-500">
+      ? @<p class="mb-4 text-sm text-ink-faded">
         Address: <a class="underline" href="@PageUrls.Post(post.Slug)">@PageUrls.Post(post.Slug)</a>
       </p>
   : null;
@@ -170,7 +170,7 @@
         <h1 class="text-xl">@Heading</h1>
         @if (_post is not null)
         {
-          <span class="text-sm text-gray-500">
+          <span class="text-sm text-ink-faded">
             <PostStatusLabel PublishedAt="_post.PublishedAt" />
           </span>
         }
@@ -190,7 +190,7 @@
 
       @if (_deletedElsewhere)
       {
-        <p class="mb-4 text-red-400">
+        <p class="mb-4 text-error">
           This post was deleted somewhere else, so nothing was saved. Your edits are still on this
           page, but they can't be saved to a post that no longer exists.
         </p>

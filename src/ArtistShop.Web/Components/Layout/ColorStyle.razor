@@ -1,0 +1,16 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  // the elements the colours apply to, like :root for the platform's
+  [Parameter, EditorRequired]
+  public string Selector { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public SiteColors Colors { get; set; } = default!;
+
+  private string Declarations =>
+    string.Concat(ColorRoles.All.Select(definition => $"{definition.CssVariable}: {Colors.Resolve(definition.Role).Hex}; "));
+}
+
+@* the values of app.css's --theme-* variables, which every bg-page or text-ink class reads *@
+<style>@Selector { @Declarations}</style>

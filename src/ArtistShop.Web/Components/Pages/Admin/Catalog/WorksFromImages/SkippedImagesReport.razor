@@ -32,10 +32,10 @@
     @foreach (var reason in Skipped.GroupBy(skipped => skipped.Reason))
     {
       <li @key="reason.Key">
-        <Disclosure SummaryClass="text-yellow-700">
+        <Disclosure SummaryClass="text-warning">
           <Summary>@CountText.Of(reason.Count(), "image") skipped, @Why(reason.Key)</Summary>
           <ChildContent>
-            <ul class="ml-4 text-gray-600">
+            <ul class="ml-4 text-ink-faded">
               @foreach (var skipped in reason)
               {
                 <li>@skipped.Path</li>

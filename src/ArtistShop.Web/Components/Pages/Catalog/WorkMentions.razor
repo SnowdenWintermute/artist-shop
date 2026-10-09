@@ -9,13 +9,13 @@
 
 @* The posts that show this work, each a row like the panel's products *@
 <section>
-  <h2 class="mb-2 text-sm text-gray-500">Mentioned in</h2>
+  <h2 class="mb-2 text-sm text-ink-faded">Mentioned in</h2>
   <ul>
     @foreach (var post in Posts)
     {
       <li @key="post.Id" class="flex justify-between gap-4 border-b py-2">
-        <a href="@PageUrls.Post(post.Slug)" class="underline">@post.Title.Value</a>
-        <span class="shrink-0 text-sm text-gray-500"><LocalDate Moment="post.PublishedAt" /></span>
+        <a href="@PageUrls.Post(post.Slug)" class="text-link underline">@post.Title.Value</a>
+        <span class="shrink-0 text-sm text-ink-faded"><LocalDate Moment="post.PublishedAt" /></span>
       </li>
     }
   </ul>

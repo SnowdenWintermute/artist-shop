@@ -91,7 +91,7 @@
 <DisabledUntilInteractive>
   @if (_changedElsewhere)
   {
-    <p class="mb-2 text-red-600">This @Wording.Collection.SingularInSentence was changed somewhere else, so the list has been
+    <p class="mb-2 text-error">This @Wording.Collection.SingularInSentence was changed somewhere else, so the list has been
       reloaded.</p>
   }
 
@@ -123,7 +123,7 @@
           <div>
             <a href="@PageUrls.EditWork(work.Id)" class="underline">@work.Name.Value</a>
           </div>
-          <div class="text-xs text-gray-500">@work.WorkTypeName.Value</div>
+          <div class="text-xs text-ink-faded">@work.WorkTypeName.Value</div>
         </div>
       </RowContent>
       <RowActions Context="work">

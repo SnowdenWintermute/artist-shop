@@ -119,7 +119,7 @@
 
 @if (ImportedCount is int importedCount && _plan is null)
 {
-  <p class="mb-4 text-green-600">Imported @CountText.Of(importedCount, Singular, Plural).</p>
+  <p class="mb-4 text-success">Imported @CountText.Of(importedCount, Singular, Plural).</p>
 }
 
 @ColumnsHelp
@@ -139,7 +139,7 @@
 
 @if (_reviewLost)
 {
-  <p class="mb-4 text-red-400">The review didn't come back complete. Check the file again.</p>
+  <p class="mb-4 text-error">The review didn't come back complete. Check the file again.</p>
 }
 
 @* rendered on every request, even with nothing to confirm: a post is matched to its form by rendering
@@ -163,7 +163,7 @@
   <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
     @if (_catalogChangedSinceReview)
     {
-      <p class="mb-4 shrink-0 text-red-400">
+      <p class="mb-4 shrink-0 text-error">
         The catalog changed since the last review, so nothing more was imported. This is the review as things
         are now.
       </p>

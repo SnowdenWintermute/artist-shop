@@ -150,7 +150,7 @@
 
     <TextField @ref="_nameField" Label="Vocabulary name" @bind-Value="_vocabulary.Name" UpdatesPerKeystroke
                placeholder="" />
-    <p class="text-sm text-gray-600">Press Enter to save it, then add its terms.</p>
+    <p class="text-sm text-ink-faded">Press Enter to save it, then add its terms.</p>
   </EditForm>
 }
 else
@@ -171,7 +171,7 @@ else
     <DataAnnotationsValidator />
 
     <TextField @ref="_termField" Label="New term" @bind-Value="_term.Name" UpdatesPerKeystroke />
-    <p class="text-sm text-gray-600">Press Enter after each term.</p>
+    <p class="text-sm text-ink-faded">Press Enter after each term.</p>
   </EditForm>
 }
 

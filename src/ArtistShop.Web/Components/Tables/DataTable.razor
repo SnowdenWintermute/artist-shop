@@ -41,10 +41,10 @@
 
 <table class="@ClassNames.Join(FitsContent ? null : "w-full", "text-left", Class)">
   <thead>
-    <tr class="text-sm text-gray-500">
+    <tr class="text-sm text-ink-faded">
       @foreach (var heading in Headings)
       {
-        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-white" : null, Layer(heading), heading.Class)">
+        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-panel" : null, Layer(heading), heading.Class)">
           @if (heading.Content is { } content)
           {
             @content
@@ -60,7 +60,7 @@
   <tbody>
     @foreach (var item in Items)
     {
-      <tr class="@ClassNames.Join("border-t hover:bg-gray-50", RowClass)">
+      <tr class="@ClassNames.Join("border-t hover:bg-page", RowClass)">
         @Row(item)
       </tr>
     }

@@ -31,11 +31,11 @@
             @change.Name.Value
             @if (change.ExistingId is null)
             {
-              <span class="text-green-600">(new)</span>
+              <span class="text-success">(new)</span>
             }
             @if (change.IsMutuallyExclusive)
             {
-              <span class="text-gray-500">(mutually exclusive)</span>
+              <span class="text-ink-faded">(mutually exclusive)</span>
             }
           </DataTableCell>
           <DataTableCell>
@@ -44,7 +44,7 @@
               <span>@(index > 0 ? ", " : "")@type.Name.Value</span>
               @if (change.AddedWorkTypes.Contains(type))
               {
-                <span class="text-green-600"> (new)</span>
+                <span class="text-success"> (new)</span>
               }
             }
           </DataTableCell>

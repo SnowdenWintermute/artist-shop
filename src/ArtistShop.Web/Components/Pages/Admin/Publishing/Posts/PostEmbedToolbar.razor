@@ -37,7 +37,7 @@
    it matches the editor's own. As wide as its content, rather than the default's fit to the room
    right of where it last was, which kept it from moving left to fit; and no wider than the screen,
    less the margin Floating UI's shift() keeps *@
-<div popover="manual" class="m-0 inset-auto w-max max-w-[calc(100%-1rem)] border border-quill-line bg-white px-3 py-2 text-sm text-quill-ink shadow-[0_0_5px_var(--color-quill-shadow)]"
+<div popover="manual" class="m-0 inset-auto w-max max-w-[calc(100%-1rem)] border border-quill-line bg-panel px-3 py-2 text-sm text-quill-ink shadow-[0_0_5px_var(--color-quill-shadow)]"
      @attributes="AdditionalAttributes"
      data-floating-ui-src="@Assets["lib/floating-ui/floating-ui.dom.browser.min.mjs"]">
   <div class="flex flex-col gap-2">
@@ -50,7 +50,7 @@
       <EmbedToolbarButton data-action="text-below">Text below</EmbedToolbarButton>
       @* coloured on the icon, so it keeps its colour when the button turns blue on hover *@
       <EmbedToolbarButton aria-label="Remove" title="Remove" data-action="remove">
-        <SvgIcon Name="image-remove" Class="text-red-600" />
+        <SvgIcon Name="image-remove" Class="text-error" />
       </EmbedToolbarButton>
       @* closes the toolbar, as a click anywhere else does, for anyone who doesn't know that. Apart
          from the other buttons, at the far end *@

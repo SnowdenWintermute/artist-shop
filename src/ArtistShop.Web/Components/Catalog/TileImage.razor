@@ -44,7 +44,7 @@
 }
 
 @* a span made block rather than a div, so it can sit inside a button or a link *@
-<span class="@($"{BoxClass} block overflow-hidden bg-gray-100 bg-cover bg-center")" style="@BlurStyle @AspectStyle">
+<span class="@($"{BoxClass} block overflow-hidden bg-placeholder bg-cover bg-center")" style="@BlurStyle @AspectStyle">
   @if (Image is { } image)
   {
     <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
@@ -54,7 +54,7 @@
   }
   else
   {
-    <span class="flex size-full items-center justify-center text-center text-[10px] text-gray-500">
+    <span class="flex size-full items-center justify-center text-center text-[10px] text-ink-faded">
       No image
     </span>
   }

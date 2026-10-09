@@ -30,7 +30,7 @@ else
     @BoxContent
     @if (Row.Thumbnail is null)
     {
-      <span class="flex size-full items-center justify-center border border-dashed border-gray-400 text-gray-500" aria-hidden="true">+</span>
+      <span class="flex size-full items-center justify-center border border-dashed border-ink-unavailable text-ink-faded" aria-hidden="true">+</span>
     }
     <span class="sr-only">Edit images</span>
   </button>
@@ -38,15 +38,15 @@ else
 
 @if (CountIn(RowImageState.Failed) is var failed and > 0)
 {
-  <p class="max-w-24 text-xs text-red-600" title="@FailureText">@failed failed</p>
+  <p class="max-w-24 text-xs text-error" title="@FailureText">@failed failed</p>
 }
 @if (CountIn(RowImageState.NotSent) is var notSent and > 0)
 {
-  <p class="max-w-24 text-xs text-red-600" title="Drop these on the Upload images page to add them">@notSent not sent</p>
+  <p class="max-w-24 text-xs text-error" title="Drop these on the Upload images page to add them">@notSent not sent</p>
 }
 @if (Row.ImagesSaveError is { } saveError)
 {
-  <p class="max-w-24 text-xs text-red-600">@saveError</p>
+  <p class="max-w-24 text-xs text-error">@saveError</p>
 }
 
 @code {
@@ -57,7 +57,7 @@ else
     }
     else if (Row.HasImagesUploading)
     {
-      <span class="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" role="status"
+      <span class="size-4 animate-spin rounded-full border-2 border-ink-unavailable border-t-ink" role="status"
             aria-label="Uploading"></span>
     }
 
@@ -71,7 +71,7 @@ else
     @if (Row.SaveCount > 0)
     {
       <span @key="Row.SaveCount"
-            class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-theme-primary" role="status">
+            class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-accent" role="status">
         <SvgIcon Name="floppy-disc" Class="size-5" />
         <span class="sr-only">Saved</span>
       </span>

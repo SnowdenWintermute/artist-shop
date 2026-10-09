@@ -18,7 +18,7 @@
 
   // a method returning markup: lets both levels share the checkbox without a separate component
   private RenderFragment Checkbox(WorkFieldDefinition definition, bool isEnabled) =>
-    @<label class="inline-flex items-center gap-2 @(isEnabled ? "cursor-pointer" : "text-gray-400")">
+    @<label class="inline-flex items-center gap-2 @(isEnabled ? "cursor-pointer" : "text-ink-unavailable")">
       <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(definition.Field)"
              disabled="@(!isEnabled)" @onchange="() => OnToggle.InvokeAsync(definition)" />
       @definition.Name
@@ -27,7 +27,7 @@
 
 <fieldset class="mb-4">
   <legend class="mb-1 text-sm">Fields</legend>
-  <p class="mb-2 text-sm text-gray-500">Every @Wording.Work.SingularInSentence has a description.</p>
+  <p class="mb-2 text-sm text-ink-faded">Every @Wording.Work.SingularInSentence has a description.</p>
   @foreach (var definition in FieldDefinitions.Where(candidate => !candidate.HasRequirement))
   {
     <div>

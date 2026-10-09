@@ -23,7 +23,7 @@
 @if (Review.Problems.Count > 0)
 {
   <div class="mb-4">
-    <h2 class="mb-1 text-lg text-red-600">This folder can't be imported</h2>
+    <h2 class="mb-1 text-lg text-error">This folder can't be imported</h2>
     <ul class="list-disc pl-6 text-sm">
       @foreach (var problem in Review.Problems)
       {

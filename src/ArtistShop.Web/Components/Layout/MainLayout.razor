@@ -16,17 +16,17 @@
 
   @* the backgrounds run to the edges of the screen, under a phone's notch when it's held sideways,
      while the padding keeps what's on them clear of it. So do the nav bars' *@
-  <div class="w-full bg-theme-recessed flex flex-1 flex-col">
+  <div class="w-full bg-page flex flex-1 flex-col">
     <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
       @Body
     </div>
   </div>
 
   <div id="blazor-error-ui" class="fixed top-1/2 left-1/2 z-50 hidden -translate-x-1/2 -translate-y-1/2 border-2
-    border-red-600 bg-theme-recessed p-6" data-nosnippet>
+    border-error bg-page p-6" data-nosnippet>
     <div class="flex items-center">
       An unhandled error has occurred.
-      <a href="." class="reload mx-2 underline">Reload</a>
+      <a href="." class="reload mx-2 text-link underline">Reload</a>
       <button type="button" class="dismiss h-6 w-6 cursor-pointer border text-xl leading-0"
               aria-label="Dismiss">🗙</button>
     </div>

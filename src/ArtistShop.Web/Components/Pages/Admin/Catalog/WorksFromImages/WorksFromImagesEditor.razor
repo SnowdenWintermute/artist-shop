@@ -416,7 +416,7 @@ work))]);
                        Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
     @if (_rows.Count > 0)
     {
-      <p class="text-sm text-gray-600">Reload the page to add @Wording.Work.PluralInSentence of another type.</p>
+      <p class="text-sm text-ink-faded">Reload the page to add @Wording.Work.PluralInSentence of another type.</p>
     }
   </div>
 
@@ -437,12 +437,12 @@ work))]);
 
 @if (_tooManyFiles)
 {
-  <p class="mb-4 text-red-600">That's more than @BulkImageDrop.MaximumFiles files. Drop one folder at a time.</p>
+  <p class="mb-4 text-error">That's more than @BulkImageDrop.MaximumFiles files. Drop one folder at a time.</p>
 }
 
 @if (_dropError is not null)
 {
-  <p class="mb-4 text-red-600">@_dropError</p>
+  <p class="mb-4 text-error">@_dropError</p>
 }
 
 @if (_isCreating)
@@ -468,14 +468,14 @@ else if (UnsentCount > 0)
 
 @if (_rows.Count > 0 && _type is { } rowsType)
 {
-  <p class="mb-2 text-sm text-gray-600">
+  <p class="mb-2 text-sm text-ink-faded">
     @Wording.Work.CountOf(_rows.Count) added. Each change saves when you leave its field.
   </p>
 
   <WorkTable Rows="_rows" Type="rowsType" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnSaveFinished="SaveFinished"
                 OnRowsDeleted="RowsDeleted" />
 
-  <p class="text-sm text-gray-600">
+  <p class="text-sm text-ink-faded">
     @Wording.Work.CountOf(_rows.Count) added.
     @* no time before the first edit: the works and images were saved as they arrived *@
     @if (IsAllSaved)

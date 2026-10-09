@@ -1,0 +1,72 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  // its place in ColorsForm.Roles, which names its inputs
+  [Parameter, EditorRequired]
+  public int Index { get; set; }
+
+  [Parameter, EditorRequired]
+  public ColorChoiceInput Choice { get; set; } = default!;
+
+  // the colours that are hard to read on one another, with this role's in front
+  [Parameter, EditorRequired]
+  public IReadOnlyList<ContrastProblem> Problems { get; set; } = default!;
+
+  private ColorRoleDefinition Definition => ColorRoles.For(Choice.Role);
+
+  private string Name(string property) => $"Input.Roles[{Index}].{property}";
+
+  private string PickerId => $"color-{Definition.CssName}";
+}
+
+@* native inputs, since an indexed list's names are easier written than derived from expressions *@
+<div class="mb-4">
+  <input type="hidden" name="@Name(nameof(ColorChoiceInput.Role))" value="@Choice.Role" />
+  <input type="hidden" name="@Name(nameof(ColorChoiceInput.IsDerived))" value="@(Choice.IsDerived ? "true" : "false")" />
+  <input type="hidden" name="@Name(nameof(ColorChoiceInput.ShownColor))" value="@Choice.ShownColor" />
+  <input type="hidden" name="@Name(nameof(ColorChoiceInput.ShownOpacityPercent))" value="@Choice.ShownOpacityPercent" />
+
+  @* the role's state on the right, beside what it's the state of *@
+  <div class="mb-2 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <input type="color" id="@PickerId" name="@Name(nameof(ColorChoiceInput.Color))" value="@Choice.Color"
+             class="h-10 w-14 shrink-0 cursor-pointer border border-rule bg-panel" />
+      <div>
+        <label for="@PickerId" class="block font-bold">@Definition.Name</label>
+        <p class="text-sm text-ink-faded">@Definition.Description</p>
+      </div>
+    </div>
+
+    <div class="shrink-0">
+      @if (Choice.IsDerived)
+      {
+        <p class="text-sm text-ink-faded">@(Definition.IsBase ? "Platform default" : "Derived")</p>
+      }
+      else
+      {
+        @* previews, like a pick, so Save is still what keeps it *@
+        <ButtonBasic type="submit" name="Input.Reset" value="@Choice.Role" Variant="ButtonVariant.Outline"
+                     aria-label="@($"Reset {Definition.Name.ToLowerInvariant()}")">Reset</ButtonBasic>
+      }
+    </div>
+  </div>
+
+  @if (Definition.AllowsOpacity)
+  {
+    <label class="mb-1 flex items-center gap-2 text-sm">
+      Opacity
+      <input type="range" min="0" max="100" name="@Name(nameof(ColorChoiceInput.OpacityPercent))"
+             value="@Choice.OpacityPercent" class="cursor-pointer" />
+      @Choice.OpacityPercent%
+    </label>
+  }
+
+  @foreach (var problem in Problems)
+  {
+    <p class="text-sm text-warning">
+      Hard to read on @ColorRoles.For(problem.Background).Name.ToLowerInvariant():
+      @problem.Ratio.ToString("0.0"):1, where @problem.Minimum.ToString("0.#"):1 is easy to read.
+    </p>
+  }
+</div>

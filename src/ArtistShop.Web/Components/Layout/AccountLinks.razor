@@ -17,13 +17,13 @@ PageUrls.AccountPage;
 
 @* the signed-in account's links, in the nav drawer *@
 <div class="flex flex-col items-start gap-4">
-  <p class="truncate text-sm text-theme-muted" title="@Email">@Email</p>
+  <p class="truncate text-sm text-ink-faded" title="@Email">@Email</p>
   <a href="@PageUrls.PlatformMySites(NavigationManager.BaseUri, PlatformSettings.Host)"
-     class="hover:underline">@PlatformSettings.Name Platform</a>
-  <a href="@AccountUrl" class="hover:underline">Manage account</a>
+     class="text-link hover:underline">@PlatformSettings.Name Platform</a>
+  <a href="@AccountUrl" class="text-link hover:underline">Manage account</a>
   <form action="Account/Logout" method="post">
     <AntiforgeryToken />
     <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
-    <button type="submit" class="cursor-pointer hover:underline">Log out</button>
+    <button type="submit" class="cursor-pointer text-link hover:underline">Log out</button>
   </form>
 </div>

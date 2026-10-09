@@ -16,8 +16,8 @@
 }
 
 <div class="mb-4">
-  <BbProgress Value="PercentComplete" Max="100" class="mb-2 block h-1 bg-gray-200">
-    <BbProgressIndicator class="block h-1 bg-blue-500" style="@($"width: {PercentComplete}%")" />
+  <BbProgress Value="PercentComplete" Max="100" class="mb-2 block h-1 bg-placeholder">
+    <BbProgressIndicator class="block h-1 bg-accent" style="@($"width: {PercentComplete}%")" />
   </BbProgress>
 
   @* at 100 every byte is sent, but the server is still making the last images' web copies *@

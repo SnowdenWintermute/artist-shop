@@ -29,7 +29,7 @@
 
   // the whole row shows the check, as a phone hides the box
   private string? RowClass =>
-    Selection is null ? null : "has-checked:bg-theme-selected has-checked:hover:bg-theme-selected has-focus-visible:outline-2";
+    Selection is null ? null : "has-checked:bg-selected has-checked:hover:bg-selected has-focus-visible:outline-2";
 
   private string? CheckboxId(WorkListItem item) => Selection is null ? null : $"checkbox-{item.Id.Value}";
 }
@@ -71,7 +71,7 @@ else
 
           @if (item.DateCreated is { } dateCreated)
           {
-            <span class="block text-xs text-gray-500 max-sm:truncate">@dateCreated.Text</span>
+            <span class="block text-xs text-ink-faded max-sm:truncate">@dateCreated.Text</span>
           }
         </WorkListCell>
 
@@ -79,17 +79,17 @@ else
           @item.WorkTypeName.Value
         </WorkListCell>
 
-        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-ink-faded {WideOnly}")">
           @item.CollectionNames
         </WorkListCell>
 
-        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-gray-600 {WideOnly}")">
+        <WorkListCell CheckboxId="@CheckboxId(item)" Class="@($"text-sm text-ink-faded {WideOnly}")">
           @item.ImageCount
         </WorkListCell>
 
         @if (Selection is null)
         {
-          <DataTableCell Class="@($"text-sm text-gray-600 {WideOnly}")">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
+          <DataTableCell Class="@($"text-sm text-ink-faded {WideOnly}")">@(item.IsForSale ? "Yes" : "No")</DataTableCell>
         }
         else
         {

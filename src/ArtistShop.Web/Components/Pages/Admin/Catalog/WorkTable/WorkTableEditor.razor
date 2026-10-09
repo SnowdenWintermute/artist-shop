@@ -95,7 +95,7 @@
 @if (_isLoading)
 {
   <p class="flex items-center gap-2" role="status">
-    <span class="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" aria-hidden="true"></span>
+    <span class="size-4 animate-spin rounded-full border-2 border-ink-unavailable border-t-ink" aria-hidden="true"></span>
     Loading @Wording.Work.PluralInSentence
   </p>
 }
@@ -110,7 +110,7 @@ else if (_loaded.Rows.Count is 0)
 }
 else
 {
-  <p class="mb-2 text-sm text-gray-600">Each change saves when you leave its field.</p>
+  <p class="mb-2 text-sm text-ink-faded">Each change saves when you leave its field.</p>
 
   <WorkTable Rows="_loaded.Rows" Type="_loaded.Type" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnChoicesAdded="ChoicesAdded"
                 OnRowsDeleted="RowsDeleted" />

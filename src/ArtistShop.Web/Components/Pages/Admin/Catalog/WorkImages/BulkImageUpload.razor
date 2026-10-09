@@ -254,7 +254,7 @@
 
 @if (_tooManyFiles)
 {
-  <p class="mb-4 text-red-400">
+  <p class="mb-4 text-error">
     That's more than @BulkImageDrop.MaximumFiles files. Upload one folder at a time.
   </p>
 }
@@ -273,7 +273,7 @@
 
 @if (_candidates.Count > 0 && _workTypeId is null)
 {
-  <p class="mb-4 text-red-400">Choose the @Wording.Work.SingularInSentence type to match these against.</p>
+  <p class="mb-4 text-error">Choose the @Wording.Work.SingularInSentence type to match these against.</p>
 }
 
 @if (_isUploading)

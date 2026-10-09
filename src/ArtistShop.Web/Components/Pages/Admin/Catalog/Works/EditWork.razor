@@ -136,7 +136,7 @@
             @_work.Name.Value
           </a>
         </h1>
-        <span class="text-sm text-gray-500">@_work.Type.Name.Value</span>
+        <span class="text-sm text-ink-faded">@_work.Type.Name.Value</span>
       </div>
 
       <div>
@@ -151,7 +151,7 @@
 
       @if (_deletedElsewhere)
       {
-        <p class="mb-4 text-red-400">
+        <p class="mb-4 text-error">
           This @Wording.Work.SingularInSentence was deleted somewhere else, so nothing was saved. Your edits
           are still on this page, but they can't be saved to something that no longer exists.
         </p>
@@ -186,7 +186,7 @@
           <TermAndCollectionPickers @key="PickersKey" WorkTypeId="_work.Type.Id" Vocabularies="_vocabularies"
                                 AllCollections="_collections" SelectedVocabularyTermIds="Input.VocabularyTermIds" SelectedCollectionIds="Input.CollectionIds" />
 
-          <ValidationMessage For="() => Input.Images" class="mb-4 block text-red-400" />
+          <ValidationMessage For="() => Input.Images" class="mb-4 block text-error" />
           @* the island starts from the images the form holds: the work's own on a fresh page, and
              whatever was posted when a submit comes back with an error *@
           <ImagesField @key="ImagesKey" FieldName="Input.Images" PrimaryFieldName="Input.PrimaryImageKey"
@@ -194,7 +194,7 @@
 
           @if (_staleChoices)
           {
-            <p class="mb-4 text-red-400">
+            <p class="mb-4 text-error">
               Something on this form was removed in another tab: one of its terms, fields or
               @Wording.Collection.PluralInSentence. The form has been updated to match. Check it and save again.
             </p>

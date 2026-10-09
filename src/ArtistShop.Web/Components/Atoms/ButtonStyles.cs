@@ -10,11 +10,11 @@ public static class ButtonStyles
         variant switch
         {
             ButtonVariant.Plain => "",
-            ButtonVariant.Primary => "bg-blue-500 text-white border",
-            ButtonVariant.PrimaryOutline => "border border-blue-500 text-blue-600",
+            ButtonVariant.Primary => "bg-accent text-on-accent border",
+            ButtonVariant.PrimaryOutline => "border border-accent text-accent",
             ButtonVariant.Outline => "border",
-            ButtonVariant.Danger => "bg-red-600 text-white",
-            ButtonVariant.DangerOutline => "border border-red-600 text-red-600",
-            ButtonVariant.DangerText => "text-red-600",
+            ButtonVariant.Danger => "bg-error text-white",
+            ButtonVariant.DangerOutline => "border border-error text-error",
+            ButtonVariant.DangerText => "text-error",
         };
 }

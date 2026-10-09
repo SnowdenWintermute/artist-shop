@@ -140,7 +140,7 @@ else
       {
         @if (IsCollapsed && !IsSelect(vocabulary))
         {
-          <Disclosure @key="vocabulary.Id.Value" Class="mb-3" SummaryClass="text-sm text-gray-600"
+          <Disclosure @key="vocabulary.Id.Value" Class="mb-3" SummaryClass="text-sm text-ink-faded"
                       Open="vocabulary.Id == _openVocabularyId">
             <Summary>@SummaryText(vocabulary)</Summary>
             <ChildContent>
@@ -151,7 +151,7 @@ else
         else
         {
           <fieldset @key="vocabulary.Id.Value" class="mb-3">
-            <legend class="mb-1 text-sm text-gray-600">@vocabulary.Name.Value</legend>
+            <legend class="mb-1 text-sm text-ink-faded">@vocabulary.Name.Value</legend>
             @VocabularyTerms(vocabulary)
           </fieldset>
         }

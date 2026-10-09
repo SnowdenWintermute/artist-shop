@@ -34,7 +34,7 @@
   @* <post-body-editor> is defined in PostBodyEditor.razor.js, and loads Quill itself from
      data-quill-src. data-permanent stops enhanced navigation from patching its children, which
      would remove Quill's toolbar and editing area, since the server never renders them *@
-  <post-body-editor class="block bg-white" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]"
+  <post-body-editor class="block bg-panel" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]"
                     data-column-class="@PostColumn.WidthClass" data-video-address-dialog="@VideoAddressDialog.ElementId"
                     data-work-button-text="@Wording.Work.SingularHeading"
                     data-work-button-label="@($"Add {Wording.Work.SingularInSentence}")">
