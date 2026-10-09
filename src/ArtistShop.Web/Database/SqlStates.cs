@@ -62,4 +62,7 @@ public static class SqlStates
 
     // CheckWorkChoicesAreCurrent
     public const string VocabularyBecameMutuallyExclusive = "SH018";
+
+    // UpdateTheme, UseTheme
+    public const string ThemeNoLongerExists = "SH019";
 }

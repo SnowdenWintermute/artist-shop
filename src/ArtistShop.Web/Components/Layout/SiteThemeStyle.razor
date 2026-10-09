@@ -1,16 +1,16 @@
 @using ArtistShop.Web.Database.Repositories
-@inject ColorRepository ColorRepository
+@inject ThemeRepository ThemeRepository
 
 @code {
-  private SiteColors? _colors;
+  private Theme? _theme;
 
-  protected override async Task OnInitializedAsync() => _colors = await ColorRepository.GetAsync();
+  protected override async Task OnInitializedAsync() => _theme = await ThemeRepository.GetInUseAsync();
 }
 
 @* on :root, as the platform's are, so the nav bar, the html background past the page's end and an
    open lightbox take them too. Only while PublicLayout's marker is on the page: an enhanced
    navigation to an admin page takes the marker away with this, and the platform's show again *@
-@if (_colors is { } colors)
+@if (_theme is { } theme)
 {
-  <ColorStyle Selector=":root:has([data-site-colors])" Colors="colors" />
+  <ColorStyle Selector=":root:has([data-site-theme])" Colors="theme.Colors" />
 }

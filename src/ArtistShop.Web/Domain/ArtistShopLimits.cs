@@ -26,6 +26,9 @@ public static class ArtistShopLimits
 
     public const int CollectionNameMaximumLength = 256;
 
+    // themes.name
+    public const int ThemeNameMaximumLength = 100;
+
     // wording's word columns
     public const int WordingWordMaximumLength = 40;
 

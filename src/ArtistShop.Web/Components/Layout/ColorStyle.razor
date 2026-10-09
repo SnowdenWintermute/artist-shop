@@ -6,7 +6,7 @@
   public string Selector { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public SiteColors Colors { get; set; } = default!;
+  public ThemeColors Colors { get; set; } = default!;
 
   private string Declarations =>
     string.Concat(ColorRoles.All.Select(definition => $"{definition.CssVariable}: {Colors.Resolve(definition.Role).Hex}; "));

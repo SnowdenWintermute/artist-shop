@@ -4,13 +4,13 @@
 @inject CurrentHost CurrentHost
 
 @* The layout of a website's public pages, inside MainLayout: the pages a visitor sees take the
-   artist's choices, while admin, account and platform pages keep the platform's. On the platform's
+   website's theme, while admin, account and platform pages keep the platform's. On the platform's
    own host, which shares the home and not-found pages, it adds nothing *@
 @if (CurrentHost is CurrentHost.Site)
 {
-  <SiteColorStyle />
+  <SiteThemeStyle />
 }
-@* the marker SiteColorStyle's selector looks for. contents: it lays nothing out itself *@
-<div data-site-colors class="contents">
+@* the marker SiteThemeStyle's selector looks for. contents: it lays nothing out itself *@
+<div data-site-theme class="contents">
   @Body
 </div>

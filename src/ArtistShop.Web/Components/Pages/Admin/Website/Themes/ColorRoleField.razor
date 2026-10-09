@@ -2,7 +2,7 @@
 @using ArtistShop.Web.Domain.Website
 
 @code {
-  // its place in ColorsForm.Roles, which names its inputs
+  // its place in ThemeForm.Roles, which names its inputs
   [Parameter, EditorRequired]
   public int Index { get; set; }
 
@@ -13,9 +13,9 @@
   [Parameter, EditorRequired]
   public IEnumerable<ContrastProblem> Problems { get; set; } = default!;
 
-  // not chosen, and showing the platform's colour rather than one derived from the base roles
+  // the role isn't as the open theme has it saved, so Reset has something to put back
   [Parameter, EditorRequired]
-  public bool KeepsPlatformColor { get; set; }
+  public bool IsChanged { get; set; }
 
   private ColorRoleDefinition Definition => ColorRoles.For(Choice.Role);
 
@@ -42,12 +42,12 @@
       </div>
     </div>
 
-    <div class="shrink-0">
+    <div class="flex shrink-0 items-center gap-3">
       @if (Choice.IsDerived)
       {
-        <p class="text-sm text-ink-faded">@(KeepsPlatformColor ? "Platform default" : "Derived")</p>
+        <p class="text-sm text-ink-faded">Derived</p>
       }
-      else
+      @if (IsChanged)
       {
         @* previews, like a pick, so Save is still what keeps it *@
         <ButtonBasic type="submit" name="Input.Reset" value="@Choice.Role" Variant="ButtonVariant.Outline"

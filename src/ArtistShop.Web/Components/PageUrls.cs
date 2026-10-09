@@ -5,6 +5,7 @@ using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.WorkPicker;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
+using ArtistShop.Web.Domain.Website;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace ArtistShop.Web.Components;
@@ -107,8 +108,11 @@ public static class PageUrls
     // on a site's host: what the website calls collections and works
     public const string Wording = "/admin/website/wording";
 
-    // on a site's host: the colours of the website's public pages
-    public const string Colors = "/admin/website/colors";
+    // on a site's host: the website's themes, opening on the one in use
+    public const string Theme = "/admin/website/theme";
+
+    // on a site's host: the Theme page with that theme open
+    public static string ThemeEditing(ThemeKey key) => WithQuery(Theme, ("theme", key.QueryValue));
 
     // on a site's host: which hints show, for the signed-in account
     public const string Hints = "/admin/hints";

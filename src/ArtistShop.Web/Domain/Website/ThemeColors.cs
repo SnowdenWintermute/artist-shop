@@ -1,34 +1,31 @@
 namespace ArtistShop.Web.Domain.Website;
 
-// Two colours too close to read one on the other, as the Colors page warns of them
+// Two colours too close to read one on the other, as the Theme page warns of them
 public record ContrastProblem(ColorRole Foreground, ColorRole Background, double Ratio, double Minimum);
 
-// The colours an artist chose for their website's public pages. A role they didn't choose is
-// derived from the base roles, except while every base role is the platform's: then it keeps the
-// platform's colour, which was chosen by hand rather than derived
-public sealed class SiteColors
+// A theme's colours. Every base role is chosen; any other role it didn't choose is derived from them
+public sealed class ThemeColors
 {
     private readonly IReadOnlyDictionary<ColorRole, RgbColor> _chosen;
 
-    public SiteColors(IReadOnlyDictionary<ColorRole, RgbColor> chosen)
+    public ThemeColors(IReadOnlyDictionary<ColorRole, RgbColor> chosen)
     {
+        if (ColorRoles.All.FirstOrDefault(definition => definition.IsBase && !chosen.ContainsKey(definition.Role)) is { } missing)
+        {
+            throw new ArgumentException($"A theme's colours need every base role, and {missing.Role} is missing.", nameof(chosen));
+        }
+
         _chosen = chosen;
     }
-
-    public static readonly SiteColors Default = new(new Dictionary<ColorRole, RgbColor>());
 
     public IReadOnlyDictionary<ColorRole, RgbColor> Chosen => _chosen;
 
     public RgbColor? ChosenFor(ColorRole role) => _chosen.TryGetValue(role, out var color) ? color : null;
 
-    public RgbColor Resolve(ColorRole role) =>
-        ChosenFor(role) ?? (KeepsPlatformColor(role) ? ColorRoles.For(role).Platform : Derive(role));
+    public RgbColor Resolve(ColorRole role) => ChosenFor(role) ?? Derive(role);
 
-    // not chosen, and not derived either: a base role, or any role while no base role is chosen
-    public bool KeepsPlatformColor(ColorRole role) =>
-        ChosenFor(role) is null && (ColorRoles.For(role).IsBase || !ChoosesABaseRole);
-
-    private bool ChoosesABaseRole => ColorRoles.All.Any(definition => definition.IsBase && _chosen.ContainsKey(definition.Role));
+    // whether any role that could be derived was chosen instead
+    public bool ChoosesADerivableRole => _chosen.Keys.Any(role => !ColorRoles.For(role).IsBase);
 
     private RgbColor Derive(ColorRole role)
     {
@@ -38,7 +35,7 @@ public sealed class SiteColors
         return role switch
         {
             ColorRole.Bar => page.Mix(ink, 0.06),
-            // white on a light page, as the platform's are, and a step lighter than a dark one
+            // white on a light page, and a step lighter than a dark one
             ColorRole.Panel => page.IsLight ? RgbColor.White : page.Mix(ink, 0.08),
             ColorRole.Placeholder => page.Mix(ink, 0.05),
             ColorRole.InkFaded => ink.Mix(page, 0.4),
@@ -47,9 +44,10 @@ public sealed class SiteColors
             ColorRole.LinkHover => Resolve(ColorRole.Accent),
             ColorRole.OnAccent => Resolve(ColorRole.Accent).ReadableText,
             ColorRole.Rule => ink,
+            // shown over images, not beside the page's text, so black suits any page
+            ColorRole.Lightbox => RgbColor.Black,
             ColorRole.OnLightbox => Resolve(ColorRole.Lightbox).ReadableText,
-            // shown over images and the page rather than beside the text, so the platform's suit any page
-            ColorRole.Lightbox or ColorRole.Backdrop => ColorRoles.For(role).Platform,
+            ColorRole.Backdrop => RgbColor.Black.WithOpacityPercent(40),
             ColorRole.Page or ColorRole.Ink or ColorRole.Accent => throw new InvalidOperationException($"{role} is a base role, which isn't derived."),
         };
     }
