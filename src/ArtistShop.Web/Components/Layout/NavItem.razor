@@ -1,4 +1,5 @@
-<NavLink class="font-serif text-3xl text-link hover:text-link-hover" href="@Href" Match="Match"
+@using ArtistShop.Web.Components.Atoms
+<NavLink class="@($"font-serif text-3xl {LinkStyles.Standalone}")" href="@Href" Match="Match"
          ActiveClass="underline">
   @Text
 </NavLink>

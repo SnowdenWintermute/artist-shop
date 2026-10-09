@@ -22,8 +22,11 @@ public sealed class SiteColors
     public RgbColor? ChosenFor(ColorRole role) => _chosen.TryGetValue(role, out var color) ? color : null;
 
     public RgbColor Resolve(ColorRole role) =>
-        ChosenFor(role)
-        ?? (ColorRoles.For(role).IsBase || !ChoosesABaseRole ? ColorRoles.For(role).Platform : Derive(role));
+        ChosenFor(role) ?? (KeepsPlatformColor(role) ? ColorRoles.For(role).Platform : Derive(role));
+
+    // not chosen, and not derived either: a base role, or any role while no base role is chosen
+    public bool KeepsPlatformColor(ColorRole role) =>
+        ChosenFor(role) is null && (ColorRoles.For(role).IsBase || !ChoosesABaseRole);
 
     private bool ChoosesABaseRole => ColorRoles.All.Any(definition => definition.IsBase && _chosen.ContainsKey(definition.Role));
 
@@ -44,9 +47,9 @@ public sealed class SiteColors
             ColorRole.LinkHover => Resolve(ColorRole.Accent),
             ColorRole.OnAccent => Resolve(ColorRole.Accent).ReadableText,
             ColorRole.Rule => ink,
-            ColorRole.Lightbox => RgbColor.Black,
             ColorRole.OnLightbox => Resolve(ColorRole.Lightbox).ReadableText,
-            ColorRole.Backdrop => RgbColor.Black.WithOpacityPercent(40),
+            // shown over images and the page rather than beside the text, so the platform's suit any page
+            ColorRole.Lightbox or ColorRole.Backdrop => ColorRoles.For(role).Platform,
             ColorRole.Page or ColorRole.Ink or ColorRole.Accent => throw new InvalidOperationException($"{role} is a base role, which isn't derived."),
         };
     }

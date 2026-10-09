@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Sites
 @using ArtistShop.Web.Utilities
+@using ArtistShop.Web.Components.Atoms
 
 @code {
   [Parameter, EditorRequired]
@@ -31,7 +32,7 @@
   <h1 class="mb-1 text-2xl flex justify-between items-center"><span>@Work.Name.Value</span>
     <AuthorizeView Policy="@SitePolicies.Admin">
       <Authorized>
-        <a class="cursor-pointer text-base text-link underline" href="@PageUrls.EditWork(Work.Id)">
+        <a class="@($"cursor-pointer text-base {LinkStyles.InSentence}")" href="@PageUrls.EditWork(Work.Id)">
           Edit
         </a>
       </Authorized>
@@ -99,7 +100,7 @@
         @foreach (var (collection, index) in CollectionOrder.SortedByName(Work.Collections).Select((collection, index) => (collection, index)))
         {
           @(index > 0 ? ", " : "")
-          <a href="@PageUrls.Collection(collection.Slug)" class="text-link hover:text-link-hover">@collection.Name.Value</a>
+          <a href="@PageUrls.Collection(collection.Slug)" class="@LinkStyles.Standalone">@collection.Name.Value</a>
         }
       </dd>
     }

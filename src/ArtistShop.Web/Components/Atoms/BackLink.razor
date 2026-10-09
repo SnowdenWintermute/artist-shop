@@ -7,4 +7,4 @@
   public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 }
 
-<a href="@Href" @attributes="AdditionalAttributes" class="mb-4 inline-block text-link hover:text-link-hover">← @Label</a>
+<a href="@Href" @attributes="AdditionalAttributes" class="@($"mb-4 inline-block {LinkStyles.Standalone}")">← @Label</a>

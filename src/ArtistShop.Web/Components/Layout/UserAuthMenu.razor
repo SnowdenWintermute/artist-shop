@@ -33,11 +33,11 @@
       {
         <Divider Class="my-6 md:hidden md:group-data-collapsed:block" />
         @* the drawer is a column that stretches what's in it *@
-        <a href="@PageUrls.Login" class="self-start text-link hover:text-link-hover">Login</a>
+        <a href="@PageUrls.Login" class="@($"self-start {LinkStyles.Standalone}")">Login</a>
       }
       else
       {
-        <a href="@PageUrls.Login" class="text-link hover:text-link-hover">Login</a>
+        <a href="@PageUrls.Login" class="@LinkStyles.Standalone">Login</a>
       }
     }
   </NotAuthorized>

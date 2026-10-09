@@ -61,14 +61,15 @@
   private IEnumerable<(int Index, ColorChoiceInput Choice)> OtherRoles =>
     NumberedRoles.Where(entry => !ColorRoles.For(entry.Choice.Role).IsBase);
 
-  private static List<ContrastProblem> ProblemsOf(SiteColors shown, ColorRole role) =>
-    [.. shown.ContrastProblems().Where(problem => problem.Foreground == role)];
 }
 
 <PageTitle>Colors</PageTitle>
 
 @if (_shown is { } shown)
 {
+  @* each listed under the role in front *@
+  var problems = shown.ContrastProblems().ToLookup(problem => problem.Foreground);
+
   <main>
     <AdminPanel>
       <BackLink Href="@PageUrls.AdminDashboard" Label="Admin" />
@@ -105,7 +106,8 @@
                 <p class="mb-4 text-sm text-ink-faded">The colors the rest are derived from.</p>
                 @foreach (var (index, choice) in BaseRoles)
                 {
-                  <ColorRoleField Index="index" Choice="choice" Problems="ProblemsOf(shown, choice.Role)" />
+                  <ColorRoleField Index="index" Choice="choice" Problems="problems[choice.Role]"
+                                KeepsPlatformColor="shown.KeepsPlatformColor(choice.Role)" />
                 }
               </section>
 
@@ -117,7 +119,8 @@
                 </p>
                 @foreach (var (index, choice) in OtherRoles)
                 {
-                  <ColorRoleField Index="index" Choice="choice" Problems="ProblemsOf(shown, choice.Role)" />
+                  <ColorRoleField Index="index" Choice="choice" Problems="problems[choice.Role]"
+                                KeepsPlatformColor="shown.KeepsPlatformColor(choice.Role)" />
                 }
               </section>
 

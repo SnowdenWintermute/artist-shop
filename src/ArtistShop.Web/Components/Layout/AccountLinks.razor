@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Sites
+@using ArtistShop.Web.Components.Atoms
 
 @inject NavigationManager NavigationManager
 @inject CurrentHost CurrentHost
@@ -19,11 +20,11 @@ PageUrls.AccountPage;
 <div class="flex flex-col items-start gap-4">
   <p class="truncate text-sm text-ink-faded" title="@Email">@Email</p>
   <a href="@PageUrls.PlatformMySites(NavigationManager.BaseUri, PlatformSettings.Host)"
-     class="text-link hover:underline">@PlatformSettings.Name Platform</a>
-  <a href="@AccountUrl" class="text-link hover:underline">Manage account</a>
+     class="@LinkStyles.Standalone">@PlatformSettings.Name Platform</a>
+  <a href="@AccountUrl" class="@LinkStyles.Standalone">Manage account</a>
   <form action="Account/Logout" method="post">
     <AntiforgeryToken />
     <input type="hidden" name="ReturnUrl" value="@NavigationManager.ToBaseRelativePath(NavigationManager.Uri)" />
-    <button type="submit" class="cursor-pointer text-link hover:underline">Log out</button>
+    <button type="submit" class="@($"cursor-pointer {LinkStyles.Standalone}")">Log out</button>
   </form>
 </div>

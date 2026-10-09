@@ -23,12 +23,12 @@ public class ColorsForm : IValidatableObject
     // a role whose colour can't be read is left derived, and Validate says why
     public SiteColors ToColors()
     {
-        var chosen = new Dictionary<ColorRole, RgbColor>();
-
         if (ResetAll)
         {
             return SiteColors.Default;
         }
+
+        var chosen = new Dictionary<ColorRole, RgbColor>();
 
         foreach (var choice in Roles)
         {
@@ -97,7 +97,7 @@ public class ColorChoiceInput
 
     // null when the picker sent something that isn't an opaque colour
     public RgbColor? ChosenColor() =>
-        RgbColor.TryParse(Color?.ToLowerInvariant(), out var color) && color.IsOpaque
+        RgbColor.TryParse(Color, out var color) && color.IsOpaque
             ? ColorRoles.For(Role).AllowsOpacity ? color.WithOpacityPercent(OpacityPercent) : color
             : null;
 }

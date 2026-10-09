@@ -1,4 +1,5 @@
 ﻿@using ArtistShop.Web.Sites
+@using ArtistShop.Web.Components.Atoms
 @inherits LayoutComponentBase
 @inject CurrentHost CurrentHost
 
@@ -26,7 +27,7 @@
     border-error bg-page p-6" data-nosnippet>
     <div class="flex items-center">
       An unhandled error has occurred.
-      <a href="." class="reload mx-2 text-link underline">Reload</a>
+      <a href="." class="@($"reload mx-2 {LinkStyles.InSentence}")">Reload</a>
       <button type="button" class="dismiss h-6 w-6 cursor-pointer border text-xl leading-0"
               aria-label="Dismiss">🗙</button>
     </div>

@@ -11,7 +11,11 @@
 
   // the colours that are hard to read on one another, with this role's in front
   [Parameter, EditorRequired]
-  public IReadOnlyList<ContrastProblem> Problems { get; set; } = default!;
+  public IEnumerable<ContrastProblem> Problems { get; set; } = default!;
+
+  // not chosen, and showing the platform's colour rather than one derived from the base roles
+  [Parameter, EditorRequired]
+  public bool KeepsPlatformColor { get; set; }
 
   private ColorRoleDefinition Definition => ColorRoles.For(Choice.Role);
 
@@ -41,7 +45,7 @@
     <div class="shrink-0">
       @if (Choice.IsDerived)
       {
-        <p class="text-sm text-ink-faded">@(Definition.IsBase ? "Platform default" : "Derived")</p>
+        <p class="text-sm text-ink-faded">@(KeepsPlatformColor ? "Platform default" : "Derived")</p>
       }
       else
       {

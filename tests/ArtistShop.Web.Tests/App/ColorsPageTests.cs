@@ -188,6 +188,18 @@ public sealed class ColorsPageTests(TestApp app)
     }
 
     [Fact]
+    public async Task RolesSayDerivedOnlyOnceABaseRoleIsChosen()
+    {
+        var site = await app.MakeSiteAsync();
+
+        var withoutBase = await PostAsync(site, Fields((fields, role) => fields[$"{role(ColorRole.Bar)}.Color"] = "#dddddd"));
+        var withBase = await PostAsync(site, Fields((fields, role) => fields[$"{role(ColorRole.Page)}.Color"] = "#202020"));
+
+        Assert.DoesNotContain(">Derived<", withoutBase);
+        Assert.Contains(">Derived<", withBase);
+    }
+
+    [Fact]
     public async Task ColorsHardToReadAreWarnedOf()
     {
         var site = await app.MakeSiteAsync();

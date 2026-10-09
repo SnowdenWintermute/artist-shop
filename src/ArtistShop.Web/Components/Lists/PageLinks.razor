@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @inject NavigationManager NavigationManager
 
 @code {
@@ -45,7 +46,7 @@
     }
     else
     {
-      <a href="@UrlFor(PageNumber - 1)" class="text-link hover:text-link-hover">@PreviousText</a>
+      <a href="@UrlFor(PageNumber - 1)" class="@LinkStyles.Standalone">@PreviousText</a>
     }
 
     <span>Page @PageNumber of @PageCount</span>
@@ -56,7 +57,7 @@
     }
     else
     {
-      <a href="@UrlFor(PageNumber + 1)" class="text-link hover:text-link-hover">@NextText</a>
+      <a href="@UrlFor(PageNumber + 1)" class="@LinkStyles.Standalone">@NextText</a>
     }
   </nav>
 }

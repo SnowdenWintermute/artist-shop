@@ -14,7 +14,7 @@
     @foreach (var post in Posts)
     {
       <li @key="post.Id" class="flex justify-between gap-4 border-b py-2">
-        <a href="@PageUrls.Post(post.Slug)" class="text-link underline">@post.Title.Value</a>
+        <a href="@PageUrls.Post(post.Slug)" class="@LinkStyles.InSentence">@post.Title.Value</a>
         <span class="shrink-0 text-sm text-ink-faded"><LocalDate Moment="post.PublishedAt" /></span>
       </li>
     }

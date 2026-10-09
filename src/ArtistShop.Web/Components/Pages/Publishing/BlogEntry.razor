@@ -10,7 +10,7 @@
 
 @* The title links to the post. The excerpt is cut to a few lines here, whatever the screen's width *@
 <li class="mb-8">
-  <h2 class="text-xl break-words"><a href="@PageUrls.Post(Post.Slug)" class="text-link underline">@Post.Title.Value</a></h2>
+  <h2 class="text-xl break-words"><a href="@PageUrls.Post(Post.Slug)" class="@LinkStyles.InSentence">@Post.Title.Value</a></h2>
   <p class="mb-1 text-sm text-ink-faded"><LocalDate Moment="Post.PublishedAt" /></p>
   @if (Excerpt is { } excerpt)
   {

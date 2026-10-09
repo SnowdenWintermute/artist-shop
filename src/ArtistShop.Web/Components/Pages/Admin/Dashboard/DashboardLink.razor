@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @code {
   [Parameter, EditorRequired]
   public string Href { get; set; } = default!;
@@ -7,5 +8,5 @@
 }
 
 <li class="mb-2 last:mb-0">
-  <a href="@Href" class="text-link hover:text-link-hover">@ChildContent</a>
+  <a href="@Href" class="@LinkStyles.Standalone">@ChildContent</a>
 </li>

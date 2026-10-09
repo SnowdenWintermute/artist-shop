@@ -79,7 +79,7 @@
         <span class="min-w-0 break-words">@loaded.Post.Title.Value</span>
         <AuthorizeView Policy="@SitePolicies.Admin">
           <Authorized>
-            <a class="text-base text-link underline" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
+            <a class="@($"text-base {LinkStyles.InSentence}")" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
           </Authorized>
         </AuthorizeView>
       </h1>
