@@ -4,6 +4,12 @@ Every font is from [Google Fonts](https://fonts.google.com), downloaded whole an
 WOFF2: nothing is taken out, so a font with a Reserved Font Name keeps it. Each font's licence is in its
 folder. `Domain/Website/Font.cs` lists them for the site.
 
+Five fonts are modified: their files stated an x-height (the OS/2 table's sxHeight) far from their x's
+real height, which browsers use to size them, so it was set to the x's height. Nothing else changed.
+Bungee, Cinzel (both faces), Sancreek and Special Elite keep their names. Chicle's licence reserves the
+name Chicle, which a modified font may not use, so it's renamed Gumball; its copyright notice and
+licence are as they were. Chicle is by Angel Koziupa and Alejandro Paul (Sudtipos).
+
 Roboto and Josefin Slab were here before the rest, from an unrecorded download; their licences were
 fetched later from Google Fonts' repository.
 
@@ -17,7 +23,6 @@ fetched later from Google Fonts' repository.
 | Bricolage Grotesque | `bricolage-grotesque` | SIL Open Font License 1.1, in `OFL.txt` |
 | Bungee | `bungee` | SIL Open Font License 1.1, in `OFL.txt` |
 | Chelsea Market | `chelsea-market` | SIL Open Font License 1.1, in `OFL.txt` |
-| Chicle | `chicle` | SIL Open Font License 1.1, in `OFL.txt` |
 | Cinzel | `cinzel` | SIL Open Font License 1.1, in `OFL.txt` |
 | Creepster | `creepster` | SIL Open Font License 1.1, in `OFL.txt` |
 | Dancing Script | `dancing-script` | SIL Open Font License 1.1, in `OFL.txt` |
@@ -26,6 +31,7 @@ fetched later from Google Fonts' repository.
 | Exo 2 | `exo-2` | SIL Open Font License 1.1, in `OFL.txt` |
 | Fraunces | `fraunces` | SIL Open Font License 1.1, in `OFL.txt` |
 | Fugaz One | `fugaz-one` | SIL Open Font License 1.1, in `OFL.txt` |
+| Gumball (modified Chicle) | `gumball` | SIL Open Font License 1.1, in `OFL.txt` |
 | IBM Plex Mono | `ibm-plex-mono` | SIL Open Font License 1.1, in `OFL.txt` |
 | Isometra | `isometra` | SIL Open Font License 1.1, in `OFL.txt` |
 | Josefin Slab | `josefin-slab` | SIL Open Font License 1.1, in `OFL.txt` |
@@ -52,7 +58,7 @@ fetched later from Google Fonts' repository.
 | Sancreek | `sancreek` | SIL Open Font License 1.1, in `OFL.txt` |
 | Share Tech | `share-tech` | SIL Open Font License 1.1, in `OFL.txt` |
 | Smooch Sans | `smooch-sans` | SIL Open Font License 1.1, in `OFL.txt` |
-| Special Elite | `special-elite` | Apache 2.0, in `LICENSE.txt` |
+| Special Elite | `special-elite` | Apache 2.0, in `LICENSE.txt`; modified, as above |
 | Tenor Sans | `tenor-sans` | SIL Open Font License 1.1, in `OFL.txt` |
 | Titillium Web | `titillium-web` | SIL Open Font License 1.1, in `OFL.txt` |
 | VT323 | `vt323` | SIL Open Font License 1.1, in `OFL.txt` |

@@ -9,7 +9,7 @@
   private MarkupString Rules =>
     new(string.Concat(
       Fonts.SelectMany(font => font.Faces.Select(face =>
-        $"@font-face {{ font-family: {font.CssFamily}; src: url(\"{font.Url(face)}\") format(\"woff2\"); " +
+        $"@font-face {{ font-family: {font.CssFamily}; src: url(\"{Assets[font.AssetPath(face)]}\") format(\"woff2\"); " +
         $"font-weight: {face.Weight}; font-style: {(face.IsItalic ? "italic" : "normal")}; font-display: swap; }} "))
     ));
 }

@@ -22,5 +22,6 @@
    navigation to an admin page takes the marker away with this, and the platform's show again *@
 @if (_theme is { } theme)
 {
+  <FontPreloads ThemeFonts="theme.Theme.Fonts" />
   <ThemeStyle Selector=":root:has([data-site-theme])" Theme="theme.Theme" />
 }

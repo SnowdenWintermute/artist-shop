@@ -16,17 +16,17 @@ public sealed class ThemeFontsTests
         });
     }
 
-    // Sancreek's file states an x-height of 0.196 where its x is 0.640 tall; a browser divides the
-    // adjust by the stated one, so the adjust is that over again
+    // Permanent Marker's file states an x-height of 0.610 where its x is 0.590 tall; a browser divides
+    // the adjust by the stated one, so the adjust is that over again
     [Fact]
     public void AFontThatStatesItsXHeightWronglyIsStillDrawnAtItsScale()
     {
         var heading = FontRoles.For(FontRole.Heading);
-        var sancreek = Fonts.For(Font.Sancreek);
+        var marker = Fonts.For(Font.PermanentMarker);
 
-        var drawnAt = double.Parse(heading.SizeAdjust(Font.Sancreek, 100), CultureInfo.InvariantCulture) / sancreek.RecordedXHeight;
+        var drawnAt = double.Parse(heading.SizeAdjust(Font.PermanentMarker, 100), CultureInfo.InvariantCulture) / marker.RecordedXHeight;
 
-        Assert.Equal(heading.Scale(Font.Sancreek, 100), drawnAt, precision: 2);
+        Assert.Equal(heading.Scale(Font.PermanentMarker, 100), drawnAt, precision: 2);
     }
 
     // a font of capitals only keeps nearly its own size as a heading, where by lowercase letters it

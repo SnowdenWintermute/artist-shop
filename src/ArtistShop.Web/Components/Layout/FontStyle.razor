@@ -6,7 +6,7 @@
   public string Selector { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public ThemeFonts Fonts { get; set; } = default!;
+  public ThemeFonts ThemeFonts { get; set; } = default!;
 
   // markup, since text in <style> would have the family names' quotes encoded. Only the font list's own
   // names go in
@@ -16,8 +16,8 @@
       string.Concat(
         FontRoles.All.Select(definition =>
         {
-          var choice = Fonts.For(definition.Role);
-          return $"{definition.FontVariable}: {Domain.Website.Fonts.For(choice.Font).CssFamily}; " +
+          var choice = ThemeFonts.For(definition.Role);
+          return $"{definition.FontVariable}: {Fonts.For(choice.Font).CssFamily}; " +
                  $"{definition.SizeAdjustVariable}: {definition.SizeAdjust(choice.Font, choice.SizePercent)}; " +
                  $"{definition.ScaleVariable}: {definition.ScaleValue(choice.Font, choice.SizePercent)}; ";
         })

@@ -28,7 +28,7 @@ public sealed class OperatorFontsTests(TestApp app)
     {
         var page = await ReadAsync(await OperatorClientAsync(), PageUrls.OperatorFonts);
 
-        Assert.Contains("@font-face { font-family: \"Pacifico\"; src: url(\"/fonts/pacifico/Pacifico-Regular.woff2\")", page);
+        Assert.Matches(@"@font-face \{ font-family: ""Pacifico""; src: url\(""fonts/pacifico/Pacifico-Regular\.\w+\.woff2""\)", page);
     }
 
     [Fact]
@@ -50,8 +50,8 @@ public sealed class OperatorFontsTests(TestApp app)
         {
             foreach (var face in font.Faces)
             {
-                var response = await client.GetAsync(font.Url(face), TestContext.Current.CancellationToken);
-                Assert.True(response.StatusCode == HttpStatusCode.OK, font.Url(face));
+                var response = await client.GetAsync($"/{font.AssetPath(face)}", TestContext.Current.CancellationToken);
+                Assert.True(response.StatusCode == HttpStatusCode.OK, font.AssetPath(face));
             }
         }
     }

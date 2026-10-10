@@ -144,8 +144,7 @@ public class ThemeRepository(SiteDatabase database)
         return new Theme(new ThemeColors(colors), ThemeFonts.From(role => ReadFont(settings, role)));
     }
 
-    // A font no longer in Font, or one a role can no longer have, shows Paper's, as does a theme saved
-    // before themes had fonts
+    // A font no longer in Font, or one a role can no longer have, shows Paper's
     private static FontChoice ReadFont(ThemeSettings settings, FontRole role)
     {
         if (
@@ -168,7 +167,7 @@ public class ThemeRepository(SiteDatabase database)
         public Dictionary<string, string> Colors { get; init; } = [];
 
         // by FontRole name
-        public Dictionary<string, FontSettings> Fonts { get; init; } = [];
+        public required Dictionary<string, FontSettings> Fonts { get; init; }
     }
 
     private sealed class FontSettings

@@ -69,7 +69,7 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(fonts, (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Fonts);
     }
 
-    // a theme saved before themes had fonts, and a font its role can no longer have
+    // a font its role can no longer have
     [Fact]
     public async Task AFontThatCantBeReadShowsPapers()
     {
@@ -77,12 +77,14 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
         await using (var connection = await database.Site.OpenConnectionAsync())
         {
             await connection.ExecuteAsync(
-                """UPDATE themes SET settings = jsonb_set(settings, '{fonts}', '{"Text": {"font": "Pacifico", "sizePercent": 100}}') WHERE id = @Id""",
+                """UPDATE themes SET settings = jsonb_set(settings, '{fonts}', '{"Heading": {"font": "Cinzel", "sizePercent": 110}, "Text": {"font": "Pacifico", "sizePercent": 100}}') WHERE id = @Id""",
                 new { Id = id.Value }
             );
         }
 
-        Assert.Equal(ThemePresets.Paper.Theme.Fonts, (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Fonts);
+        var fonts = (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Fonts;
+        Assert.Equal(new FontChoice(Font.Cinzel, 110), fonts.Heading);
+        Assert.Equal(ThemePresets.Paper.Theme.Fonts.Text, fonts.Text);
     }
 
     [Fact]

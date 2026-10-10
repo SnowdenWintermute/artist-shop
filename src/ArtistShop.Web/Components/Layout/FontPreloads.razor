@@ -1,0 +1,17 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  [Parameter, EditorRequired]
+  public ThemeFonts ThemeFonts { get; set; } = default!;
+
+  private IEnumerable<FontDefinition> Used =>
+    FontRoles.All.Select(definition => Fonts.For(ThemeFonts.For(definition.Role).Font)).Distinct();
+}
+
+@* Starts each font's regular face downloading as the page is read, rather than once text in it is laid out,
+   so it's more often there for the first paint. crossorigin, since fonts are always fetched that way and a
+   preload without it would be downloaded twice. The href must match FontFaces' url exactly *@
+@foreach (var font in Used)
+{
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="@Assets[font.AssetPath(font.RegularFace)]" />
+}

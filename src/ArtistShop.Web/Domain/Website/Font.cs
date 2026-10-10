@@ -35,7 +35,7 @@ public enum Font
     Yellowtail,
     Creepster,
     Quantico,
-    Chicle,
+    Gumball,
     FugazOne,
     AmaticSC,
     RussoOne,
@@ -58,7 +58,8 @@ public record FontFace(int Weight, bool IsItalic, string FileName);
 
 // Family is the CSS font-family name. XHeight and CapHeight are the heights of its x and H as fractions of
 // the font size, measured from the regular face's shapes. RecordedXHeight is the x-height the font file
-// states, which browsers go by for font-size-adjust: several fonts state it wrongly, like Sancreek's 0.196
+// states, which browsers go by for font-size-adjust. Some state it a little off, like Permanent Marker's
+// 0.610; the files that were far off have it corrected (SOURCES.md)
 public record FontDefinition(
     Font Font,
     string Family,
@@ -82,7 +83,11 @@ public record FontDefinition(
     // quoted, for a font-family declaration
     public string CssFamily => $"\"{Family}\"";
 
-    public string Url(FontFace face) => $"/fonts/{Folder}/{face.FileName}";
+    // under wwwroot, for Assets, which gives its fingerprinted url: cached for a year, and changed with the file
+    public string AssetPath(FontFace face) => $"fonts/{Folder}/{face.FileName}";
+
+    // the face most text uses, which a page preloads; every font has one
+    public FontFace RegularFace => Faces.Single(face => face.Weight == 400 && !face.IsItalic);
 
     private bool Has(int weight, bool isItalic) => Faces.Any(face => face.Weight == weight && face.IsItalic == isItalic);
 }
@@ -114,9 +119,9 @@ public static class Fonts
         new(Font.DMSerifDisplay, "DM Serif Display", "dm-serif-display", 0.481, 0.660, 0.481, [new(400, false, "DMSerifDisplay-Regular.woff2"), new(400, true, "DMSerifDisplay-Regular-Italic.woff2")]),
         new(Font.Exo2, "Exo 2", "exo-2", 0.487, 0.690, 0.487, [new(400, false, "Exo2-Regular.woff2"), new(400, true, "Exo2-Regular-Italic.woff2"), new(700, false, "Exo2-Bold.woff2"), new(700, true, "Exo2-Bold-Italic.woff2")]),
         new(Font.Orbitron, "Orbitron", "orbitron", 0.580, 0.720, 0.580, [new(400, false, "Orbitron-Regular.woff2"), new(700, false, "Orbitron-Bold.woff2")]),
-        new(Font.Cinzel, "Cinzel", "cinzel", 0.600, 0.700, 0.500, [new(400, false, "Cinzel-Regular.woff2"), new(700, false, "Cinzel-Bold.woff2")]),
+        new(Font.Cinzel, "Cinzel", "cinzel", 0.600, 0.700, 0.600, [new(400, false, "Cinzel-Regular.woff2"), new(700, false, "Cinzel-Bold.woff2")]),
         new(Font.Pacifico, "Pacifico", "pacifico", 0.470, 0.877, 0.460, [new(400, false, "Pacifico-Regular.woff2")]),
-        new(Font.Bungee, "Bungee", "bungee", 0.720, 0.720, 0.500, [new(400, false, "Bungee-Regular.woff2")]),
+        new(Font.Bungee, "Bungee", "bungee", 0.720, 0.720, 0.720, [new(400, false, "Bungee-Regular.woff2")]),
         new(Font.ZillaSlab, "Zilla Slab", "zilla-slab", 0.445, 0.650, 0.445, [new(400, false, "ZillaSlab-Regular.woff2"), new(400, true, "ZillaSlab-Regular-Italic.woff2"), new(700, false, "ZillaSlab-Bold.woff2"), new(700, true, "ZillaSlab-Bold-Italic.woff2")]),
         new(Font.PermanentMarker, "Permanent Marker", "permanent-marker", 0.590, 0.740, 0.610, [new(400, false, "PermanentMarker-Regular.woff2")]),
         new(Font.LuckiestGuy, "Luckiest Guy", "luckiest-guy", 0.692, 0.702, 0.684, [new(400, false, "LuckiestGuy-Regular.woff2")]),
@@ -124,15 +129,15 @@ public static class Fonts
         new(Font.Yellowtail, "Yellowtail", "yellowtail", 0.444, 0.721, 0.444, [new(400, false, "Yellowtail-Regular.woff2")]),
         new(Font.Creepster, "Creepster", "creepster", 0.732, 0.745, 0.733, [new(400, false, "Creepster-Regular.woff2")]),
         new(Font.Quantico, "Quantico", "quantico", 0.500, 0.700, 0.500, [new(400, false, "Quantico-Regular.woff2"), new(400, true, "Quantico-Regular-Italic.woff2"), new(700, false, "Quantico-Bold.woff2"), new(700, true, "Quantico-Bold-Italic.woff2")]),
-        new(Font.Chicle, "Chicle", "chicle", 0.497, 0.736, 0.277, [new(400, false, "Chicle-Regular.woff2")]),
+        new(Font.Gumball, "Gumball", "gumball", 0.497, 0.736, 0.497, [new(400, false, "Gumball-Regular.woff2")]),
         new(Font.FugazOne, "Fugaz One", "fugaz-one", 0.488, 0.720, 0.488, [new(400, false, "FugazOne-Regular.woff2")]),
         new(Font.AmaticSC, "Amatic SC", "amatic-sc", 0.662, 0.758, 0.659, [new(400, false, "AmaticSC-Regular.woff2"), new(700, false, "AmaticSC-Bold.woff2")]),
         new(Font.RussoOne, "Russo One", "russo-one", 0.530, 0.700, 0.530, [new(400, false, "RussoOne-Regular.woff2")]),
         new(Font.TenorSans, "Tenor Sans", "tenor-sans", 0.500, 0.700, 0.500, [new(400, false, "TenorSans-Regular.woff2")]),
         new(Font.Rowdies, "Rowdies", "rowdies", 0.472, 0.708, 0.473, [new(400, false, "Rowdies-Regular.woff2"), new(700, false, "Rowdies-Bold.woff2")]),
         new(Font.Audiowide, "Audiowide", "audiowide", 0.528, 0.700, 0.529, [new(400, false, "Audiowide-Regular.woff2")]),
-        new(Font.SpecialElite, "Special Elite", "special-elite", 0.481, 0.689, 0.258, [new(400, false, "SpecialElite-Regular.woff2")]),
-        new(Font.Sancreek, "Sancreek", "sancreek", 0.640, 0.763, 0.196, [new(400, false, "Sancreek-Regular.woff2")]),
+        new(Font.SpecialElite, "Special Elite", "special-elite", 0.481, 0.689, 0.481, [new(400, false, "SpecialElite-Regular.woff2")]),
+        new(Font.Sancreek, "Sancreek", "sancreek", 0.640, 0.763, 0.640, [new(400, false, "Sancreek-Regular.woff2")]),
         new(Font.OldStandardTT, "Old Standard TT", "old-standard-tt", 0.456, 0.712, 0.456, [new(400, false, "OldStandardTT-Regular.woff2"), new(400, true, "OldStandardTT-Regular-Italic.woff2"), new(700, false, "OldStandardTT-Bold.woff2")]),
         new(Font.RubikMonoOne, "Rubik Mono One", "rubik-mono-one", 0.700, 0.700, 0.700, [new(400, false, "RubikMonoOne-Regular.woff2")]),
         new(Font.ChelseaMarket, "Chelsea Market", "chelsea-market", 0.585, 0.735, 0.594, [new(400, false, "ChelseaMarket-Regular.woff2")]),

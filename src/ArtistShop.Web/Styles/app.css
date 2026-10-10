@@ -52,6 +52,8 @@ html {
 @utility font-heading {
   font-family: var(--theme-heading-font), ui-sans-serif, system-ui, sans-serif;
   font-size-adjust: var(--theme-heading-font-size-adjust);
+  /* a heading-only font may have no bold, and a bold heading in it draws regular rather than faked */
+  font-synthesis-weight: none;
   --current-font-scale: var(--theme-heading-font-scale);
 }
 

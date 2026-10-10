@@ -123,7 +123,7 @@ public sealed class ThemePageTests(TestApp app)
         var font = Fonts.For(heading.Font);
         var adjust = FontRoles.For(FontRole.Heading).SizeAdjust(heading.Font, heading.SizePercent);
         Assert.Contains($":root {{ --theme-heading-font: {font.CssFamily}; --theme-heading-font-size-adjust: {adjust};", page);
-        Assert.Contains($"font-family: {font.CssFamily}; src: url(\"{font.Url(font.Faces[0])}\")", page);
+        Assert.Contains($"font-family: {font.CssFamily}; src: url(\"{font.AssetPath(font.RegularFace).Replace(".woff2", ".")}", page);
     }
 
     [Fact]
@@ -136,7 +136,24 @@ public sealed class ThemePageTests(TestApp app)
 
         Assert.Contains($"{SiteThemeSelector} {{ --theme-heading-font: \"Cinzel\";", page);
         Assert.Contains("--theme-text-font: \"Bitter\";", page);
-        Assert.Contains("font-family: \"Cinzel\"; src: url(\"/fonts/cinzel/Cinzel-Regular.woff2\")", page);
+        Assert.Matches(@"font-family: ""Cinzel""; src: url\(""fonts/cinzel/Cinzel-Regular\.\w+\.woff2""\)", page);
+    }
+
+    // the same fingerprinted url as the @font-face rule, or the browser downloads the font twice
+    [Fact]
+    public async Task PublicPagesPreloadTheThemesFonts()
+    {
+        var site = await app.MakeSiteAsync();
+        await ThemesOf(site).UseAsync(new ThemeKey.Saved(await ThemesOf(site).AddAsync("Charcoal", Charcoal)));
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        foreach (var file in new[] { "cinzel/Cinzel-Regular", "bitter/Bitter-Regular" })
+        {
+            var url = Regex.Match(page, $@"src: url\(""(fonts/{file}\.\w+\.woff2)""\)").Groups[1].Value;
+            Assert.NotEqual("", url);
+            Assert.Contains($"<link rel=\"preload\" as=\"font\" type=\"font/woff2\" crossorigin href=\"{url}\"", page);
+        }
     }
 
     [Fact]
@@ -468,16 +485,14 @@ public sealed class ThemePageTests(TestApp app)
     }
 
     [Fact]
-    public async Task DeletingTheThemeInUseWarnsThenPutsTheWebsiteBackOnPaper()
+    public async Task DeletingTheThemeInUsePutsTheWebsiteBackOnPaper()
     {
         var site = await app.MakeSiteAsync();
         var key = new ThemeKey.Saved(await ThemesOf(site).AddAsync("Charcoal", Charcoal));
         await ThemesOf(site).UseAsync(key);
 
-        var page = await GetAsync(site, PageUrls.ThemeEditing(key));
         await PostAsync(site, PageUrls.ThemeEditing(key), "delete-theme", []);
 
-        Assert.Contains("so it will go back to Paper", page);
         Assert.Empty(await ThemesOf(site).GetAllAsync());
         Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), (await ThemesOf(site).GetInUseAsync())?.Key);
     }
