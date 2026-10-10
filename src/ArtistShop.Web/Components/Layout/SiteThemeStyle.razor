@@ -22,5 +22,5 @@
    navigation to an admin page takes the marker away with this, and the platform's show again *@
 @if (_theme is { } theme)
 {
-  <ColorStyle Selector=":root:has([data-site-theme])" Colors="theme.Theme.Colors" />
+  <ThemeStyle Selector=":root:has([data-site-theme])" Theme="theme.Theme" />
 }

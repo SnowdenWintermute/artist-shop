@@ -1,0 +1,78 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  // its place in ThemeForm.Fonts, which names its inputs
+  [Parameter, EditorRequired]
+  public int Index { get; set; }
+
+  [Parameter, EditorRequired]
+  public FontChoiceInput Choice { get; set; } = default!;
+
+  // the font the page shows for the role, which a post that sent nothing usable leaves as saved
+  [Parameter, EditorRequired]
+  public FontChoice Shown { get; set; } = default!;
+
+  // every font in the operator's order (Fonts.InOrder); this lists the ones its role allows
+  [Parameter, EditorRequired]
+  public IReadOnlyList<FontDefinition> Order { get; set; } = default!;
+
+  // the font or its size isn't as the open theme has it saved, so Reset has something to put back
+  [Parameter, EditorRequired]
+  public bool IsChanged { get; set; }
+
+  private FontRoleDefinition Definition => FontRoles.For(Choice.Role);
+
+  private string Name(string property) => $"Input.Fonts[{Index}].{property}";
+
+  private string LabelId => $"font-{Definition.CssName}";
+
+  // how far along the slider 100% is
+  private string FullSizeFraction =>
+    ((100.0 - FontRoleDefinition.MinimumSizePercent) / (Definition.MaximumSizePercent - FontRoleDefinition.MinimumSizePercent))
+      .ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+@* native inputs, like ColorRoleField's. Picking previews through the page's SubmitOnChange *@
+<div class="mb-6">
+  <input type="hidden" name="@Name(nameof(FontChoiceInput.Role))" value="@Choice.Role" />
+
+  @* the chosen font's name too, since the list may have it scrolled out of sight *@
+  <div class="mb-2 flex items-center justify-between gap-3">
+    <div>
+      <p id="@LabelId" class="font-bold">@Definition.Name: @Fonts.For(Shown.Font).Family</p>
+      <p class="text-sm text-ink-faded">@Definition.Description</p>
+    </div>
+    @if (IsChanged)
+    {
+      @* previews, like a pick, so Save is still what keeps it *@
+      <ButtonBasic type="submit" name="Input.ResetFont" value="@Choice.Role" Variant="ButtonVariant.Outline"
+                   aria-label="@($"Reset {Definition.Name.ToLowerInvariant()}")">Reset</ButtonBasic>
+    }
+  </div>
+
+  <div role="radiogroup" aria-labelledby="@LabelId" class="mb-2 max-h-72 overflow-y-auto border border-rule bg-panel">
+    @foreach (var font in Order.Where(font => Definition.Allows(font.Font)))
+    {
+      <label class="flex cursor-pointer items-start gap-3 border-b border-rule px-3 py-2 last:border-b-0 has-checked:bg-selected">
+        <input type="radio" name="@Name(nameof(FontChoiceInput.Font))" value="@font.Font"
+               checked="@(font.Font.ToString() == Choice.Font)" class="mt-2 shrink-0" />
+        <FontSample Definition="font" Role="Choice.Role" />
+      </label>
+    }
+  </div>
+
+  <label class="flex items-center gap-2 text-sm">
+    Size
+    <span class="relative inline-flex">
+      <input type="range" min="@FontRoleDefinition.MinimumSizePercent" max="@Definition.MaximumSizePercent"
+             step="@FontRoleDefinition.SizePercentStep" name="@Name(nameof(FontChoiceInput.SizePercent))"
+             value="@Choice.SizePercent" class="cursor-pointer" />
+      @* a mark under the track at 100%. Drawn here, since a datalist's tick marks don't show in
+         Firefox or on iOS. The thumb's centre stops about 8px short of each end *@
+      <span aria-hidden="true" class="pointer-events-none absolute top-full h-1.5 w-px -translate-x-1/2 bg-ink-faded"
+            style="@($"left: calc(8px + {FullSizeFraction} * (100% - 16px))")"></span>
+    </span>
+    @Choice.SizePercent%
+  </label>
+</div>

@@ -8,12 +8,14 @@
    NavDrawer behind the menu button: always below md, and above it when <nav-bar> (NavBar.razor.js)
    finds they don't fit. Hidden, they stay laid out, so nav-bar can still measure them. The account
    button goes with them; while it shows, it opens the same drawer with only the account's links.
+   At least 70px high, and taller for a large heading font; the links' room clips only sideways, so the
+   heading font's tall letters show
    The drawer is inside <nav-bar> so that its group-data-collapsed classes follow the bar, even
    while it's open *@
 <nav-bar
-  class="group flex h-[70px] items-center gap-4 border-b bg-bar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
+  class="group flex min-h-[70px] items-center gap-4 border-b bg-bar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
   <Logo />
-  <div data-part="room" class="hidden min-w-0 flex-1 overflow-hidden md:block">
+  <div data-part="room" class="hidden min-w-0 flex-1 overflow-x-clip md:block">
     <div data-part="links" class="flex min-w-max items-center justify-between gap-8 group-data-collapsed:invisible">
       <nav class="flex gap-4">@ChildContent</nav>
       <UserAuthMenu Placement="UserAuthMenuPlacement.Bar" />

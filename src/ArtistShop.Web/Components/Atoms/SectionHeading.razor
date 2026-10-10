@@ -1,0 +1,12 @@
+@* A public page's h2, in the theme's heading font *@
+
+@code {
+  // size and layout, which differ from page to page
+  [Parameter]
+  public string? Class { get; set; }
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<h2 class="@($"font-heading {Class}")">@ChildContent</h2>

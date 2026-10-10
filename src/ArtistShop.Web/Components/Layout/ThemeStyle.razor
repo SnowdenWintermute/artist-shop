@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  // the elements the theme applies to, like :root for the platform's
+  [Parameter, EditorRequired]
+  public string Selector { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public Theme Theme { get; set; } = default!;
+
+  private IReadOnlyList<FontDefinition> FontFiles =>
+    [.. FontRoles.All.Select(definition => Fonts.For(Theme.Fonts.For(definition.Role).Font)).Distinct()];
+}
+
+@* a theme's colours and fonts, with the fonts' files declared. A page that already declares a font,
+   like the Theme page's lists, declaring it again does no harm *@
+<ColorStyle Selector="@Selector" Colors="Theme.Colors" />
+<FontStyle Selector="@Selector" Fonts="Theme.Fonts" />
+<FontFaces Fonts="FontFiles" />

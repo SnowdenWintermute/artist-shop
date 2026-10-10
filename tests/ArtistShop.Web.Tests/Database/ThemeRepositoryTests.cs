@@ -24,7 +24,8 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
                         .. extra.Select(choice => KeyValuePair.Create(choice.Role, choice.Color)),
                     ]
                 )
-            )
+            ),
+            ThemePresets.Paper.Theme.Fonts
         );
 
     [Fact]
@@ -57,6 +58,31 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
 
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _themes.UpdateAsync(id, UniqueName(), Choosing()));
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _themes.UseAsync(new ThemeKey.Saved(id)));
+    }
+
+    [Fact]
+    public async Task FontsReadBackAsTheyWereSaved()
+    {
+        var fonts = new ThemeFonts(new FontChoice(Font.Cinzel, 110), new FontChoice(Font.Bitter, 90));
+        var id = await _themes.AddAsync(UniqueName(), Choosing() with { Fonts = fonts });
+
+        Assert.Equal(fonts, (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Fonts);
+    }
+
+    // a theme saved before themes had fonts, and a font its role can no longer have
+    [Fact]
+    public async Task AFontThatCantBeReadShowsPapers()
+    {
+        var id = await _themes.AddAsync(UniqueName(), Choosing());
+        await using (var connection = await database.Site.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync(
+                """UPDATE themes SET settings = jsonb_set(settings, '{fonts}', '{"Text": {"font": "Pacifico", "sizePercent": 100}}') WHERE id = @Id""",
+                new { Id = id.Value }
+            );
+        }
+
+        Assert.Equal(ThemePresets.Paper.Theme.Fonts, (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Fonts);
     }
 
     [Fact]

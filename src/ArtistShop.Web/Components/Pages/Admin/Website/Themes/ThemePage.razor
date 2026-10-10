@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject ThemeRepository ThemeRepository
+@inject FontRepository FontRepository
 @inject NavigationManager NavigationManager
 @inject ILogger<ThemePage> Logger
 @inject IHostEnvironment Environment
@@ -29,14 +30,17 @@
   // null when it's a preset that no longer exists, so the public pages show Paper
   private NamedTheme? _inUse;
   private NamedTheme? _open;
-  // what the page shows: the open theme's colours as saved, or the ones being previewed
-  private ThemeColors? _shown;
+  // what the page shows: the open theme as saved, or the one being previewed
+  private Theme? _shown;
+  // every font, in the operator's order, which the font lists show
+  private IReadOnlyList<FontDefinition> _fontOrder = [];
 
   protected override async Task OnInitializedAsync()
   {
     _themes = [.. (await ThemeRepository.GetAllAsync()).OrderBy(theme => theme.Name,
 StringComparer.CurrentCultureIgnoreCase)];
     _inUse = await ThemeRepository.GetInUseAsync();
+    _fontOrder = Fonts.InOrder(await FontRepository.GetOrderAsync());
 
     if (_inUse is null)
     {
@@ -56,13 +60,13 @@ StringComparer.CurrentCultureIgnoreCase)];
 
     if (Input is null)
     {
-      _shown = open.Theme.Colors;
+      _shown = open.Theme;
       // a copy is the website's own, so it starts with a name of its own
       Input = ThemeForm.From(open.Name, $"{open.Name} copy", _shown);
     }
     else
     {
-      _shown = Input.ToColors(open.Theme.Colors);
+      _shown = Input.ToTheme(open.Theme);
     }
   }
 
@@ -81,13 +85,13 @@ StringComparer.CurrentCultureIgnoreCase)];
       return;
     }
 
-    var colors = Input.ToColors(open.Theme.Colors);
+    var theme = Input.ToTheme(open.Theme);
 
     try
     {
       if (Input.IsSavingAsNew)
       {
-        var key = new ThemeKey.Saved(await ThemeRepository.AddAsync(Input.ToNewName(), new Theme(colors)));
+        var key = new ThemeKey.Saved(await ThemeRepository.AddAsync(Input.ToNewName(), theme));
 
         if (Input.SaveAsNewAndUse)
         {
@@ -100,7 +104,7 @@ StringComparer.CurrentCultureIgnoreCase)];
 
       if (Input.IsSaving && open.Key is ThemeKey.Saved saved)
       {
-        await ThemeRepository.UpdateAsync(saved.Id, Input.ToName(), new Theme(colors));
+        await ThemeRepository.UpdateAsync(saved.Id, Input.ToName(), theme);
 
         if (ThemeKey.FromQueryValue(Input.SwitchTo) is { } next)
         {
@@ -128,8 +132,8 @@ StringComparer.CurrentCultureIgnoreCase)];
     }
 
     // derived colours follow the ones just picked
-    _shown = colors;
-    Input = ThemeForm.From(Input.Name ?? "", Input.NewName ?? "", colors);
+    _shown = theme;
+    Input = ThemeForm.From(Input.Name ?? "", Input.NewName ?? "", theme);
   }
 
   private void NavigateToSaved(ThemeKey key) =>
@@ -170,8 +174,15 @@ true
   }
 
   // a role differs from the open theme as saved, which its Reset puts back
-  private static bool IsChanged(ThemeColors shown, NamedTheme open, ColorRole role) =>
-    shown.ChosenFor(role) != open.Theme.Colors.ChosenFor(role);
+  private static bool IsChanged(Theme shown, NamedTheme open, ColorRole role) =>
+    shown.Colors.ChosenFor(role) != open.Theme.Colors.ChosenFor(role);
+
+  private static bool IsChanged(Theme shown, NamedTheme open, FontRole role) => shown.Fonts.For(role) !=
+open.Theme.Fonts.For(role);
+
+  // each with its place in Input.Fonts, which names its inputs
+  private IEnumerable<(int Index, FontChoiceInput Choice)> NumberedFonts =>
+    Input.Fonts.Select((choice, index) => (index, choice)).Where(entry => Enum.IsDefined(entry.choice.Role));
 
   // each with its place in Input.Roles, which names its inputs
   private IEnumerable<(int Index, ColorChoiceInput Choice)> NumberedRoles =>
@@ -190,7 +201,7 @@ true
 {
   var isInUse = open.Key == _inUse?.Key;
   @* each listed under the role in front *@
-  var problems = shown.ContrastProblems().ToLookup(problem => problem.Foreground);
+  var problems = shown.Colors.ContrastProblems().ToLookup(problem => problem.Foreground);
 
   <main>
     <AdminPanel>
@@ -234,6 +245,17 @@ true
           <div class="mb-6 grid gap-6 md:grid-cols-[1fr_16rem]">
             <SubmitOnChange>
               <section class="mb-6">
+                <h2 class="mb-4 text-lg">Fonts</h2>
+                @* the lists show every font in its own *@
+                <FontFaces Fonts="Fonts.All" />
+                @foreach (var (index, choice) in NumberedFonts)
+                {
+                  <FontRoleField Index="index" Choice="choice" Shown="shown.Fonts.For(choice.Role)" Order="_fontOrder"
+                                 IsChanged="IsChanged(shown, open, choice.Role)" />
+                }
+              </section>
+
+              <section class="mb-6">
                 <h2 class="mb-2 text-lg">Base colors</h2>
                 <p class="mb-4 text-sm text-ink-faded">You may derive most of the colors from the chosen base colors.</p>
                 @foreach (var (index, choice) in BaseRoles)
@@ -247,7 +269,7 @@ true
                 <h2 class="mb-2 text-lg">Everything else</h2>
                 <p class="mb-4 text-sm text-ink-faded">Derived from the base colors unless you pick one.</p>
 
-                @if (shown.ChoosesADerivableRole)
+                @if (shown.Colors.ChoosesADerivableRole)
                 {
                   @* previews too, like a pick *@
                   <div class="mb-6">
@@ -263,13 +285,13 @@ true
                 }
               </section>
 
-              @* for a browser that runs no scripts, where picking a color can't preview by itself *@
+              @* for a browser that runs no scripts, where picking a font or color can't preview by itself *@
               <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Preview</ButtonBasic>
             </SubmitOnChange>
 
             <div class="md:sticky md:top-4 md:self-start">
               <div class="mb-2">
-                <ThemePreview Colors="shown" />
+                <ThemePreview Theme="shown" />
               </div>
               @if (_formWasPosted)
               {
@@ -280,7 +302,7 @@ true
 
           @if (open.IsSaved && isInUse)
           {
-            <p class="mb-2 text-sm text-ink-faded">Your website uses this theme, so saving changes it too.</p>
+            <p class="mb-2 text-sm text-ink-faded">Your website uses this theme.</p>
           }
           <div class="mb-2 flex flex-wrap gap-3">
             @if (open.IsSaved)

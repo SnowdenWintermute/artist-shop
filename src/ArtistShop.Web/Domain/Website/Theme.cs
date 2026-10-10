@@ -2,8 +2,8 @@ namespace ArtistShop.Web.Domain.Website;
 
 using System.Globalization;
 
-// How a website's public pages look. Fonts and sizes join the colours here
-public sealed record Theme(ThemeColors Colors);
+// How a website's public pages look
+public sealed record Theme(ThemeColors Colors, ThemeFonts Fonts);
 
 public record ThemeId(int Value);
 
@@ -35,6 +35,13 @@ public record ThemePresetDefinition(ThemePreset Preset, string Name, Theme Theme
 // change to one reaches every website using it with the next deploy
 public static class ThemePresets
 {
+    // the platform's own fonts, which every preset has for now. First, since the presets below use it
+    // as they're made
+    private static readonly ThemeFonts PlatformFonts = new(
+        new(Font.TitilliumWeb, 100),
+        new(Font.Roboto, 100)
+    );
+
     // the platform's own look, which admin pages always have and a new website starts with
     public static readonly ThemePresetDefinition Paper = new(
         ThemePreset.Paper,
@@ -57,7 +64,12 @@ public static class ThemePresets
         new(
             ThemePreset.Dark,
             "Dark",
-            Choosing((ColorRole.Page, "#1c1d21"), (ColorRole.Ink, "#ebe8e2"), (ColorRole.Accent, "#99c1f1"), (ColorRole.Rule, "#5a5d66"))
+            Choosing(
+                (ColorRole.Page, "#1c1d21"),
+                (ColorRole.Ink, "#ebe8e2"),
+                (ColorRole.Accent, "#99c1f1"),
+                (ColorRole.Rule, "#5a5d66")
+            )
         ),
     ];
 
@@ -65,10 +77,16 @@ public static class ThemePresets
         Find(preset) ?? throw new InvalidOperationException($"{preset} isn't a preset.");
 
     // null for an id stored before its preset was retired
-    public static ThemePresetDefinition? Find(ThemePreset preset) => All.SingleOrDefault(definition => definition.Preset == preset);
+    public static ThemePresetDefinition? Find(ThemePreset preset) =>
+        All.SingleOrDefault(definition => definition.Preset == preset);
 
     private static Theme Choosing(params (ColorRole Role, string Hex)[] choices) =>
-        new(new ThemeColors(choices.ToDictionary(choice => choice.Role, choice => RgbColor.Parse(choice.Hex))));
+        new(
+            new ThemeColors(
+                choices.ToDictionary(choice => choice.Role, choice => RgbColor.Parse(choice.Hex))
+            ),
+            PlatformFonts
+        );
 }
 
 // Which theme: a preset or one the website saved. The website's theme in use is one, and so is the
@@ -89,7 +107,10 @@ public abstract record ThemeKey
         };
 
     public static ThemeKey? FromQueryValue(string? value) =>
-        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? new Saved(new ThemeId(id))
-        : Enum.TryParse<ThemePreset>(value, ignoreCase: true, out var preset) && Enum.IsDefined(preset) ? new Preset(preset)
+        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            ? new Saved(new ThemeId(id))
+        : Enum.TryParse<ThemePreset>(value, ignoreCase: true, out var preset)
+        && Enum.IsDefined(preset)
+            ? new Preset(preset)
         : null;
 }

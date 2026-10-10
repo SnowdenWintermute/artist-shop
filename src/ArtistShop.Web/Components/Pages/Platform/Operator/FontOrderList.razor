@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Website
@@ -45,12 +46,8 @@
 
   <SortableList TItem="Font" Items="_fonts" AriaLabel="Font order" OnMove="MoveAsync">
     <RowContent Context="font">
-      @{ var definition = Fonts.For(font); }
-      <span class="grow wrap-anywhere" style="font-family: @definition.CssFamily">
-        <span class="block text-xl">@definition.Family</span>
-        <span class="block">The quick brown fox jumps over the lazy dog.</span>
-      </span>
-      @if (definition.IsHeadingOnly)
+      <FontSample Definition="Fonts.For(font)" Role="FontRole.Heading" Class="grow" />
+      @if (Fonts.For(font).IsHeadingOnly)
       {
         <span class="text-ink-faded">Heading only</span>
       }

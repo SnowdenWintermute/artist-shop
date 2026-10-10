@@ -65,7 +65,7 @@
   <main class="mx-auto max-w-[1200px] p-4">
     <BackLink Href="/" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
-    <h1 class="mb-4">@loaded.Collection.Name.Value</h1>
+    <PageHeading Class="mb-4">@loaded.Collection.Name.Value</PageHeading>
 
     @if (loaded.Works.Items.Count == 0)
     {

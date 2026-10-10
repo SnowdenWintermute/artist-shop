@@ -1,0 +1,30 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  // the elements the fonts apply to, like :root for the platform's
+  [Parameter, EditorRequired]
+  public string Selector { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public ThemeFonts Fonts { get; set; } = default!;
+
+  // markup, since text in <style> would have the family names' quotes encoded. Only the font list's own
+  // names go in
+  private MarkupString Rule =>
+    new(
+      $"{Selector} {{ " +
+      string.Concat(
+        FontRoles.All.Select(definition =>
+        {
+          var choice = Fonts.For(definition.Role);
+          return $"{definition.FontVariable}: {Domain.Website.Fonts.For(choice.Font).CssFamily}; " +
+                 $"{definition.SizeAdjustVariable}: {definition.SizeAdjust(choice.Font, choice.SizePercent)}; " +
+                 $"{definition.ScaleVariable}: {definition.ScaleValue(choice.Font, choice.SizePercent)}; ";
+        })
+      ) +
+      "}"
+    );
+}
+
+@* the values of app.css's --theme-*-font variables, which font-heading, font-text and the line heights read *@
+<style>@Rule</style>

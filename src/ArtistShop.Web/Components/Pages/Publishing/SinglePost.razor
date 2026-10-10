@@ -74,15 +74,15 @@
     }
 
     <div class="mb-6">
-      <h1 class="flex items-center justify-between text-3xl">
+      <PageHeading Class="flex items-center justify-between text-3xl">
         @* min-w-0, since a flex item otherwise won't shrink below its longest word *@
         <span class="min-w-0 break-words">@loaded.Post.Title.Value</span>
         <AuthorizeView Policy="@SitePolicies.Admin">
           <Authorized>
-            <a class="@($"text-base {LinkStyles.InSentence}")" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
+            <a class="@($"font-text text-base {LinkStyles.InSentence}")" href="@PageUrls.EditPost(loaded.Post.Id)">Edit</a>
           </Authorized>
         </AuthorizeView>
-      </h1>
+      </PageHeading>
 
       @if (loaded.Post.PublishedAt is { } publishedAt)
       {

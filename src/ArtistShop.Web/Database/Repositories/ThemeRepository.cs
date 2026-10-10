@@ -110,7 +110,18 @@ public class ThemeRepository(SiteDatabase database)
 
     private static string WriteSettings(Theme theme) =>
         JsonSerializer.Serialize(
-            new ThemeSettings { Colors = theme.Colors.Chosen.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value.Hex) },
+            new ThemeSettings
+            {
+                Colors = theme.Colors.Chosen.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value.Hex),
+                Fonts = FontRoles.All.ToDictionary(
+                    definition => definition.Role.ToString(),
+                    definition => new FontSettings
+                    {
+                        Font = theme.Fonts.For(definition.Role).Font.ToString(),
+                        SizePercent = theme.Fonts.For(definition.Role).SizePercent,
+                    }
+                ),
+            },
             JsonSerializerOptions.Web
         );
 
@@ -130,13 +141,40 @@ public class ThemeRepository(SiteDatabase database)
             }
         }
 
-        return new Theme(new ThemeColors(colors));
+        return new Theme(new ThemeColors(colors), ThemeFonts.From(role => ReadFont(settings, role)));
+    }
+
+    // A font no longer in Font, or one a role can no longer have, shows Paper's, as does a theme saved
+    // before themes had fonts
+    private static FontChoice ReadFont(ThemeSettings settings, FontRole role)
+    {
+        if (
+            settings.Fonts.GetValueOrDefault(role.ToString()) is { } stored
+            && Enum.TryParse<Font>(stored.Font, out var font)
+            && font.ToString() == stored.Font
+            && FontRoles.For(role).Allows(font)
+            && FontRoles.For(role).AllowsSize(stored.SizePercent)
+        )
+        {
+            return new FontChoice(font, stored.SizePercent);
+        }
+
+        return ThemePresets.Paper.Theme.Fonts.For(role);
     }
 
     // the settings column's document
     private sealed class ThemeSettings
     {
         public Dictionary<string, string> Colors { get; init; } = [];
+
+        // by FontRole name
+        public Dictionary<string, FontSettings> Fonts { get; init; } = [];
+    }
+
+    private sealed class FontSettings
+    {
+        public required string Font { get; init; }
+        public required int SizePercent { get; init; }
     }
 
     private sealed class ThemeRow

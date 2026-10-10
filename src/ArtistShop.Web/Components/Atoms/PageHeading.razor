@@ -1,0 +1,12 @@
+@* A public page's h1, in the theme's heading font. A link beside the title, like Edit, takes font-text *@
+
+@code {
+  // size and layout, which differ from page to page
+  [Parameter]
+  public string? Class { get; set; }
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<h1 class="@($"font-heading {Class}")">@ChildContent</h1>

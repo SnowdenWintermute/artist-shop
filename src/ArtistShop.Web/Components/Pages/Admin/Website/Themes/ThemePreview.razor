@@ -5,23 +5,23 @@
   public SiteWording Wording { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public ThemeColors Colors { get; set; } = default!;
+  public Theme Theme { get; set; } = default!;
 
   // shrunk from images/aunt tullie's living room.jpeg, small enough for a tile and the lightbox
   private const string PaintingPath = "images/aunt-tullies-living-room.avif";
 }
 
-@* A small public page in the colours shown: ColorStyle sets them on this box alone, so the classes
-   inside read them instead of the admin's *@
-<ColorStyle Selector="[data-color-preview]" Colors="Colors" />
-<div data-color-preview class="border border-rule bg-page text-sm text-ink" aria-label="Preview" role="img">
-  <div class="mb-4 flex gap-4 bg-bar px-3 py-2 font-serif text-lg">
+@* A small public page in the theme shown: ThemeStyle sets it on this box alone, so the classes inside
+   read it instead of the admin's. font-text, since the page's font was taken at html *@
+<ThemeStyle Selector="[data-theme-preview]" Theme="Theme" />
+<div data-theme-preview class="border border-rule bg-page font-text text-sm text-ink" aria-label="Preview" role="img">
+  <div class="mb-4 flex gap-4 bg-bar px-3 py-2 font-heading text-lg">
     <span class="text-link">Home</span>
     <span class="text-link-hover underline decoration-dotted" title="A link under the pointer">Blog</span>
   </div>
 
   <div class="px-3 pb-3">
-    <p class="mb-2 font-serif text-xl">@Wording.Collection.PluralHeading</p>
+    <p class="mb-2 font-heading text-xl">@Wording.Collection.PluralHeading</p>
     <div class="mb-3 flex gap-3">
       <div class="w-24">
         <img src="@Assets[PaintingPath]" alt="" class="mb-1 aspect-square w-full object-cover" />

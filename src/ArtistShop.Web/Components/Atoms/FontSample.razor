@@ -1,0 +1,26 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  [Parameter, EditorRequired]
+  public FontDefinition Definition { get; set; } = default!;
+
+  // drawn at the size that role gives it at 100%, line heights and all
+  [Parameter, EditorRequired]
+  public FontRole Role { get; set; }
+
+  // its place in a row, like grow
+  [Parameter]
+  public string? Class { get; set; }
+
+  private string Style =>
+    $"font-family: {Definition.CssFamily}; " +
+    $"font-size-adjust: {FontRoles.For(Role).SizeAdjust(Definition.Font, 100)}; " +
+    $"--current-font-scale: {FontRoles.For(Role).ScaleValue(Definition.Font, 100)}";
+}
+
+@* a font's name and a sentence with every letter in it, in that font, whose files the page declares
+   (FontFaces) *@
+<span class="@($"block wrap-anywhere {Class}")" style="@Style">
+  <span class="block text-xl">@Definition.Family</span>
+  <span class="block text-base">The quick brown fox jumps over the lazy dog.</span>
+</span>

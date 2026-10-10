@@ -37,10 +37,47 @@
 
 /* what an iPhone shows past the page: below its end, and in the strip left uncovered once the
    keyboard has opened (an iOS 26 bug). Safari also tints its toolbar from it. The pages' own
-   background, so neither shows as a white bar. The text colour is set here too, for every page to
-   inherit */
+   background, so neither shows as a white bar. The text colour and font are set here too, for every
+   page to inherit */
 html {
-  @apply bg-page text-ink;
+  @apply bg-page font-text text-ink;
+  line-height: calc(1.5 * var(--current-font-scale));
+}
+
+/* The theme's two fonts (FontRoles), which ThemeStyle writes like the colours. font-size-adjust draws a
+   font at the size FontRoleDefinition.Scale works out, so a font picked keeps the size and the theme's size
+   percent scales it. A font's elements set them, since a variable's value is taken where it's used.
+   font-size-adjust leaves line heights alone, so --current-font-scale carries the scale to them: the
+   text sizes' below, and this for an element with none */
+@utility font-heading {
+  font-family: var(--theme-heading-font), ui-sans-serif, system-ui, sans-serif;
+  font-size-adjust: var(--theme-heading-font-size-adjust);
+  --current-font-scale: var(--theme-heading-font-scale);
+}
+
+@utility font-text {
+  font-family: var(--theme-text-font), ui-sans-serif, system-ui, sans-serif;
+  font-size-adjust: var(--theme-text-font-size-adjust);
+  --current-font-scale: var(--theme-text-font-scale);
+}
+
+/* in the base layer, so a text size's own line height wins */
+@layer base {
+  .font-heading,
+  .font-text {
+    line-height: calc(1.5 * var(--current-font-scale));
+  }
+}
+
+/* tailwind's line heights, grown with the font's scale. Inline, so each is worked out on its element */
+@theme inline {
+  --text-xs--line-height: calc(1 / 0.75 * var(--current-font-scale));
+  --text-sm--line-height: calc(1.25 / 0.875 * var(--current-font-scale));
+  --text-base--line-height: calc(1.5 * var(--current-font-scale));
+  --text-lg--line-height: calc(1.75 / 1.125 * var(--current-font-scale));
+  --text-xl--line-height: calc(1.75 / 1.25 * var(--current-font-scale));
+  --text-2xl--line-height: calc(2 / 1.5 * var(--current-font-scale));
+  --text-3xl--line-height: calc(2.25 / 1.875 * var(--current-font-scale));
 }
 
 /* a browser gives a dialog or a popover colours of its own, Canvas and CanvasText, which ignore the
@@ -54,71 +91,6 @@ html {
   }
 }
 
-@font-face {
-  font-family: "Roboto";
-  src: url("/fonts/roboto/Roboto-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Roboto";
-  src: url("/fonts/roboto/Roboto-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Roboto";
-  src: url("/fonts/roboto/Roboto-Regular-Italic.woff2") format("woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Roboto";
-  src: url("/fonts/roboto/Roboto-Bold-Italic.woff2") format("woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JosefinSlab";
-  src: url("/fonts/josefin-slab/JosefinSlab-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JosefinSlab";
-  src: url("/fonts/josefin-slab/JosefinSlab-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JosefinSlab";
-  src: url("/fonts/josefin-slab/JosefinSlab-Regular-Italic.woff2")
-    format("woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JosefinSlab";
-  src: url("/fonts/josefin-slab/JosefinSlab-Bold-Italic.woff2") format("woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
 @theme {
   /* Quill's snow theme colours, which quill.snow.css writes out rather than naming, for the post
      editor's own controls that match it */
@@ -126,10 +98,6 @@ html {
   --color-quill-line: #ccc;
   --color-quill-shadow: #ddd;
   --color-quill-active: #06c;
-
-  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
-  --font-serif:
-    "JosefinSlab", ui-serif, Georgia, Cambria, "Times New Roman", serif;
 }
 
 /* the look every modal dialog shares; ModalDialog adds the width.

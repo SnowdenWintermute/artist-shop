@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
@@ -31,7 +32,7 @@
         break;
 
       case HeadingBlock { Level: HeadingLevel.Two } heading:
-        <h2 class="text-2xl font-bold"><PostInlineText Text="heading.Text" /></h2>
+        <SectionHeading Class="text-2xl font-bold"><PostInlineText Text="heading.Text" /></SectionHeading>
         break;
 
       case HeadingBlock heading:

@@ -21,21 +21,30 @@ public sealed class ThemePageTests(TestApp app)
         [ColorRole.Ink] = RgbColor.White,
         [ColorRole.Accent] = RgbColor.Parse("#99c1f1"),
         [ColorRole.Bar] = RgbColor.Parse("#aa0000"),
-    }));
+    }), new ThemeFonts(new FontChoice(Font.Cinzel, 110), new FontChoice(Font.Bitter, 90)));
 
-    // every role as the page shows the open theme, then whatever the test changes, as a browser posts the form
-    private static Dictionary<string, string> Fields(ThemeColors open, string name, Action<Dictionary<string, string>, Func<ColorRole, string>> change)
+    // every font and role as the page shows the open theme, then whatever the test changes, as a browser
+    // posts the form. Fonts at Input.Fonts[0] (heading) and [1] (text)
+    private static Dictionary<string, string> Fields(Theme open, string name, Action<Dictionary<string, string>, Func<ColorRole, string>> change)
     {
         // the page's name and the Save as new theme dialog's, which a test posts whichever it needs
         var fields = new Dictionary<string, string> { ["Input.Name"] = name, ["Input.NewName"] = name };
 
+        for (var index = 0; index < FontRoles.All.Count; index++)
+        {
+            var role = FontRoles.All[index].Role;
+            fields[$"Input.Fonts[{index}].Role"] = role.ToString();
+            fields[$"Input.Fonts[{index}].Font"] = open.Fonts.For(role).Font.ToString();
+            fields[$"Input.Fonts[{index}].SizePercent"] = open.Fonts.For(role).SizePercent.ToString();
+        }
+
         for (var index = 0; index < ColorRoles.All.Count; index++)
         {
             var role = ColorRoles.All[index].Role;
-            var resolved = open.Resolve(role);
+            var resolved = open.Colors.Resolve(role);
             var hex = (resolved with { Alpha = 255 }).Hex;
             fields[$"Input.Roles[{index}].Role"] = role.ToString();
-            fields[$"Input.Roles[{index}].IsDerived"] = open.ChosenFor(role) is null ? "true" : "false";
+            fields[$"Input.Roles[{index}].IsDerived"] = open.Colors.ChosenFor(role) is null ? "true" : "false";
             fields[$"Input.Roles[{index}].Color"] = hex;
             fields[$"Input.Roles[{index}].ShownColor"] = hex;
             fields[$"Input.Roles[{index}].OpacityPercent"] = resolved.OpacityPercent.ToString();
@@ -47,7 +56,7 @@ public sealed class ThemePageTests(TestApp app)
     }
 
     private static Dictionary<string, string> PaperFields(Action<Dictionary<string, string>, Func<ColorRole, string>> change) =>
-        Fields(Paper, "Paper copy", change);
+        Fields(ThemePresets.Paper.Theme, "Paper copy", change);
 
     private async Task<string> PostAsync(TestSite site, string path, string formName, Dictionary<string, string> fields)
     {
@@ -104,6 +113,108 @@ public sealed class ThemePageTests(TestApp app)
     }
 
     [Fact]
+    public async Task EveryPageHasThePlatformsFonts()
+    {
+        var site = await app.MakeSiteAsync();
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        var heading = ThemePresets.Paper.Theme.Fonts.Heading;
+        var font = Fonts.For(heading.Font);
+        var adjust = FontRoles.For(FontRole.Heading).SizeAdjust(heading.Font, heading.SizePercent);
+        Assert.Contains($":root {{ --theme-heading-font: {font.CssFamily}; --theme-heading-font-size-adjust: {adjust};", page);
+        Assert.Contains($"font-family: {font.CssFamily}; src: url(\"{font.Url(font.Faces[0])}\")", page);
+    }
+
+    [Fact]
+    public async Task PublicPagesHaveTheFontsOfTheThemeInUse()
+    {
+        var site = await app.MakeSiteAsync();
+        await ThemesOf(site).UseAsync(new ThemeKey.Saved(await ThemesOf(site).AddAsync("Charcoal", Charcoal)));
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains($"{SiteThemeSelector} {{ --theme-heading-font: \"Cinzel\";", page);
+        Assert.Contains("--theme-text-font: \"Bitter\";", page);
+        Assert.Contains("font-family: \"Cinzel\"; src: url(\"/fonts/cinzel/Cinzel-Regular.woff2\")", page);
+    }
+
+    [Fact]
+    public async Task PickingAFontPreviewsIt()
+    {
+        var site = await app.MakeSiteAsync();
+
+        var page = await PostThemeAsync(site, PaperFields((fields, _) => fields["Input.Fonts[0].Font"] = nameof(Font.Pacifico)));
+
+        Assert.Contains("[data-theme-preview] { --theme-heading-font: \"Pacifico\";", page);
+        Assert.Contains("Heading font: Pacifico", page);
+    }
+
+    [Fact]
+    public async Task SaveKeepsTheFontsAndTheirSizes()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        await PostThemeAsync(
+            site,
+            Fields(Charcoal, "Charcoal", (fields, _) =>
+            {
+                fields["Input.Fonts[1].Font"] = nameof(Font.OpenSans);
+                fields["Input.Fonts[1].SizePercent"] = "120";
+                fields["Input.Save"] = "true";
+            }),
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id))
+        );
+
+        var saved = Assert.Single(await ThemesOf(site).GetAllAsync());
+        Assert.Equal(new FontChoice(Font.OpenSans, 120), saved.Theme.Fonts.Text);
+        Assert.Equal(Charcoal.Fonts.Heading, saved.Theme.Fonts.Heading);
+    }
+
+    // only a hand-written post can, since the page lists only the fonts each role allows
+    [Fact]
+    public async Task AHeadingOnlyFontIsRefusedAsTheTextFont()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        var page = await PostThemeAsync(
+            site,
+            Fields(Charcoal, "Charcoal", (fields, _) =>
+            {
+                fields["Input.Fonts[1].Font"] = nameof(Font.Pacifico);
+                fields["Input.Save"] = "true";
+            }),
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id))
+        );
+
+        Assert.Contains("A font sent isn&#x27;t one this page could have picked", page);
+        Assert.Equal(Charcoal.Fonts, Assert.Single(await ThemesOf(site).GetAllAsync()).Theme.Fonts);
+    }
+
+    [Fact]
+    public async Task AFontsResetPutsBackTheFontAsSaved()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        var page = await PostThemeAsync(
+            site,
+            Fields(Charcoal, "Charcoal", (fields, _) =>
+            {
+                fields["Input.Fonts[0].Font"] = nameof(Font.Pacifico);
+                fields["Input.Fonts[1].Font"] = nameof(Font.OpenSans);
+                fields["Input.ResetFont"] = nameof(FontRole.Heading);
+            }),
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id))
+        );
+
+        Assert.Contains("[data-theme-preview] { --theme-heading-font: \"Cinzel\";", page);
+        Assert.Contains("--theme-text-font: \"Open Sans\";", page);
+    }
+
+    [Fact]
     public async Task AdminAndPlatformPagesKeepThePlatformsColors()
     {
         var site = await app.MakeSiteAsync();
@@ -126,7 +237,7 @@ public sealed class ThemePageTests(TestApp app)
 
         var page = await GetAsync(site, PageUrls.Theme);
 
-        Assert.Contains("[data-color-preview] { --theme-page: #202020;", page);
+        Assert.Contains("[data-theme-preview] { --theme-page: #202020;", page);
         Assert.Contains("Currently set theme: <strong>Charcoal</strong>", page);
         Assert.DoesNotContain("Use this theme", page);
     }
@@ -150,7 +261,7 @@ public sealed class ThemePageTests(TestApp app)
 
         var page = await PostThemeAsync(site, PaperFields((fields, role) => fields[$"{role(ColorRole.Page)}.Color"] = "#202020"));
 
-        Assert.Contains("[data-color-preview] { --theme-page: #202020;", page);
+        Assert.Contains("[data-theme-preview] { --theme-page: #202020;", page);
         Assert.Contains("Not saved yet.", page);
         Assert.Empty(await ThemesOf(site).GetAllAsync());
     }
@@ -192,7 +303,7 @@ public sealed class ThemePageTests(TestApp app)
 
         await PostThemeAsync(
             site,
-            Fields(Paper, "Evening", (fields, role) =>
+            Fields(ThemePresets.Paper.Theme, "Evening", (fields, role) =>
             {
                 fields[$"{role(ColorRole.Accent)}.Color"] = "#aa3300";
                 fields[$"{role(ColorRole.Backdrop)}.OpacityPercent"] = "70";
@@ -235,7 +346,7 @@ public sealed class ThemePageTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
 
-        await PostThemeAsync(site, Fields(Paper, "Evening", (fields, _) => fields["Input.SaveAsNewAndUse"] = "true"));
+        await PostThemeAsync(site, Fields(ThemePresets.Paper.Theme, "Evening", (fields, _) => fields["Input.SaveAsNewAndUse"] = "true"));
 
         var saved = Assert.Single(await ThemesOf(site).GetAllAsync());
         Assert.Equal("Evening", saved.Name);
@@ -256,7 +367,7 @@ public sealed class ThemePageTests(TestApp app)
             client,
             PageUrls.ThemeEditing(new ThemeKey.Saved(id)),
             "theme",
-            Fields(Charcoal.Colors, "Charcoal", (fields, role) =>
+            Fields(Charcoal, "Charcoal", (fields, role) =>
             {
                 fields[$"{role(ColorRole.Page)}.Color"] = "#101010";
                 fields["Input.SwitchTo"] = dark.QueryValue;
@@ -275,7 +386,7 @@ public sealed class ThemePageTests(TestApp app)
 
         await PostThemeAsync(
             site,
-            Fields(Charcoal.Colors, "Darker", (fields, role) =>
+            Fields(Charcoal, "Darker", (fields, role) =>
             {
                 fields[$"{role(ColorRole.Page)}.Color"] = "#101010";
                 fields["Input.Save"] = "true";
@@ -294,7 +405,7 @@ public sealed class ThemePageTests(TestApp app)
         var site = await app.MakeSiteAsync();
         await ThemesOf(site).AddAsync("Evening", Charcoal);
 
-        var page = await PostThemeAsync(site, Fields(Paper, "evening", (fields, _) => fields["Input.SaveAsNew"] = "true"));
+        var page = await PostThemeAsync(site, Fields(ThemePresets.Paper.Theme, "evening", (fields, _) => fields["Input.SaveAsNew"] = "true"));
 
         Assert.Contains("Another theme is already called", page);
         Assert.Single(await ThemesOf(site).GetAllAsync());
@@ -305,7 +416,7 @@ public sealed class ThemePageTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
 
-        var page = await PostThemeAsync(site, Fields(Paper, " ", (fields, _) => fields["Input.SaveAsNew"] = "true"));
+        var page = await PostThemeAsync(site, Fields(ThemePresets.Paper.Theme, " ", (fields, _) => fields["Input.SaveAsNew"] = "true"));
 
         Assert.Contains("Give the theme a name.", page);
         Assert.Empty(await ThemesOf(site).GetAllAsync());
@@ -320,7 +431,7 @@ public sealed class ThemePageTests(TestApp app)
 
         var page = await PostThemeAsync(
             site,
-            Fields(Charcoal.Colors, "Charcoal", (fields, role) =>
+            Fields(Charcoal, "Charcoal", (fields, role) =>
             {
                 fields[$"{role(ColorRole.Bar)}.Color"] = "#00aa00";
                 fields[$"{role(ColorRole.Link)}.Color"] = "#00aa00";
@@ -341,7 +452,7 @@ public sealed class ThemePageTests(TestApp app)
         var page = await PostThemeAsync(site, PaperFields((fields, _) => fields["Input.DeriveAll"] = "true"));
 
         // Paper's #f5f5f5 page, 6% of the way to its black text
-        Assert.Contains("[data-color-preview] { --theme-page: #f5f5f5; --theme-ink: #000000; --theme-accent: #155dfc; --theme-bar: #e6e6e6;", page);
+        Assert.Contains("[data-theme-preview] { --theme-page: #f5f5f5; --theme-ink: #000000; --theme-accent: #155dfc; --theme-bar: #e6e6e6;", page);
         Assert.DoesNotContain("Derive all from base colors", page);
     }
 
