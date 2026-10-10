@@ -20,8 +20,6 @@
 
   [Parameter, EditorRequired]
   public EventCallback OnDelete { get; set; }
-
-  private bool IsSaved => Open.Key is ThemeKey.Saved;
 }
 
 @* Use this theme and Delete, for the theme open on the Theme page *@
@@ -34,18 +32,18 @@
       <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Use this theme</ButtonBasic>
     </form>
   }
-  @if (IsSaved)
+  @if (Open.IsSaved)
   {
     <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">Delete
     </ButtonBasic>
   }
 </div>
 
-@if (IsSaved)
+@if (Open.IsSaved)
 {
   <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {Open.Name}?")" ConfirmLabel="Delete theme"
                      OnConfirm="OnDelete">
-    <p class="mb-2 last:mb-0">It can't be undone.</p>
+    <p class="mb-2 last:mb-0">This action is permanent.</p>
     @if (IsInUse)
     {
       <p>Your website uses this theme, so it will go back to @ThemePresets.Paper.Name.</p>

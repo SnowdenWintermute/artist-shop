@@ -11,15 +11,11 @@
 
   [Parameter, EditorRequired]
   public IReadOnlyList<SavedTheme> Themes { get; set; } = default!;
-
-  // the id of the form holding the open theme's changes
-  [Parameter, EditorRequired]
-  public string ThemeFormId { get; set; } = default!;
 }
 
 @* <theme-picker> is defined in ThemePicker.razor.js: choosing while the theme form holds changes
    opens SwitchThemeDialog instead. Without scripts the choice loads at once *@
-<theme-picker class="block" data-theme-form="@ThemeFormId" data-dialog="@SwitchThemeDialog.DialogId">
+<theme-picker class="block" data-theme-form="@ThemePage.FormId" data-dialog="@SwitchThemeDialog.DialogId">
   @* a form of its own, since forms can't be nested: choosing loads the page again with ?theme= *@
   <form id="@FormId" method="get" action="@PageUrls.Theme" class="mb-4">
     <SubmitOnChange>

@@ -91,6 +91,9 @@ public static class PageUrls
     public static string OperatorDeleteSite(SiteId id) => $"{OperatorSites}/{id.Value}/delete";
 
     // on the platform's host
+    public const string OperatorFonts = "/operator/fonts";
+
+    // on the platform's host
     public const string SignUp = "/signup";
 
     // on the platform's host

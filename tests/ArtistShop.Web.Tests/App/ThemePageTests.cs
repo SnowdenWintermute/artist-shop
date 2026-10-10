@@ -211,7 +211,7 @@ public sealed class ThemePageTests(TestApp app)
     }
 
     // Enter in a field presses its form's first submit button in the page, counting those outside it
-    // that join it through form=, like the switch dialog's Save changes and switch
+    // that join it through form=, like the switch dialog's Save and switch
     [Fact]
     public async Task EnterInTheNameSaves()
     {
@@ -242,9 +242,9 @@ public sealed class ThemePageTests(TestApp app)
         Assert.Equal(new ThemeKey.Saved(saved.Id), (await ThemesOf(site).GetInUseAsync())?.Key);
     }
 
-    // the switch dialog's Save changes and switch, sent when another theme was chosen with changes not saved
+    // the switch dialog's Save and switch, sent when another theme was chosen with changes not saved
     [Fact]
-    public async Task SaveChangesAndSwitchSavesThenOpensTheThemeChosen()
+    public async Task SaveAndSwitchSavesThenOpensTheThemeChosen()
     {
         var site = await app.MakeSiteAsync();
         var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
@@ -334,7 +334,7 @@ public sealed class ThemePageTests(TestApp app)
     }
 
     [Fact]
-    public async Task OverwriteWithDerivedColorsDerivesEveryRoleThatCanBe()
+    public async Task DeriveAllDerivesEveryRoleThatCanBe()
     {
         var site = await app.MakeSiteAsync();
 
@@ -342,7 +342,7 @@ public sealed class ThemePageTests(TestApp app)
 
         // Paper's #f5f5f5 page, 6% of the way to its black text
         Assert.Contains("[data-color-preview] { --theme-page: #f5f5f5; --theme-ink: #000000; --theme-accent: #155dfc; --theme-bar: #e6e6e6;", page);
-        Assert.DoesNotContain("Overwrite all with derivation", page);
+        Assert.DoesNotContain("Derive all from base colors", page);
     }
 
     [Fact]

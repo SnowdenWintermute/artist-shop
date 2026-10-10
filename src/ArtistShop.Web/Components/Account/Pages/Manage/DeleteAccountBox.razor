@@ -48,7 +48,8 @@
     // the browser's pattern checks this too; here for a post that skips the browser
     if (!string.Equals(TypedEmail?.Trim(), Email, StringComparison.OrdinalIgnoreCase))
     {
-      RedirectManager.RedirectToCurrentPageWithStatus("Error: the email typed wasn't your account's, so nothing was deleted.", HttpContext);
+      RedirectManager.RedirectToCurrentPageWithStatus("Error: the email typed wasn't your account's, so nothing was deleted.",
+HttpContext);
       return;
     }
 
@@ -66,56 +67,59 @@
     Deletes your @PlatformSettings.Name account on every website. Websites you own go offline and are erased.
   </p>
 
-  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DialogId">Delete account</ButtonBasic>
+  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DialogId">Delete account
+  </ButtonBasic>
 </DashboardBox>
 
 <ConfirmFormDialog Id="@DialogId" Title="Delete your account?" ConfirmLabel="Delete account" OnConfirm="DeleteAsync">
   <ChildContent>
     <p class="mb-2">
       This is your @PlatformSettings.Name account. It signs you in on every @PlatformSettings.Name website, so
-      deleting it closes it on all of them. It can't be undone.
+      deleting it closes it on all of them. This action is permanent.
     </p>
     @if (_ownedSites.Count > 0)
     {
       <p class="mb-1">These websites are yours. They go offline now, and are erased with all their works, posts and
         images on the date shown. Nobody can keep them once your account is gone, so download anything you want
         first:</p>
-      <ul class="mb-2 list-disc pl-6 last:mb-0">
-        @foreach (var site in _ownedSites)
-        {
-          <li>
-            @site.MainHost.Value, on <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" />
-            @* a website being deleted is offline, Export page included *@
-            @if (site.IsBeingDeleted)
-            {
-              <span>(already being deleted; keep it from My websites to download it)</span>
+        <ul class="mb-2 list-disc pl-6 last:mb-0">
+          @foreach (var site in _ownedSites)
+          {
+            <li>
+              @site.MainHost.Value, on
+              <LocalDate Moment="site.EraseAt ?? SiteDeletion.EraseAt(TimeProvider.GetUtcNow())" />
+              @* a website being deleted is offline, Export page included *@
+              @if (site.IsBeingDeleted)
+              {
+                <span>(already being deleted; keep it from My websites to download it)</span>
+              }
+              else
+              {
+                <span>· <a class="underline"
+                             href="@PageUrls.SiteExport(NavigationManager.BaseUri, site.MainHost)">Export</a></span>
+                }
+              </li>
             }
-            else
-            {
-              <span>· <a class="underline" href="@PageUrls.SiteExport(NavigationManager.BaseUri, site.MainHost)">Export</a></span>
-            }
-          </li>
+          </ul>
         }
-      </ul>
-    }
-    @if (_adminSites.Count > 0)
-    {
-      <p class="mb-1">You'll no longer be an admin of:</p>
-      <ul class="list-disc pl-6">
-        @foreach (var site in _adminSites)
+        @if (_adminSites.Count > 0)
         {
-          <li>@site.MainHost.Value</li>
+          <p class="mb-1">You'll no longer be an admin of:</p>
+          <ul class="list-disc pl-6">
+            @foreach (var site in _adminSites)
+            {
+              <li>@site.MainHost.Value</li>
+            }
+          </ul>
         }
-      </ul>
-    }
-  </ChildContent>
-  <Fields>
-    @* pattern: the browser won't submit until it matches. Identity allows only letters, digits and
+      </ChildContent>
+      <Fields>
+        @* pattern: the browser won't submit until it matches. Identity allows only letters, digits and
        -._@+ in an account's name, its email, and Regex.Escape's \. and \+ are escapes a pattern accepts *@
-    <div class="mb-4">
-      <label class="artist-shop-field-label" for="delete-account-email">Type your email, @Email, to confirm</label>
-      <input id="delete-account-email" name="@nameof(TypedEmail)" type="text" class="artist-shop-field-input" required
-             autocomplete="off" pattern="@Regex.Escape(Email)" title="Your account's email, @Email" />
-    </div>
-  </Fields>
-</ConfirmFormDialog>
+        <div class="mb-4">
+          <label class="artist-shop-field-label" for="delete-account-email">Type your email, @Email, to confirm</label>
+          <input id="delete-account-email" name="@nameof(TypedEmail)" type="text" class="artist-shop-field-input" required
+                 autocomplete="off" pattern="@Regex.Escape(Email)" title="Your account's email, @Email" />
+        </div>
+      </Fields>
+    </ConfirmFormDialog>

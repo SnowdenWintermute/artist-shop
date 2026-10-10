@@ -38,13 +38,11 @@ class SaveThemeDialog extends HTMLElement {
     button.click();
   }
 
-  // An enhanced page update would take the dialog's open attribute away while it shows, so it
-  // closes once the post has its data
+  // the dialog closes as it posts (ModalDialog's ClosesOnSubmit), which mustn't put the name back
   /** @param {MouseEvent} event */
   #onClick(event) {
     if (event.target instanceof Element && event.target.closest("button[type=submit]")) {
       this.#isSaving = true;
-      setTimeout(() => this.querySelector("dialog")?.close(), 0);
     }
   }
 

@@ -1,0 +1,18 @@
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<FontDefinition> Fonts { get; set; } = default!;
+
+  // markup, since text in <style> would have its quotes encoded, which the browser doesn't decode there.
+  // Only the font list's own names and paths go in
+  private MarkupString Rules =>
+    new(string.Concat(
+      Fonts.SelectMany(font => font.Faces.Select(face =>
+        $"@font-face {{ font-family: {font.CssFamily}; src: url(\"{font.Url(face)}\") format(\"woff2\"); " +
+        $"font-weight: {face.Weight}; font-style: {(face.IsItalic ? "italic" : "normal")}; font-display: swap; }} "))
+    ));
+}
+
+@* the browser downloads a face only once text on the page uses it *@
+<style>@Rules</style>

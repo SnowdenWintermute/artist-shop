@@ -86,6 +86,9 @@ customElements.define(
 
       if (event.target.closest("[data-modal-dialog]")?.getAttribute("data-modal-dialog") === "close") {
         dialog?.close();
+      } else if (dialog?.hasAttribute("data-closes-on-submit") && event.target.closest("button[type=submit]")) {
+        // on the next turn, once the post has its data
+        setTimeout(() => dialog.close(), 0);
       } else if (dialog?.hasAttribute("data-menu") && (isOnBackdrop(event, dialog) || isLinkFollowed(event, event.target))) {
         // enhanced navigation keeps the page's layout, and a menu in it would stay open on the next page
         dialog.close();

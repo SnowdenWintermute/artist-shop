@@ -84,6 +84,9 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton(services =>
     new DismissedHintRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
 );
+builder.Services.AddSingleton(services =>
+    new FontRepository(services.GetRequiredKeyedService<NpgsqlDataSource>(PlatformDataSourceKey))
+);
 
 // every site's schema, in the platform database and reached through one shared pool
 const string SitesDataSourceKey = "sites";

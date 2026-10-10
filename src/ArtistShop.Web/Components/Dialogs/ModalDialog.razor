@@ -24,6 +24,10 @@
   // editor's work picker, or a button with data-opens-dialog set to Id
   [Parameter]
   public bool StartsClosed { get; set; }
+  // static pages only: one of its submit buttons posting an enhanced form closes it, since the page
+  // update would take away its open attribute while it shows
+  [Parameter]
+  public bool ClosesOnSubmit { get; set; }
   // the <dialog>'s id, for a data-opens-dialog button
   [Parameter]
   public string? Id { get; set; }
@@ -52,7 +56,7 @@
      true, and the script then cancels Escape. Not @oncancel:preventDefault, which the compiler emitted
      as a literal attribute name that the browser rejects *@
   <dialog @attributes="AdditionalAttributes" id="@Id" aria-labelledby="@_titleId"
-          class="artist-shop-modal text-left @WidthClass @Class" data-keep-open="@KeepOpen" @onclose="OnClose">
+          class="artist-shop-modal text-left @WidthClass @Class" data-keep-open="@KeepOpen" data-closes-on-submit="@ClosesOnSubmit" @onclose="OnClose">
     <h2 id="@_titleId" class="mb-4 shrink-0 text-lg">@Title</h2>
 
     @* the title always shows; content that should scroll uses min-h-0 and overflow-y-auto inside this

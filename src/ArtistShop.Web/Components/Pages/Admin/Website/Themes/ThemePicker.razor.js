@@ -2,7 +2,7 @@ import { FormChanges } from "/js/form-changes.js";
 
 // The Theme page's picker. Choosing another theme while the theme form holds changes opens the
 // switch dialog (SwitchThemeDialog, elsewhere on the page) instead: Switch and discard submits the
-// picker after all (data-discards-changes), and Save changes and switch posts the theme form with
+// picker after all (data-discards-changes), and Save and switch posts the theme form with
 // the theme chosen (data-takes-choice). Closing it puts the choice back
 class ThemePicker extends HTMLElement {
   /** @type {AbortController | null} */
@@ -61,17 +61,8 @@ class ThemePicker extends HTMLElement {
     this.#dialogListeners?.abort();
     this.#dialogListeners = new AbortController();
     const { signal } = this.#dialogListeners;
-    // An enhanced page update would take the dialog's open attribute away while it shows, so it
-    // closes once the post has its data. Putting the choice back then is no loss to the post
-    dialog.addEventListener(
-      "click",
-      (event) => {
-        if (event.target instanceof Element && event.target.closest("button[type=submit]")) {
-          setTimeout(() => dialog.close(), 0);
-        }
-      },
-      { signal }
-    );
+    // it closes as it posts too (ModalDialog's ClosesOnSubmit), once the post has its data, so
+    // putting the choice back then is no loss to the post
     dialog.addEventListener(
       "close",
       () => {

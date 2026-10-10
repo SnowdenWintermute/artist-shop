@@ -14,7 +14,10 @@ public record SavedTheme(ThemeId Id, string Name, Theme Theme)
 }
 
 // a preset or a saved theme, as the Theme page lists it
-public record NamedTheme(ThemeKey Key, string Name, Theme Theme);
+public record NamedTheme(ThemeKey Key, string Name, Theme Theme)
+{
+    public bool IsSaved => Key is ThemeKey.Saved;
+}
 
 // the ids are stored in theme_in_use.preset
 public enum ThemePreset

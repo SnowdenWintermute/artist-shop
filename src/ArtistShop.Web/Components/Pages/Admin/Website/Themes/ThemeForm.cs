@@ -29,13 +29,13 @@ public class ThemeForm : ServerValidatedForm, IValidatableObject
     // set by its Save and use, which also puts the new theme on the website
     public bool SaveAsNewAndUse { get; set; }
 
-    // set by Save changes and switch, as ThemeKey.QueryValue: Save, then open that theme
+    // set by the switch dialog's Save and switch, as ThemeKey.QueryValue: Save, then open that theme
     public string? SwitchTo { get; set; }
 
     // set by a role's Reset, which puts that role back as the open theme has it saved
     public ColorRole? Reset { get; set; }
 
-    // set by Overwrite all with derivation from base colors, which derives every role that can be
+    // set by Derive all from base colors, which derives every role that can be
     public bool DeriveAll { get; set; }
 
     public static ThemeForm From(string name, string newName, ThemeColors colors) =>

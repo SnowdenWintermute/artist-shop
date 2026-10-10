@@ -12,8 +12,8 @@
 @inject IHostEnvironment Environment
 
 @code {
-  // what the switch dialog's Save changes and switch posts, from outside the form
-  private const string FormId = "theme-form";
+  // ThemePicker reads its changes, and the switch dialog's Save and switch posts it from outside
+  public const string FormId = "theme-form";
 
   [SupplyParameterFromForm(FormName = "theme")]
   private ThemeForm Input { get; set; } = default!;
@@ -73,8 +73,6 @@ StringComparer.CurrentCultureIgnoreCase)];
       ThemeKey.Saved saved => _themes.FirstOrDefault(theme => theme.Id == saved.Id)?.Named,
       _ => throw new InvalidOperationException($"{key.GetType().Name} isn't a theme key."),
     };
-
-  private static bool IsSaved(NamedTheme theme) => theme.Key is ThemeKey.Saved;
 
   private async Task SubmitAsync()
   {
@@ -215,16 +213,16 @@ true
         <SavedNotice>Saved.</SavedNotice>
       }
 
-      <ThemePicker Open="open.Key" Themes="_themes" ThemeFormId="@FormId" />
+      <ThemePicker Open="open.Key" Themes="_themes" />
       <ThemeActions Open="open" IsInUse="isInUse" CanUse="!_formWasPosted" OnUse="UseAsync" OnDelete="DeleteAsync" />
 
       <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
         <EditForm id="@FormId" EditContext="Input.EditContext" FormName="theme" OnValidSubmit="SubmitAsync" Enhance
                   data-waits-for-pending>
           <DataAnnotationsValidator />
-          <ValidationSummary class="mb-4 text-error" />
+          <ValidationSummary Model="Input" class="mb-4 text-error" />
 
-          @if (IsSaved(open))
+          @if (open.IsSaved)
           {
             @* Enter in a text field presses its form's first submit button, so this one comes first: Enter
                in the name saves, where the first otherwise would be a Reset. Hidden, as Save shows below *@
@@ -280,18 +278,18 @@ true
             </div>
           </div>
 
-          @if (IsSaved(open) && isInUse)
+          @if (open.IsSaved && isInUse)
           {
             <p class="mb-2 text-sm text-ink-faded">Your website uses this theme, so saving changes it too.</p>
           }
           <div class="mb-2 flex flex-wrap gap-3">
-            @if (IsSaved(open))
+            @if (open.IsSaved)
             {
               <ButtonBasic type="submit" name="Input.Save" value="true" Variant="ButtonVariant.Primary"
                            data-waits-for-change>Save</ButtonBasic>
             }
             <ButtonBasic type="button" data-opens-dialog="@SaveThemeDialog.DialogId"
-                         Variant="@(IsSaved(open) ? ButtonVariant.Outline : ButtonVariant.Primary)">Save as new theme</ButtonBasic>
+                         Variant="@(open.IsSaved ? ButtonVariant.Outline : ButtonVariant.Primary)">Save as new theme</ButtonBasic>
             @if (_formWasPosted)
             {
               <LinkButton href="@PageUrls.ThemeEditing(open.Key)" Variant="ButtonVariant.Outline">Discard changes
@@ -305,7 +303,7 @@ true
         </EditForm>
       </EnableSaveOnChange>
 
-      <SwitchThemeDialog OpenIsSaved="IsSaved(open)" ThemeFormId="@FormId" />
+      <SwitchThemeDialog Open="open" />
     </AdminPanel>
   </main>
 }

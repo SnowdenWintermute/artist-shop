@@ -1,0 +1,27 @@
+@page "/operator/fonts"
+@layout OperatorLayout
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Website
+@using ArtistShop.Web.Identity
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [ServedOn(HostTypes.Platform)]
+@attribute [Authorize(Policy = PlatformPolicies.Operator)]
+@inject FontRepository FontRepository
+
+@code {
+  private List<Font> _fonts = [];
+
+  protected override async Task OnInitializedAsync() =>
+    _fonts = [.. Fonts.InOrder(await FontRepository.GetOrderAsync()).Select(definition => definition.Font)];
+}
+
+<PageTitle>Fonts</PageTitle>
+
+<FontFaces Fonts="Fonts.All" />
+
+<h1 class="mb-4 text-xl">Fonts</h1>
+<p class="mb-4">
+  The fonts a theme can use. Those without their own bold and italic can only be a theme's heading font.
+</p>
+<FontOrderList @rendermode="InteractiveServer" Order="_fonts" />
