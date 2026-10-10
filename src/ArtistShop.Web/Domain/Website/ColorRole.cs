@@ -1,7 +1,8 @@
 namespace ArtistShop.Web.Domain.Website;
 
 // the colours a theme can choose. A saved theme stores them by name, so renaming one means
-// rewriting the themes table's settings too
+// rewriting the themes table's settings too. From 1, so a post that leaves a role out binds 0,
+// which isn't one
 public enum ColorRole
 {
     Page = 1,

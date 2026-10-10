@@ -1,0 +1,54 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  private const string DeleteDialogId = "delete-theme";
+
+  [Parameter, EditorRequired]
+  public NamedTheme Open { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public bool IsInUse { get; set; }
+
+  // false while the page shows changes not saved yet
+  [Parameter, EditorRequired]
+  public bool CanUse { get; set; }
+
+  [Parameter, EditorRequired]
+  public EventCallback OnUse { get; set; }
+
+  [Parameter, EditorRequired]
+  public EventCallback OnDelete { get; set; }
+
+  private bool IsSaved => Open.Key is ThemeKey.Saved;
+}
+
+@* Use this theme and Delete, for the theme open on the Theme page *@
+<div class="mb-6 flex flex-wrap gap-3">
+  @* what's on the website is always a saved theme, so changes not saved yet can't go there *@
+  @if (!IsInUse && CanUse)
+  {
+    <form method="post" @formname="use-theme" @onsubmit="OnUse">
+      <AntiforgeryToken />
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Use this theme</ButtonBasic>
+    </form>
+  }
+  @if (IsSaved)
+  {
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">Delete
+    </ButtonBasic>
+  }
+</div>
+
+@if (IsSaved)
+{
+  <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {Open.Name}?")" ConfirmLabel="Delete theme"
+                     OnConfirm="OnDelete">
+    <p class="mb-2 last:mb-0">It can't be undone.</p>
+    @if (IsInUse)
+    {
+      <p>Your website uses this theme, so it will go back to @ThemePresets.Paper.Name.</p>
+    }
+  </ConfirmFormDialog>
+}

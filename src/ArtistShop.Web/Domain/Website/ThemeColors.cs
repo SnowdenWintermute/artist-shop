@@ -34,14 +34,15 @@ public sealed class ThemeColors
 
         return role switch
         {
-            ColorRole.Bar => page.Mix(ink, 0.06),
+            ColorRole.Bar => MostToward(role, page, ink, 0.06),
             // white on a light page, and a step lighter than a dark one
-            ColorRole.Panel => page.IsLight ? RgbColor.White : page.Mix(ink, 0.08),
+            ColorRole.Panel => page.IsLight ? MostToward(role, page, RgbColor.White, 1) : MostToward(role, page, ink, 0.08),
             ColorRole.Placeholder => page.Mix(ink, 0.05),
-            ColorRole.InkFaded => ink.Mix(page, 0.4),
-            ColorRole.InkUnavailable => ink.Mix(page, 0.55),
+            ColorRole.InkFaded => MostToward(role, ink, page, 0.4),
+            ColorRole.InkUnavailable => MostToward(role, ink, page, 0.55),
             ColorRole.Link => ink,
-            ColorRole.LinkHover => Resolve(ColorRole.Accent),
+            // the accent, unless it's too light or dark to read as a link: then as little nearer the text as reads
+            ColorRole.LinkHover => LeastToward(role, Resolve(ColorRole.Accent), ink),
             ColorRole.OnAccent => Resolve(ColorRole.Accent).ReadableText,
             ColorRole.Rule => ink,
             // shown over images, not beside the page's text, so black suits any page
@@ -51,6 +52,57 @@ public sealed class ThemeColors
             ColorRole.Page or ColorRole.Ink or ColorRole.Accent => throw new InvalidOperationException($"{role} is a base role, which isn't derived."),
         };
     }
+
+    // from moved toward to by amount, or as much less as it takes to read: see Reads. All of amount
+    // when none reads, since then the base colours are what fail, and the page warns of them
+    private RgbColor MostToward(ColorRole role, RgbColor from, RgbColor to, double amount)
+    {
+        for (var percent = (int)Math.Round(amount * 100); percent >= 0; percent--)
+        {
+            var color = from.Mix(to, percent / 100.0);
+
+            if (Reads(role, color))
+            {
+                return color;
+            }
+        }
+
+        return from.Mix(to, amount);
+    }
+
+    // from, or moved as little toward to as it takes to read; to when nothing reads
+    private RgbColor LeastToward(ColorRole role, RgbColor from, RgbColor to)
+    {
+        for (var percent = 0; percent < 100; percent++)
+        {
+            var color = from.Mix(to, percent / 100.0);
+
+            if (Reads(role, color))
+            {
+                return color;
+            }
+        }
+
+        return to;
+    }
+
+    // whether color, as the role, passes ReadPairs. As text it's checked on every background it's read
+    // on. As a background only against text that isn't itself derived by Reads, as that text is
+    // checked against it: otherwise each would ask the other
+    private bool Reads(ColorRole role, RgbColor color) =>
+        ReadPairs.All(pair =>
+            pair.Foreground == role ? RgbColor.Contrast(color, Resolve(pair.Background)) >= pair.Minimum
+            : pair.Background == role && !ReadingDerivedText.Contains(pair.Foreground)
+                ? RgbColor.Contrast(Resolve(pair.Foreground), color) >= pair.Minimum
+            : true
+        );
+
+    private static readonly IReadOnlySet<ColorRole> ReadingDerivedText = new HashSet<ColorRole>
+    {
+        ColorRole.InkFaded,
+        ColorRole.InkUnavailable,
+        ColorRole.LinkHover,
+    };
 
     // what's read on what. Text needs 4.5:1. Unavailable text only has to be told apart from its
     // background, at 3:1, the same as a control's outline

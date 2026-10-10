@@ -10,11 +10,10 @@ public readonly record struct RgbColor(byte Red, byte Green, byte Blue, byte Alp
 
     public bool IsOpaque => Alpha == 255;
 
-    // lowercase, as the database's check expects
     public string Hex =>
         IsOpaque ? $"#{Red:x2}{Green:x2}{Blue:x2}" : $"#{Red:x2}{Green:x2}{Blue:x2}{Alpha:x2}";
 
-    // how much of the colour shows, as the slider on the Colors page says it
+    // how much of the colour shows, as the slider on the Theme page says it
     public int OpacityPercent => (int)Math.Round(Alpha / 2.55);
 
     public static RgbColor Parse(string hex) =>

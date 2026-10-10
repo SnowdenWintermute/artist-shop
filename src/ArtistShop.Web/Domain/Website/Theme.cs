@@ -8,7 +8,13 @@ public sealed record Theme(ThemeColors Colors);
 public record ThemeId(int Value);
 
 // a theme the website saved from the Theme page, a copy that no preset's later changes reach
-public record SavedTheme(ThemeId Id, string Name, Theme Theme);
+public record SavedTheme(ThemeId Id, string Name, Theme Theme)
+{
+    public NamedTheme Named => new(new ThemeKey.Saved(Id), Name, Theme);
+}
+
+// a preset or a saved theme, as the Theme page lists it
+public record NamedTheme(ThemeKey Key, string Name, Theme Theme);
 
 // the ids are stored in theme_in_use.preset
 public enum ThemePreset
@@ -17,7 +23,10 @@ public enum ThemePreset
     Dark = 2,
 }
 
-public record ThemePresetDefinition(ThemePreset Preset, string Name, Theme Theme);
+public record ThemePresetDefinition(ThemePreset Preset, string Name, Theme Theme)
+{
+    public NamedTheme Named => new(new ThemeKey.Preset(Preset), Name, Theme);
+}
 
 // The themes every website can start from. Kept here rather than in a website's database, so a
 // change to one reaches every website using it with the next deploy
@@ -49,7 +58,11 @@ public static class ThemePresets
         ),
     ];
 
-    public static ThemePresetDefinition For(ThemePreset preset) => All.Single(definition => definition.Preset == preset);
+    public static ThemePresetDefinition For(ThemePreset preset) =>
+        Find(preset) ?? throw new InvalidOperationException($"{preset} isn't a preset.");
+
+    // null for an id stored before its preset was retired
+    public static ThemePresetDefinition? Find(ThemePreset preset) => All.SingleOrDefault(definition => definition.Preset == preset);
 
     private static Theme Choosing(params (ColorRole Role, string Hex)[] choices) =>
         new(new ThemeColors(choices.ToDictionary(choice => choice.Role, choice => RgbColor.Parse(choice.Hex))));

@@ -1,6 +1,6 @@
 DROP FUNCTION IF EXISTS use_theme;
 
--- one of p_theme_id and p_preset, or neither for Paper
+-- one of p_theme_id and p_preset
 CREATE FUNCTION use_theme (p_theme_id int, p_preset int) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     IF p_theme_id IS NOT NULL THEN

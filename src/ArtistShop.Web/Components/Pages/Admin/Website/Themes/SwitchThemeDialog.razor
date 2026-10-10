@@ -1,0 +1,38 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+
+@code {
+  // the id ThemePicker.razor.js opens it by
+  public const string DialogId = "switch-theme";
+
+  [Parameter, EditorRequired]
+  public bool OpenIsSaved { get; set; }
+
+  [Parameter, EditorRequired]
+  public string ThemeFormId { get; set; } = default!;
+}
+
+@* ThemePicker's question when another theme is chosen with changes not saved. After the theme form
+   in the page: Enter in a field presses the form's first submit button, and Save changes and switch
+   belongs to that form, so above it, it would be the one pressed *@
+<ModalDialog Title="You have unsaved changes" Width="ModalDialogWidth.Narrow" Id="@DialogId" StartsClosed>
+  <p class="mb-6">
+    Switching themes loses them.
+    @if (!OpenIsSaved)
+    {
+      <text>To keep them, cancel and save them as a new theme.</text>
+    }
+  </p>
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" />
+    <ButtonBasic type="submit" form="@ThemePicker.FormId" Variant="ButtonVariant.Outline" data-discards-changes>Switch
+      and discard
+    </ButtonBasic>
+    @if (OpenIsSaved)
+    {
+      @* ThemePicker.razor.js gives it the theme chosen; ThemeForm.SwitchTo *@
+      <ButtonBasic type="submit" form="@ThemeFormId" name="Input.SwitchTo" Variant="ButtonVariant.Primary"
+                   data-takes-choice>Save and switch</ButtonBasic>
+    }
+  </ModalDialogActions>
+</ModalDialog>

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Website;
@@ -25,7 +26,8 @@ public sealed class ThemePageTests(TestApp app)
     // every role as the page shows the open theme, then whatever the test changes, as a browser posts the form
     private static Dictionary<string, string> Fields(ThemeColors open, string name, Action<Dictionary<string, string>, Func<ColorRole, string>> change)
     {
-        var fields = new Dictionary<string, string> { ["Input.Name"] = name };
+        // the page's name and the Save as new theme dialog's, which a test posts whichever it needs
+        var fields = new Dictionary<string, string> { ["Input.Name"] = name, ["Input.NewName"] = name };
 
         for (var index = 0; index < ColorRoles.All.Count; index++)
         {
@@ -62,6 +64,14 @@ public sealed class ThemePageTests(TestApp app)
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         return await client.GetStringAsync(path, TestContext.Current.CancellationToken);
     }
+
+    // the value of the input with that name, whatever order its attributes come in; null with no such input
+    private static string? InputValue(string page, string name) =>
+        Regex.Matches(page, "<input [^>]*>")
+            .Select(input => input.Value)
+            .Where(input => input.Contains($"name=\"{name}\"", StringComparison.Ordinal))
+            .Select(input => Regex.Match(input, "value=\"(?<value>[^\"]*)\"").Groups["value"].Value)
+            .FirstOrDefault();
 
     // on :root only while a public page's marker is there, so the nav bar and the page's edges follow
     private const string SiteThemeSelector = ":root:has([data-site-theme])";
@@ -156,8 +166,23 @@ public sealed class ThemePageTests(TestApp app)
         var own = await GetAsync(site, PageUrls.ThemeEditing(new ThemeKey.Saved(id)));
 
         Assert.DoesNotContain("name=\"Input.Save\"", preset);
-        Assert.Contains("value=\"Dark copy\"", preset);
         Assert.Contains("name=\"Input.Save\"", own);
+    }
+
+    // a preset can't be renamed, so only the Save as new theme dialog names it
+    [Fact]
+    public async Task OnlyTheWebsitesOwnThemesHaveANameToChange()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        var preset = await GetAsync(site, PageUrls.ThemeEditing(new ThemeKey.Preset(ThemePreset.Dark)));
+        var own = await GetAsync(site, PageUrls.ThemeEditing(new ThemeKey.Saved(id)));
+
+        Assert.Null(InputValue(preset, "Input.Name"));
+        Assert.Equal("Dark copy", InputValue(preset, "Input.NewName"));
+        Assert.Equal("Charcoal", InputValue(own, "Input.Name"));
+        Assert.Equal("Charcoal copy", InputValue(own, "Input.NewName"));
     }
 
     [Fact]
@@ -182,7 +207,64 @@ public sealed class ThemePageTests(TestApp app)
         // a copy: what Paper chose is chosen here too, and what it derived stays derived
         Assert.Equal(Paper.ChosenFor(ColorRole.Bar), saved.Theme.Colors.ChosenFor(ColorRole.Bar));
         Assert.Null(saved.Theme.Colors.ChosenFor(ColorRole.Panel));
-        Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), await ThemesOf(site).GetInUseKeyAsync());
+        Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), (await ThemesOf(site).GetInUseAsync())?.Key);
+    }
+
+    // Enter in a field presses its form's first submit button in the page, counting those outside it
+    // that join it through form=, like the switch dialog's Save changes and switch
+    [Fact]
+    public async Task EnterInTheNameSaves()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        var page = await GetAsync(site, PageUrls.ThemeEditing(new ThemeKey.Saved(id)));
+
+        var formStart = page.IndexOf("id=\"theme-form\"", StringComparison.Ordinal);
+        var formEnd = page.IndexOf("</form>", formStart, StringComparison.Ordinal);
+        var first = Regex.Matches(page, "<button [^>]*type=\"submit\"[^>]*>")
+            .First(button =>
+                (button.Index > formStart && button.Index < formEnd) || button.Value.Contains("form=\"theme-form\"", StringComparison.Ordinal)
+            );
+
+        Assert.Contains("name=\"Input.Save\"", first.Value);
+    }
+
+    [Fact]
+    public async Task SaveAndUsePutsTheNewThemeOnTheWebsite()
+    {
+        var site = await app.MakeSiteAsync();
+
+        await PostThemeAsync(site, Fields(Paper, "Evening", (fields, _) => fields["Input.SaveAsNewAndUse"] = "true"));
+
+        var saved = Assert.Single(await ThemesOf(site).GetAllAsync());
+        Assert.Equal("Evening", saved.Name);
+        Assert.Equal(new ThemeKey.Saved(saved.Id), (await ThemesOf(site).GetInUseAsync())?.Key);
+    }
+
+    // the switch dialog's Save changes and switch, sent when another theme was chosen with changes not saved
+    [Fact]
+    public async Task SaveChangesAndSwitchSavesThenOpensTheThemeChosen()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var dark = new ThemeKey.Preset(ThemePreset.Dark);
+
+        var response = await TestApp.PostFormAsync(
+            client,
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id)),
+            "theme",
+            Fields(Charcoal.Colors, "Charcoal", (fields, role) =>
+            {
+                fields[$"{role(ColorRole.Page)}.Color"] = "#101010";
+                fields["Input.SwitchTo"] = dark.QueryValue;
+            })
+        );
+
+        Assert.Equal(RgbColor.Parse("#101010"), Assert.Single(await ThemesOf(site).GetAllAsync()).Theme.Colors.ChosenFor(ColorRole.Page));
+        Assert.Equal(PageUrls.ThemeEditing(dark), response.Headers.Location?.PathAndQuery);
     }
 
     [Fact]
@@ -260,7 +342,7 @@ public sealed class ThemePageTests(TestApp app)
 
         // Paper's #f5f5f5 page, 6% of the way to its black text
         Assert.Contains("[data-color-preview] { --theme-page: #f5f5f5; --theme-ink: #000000; --theme-accent: #155dfc; --theme-bar: #e6e6e6;", page);
-        Assert.DoesNotContain("Overwrite with derived colors", page);
+        Assert.DoesNotContain("Overwrite all with derivation", page);
     }
 
     [Fact]
@@ -271,7 +353,7 @@ public sealed class ThemePageTests(TestApp app)
 
         await PostAsync(site, PageUrls.ThemeEditing(key), "use-theme", []);
 
-        Assert.Equal(key, await ThemesOf(site).GetInUseKeyAsync());
+        Assert.Equal(key, (await ThemesOf(site).GetInUseAsync())?.Key);
     }
 
     [Fact]
@@ -286,7 +368,7 @@ public sealed class ThemePageTests(TestApp app)
 
         Assert.Contains("so it will go back to Paper", page);
         Assert.Empty(await ThemesOf(site).GetAllAsync());
-        Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), await ThemesOf(site).GetInUseKeyAsync());
+        Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), (await ThemesOf(site).GetInUseAsync())?.Key);
     }
 
     [Fact]

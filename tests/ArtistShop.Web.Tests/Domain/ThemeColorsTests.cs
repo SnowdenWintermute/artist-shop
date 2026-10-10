@@ -47,6 +47,38 @@ public class ThemeColorsTests
         Assert.False(colors.ChoosesADerivableRole);
     }
 
+    // #555555 on white reads at 7.5:1, but 40% of the way to white, as faded text usually is, it wouldn't
+    [Fact]
+    public void DerivedTextMixesLessWhereTheUsualMixWouldBeHardToRead()
+    {
+        var colors = Choosing((ColorRole.Page, "#ffffff"), (ColorRole.Ink, "#555555"), (ColorRole.Accent, "#155dfc"));
+
+        Assert.Empty(colors.ContrastProblems());
+        Assert.NotEqual(RgbColor.Parse("#555555"), colors.Resolve(ColorRole.InkFaded));
+        Assert.NotEqual(RgbColor.Parse("#555555").Mix(RgbColor.White, 0.4), colors.Resolve(ColorRole.InkFaded));
+    }
+
+    // a yellow accent suits a button, with black text on it, but not a link on white
+    [Fact]
+    public void AnAccentTooLightToReadAsALinkMovesTowardTheText()
+    {
+        var colors = Choosing((ColorRole.Page, "#ffffff"), (ColorRole.Ink, "#000000"), (ColorRole.Accent, "#ffd000"));
+        var hover = colors.Resolve(ColorRole.LinkHover);
+
+        Assert.Empty(colors.ContrastProblems());
+        Assert.NotEqual(RgbColor.Parse("#ffd000"), hover);
+        Assert.NotEqual(RgbColor.Black, hover);
+    }
+
+    // nothing between them reads when the base colours themselves don't, so the usual mix stays
+    [Fact]
+    public void BaseColorsHardToReadKeepTheUsualMix()
+    {
+        var colors = Choosing((ColorRole.Page, "#ffffff"), (ColorRole.Ink, "#bbbbbb"), (ColorRole.Accent, "#155dfc"));
+
+        Assert.Equal(RgbColor.Parse("#bbbbbb").Mix(RgbColor.White, 0.4), colors.Resolve(ColorRole.InkFaded));
+    }
+
     [Fact]
     public void ARoleChosenAlongsideTheBaseRolesKeepsItsChoice()
     {

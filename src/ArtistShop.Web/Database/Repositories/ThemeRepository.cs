@@ -65,21 +65,31 @@ public class ThemeRepository(SiteDatabase database)
         }
     }
 
+    // a website using the theme goes back to Paper
     public async Task DeleteAsync(ThemeId id)
     {
         await using var connection = await database.OpenConnectionAsync();
 
-        await connection.ExecuteAsync("SELECT delete_theme(@Id)", new { Id = id.Value });
+        await connection.ExecuteAsync("SELECT delete_theme(@Id, @Preset)", new { Id = id.Value, Preset = ThemePresets.Paper.Preset });
     }
 
-    public async Task<ThemeKey> GetInUseKeyAsync() => (await GetInUseRowAsync()).Key;
-
-    // what the public pages show
-    public async Task<Theme> GetInUseAsync()
+    // what the public pages show. Null when it's a preset ThemePresets no longer has
+    public async Task<NamedTheme?> GetInUseAsync()
     {
-        var row = await GetInUseRowAsync();
+        await using var connection = await database.OpenConnectionAsync();
 
-        return row.Settings is { } settings ? ReadSettings(settings) : ThemePresets.For(row.PresetOrPaper).Theme;
+        var row = await connection.QuerySingleAsync<InUseRow>("SELECT * FROM get_theme_in_use()");
+
+        return row switch
+        {
+            { ThemeId: { } id, Name: { } name, Settings: { } settings } => new NamedTheme(
+                new ThemeKey.Saved(new ThemeId(id)),
+                name,
+                ReadSettings(settings)
+            ),
+            { Preset: { } preset } => ThemePresets.Find(preset)?.Named,
+            _ => throw new InvalidOperationException("theme_in_use holds neither a theme nor a preset."),
+        };
     }
 
     public async Task UseAsync(ThemeKey key)
@@ -96,13 +106,6 @@ public class ThemeRepository(SiteDatabase database)
         {
             throw new ChangedSincePageLoadException(exception.Message, exception);
         }
-    }
-
-    private async Task<InUseRow> GetInUseRowAsync()
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        return await connection.QuerySingleAsync<InUseRow>("SELECT * FROM get_theme_in_use()");
     }
 
     private static string WriteSettings(Theme theme) =>
@@ -147,12 +150,7 @@ public class ThemeRepository(SiteDatabase database)
     {
         public required ThemePreset? Preset { get; init; }
         public required int? ThemeId { get; init; }
+        public required string? Name { get; init; }
         public required string? Settings { get; init; }
-
-        // neither column set is Paper
-        public ThemePreset PresetOrPaper => Preset ?? ThemePreset.Paper;
-
-        public ThemeKey Key =>
-            ThemeId is { } id ? new ThemeKey.Saved(new Domain.Website.ThemeId(id)) : new ThemeKey.Preset(PresetOrPaper);
     }
 }

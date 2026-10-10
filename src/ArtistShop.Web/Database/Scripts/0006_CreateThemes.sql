@@ -12,17 +12,18 @@ CREATE TABLE themes (
     CONSTRAINT check_themes_settings_object CHECK (jsonb_typeof(settings) = 'object')
 );
 
--- The theme the public pages use: one of the website's own, or a preset by the ThemePreset enum's id.
--- Neither means Paper, which is also where deleting the theme in use leaves the website
+-- The theme the public pages use: one of the website's own, or a preset by the ThemePreset enum's id
 CREATE TABLE theme_in_use (
     -- one row per website: the key can only be true, so a second row has nowhere to go
     id boolean NOT NULL DEFAULT true,
     CONSTRAINT primary_key_theme_in_use PRIMARY KEY (id),
     CONSTRAINT check_theme_in_use_one_row CHECK (id),
     theme_id int,
-    CONSTRAINT foreign_key_theme_in_use_theme FOREIGN KEY (theme_id) REFERENCES themes (id) ON DELETE SET NULL,
+    -- delete_theme moves the website onto a preset before deleting the theme it uses
+    CONSTRAINT foreign_key_theme_in_use_theme FOREIGN KEY (theme_id) REFERENCES themes (id),
     preset int,
-    CONSTRAINT check_theme_in_use_one_theme CHECK (theme_id IS NULL OR preset IS NULL)
+    CONSTRAINT check_theme_in_use_one_theme CHECK (num_nonnulls(theme_id, preset) = 1)
 );
 
-INSERT INTO theme_in_use DEFAULT VALUES;
+-- a new website starts on Paper, ThemePreset.Paper's id
+INSERT INTO theme_in_use (preset) VALUES (1);

@@ -1,10 +1,20 @@
 @using ArtistShop.Web.Database.Repositories
 @inject ThemeRepository ThemeRepository
+@inject ILogger<SiteThemeStyle> Logger
+@inject IHostEnvironment Environment
 
 @code {
-  private Theme? _theme;
+  private NamedTheme? _theme;
 
-  protected override async Task OnInitializedAsync() => _theme = await ThemeRepository.GetInUseAsync();
+  protected override async Task OnInitializedAsync()
+  {
+    _theme = await ThemeRepository.GetInUseAsync();
+
+    if (_theme is null)
+    {
+      MissingThemeInUse.Report(Logger, Environment);
+    }
+  }
 }
 
 @* on :root, as the platform's are, so the nav bar, the html background past the page's end and an
@@ -12,5 +22,5 @@
    navigation to an admin page takes the marker away with this, and the platform's show again *@
 @if (_theme is { } theme)
 {
-  <ColorStyle Selector=":root:has([data-site-theme])" Colors="theme.Colors" />
+  <ColorStyle Selector=":root:has([data-site-theme])" Colors="theme.Theme.Colors" />
 }

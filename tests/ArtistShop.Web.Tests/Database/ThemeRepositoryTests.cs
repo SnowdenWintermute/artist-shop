@@ -1,6 +1,7 @@
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Website;
+using Dapper;
 
 namespace ArtistShop.Web.Tests.Database;
 
@@ -63,13 +64,13 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
     {
         var id = await _themes.AddAsync(UniqueName(), Choosing());
         await _themes.UseAsync(new ThemeKey.Saved(id));
-        var inUse = await _themes.GetInUseKeyAsync();
+        var inUse = (await _themes.GetInUseAsync())?.Key;
 
         await _themes.DeleteAsync(id);
 
         Assert.Equal(new ThemeKey.Saved(id), inUse);
-        Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), await _themes.GetInUseKeyAsync());
-        Assert.Equal(RgbColor.Parse("#f5f5f5"), (await _themes.GetInUseAsync()).Colors.Resolve(ColorRole.Page));
+        Assert.Equal(new ThemeKey.Preset(ThemePreset.Paper), (await _themes.GetInUseAsync())?.Key);
+        Assert.Equal(RgbColor.Parse("#f5f5f5"), (await _themes.GetInUseAsync())?.Theme.Colors.Resolve(ColorRole.Page));
     }
 
     [Fact]
@@ -77,12 +78,31 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
     {
         await _themes.UseAsync(new ThemeKey.Preset(ThemePreset.Dark));
 
-        Assert.Equal(new ThemeKey.Preset(ThemePreset.Dark), await _themes.GetInUseKeyAsync());
+        Assert.Equal(new ThemeKey.Preset(ThemePreset.Dark), (await _themes.GetInUseAsync())?.Key);
         Assert.Equal(
             ThemePresets.For(ThemePreset.Dark).Theme.Colors.Chosen,
-            (await _themes.GetInUseAsync()).Colors.Chosen
+            (await _themes.GetInUseAsync())?.Theme.Colors.Chosen
         );
 
         await _themes.UseAsync(new ThemeKey.Preset(ThemePreset.Paper));
+    }
+
+    // a preset retired after the website chose it
+    [Fact]
+    public async Task APresetThatNoLongerExistsIsNoThemeInUse()
+    {
+        await using (var connection = await database.Site.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync("UPDATE theme_in_use SET theme_id = NULL, preset = 999");
+        }
+
+        try
+        {
+            Assert.Null(await _themes.GetInUseAsync());
+        }
+        finally
+        {
+            await _themes.UseAsync(new ThemeKey.Preset(ThemePreset.Paper));
+        }
     }
 }

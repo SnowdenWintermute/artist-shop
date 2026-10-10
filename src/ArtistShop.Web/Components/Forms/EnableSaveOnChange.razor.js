@@ -1,13 +1,15 @@
-// Keeps an edit form's Save disabled while the form still holds what was loaded. It compares the
-// form's data, which on a static page names every field. Typing raises input, and a hidden input
-// changed by code raises nothing, but its value is an attribute, so the observer sees it: the image
-// list's inputs, rendered by an island, and whatever an editor writes back
+import { FormChanges } from "/js/form-changes.js";
+
+// Keeps an edit form's Save disabled while the form still holds what was loaded (FormChanges).
+// Typing raises input, and a hidden input changed by code raises nothing, but its value is an
+// attribute, so the observer sees it: the image list's inputs, rendered by an island, and whatever
+// an editor writes back
 class EnableSaveOnChange extends HTMLElement {
   /** @type {AbortController | null} */
   #listeners = null;
   /** @type {MutationObserver | null} */
   #observer = null;
-  #loadedState = "";
+  #changes = new FormChanges(() => this.querySelector("form"));
 
   connectedCallback() {
     this.#listeners = new AbortController();
@@ -29,46 +31,12 @@ class EnableSaveOnChange extends HTMLElement {
   }
 
   reset() {
-    this.#loadedState = this.#formState();
+    this.#changes.reset();
     this.#update();
   }
 
-  // Not FormData, which leaves out disabled controls: an island's controls are disabled until its
-  // circuit connects, so the state would change by itself a moment after the page loads
-  #formState() {
-    const form = this.querySelector("form");
-
-    if (form === null) {
-      return "";
-    }
-
-    const entries = new URLSearchParams();
-
-    for (const control of form.elements) {
-      // a control with no name is never posted, like the header dropdown Quill hides in its toolbar
-      if (!("name" in control) || control.name === "") {
-        continue;
-      }
-
-      if (control instanceof HTMLSelectElement) {
-        [...control.selectedOptions].forEach((option) => entries.append(control.name, option.value));
-      } else if (control instanceof HTMLTextAreaElement) {
-        entries.append(control.name, control.value);
-      } else if (control instanceof HTMLInputElement) {
-        const isUncheckedChoice = (control.type === "checkbox" || control.type === "radio") && !control.checked;
-
-        if (control.type !== "file" && !isUncheckedChoice) {
-          entries.append(control.name, control.value);
-        }
-      }
-    }
-
-    return entries.toString();
-  }
-
   #update() {
-    const isUnchanged =
-      !this.hasAttribute("data-holds-unsaved-changes") && this.#formState() === this.#loadedState;
+    const isUnchanged = !this.#changes.hasChanges;
 
     this.querySelectorAll("[data-waits-for-change]").forEach((button) => {
       button.toggleAttribute("disabled", isUnchanged);

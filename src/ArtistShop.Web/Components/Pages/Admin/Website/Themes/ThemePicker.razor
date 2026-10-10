@@ -1,0 +1,51 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Domain.Website
+
+@code {
+  // SwitchThemeDialog's Switch and discard submits it from outside
+  public const string FormId = "theme-picker";
+
+  [Parameter, EditorRequired]
+  public ThemeKey Open { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<SavedTheme> Themes { get; set; } = default!;
+
+  // the id of the form holding the open theme's changes
+  [Parameter, EditorRequired]
+  public string ThemeFormId { get; set; } = default!;
+}
+
+@* <theme-picker> is defined in ThemePicker.razor.js: choosing while the theme form holds changes
+   opens SwitchThemeDialog instead. Without scripts the choice loads at once *@
+<theme-picker class="block" data-theme-form="@ThemeFormId" data-dialog="@SwitchThemeDialog.DialogId">
+  @* a form of its own, since forms can't be nested: choosing loads the page again with ?theme= *@
+  <form id="@FormId" method="get" action="@PageUrls.Theme" class="mb-4">
+    <SubmitOnChange>
+      <label class="artist-shop-field-label" for="open-theme">Theme to edit</label>
+      <select id="open-theme" name="theme" class="artist-shop-field-input mb-2">
+        <optgroup label="Presets">
+          @foreach (var preset in ThemePresets.All)
+          {
+            var key = new ThemeKey.Preset(preset.Preset);
+            <option value="@key.QueryValue" selected="@(key == Open)">@preset.Name</option>
+          }
+        </optgroup>
+        @if (Themes.Count > 0)
+        {
+          <optgroup label="Your themes">
+            @foreach (var theme in Themes)
+            {
+              var key = new ThemeKey.Saved(theme.Id);
+              <option value="@key.QueryValue" selected="@(key == Open)">@theme.Name</option>
+            }
+          </optgroup>
+        }
+      </select>
+
+      @* app.css hides this unless the browser runs no scripts *@
+      <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Open</ButtonBasic>
+    </SubmitOnChange>
+  </form>
+</theme-picker>

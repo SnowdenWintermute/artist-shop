@@ -1,10 +1,11 @@
-@* the button row at the bottom of a ModalDialog; it never scrolls away *@
+@* the button row at the bottom of a ModalDialog; it never scrolls away. Buttons don't wrap their
+   labels, so the row wraps instead where they don't fit, as on a phone *@
 
 @code {
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 }
 
-<div class="flex shrink-0 justify-end gap-2">
+<div class="flex shrink-0 flex-wrap justify-end gap-2">
   @ChildContent
 </div>

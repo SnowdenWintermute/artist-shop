@@ -1,6 +1,5 @@
 @page "/admin/website/theme"
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
@@ -9,9 +8,12 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject ThemeRepository ThemeRepository
 @inject NavigationManager NavigationManager
+@inject ILogger<ThemePage> Logger
+@inject IHostEnvironment Environment
 
 @code {
-  private const string DeleteDialogId = "delete-theme";
+  // what the switch dialog's Save changes and switch posts, from outside the form
+  private const string FormId = "theme-form";
 
   [SupplyParameterFromForm(FormName = "theme")]
   private ThemeForm Input { get; set; } = default!;
@@ -24,23 +26,26 @@
   private bool _formWasPosted;
 
   private List<SavedTheme> _themes = [];
-  private ThemeKey? _inUse;
-  private OpenTheme? _open;
+  // null when it's a preset that no longer exists, so the public pages show Paper
+  private NamedTheme? _inUse;
+  private NamedTheme? _open;
   // what the page shows: the open theme's colours as saved, or the ones being previewed
   private ThemeColors? _shown;
-
-  private sealed record OpenTheme(ThemeKey Key, string Name, Theme Theme)
-  {
-    public bool IsSaved => Key is ThemeKey.Saved;
-  }
 
   protected override async Task OnInitializedAsync()
   {
     _themes = [.. (await ThemeRepository.GetAllAsync()).OrderBy(theme => theme.Name,
 StringComparer.CurrentCultureIgnoreCase)];
-    _inUse = await ThemeRepository.GetInUseKeyAsync();
+    _inUse = await ThemeRepository.GetInUseAsync();
 
-    if (Open(ThemeKey.FromQueryValue(ThemeQuery) ?? _inUse) is not { } open)
+    if (_inUse is null)
+    {
+      MissingThemeInUse.Report(Logger, Environment);
+    }
+
+    var key = ThemeKey.FromQueryValue(ThemeQuery) ?? _inUse?.Key ?? new ThemeKey.Preset(ThemePreset.Paper);
+
+    if (Open(key) is not { } open)
     {
       NavigationManager.NotFound();
       return;
@@ -52,8 +57,8 @@ StringComparer.CurrentCultureIgnoreCase)];
     if (Input is null)
     {
       _shown = open.Theme.Colors;
-      // a copy of a preset is the website's own, so it starts with a name of its own
-      Input = ThemeForm.From(open.IsSaved ? open.Name : $"{open.Name} copy", _shown);
+      // a copy is the website's own, so it starts with a name of its own
+      Input = ThemeForm.From(open.Name, $"{open.Name} copy", _shown);
     }
     else
     {
@@ -61,14 +66,15 @@ StringComparer.CurrentCultureIgnoreCase)];
     }
   }
 
-  private OpenTheme? Open(ThemeKey key) =>
+  private NamedTheme? Open(ThemeKey key) =>
     key switch
     {
-      ThemeKey.Preset preset => new OpenTheme(key, ThemePresets.For(preset.Value).Name, ThemePresets.For(preset.Value).Theme),
-      ThemeKey.Saved saved => _themes.FirstOrDefault(theme => theme.Id == saved.Id) is { } theme ? new OpenTheme(key,
-theme.Name, theme.Theme) : null,
+      ThemeKey.Preset preset => ThemePresets.Find(preset.Value)?.Named,
+      ThemeKey.Saved saved => _themes.FirstOrDefault(theme => theme.Id == saved.Id)?.Named,
       _ => throw new InvalidOperationException($"{key.GetType().Name} isn't a theme key."),
     };
+
+  private static bool IsSaved(NamedTheme theme) => theme.Key is ThemeKey.Saved;
 
   private async Task SubmitAsync()
   {
@@ -81,17 +87,32 @@ theme.Name, theme.Theme) : null,
 
     try
     {
-      if (Input.SaveAsNew)
+      if (Input.IsSavingAsNew)
       {
-        var id = await ThemeRepository.AddAsync(Input.ToName(), new Theme(colors));
-        NavigateToSaved(new ThemeKey.Saved(id));
+        var key = new ThemeKey.Saved(await ThemeRepository.AddAsync(Input.ToNewName(), new Theme(colors)));
+
+        if (Input.SaveAsNewAndUse)
+        {
+          await ThemeRepository.UseAsync(key);
+        }
+
+        NavigateToSaved(key);
         return;
       }
 
-      if (Input.Save && open.Key is ThemeKey.Saved saved)
+      if (Input.IsSaving && open.Key is ThemeKey.Saved saved)
       {
         await ThemeRepository.UpdateAsync(saved.Id, Input.ToName(), new Theme(colors));
-        NavigateToSaved(open.Key);
+
+        if (ThemeKey.FromQueryValue(Input.SwitchTo) is { } next)
+        {
+          NavigationManager.NavigateTo(PageUrls.ThemeEditing(next));
+        }
+        else
+        {
+          NavigateToSaved(open.Key);
+        }
+
         return;
       }
     }
@@ -110,7 +131,7 @@ theme.Name, theme.Theme) : null,
 
     // derived colours follow the ones just picked
     _shown = colors;
-    Input = ThemeForm.From(Input.Name ?? "", colors);
+    Input = ThemeForm.From(Input.Name ?? "", Input.NewName ?? "", colors);
   }
 
   private void NavigateToSaved(ThemeKey key) =>
@@ -150,11 +171,8 @@ true
     NavigationManager.NavigateTo(PageUrls.Theme);
   }
 
-  // the theme in use always opens: deleting it puts the website back on Paper
-  private string NameOf(ThemeKey key) => Open(key)?.Name ?? throw new InvalidOperationException($"The theme in use, {key.QueryValue}, isn't there.");
-
   // a role differs from the open theme as saved, which its Reset puts back
-  private static bool IsChanged(ThemeColors shown, OpenTheme open, ColorRole role) =>
+  private static bool IsChanged(ThemeColors shown, NamedTheme open, ColorRole role) =>
     shown.ChosenFor(role) != open.Theme.Colors.ChosenFor(role);
 
   // each with its place in Input.Roles, which names its inputs
@@ -170,9 +188,9 @@ true
 
 <PageTitle>Theme</PageTitle>
 
-@if (_open is { } open && _shown is { } shown && _inUse is { } inUse)
+@if (_open is { } open && _shown is { } shown)
 {
-  var isInUse = open.Key == inUse;
+  var isInUse = open.Key == _inUse?.Key;
   @* each listed under the role in front *@
   var problems = shown.ContrastProblems().ToLookup(problem => problem.Foreground);
 
@@ -183,65 +201,37 @@ true
       <p class="mb-4">
         Admin pages keep the default theme. Public pages' theme can be customized.
       </p>
-      <p class="mb-4">Currently set theme: <strong>@NameOf(inUse)</strong>.</p>
+      @if (_inUse is { } inUse)
+      {
+        <p class="mb-4">Currently set theme: <strong>@inUse.Name</strong>.</p>
+      }
+      else
+      {
+        <p class="mb-4">Your website's theme no longer exists, so its public pages show @ThemePresets.Paper.Name.</p>
+      }
 
       @if (Saved && !_formWasPosted)
       {
         <SavedNotice>Saved.</SavedNotice>
       }
 
-      @* a form of its own, since forms can't be nested: choosing loads the page again with ?theme= *@
-      <form method="get" action="@PageUrls.Theme" class="mb-4">
-        <SubmitOnChange>
-          <label class="artist-shop-field-label" for="open-theme">Theme to edit</label>
-          <select id="open-theme" name="theme" class="artist-shop-field-input mb-2">
-            <optgroup label="Presets">
-              @foreach (var preset in ThemePresets.All)
-              {
-                var key = new ThemeKey.Preset(preset.Preset);
-                <option value="@key.QueryValue" selected="@(key == open.Key)">@preset.Name</option>
-              }
-            </optgroup>
-            @if (_themes.Count > 0)
-            {
-              <optgroup label="Your themes">
-                @foreach (var theme in _themes)
-                {
-                  var key = new ThemeKey.Saved(theme.Id);
-                  <option value="@key.QueryValue" selected="@(key == open.Key)">@theme.Name</option>
-                }
-              </optgroup>
-            }
-          </select>
-
-          @* app.css hides this unless the browser runs no scripts *@
-          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Open</ButtonBasic>
-        </SubmitOnChange>
-      </form>
-
-      <div class="mb-6 flex flex-wrap gap-3">
-        @* what's on the website is always a saved theme, so changes not saved yet can't go there *@
-        @if (!isInUse && !_formWasPosted)
-        {
-          <form method="post" @formname="use-theme" @onsubmit="UseAsync">
-            <AntiforgeryToken />
-            <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Use this theme</ButtonBasic>
-          </form>
-        }
-        @if (open.IsSaved)
-        {
-          <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">Delete
-          </ButtonBasic>
-        }
-      </div>
+      <ThemePicker Open="open.Key" Themes="_themes" ThemeFormId="@FormId" />
+      <ThemeActions Open="open" IsInUse="isInUse" CanUse="!_formWasPosted" OnUse="UseAsync" OnDelete="DeleteAsync" />
 
       <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
-        <EditForm EditContext="Input.EditContext" FormName="theme" OnValidSubmit="SubmitAsync" Enhance
+        <EditForm id="@FormId" EditContext="Input.EditContext" FormName="theme" OnValidSubmit="SubmitAsync" Enhance
                   data-waits-for-pending>
           <DataAnnotationsValidator />
           <ValidationSummary class="mb-4 text-error" />
 
-          <TextField Label="Theme name" @bind-Value="Input.Name" autocomplete="off" />
+          @if (IsSaved(open))
+          {
+            @* Enter in a text field presses its form's first submit button, so this one comes first: Enter
+               in the name saves, where the first otherwise would be a Reset. Hidden, as Save shows below *@
+            <button type="submit" name="Input.Save" value="true" class="sr-only" tabindex="-1" aria-hidden="true"
+                    data-waits-for-change>Save</button>
+            <TextField Label="Theme name" @bind-Value="Input.Name" autocomplete="off" />
+          }
 
           <div class="mb-6 grid gap-6 md:grid-cols-[1fr_16rem]">
             <SubmitOnChange>
@@ -264,7 +254,7 @@ true
                   @* previews too, like a pick *@
                   <div class="mb-6">
                     <ButtonBasic type="submit" name="Input.DeriveAll" value="true" Variant="ButtonVariant.Outline">
-                      Overwrite all with derrivation from base colors
+                      Derive all from base colors
                     </ButtonBasic>
                   </div>
                 }
@@ -290,38 +280,32 @@ true
             </div>
           </div>
 
-          @if (open.IsSaved && isInUse)
+          @if (IsSaved(open) && isInUse)
           {
             <p class="mb-2 text-sm text-ink-faded">Your website uses this theme, so saving changes it too.</p>
           }
-          <div class="flex flex-wrap gap-3">
-            @if (open.IsSaved)
+          <div class="mb-2 flex flex-wrap gap-3">
+            @if (IsSaved(open))
             {
               <ButtonBasic type="submit" name="Input.Save" value="true" Variant="ButtonVariant.Primary"
                            data-waits-for-change>Save</ButtonBasic>
             }
-            <ButtonBasic type="submit" name="Input.SaveAsNew" value="true"
-                         Variant="@(open.IsSaved ? ButtonVariant.Outline : ButtonVariant.Primary)">Save as new theme</ButtonBasic>
+            <ButtonBasic type="button" data-opens-dialog="@SaveThemeDialog.DialogId"
+                         Variant="@(IsSaved(open) ? ButtonVariant.Outline : ButtonVariant.Primary)">Save as new theme</ButtonBasic>
             @if (_formWasPosted)
             {
               <LinkButton href="@PageUrls.ThemeEditing(open.Key)" Variant="ButtonVariant.Outline">Discard changes
               </LinkButton>
             }
           </div>
+          @* the dialog closes as it posts, so a name it was refused shows here too *@
+          <ValidationMessage For="() => Input.NewName" class="text-sm text-error" />
+
+          <SaveThemeDialog Input="Input" />
         </EditForm>
       </EnableSaveOnChange>
+
+      <SwitchThemeDialog OpenIsSaved="IsSaved(open)" ThemeFormId="@FormId" />
     </AdminPanel>
   </main>
-
-  @if (open.IsSaved)
-  {
-    <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {open.Name}?")" ConfirmLabel="Delete theme"
-                       OnConfirm="DeleteAsync">
-      <p class="mb-2 last:mb-0">It can't be undone.</p>
-      @if (isInUse)
-      {
-        <p>Your website uses this theme, so it will go back to @ThemePresets.Paper.Name.</p>
-      }
-    </ConfirmFormDialog>
-  }
 }

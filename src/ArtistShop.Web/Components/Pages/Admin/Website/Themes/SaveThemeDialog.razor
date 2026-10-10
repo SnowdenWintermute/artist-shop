@@ -1,0 +1,27 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Forms
+
+@code {
+  // the id a data-opens-dialog button opens it by
+  public const string DialogId = "save-as-new-theme";
+
+  // the theme form's, which this sits inside so the colours post with the name
+  [Parameter, EditorRequired]
+  public ThemeForm Input { get; set; } = default!;
+}
+
+@* <save-theme-dialog> is defined in SaveThemeDialog.razor.js: Enter in the name presses Save, and
+   closing without saving puts the name back *@
+<save-theme-dialog class="contents">
+  <ModalDialog Title="Save as new theme" Width="ModalDialogWidth.Narrow" Id="@DialogId" StartsClosed>
+    <TextField Label="Name" @bind-Value="Input.NewName" autocomplete="off" />
+    <ModalDialogActions>
+      <ModalCloseButton Label="Cancel" />
+      <ButtonBasic type="submit" name="Input.SaveAsNewAndUse" value="true" Variant="ButtonVariant.Outline">Save and use
+      </ButtonBasic>
+      <ButtonBasic type="submit" name="Input.SaveAsNew" value="true" Variant="ButtonVariant.Primary" data-enter-presses>
+        Save</ButtonBasic>
+    </ModalDialogActions>
+  </ModalDialog>
+</save-theme-dialog>
