@@ -1,5 +1,60 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Logo and icon ("brand images"), designed 2026-10-10 (From Claude)
+
+Not built. Agreed with Mike. The same split as work images, where the blur (small, derived) is in the database and the
+original is on disk: here every served file is small, so all of them go in the database too.
+
+**What an artist sets**, on a new page "Logo and icon" under Website (`/admin/website/logo`, via `PageUrls`; the site
+name form joins it later, out of scope now):
+- `BrandImageType { Logo = 1, LogoOnDark = 2, Favicon = 3 }`. Uploading replaces the live image at once; Remove beside
+  it. No pending/Save step, so nothing is left unreferenced.
+- Uploads: SVG plus the usual raster types, 5 MB cap, rate limiting and admin auth from `AsImageUpload()`.
+
+**Processing** (shares `ImageUploadValidation`, `ImageProcessingLimiter` and the endpoint's error handling with work
+images; not the variant loop):
+- First, pull the header check (HEIC, decoded bytes, megapixel cap, memory budget) out of `ImageProcessor.ReadHeader`
+  and `ImageUploadStore.SaveAsync` into one step on an opened `Image`, so it works from a file or from bytes.
+- Logo: trim transparent margins (`FindTrim`), one WebP at 3× the nav height (135px tall for a 45px logo, transparency
+  kept, high quality or lossless). 1× and 2× screens scale it down. Cap the width-to-height ratio (about 4:1) so a
+  wide wordmark can't push the links into the drawer. An SVG is kept as SVG, with no raster copy.
+- Favicon: an SVG is kept as SVG (it can carry its own `prefers-color-scheme` colours). Every upload also gets a PNG
+  `rel="icon"` fallback (browsers without SVG favicons) and a 180px apple-touch PNG: square, padded rather than
+  cropped, flattened onto white (iOS fills transparency with black). It's the home-screen tile when someone uses
+  Add to Home Screen on an iPhone or iPad, and Safari's favourites tiles.
+
+**Storage**, behind a `BrandImageStore` port so callers never see where things live:
+- Served files in the site schema: a row per type (original's storage key, file name, SHA-256, dimensions) and its
+  files as `bytea`. Replace and Remove are one transaction.
+- The original in the site's `originals` folder under a storage key, read only by export and by redoing the files.
+  Replace writes the new original, commits, then deletes the old one, so a crash leaves a stray file, never a row
+  without one. **`OrphanedImageSweeper`'s referenced keys must include the brand keys**, or it deletes them.
+  `ImageStorage.DeleteAll` already covers deleting a site.
+- URLs from one static `BrandImageUrls` (like `ImageUrls`), with the content hash in the path, served
+  `public, max-age=31536000, immutable` by an endpoint (`ServedOn` site hosts only). A later bucket/CDN changes only
+  the store and `BrandImageUrls`.
+- SVGs are served with `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'` and
+  `X-Content-Type-Options: nosniff`: as an image they never run scripts, and opened directly they can't either.
+
+**Showing them** (public and site admin pages; the platform host keeps PictureCord's):
+- `Layout/Logo.razor` becomes a link home. Alt text is the site name, falling back to the subdomain label ("alice"),
+  the internal name, until a presented name exists. With no logo, today's two letters. Real width/height on the img.
+- Dark bars: if white reads better than black on the theme's bar colour (`RgbColor` contrast), use `LogoOnDark`.
+  A site with only one logo shows that one everywhere.
+- Favicon links come from a component in `App.razor` that decides by `CurrentHost`, not from `HeadContent` (only one
+  shows, and `LinkPreview` has it). With no favicon, a generated SVG of the same two letters in the theme's accent.
+
+**Export/import, later, together with themes:** themes' export/import was never done (paused before step 4 of
+colours). Do them all once the website customisation tasks are finished. Brand images use the wording planner's
+outcomes: Same (hashes match), Set (the site has none), Kept (the site has its own).
+
+**Not now:** `manifest.webmanifest` with 192/512px icons (only Android "Add to home screen" needs it), `/favicon.ico`
+(an ICO wrapping the 32px PNG), the logo as `og:image` fallback, the site name form, upload moderation (the planned
+hash-matching step should cover these uploads too).
+
+**Build order:** header-check refactor → migration, store, processor → upload and serving endpoints → the page →
+Logo and favicon in the layout → sweep change.
+
 ## Operator Websites page, 2026-10-07 (From Claude)
 
 Uncommitted, 957 tests pass, not browser-checked. `/operator/sites` (Sign-up codes · Websites links via
