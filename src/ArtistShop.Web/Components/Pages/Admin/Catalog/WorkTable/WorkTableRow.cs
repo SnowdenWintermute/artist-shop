@@ -176,8 +176,7 @@ public class WorkTableRow
     // nothing typed wrongly, saving or refused by the database
     public bool IsSaved => !IsSaving && Errors.Count is 0 && SaveError is null && ImagesSaveError is null;
 
-    public WorkImage? Thumbnail =>
-        SavedImages.FirstOrDefault(image => image.StorageKey == MainImageKey) ?? SavedImages.FirstOrDefault();
+    public WorkImage? Thumbnail => WorkImage.MainOf(SavedImages, MainImageKey);
 
     public string? ErrorFor(string propertyName) => Errors.GetValueOrDefault(propertyName);
 

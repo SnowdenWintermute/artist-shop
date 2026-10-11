@@ -1,4 +1,5 @@
 @page "/works/{slug}"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -7,6 +8,9 @@
 @inject NavigationManager NavigationManager
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter]
   public string Slug { get; set; } = default!;
 
@@ -79,6 +83,10 @@
       <WorkCollectionNav Collection="collection"
                         PreviousUrl="@PreviousLinkUrl(loaded, CurrentImageIndex(loaded.Work))"
                         NextUrl="@NextLinkUrl(loaded, CurrentImageIndex(loaded.Work))" />
+    }
+    else
+    {
+      <UpLink Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
     }
 
     @* one column on a phone, the panel beside the work once there is room. minmax(0,…) rather

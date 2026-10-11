@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @layout MainLayout
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -18,6 +19,9 @@
 }
 
 <AdminPanel>
+  <Up>
+    <AdminUpLink />
+  </Up>
   <SectionNav>
     <NavLink href="@PageUrls.NewWorkType" ActiveClass="underline">+ New @Wording.Work.SingularInSentence type</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>

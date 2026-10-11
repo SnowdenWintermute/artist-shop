@@ -66,6 +66,8 @@
   <LinkPreview Title="@loaded.Post.Title.Value" />
 
   <main class="@($"mx-auto p-4 {PostColumn.WidthClass}")">
+    <UpLink Href="@PageUrls.Blog" Label="Blog" />
+
     @if (loaded.Post.PublishedAt is null)
     {
       <p class="mb-4 border border-rule bg-page px-3 py-2">
@@ -94,6 +96,5 @@
 
     <PostDocumentView Document="loaded.Document" WorkImages="loaded.WorkImages" />
 
-    <BackLink Href="@PageUrls.Blog" Label="Back to blog posts" />
   </main>
 }

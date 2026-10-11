@@ -42,7 +42,12 @@ public record WorkImage(
     int Width,
     int Height,
     string? BlurDataUri
-);
+)
+{
+    // the starred image, or the first when none is starred
+    public static WorkImage? MainOf(IReadOnlyList<WorkImage> images, string? mainImageKey) =>
+        images.FirstOrDefault(image => image.StorageKey == mainImageKey) ?? images.FirstOrDefault();
+}
 
 // what appending an image left on the work: the image given, or one it already had with the
 // same bytes, in which case nothing was appended

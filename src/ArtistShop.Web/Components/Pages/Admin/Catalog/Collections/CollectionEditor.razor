@@ -23,7 +23,7 @@
 
 <PageTitle>@(_collection?.Name.Value ?? Wording.Collection.SingularHeading)</PageTitle>
 
-<BackLink Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+<UpLink Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
 @if (_collection is null)
 {

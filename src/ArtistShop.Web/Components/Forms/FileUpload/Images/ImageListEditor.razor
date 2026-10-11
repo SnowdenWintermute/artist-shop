@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Components.Interop
 @using ArtistShop.Web.Components.Lists
@@ -34,11 +35,13 @@
     _mainImageKey = SavedMainImageKey;
   }
 
+  // an image still uploading has nothing to save or show yet
+  private List<WorkImage> UploadedImages => [.. _files.Select(file => file.Result).OfType<WorkImage>()];
+
   private Task ChangedAsync() =>
     OnChanged.InvokeAsync(
       new ImageListState(
-        // an image still uploading has nothing to save yet
-        [.. _files.Select(file => file.Result).OfType<WorkImage>()],
+        UploadedImages,
         _mainImageKey,
         IsUploading: _files.Any(file => file.Result is null && file.Error is null)
       )
@@ -139,6 +142,13 @@
 <FileDropZone TResult="ImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.WorkImageUploadPath" Prompt="Drop images here"
               Accept="@ImageUploadValidation.FileInputAccept" Multiple="true" OnSelected="OnSelectedAsync" OnProgress="OnProgress"
               OnCompleted="OnCompletedAsync" OnFailed="OnFailedAsync" />
+@* larger than the list's thumbnails, so the work can be made out. 16rem: about as wide as a
+   landscape work comes out at this height *@
+@if (WorkImage.MainOf(UploadedImages, _mainImageKey) is { } mainImage)
+{
+  <TileImage Image="mainImage" IsUncropped IsEager BoxClass="mb-2 h-48 max-w-full" MaximumWidth="ImageVariants.AdminPreviewWidth"
+             Sizes="16rem" />
+}
 <StarredSortableList TItem="SelectedImage" Items="_files" AriaLabel="Image order" StarName="@StarName"
                      StarTitle="Set as main image" StarValueOf="file => file.Result?.StorageKey" StarredValue="@_mainImageKey"
                      OnStar="SetMainAsync" ChosenStarMessage="Main image chosen by hand"

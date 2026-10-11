@@ -1,4 +1,5 @@
 @page "/admin/admins"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Sites
 @using ArtistShop.Web.Sites
@@ -36,6 +37,7 @@
 <PageTitle>Admins</PageTitle>
 
 <AdminPanel>
+  <AdminUpLink />
   <h1 class="mb-4 text-xl">Admins</h1>
   <p class="mb-4">Admins can edit this website's @Wording.Work.PluralInSentence and posts. Only you, its owner, can invite or remove them.</p>
 

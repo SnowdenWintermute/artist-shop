@@ -1,3 +1,6 @@
+@* to the page above this one in the site, named after it; never the browser's Back, which goes wherever
+   the visitor came from *@
+
 @code {
   [Parameter, EditorRequired]
   public string Href { get; set; } = default!;
@@ -7,4 +10,5 @@
   public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 }
 
-<a href="@Href" @attributes="AdditionalAttributes" class="@($"mb-4 inline-block {LinkStyles.Standalone}")">← @Label</a>
+<a href="@Href" @attributes="AdditionalAttributes" class="@($"mb-4 underline inline-block {LinkStyles.Standalone}")">↑
+  @Label</a>

@@ -12,6 +12,9 @@
   public ModalDialogWidth Width { get; set; }
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
+  // at the far end of the title's line, such as a link
+  [Parameter]
+  public RenderFragment? TitleEnd { get; set; }
 
   // islands only, as a static page has no code to run: the browser closed the dialog (Escape, or a
   // ModalCloseButton), so the island should stop rendering it
@@ -57,7 +60,10 @@
      as a literal attribute name that the browser rejects *@
   <dialog @attributes="AdditionalAttributes" id="@Id" aria-labelledby="@_titleId"
           class="artist-shop-modal text-left @WidthClass @Class" data-keep-open="@KeepOpen" data-closes-on-submit="@ClosesOnSubmit" @onclose="OnClose">
-    <h2 id="@_titleId" class="mb-4 shrink-0 text-lg">@Title</h2>
+    <div class="mb-4 flex shrink-0 items-baseline justify-between gap-4">
+      <h2 id="@_titleId" class="text-lg">@Title</h2>
+      @TitleEnd
+    </div>
 
     @* the title always shows; content that should scroll uses min-h-0 and overflow-y-auto inside this
        column, and parts that shouldn't, like ModalDialogActions, use shrink-0 *@

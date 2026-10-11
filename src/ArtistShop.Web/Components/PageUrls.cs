@@ -77,6 +77,8 @@ public static class PageUrls
         );
 
     // on a site's host
+    public const string Home = "/";
+
     public const string AdminDashboard = "/admin";
 
     public const string PostList = "/admin/posts";

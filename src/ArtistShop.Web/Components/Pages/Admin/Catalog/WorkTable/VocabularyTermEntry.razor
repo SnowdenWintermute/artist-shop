@@ -9,7 +9,7 @@
 @inject VocabularyRepository VocabularyRepository
 @inject VocabularyTermRepository VocabularyTermRepository
 
-@* The vocabulary dialog's second view: a vocabulary's name, then its terms, Enter after each. Each is
+@* The vocabulary dialog's second view: a vocabulary's name, then its terms, one at a time. Each is
    saved as it's entered, so it stays even if the dialog is cancelled *@
 
 @code {
@@ -34,6 +34,9 @@
   // one form each for the whole view: a new form would rebuild its field and take the cursor out of it
   private readonly VocabularyForm _vocabulary = new();
   private readonly VocabularyTermNameForm _term = new();
+
+  // a save started from a field rather than by Done, so its button spins rather than Done
+  private bool _isAdding;
 
   private TextField? _nameField;
   private TextField? _termField;
@@ -124,6 +127,34 @@
     }
   }
 
+  private async Task AddVocabularyAsync()
+  {
+    _isAdding = true;
+
+    try
+    {
+      await SaveVocabularyAsync();
+    }
+    finally
+    {
+      _isAdding = false;
+    }
+  }
+
+  private async Task AddTermAsync()
+  {
+    _isAdding = true;
+
+    try
+    {
+      await SaveTermAsync();
+    }
+    finally
+    {
+      _isAdding = false;
+    }
+  }
+
   // what's typed and not yet entered is saved too, rather than lost; a message keeps the view open
   private async Task DoneAsync()
   {
@@ -145,12 +176,15 @@
 
 @if (Vocabulary is null)
 {
-  <EditForm EditContext="_vocabulary.EditContext" OnValidSubmit="SaveVocabularyAsync" class="mb-4 shrink-0">
+  <EditForm EditContext="_vocabulary.EditContext" OnValidSubmit="AddVocabularyAsync" class="mb-4 shrink-0">
     <DataAnnotationsValidator />
 
     <TextField @ref="_nameField" Label="Vocabulary name" @bind-Value="_vocabulary.Name" UpdatesPerKeystroke
                placeholder="" />
-    <p class="text-sm text-ink-faded">Press Enter to save it, then add its terms.</p>
+    <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="_isAdding"
+                 disabled="@(IsSaving || string.IsNullOrWhiteSpace(_vocabulary.Name))">
+      Save vocabulary
+    </ButtonBasic>
   </EditForm>
 }
 else
@@ -167,18 +201,22 @@ else
     </ul>
   }
 
-  <EditForm EditContext="_term.EditContext" OnValidSubmit="SaveTermAsync" class="mb-4 shrink-0">
+  <EditForm EditContext="_term.EditContext" OnValidSubmit="AddTermAsync" class="mb-4 shrink-0">
     <DataAnnotationsValidator />
 
     <TextField @ref="_termField" Label="New term" @bind-Value="_term.Name" UpdatesPerKeystroke />
-    <p class="text-sm text-ink-faded">Press Enter after each term.</p>
+    <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="_isAdding"
+                 disabled="@(IsSaving || string.IsNullOrWhiteSpace(_term.Name))">
+      Add term
+    </ButtonBasic>
   </EditForm>
 }
 
 <ModalDialogActions>
   @* the same as Done, for an artist looking for the way back to the list *@
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@IsSaving" @onclick="DoneAsync">Go back</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Primary" Busy="IsSaving" disabled="@IsSaving" @onclick="DoneAsync">
+  <ButtonBasic type="button" Variant="ButtonVariant.Primary" Busy="@(IsSaving && !_isAdding)" disabled="@IsSaving"
+               @onclick="DoneAsync">
     Done
   </ButtonBasic>
 </ModalDialogActions>

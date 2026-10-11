@@ -7,6 +7,11 @@
    and then cancelled are left for the orphaned image sweep *@
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public WorkId WorkId { get; set; } = default!;
   // null while the row's title is cleared
   [Parameter, EditorRequired]
   public string? WorkName { get; set; }
@@ -41,6 +46,10 @@
 
 <ModalDialog Title="@(WorkName is null ? "Images" : $"Images of {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose"
              KeepOpen="_isSaving">
+  <TitleEnd>
+    <a class="@LinkStyles.InSentence" href="@PageUrls.EditWork(WorkId)">Edit @Wording.Work.SingularInSentence</a>
+  </TitleEnd>
+  <ChildContent>
   <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">
     <ImageListEditor SavedImages="Images" SavedMainImageKey="@MainImageKey" StarName="main-image" OnChanged="state => _state = state" />
   </div>
@@ -50,4 +59,5 @@
     <ButtonBasic type="button" Variant="ButtonVariant.Primary" Class="min-w-24" Busy="_isSaving"
                  disabled="@(_isSaving || _state.IsUploading)" @onclick="OkAsync">OK</ButtonBasic>
   </ModalDialogActions>
+  </ChildContent>
 </ModalDialog>

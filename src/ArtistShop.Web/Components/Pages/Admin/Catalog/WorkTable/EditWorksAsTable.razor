@@ -1,4 +1,5 @@
 @page "/admin/catalog/works/table"
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -14,6 +15,7 @@
 
 <main>
   <AdminPanel Wide>
+    <AdminUpLink />
     <p class="mb-4 flex items-center">
       <span class="text-ink flex items-center justify-center mr-2">
         <SvgIcon Name="floppy-disc" Class="size-5" />

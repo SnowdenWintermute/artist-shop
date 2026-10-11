@@ -360,7 +360,8 @@ WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
     await ApplyAsync(rows, row =>
     {
       List<int> updated = change is BulkChange.Add
-        ? VocabularyOrder.TermIdsInListOrder(_vocabularies, TermChoices.WithAdded(_vocabularies, row.Form.VocabularyTermIds, termIds))
+        ? VocabularyOrder.TermIdsInListOrder(_vocabularies, TermChoices.WithAdded(_vocabularies, row.Form.VocabularyTermIds,
+termIds))
         : [.. row.Form.VocabularyTermIds.Where(id => !termIds.Contains(id))];
 
       if (updated.SequenceEqual(row.Form.VocabularyTermIds))
@@ -394,7 +395,8 @@ WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
   }
 
   private string CollectionsText(WorkTableRow row) =>
-    string.Join(", ", AllCollections.Where(collection => row.Form.CollectionIds.Contains(collection.Id.Value)).Select(collection =>
+    string.Join(", ", AllCollections.Where(collection =>
+row.Form.CollectionIds.Contains(collection.Id.Value)).Select(collection =>
 collection.Name.Value));
 
   private string VocabularyText(WorkTableRow row) =>
@@ -413,21 +415,25 @@ collection.Name.Value));
   var isUploadingSelected = selectedRows.Any(row => row.HasImagesUploading);
 }
 
-<div class="mb-2 flex flex-wrap items-center gap-2">
-  <span class="mr-2 text-sm" role="status">@selectedRows.Count selected</span>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
-               @onclick="() => _bulkCollectionChange = BulkChange.Add">Add to @Wording.Collection.PluralInSentence</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
-               @onclick="() => _bulkCollectionChange = BulkChange.Remove">Remove from @Wording.Collection.PluralInSentence</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
-               @onclick="() => _bulkVocabularyChange = BulkChange.Add">Add terms</ButtonBasic>
-  <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
-               @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
-  @* a work deleted mid-upload would leave its upload failing *@
-  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline"
-               disabled="@(!canChangeSelected || isUploadingSelected)"
-               title="@(isUploadingSelected ? "Waits for image uploads to finish" : null)"
-               @onclick="() => _isConfirmingDelete = true">Delete</ButtonBasic>
+<div class="mb-2">
+  <p class="mb-2">Select multiple works to edit them as a group:</p>
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="mr-2 text-sm" role="status">@selectedRows.Count selected</span>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+                 @onclick="() => _bulkCollectionChange = BulkChange.Add">Add to @Wording.Collection.PluralInSentence</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+                 @onclick="() => _bulkCollectionChange = BulkChange.Remove">Remove from @Wording.Collection.PluralInSentence
+    </ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+                 @onclick="() => _bulkVocabularyChange = BulkChange.Add">Add terms</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+                 @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
+    @* a work deleted mid-upload would leave its upload failing *@
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline"
+                 disabled="@(!canChangeSelected || isUploadingSelected)"
+                 title="@(isUploadingSelected ? "Waits for image uploads to finish" : null)"
+                 @onclick="() => _isConfirmingDelete = true">Delete</ButtonBasic>
+  </div>
 </div>
 
 <div class="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
@@ -436,7 +442,8 @@ collection.Name.Value));
       <DataTableCell Class="@($"align-top {SelectColumnClass} {PinnedCellClass}")">
         @* as tall as the inputs, so the box lines up with the title *@
         <div class="flex h-10 items-center justify-center">
-          <input type="checkbox" class="@CheckboxClass" aria-label="@($"Select {row.Form.Name}")" @bind="row.IsSelected" />
+          <input type="checkbox" class="@CheckboxClass" aria-label="@($"Select {row.Form.Name}")"
+                 @bind="row.IsSelected" />
         </div>
       </DataTableCell>
 
@@ -543,8 +550,8 @@ collection.Name.Value));
 @if (_collectionRow is { } collectionRow)
 {
   <CollectionChoiceDialog WorkName="@collectionRow.Form.Name" AllCollections="AllCollections"
-                      SelectedCollectionIds="collectionRow.Form.CollectionIds" OnOk="CollectionOkAsync" OnClose="ChoiceDialogClosedAsync"
-                      OnCollectionAdded="CollectionAddedAsync" />
+                          SelectedCollectionIds="collectionRow.Form.CollectionIds" OnOk="CollectionOkAsync" OnClose="ChoiceDialogClosedAsync"
+                          OnCollectionAdded="CollectionAddedAsync" />
 }
 
 @if (_vocabularyRow is { } vocabularyRow)
@@ -556,23 +563,22 @@ collection.Name.Value));
 
 @if (_imagesRow is { } imagesRow)
 {
-  <WorkImagesDialog WorkName="@imagesRow.Form.Name" Images="imagesRow.SavedImages"
-                       MainImageKey="@imagesRow.MainImageKey" OnOk="ImagesOkAsync" OnClose="() => _imagesRow = null" />
+  <WorkImagesDialog WorkId="imagesRow.Id" WorkName="@imagesRow.Form.Name" Images="imagesRow.SavedImages"
+                    MainImageKey="@imagesRow.MainImageKey" OnOk="ImagesOkAsync" OnClose="() => _imagesRow = null" />
 }
 
 @if (_bulkCollectionChange is { } collectionChange)
 {
   <BulkCollectionDialog Change="collectionChange" WorkCount="selectedRows.Count"
-                    Collections="@(collectionChange is BulkChange.Add ? AllCollections : CollectionsOf(selectedRows))" OnOk="BulkCollectionOkAsync"
-                    OnClose="ChoiceDialogClosedAsync" OnCollectionAdded="CollectionAddedAsync" />
+                        Collections="@(collectionChange is BulkChange.Add ? AllCollections : CollectionsOf(selectedRows))"
+                        OnOk="BulkCollectionOkAsync" OnClose="ChoiceDialogClosedAsync" OnCollectionAdded="CollectionAddedAsync" />
 }
 
 @if (_bulkVocabularyChange is { } vocabularyChange)
 {
   <BulkVocabularyDialog Change="vocabularyChange" WorkCount="selectedRows.Count" WorkTypeId="Type.Id"
                         Vocabularies="@(vocabularyChange is BulkChange.Add ? _vocabularies : VocabulariesOf(selectedRows))"
-                        OnOk="BulkVocabularyOkAsync" OnClose="ChoiceDialogClosedAsync"
-                        OnVocabulariesChanged="VocabulariesChangedAsync" />
+                        OnOk="BulkVocabularyOkAsync" OnClose="ChoiceDialogClosedAsync" OnVocabulariesChanged="VocabulariesChangedAsync" />
 }
 
 <ConfirmDialog @bind-Open="_isConfirmingDelete" Title="@($"Delete {Wording.Work.CountOf(selectedRows.Count)}?")"

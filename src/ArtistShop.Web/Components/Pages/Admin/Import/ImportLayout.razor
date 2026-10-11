@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @layout MainLayout
+@using ArtistShop.Web.Components.Atoms
 
 @code {
   [CascadingParameter]
@@ -8,6 +9,9 @@
 
 <main>
   <AdminPanel>
+    <Up>
+      <AdminUpLink />
+    </Up>
     <SectionNav>
       <NavLink href="@PageUrls.Import" Match="NavLinkMatch.All" ActiveClass="underline">All steps</NavLink>
       <div aria-hidden="true" class="pointer-events-none">|</div>

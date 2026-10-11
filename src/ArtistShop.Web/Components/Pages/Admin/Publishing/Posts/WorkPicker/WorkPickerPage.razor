@@ -20,7 +20,7 @@
   @if (BackHref is not null && BackLabel is not null)
   {
     @* returns to where that step was scrolled, as the browser's Back would *@
-    <BackLink Href="@BackHref" Label="@BackLabel" data-restores-scroll />
+    <UpLink Href="@BackHref" Label="@BackLabel" data-restores-scroll />
   }
 
   <h1 class="mb-4 text-lg">@Heading</h1>

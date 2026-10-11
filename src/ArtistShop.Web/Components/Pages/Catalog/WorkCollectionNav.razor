@@ -18,7 +18,7 @@
 @* WorkGallery.razor.js takes a plain click on these and steps as the arrow keys do, and moves
    their hrefs along as the image changes, so a middle click still opens the next step *@
 <nav class="mb-4 flex items-center justify-between gap-4" aria-label="@Collection.Name.Value">
-  <a href="@PageUrls.Collection(Collection.Slug)" class="@LinkStyles.Standalone">← @Collection.Name.Value</a>
+  <a href="@PageUrls.Collection(Collection.Slug)" class="@LinkStyles.Standalone">↑ @Collection.Name.Value</a>
 
   <div class="flex gap-4">
     <a href="@PreviousUrl" data-work-step="-1" rel="prev" class="@StepClass">← Previous</a>

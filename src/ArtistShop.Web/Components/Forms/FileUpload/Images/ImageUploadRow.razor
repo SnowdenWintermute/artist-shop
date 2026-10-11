@@ -4,9 +4,10 @@
   [Parameter, EditorRequired]
   public SelectedImage SelectedImage { get; set; } = default!;
 
-  private string StatusLabel =>
+  // null once the image is in: its thumbnail shows that
+  private string? StatusLabel =>
   SelectedImage.Error is not null ? SelectedImage.Error
-  : SelectedImage.Result is not null ? "Done"
+  : SelectedImage.Result is not null ? null
   : SelectedImage.UploadPercentComplete is 100 ? "Processing…"
   : $"{SelectedImage.UploadPercentComplete}%";
 }
@@ -16,10 +17,16 @@
 <WorkThumbnail Image="SelectedImage.Result" />
 
 @* data-failed: a submit that waited for uploads doesn't post while a row has it (static-form-submit.js) *@
-<div class="grow" data-failed="@(SelectedImage.Error is not null)">
-  <div class="mb-1 flex justify-between">
-    <span>@SelectedImage.Name</span>
-    <span>@StatusLabel</span>
+@* min-w-0: a flex item is otherwise as wide as its content, and a long name would widen the row
+   past the screen instead of being cut short *@
+<div class="min-w-0 grow" data-failed="@(SelectedImage.Error is not null)">
+  <div class="mb-1 flex justify-between gap-2">
+    <span class="truncate" title="@SelectedImage.Name">@SelectedImage.Name</span>
+    @if (StatusLabel is { } statusLabel)
+    {
+      @* can wrap, since an error can be a sentence *@
+      <span class="text-right">@statusLabel</span>
+    }
   </div>
 
   @if (SelectedImage.Error is null && SelectedImage.Result is null)

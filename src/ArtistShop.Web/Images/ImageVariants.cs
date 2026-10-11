@@ -25,6 +25,9 @@ public static partial class ImageVariants
     // the small preview the admin lists and the upload rows show, at twice its 80 pixel box
     public const int AdminThumbnailWidth = 160;
 
+    // the main image shown larger above a work's image list in the admin
+    public static readonly int AdminPreviewWidth = Widths[1];
+
     // the cap on what a browse tile asks for; the browser picks from the srcset by how wide
     // the tile actually came out
     public const int CardWidth = 800;

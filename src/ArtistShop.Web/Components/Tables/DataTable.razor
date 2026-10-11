@@ -39,30 +39,48 @@
     };
 }
 
-<table class="@ClassNames.Join(FitsContent ? null : "w-full", "text-left", Class)">
-  <thead>
-    <tr class="text-sm text-ink-faded">
-      @foreach (var heading in Headings)
-      {
-        <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-panel" : null, Layer(heading), heading.Class)">
-          @if (heading.Content is { } content)
+@* a table too wide for a phone scrolls sideways in its own box, rather than widening the page. Not with
+   sticky headings: a box that scrolls one way scrolls both, so they would stick to it rather than to
+   the caller's scrolling box, which already holds the table *@
+@if (StickyHeadings)
+{
+  @TableMarkup
+}
+else
+{
+  <div class="overflow-x-auto">
+    @TableMarkup
+  </div>
+}
+
+@code {
+  private RenderFragment TableMarkup => @<text>
+    <table class="@ClassNames.Join(FitsContent ? null : "w-full", "text-left", Class)">
+      <thead>
+        <tr class="text-sm text-ink-faded">
+          @foreach (var heading in Headings)
           {
-            @content
+            <th class="@ClassNames.Join("pb-2 pr-4 last:pr-0", StickyHeadings ? "sticky top-0 bg-panel" : null, Layer(heading), heading.Class)">
+              @if (heading.Content is { } content)
+              {
+                @content
+              }
+              else
+              {
+                @heading.Text
+              }
+            </th>
           }
-          else
-          {
-            @heading.Text
-          }
-        </th>
-      }
-    </tr>
-  </thead>
-  <tbody>
-    @foreach (var item in Items)
-    {
-      <tr class="@ClassNames.Join("border-t hover:bg-page", RowClass)">
-        @Row(item)
-      </tr>
-    }
-  </tbody>
-</table>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var item in Items)
+        {
+          <tr class="@ClassNames.Join("border-t hover:bg-page", RowClass)">
+            @Row(item)
+          </tr>
+        }
+      </tbody>
+    </table>
+  </text>;
+}
