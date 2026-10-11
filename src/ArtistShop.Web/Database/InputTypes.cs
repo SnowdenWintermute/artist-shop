@@ -21,3 +21,6 @@ public sealed record ProductInput(
 );
 
 public sealed record CollectionNameAndSlug(string Name, string Slug);
+
+// Npgsql maps a C# enum only to a Postgres enum, so these are plain ints
+public sealed record BrandImageFileInput(int Type, int Format, int Width, int Height, string Sha256, byte[] Bytes);

@@ -1,0 +1,14 @@
+@using ArtistShop.Web.Images
+
+@code {
+  [Parameter, EditorRequired]
+  public BrandImage Image { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public string Alt { get; set; } = default!;
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+@* as high as the letters it replaces; a wide one is capped at four times that and shrinks to fit *@
+<img src="@BrandImageUrls.File(Image.Shown)" alt="@Alt" width="@Image.Shown.Width" height="@Image.Shown.Height"
+     class="h-[45px] w-auto max-w-[180px] object-contain @Class" />

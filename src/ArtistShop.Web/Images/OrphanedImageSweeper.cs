@@ -26,7 +26,8 @@ public class OrphanedImageSweeper(
     public async Task SweepAsync(
         ImageStorage imageStorage,
         WorkImageRepository imageRepository,
-        PostRepository postRepository
+        PostRepository postRepository,
+        BrandImageRepository brandImageRepository
     )
     {
         var uploadedBefore = timeProvider.GetUtcNow() - settings.GracePeriod;
@@ -38,9 +39,10 @@ public class OrphanedImageSweeper(
             return;
         }
 
-        // a work's images, and the ones uploaded into posts
+        // a work's images, the ones uploaded into posts, and the logos' and favicon's originals
         var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
         referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
+        referencedKeys.UnionWith(await brandImageRepository.GetAllStorageKeysAsync());
 
         var deletedCount = 0;
         foreach (var storageKey in candidateKeys)

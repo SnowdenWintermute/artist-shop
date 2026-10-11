@@ -11,14 +11,14 @@ public static class ImageUploadValidation
     // while it is still arriving, before it fills the temp folder
     public const long MaximumRequestBytes = MaximumFileSizeBytes + Units.BytesPerMebibyte;
 
-    private static readonly HashSet<string> PermittedContentTypes =
-    [
+    public static readonly IReadOnlySet<string> PermittedContentTypes = new HashSet<string>
+    {
         "image/jpeg",
         "image/png",
         "image/webp",
         "image/avif",
         "image/tiff",
-    ];
+    };
 
     // for a file input's accept attribute. Listing the types rather than "image/*" makes the
     // iPhone photo picker convert HEIC photos to JPEG before handing them over
@@ -36,7 +36,9 @@ public static class ImageUploadValidation
     public static string OriginalFileName(IFormFile file) => Path.GetFileName(file.FileName);
 
     // null when the file may go on to processing
-    public static string? FindProblem(IFormFile file)
+    public static string? FindProblem(IFormFile file) => FindProblem(file, MaximumFileSizeBytes, PermittedContentTypes);
+
+    public static string? FindProblem(IFormFile file, long maximumFileSizeBytes, IReadOnlySet<string> permittedContentTypes)
     {
         if (OriginalFileName(file).Length > ArtistShopLimits.WorkImageFileNameMaximumLength)
         {
@@ -48,9 +50,9 @@ public static class ImageUploadValidation
             return "This file is empty.";
         }
 
-        if (file.Length > MaximumFileSizeBytes)
+        if (file.Length > maximumFileSizeBytes)
         {
-            return $"Images must be {MaximumFileSizeBytes / Units.BytesPerMebibyte}MB or smaller.";
+            return $"Images must be {maximumFileSizeBytes / Units.BytesPerMebibyte}MB or smaller.";
         }
 
         if (IsHeic(file.ContentType))
@@ -60,7 +62,7 @@ public static class ImageUploadValidation
 
         // the browser sets this, so it only turns away honest mistakes; libvips reads the
         // actual format from the file's bytes
-        if (!PermittedContentTypes.Contains(file.ContentType))
+        if (!permittedContentTypes.Contains(file.ContentType))
         {
             return $"{file.ContentType} is not an image format we accept.";
         }

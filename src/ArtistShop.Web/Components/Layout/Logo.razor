@@ -1,19 +1,16 @@
 @using ArtistShop.Web.Sites
 @inject CurrentHost CurrentHost
-@* a stand-in until sites can have a logo of their own *@
+@inject PlatformSettings PlatformSettings
 
-@code {
-  // the first two letters of the site's main host, "al" from alice.picturecord.com
-  private string Letters =>
-    CurrentHost switch
-    {
-      CurrentHost.Site site => FirstLetters(site.MainHost.Value.Split('.')[0]),
-      _ => "PC",
-    };
+@* the start of the nav bar, a link home: a site's logo, or its first letters while it has none *@
 
-  private static string FirstLetters(string label) => label[..Math.Min(2, label.Length)].ToUpperInvariant();
+@if (CurrentHost is CurrentHost.Site site)
+{
+  <SiteLogo Site="site" />
 }
-
-<div class="pointer-events-none">
-  <div class="rounded-full border h-[45px] w-[45px] text-center leading-0 flex items-center justify-center">@Letters</div>
-</div>
+else
+{
+  <a href="/" aria-label="@PlatformSettings.Name" class="shrink-0">
+    <LogoLetters Name="PC" />
+  </a>
+}

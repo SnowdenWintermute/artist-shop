@@ -1,0 +1,32 @@
+@using ArtistShop.Web.Images
+@inject BrandImageStore BrandImageStore
+
+@* Only on a site's host, where its stores can be made. With no icon of its own, PictureCord's *@
+
+@code {
+  private BrandImage? _favicon;
+
+  protected override async Task OnInitializedAsync() =>
+    _favicon = (await BrandImageStore.GetAllAsync()).GetValueOrDefault(BrandImageType.Favicon);
+}
+
+@if (_favicon is not null)
+{
+  @* Chrome and Firefox take the SVG, listed last; browsers without SVG icons take the PNG *@
+  @if (_favicon.File(BrandImageFileType.Raster) is { } icon)
+  {
+    <link rel="icon" type="image/png" sizes="@($"{icon.Width}x{icon.Height}")" href="@BrandImageUrls.File(icon)" />
+  }
+  @if (_favicon.File(BrandImageFileType.Svg) is { } svg)
+  {
+    <link rel="icon" type="image/svg+xml" href="@BrandImageUrls.File(svg)" />
+  }
+  @if (_favicon.File(BrandImageFileType.AppleTouch) is { } homeScreen)
+  {
+    <link rel="apple-touch-icon" href="@BrandImageUrls.File(homeScreen)" />
+  }
+}
+else
+{
+  <PlatformFaviconLink />
+}

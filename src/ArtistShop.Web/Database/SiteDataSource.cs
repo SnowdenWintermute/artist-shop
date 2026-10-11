@@ -24,6 +24,7 @@ public static class SiteDataSource
         builder.MapComposite<WorkImageInput>($"{SiteSchema.TypesSchema}.work_image_input");
         builder.MapComposite<ProductInput>($"{SiteSchema.TypesSchema}.product_input");
         builder.MapComposite<CollectionNameAndSlug>($"{SiteSchema.TypesSchema}.collection_name_and_slug");
+        builder.MapComposite<BrandImageFileInput>($"{SiteSchema.TypesSchema}.brand_image_file_input");
         return builder.Build();
     }
 }

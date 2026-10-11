@@ -1,0 +1,41 @@
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Sites
+@inject BrandImageStore BrandImageStore
+
+@* Only on a site's host, where BrandImageStore can be made. With both logos, both are on the page and the
+   theme's --theme-logo-*-display variables (ColorStyle) show the one for its bar, so admin pages,
+   which keep the platform's bar, and public pages each get the right one *@
+
+@code {
+  [Parameter, EditorRequired]
+  public CurrentHost.Site Site { get; set; } = default!;
+
+  private BrandImage? _logo;
+  private BrandImage? _logoOnDark;
+
+  protected override async Task OnInitializedAsync()
+  {
+    var images = await BrandImageStore.GetAllAsync();
+    _logo = images.GetValueOrDefault(BrandImageType.Logo);
+    _logoOnDark = images.GetValueOrDefault(BrandImageType.LogoOnDark);
+  }
+}
+
+<a href="/" aria-label="@(_logo is null && _logoOnDark is null ? Site.Label : null)" class="flex shrink-0 items-center">
+  @switch ((_logo, _logoOnDark))
+  {
+    case ({ } logo, { } logoOnDark):
+      <LogoImage Image="logo" Alt="@Site.Label" Class="[display:var(--theme-logo-display)]" />
+      <LogoImage Image="logoOnDark" Alt="@Site.Label" Class="[display:var(--theme-logo-on-dark-display)]" />
+      break;
+    case ({ } onlyLogo, null):
+      <LogoImage Image="onlyLogo" Alt="@Site.Label" />
+      break;
+    case (null, { } onlyLogo):
+      <LogoImage Image="onlyLogo" Alt="@Site.Label" />
+      break;
+    default:
+      <LogoLetters Name="@Site.Label" />
+      break;
+  }
+</a>

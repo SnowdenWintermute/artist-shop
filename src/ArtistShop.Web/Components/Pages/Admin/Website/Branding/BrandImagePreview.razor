@@ -1,0 +1,35 @@
+@using ArtistShop.Web.Images
+
+@* the image as it's shown: a logo in a bar as high as the nav's, on the colour it's for, and the icons at
+   their own sizes *@
+
+@code {
+  [Parameter, EditorRequired]
+  public BrandImage Image { get; set; } = default!;
+
+  // the Dark preset's bar, standing in for any dark theme's
+  private static string DarkBar => ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Bar).Hex;
+}
+
+@if (Image.Type is BrandImageType.Favicon)
+{
+  <div class="mb-2 flex items-end gap-4">
+    @if (Image.File(BrandImageFileType.Raster) is { } icon)
+    {
+      <img src="@BrandImageUrls.File(icon)" alt="Browser tab icon" width="@BrandImageProcessor.FaviconSize"
+           height="@BrandImageProcessor.FaviconSize" />
+    }
+    @if (Image.File(BrandImageFileType.AppleTouch) is { } homeScreen)
+    {
+      <img src="@BrandImageUrls.File(homeScreen)" alt="Home screen icon" class="size-15 rounded-[22%]" />
+    }
+  </div>
+}
+else
+{
+  <div class="mb-2 flex min-h-[70px] items-center rounded border px-4 @(Image.Type is BrandImageType.Logo ? "bg-bar" : "")"
+       style="@(Image.Type is BrandImageType.LogoOnDark ? $"background-color: {DarkBar}" : null)">
+    <img src="@BrandImageUrls.File(Image.Shown)" alt="Logo" width="@Image.Shown.Width" height="@Image.Shown.Height"
+         class="h-[45px] w-auto max-w-full object-contain" />
+  </div>
+}

@@ -13,7 +13,12 @@ public abstract record CurrentHost
     public sealed record Platform : CurrentHost;
 
     // MainHost is the site's own, whichever of its hosts the request came in on
-    public sealed record Site(SiteId Id, HostName MainHost) : CurrentHost;
+    public sealed record Site(SiteId Id, HostName MainHost) : CurrentHost
+    {
+        // the first part of the main host, "alice" from alice.picturecord.com: the site's internal name,
+        // which stands in until it has a name of its own to show
+        public string Label => MainHost.Value.Split('.')[0];
+    }
 
     public HostTypes Type =>
         this switch

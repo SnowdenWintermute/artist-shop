@@ -1,5 +1,4 @@
 using ArtistShop.Web.Domain.Catalog;
-using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Images;
 
@@ -20,36 +19,17 @@ public class ImageUploadStore(
 {
     public async Task<StoredImage> SaveAsync(Stream content, int minimumWidth, CancellationToken cancellationToken)
     {
-        // version 7 embeds timestamp when created so they can be sorted by date
-        // and avoid database fragmenting if stored there
-        // "n" gives 32 hex characters with no dash or braces
-        var storageKey = Guid.CreateVersion7().ToString("n");
+        var storageKey = ImageStorage.NewStorageKey();
         var sha256 = await imageStorage.SaveOriginalAsync(content, storageKey, cancellationToken);
 
         try
         {
-            var header = imageProcessor.ReadHeader(storageKey);
-
-            // checked first, so the estimate below only ever sees sizes that fit in an int
-            if ((long)header.Width * header.Height > processingSettings.MaximumMegapixels * Units.PixelsPerMegapixel)
-            {
-                throw new ImageTooLargeException(
-                    $"Images must be {processingSettings.MaximumMegapixels} megapixels or smaller."
-                );
-            }
-
-            var megabytes = EstimateMegabytes(header);
-
-            // a small server's budget can be below what the megapixel limit allows
-            if (megabytes > processingLimiter.MemoryBudgetMegabytes)
-            {
-                throw new ImageTooLargeException(
-                    $"This image is too large for this server to process ({header.Width} x {header.Height} pixels)."
-                );
-            }
-
-            // waits here while other images use the slots or the memory
-            using var lease = await processingLimiter.AcquireAsync(megabytes, cancellationToken);
+            using var lease = await ImageProcessingAdmission.AcquireAsync(
+                imageProcessor.ReadHeader(storageKey),
+                processingLimiter,
+                processingSettings,
+                cancellationToken
+            );
             return new StoredImage(storageKey, sha256, imageProcessor.Process(storageKey, minimumWidth));
         }
         catch
@@ -61,16 +41,4 @@ public class ImageUploadStore(
             throw;
         }
     }
-
-    // decoding, resizing and encoding hold several copies of the pixels at once
-    private int EstimateMegabytes(ImageHeader header) =>
-        (int)
-            Math.Max(
-                1,
-                Math.Ceiling(
-                    header.DecodedBytes
-                        * processingSettings.MemoryEstimateMultiplier
-                        / Units.BytesPerMebibyte
-                )
-            );
 }

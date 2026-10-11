@@ -50,7 +50,8 @@ public class OrphanedImageSweepService(
                 await sweeper.SweepAsync(
                     ImageStorage.ForSite(storageSettings, siteId),
                     new WorkImageRepository(database),
-                    new PostRepository(database)
+                    new PostRepository(database),
+                    new BrandImageRepository(database)
                 );
             }
             catch (Exception exception)

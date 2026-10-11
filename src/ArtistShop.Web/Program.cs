@@ -134,16 +134,7 @@ builder.Services.AddScoped(services =>
     ImageStorage.ForSite(imageStorageSettings, services.GetRequiredService<CurrentSite>().Id)
 );
 
-// refuse libvips file readers that aren't built to handle hostile files
-// full name needed: "NetVips" alone means the namespace, and the setting lives on the NetVips class inside it
-NetVips.NetVips.BlockUntrusted = true;
-
-// one thread per image; ImageProcessingLimiter decides how many images run at once
-NetVips.NetVips.Concurrency = 1;
-
-// libvips caches recent operations to reuse them, but each upload is processed once, so the cache
-// would only hold memory the limiter's estimates don't count
-NetVips.Cache.Max = 0;
+LibvipsSettings.Apply();
 
 var imageProcessingSettings = ValidatedSettings.Read<ImageProcessingSettings>(
     builder.Configuration,
@@ -158,6 +149,8 @@ builder.Services.AddSingleton(
 // scoped, since they work in the current site's folder; the limiter above is shared by every site
 builder.Services.AddScoped<ImageProcessor>();
 builder.Services.AddScoped<ImageUploadStore>();
+builder.Services.AddScoped<BrandImageProcessor>();
+builder.Services.AddScoped<BrandImageStore>();
 builder.Services.AddImageUploadRateLimiter();
 
 // reads from appsettings.json, environment variables or any other configuration source
@@ -202,6 +195,7 @@ AddSiteRepository(database => new VocabularyTermRepository(database));
 AddSiteRepository(database => new PostRepository(database));
 AddSiteRepository(database => new WordingRepository(database));
 AddSiteRepository(database => new ThemeRepository(database));
+AddSiteRepository(database => new BrandImageRepository(database));
 AddSiteRepository<WorkSearch>(database => new SqlWorkTitleSearch(database));
 
 // identity
@@ -376,6 +370,7 @@ app.MapAdditionalIdentityEndpoints();
 // image endpoints
 app.MapImageUploadEndpoints();
 app.MapVariantEndpoints();
+app.MapBrandImageEndpoints();
 
 // the lightbox's walk through the catalogue
 app.MapWorkWalkEndpoints();

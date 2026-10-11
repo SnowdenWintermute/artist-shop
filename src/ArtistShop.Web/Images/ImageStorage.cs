@@ -28,6 +28,10 @@ public class ImageStorage(string siteRootPath)
     private static SiteId? SiteIdFromFolderName(string name) =>
         int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? new SiteId(id) : null;
 
+    // version 7 embeds the time it was made, so keys sort by date and don't fragment a database index.
+    // "n" gives 32 hexadecimal characters with no dashes or braces
+    public static string NewStorageKey() => Guid.CreateVersion7().ToString("n");
+
     public string Originals { get; } = Path.Combine(siteRootPath, "originals");
     public string Variants { get; } = Path.Combine(siteRootPath, "variants");
 

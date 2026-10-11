@@ -3,6 +3,7 @@ using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Tests.Database;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -108,6 +109,30 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     }
 
     [Fact]
+    public async Task KeepsABrandImageOriginalOlderThanGracePeriod()
+    {
+        var brandImageRepository = new BrandImageRepository(_database.Site);
+        var store = new BrandImageStore(
+            brandImageRepository,
+            _imageStorage,
+            new BrandImageProcessor(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings),
+            NullLogger<BrandImageStore>.Instance
+        );
+        using var image = Image.Black(200, 100, bands: 3);
+        using var content = new MemoryStream(image.WriteToBuffer(".png"));
+        await store.ReplaceAsync(BrandImageType.Logo, content, "logo.png", TestContext.Current.CancellationToken);
+        var storageKey = Assert.Single(
+            await brandImageRepository.GetAllStorageKeysAsync(),
+            key => _imageStorage.OriginalExists(key)
+        );
+
+        _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
+        await SweepAsync();
+
+        Assert.True(_imageStorage.OriginalExists(storageKey));
+    }
+
+    [Fact]
     public async Task LeavesFilesNotNamedLikeUploadsAlone()
     {
         var strayFilePath = Path.Combine(_imageStorage.Originals, "notes.txt");
@@ -139,7 +164,8 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _sweeper.SweepAsync(
             _imageStorage,
             new WorkImageRepository(_database.Site),
-            new PostRepository(_database.Site)
+            new PostRepository(_database.Site),
+            new BrandImageRepository(_database.Site)
         );
 
     private static ImageUploadStore UploadStoreFor(ImageStorage imageStorage) =>

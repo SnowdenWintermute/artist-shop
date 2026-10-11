@@ -29,7 +29,7 @@ public static class ImageUploadEndpoints
 {
     // libvips says which decoder failed and names the file on disk; that belongs in the server log,
     // not in front of the artist
-    private const string UnreadableImageMessage =
+    public const string UnreadableImageMessage =
         "We couldn't read this file as an image. It may be damaged, or in a format we don't support.";
 
     public const string WorkImageUploadPath = "/admin/uploads/work-image";

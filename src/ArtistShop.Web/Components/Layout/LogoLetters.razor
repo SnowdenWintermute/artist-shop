@@ -1,0 +1,10 @@
+@* a name's first two letters in a circle, standing in for a logo *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Name { get; set; } = default!;
+
+  private string Letters => Name[..Math.Min(2, Name.Length)].ToUpperInvariant();
+}
+
+<div class="flex h-[45px] w-[45px] items-center justify-center rounded-full border text-center leading-0">@Letters</div>

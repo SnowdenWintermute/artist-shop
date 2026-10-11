@@ -362,12 +362,28 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         Dictionary<string, string> fields
     )
     {
+        return await PostFileAsync(client, pagePath, uploadPath, "file", fileName, contentType, bytes, fields);
+    }
+
+    // a static form posting a file, as FileDropField does: fileFieldName is its name, such as Input.File,
+    // and the form's name goes in fields as "_handler"
+    public static async Task<HttpResponseMessage> PostFileAsync(
+        HttpClient client,
+        string pagePath,
+        string uploadPath,
+        string fileFieldName,
+        string fileName,
+        string contentType,
+        byte[] bytes,
+        Dictionary<string, string> fields
+    )
+    {
         var page = await client.GetStringAsync(pagePath, TestContext.Current.CancellationToken);
         var file = new ByteArrayContent(bytes);
         file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         using var content = new MultipartFormDataContent
         {
-            { file, "file", fileName },
+            { file, fileFieldName, fileName },
             { new StringContent(AntiforgeryToken().Match(page).Groups["token"].Value), "__RequestVerificationToken" },
         };
 

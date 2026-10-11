@@ -9,7 +9,14 @@
   public ThemeColors Colors { get; set; } = default!;
 
   private string Declarations =>
-    string.Concat(ColorRoles.All.Select(definition => $"{definition.CssVariable}: {Colors.Resolve(definition.Role).Hex}; "));
+    string.Concat(ColorRoles.All.Select(definition => $"{definition.CssVariable}: {Colors.Resolve(definition.Role).Hex}; "))
+    + LogoDeclarations;
+
+  // which of a site's two logos SiteLogo shows: the dark one where white text reads better on the bar
+  private string LogoDeclarations =>
+    Colors.Resolve(ColorRole.Bar).IsLight
+      ? "--theme-logo-display: block; --theme-logo-on-dark-display: none; "
+      : "--theme-logo-display: none; --theme-logo-on-dark-display: block; ";
 }
 
 @* the values of app.css's --theme-* variables, which every bg-page or text-ink class reads *@

@@ -1,0 +1,13 @@
+@using ArtistShop.Web.Sites
+@inject CurrentHost CurrentHost
+
+@* In App.razor's head rather than HeadContent, of which only one shows and LinkPreview has it *@
+
+@if (CurrentHost is CurrentHost.Site)
+{
+  <SiteFaviconLinks />
+}
+else
+{
+  <PlatformFaviconLink />
+}

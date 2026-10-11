@@ -114,6 +114,9 @@ public static class PageUrls
     // on a site's host: the website's themes, opening on the one in use
     public const string Theme = "/admin/website/theme";
 
+    // on a site's host: the website's logos and browser tab icon
+    public const string Branding = "/admin/website/branding";
+
     // on a site's host: the Theme page with that theme open
     public static string ThemeEditing(ThemeKey key) => WithQuery(Theme, ("theme", key.QueryValue));
 

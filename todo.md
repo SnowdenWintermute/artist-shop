@@ -1,11 +1,30 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
-## Logo and icon ("brand images"), designed 2026-10-10 (From Claude)
+## Branding page: logo and icon ("brand images"), designed 2026-10-10 (From Claude)
 
-Not built. Agreed with Mike. The same split as work images, where the blur (small, derived) is in the database and the
+**Built 2026-10-10, uncommitted, 1078 tests pass, not tried in a browser.** Differences from the plan below:
+- No upload endpoint: the page's forms post the file (`Pages/Admin/Website/Branding`: `BrandingPage`, `BrandImageSection`
+  in a `FormMappingScope` per type so each section's "upload"/"remove" forms stay apart, `BrandImagePreview`).
+- `BrandImageStore` is a class, not an interface: one implementation, and callers still never see where files live.
+- Both logos go in the nav and `ColorStyle` writes `--theme-logo-display` / `--theme-logo-on-dark-display` from the
+  bar colour, so admin pages (Paper's bar) and public pages (the theme's) each show the right one.
+- No extra SVG header: every response already has a CSP whose script-src blocks inline script. Brand files also
+  get `nosniff`.
+- `LibvipsSettings.Apply()` (from Program.cs) keeps `BlockUntrusted` but unblocks `VipsForeignLoadSvg` (Mike chose
+  this: libvips marks librsvg untrusted only because it hasn't fuzzed it). The processor also refuses any loader
+  but jpeg/png/webp/heif/tiff/svg. Processor tests apply the same settings.
+- Refactor: `ImageHeader.Of(Image)` and `ImageProcessingAdmission.AcquireAsync` (megapixel, memory budget, lease)
+  shared by work and brand images; `ImageStorage.NewStorageKey()`; `ImageUploadValidation.FindProblem` takes a
+  size cap and type list (`BrandImageUploadValidation`: 5 MB, plus SVG).
+- Minimums: logo 45px high after trimming, icon 32px on its longer side. Migrations: platform 0011
+  (`brand_image_file_input`), site 0007.
+- After Mike's first look: the page is "Branding" (`/admin/website/branding`, `PageUrls.Branding`), since the
+  presented site name goes there too; a site with no icon shows PictureCord's `favicon.svg`, not generated letters.
+
+Agreed with Mike. The same split as work images, where the blur (small, derived) is in the database and the
 original is on disk: here every served file is small, so all of them go in the database too.
 
-**What an artist sets**, on a new page "Logo and icon" under Website (`/admin/website/logo`, via `PageUrls`; the site
+**What an artist sets**, on a new page "Branding" under Website (`/admin/website/branding`, via `PageUrls`; the site
 name form joins it later, out of scope now):
 - `BrandImageType { Logo = 1, LogoOnDark = 2, Favicon = 3 }`. Uploading replaces the live image at once; Remove beside
   it. No pending/Save step, so nothing is left unreferenced.
@@ -42,7 +61,7 @@ images; not the variant loop):
 - Dark bars: if white reads better than black on the theme's bar colour (`RgbColor` contrast), use `LogoOnDark`.
   A site with only one logo shows that one everywhere.
 - Favicon links come from a component in `App.razor` that decides by `CurrentHost`, not from `HeadContent` (only one
-  shows, and `LinkPreview` has it). With no favicon, a generated SVG of the same two letters in the theme's accent.
+  shows, and `LinkPreview` has it). With no favicon, PictureCord's.
 
 **Export/import, later, together with themes:** themes' export/import was never done (paused before step 4 of
 colours). Do them all once the website customisation tasks are finished. Brand images use the wording planner's
