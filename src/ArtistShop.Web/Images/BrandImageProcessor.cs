@@ -22,10 +22,6 @@ public class BrandImageProcessor(ImageProcessingLimiter processingLimiter, Image
     // the size iOS asks for on a home screen
     public const int AppleTouchSize = 180;
 
-    // libvips can also read PDFs and other formats whatever the browser called the file, so only the
-    // loaders for the types ImageUploadValidation and SVG allow get through
-    private static readonly string[] PermittedLoaders = ["jpegload", "pngload", "webpload", "heifload", "tiffload", "svgload"];
-
     private static readonly double[] Transparent = [0, 0, 0, 0];
     private static readonly double[] White = [255, 255, 255];
 
@@ -36,20 +32,11 @@ public class BrandImageProcessor(ImageProcessingLimiter processingLimiter, Image
     )
     {
         ImageHeader header;
-        bool isSvg;
 
         // reads only the header, as ImageProcessor.ReadHeader does
         using (var image = Image.NewFromBuffer(original))
         {
-            var loader = (string)image.Get("vips-loader");
-
-            if (!PermittedLoaders.Any(permitted => loader.StartsWith(permitted, StringComparison.Ordinal)))
-            {
-                throw new UnsupportedImageFormatException("This file isn't an image format we accept.");
-            }
-
             header = ImageHeader.Of(image);
-            isSvg = loader.StartsWith("svgload", StringComparison.Ordinal);
         }
 
         using var lease = await ImageProcessingAdmission.AcquireAsync(
@@ -61,10 +48,10 @@ public class BrandImageProcessor(ImageProcessingLimiter processingLimiter, Image
 
         return type switch
         {
-            BrandImageType.Logo or BrandImageType.LogoOnDark => isSvg
+            BrandImageType.Logo or BrandImageType.LogoOnDark => header.IsSvg
                 ? [Svg(original, header)]
                 : [Logo(original)],
-            BrandImageType.Favicon => isSvg
+            BrandImageType.Favicon => header.IsSvg
                 ? [Svg(original, header), .. FaviconPngs(original, header)]
                 : FaviconPngs(original, header),
         };
@@ -127,7 +114,8 @@ public class BrandImageProcessor(ImageProcessingLimiter processingLimiter, Image
     // with black, so the home screen's goes onto white
     private static List<BrandImageFileContent> FaviconPngs(byte[] original, ImageHeader header)
     {
-        if (Math.Max(header.Width, header.Height) < FaviconSize)
+        // an SVG draws sharp at any size, whatever size it states
+        if (!header.IsSvg && Math.Max(header.Width, header.Height) < FaviconSize)
         {
             throw new UnusableImageException($"Icons must be at least {FaviconSize} pixels wide or high.");
         }

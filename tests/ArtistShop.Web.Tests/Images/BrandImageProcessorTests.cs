@@ -116,6 +116,18 @@ public sealed class BrandImageProcessorTests
         );
     }
 
+    // icons are often drawn on a 16 or 24 unit grid, and an SVG is sharp at any size
+    [Fact]
+    public async Task AnSvgFaviconSmallerThanTheBrowserIconIsAccepted()
+    {
+        var svg = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7"/></svg>""";
+
+        var files = await ProcessAsync(Encoding.UTF8.GetBytes(svg), BrandImageType.Favicon);
+
+        var icon = files.Single(content => content.File.Type == BrandImageFileType.Raster).File;
+        Assert.Equal((BrandImageProcessor.FaviconSize, BrandImageProcessor.FaviconSize), (icon.Width, icon.Height));
+    }
+
     [Fact]
     public async Task OtherFormatsLibvipsCanReadAreRefused()
     {

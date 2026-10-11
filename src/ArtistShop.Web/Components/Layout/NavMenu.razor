@@ -1,13 +1,33 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
+
+@inject NavigationManager NavigationManager
+
+@code {
+  // the button would only lead back to the page it's on
+  private bool OnDashboard =>
+    string.Equals(new Uri(NavigationManager.Uri).AbsolutePath.TrimEnd('/'), PageUrls.AdminDashboard,
+      StringComparison.OrdinalIgnoreCase);
+}
 
 @* the nav bar on a website's pages *@
 <NavBar>
-  <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
-  <NavItem Text="Blog" Href="@PageUrls.Blog"></NavItem>
-
-  <AuthorizeView Policy="@SitePolicies.Admin">
-    <Authorized>
-      <NavItem Text="Manage website" Href="@PageUrls.AdminDashboard"></NavItem>
-    </Authorized>
-  </AuthorizeView>
+  <ChildContent>
+    <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
+    <NavItem Text="Blog" Href="@PageUrls.Blog"></NavItem>
+  </ChildContent>
+  <Actions Context="placement">
+    <AuthorizeView Policy="@SitePolicies.Admin">
+      <Authorized>
+        @if (!OnDashboard)
+        {
+          @* the drawer is a column that stretches what's in it *@
+          <LinkButton Variant="ButtonVariant.PrimaryOutline" href="@PageUrls.AdminDashboard"
+                      Class="@(placement is NavBarPlacement.Drawer ? "self-start" : null)">
+            Manage website
+          </LinkButton>
+        }
+      </Authorized>
+    </AuthorizeView>
+  </Actions>
 </NavBar>

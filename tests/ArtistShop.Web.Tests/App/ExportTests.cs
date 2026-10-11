@@ -170,6 +170,7 @@ public sealed class ExportTests(TestApp app)
         Assert.Contains($"catalog/{CatalogExportArchive.WorksFolder}/Painting.csv", files.Keys);
         Assert.Equal(jpeg, files["images/Painting/Dawn.jpg"]);
         Assert.Contains("posts/index.html", files.Keys);
+        Assert.Contains($"{LookExportArchive.WebsiteFolder}/{LookExportArchive.FileName}", files.Keys);
 
         Assert.Equal($"Painting/Dawn.jpg,Painting,Dawn,dawn,{Sha256(jpeg)}", CsvLines(files[$"images/{ImageExportArchive.ImageListFileName}"])[1]);
         Assert.Contains($"\"{PostExportJson.ImageSha256Property}\": \"{Sha256(jpeg)}\"", Encoding.UTF8.GetString(files["posts/morning/post.json"]));
@@ -478,14 +479,95 @@ public sealed class ExportTests(TestApp app)
         var ownWording = new SiteWording(new NounChoice("Body of work", "Bodies of work", KeepsCase: false), NounChoice.Default);
         await Wording(own.Id).UpdateAsync(ownWording);
 
-        var onFresh = (await ReviewAsync(folder, fresh.Id)).Wording;
-        var onOwn = (await ReviewAsync(folder, own.Id)).Wording;
-        await WordingImportPlanner.ImportAsync(onFresh.Wording, Wording(fresh.Id));
-        await WordingImportPlanner.ImportAsync(onOwn.Wording, Wording(own.Id));
+        var onFresh = (await ReviewAsync(folder, fresh.Id)).Look;
+        var onOwn = (await ReviewAsync(folder, own.Id)).Look;
+        Assert.True(LookImportFile.TryRead(folder.Look.Json, out var look, out _));
+        await ImportLookAsync(look, folder.Look, fresh.Id);
+        await ImportLookAsync(look, folder.Look, own.Id);
 
-        Assert.Equal(WordingImportOutcome.Same, (await ReviewAsync(folder, from.Id)).Wording.Outcome);
-        Assert.Equal((WordingImportOutcome.Set, wording), (onFresh.Outcome, await Wording(fresh.Id).GetAsync()));
-        Assert.Equal((WordingImportOutcome.Kept, ownWording), (onOwn.Outcome, await Wording(own.Id).GetAsync()));
+        Assert.Equal(LookImportOutcome.Same, (await ReviewAsync(folder, from.Id)).Look.WordingOutcome);
+        Assert.Equal((LookImportOutcome.Set, wording), (onFresh.WordingOutcome, await Wording(fresh.Id).GetAsync()));
+        Assert.Equal((LookImportOutcome.Kept, ownWording), (onOwn.WordingOutcome, await Wording(own.Id).GetAsync()));
+    }
+
+    // Downloaded and imported into a new website, the themes, the one in use and the logo come
+    // over; back on the website they came from, all of it is already there
+    [Fact]
+    public async Task TheLookDownloadBringsTheThemesAndLogoToANewWebsite()
+    {
+        var from = await app.MakeSiteAsync();
+        var evening = new Theme(
+            new ThemeColors(
+                new Dictionary<ColorRole, RgbColor>
+                {
+                    [ColorRole.Page] = RgbColor.Parse("#202020"),
+                    [ColorRole.Ink] = RgbColor.White,
+                    [ColorRole.Accent] = RgbColor.Parse("#ff8800"),
+                }
+            ),
+            new ThemeFonts(new FontChoice(Font.Roboto, 120), new FontChoice(Font.Roboto, 90))
+        );
+        var eveningId = await Themes(from.Id).AddAsync("Evening", evening);
+        await Themes(from.Id).AddAsync("Unused", ThemePresets.Paper.Theme);
+        await Themes(from.Id).UseAsync(new ThemeKey.Saved(eveningId));
+        var svg = Encoding.UTF8.GetBytes("""<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100"><rect width="300" height="100"/></svg>""");
+        await UploadBrandImageAsync(from, BrandImageType.Logo, svg, "my logo.svg");
+        var client = await app.SignedInClientAsync(from.Host, from.OwnerEmail);
+
+        var response = await client.GetAsync(ExportEndpoints.LookPath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith($"{from.Host}-look-and-wording-", response.Content.Headers.ContentDisposition?.FileNameStar);
+        var files = await ReadZipAsync(response, ReadBytesAsync);
+        Assert.Equal(svg, files[$"{LookExportArchive.BrandingFolder}/logo.svg"]);
+        var folder = await CollectedImportFolders.LookAsync(
+            [.. files.Select(file => new CollectedFile(file.Key, $"/download/{file.Key}", file.Value.Length, Type: ""))],
+            (file, _) => Task.FromResult(Decode(files[file.Id]))
+        );
+        Assert.True(LookImportFile.TryRead(folder.Json, out var look, out _));
+
+        var to = await app.MakeSiteAsync();
+        var onNew = LookImportPlanner.Plan(look, folder, await LookTargetAsync(to.Id));
+
+        Assert.Equal(["Evening", "Unused"], onNew.Themes.Where(item => item.Outcome is ThemeImportOutcome.Add).Select(item => item.Theme.Name).Order());
+        Assert.Equal((ThemeInUseImportOutcome.Set, "Evening"), (onNew.ThemeInUse.Outcome, onNew.ThemeInUse.Name));
+
+        var result = await ImportLookAsync(look, folder, to.Id);
+
+        Assert.Equal(2, result.ThemesAdded);
+        var inUse = Assert.IsType<NamedTheme>(await Themes(to.Id).GetInUseAsync());
+        Assert.Equal("Evening", inUse.Name);
+        Assert.Equal(ThemeSettingsJson.Write(evening), ThemeSettingsJson.Write(inUse.Theme));
+
+        // as the page's script then sends it
+        var logo = Assert.Single(result.BrandImagesToUpload);
+        Assert.Equal(BrandImageType.Logo, logo.Image.Type);
+        await UploadBrandImageAsync(to, BrandImageType.Logo, files[logo.Image.File], "logo.svg");
+
+        var afterImport = LookImportPlanner.Plan(look, folder, await LookTargetAsync(to.Id));
+        var onFrom = LookImportPlanner.Plan(look, folder, await LookTargetAsync(from.Id));
+
+        foreach (var plan in (LookImportPlan[])[afterImport, onFrom])
+        {
+            Assert.All(plan.Themes, item => Assert.Equal(ThemeImportOutcome.Same, item.Outcome));
+            Assert.Equal(ThemeInUseImportOutcome.Same, plan.ThemeInUse.Outcome);
+            Assert.Equal(LookImportOutcome.Same, Assert.Single(plan.BrandImages).Outcome);
+        }
+    }
+
+    [Fact]
+    public async Task TheImportPageHasTheLookStep()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var importPage = await client.GetStringAsync(PageUrls.Import, TestContext.Current.CancellationToken);
+        var lookPage = await client.GetAsync(PageUrls.LookImport, TestContext.Current.CancellationToken);
+        var exportPage = await client.GetStringAsync(PageUrls.Export, TestContext.Current.CancellationToken);
+
+        Assert.Contains($"href=\"{PageUrls.LookImport}\"", importPage);
+        Assert.Equal(HttpStatusCode.OK, lookPage.StatusCode);
+        Assert.Contains($"href=\"{ExportEndpoints.LookPath}\"", exportPage);
     }
 
     // Each catalog stage runs against the website as the one before left it, and a second run adds nothing
@@ -917,10 +999,35 @@ public sealed class ExportTests(TestApp app)
             catalog.Images,
             Posts(siteId),
             Wording(siteId),
+            Themes(siteId),
+            BrandImages(siteId),
             ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId)
         );
 
         return WebsiteImportPlanner.Plan(folder, target);
+    }
+
+    private Task<SiteLook> LookTargetAsync(SiteId siteId) =>
+        SiteLook.LoadAsync(Wording(siteId), Themes(siteId), BrandImages(siteId));
+
+    private Task<LookImportResult> ImportLookAsync(LookImportFile look, LookImportFolder folder, SiteId siteId) =>
+        LookImportPlanner.ImportAsync(look, folder, Wording(siteId), Themes(siteId), BrandImages(siteId));
+
+    // as the Branding page's script sends it
+    private async Task UploadBrandImageAsync(TestSite site, BrandImageType type, byte[] bytes, string fileName)
+    {
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var response = await TestApp.PostFileAsync(
+            client,
+            PageUrls.Branding,
+            ImageUploadEndpoints.BrandImageUpload(type),
+            fileName,
+            "image/svg+xml",
+            bytes,
+            []
+        );
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
     }
 
     // the unzipped download as the Import page reads it, inside a folder of its own, with each
@@ -1009,6 +1116,17 @@ public sealed class ExportTests(TestApp app)
 
     private WordingRepository Wording(SiteId siteId) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+
+    private ThemeRepository Themes(SiteId siteId) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+
+    private BrandImageStore BrandImages(SiteId siteId) =>
+        new(
+            new BrandImageRepository(app.Services.GetRequiredService<SiteDatabases>().For(siteId)),
+            ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId),
+            ActivatorUtilities.CreateInstance<BrandImageProcessor>(app.Services),
+            NullLogger<BrandImageStore>.Instance
+        );
 
     // the web copy an upload of an image 10 pixels wide gets, at its own width
     private async Task<byte[]> SaveWebCopyAsync(SiteId siteId, string storageKey)

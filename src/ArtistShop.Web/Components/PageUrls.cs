@@ -129,6 +129,8 @@ public static class PageUrls
     // on a site's host
     public const string PostImport = "/admin/import/posts";
 
+    public const string LookImport = "/admin/import/look";
+
     // on a site's host
     public const string WebsiteImport = "/admin/import/website";
 

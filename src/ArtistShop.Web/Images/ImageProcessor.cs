@@ -26,11 +26,21 @@ public class ImageProcessor(ImageStorage imageStorage)
     public const string UnsupportedHeicMessage =
         "HEIC photos (the iPhone default) aren't supported. Export them as JPEG or another compatible format first.";
 
+    public const string UnacceptedFormatMessage = "This file isn't an image format we accept.";
+
     // NewFromFile only reads the header until pixels are asked for, so this doesn't decode the image
     public ImageHeader ReadHeader(string storageKey)
     {
         using var image = Image.NewFromFile(imageStorage.OriginalPath(storageKey));
-        return ImageHeader.Of(image);
+        var header = ImageHeader.Of(image);
+
+        // only logos and icons may be SVG
+        if (header.IsSvg)
+        {
+            throw new UnsupportedImageFormatException(UnacceptedFormatMessage);
+        }
+
+        return header;
     }
 
     // minimumWidth is what the image is for: MinimumSourceWidth for a work, and

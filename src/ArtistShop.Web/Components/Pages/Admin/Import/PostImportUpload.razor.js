@@ -1,4 +1,4 @@
-import { listenForFiles } from "/js/collect-files.js";
+import { createFileCollection } from "/js/collect-files.js";
 import { startPostImport } from "/js/post-import-run.js";
 
 /**
@@ -7,11 +7,6 @@ import { startPostImport } from "/js/post-import-run.js";
  * @param {number} maximumFiles
  */
 export function createPostImporter(zone, dotNetReference, maximumFiles) {
-  /** @type {Map<string, File>} */
-  const collectedFiles = new Map();
-  /** @type {{ id: string, path: string, size: number, type: string }[]} */
-  let collectedMetadata = [];
-
   /** @type {{ finished: Promise<boolean>, stop: () => void } | null} */
   let current = null;
   let isRunning = false;
@@ -26,30 +21,6 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
       .catch((error) => console.error(`${method} failed`, error));
   }
 
-  /** @param {{ path: string, file: File }[]} found */
-  function remember(found) {
-    // the zone is disabled during a run, so this is a backstop
-    if (isRunning) {
-      return;
-    }
-
-    collectedFiles.clear();
-    collectedMetadata = [];
-
-    if (found.length > maximumFiles) {
-      notify("OnTooManyFiles");
-      return;
-    }
-
-    for (const { path, file } of found) {
-      const id = crypto.randomUUID();
-      collectedFiles.set(id, file);
-      collectedMetadata.push({ id, path, size: file.size, type: file.type });
-    }
-
-    notify("OnFilesCollected");
-  }
-
   /**
    * Started but not awaited, as the bulk uploader's run is: .NET gives up on a call it awaits
    * after a minute, and hears the end through OnImportFinished instead
@@ -58,7 +29,7 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
   function run(posts) {
     isRunning = true;
     current = startPostImport(posts, {
-      fileOf: (id) => collectedFiles.get(id),
+      fileOf: files.fileOf,
       dotNetReference,
       onProgress: (percentComplete) => notify("OnUploadProgress", percentComplete),
     });
@@ -73,17 +44,11 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
     current?.stop();
   }
 
-  const stopListening = listenForFiles(zone, maximumFiles, remember);
+  const files = createFileCollection(zone, maximumFiles, { isRunning: () => isRunning, notify });
 
   return {
-    // read as a stream, as the bulk uploader's is: one interop call would hit SignalR's 32 KB cap
-    metadata() {
-      return new Blob([JSON.stringify(collectedMetadata)]);
-    },
-    /** @param {string} id a post.json, which .NET reads as a stream */
-    file(id) {
-      return collectedFiles.get(id) ?? new Blob([]);
-    },
+    metadata: files.metadata,
+    file: files.file,
     /** @param {{ index: number, fileIds: string[] }[]} posts */
     importPosts(posts) {
       run(posts);
@@ -91,9 +56,7 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
     stop,
     dispose() {
       stop();
-      stopListening();
-      collectedFiles.clear();
-      collectedMetadata = [];
+      files.dispose();
     },
   };
 }

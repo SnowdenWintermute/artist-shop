@@ -6,6 +6,9 @@ namespace ArtistShop.Web.Tests.Images;
 
 public sealed class ImageUploadStoreTests : IDisposable
 {
+    // as the app runs, where libvips can read SVG for brand images
+    static ImageUploadStoreTests() => LibvipsSettings.Apply();
+
     private readonly DirectoryInfo _storageRoot;
     private readonly ImageStorage _imageStorage;
 
@@ -133,6 +136,22 @@ public sealed class ImageUploadStoreTests : IDisposable
             store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
         );
         Assert.Equal(ImageProcessor.UnsupportedHeicMessage, exception.Message);
+        AssertNothingStored();
+    }
+
+    // only logos and icons may be SVG, whatever the browser called the file
+    [Fact]
+    public async Task TurnsAwayAndDeletesAnSvg()
+    {
+        var store = CreateStore(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings);
+        using var content = new MemoryStream(
+            """<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600"/></svg>"""u8.ToArray()
+        );
+
+        var exception = await Assert.ThrowsAsync<UnsupportedImageFormatException>(() =>
+            store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken)
+        );
+        Assert.Equal(ImageProcessor.UnacceptedFormatMessage, exception.Message);
         AssertNothingStored();
     }
 

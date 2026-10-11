@@ -1,10 +1,8 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms.FileUpload
 @using ArtistShop.Web.Images
-@using NetVips
 @inject BrandImageStore BrandImageStore
 @inject NavigationManager NavigationManager
-@inject ILogger<BrandImageSection> Logger
 
 @* one brand image: what's shown now, an upload that replaces it at once, and Remove *@
 
@@ -16,17 +14,13 @@
   [Parameter, EditorRequired]
   public BrandImage? Image { get; set; }
 
-  // named within the page's FormMappingScope for this type
-  [SupplyParameterFromForm(FormName = "upload")]
-  private BrandImageUploadForm Upload { get; set; } = default!;
+  private readonly BrandImageUploadForm _upload = new();
 
-  [CascadingParameter]
-  private HttpContext HttpContext { get; set; } = default!;
+  private string Heading => HeadingFor(Type);
 
-  protected override void OnInitialized() => Upload ??= new();
-
-  private string Heading =>
-    Type switch
+  // also what the look import calls each one
+  public static string HeadingFor(BrandImageType type) =>
+    type switch
     {
       BrandImageType.Logo => "Logo",
       BrandImageType.LogoOnDark => "Logo for dark backgrounds",
@@ -40,43 +34,6 @@
       BrandImageType.LogoOnDark => "Shown instead of the logo when your theme's top bar is dark.",
       BrandImageType.Favicon => "Shown in browser tabs, and on a phone's home screen when someone adds your website to it.",
     };
-
-  private async Task UploadAsync()
-  {
-    // a form posted with no file chosen still sends an empty, unnamed file
-    if (Upload.File is not { FileName.Length: > 0 } file)
-    {
-      Upload.AddFileError("Choose an image.");
-      return;
-    }
-
-    if (BrandImageUploadValidation.FindProblem(file) is string problem)
-    {
-      Upload.AddFileError(problem);
-      return;
-    }
-
-    try
-    {
-      await using var content = file.OpenReadStream();
-      await BrandImageStore.ReplaceAsync(
-        Type, content, ImageUploadValidation.OriginalFileName(file), HttpContext.RequestAborted);
-    }
-    catch (VipsException exception)
-    {
-      Logger.LogWarning(exception, "libvips could not read an uploaded brand image.");
-      Upload.AddFileError(ImageUploadEndpoints.UnreadableImageMessage);
-      return;
-    }
-    catch (Exception exception) when (exception is UnusableImageException or UnsupportedImageFormatException
-                                        or ImageTooLargeException or ImageProcessingBusyException)
-    {
-      Upload.AddFileError(exception.Message);
-      return;
-    }
-
-    NavigationManager.NavigateTo(PageUrls.Branding);
-  }
 
   private async Task RemoveAsync()
   {
@@ -104,11 +61,15 @@
     </div>
   }
 
-  <EditForm EditContext="Upload.EditContext" FormName="upload" OnSubmit="UploadAsync" enctype="multipart/form-data"
-            Enhance>
-    <FileDropField Label="@(Image is null ? "Upload" : "Replace")" Name="@($"{nameof(Upload)}.{nameof(Upload.File)}")"
-                   ValueExpression="() => Upload.File" Prompt="Drop an image or SVG here"
-                   Accept="@BrandImageUploadValidation.FileInputAccept" />
-    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Upload</ButtonBasic>
-  </EditForm>
+  @* <brand-image-upload> is defined in BrandImageSection.razor.js: it sends the file to the upload endpoint
+     and shows why one was refused *@
+  <brand-image-upload class="block">
+    <EditForm Model="_upload" action="@ImageUploadEndpoints.BrandImageUpload(Type)" enctype="multipart/form-data">
+      @* "file" is the name the endpoint binds *@
+      <FileDropField Label="@(Image is null ? "Upload" : "Replace")" Name="file" ValueExpression="() => _upload.File"
+                     Prompt="Drop an image or SVG here" Accept="@BrandImageUploadValidation.FileInputAccept" />
+      <p class="mb-4 text-error empty:hidden" role="alert" data-part="error"></p>
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Upload</ButtonBasic>
+    </EditForm>
+  </brand-image-upload>
 </section>

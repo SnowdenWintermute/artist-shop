@@ -2,6 +2,11 @@
   // the bar's links, shown in the bar and in the drawer
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
+
+  // links that stand out at the bar's right end, beside the account button; in the drawer, after the
+  // bar's links
+  [Parameter]
+  public RenderFragment<NavBarPlacement>? Actions { get; set; }
 }
 
 @* The bar across the top of every page. Its links show in the bar while they fit, and otherwise in
@@ -18,7 +23,10 @@
   <div data-part="room" class="hidden min-w-0 flex-1 overflow-x-clip md:block">
     <div data-part="links" class="flex min-w-max items-center justify-between gap-8 group-data-collapsed:invisible">
       <nav class="flex gap-4">@ChildContent</nav>
-      <UserAuthMenu Placement="UserAuthMenuPlacement.Bar" />
+      <div class="flex items-center gap-4">
+        @Actions?.Invoke(NavBarPlacement.Bar)
+        <UserAuthMenu Placement="NavBarPlacement.Bar" />
+      </div>
     </div>
   </div>
   <button type="button" aria-label="Menu" title="Menu" data-opens-dialog="@NavDrawer.Id"
@@ -27,7 +35,10 @@
   </button>
 
   <NavDrawer>
-    <nav class="flex flex-col gap-4 md:hidden md:group-data-collapsed:flex">@ChildContent</nav>
-    <UserAuthMenu Placement="UserAuthMenuPlacement.Drawer" />
+    <nav class="flex flex-col gap-4 md:hidden md:group-data-collapsed:flex">
+      @ChildContent
+      @Actions?.Invoke(NavBarPlacement.Drawer)
+    </nav>
+    <UserAuthMenu Placement="NavBarPlacement.Drawer" />
   </NavDrawer>
 </nav-bar>

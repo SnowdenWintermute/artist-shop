@@ -338,8 +338,7 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         Dictionary<string, string> fields
     )
     {
-        var page = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
-        var token = AntiforgeryToken().Match(page).Groups["token"].Value;
+        var token = await AntiforgeryTokenAsync(client, path);
 
         return await client.PostAsync(
             path,
@@ -362,29 +361,13 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         Dictionary<string, string> fields
     )
     {
-        return await PostFileAsync(client, pagePath, uploadPath, "file", fileName, contentType, bytes, fields);
-    }
-
-    // a static form posting a file, as FileDropField does: fileFieldName is its name, such as Input.File,
-    // and the form's name goes in fields as "_handler"
-    public static async Task<HttpResponseMessage> PostFileAsync(
-        HttpClient client,
-        string pagePath,
-        string uploadPath,
-        string fileFieldName,
-        string fileName,
-        string contentType,
-        byte[] bytes,
-        Dictionary<string, string> fields
-    )
-    {
-        var page = await client.GetStringAsync(pagePath, TestContext.Current.CancellationToken);
+        var token = await AntiforgeryTokenAsync(client, pagePath);
         var file = new ByteArrayContent(bytes);
         file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         using var content = new MultipartFormDataContent
         {
-            { file, fileFieldName, fileName },
-            { new StringContent(AntiforgeryToken().Match(page).Groups["token"].Value), "__RequestVerificationToken" },
+            { file, "file", fileName },
+            { new StringContent(token), "__RequestVerificationToken" },
         };
 
         foreach (var (name, value) in fields)
@@ -393,6 +376,13 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
         }
 
         return await client.PostAsync(uploadPath, content, TestContext.Current.CancellationToken);
+    }
+
+    // the token a form on the page carries, for a request posted as that form would be
+    public static async Task<string> AntiforgeryTokenAsync(HttpClient client, string pagePath)
+    {
+        var page = await client.GetStringAsync(pagePath, TestContext.Current.CancellationToken);
+        return AntiforgeryToken().Match(page).Groups["token"].Value;
     }
 
     [GeneratedRegex("name=\"__RequestVerificationToken\" value=\"(?<token>[^\"]+)\"")]

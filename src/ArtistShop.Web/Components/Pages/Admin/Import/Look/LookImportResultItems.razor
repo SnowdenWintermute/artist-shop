@@ -1,0 +1,18 @@
+@using ArtistShop.Web.Imports
+
+@* what a look and wording import did, as items of an "Imported" list, on its own page and in the
+   whole-website import *@
+
+@code {
+  [Parameter, EditorRequired]
+  public LookImportResult Result { get; set; } = default!;
+
+  // sent by the page's script after the rest, so counted there
+  [Parameter, EditorRequired]
+  public int BrandImagesAdded { get; set; }
+}
+
+<li>Wording: @(Result.WordingSet ? "set" : "unchanged")</li>
+<li>Themes: @Result.ThemesAdded added</li>
+<li>Theme in use: @(Result.ThemeInUseSet ? "set" : "unchanged")</li>
+<li>Logos and icon: @BrandImagesAdded added</li>

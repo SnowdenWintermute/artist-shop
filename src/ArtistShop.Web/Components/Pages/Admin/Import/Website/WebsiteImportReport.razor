@@ -1,6 +1,7 @@
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkImport
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.CatalogImport
 @using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Components.Pages.Admin.Import.Look
 @using ArtistShop.Web.Imports
 
 @code {
@@ -16,8 +17,6 @@
 
   // nothing is imported from the review
   private static readonly IReadOnlyDictionary<int, string?> NoResults = new Dictionary<int, string?>();
-
-  private static string Words(DisplayNoun noun) => $"“{noun.Singular}” and “{noun.Plural}”";
 }
 
 @if (Review.Problems.Count > 0)
@@ -37,6 +36,11 @@ else
   <p class="mb-6 text-sm">
     Nothing has been imported yet. Each step is checked as though the ones before it had run.
   </p>
+
+  <section class="mb-6">
+    <h2 class="mb-2 text-lg">@ImportSteps.Look.Title(Wording)</h2>
+    <LookImportReport Plan="Review.Look" />
+  </section>
 
   <section class="mb-6">
     <h2 class="mb-2 text-lg">@ImportSteps.WorkTypes.Title(Wording)</h2>
@@ -80,27 +84,4 @@ else
     }
   </section>
 
-  <section class="mb-6">
-    <h2 class="mb-2 text-lg">6. Wording</h2>
-    <p class="text-sm">
-      @switch (Review.Wording.Outcome)
-      {
-        case WordingImportOutcome.Same:
-          <text>The same as this website's.</text>
-          break;
-        case WordingImportOutcome.Set:
-          <text>
-            Collections will be called @Words(Review.Wording.Wording.Collection), and works
-            @Words(Review.Wording.Wording.Work).
-          </text>
-          break;
-        case WordingImportOutcome.Kept:
-          <text>
-            This website already has its own wording, which is kept. It can be changed on the
-            <a class="underline" href="@PageUrls.Wording">Wording page</a>.
-          </text>
-          break;
-      }
-    </p>
-  </section>
 }

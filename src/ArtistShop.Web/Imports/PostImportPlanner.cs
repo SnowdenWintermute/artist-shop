@@ -8,6 +8,7 @@ using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Exports;
 using ArtistShop.Web.Images;
+using static ArtistShop.Web.Imports.ImportJson;
 
 namespace ArtistShop.Web.Imports;
 
@@ -501,10 +502,4 @@ public static class PostImportPlanner
                 _ => [],
             }
         );
-
-    private static string? StringOf(JsonNode? node) =>
-        node is JsonValue value && value.GetValueKind() is JsonValueKind.String ? value.GetValue<string>() : null;
-
-    private static int? IntOf(JsonNode? node) =>
-        node is JsonValue value && value.GetValueKind() is JsonValueKind.Number && value.TryGetValue<int>(out var number) ? number : null;
 }

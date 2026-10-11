@@ -22,6 +22,11 @@ public static class ContentSecurityNonce
     }
 }
 
+// On an endpoint serving files someone uploaded, such as an SVG logo: opened at its own address, the file
+// can't run scripts, submit forms or load anything
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class SandboxedResponseAttribute : Attribute;
+
 // Scripts only from this host, or inline with the request's nonce, so an encoding bug on a site's
 // page can't run script that sets cookies for the platform (see "same-site" in todo.md). Styles
 // allow inline, as Blazor and Quill write style attributes. Frames: this host (the work picker)
@@ -44,6 +49,14 @@ public static class ContentSecurityPolicy
                 // Blazor adds, which this one includes
                 context.Response.OnStarting(() =>
                 {
+                    if (context.GetEndpoint()?.Metadata.GetMetadata<SandboxedResponseAttribute>() is not null)
+                    {
+                        // an SVG's own style attributes and <style> still apply
+                        context.Response.Headers.ContentSecurityPolicy =
+                            "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+                        return Task.CompletedTask;
+                    }
+
                     context.Response.Headers.ContentSecurityPolicy = string.Join(
                         "; ",
                         "default-src 'self'",

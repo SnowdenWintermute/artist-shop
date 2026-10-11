@@ -1,5 +1,5 @@
 @using ArtistShop.Web.Images
-@inject BrandImageStore BrandImageStore
+@inject PageBrandImages PageBrandImages
 
 @* Only on a site's host, where its stores can be made. With no icon of its own, PictureCord's *@
 
@@ -7,7 +7,7 @@
   private BrandImage? _favicon;
 
   protected override async Task OnInitializedAsync() =>
-    _favicon = (await BrandImageStore.GetAllAsync()).GetValueOrDefault(BrandImageType.Favicon);
+    _favicon = (await PageBrandImages.GetAllAsync()).GetValueOrDefault(BrandImageType.Favicon);
 }
 
 @if (_favicon is not null)

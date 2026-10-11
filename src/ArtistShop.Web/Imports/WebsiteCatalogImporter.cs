@@ -37,7 +37,7 @@ public static class WebsiteCatalogImporter
         Func<WebsiteImportStageDone, Task> onStageDone
     )
     {
-        if (!WebsiteImportPlanner.TryCheckFolder(folder, await repositories.ProductTypes.GetAllAsync(), out var manifest, out var problems))
+        if (!WebsiteImportPlanner.TryCheckFolder(folder, await repositories.ProductTypes.GetAllAsync(), out var manifest, out _, out var problems))
         {
             return string.Join(" ", problems);
         }

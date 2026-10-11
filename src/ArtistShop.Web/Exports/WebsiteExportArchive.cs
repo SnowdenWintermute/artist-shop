@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using ArtistShop.Web.Domain.Catalog;
-using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
 
@@ -13,42 +12,39 @@ public static class WebsiteExportArchive
     public const string CatalogFolder = "catalog";
     public const string ImagesFolder = "images";
     public const string PostsFolder = "posts";
+    public const string LookFolder = LookExportArchive.WebsiteFolder;
 
     // What the whole-website import needs that the files don't say themselves: the list separator,
-    // each work CSV's type, since a type whose name can't be a file name has a file named after its
-    // id on this website, and the website's wording
+    // and each work CSV's type, since a type whose name can't be a file name has a file named after
+    // its id on this website
     public const string ManifestFileName = "website.json";
-    public const int FormatVersion = 2;
+    public const int FormatVersion = 3;
     public const string FormatVersionProperty = "formatVersion";
     public const string ListSeparatorProperty = "listSeparator";
     public const string WorkFilesProperty = "workFiles";
     public const string FileProperty = "file";
     public const string WorkTypeProperty = "workType";
-    public const string WordingProperty = "wording";
-    public const string CollectionWordingProperty = "collection";
-    public const string WorkWordingProperty = "work";
-    public const string SingularProperty = "singular";
-    public const string PluralProperty = "plural";
-    public const string KeepsCaseProperty = "keepsCase";
 
     public static async Task WriteAsync(
         Stream destination,
         CatalogSetupSnapshot snapshot,
         IReadOnlyList<Work> works,
-        SiteWording wording,
+        SiteLook look,
         IReadOnlyList<ExportedPost> posts,
         IReadOnlyDictionary<string, WorkImageWithWork> workImages,
         string folderName,
         string host,
         string siteOrigin,
         ImageStorage imageStorage,
+        BrandImageStore brandImageStore,
         CancellationToken cancellationToken
     )
     {
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
 
         await ExportZip.AddTextAsync(zip, $"{folderName}/{ExportZip.ReadmeFileName}", Readme(host), cancellationToken);
-        await ExportZip.AddTextAsync(zip, $"{folderName}/{ManifestFileName}", Manifest(snapshot, works, wording), cancellationToken);
+        await ExportZip.AddTextAsync(zip, $"{folderName}/{ManifestFileName}", Manifest(snapshot, works), cancellationToken);
+        await LookExportArchive.AddAsync(zip, look, $"{folderName}/{LookFolder}", brandImageStore, cancellationToken);
         await CatalogExportArchive.AddAsync(zip, snapshot, works, $"{folderName}/{CatalogFolder}", cancellationToken);
         await ImageExportArchive.AddAsync(
             zip,
@@ -60,7 +56,7 @@ public static class WebsiteExportArchive
         await PostExportArchive.AddAsync(zip, posts, workImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, cancellationToken);
     }
 
-    public static string Manifest(CatalogSetupSnapshot snapshot, IReadOnlyList<Work> works, SiteWording wording)
+    public static string Manifest(CatalogSetupSnapshot snapshot, IReadOnlyList<Work> works)
     {
         var workFiles = new JsonArray();
 
@@ -74,24 +70,10 @@ public static class WebsiteExportArchive
             [FormatVersionProperty] = FormatVersion,
             [ListSeparatorProperty] = CatalogExportArchive.ListSeparator(snapshot, works).ToString(),
             [WorkFilesProperty] = workFiles,
-            [WordingProperty] = new JsonObject
-            {
-                [CollectionWordingProperty] = NounObject(wording.CollectionChoice),
-                [WorkWordingProperty] = NounObject(wording.WorkChoice),
-            },
         };
 
         return manifest.ToJsonString(PostExportJson.Readable);
     }
-
-    // null words stay null, so a default carries over as the default rather than as today's words
-    private static JsonObject NounObject(NounChoice choice) =>
-        new()
-        {
-            [SingularProperty] = choice.Singular,
-            [PluralProperty] = choice.Plural,
-            [KeepsCaseProperty] = choice.KeepsCase,
-        };
 
     private static string Readme(string host) =>
         $"""
@@ -99,6 +81,9 @@ public static class WebsiteExportArchive
 
         {ManifestFileName}
           What the import needs to read the other files. Don't change it by hand.
+
+        {LookFolder}/
+          The wording, themes, logos and browser tab icon.
 
         {CatalogFolder}/
           Work types, vocabularies, works and products as CSV files. Its README explains them.

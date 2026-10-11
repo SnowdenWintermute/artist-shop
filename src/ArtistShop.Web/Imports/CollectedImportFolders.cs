@@ -55,24 +55,9 @@ public static class CollectedImportFolders
     // website.json nothing else is read, and the review says what's wrong
     public static async Task<WebsiteImportFolder> WebsiteAsync(IReadOnlyList<CollectedFile> files, ReadCollectedText readText)
     {
-        var manifest = files
-            .Where(file => CollectedPaths.NameOf(file.Path) == WebsiteExportArchive.ManifestFileName)
-            .MinBy(file => file.Path.Trim('/').Count(character => character == '/'));
-
-        if (manifest is null)
+        if (DownloadFiles(files, WebsiteExportArchive.ManifestFileName) is not { } byPath)
         {
-            return new WebsiteImportFolder(null, null, null, new Dictionary<string, string>(), null, new Dictionary<string, string>(), []);
-        }
-
-        var root = CollectedPaths.FolderOf(manifest.Path);
-        var byPath = new Dictionary<string, CollectedFile>();
-
-        foreach (var file in files)
-        {
-            if (CollectedPaths.Inside(root, file.Path) is { } path)
-            {
-                byPath[path] = file;
-            }
+            return new WebsiteImportFolder(null, null, null, new Dictionary<string, string>(), null, new Dictionary<string, string>(), [], LookImportFolder.Empty);
         }
 
         async Task<string?> TextAtAsync(string path, long maximumBytes) =>
@@ -83,6 +68,7 @@ public static class CollectedImportFolders
         const string images = WebsiteExportArchive.ImagesFolder;
         var workCsvs = new Dictionary<string, string>();
         var imageFileIds = new Dictionary<string, string>();
+        var lookFiles = new Dictionary<string, CollectedFile>();
 
         foreach (var (path, file) in byPath)
         {
@@ -94,6 +80,11 @@ public static class CollectedImportFolders
             if (CollectedPaths.Inside(images, path) is { } imagePath)
             {
                 imageFileIds[imagePath] = file.Id;
+            }
+
+            if (CollectedPaths.Inside(WebsiteExportArchive.LookFolder, path) is { } lookPath)
+            {
+                lookFiles[lookPath] = file;
             }
         }
 
@@ -109,8 +100,46 @@ public static class CollectedImportFolders
                 [.. byPath.Select(entry => (entry.Key, entry.Value))],
                 folder => CollectedPaths.FolderOf(folder) == WebsiteExportArchive.PostsFolder,
                 readText
-            )
+            ),
+            await LookAsync(lookFiles, readText)
         );
+    }
+
+    // look.json and the files beside it, found as website.json is
+    public static async Task<LookImportFolder> LookAsync(IReadOnlyList<CollectedFile> files, ReadCollectedText readText) =>
+        DownloadFiles(files, LookExportArchive.FileName) is { } byPath ? await LookAsync(byPath, readText) : LookImportFolder.Empty;
+
+    private static async Task<LookImportFolder> LookAsync(Dictionary<string, CollectedFile> byPath, ReadCollectedText readText) =>
+        new(
+            byPath.TryGetValue(LookExportArchive.FileName, out var json) ? await TextAsync(json, MaximumPostFileBytes, readText) : null,
+            byPath.Where(entry => entry.Key != LookExportArchive.FileName).ToDictionary(entry => entry.Key, entry => entry.Value.Id)
+        );
+
+    // every file inside the folder the shallowest file of this name is in, by its path there; null
+    // when there's none
+    private static Dictionary<string, CollectedFile>? DownloadFiles(IReadOnlyList<CollectedFile> files, string fileName)
+    {
+        var named = files
+            .Where(file => CollectedPaths.NameOf(file.Path) == fileName)
+            .MinBy(file => file.Path.Trim('/').Count(character => character == '/'));
+
+        if (named is null)
+        {
+            return null;
+        }
+
+        var root = CollectedPaths.FolderOf(named.Path);
+        var byPath = new Dictionary<string, CollectedFile>();
+
+        foreach (var file in files)
+        {
+            if (CollectedPaths.Inside(root, file.Path) is { } path)
+            {
+                byPath[path] = file;
+            }
+        }
+
+        return byPath;
     }
 
     // one over the limit reads as empty, which the review reports as unreadable

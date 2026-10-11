@@ -1,8 +1,8 @@
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Sites
-@inject BrandImageStore BrandImageStore
+@inject PageBrandImages PageBrandImages
 
-@* Only on a site's host, where BrandImageStore can be made. With both logos, both are on the page and the
+@* Only on a site's host, where PageBrandImages can be made. With both logos, both are on the page and the
    theme's --theme-logo-*-display variables (ColorStyle) show the one for its bar, so admin pages,
    which keep the platform's bar, and public pages each get the right one *@
 
@@ -15,7 +15,7 @@
 
   protected override async Task OnInitializedAsync()
   {
-    var images = await BrandImageStore.GetAllAsync();
+    var images = await PageBrandImages.GetAllAsync();
     _logo = images.GetValueOrDefault(BrandImageType.Logo);
     _logoOnDark = images.GetValueOrDefault(BrandImageType.LogoOnDark);
   }

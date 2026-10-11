@@ -74,6 +74,70 @@ export function listenForFiles(zone, maximumFiles, onFiles) {
 }
 
 /**
+ * The files a drop zone was given, each kept under a random id until the next choice. .NET reads
+ * their list from metadata() and a text file from file(id), both as streams
+ * @param {HTMLElement} zone an element wrapping the drop zone
+ * @param {number} maximumFiles
+ * @param {object} owner
+ * @param {() => boolean} owner.isRunning a choice made during a run is ignored: the zone is disabled
+ *   then, so this is a backstop, as clearing the files would strand the ones not yet sent
+ * @param {(method: "OnTooManyFiles" | "OnFilesCollected") => void} owner.notify
+ */
+export function createFileCollection(zone, maximumFiles, { isRunning, notify }) {
+  /** @type {Map<string, File>} */
+  const files = new Map();
+  /** @type {{ id: string, path: string, size: number, type: string }[]} */
+  let metadata = [];
+
+  /** @param {{ path: string, file: File }[]} found */
+  function remember(found) {
+    if (isRunning()) {
+      return;
+    }
+
+    files.clear();
+    metadata = [];
+
+    // the folder picker can hand over a whole tree at once, so this catches both ways in
+    if (found.length > maximumFiles) {
+      notify("OnTooManyFiles");
+      return;
+    }
+
+    for (const { path, file } of found) {
+      const id = crypto.randomUUID();
+      files.set(id, file);
+      metadata.push({ id, path, size: file.size, type: file.type });
+    }
+
+    notify("OnFilesCollected");
+  }
+
+  const stopListening = listenForFiles(zone, maximumFiles, remember);
+
+  return {
+    /** @param {string} id */
+    fileOf(id) {
+      return files.get(id);
+    },
+    // as one interop call this would hit SignalR's 32 KB message cap at about 200 files. Returning
+    // the blob is all it takes -- .NET asked for an IJSStreamReference, so it wraps what comes back
+    metadata() {
+      return new Blob([JSON.stringify(metadata)]);
+    },
+    /** @param {string} id */
+    file(id) {
+      return files.get(id) ?? new Blob([]);
+    },
+    dispose() {
+      stopListening();
+      files.clear();
+      metadata = [];
+    },
+  };
+}
+
+/**
  * readEntries hands back one batch at a time -- Chrome stops at 100 -- and an empty batch means
  * the folder has been read to the end
  * @param {FileSystemDirectoryReader} reader

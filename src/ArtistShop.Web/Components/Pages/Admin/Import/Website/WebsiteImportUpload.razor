@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Import.Look
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Exports
@@ -18,6 +19,8 @@
 @inject WorkImageRepository WorkImageRepository
 @inject PostRepository PostRepository
 @inject WordingRepository WordingRepository
+@inject ThemeRepository ThemeRepository
+@inject BrandImageStore BrandImageStore
 @inject ImageStorage ImageStorage
 @inject IJSRuntime JS
 @inject ILogger<WebsiteImportUpload> Logger
@@ -47,12 +50,16 @@
   private List<WebsiteImportStageDone> _stagesDone = [];
   private string? _importProblem;
 
-  // the images stage while the script sends them: how many there are, how many are in, and each
-  // that didn't go in, by its path in images/
+  // what the look stage did, whose logos and icon the images stage sends
+  private LookImportResult? _lookResult;
+
+  // the images stage while the script sends them, logos and icon first: how many there are, how
+  // many are in, and each that didn't go in, by its path in images/ or, for a logo or icon, in the folder
   private bool _isSendingImages;
   private int _percentComplete;
   private int _imageCount;
   private int _imagesAdded;
+  private int _brandImagesAdded;
   private Dictionary<string, string> _imagePathsByFileId = [];
   private List<(string Path, string Problem)> _imageFailures = [];
 
@@ -143,6 +150,8 @@
       WorkImageRepository,
       PostRepository,
       WordingRepository,
+      ThemeRepository,
+      BrandImageStore,
       ImageStorage
     );
     _fields = target.Setup.Fields;
@@ -164,6 +173,8 @@
     _importProblem = null;
     _imageFailures = [];
     _postRun = new([]);
+    _lookResult = null;
+    _brandImagesAdded = 0;
 
     var repositories = new CatalogRepositories(
       WorkFieldRepository,
@@ -177,6 +188,13 @@
 
     try
     {
+      // the review the Import button was under read it
+      if (LookImportFile.TryRead(folder.Look.Json, out var look, out _))
+      {
+        _lookResult = await LookImportPlanner.ImportAsync(look, folder.Look, WordingRepository, ThemeRepository, BrandImageStore);
+        await InvokeAsync(StateHasChanged);
+      }
+
       _importProblem = await WebsiteCatalogImporter.ImportAsync(
         folder,
         repositories,
@@ -200,7 +218,7 @@
       return;
     }
 
-    await GuardAsync(folder, () => ImportWordingThenImagesAsync(folder));
+    await GuardAsync(folder, () => StartImagesAsync(folder));
   }
 
   private const string SomethingWentWrongProblem = "Something went wrong importing. What was imported stays; import again to add the rest.";
@@ -228,36 +246,35 @@
   // GuardAsync catches JSDisconnectedException around these two; the analyzer checks each method
   // on its own
 #pragma warning disable BL0016
-  // the download's wording, read from the review the Import button was under
-  private async Task ImportWordingThenImagesAsync(WebsiteImportFolder folder)
-  {
-    await WordingImportPlanner.ImportAsync(Unwrap.Value(_review).Wording.Wording, WordingRepository);
-    await StartImagesAsync(folder);
-  }
-
   // Planned again now the works are here, for their real ids and the images they have. The
   // script reports each image, then OnImagesFinished
   private async Task StartImagesAsync(WebsiteImportFolder folder)
   {
     await ReviewAsync(folder);
     var works = Unwrap.Value(_review).Images.Works.Where(work => work.ToAdd.Count > 0).ToList();
+    var brandImages = _lookResult?.BrandImagesToUpload ?? [];
 
-    if (works.Count == 0)
+    if (works.Count == 0 && brandImages.Count == 0)
     {
       _stagesDone.Add(new WebsiteImportStageDone("Images", 0));
       await StartPostsAsync(folder);
       return;
     }
 
-    _imageCount = works.Sum(work => work.ToAdd.Count);
+    _imageCount = brandImages.Count + works.Sum(work => work.ToAdd.Count);
     _imagesAdded = 0;
     _percentComplete = 0;
-    _imagePathsByFileId = works.SelectMany(work => work.ToAdd).ToDictionary(image => image.FileId, image => image.Path);
+    _imagePathsByFileId = works
+      .SelectMany(work => work.ToAdd)
+      .Select(image => (image.FileId, image.Path))
+      .Concat(brandImages.Select(image => (FileId: Unwrap.Value(image.FileId), Path: $"{WebsiteExportArchive.LookFolder}/{image.Image.File}")))
+      .ToDictionary(image => image.FileId, image => image.Path);
     _isSendingImages = true;
 
     await Unwrap.Value(_importer).Reference.InvokeVoidAsync(
       "importImages",
-      works.Select(work => new { workId = work.WorkId.Value, fileIds = work.ToAdd.Select(image => image.FileId) })
+      works.Select(work => new { workId = work.WorkId.Value, fileIds = work.ToAdd.Select(image => image.FileId) }),
+      brandImages.Select(image => new { fileId = image.FileId, url = ImageUploadEndpoints.BrandImageUpload(image.Image.Type) })
     );
   }
 
@@ -355,6 +372,13 @@
   }
 
   [JSInvokable]
+  public async Task OnBrandImageAdded(string fileId)
+  {
+    _brandImagesAdded++;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
   public async Task OnImageFailed(string fileId, string problem)
   {
     _imageFailures.Add((_imagePathsByFileId.GetValueOrDefault(fileId, fileId), problem));
@@ -440,7 +464,7 @@
 @if (_isSendingImages)
 {
   <UploadProgress PercentComplete="_percentComplete" OnStop="StopAsync"
-                  Detail="@($"({_imagesAdded + _imageFailures.Count} of {_imageCount} images)")" />
+                  Detail="@($"({_brandImagesAdded + _imagesAdded + _imageFailures.Count} of {_imageCount} images)")" />
 }
 else if (_isSendingPosts)
 {
@@ -452,11 +476,15 @@ else if (_isImporting)
   <p class="mb-4 text-sm">Importing…</p>
 }
 
-@if (_stagesDone.Count > 0 || _importProblem is not null)
+@if (_lookResult is not null || _stagesDone.Count > 0 || _importProblem is not null)
 {
   <div class="mb-4">
     <h2 class="mb-1 text-lg">Imported</h2>
     <ul class="text-sm">
+      @if (_lookResult is { } lookResult)
+      {
+        <LookImportResultItems Result="lookResult" BrandImagesAdded="_brandImagesAdded" />
+      }
       @foreach (var stage in _stagesDone)
       {
         <li>@stage.Stage: @stage.AddedCount added</li>

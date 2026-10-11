@@ -35,7 +35,7 @@
     <p class="mb-4">If you need finer control over imports you can do them one step at a time. If you are starting a new
       site and you already have a structured spreadsheet of @Wording.Work.SingularInSentence data and images that match
       the names of those @Wording.Work.PluralInSentence you may wish to use
-      steps 3 and 4.</p>
+      steps 4 and 5.</p>
       <p class="">
         Some steps depend on previous steps.
         Imports are only additive. Existing entries are skipped.
@@ -43,6 +43,10 @@
     </Hint>
 
     <div class="flex flex-col gap-6">
+      <ImportStep Title="@ImportSteps.Look.Title(Wording)" Href="@ImportSteps.Look.Href" Icon="folder-open" ButtonLabel="Import">
+        The wording, themes, logos and icon, from the look and wording download.
+      </ImportStep>
+
       <ImportStep Title="@ImportSteps.WorkTypes.Title(Wording)" Href="@ImportSteps.WorkTypes.Href" Icon="csv" ButtonLabel="Import">
         Each @Wording.Work.SingularInSentence type and its fields, from <span class="font-bold" translate="no">@CatalogExportArchive.WorkTypesFileName</span>
         in the catalog

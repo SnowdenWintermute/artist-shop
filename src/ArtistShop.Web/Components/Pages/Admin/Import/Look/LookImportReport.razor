@@ -1,0 +1,135 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Pages.Admin.Website.Branding
+@using ArtistShop.Web.Imports
+
+@* what importing a look and wording folder would do, on its own page and in the whole-website review *@
+
+@code {
+  [Parameter, EditorRequired]
+  public LookImportPlan Plan { get; set; } = default!;
+
+  private static string Words(DisplayNoun noun) => $"“{noun.Singular}” and “{noun.Plural}”";
+}
+
+<h3 class="mb-1">Wording</h3>
+<p class="mb-4 text-sm">
+  @switch (Plan.WordingOutcome)
+  {
+    case LookImportOutcome.Same:
+      <text>The same as this website's.</text>
+      break;
+    case LookImportOutcome.Set:
+      <text>
+        Collections will be called @Words(Plan.Wording.Collection), and works @Words(Plan.Wording.Work).
+      </text>
+      break;
+    case LookImportOutcome.Kept:
+      <text>
+        This website's own wording is kept. It can be changed on the
+        <a class="@LinkStyles.InSentence" href="@PageUrls.Wording">Wording page</a>.
+      </text>
+      break;
+  }
+</p>
+
+<h3 class="mb-1">Theme in use</h3>
+<p class="mb-4 text-sm">
+  @switch (Plan.ThemeInUse.Outcome)
+  {
+    case ThemeInUseImportOutcome.Same:
+      <text>This website already uses @Plan.ThemeInUse.Name.</text>
+      break;
+    case ThemeInUseImportOutcome.Set:
+      <text>This website will use @Plan.ThemeInUse.Name.</text>
+      break;
+    case ThemeInUseImportOutcome.Kept:
+      <text>
+        This website's own theme is kept. It can be changed on the
+        <a class="@LinkStyles.InSentence" href="@PageUrls.Theme">Theme page</a>.
+      </text>
+      break;
+    case ThemeInUseImportOutcome.NameTaken:
+      <text>@Plan.ThemeInUse.Name isn't used, since a different theme here has its name.</text>
+      break;
+    case ThemeInUseImportOutcome.UnknownPreset:
+      <span class="text-warning">@Plan.ThemeInUse.Name isn't a theme this website has, so it isn't used.</span>
+      break;
+  }
+</p>
+
+<h3 class="mb-1">Saved themes</h3>
+@if (Plan.Themes.Count == 0)
+{
+  <p class="mb-4 text-sm">None.</p>
+}
+else
+{
+  <ul class="mb-4 text-sm">
+    @foreach (var item in Plan.Themes)
+    {
+      <li @key="item.Theme.Name">
+        @item.Theme.Name —
+        @switch (item.Outcome)
+        {
+          case ThemeImportOutcome.Add:
+            <text>added</text>
+            break;
+          case ThemeImportOutcome.Same:
+            <text>already here</text>
+            break;
+          case ThemeImportOutcome.NameTaken:
+            <span class="text-warning">left out: a different theme here has this name</span>
+            break;
+        }
+      </li>
+    }
+    @foreach (var type in Plan.UnknownBrandImageTypes)
+    {
+      <li @key="type">
+        @type — <span class="text-warning">left out: this website has no image of this type</span>
+      </li>
+    }
+  </ul>
+}
+
+<h3 class="mb-1">Logos and icon</h3>
+@if (Plan.BrandImages.Count == 0 && Plan.UnknownBrandImageTypes.Count == 0)
+{
+  <p class="text-sm">None.</p>
+}
+else
+{
+  <ul class="text-sm">
+    @foreach (var item in Plan.BrandImages)
+    {
+      <li @key="item.Image.Type">
+        @BrandImageSection.HeadingFor(item.Image.Type) —
+        @if (item.FileId is null)
+        {
+          <span class="text-warning">@item.Image.File is missing from the folder</span>
+        }
+        else
+        {
+          @switch (item.Outcome)
+          {
+            case LookImportOutcome.Same:
+              <text>already here</text>
+              break;
+            case LookImportOutcome.Set:
+              <text>added</text>
+              break;
+            case LookImportOutcome.Kept:
+              <text>this website's own is kept</text>
+              break;
+          }
+        }
+      </li>
+    }
+    @foreach (var type in Plan.UnknownBrandImageTypes)
+    {
+      <li @key="type">
+        @type — <span class="text-warning">left out: this website has no image of this type</span>
+      </li>
+    }
+  </ul>
+}

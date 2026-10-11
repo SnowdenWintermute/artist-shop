@@ -1,6 +1,5 @@
 namespace ArtistShop.Web.Database.Repositories;
 
-using System.Text.Json;
 using ArtistShop.Web.Domain.Website;
 using Dapper;
 using Npgsql;
@@ -108,73 +107,12 @@ public class ThemeRepository(SiteDatabase database)
         }
     }
 
-    private static string WriteSettings(Theme theme) =>
-        JsonSerializer.Serialize(
-            new ThemeSettings
-            {
-                Colors = theme.Colors.Chosen.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value.Hex),
-                Fonts = FontRoles.All.ToDictionary(
-                    definition => definition.Role.ToString(),
-                    definition => new FontSettings
-                    {
-                        Font = theme.Fonts.For(definition.Role).Font.ToString(),
-                        SizePercent = theme.Fonts.For(definition.Role).SizePercent,
-                    }
-                ),
-            },
-            JsonSerializerOptions.Web
-        );
+    private static string WriteSettings(Theme theme) => ThemeSettingsJson.Write(theme);
 
-    // a role no longer in ColorRole is dropped rather than refused, so a theme keeps showing what it
-    // can after a role is retired
-    private static Theme ReadSettings(string json)
-    {
-        var settings = JsonSerializer.Deserialize<ThemeSettings>(json, JsonSerializerOptions.Web)
-            ?? throw new InvalidOperationException("A theme's settings are null.");
-        var colors = new Dictionary<ColorRole, RgbColor>();
-
-        foreach (var (name, hex) in settings.Colors)
-        {
-            if (Enum.TryParse<ColorRole>(name, out var role) && Enum.IsDefined(role))
-            {
-                colors[role] = RgbColor.Parse(hex);
-            }
-        }
-
-        return new Theme(new ThemeColors(colors), ThemeFonts.From(role => ReadFont(settings, role)));
-    }
-
-    // A font no longer in Font, or one a role can no longer have, shows Paper's
-    private static FontChoice ReadFont(ThemeSettings settings, FontRole role)
-    {
-        if (
-            settings.Fonts.GetValueOrDefault(role.ToString()) is { } stored
-            && Enum.TryParse<Font>(stored.Font, out var font)
-            && font.ToString() == stored.Font
-            && FontRoles.For(role).Allows(font)
-            && FontRoles.For(role).AllowsSize(stored.SizePercent)
-        )
-        {
-            return new FontChoice(font, stored.SizePercent);
-        }
-
-        return ThemePresets.Paper.Theme.Fonts.For(role);
-    }
-
-    // the settings column's document
-    private sealed class ThemeSettings
-    {
-        public Dictionary<string, string> Colors { get; init; } = [];
-
-        // by FontRole name
-        public required Dictionary<string, FontSettings> Fonts { get; init; }
-    }
-
-    private sealed class FontSettings
-    {
-        public required string Font { get; init; }
-        public required int SizePercent { get; init; }
-    }
+    private static Theme ReadSettings(string json) =>
+        ThemeSettingsJson.TryRead(json, out var theme)
+            ? theme
+            : throw new InvalidOperationException("A theme's settings aren't readable.");
 
     private sealed class ThemeRow
     {

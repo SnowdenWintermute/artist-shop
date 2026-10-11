@@ -18,6 +18,7 @@ public static class ExportEndpoints
     public const string AllImagesPath = "/admin/export/images/all";
     public const string PostsPath = "/admin/export/posts";
     public const string EverythingPath = "/admin/export/everything";
+    public const string LookPath = "/admin/export/look";
 
     public const string ExportRunningMessage = "Another download from this website is running. Try again when it has finished.";
 
@@ -37,6 +38,7 @@ public static class ExportEndpoints
         downloads.MapGet(AllImagesPath, DownloadAllImagesAsync);
         downloads.MapGet(PostsPath, DownloadPostsAsync);
         downloads.MapGet(EverythingPath, DownloadEverythingAsync);
+        downloads.MapGet(LookPath, DownloadLookAsync);
     }
 
     private static async Task<FileContentHttpResult> DownloadCatalogAsync(
@@ -151,13 +153,15 @@ public static class ExportEndpoints
         VocabularyRepository vocabularyRepository,
         PostRepository postRepository,
         WordingRepository wordingRepository,
+        ThemeRepository themeRepository,
+        BrandImageStore brandImageStore,
         ImageStorage imageStorage,
         ExportLock exportLock
     )
     {
         var snapshot = await CatalogSetupSnapshot.LoadAsync(workFieldRepository, workTypeRepository, vocabularyRepository);
         var works = await workRepository.GetAllAsync();
-        var wording = await wordingRepository.GetAsync();
+        var look = await SiteLook.LoadAsync(wordingRepository, themeRepository, brandImageStore);
         var (posts, workImages) = await LoadPostsAsync(postRepository, workRepository, imageStorage);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-website-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
@@ -173,15 +177,39 @@ public static class ExportEndpoints
                     body,
                     snapshot,
                     works,
-                    wording,
+                    look,
                     posts,
                     workImages,
                     name,
                     host,
                     siteOrigin,
                     imageStorage,
+                    brandImageStore,
                     cancellationToken
                 )
+        );
+    }
+
+    // the wording, themes and brand images
+    private static async Task<IResult> DownloadLookAsync(
+        HttpContext context,
+        CurrentSite currentSite,
+        TimeProvider timeProvider,
+        WordingRepository wordingRepository,
+        ThemeRepository themeRepository,
+        BrandImageStore brandImageStore,
+        ExportLock exportLock
+    )
+    {
+        var look = await SiteLook.LoadAsync(wordingRepository, themeRepository, brandImageStore);
+        var name = $"{currentSite.MainHost.Value}-look-and-wording-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
+
+        return await StreamZipAsync(
+            context,
+            currentSite,
+            exportLock,
+            name,
+            (body, cancellationToken) => LookExportArchive.WriteAsync(body, look, name, brandImageStore, cancellationToken)
         );
     }
 

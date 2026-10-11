@@ -5,7 +5,7 @@
 
 @code {
   [Parameter, EditorRequired]
-  public UserAuthMenuPlacement Placement { get; set; }
+  public NavBarPlacement Placement { get; set; }
 }
 
 @* The account button, which opens NavDrawer, or its links in the drawer, or Login on the platform. A
@@ -14,7 +14,7 @@
    get. Its divider shows only with the bar's links above it, as NavBar shows them *@
 <AuthorizeView>
   <Authorized>
-    @if (Placement is UserAuthMenuPlacement.Bar)
+    @if (Placement is NavBarPlacement.Bar)
     {
       <button type="button" aria-label="Account" title="Account" data-opens-dialog="@NavDrawer.Id" class="cursor-pointer">
         <SvgIcon Name="user-settings" Class="h-8 w-8" />
@@ -29,7 +29,7 @@
   <NotAuthorized>
     @if (CurrentHost is CurrentHost.Platform)
     {
-      @if (Placement is UserAuthMenuPlacement.Drawer)
+      @if (Placement is NavBarPlacement.Drawer)
       {
         <Divider Class="my-6 md:hidden md:group-data-collapsed:block" />
         @* the drawer is a column that stretches what's in it *@

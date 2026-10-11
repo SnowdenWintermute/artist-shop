@@ -6,6 +6,10 @@ namespace ArtistShop.Web.Images;
 // service) changes only this file
 public static class ImageUrls
 {
+    // for every served image whose address never gets different bytes, a variant or a brand image:
+    // browsers may keep it for a week without asking again
+    public const string CacheControl = "public, max-age=604800, immutable";
+
     // VariantEndpoints serves the current site's variants at this path
     public const string VariantsRequestPath = "/media";
 

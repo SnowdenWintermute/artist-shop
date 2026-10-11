@@ -14,6 +14,10 @@ public class BrandImageStore(
 {
     public Task<Dictionary<BrandImageType, BrandImage>> GetAllAsync() => repository.GetAllAsync();
 
+    public Task<List<BrandImageOriginal>> GetAllOriginalsAsync() => repository.GetAllOriginalsAsync();
+
+    public string OriginalPath(BrandImageOriginal original) => imageStorage.OriginalPath(original.StorageKey);
+
     public Task<(BrandImageFormat Format, byte[] Bytes)?> GetFileAsync(string sha256) => repository.GetFileAsync(sha256);
 
     // Shown at once: there's no saving step, so nothing uploaded is ever left unreferenced except by a crash,

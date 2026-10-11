@@ -36,6 +36,17 @@
 
   <div class="mb-6">
     <div class="mb-2">
+      <h2 class="mb-1 text-lg">Look and wording</h2>
+      <p class="text-sm">The wording, themes, logos and icon.</p>
+    </div>
+    @* no download attribute, as for the images below *@
+    <LinkButton Variant="ButtonVariant.Outline" href="@ExportEndpoints.LookPath" data-enhance-nav="false">
+      Download
+    </LinkButton>
+  </div>
+
+  <div class="mb-6">
+    <div class="mb-2">
       <h2 class="mb-1 text-lg">@Wording.Work.PluralHeading and products</h2>
       <p class="text-sm">
         One CSV file per @Wording.Work.SingularInSentence type and a list of every product.

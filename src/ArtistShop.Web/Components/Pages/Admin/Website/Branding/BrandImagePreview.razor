@@ -29,7 +29,6 @@ else
 {
   <div class="mb-2 flex min-h-[70px] items-center rounded border px-4 @(Image.Type is BrandImageType.Logo ? "bg-bar" : "")"
        style="@(Image.Type is BrandImageType.LogoOnDark ? $"background-color: {DarkBar}" : null)">
-    <img src="@BrandImageUrls.File(Image.Shown)" alt="Logo" width="@Image.Shown.Width" height="@Image.Shown.Height"
-         class="h-[45px] w-auto max-w-full object-contain" />
+    <LogoImage Image="Image" Alt="Logo" />
   </div>
 }

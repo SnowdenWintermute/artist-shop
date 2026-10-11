@@ -12,8 +12,10 @@ public static class HintListing
         {
             HintType.AdminDashboard => "Where to start",
             HintType.AddWorksFromImages => $"Adding {wording.Work.PluralInSentence} from images",
-            HintType.CollectionsFromFolders => $"{wording.Collection.PluralHeading} from folder names",
-            HintType.UploadWorkImages => $"Uploading images for {wording.Work.PluralInSentence} already added",
+            HintType.CollectionsFromFolders =>
+                $"{wording.Collection.PluralHeading} from folder names",
+            HintType.UploadWorkImages =>
+                $"Uploading images for {wording.Work.PluralInSentence} already added",
             HintType.Collections => $"What {wording.Collection.PluralInSentence} are",
             HintType.Vocabularies => "What vocabularies are",
             HintType.StepByStepImport => "Importing step by step",
@@ -24,6 +26,7 @@ public static class HintListing
             HintType.WebsiteImport => "Moving a whole website here",
             HintType.WordingCollections => $"Wording for {wording.Collection.PluralInSentence}",
             HintType.WordingWorks => $"Wording for {wording.Work.PluralInSentence}",
+            HintType.LookAndWordingImport => "Importing look and wording",
         };
 
     // the page it shows on
@@ -45,5 +48,6 @@ public static class HintListing
             HintType.WebsiteImport => PageUrls.WebsiteImport,
             HintType.WordingCollections => PageUrls.Wording,
             HintType.WordingWorks => PageUrls.Wording,
+            HintType.LookAndWordingImport => PageUrls.LookImport,
         };
 }

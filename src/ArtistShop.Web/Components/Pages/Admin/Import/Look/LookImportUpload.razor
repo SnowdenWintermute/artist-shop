@@ -1,0 +1,264 @@
+@rendermode InteractiveServer
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Components.Pages.Admin.Website.Branding
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Exports
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Imports
+@using ArtistShop.Web.Utilities
+@inject WordingRepository WordingRepository
+@inject ThemeRepository ThemeRepository
+@inject BrandImageStore BrandImageStore
+@inject IJSRuntime JS
+@inject ILogger<LookImportUpload> Logger
+@implements IAsyncDisposable
+
+@code {
+  // look.json and three images, with room for a folder holding a little more
+  private const int MaximumFiles = 100;
+
+  // a backstop only, as for the bulk image upload
+  private const long MaximumMetadataBytes = MaximumFiles * 400L;
+
+  private ElementReference _zone;
+  private InteropObject<LookImportUpload>? _importer;
+
+  private bool _tooManyFiles;
+  private bool _isReading;
+  private bool _isImporting;
+  private string? _problem;
+  private LookImportFolder? _folder;
+  private LookImportFile? _file;
+  private LookImportPlan? _plan;
+
+  // what the last import did, and each logo or icon that didn't go in
+  private LookImportResult? _result;
+  private int _brandImagesAdded;
+  private Dictionary<string, BrandImageType> _brandTypesByFileId = [];
+  private List<(BrandImageType Type, string Problem)> _brandFailures = [];
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender)
+    {
+      return;
+    }
+
+    // null when the page closed before the importer started, so nothing will be dropped on it
+    _importer = await InteropObject<LookImportUpload>.CreateAsync(
+      JS, "./Components/Pages/Admin/Import/Look/LookImportUpload.razor.js", "createLookImporter", this,
+      self => [_zone, self, MaximumFiles]);
+  }
+
+  [JSInvokable]
+  public async Task OnFilesCollected()
+  {
+    _tooManyFiles = false;
+    _folder = null;
+    _file = null;
+    _plan = null;
+    _result = null;
+    _brandFailures = [];
+    _problem = null;
+    _isReading = true;
+    await InvokeAsync(StateHasChanged);
+
+    try
+    {
+      var importer = Unwrap.Value(_importer).Reference;
+      var files = await CollectedFileStreams.ReadListAsync(importer, MaximumMetadataBytes);
+      _folder = await CollectedImportFolders.LookAsync(files, (file, maximumBytes) => CollectedFileStreams.ReadTextAsync(importer, file, maximumBytes));
+      await ReviewAsync(_folder);
+    }
+    // the page closed while the folder was being read, so there is no one left to show it to
+    catch (JSDisconnectedException)
+    {
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "Reading the look and wording folder failed.");
+      _folder = null;
+      _plan = null;
+      _problem = "Something went wrong reading the folder. Choose it again to try again.";
+    }
+    finally
+    {
+      _isReading = false;
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private async Task ReviewAsync(LookImportFolder folder)
+  {
+    if (!LookImportFile.TryRead(folder.Json, out _file, out var problem))
+    {
+      _plan = null;
+      _problem = problem;
+      return;
+    }
+
+    _plan = LookImportPlanner.Plan(_file, folder, await SiteLook.LoadAsync(WordingRepository, ThemeRepository, BrandImageStore));
+  }
+
+  // The wording and themes are set here; the script then sends the logos and icon, reporting each
+  // and then OnBrandImagesFinished
+  private async Task ImportAsync()
+  {
+    if (_folder is not { } folder || _file is not { } file || _importer is null)
+    {
+      return;
+    }
+
+    _isImporting = true;
+    _brandImagesAdded = 0;
+    _brandFailures = [];
+
+    try
+    {
+      _result = await LookImportPlanner.ImportAsync(file, folder, WordingRepository, ThemeRepository, BrandImageStore);
+      _brandTypesByFileId = _result.BrandImagesToUpload.ToDictionary(image => Unwrap.Value(image.FileId), image => image.Image.Type);
+
+      if (_result.BrandImagesToUpload.Count == 0)
+      {
+        await FinishAsync();
+        return;
+      }
+
+      // nothing happens once the page has closed, taking the files with it
+      await _importer.InvokeIfOpenAsync(
+        "importBrandImages",
+        _result.BrandImagesToUpload.Select(image => new { fileId = image.FileId, url = ImageUploadEndpoints.BrandImageUpload(image.Image.Type) })
+      );
+    }
+    // the page closed, which ends the import anyway
+    catch (JSDisconnectedException)
+    {
+    }
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "The look and wording import failed.");
+      _problem = "Something went wrong importing. What was imported stays; import again to add the rest.";
+      await FinishAsync();
+    }
+  }
+
+  [JSInvokable]
+  public async Task OnBrandImageAdded(string fileId)
+  {
+    _brandImagesAdded++;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnBrandImageFailed(string fileId, string problem)
+  {
+    if (_brandTypesByFileId.TryGetValue(fileId, out var type))
+    {
+      _brandFailures.Add((type, problem));
+    }
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public Task OnBrandImagesFinished() => FinishAsync();
+
+  // the review then shows what's on the website afterwards, so it says what a second run would do
+  private async Task FinishAsync()
+  {
+    if (_folder is { } folder)
+    {
+      try
+      {
+        await ReviewAsync(folder);
+      }
+      catch (Exception exception)
+      {
+        Logger.LogError(exception, "Reviewing the folder after the look and wording import failed.");
+        _plan = null;
+        _problem ??= "The import finished, but the folder couldn't be checked again. Choose it again to see what's left.";
+      }
+    }
+
+    _isImporting = false;
+    await InvokeAsync(StateHasChanged);
+  }
+
+  [JSInvokable]
+  public async Task OnTooManyFiles()
+  {
+    _tooManyFiles = true;
+    _plan = null;
+
+    await InvokeAsync(StateHasChanged);
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    if (_importer is not null)
+    {
+      await _importer.DisposeAsync();
+    }
+  }
+}
+
+<DisabledUntilInteractive>
+  @* a run reads the folder it was given, so nothing new may be chosen until it ends *@
+  <fieldset class="contents" disabled="@_isImporting">
+    <div @ref="_zone" class="mb-4">
+      <FileDropZoneFrame Prompt="Drop the unzipped look and wording folder here" ButtonLabel="@null"
+                         DirectoryButtonLabel="Choose a folder">
+        <input type="file" webkitdirectory class="hidden" />
+      </FileDropZoneFrame>
+    </div>
+  </fieldset>
+</DisabledUntilInteractive>
+
+@if (_tooManyFiles)
+{
+  <p class="mb-4 text-error">That's more than @MaximumFiles files. Choose the look and wording folder itself.</p>
+}
+
+@if (_problem is not null)
+{
+  <p class="mb-4 text-error">@_problem</p>
+}
+
+@if (_isReading)
+{
+  <p class="mb-4 text-sm">Reading the folder…</p>
+}
+
+@if (_isImporting)
+{
+  <p class="mb-4 text-sm">Importing…</p>
+}
+else if (_result is { } result)
+{
+  <div class="mb-4">
+    <h2 class="mb-1 text-lg">Imported</h2>
+    <ul class="text-sm">
+      <LookImportResultItems Result="result" BrandImagesAdded="_brandImagesAdded" />
+    </ul>
+  </div>
+}
+
+<ReportGroup Heading="Logos and icon that didn't upload" Items="_brandFailures" Context="failure">
+  <ItemContent>
+    @BrandImageSection.HeadingFor(failure.Type) <span class="text-error"> — @failure.Problem</span>
+  </ItemContent>
+</ReportGroup>
+
+@if (_plan is { } plan)
+{
+  @if (!_isImporting)
+  {
+    <div class="mb-4">
+      <ButtonBasic type="button" Variant="ButtonVariant.Primary" @onclick="ImportAsync">Import</ButtonBasic>
+    </div>
+  }
+  <LookImportReport Plan="plan" />
+}

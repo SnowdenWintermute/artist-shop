@@ -41,3 +41,6 @@ public record BrandImage(BrandImageType Type, string OriginalFileName, IReadOnly
         ?? File(BrandImageFileType.Raster)
         ?? throw new InvalidOperationException($"The {Type} brand image has neither an SVG nor a raster file.");
 }
+
+// the file the artist uploaded, kept on disk under StorageKey. Sha256 is its own, in lower case hex
+public record BrandImageOriginal(BrandImageType Type, string StorageKey, string OriginalFileName, string Sha256);

@@ -1,4 +1,4 @@
-import { listenForFiles } from "/js/collect-files.js";
+import { createFileCollection } from "/js/collect-files.js";
 import { createUploadProgress } from "/js/upload-progress.js";
 import { uploadWithRetries } from "/js/upload-request.js";
 
@@ -23,11 +23,6 @@ const CONCURRENT_UPLOADS = 4;
  * @param {number} maximumFiles
  */
 export function createBulkUploader(zone, dotNetReference, maximumFiles) {
-  /** @type {Map<string, File>} */
-  const collectedFiles = new Map();
-  /** @type {{ id: string, path: string, size: number, type: string }[]} */
-  let collectedMetadata = [];
-
   /** @type {Set<() => void>} */
   const aborts = new Set();
   /** @type {UploadItem[][]} one work's files each */
@@ -47,35 +42,9 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
       .catch((error) => console.error(`${method} failed`, error));
   }
 
-  /** @param {{ path: string, file: File }[]} found */
-  function remember(found) {
-    // the zone is disabled during a run, so this is a backstop: clearing the map under the workers
-    // would strand every file they haven't started
-    if (isRunning) {
-      return;
-    }
-
-    collectedFiles.clear();
-    collectedMetadata = [];
-
-    // the folder picker can hand over a whole tree at once, so this catches both ways in
-    if (found.length > maximumFiles) {
-      notify("OnTooManyFiles");
-      return;
-    }
-
-    for (const { path, file } of found) {
-      const id = crypto.randomUUID();
-      collectedFiles.set(id, file);
-      collectedMetadata.push({ id, path, size: file.size, type: file.type });
-    }
-
-    notify("OnFilesCollected");
-  }
-
   /** @param {UploadItem} item */
   async function uploadFile({ id, workId }) {
-    const file = collectedFiles.get(id);
+    const file = files.fileOf(id);
     if (!file) {
       return;
     }
@@ -134,7 +103,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     workTypeId = typeId;
     queue = [...works];
     progress = createUploadProgress(
-      works.flat().reduce((sum, { id }) => sum + (collectedFiles.get(id)?.size ?? 0), 0),
+      works.flat().reduce((sum, { id }) => sum + (files.fileOf(id)?.size ?? 0), 0),
       reportProgress
     );
 
@@ -161,15 +130,10 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     }
   }
 
-  const stopListening = listenForFiles(zone, maximumFiles, remember);
+  const files = createFileCollection(zone, maximumFiles, { isRunning: () => isRunning, notify });
 
   return {
-    // .NET reads this as a stream: as one interop call it would hit SignalR's 32 KB message cap
-    // at about 200 files. Returning the blob is all it takes -- .NET asked for an
-    // IJSStreamReference, so it wraps what comes back
-    metadata() {
-      return new Blob([JSON.stringify(collectedMetadata)]);
-    },
+    metadata: files.metadata,
     /**
      * @param {UploadItem[][]} works
      * @param {number} typeId
@@ -181,9 +145,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     stop,
     dispose() {
       stop();
-      stopListening();
-      collectedFiles.clear();
-      collectedMetadata = [];
+      files.dispose();
     },
   };
 }

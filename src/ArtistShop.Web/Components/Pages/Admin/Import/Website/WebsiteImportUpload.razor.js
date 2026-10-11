@@ -1,7 +1,8 @@
-import { listenForFiles } from "/js/collect-files.js";
+import { createFileCollection } from "/js/collect-files.js";
 import { createUploadProgress } from "/js/upload-progress.js";
 import { startPostImport } from "/js/post-import-run.js";
 import { uploadWithRetries } from "/js/upload-request.js";
+import { importBrandImages } from "/js/brand-image-import.js";
 
 const APPEND_IMAGE_URL = "/admin/uploads/work-image-appended";
 
@@ -17,11 +18,6 @@ const CONCURRENT_WORKS = 3;
  * @param {number} maximumFiles
  */
 export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
-  /** @type {Map<string, File>} */
-  const collectedFiles = new Map();
-  /** @type {{ id: string, path: string, size: number, type: string }[]} */
-  let collectedMetadata = [];
-
   /** @type {Set<() => void>} */
   const aborts = new Set();
   let isStopped = false;
@@ -45,34 +41,10 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
     notify("OnUploadProgress", percentComplete);
   }
 
-  /** @param {{ path: string, file: File }[]} found */
-  function remember(found) {
-    // the zone is disabled during a run, so this is a backstop
-    if (isRunning) {
-      return;
-    }
-
-    collectedFiles.clear();
-    collectedMetadata = [];
-
-    if (found.length > maximumFiles) {
-      notify("OnTooManyFiles");
-      return;
-    }
-
-    for (const { path, file } of found) {
-      const id = crypto.randomUUID();
-      collectedFiles.set(id, file);
-      collectedMetadata.push({ id, path, size: file.size, type: file.type });
-    }
-
-    notify("OnFilesCollected");
-  }
-
   /** @param {{ workId: number, fileIds: string[] }} work */
   async function importWork(work) {
     for (const fileId of work.fileIds) {
-      const file = collectedFiles.get(fileId);
+      const file = files.fileOf(fileId);
       const outcome = file
         ? await uploadWithRetries({
             id: fileId,
@@ -99,15 +71,19 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
 
   /**
    * Started but not awaited: .NET gives up on a call it awaits after a minute, and hears the end
-   * through OnImagesFinished instead
+   * through OnImagesFinished instead. The logos and icon go first, as there are only a few
    * @param {{ workId: number, fileIds: string[] }[]} works
+   * @param {{ fileId: string, url: string }[]} brandImages
    */
-  async function run(works) {
+  async function run(works, brandImages) {
     isStopped = false;
     isRunning = true;
     const queue = [...works];
     progress = createUploadProgress(
-      works.flatMap(({ fileIds }) => fileIds).reduce((sum, id) => sum + (collectedFiles.get(id)?.size ?? 0), 0),
+      [...brandImages.map(({ fileId }) => fileId), ...works.flatMap(({ fileIds }) => fileIds)].reduce(
+        (sum, id) => sum + (files.fileOf(id)?.size ?? 0),
+        0
+      ),
       reportProgress
     );
 
@@ -121,6 +97,14 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
     }
 
     try {
+      await importBrandImages(brandImages, {
+        fileOf: files.fileOf,
+        progress,
+        aborts,
+        isStopped: () => isStopped,
+        onAdded: (fileId) => notify("OnBrandImageAdded", fileId),
+        onFailed: (fileId, problem) => notify("OnImageFailed", fileId, problem),
+      });
       await Promise.all(Array.from({ length: CONCURRENT_WORKS }, work));
     } catch (error) {
       console.error("The image import stopped early", error);
@@ -139,7 +123,7 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
   function runPosts(batches) {
     isRunning = true;
     posts = startPostImport(batches, {
-      fileOf: (id) => collectedFiles.get(id),
+      fileOf: files.fileOf,
       dotNetReference,
       onProgress: reportProgress,
     });
@@ -158,20 +142,17 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
     }
   }
 
-  const stopListening = listenForFiles(zone, maximumFiles, remember);
+  const files = createFileCollection(zone, maximumFiles, { isRunning: () => isRunning, notify });
 
   return {
-    // read as a stream: as one interop call it would hit SignalR's 32 KB cap
-    metadata() {
-      return new Blob([JSON.stringify(collectedMetadata)]);
-    },
-    /** @param {string} id */
-    file(id) {
-      return collectedFiles.get(id) ?? new Blob([]);
-    },
-    /** @param {{ workId: number, fileIds: string[] }[]} works */
-    importImages(works) {
-      void run(works);
+    metadata: files.metadata,
+    file: files.file,
+    /**
+     * @param {{ workId: number, fileIds: string[] }[]} works
+     * @param {{ fileId: string, url: string }[]} brandImages
+     */
+    importImages(works, brandImages) {
+      void run(works, brandImages);
     },
     /** @param {{ index: number, fileIds: string[] }[]} batches */
     importPosts(batches) {
@@ -180,9 +161,7 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
     stop,
     dispose() {
       stop();
-      stopListening();
-      collectedFiles.clear();
-      collectedMetadata = [];
+      files.dispose();
     },
   };
 }

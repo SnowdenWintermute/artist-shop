@@ -11,6 +11,7 @@ public enum HintType
     Collections,
     Vocabularies,
     StepByStepImport,
+    LookAndWordingImport,
     WorkTypeImport,
     VocabularyImport,
     WorkImport,

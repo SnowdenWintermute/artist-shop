@@ -1,0 +1,28 @@
+@page "/admin/import/look"
+@layout ImportLayout
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Components.Pages.Admin.Import
+@using ArtistShop.Web.Domain.Platform
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+<PageTitle>Import the look and wording</PageTitle>
+
+<h1 class="mb-4 text-xl">Import the look and wording from another website</h1>
+
+
+<Hint Type="HintType.LookAndWordingImport" Variant="HintVariant.Collapses">
+  <p>
+    Choose the unzipped "look and wording" download from another PictureCord website's Export page.
+    This will add any themes, wording and branding images and override the defaults set on this site.
+  </p>
+</Hint>
+
+@* the island posts each logo to an endpoint that checks the antiforgery token, and there is no
+   form on this page to carry one *@
+<AntiforgeryToken />
+
+<LookImportUpload />
+
+<ImportStepButtons Step="ImportSteps.Look" />

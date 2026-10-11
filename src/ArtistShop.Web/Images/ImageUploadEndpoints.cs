@@ -1,7 +1,9 @@
+using ArtistShop.Web.Components;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -29,7 +31,7 @@ public static class ImageUploadEndpoints
 {
     // libvips says which decoder failed and names the file on disk; that belongs in the server log,
     // not in front of the artist
-    public const string UnreadableImageMessage =
+    private const string UnreadableImageMessage =
         "We couldn't read this file as an image. It may be damaged, or in a format we don't support.";
 
     public const string WorkImageUploadPath = "/admin/uploads/work-image";
@@ -40,8 +42,15 @@ public static class ImageUploadEndpoints
     // the whole-website import's script sends each image here with the work it's for
     public const string AppendWorkImagePath = "/admin/uploads/work-image-appended";
 
+    // the Branding page's forms post a logo or the icon here
+    private const string BrandImageUploadPath = "/admin/uploads/brand-image";
+
+    public static string BrandImageUpload(BrandImageType type) => $"{BrandImageUploadPath}/{type}";
+
     public static void MapImageUploadEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapPost($"{BrandImageUploadPath}/{{type}}", UploadBrandImageAsync).AsImageUpload();
+
         endpoints
             .MapPost(
                 WorkImageUploadPath,
@@ -308,12 +317,77 @@ public static class ImageUploadEndpoints
         }
     }
 
+    // Replaces the website's image of this type, then sends the browser back to the Branding page. Its
+    // script posts the form and reloads the page once the redirect's page arrives; without scripts the
+    // browser follows it itself
+    private static async Task<
+        Results<RedirectHttpResult, NotFound, ContentHttpResult, StatusCodeHttpResult>
+    > UploadBrandImageAsync(
+        BrandImageType type,
+        // null when the form is posted with no file chosen, as the browser then sends an unnamed, empty one
+        IFormFile? file,
+        BrandImageStore brandImageStore,
+        HttpResponse response,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken
+    )
+    {
+        // Enum.TryParse, which binds it, also takes any number
+        if (!Enum.IsDefined(type))
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (file is null)
+        {
+            return Rejected("Choose an image.");
+        }
+
+        if (BrandImageUploadValidation.FindProblem(file) is string problem)
+        {
+            return Rejected(problem);
+        }
+
+        try
+        {
+            await using var content = file.OpenReadStream();
+            await brandImageStore.ReplaceAsync(
+                type,
+                content,
+                ImageUploadValidation.OriginalFileName(file),
+                cancellationToken
+            );
+        }
+        catch (VipsException exception)
+        {
+            loggerFactory
+                .CreateLogger(typeof(ImageUploadEndpoints))
+                .LogWarning(exception, "libvips could not read an uploaded brand image.");
+
+            return Rejected(UnreadableImageMessage);
+        }
+        catch (Exception exception) when (IsRejectedImage(exception))
+        {
+            return Rejected(exception.Message);
+        }
+        catch (ImageProcessingBusyException exception)
+        {
+            return Busy(response, exception);
+        }
+
+        return TypedResults.LocalRedirect(PageUrls.Branding);
+    }
+
     private static WorkImageMatchResult NoMatch(WorkName workName) =>
         new(workName.Value, WorkNameMatchType.NoWork, []);
 
     // these carry a message written for the artist; libvips's own messages are caught above
     private static bool IsRejectedImage(Exception exception) =>
-        exception is ImageTooSmallException or ImageTooLargeException or UnsupportedImageFormatException;
+        exception
+            is ImageTooSmallException
+                or ImageTooLargeException
+                or UnsupportedImageFormatException
+                or UnusableImageException;
 
     // plain text (Text's default, in UTF-8), because that's what the upload pages show the artist.
     // TypedResults.BadRequest would send it as JSON, which they treat as an unexplained failure

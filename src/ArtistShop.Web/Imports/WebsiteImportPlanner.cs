@@ -12,7 +12,8 @@ namespace ArtistShop.Web.Imports;
 
 // The unzipped whole-website download as the page read it. A text is null when its file isn't
 // there. WorkCsvsByFileName is each file in catalog/works/ by its name; ImageFileIdsByPath is
-// each file in images/ by its path there, as the id the page's script knows it by
+// each file in images/ by its path there, as the id the page's script knows it by; Look is
+// look-and-wording/ read as the look import reads its own folder
 public record WebsiteImportFolder(
     string? Manifest,
     string? WorkTypesCsv,
@@ -20,7 +21,8 @@ public record WebsiteImportFolder(
     IReadOnlyDictionary<string, string> WorkCsvsByFileName,
     string? ImageList,
     IReadOnlyDictionary<string, string> ImageFileIdsByPath,
-    IReadOnlyList<PostImportFolder> Posts
+    IReadOnlyList<PostImportFolder> Posts,
+    LookImportFolder Look
 );
 
 // The website being imported into. Sha256ByStorageKey holds the hash of each original
@@ -32,7 +34,7 @@ public record WebsiteImportTarget(
     IReadOnlyList<Work> Works,
     IReadOnlyDictionary<string, string> Sha256ByStorageKey,
     IReadOnlySet<string> PostSlugs,
-    SiteWording Wording
+    SiteLook Look
 )
 {
     // Hashes only the originals of works the download has images or post pictures for, and
@@ -48,6 +50,8 @@ public record WebsiteImportTarget(
         WorkImageRepository workImageRepository,
         PostRepository postRepository,
         WordingRepository wordingRepository,
+        ThemeRepository themeRepository,
+        BrandImageStore brandImageStore,
         ImageStorage imageStorage
     )
     {
@@ -65,7 +69,7 @@ public record WebsiteImportTarget(
             works,
             sha256ByStorageKey,
             (await postRepository.GetAllAsync()).Select(post => post.Slug.Value).ToHashSet(),
-            await wordingRepository.GetAsync()
+            await SiteLook.LoadAsync(wordingRepository, themeRepository, brandImageStore)
         );
     }
 }
@@ -113,7 +117,7 @@ public record WebsiteImportReview(
     IReadOnlyList<WebsiteImportWorkFile> WorkFiles,
     WebsiteImportImagesPlan Images,
     IReadOnlyList<PostImportItem> Posts,
-    WordingImportPlan Wording
+    LookImportPlan Look
 )
 {
     // the catalog's problems stop the import, as on the single imports; images and posts that
@@ -132,7 +136,7 @@ public record WebsiteImportReview(
             [],
             WebsiteImportImagesPlan.Empty,
             [],
-            new WordingImportPlan(SiteWording.Default, WordingImportOutcome.Same)
+            LookImportPlan.Empty
         );
 }
 
@@ -184,22 +188,33 @@ public static class WebsiteImportPlanner
             listSeparator
         );
 
-    // What's wrong with the folder as a whole, which stops everything: website.json unreadable, a
+    // What's wrong with the folder as a whole, which stops everything: website.json or look.json unreadable, a
     // file the import reads missing, or no product type for the works' products. The review
     // and the import both check, so the import never reads a file that isn't there
     public static bool TryCheckFolder(
         WebsiteImportFolder folder,
         IReadOnlyList<ProductType> productTypes,
         [NotNullWhen(true)] out WebsiteImportManifest? manifest,
+        [NotNullWhen(true)] out LookImportFile? look,
         out List<string> problems
     )
     {
         problems = [];
+        look = null;
 
         if (!WebsiteImportManifest.TryRead(folder.Manifest, out manifest, out var manifestProblem))
         {
             problems.Add(manifestProblem);
             return false;
+        }
+
+        if (folder.Look.Json is null)
+        {
+            problems.Add($"{WebsiteExportArchive.LookFolder}/{LookExportArchive.FileName} is missing.");
+        }
+        else if (!LookImportFile.TryRead(folder.Look.Json, out look, out var lookProblem))
+        {
+            problems.Add($"{WebsiteExportArchive.LookFolder}: {lookProblem}");
         }
 
         if (folder.WorkTypesCsv is null)
@@ -227,9 +242,11 @@ public static class WebsiteImportPlanner
             problems.Add("This website has no product types for the works' products.");
         }
 
-        if (problems.Count > 0)
+        // look is null only with a problem, which the compiler can't follow
+        if (problems.Count > 0 || look is null)
         {
             manifest = null;
+            look = null;
             return false;
         }
 
@@ -238,7 +255,7 @@ public static class WebsiteImportPlanner
 
     public static WebsiteImportReview Plan(WebsiteImportFolder folder, WebsiteImportTarget target)
     {
-        if (!TryCheckFolder(folder, target.ProductTypes, out var manifest, out var problems))
+        if (!TryCheckFolder(folder, target.ProductTypes, out var manifest, out var look, out var problems))
         {
             return WebsiteImportReview.Refused(problems);
         }
@@ -268,7 +285,7 @@ public static class WebsiteImportPlanner
             )
         );
 
-        return new WebsiteImportReview([], types, vocabularies, workFiles, images, posts, WordingImportPlanner.Plan(manifest.Wording, target.Wording));
+        return new WebsiteImportReview([], types, vocabularies, workFiles, images, posts, LookImportPlanner.Plan(look, folder.Look, target.Look));
     }
 
     // the vocabularies once the plan's changes are made, new ones and new terms with placeholder ids

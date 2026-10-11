@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using ArtistShop.Web.Security;
 using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -7,13 +8,10 @@ namespace ArtistShop.Web.Images;
 // Serves the current site's logos and favicons at BrandImageUrls.RequestPath, from its database
 public static partial class BrandImageEndpoints
 {
-    // the address holds the file's hash, so it never gets different bytes
-    private const string CacheControl = "public, max-age=31536000, immutable";
-
     public static void MapBrandImageEndpoints(this IEndpointRouteBuilder endpoints) =>
         endpoints
             .MapMethods($"{BrandImageUrls.RequestPath}/{{sha256}}.{{extension}}", [HttpMethods.Get, HttpMethods.Head], ServeAsync)
-            .WithMetadata(new ServedOnAttribute(HostTypes.Site));
+            .WithMetadata(new ServedOnAttribute(HostTypes.Site), new SandboxedResponseAttribute());
 
     public static async Task<Results<FileContentHttpResult, NotFound>> ServeAsync(
         string sha256,
@@ -33,7 +31,8 @@ public static partial class BrandImageEndpoints
             return TypedResults.NotFound();
         }
 
-        response.Headers.CacheControl = CacheControl;
+        // the address holds the file's hash, so it never gets different bytes
+        response.Headers.CacheControl = ImageUrls.CacheControl;
         // the browser takes the content type as given, so a file is never read as anything else
         response.Headers.XContentTypeOptions = "nosniff";
 

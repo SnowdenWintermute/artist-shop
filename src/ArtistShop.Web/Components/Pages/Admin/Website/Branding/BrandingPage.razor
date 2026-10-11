@@ -23,7 +23,7 @@
     {
       @foreach (var type in Enum.GetValues<BrandImageType>())
       {
-        @* each section's forms are named "upload" and "remove"; the scope keeps the three apart *@
+        @* each section's Remove form is named "remove"; the scope keeps the three apart *@
         <FormMappingScope Name="@type.ToString()">
           <BrandImageSection Type="type" Image="_images.GetValueOrDefault(type)" />
         </FormMappingScope>

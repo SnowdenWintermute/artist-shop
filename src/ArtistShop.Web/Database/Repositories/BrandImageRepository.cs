@@ -78,6 +78,15 @@ public class BrandImageRepository(SiteDatabase database)
         return await connection.QuerySingleAsync<string?>("SELECT remove_brand_image(@Type)", new { Type = type });
     }
 
+    public async Task<List<BrandImageOriginal>> GetAllOriginalsAsync()
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = await connection.QueryAsync<OriginalRow>("SELECT * FROM get_all_brand_image_originals()");
+
+        return [.. rows.Select(row => new BrandImageOriginal(row.Type, row.StorageKey, row.OriginalFileName, row.Sha256))];
+    }
+
     public async Task<HashSet<string>> GetAllStorageKeysAsync()
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -93,6 +102,14 @@ public class BrandImageRepository(SiteDatabase database)
         public required BrandImageFormat Format { get; init; }
         public required int Width { get; init; }
         public required int Height { get; init; }
+        public required string Sha256 { get; init; }
+    }
+
+    private sealed class OriginalRow
+    {
+        public required BrandImageType Type { get; init; }
+        public required string StorageKey { get; init; }
+        public required string OriginalFileName { get; init; }
         public required string Sha256 { get; init; }
     }
 

@@ -1,18 +1,60 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Look and wording export/import, agreed 2026-10-11 (From Claude)
+
+**Built 2026-10-11, uncommitted, 1103 tests pass, typecheck clean, not tried in a browser.** Pieces:
+- `Domain/Website/ThemeSettingsJson` (settings jsonb read/write, now shared by `ThemeRepository` and look.json;
+  refuses a document missing a base role). `get_all_brand_image_originals` + `BrandImageStore.GetAllOriginalsAsync`.
+- `Exports/LookExportArchive`, `Exports/SiteLook` (what the export writes and the import compares with), `ExportEndpoints.LookPath` (streamed, under the export
+  lock like the others). Export page section "Look and wording", first.
+- `Imports/LookImportFile` (reads look.json; the wording checks moved here from `WebsiteImportManifest`),
+  `Imports/LookImportPlanner` (folder, target, plan, `ImportAsync`). `WordingImportPlanner` deleted.
+  `CollectedImportFolders.LookAsync`; `WebsiteImportFolder.Look`, `WebsiteImportTarget.Look`, `WebsiteImportReview.Look`;
+  `TryCheckFolder` also reports a missing or unreadable `look-and-wording/look.json`.
+- Page `Components/Pages/Admin/Import/Look/` (`ImportLook`, `LookImportUpload` island + script, `LookImportReport`
+  shared with the whole-website review). `wwwroot/js/brand-image-import.js` sends the logos/icon one at a time to
+  `BrandImageUpload(type)`; the whole-website script sends them before the work images.
+- Review fixes 2026-10-11 (From Claude), uncommitted, 1105 tests pass: a preset or brand image type this website doesn't
+  have is left out with a note in the review instead of refusing look.json; `SiteLook` replaced `LookExport` and
+  `LookImportTarget`; `LookImportResultItems` is the "Imported" list on both pages (the whole-website run lost its
+  "Themes" and "Logos and icon" stages); `Imports/ImportJson` holds `StringOf`/`IntOf`/`BoolOf`;
+  `createFileCollection` in `collect-files.js` is shared by the four folder/file scripts.
+- Whole-website run: look (wording, themes, theme in use) before the catalog, reported as on the look page.
+- `BrandImageSection.HeadingFor(type)` names each image in the review.
+- Branding files in the download are `branding/logo.svg`, `logo-on-dark.png`, `favicon.png` (extension from the bytes,
+  else the uploaded name), so an import's Branding page shows those names rather than the originals'.
+
+Wording, themes and brand images get their own download and import step, and Download everything carries the same
+folder. Agreed with Mike:
+- **Export page:** "Look and wording" section, `GET /admin/export/look`, zip `<host>-look-and-wording-<date>/`:
+  `look.json` (formatVersion 1: wording, theme in use, saved themes as name + settings, brand images with type, file
+  and SHA-256), `branding/` with each brand image's original, README.
+- **Download everything:** the same folder at `look-and-wording/`. Wording leaves website.json, whose formatVersion
+  goes to 3; older downloads are refused (nobody has a backup yet).
+- **Import step "1. Look and wording"** at `/admin/import/look` (catalog and post steps become 2-6): choose the
+  unzipped folder, review, Import. Same / Set / Kept for the wording, the theme in use and each brand image. Saved
+  themes are only added; one whose name is taken is skipped with a note (no renaming).
+- **Move a whole website** shows the same section from the same planner (`LookImportPlanner`, which absorbs
+  `WordingImportPlanner`). Wording and themes are set first, on the server; brand images go to the existing
+  `BrandImageUpload` endpoint from the page's script, so they're checked and processed as an upload is.
+
 ## Branding page: logo and icon ("brand images"), designed 2026-10-10 (From Claude)
 
 **Built 2026-10-10, uncommitted, 1078 tests pass, not tried in a browser.** Differences from the plan below:
-- No upload endpoint: the page's forms post the file (`Pages/Admin/Website/Branding`: `BrandingPage`, `BrandImageSection`
-  in a `FormMappingScope` per type so each section's "upload"/"remove" forms stay apart, `BrandImagePreview`).
+- Upload endpoint `ImageUploadEndpoints.BrandImageUpload(type)` (`AsImageUpload()`: size limit, rate limit), redirecting
+  to the page. `BrandImageSection.razor.js` (`<brand-image-upload>`) sends the form with `sendUpload` and shows the
+  plain-text refusal under the field; without scripts the browser posts it. Remove stays a page form, in a
+  `FormMappingScope` per type. (From Claude, review 2026-10-11)
 - `BrandImageStore` is a class, not an interface: one implementation, and callers still never see where files live.
 - Both logos go in the nav and `ColorStyle` writes `--theme-logo-display` / `--theme-logo-on-dark-display` from the
   bar colour, so admin pages (Paper's bar) and public pages (the theme's) each show the right one.
-- No extra SVG header: every response already has a CSP whose script-src blocks inline script. Brand files also
-  get `nosniff`.
+- Brand files' endpoint carries `SandboxedResponseAttribute`, so the CSP middleware sends `sandbox; default-src 'none';
+  style-src 'unsafe-inline'` (an SVG opened directly could otherwise show a working form), plus `nosniff`. Cached a
+  week, `ImageUrls.CacheControl`, shared with variants. (From Claude, review 2026-10-11)
 - `LibvipsSettings.Apply()` (from Program.cs) keeps `BlockUntrusted` but unblocks `VipsForeignLoadSvg` (Mike chose
   this: libvips marks librsvg untrusted only because it hasn't fuzzed it). The processor also refuses any loader
-  but jpeg/png/webp/heif/tiff/svg. Processor tests apply the same settings.
+  but jpeg/png/webp/heif/tiff/svg: in `ImageHeader.Of`, whose `IsSvg` work and post images refuse
+  (`ImageProcessor.ReadHeader`). An SVG icon has no minimum size. Processor tests apply the same settings.
 - Refactor: `ImageHeader.Of(Image)` and `ImageProcessingAdmission.AcquireAsync` (megapixel, memory budget, lease)
   shared by work and brand images; `ImageStorage.NewStorageKey()`; `ImageUploadValidation.FindProblem` takes a
   size cap and type list (`BrandImageUploadValidation`: 5 MB, plus SVG).

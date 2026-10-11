@@ -8,10 +8,6 @@ using Microsoft.AspNetCore.Http.HttpResults;
 // a site's host can only ever serve that site's files
 public static class VariantEndpoints
 {
-    // an address never gets different bytes (each upload has a new storage key), so browsers may
-    // keep a variant for a week without asking again
-    private const string CacheControl = "public, max-age=604800, immutable";
-
     public static void MapVariantEndpoints(this IEndpointRouteBuilder endpoints) =>
         endpoints
             .MapMethods(
@@ -41,7 +37,8 @@ public static class VariantEndpoints
             return TypedResults.NotFound();
         }
 
-        response.Headers.CacheControl = CacheControl;
+        // each upload has a new storage key, so an address never gets different bytes
+        response.Headers.CacheControl = ImageUrls.CacheControl;
 
         // the modified time answers a browser's If-Modified-Since with 304
         return TypedResults.PhysicalFile(

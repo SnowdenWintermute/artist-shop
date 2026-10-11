@@ -151,6 +151,7 @@ builder.Services.AddScoped<ImageProcessor>();
 builder.Services.AddScoped<ImageUploadStore>();
 builder.Services.AddScoped<BrandImageProcessor>();
 builder.Services.AddScoped<BrandImageStore>();
+builder.Services.AddScoped<PageBrandImages>();
 builder.Services.AddImageUploadRateLimiter();
 
 // reads from appsettings.json, environment variables or any other configuration source
