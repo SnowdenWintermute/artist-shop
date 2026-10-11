@@ -54,13 +54,13 @@
 
 @if (_collection is null)
 {
-  <UpLink Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+  <UpLink Class="mb-4" Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
   <p>This @Wording.Collection.SingularInSentence doesn't exist. It may have been deleted.</p>
 }
 else
 {
-  <UpLink Href="@PageUrls.EditCollection(CollectionId)" Label="@_collection.Name.Value" />
+  <UpLink Class="mb-4" Href="@PageUrls.EditCollection(CollectionId)" Label="@_collection.Name.Value" />
 
   <div class="mb-4 flex items-baseline justify-between gap-4">
     <h1 class="text-xl">Add @Wording.Work.PluralInSentence to @_collection.Name.Value</h1>

@@ -1,3 +1,5 @@
+@using ArtistShop.Web.Utilities
+
 @* to the page above this one in the site, named after it; never the browser's Back, which goes wherever
    the visitor came from *@
 
@@ -6,9 +8,11 @@
   public string Href { get; set; } = default!;
   [Parameter, EditorRequired]
   public string Label { get; set; } = default!;
+  // spacing, which depends on what follows
+  [Parameter]
+  public string? Class { get; set; }
   [Parameter(CaptureUnmatchedValues = true)]
   public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 }
 
-<a href="@Href" @attributes="AdditionalAttributes" class="@($"mb-4 underline inline-block {LinkStyles.Standalone}")">↑
-  @Label</a>
+<a href="@Href" @attributes="AdditionalAttributes" class="@ClassNames.Join("inline-block", LinkStyles.InSentence, Class)">↑ @Label</a>

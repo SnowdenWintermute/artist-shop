@@ -47,7 +47,10 @@
 <ModalDialog Title="@(WorkName is null ? "Images" : $"Images of {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose"
              KeepOpen="_isSaving">
   <TitleEnd>
-    <a class="@LinkStyles.InSentence" href="@PageUrls.EditWork(WorkId)">Edit @Wording.Work.SingularInSentence</a>
+    @* no href while images upload, as leaving would cut them off *@
+    <a class="@($"{LinkStyles.InSentence} [&:not([href])]:text-ink-unavailable")"
+       href="@(_state.IsUploading ? null : PageUrls.EditWork(WorkId))"
+       title="@(_state.IsUploading ? "Waits for image uploads to finish" : null)">Edit @Wording.Work.SingularInSentence</a>
   </TitleEnd>
   <ChildContent>
   <div class="-mx-1 mb-4 min-h-0 overflow-y-auto px-1">

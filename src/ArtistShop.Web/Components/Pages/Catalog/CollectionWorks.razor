@@ -63,9 +63,10 @@
   <LinkPreview Title="@loaded.Collection.Name.Value" Image="loaded.Cover" />
 
   <main class="mx-auto max-w-[1200px] p-4">
-    <UpLink Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+    <UpLink Class="mb-4" Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
-    <PageHeading Class="mb-4">@loaded.Collection.Name.Value</PageHeading>
+    @* not PageHeading: a collection's name keeps the text font, rather than the theme's heading font *@
+    <h1 class="mb-4">@loaded.Collection.Name.Value</h1>
 
     @if (loaded.Works.Items.Count == 0)
     {

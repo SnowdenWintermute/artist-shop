@@ -127,27 +127,13 @@
     }
   }
 
-  private async Task AddVocabularyAsync()
+  private async Task AddingAsync(Func<Task> save)
   {
     _isAdding = true;
 
     try
     {
-      await SaveVocabularyAsync();
-    }
-    finally
-    {
-      _isAdding = false;
-    }
-  }
-
-  private async Task AddTermAsync()
-  {
-    _isAdding = true;
-
-    try
-    {
-      await SaveTermAsync();
+      await save();
     }
     finally
     {
@@ -176,13 +162,13 @@
 
 @if (Vocabulary is null)
 {
-  <EditForm EditContext="_vocabulary.EditContext" OnValidSubmit="AddVocabularyAsync" class="mb-4 shrink-0">
+  <EditForm EditContext="_vocabulary.EditContext" OnValidSubmit="() => AddingAsync(SaveVocabularyAsync)" class="mb-4 shrink-0">
     <DataAnnotationsValidator />
 
     <TextField @ref="_nameField" Label="Vocabulary name" @bind-Value="_vocabulary.Name" UpdatesPerKeystroke
                placeholder="" />
     <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="_isAdding"
-                 disabled="@(IsSaving || string.IsNullOrWhiteSpace(_vocabulary.Name))">
+                 disabled="@IsSaving">
       Save vocabulary
     </ButtonBasic>
   </EditForm>
@@ -201,12 +187,12 @@ else
     </ul>
   }
 
-  <EditForm EditContext="_term.EditContext" OnValidSubmit="AddTermAsync" class="mb-4 shrink-0">
+  <EditForm EditContext="_term.EditContext" OnValidSubmit="() => AddingAsync(SaveTermAsync)" class="mb-4 shrink-0">
     <DataAnnotationsValidator />
 
     <TextField @ref="_termField" Label="New term" @bind-Value="_term.Name" UpdatesPerKeystroke />
     <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="_isAdding"
-                 disabled="@(IsSaving || string.IsNullOrWhiteSpace(_term.Name))">
+                 disabled="@IsSaving">
       Add term
     </ButtonBasic>
   </EditForm>
