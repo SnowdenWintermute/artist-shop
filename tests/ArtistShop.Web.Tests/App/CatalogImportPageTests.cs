@@ -51,19 +51,19 @@ public sealed partial class CatalogImportPageTests(TestApp app)
         var types = await new WorkTypeRepository(database).GetAllAsync();
         WorkTypeId TypeId(string name) => types.Single(type => type.Name.Value == name).Id;
         var vocabularies = new VocabularyRepository(database);
-        var medium = await vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [TypeId("Painting"), TypeId("Photograph")]);
-        await new VocabularyTermRepository(database).AddAsync(medium, new VocabularyTermName("Oil"));
+        var material = await vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [TypeId("Painting"), TypeId("Photograph")]);
+        await new VocabularyTermRepository(database).AddAsync(material, new VocabularyTermName("Oil"));
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var (reviewPage, confirmed) = await CheckThenConfirmAsync(
             client,
             PageUrls.VocabularyImport,
-            "vocabulary,workTypes,terms\nMedium,Painting; Photograph; Sculpture,Oil\n"
+            "vocabulary,workTypes,terms\nMaterial,Painting; Photograph; Sculpture,Oil\n"
         );
 
         Assert.Contains("Import 1 vocabulary", reviewPage);
         Assert.Equal(HttpStatusCode.Redirect, confirmed.StatusCode);
-        var saved = await vocabularies.GetAsync(medium);
+        var saved = await vocabularies.GetAsync(material);
         Assert.NotNull(saved);
         Assert.Equal(
             [TypeId("Painting"), TypeId("Photograph"), TypeId("Sculpture")],

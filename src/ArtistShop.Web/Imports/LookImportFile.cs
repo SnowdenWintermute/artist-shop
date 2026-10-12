@@ -74,6 +74,7 @@ public record LookImportFile(
             look[WordingProperty] is not JsonObject wording
             || NounOf(wording[CollectionWordingProperty]) is not { } collectionChoice
             || NounOf(wording[WorkWordingProperty]) is not { } workChoice
+            || LabelOf(wording[DescriptionWordingProperty]) is not { } descriptionChoice
             || ThemesOf(look[ThemesProperty]) is not { } themes
             || ThemeInUseOf(look[ThemeInUseProperty], themes) is not { } themeInUse
             || BrandImagesOf(look[BrandImagesProperty], out var unknownBrandImageTypes) is not { } brandImages
@@ -83,7 +84,7 @@ public record LookImportFile(
         }
 
         file = new LookImportFile(
-            new SiteWording(collectionChoice, workChoice),
+            new SiteWording(collectionChoice, workChoice, descriptionChoice),
             themeInUse,
             themes,
             brandImages,
@@ -202,6 +203,21 @@ public record LookImportFile(
         }
 
         return new NounChoice(singular, plural, keepsCase);
+    }
+
+    // null for anything the Wording page couldn't have saved
+    private static LabelChoice? LabelOf(JsonNode? node)
+    {
+        if (
+            node is not JsonObject label
+            || !TryWordOf(label[LabelProperty], out var text)
+            || BoolOf(label[KeepsCaseProperty]) is not { } keepsCase
+        )
+        {
+            return null;
+        }
+
+        return new LabelChoice(text, keepsCase);
     }
 
     // a missing word is null, the default; one that's there has to be a word the database takes

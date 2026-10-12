@@ -27,7 +27,7 @@
 
 <fieldset class="mb-4">
   <legend class="mb-1 text-sm">Fields</legend>
-  <p class="mb-2 text-sm text-ink-faded">Every @Wording.Work.SingularInSentence has a description.</p>
+  <p class="mb-2 text-sm text-ink-faded">Every @Wording.Work.SingularInSentence can have its own @Wording.Description.InSentence.</p>
   @foreach (var definition in FieldDefinitions.Where(candidate => !candidate.HasRequirement))
   {
     <div>

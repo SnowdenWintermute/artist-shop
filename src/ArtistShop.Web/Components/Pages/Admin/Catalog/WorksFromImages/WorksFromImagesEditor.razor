@@ -152,7 +152,8 @@
   }
 
   // what a drop holds while the collection dialog is open
-  private record PendingDrop(WorkTypeId TypeId, IReadOnlyList<BulkImageCandidate> Candidates, IReadOnlyList<DroppedFolder> Folders);
+  private record PendingDrop(WorkTypeId TypeId, IReadOnlyList<BulkImageCandidate> Candidates, IReadOnlyList<DroppedFolder>
+Folders);
 
   private async Task CollectionChosenAsync(DropCollectionChoice choice)
   {
@@ -174,7 +175,8 @@
     }
   }
 
-  private async Task AddAsync(WorkTypeId typeId, IReadOnlyList<BulkImageCandidate> candidates, DropCollectionChoice choice)
+  private async Task AddAsync(WorkTypeId typeId, IReadOnlyList<BulkImageCandidate> candidates, DropCollectionChoice
+choice)
   {
     _isCreating = true;
     await InvokeAsync(StateHasChanged);
@@ -413,17 +415,23 @@ work))]);
   <div class="mb-4">
     @* the rows are works of this type, under its fields' columns *@
     <WorkTypeSelect WorkTypes="_workTypes" @bind-Value="_workTypeId" @bind-Value:after="LoadTypeAsync"
-                       Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
+                    Disabled="@(_rows.Count > 0 || _isCreating || _pendingDrop is not null)" Class="mb-1" />
     @if (_rows.Count > 0)
     {
       <p class="text-sm text-ink-faded">Reload the page to add @Wording.Work.PluralInSentence of another type.</p>
     }
   </div>
 
+  @if (_type is null)
+  {
+    <p class="mb-4 font-bold">Choose the @Wording.Work.SingularInSentence type first.</p>
+  }
+
   @* the script refuses new files while a run is going, as they would replace the ones it hasn't sent *@
   <fieldset class="contents" disabled="@(_type is null || _isUploading || _isCreating || _pendingDrop is not null)">
-    @* the events the script listens for bubble, so one element reference covers both pickers and the drop *@
-    <div @ref="_zone" class="mb-4">
+    @* the events the script listens for bubble, so one element reference covers both pickers and the drop.
+       Hidden rather than left out without a type, as the script takes the element once, on first render *@
+    <div @ref="_zone" class="@(_type is null ? "hidden" : "mb-4")">
       <FileDropZoneFrame Prompt="Drop a folder of images here, or drop images on their own" ButtonLabel="Choose images"
                          DirectoryButtonLabel="Choose a folder">
         <input type="file" multiple accept="@ImageUploadValidation.FileInputAccept" class="hidden" />
@@ -472,23 +480,24 @@ else if (UnsentCount > 0)
     @Wording.Work.CountOf(_rows.Count) added. Each change saves when you leave its field.
   </p>
 
-  <WorkTable Rows="_rows" Type="rowsType" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnSaveFinished="SaveFinished"
-                OnRowsDeleted="RowsDeleted" />
+  <WorkTable Rows="_rows" Type="rowsType" AllCollections="_collections" OnCollectionAdded="CollectionAdded"
+             OnSaveFinished="SaveFinished" OnRowsDeleted="RowsDeleted" />
 
   <p class="text-sm text-ink-faded">
     @Wording.Work.CountOf(_rows.Count) added.
     @* no time before the first edit: the works and images were saved as they arrived *@
     @if (IsAllSaved)
     {
-      <text>All changes saved@(LastSavedText is { } savedText ? $" at {savedText}" : ""), it is safe to close the tab.</text>
-    }
-    <a class="underline" href="@PageUrls.AdminDashboard">Back to the dashboard</a>
-  </p>
-}
+      <text>All changes saved@(LastSavedText is { } savedText ? $" at {savedText}" : ""), it is safe to close the
+        tab.</text>
+      }
+      <a class="underline" href="@PageUrls.AdminDashboard">Back to the dashboard</a>
+    </p>
+  }
 
-@if (_pendingDrop is { } pendingDrop)
-{
-  <DropCollectionDialog Folders="pendingDrop.Folders" LooseImageCount="@WorksFromImagesPlanner.LooseImageCount(pendingDrop.Candidates)"
-                    AllCollections="_collections" OnOk="CollectionChosenAsync" OnClose="() => _pendingDrop = null"
-                    OnCollectionAdded="DropCollectionAdded" />
-}
+  @if (_pendingDrop is { } pendingDrop)
+  {
+    <DropCollectionDialog Folders="pendingDrop.Folders"
+                          LooseImageCount="@WorksFromImagesPlanner.LooseImageCount(pendingDrop.Candidates)" AllCollections="_collections"
+                          OnOk="CollectionChosenAsync" OnClose="() => _pendingDrop = null" OnCollectionAdded="DropCollectionAdded" />
+  }

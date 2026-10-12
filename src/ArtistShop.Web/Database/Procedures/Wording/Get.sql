@@ -6,7 +6,9 @@ CREATE FUNCTION get_wording () RETURNS TABLE (
     collection_keeps_case boolean,
     work_singular text,
     work_plural text,
-    work_keeps_case boolean
+    work_keeps_case boolean,
+    description_label text,
+    description_keeps_case boolean
 ) LANGUAGE sql STABLE AS $$
 SELECT
     wording.collection_singular,
@@ -14,7 +16,9 @@ SELECT
     wording.collection_keeps_case,
     wording.work_singular,
     wording.work_plural,
-    wording.work_keeps_case
+    wording.work_keeps_case,
+    wording.description_label,
+    wording.description_keeps_case
 FROM
     wording;
 $$;

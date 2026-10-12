@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Components.Sections
 @inherits LayoutComponentBase
 @layout MainLayout
 @inject CurrentHost CurrentHost
@@ -13,4 +14,11 @@
 @* the marker SiteThemeStyle's selector looks for. contents: it lays nothing out itself *@
 <div data-site-theme class="contents">
   @Body
+  @if (CurrentHost is CurrentHost.Site)
+  {
+    @* MainLayout places it below the body's padding, at the bottom of the screen *@
+    <SectionContent SectionName="@SiteFooter.SectionName">
+      <SiteFooter />
+    </SectionContent>
+  }
 </div>

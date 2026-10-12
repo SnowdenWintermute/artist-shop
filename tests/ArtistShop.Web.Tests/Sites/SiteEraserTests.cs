@@ -107,7 +107,7 @@ public sealed class SiteEraserTests : IDisposable
     private async Task<SiteId> NewSiteAsync()
     {
         var host = HostName.Read($"erasing-{Guid.NewGuid():n}.test") ?? throw new InvalidOperationException("Not a host.");
-        return await new SiteProvisioner(_sites, new SiteSchemas(_database.PlatformConnectionString), _storageSettings)
+        return await new SiteProvisioner(_sites, new SiteSchemas(_database.PlatformConnectionString), _database.SiteDatabases, _storageSettings)
             .CreateAsync([host], OwnerUserId);
     }
 

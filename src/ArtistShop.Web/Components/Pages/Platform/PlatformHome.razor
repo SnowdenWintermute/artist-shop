@@ -1,3 +1,4 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Sites
 @inject SiteRepository SiteRepository
@@ -17,7 +18,10 @@
 <main class="mx-auto max-w-[1200px] p-4">
   <h1 class="mb-4 text-2xl">PictureCord</h1>
   <p class="mb-4">Your portfolio and blog on a website of your own.</p>
-  <p class="mb-4">Have a sign-up code? <a class="underline" href="@PageUrls.SignUp">Make your website</a>.</p>
+  <p class="mb-4">Have a sign-up code? <a class="@LinkStyles.InSentence" href="@PageUrls.SignUp">Make your website</a>.
+  </p>
+  <p class="mb-4">Already a site admin? <a class="@LinkStyles.InSentence" href="@PageUrls.MySites">Select your site</a>.
+  </p>
 
   @if (_examples.Count > 0)
   {
@@ -25,7 +29,8 @@
     <ul class="list-disc pl-6">
       @foreach (var host in _examples)
       {
-        <li><a class="underline" href="@PageUrls.SiteHome(NavigationManager.BaseUri, host)">@host.Value</a></li>
+        <li><a class="@LinkStyles.InSentence" href="@PageUrls.SiteHome(NavigationManager.BaseUri, host)">@host.Value</a>
+        </li>
       }
     </ul>
   }

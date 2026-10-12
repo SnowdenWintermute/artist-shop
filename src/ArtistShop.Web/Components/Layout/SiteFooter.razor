@@ -1,0 +1,20 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Sites
+
+@inject NavigationManager NavigationManager
+@inject PlatformSettings PlatformSettings
+
+@code {
+  // where MainLayout shows it, filled by PublicLayout
+  public const string SectionName = "site-footer";
+}
+
+@* the footer under a website's public pages: the way in for the artist when signed out *@
+<footer class="pb-6 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]
+  text-center text-sm ">
+  <div class="flex justify-center px-2">
+    <div>Created with <a href="@PageUrls.PlatformHome(NavigationManager.BaseUri, PlatformSettings.Host)" class="@LinkStyles.InSentence">PictureCord</a></div>
+    <span class="mx-1">|</span>
+    <a href="@PageUrls.AdminDashboard" class="@LinkStyles.InSentence">Manage website</a>
+  </div>
+</footer>

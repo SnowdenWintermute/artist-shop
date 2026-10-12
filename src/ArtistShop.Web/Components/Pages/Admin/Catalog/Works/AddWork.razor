@@ -186,7 +186,7 @@ else if (_type is not null)
           <PartialDateField Label="Date created" @bind-Year="Input.YearCreated" @bind-Month="Input.MonthCreated"
                             @bind-Day="Input.DayCreated" />
         }
-        <TextAreaField Label="Description" @bind-Value="Input.Description" />
+        <TextAreaField Label="@Wording.Description.Heading" @bind-Value="Input.Description" />
         @if (_fields.Contains(WorkField.HeightAndWidth))
         {
           <div class="flex gap-2">

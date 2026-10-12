@@ -1,5 +1,6 @@
 ﻿@using ArtistShop.Web.Sites
 @using ArtistShop.Web.Components.Atoms
+@using Microsoft.AspNetCore.Components.Sections
 @inherits LayoutComponentBase
 @inject CurrentHost CurrentHost
 
@@ -21,6 +22,7 @@
     <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
       @Body
     </div>
+    <SectionOutlet SectionName="@SiteFooter.SectionName" />
   </div>
 
   <div id="blazor-error-ui" class="fixed top-1/2 left-1/2 z-50 hidden -translate-x-1/2 -translate-y-1/2 border-2

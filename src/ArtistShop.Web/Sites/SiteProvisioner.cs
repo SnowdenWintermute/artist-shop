@@ -6,10 +6,11 @@ using ArtistShop.Web.Domain.Sites;
 using ArtistShop.Web.Images;
 
 // Makes new sites, and gets any site ready to serve: its own schema made and brought up to date,
-// and its image folders
+// and its image folders. A new site also gets the starter vocabularies
 public class SiteProvisioner(
     SiteRepository siteRepository,
     SiteSchemas siteSchemas,
+    SiteDatabases siteDatabases,
     ImageStorageSettings imageStorageSettings
 )
 {
@@ -28,6 +29,7 @@ public class SiteProvisioner(
         try
         {
             Prepare(siteId);
+            await StarterVocabularies.AddAsync(siteDatabases.For(siteId));
             await addSite(siteId);
         }
         catch

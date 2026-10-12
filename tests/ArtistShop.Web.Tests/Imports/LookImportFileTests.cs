@@ -15,7 +15,8 @@ public sealed class LookImportFileTests
           "formatVersion": 1,
           "wording": {
             "collection": { "singular": "Project", "plural": "Projects", "keepsCase": false },
-            "work": { "singular": null, "plural": null, "keepsCase": true }
+            "work": { "singular": null, "plural": null, "keepsCase": true },
+            "description": { "label": "Notes", "keepsCase": true }
           },
           "themeInUse": { "theme": "evening" },
           "themes": [ { "name": "Evening", "settings": { "colors": { "Page": "#202020", "Ink": "#ffffff", "Accent": "#ff0000" }, "fonts": {} } } ],
@@ -29,7 +30,11 @@ public sealed class LookImportFileTests
         Assert.True(LookImportFile.TryRead(Valid, out var file, out _));
 
         Assert.Equal(
-            new SiteWording(new NounChoice("Project", "Projects", KeepsCase: false), new NounChoice(null, null, KeepsCase: true)),
+            new SiteWording(
+                new NounChoice("Project", "Projects", KeepsCase: false),
+                new NounChoice(null, null, KeepsCase: true),
+                new LabelChoice("Notes", KeepsCase: true)
+            ),
             file.Wording
         );
         // named as the theme itself is

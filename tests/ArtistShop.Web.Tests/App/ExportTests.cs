@@ -403,8 +403,8 @@ public sealed class ExportTests(TestApp app)
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
         var installation = await fromCatalog.Types.AddAsync(new WorkTypeName("Installation"), [WorkField.DateCreated]);
-        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
-        var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
+        var material = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [painting, installation]);
+        var oil = await fromCatalog.Terms.AddAsync(material, new VocabularyTermName("Oil"));
         var gardens = await fromCatalog.Collections.AddAsync(new CollectionName("Gardens"), new CollectionSlug("gardens"));
         var dawnImage = await SaveOriginalAsync(from.Id, [0xFF, 0xD8, 0xFF, 1]);
         await SaveWebCopyAsync(from.Id, dawnImage.StorageKey);
@@ -439,7 +439,7 @@ public sealed class ExportTests(TestApp app)
 
         Assert.Empty(onNew.Problems);
         Assert.Equal(["Installation"], onNew.WorkTypes.Additions.Select(addition => addition.Name.Value));
-        Assert.Equal(["Medium"], onNew.Vocabularies.Changes.Select(change => change.Name.Value));
+        Assert.Equal(["Material"], onNew.Vocabularies.Changes.Select(change => change.Name.Value));
         Assert.Equal(["Installation.csv", "Painting.csv"], onNew.WorkFiles.Select(file => file.FileName).Order(StringComparer.Ordinal));
         Assert.All(onNew.WorkFiles, file => Assert.Empty(file.Plan.Errors));
         Assert.All(onNew.WorkFiles, file => Assert.Single(file.Plan.Additions));
@@ -471,12 +471,12 @@ public sealed class ExportTests(TestApp app)
     public async Task TheWholeWebsiteImportBringsTheWordingToAWebsiteOnTheDefaults()
     {
         var from = await app.MakeSiteAsync();
-        var wording = new SiteWording(new NounChoice("Project", "Projects", KeepsCase: false), new NounChoice("NFT", "NFTs", KeepsCase: true));
+        var wording = new SiteWording(new NounChoice("Project", "Projects", KeepsCase: false), new NounChoice("NFT", "NFTs", KeepsCase: true), new LabelChoice("About", KeepsCase: false));
         await Wording(from.Id).UpdateAsync(wording);
         var folder = await DownloadEverythingAsync(from);
         var fresh = await app.MakeSiteAsync();
         var own = await app.MakeSiteAsync();
-        var ownWording = new SiteWording(new NounChoice("Body of work", "Bodies of work", KeepsCase: false), NounChoice.Default);
+        var ownWording = new SiteWording(new NounChoice("Body of work", "Bodies of work", KeepsCase: false), NounChoice.Default, LabelChoice.Default);
         await Wording(own.Id).UpdateAsync(ownWording);
 
         var onFresh = (await ReviewAsync(folder, fresh.Id)).Look;
@@ -579,8 +579,8 @@ public sealed class ExportTests(TestApp app)
         var fromCatalog = Catalog(from.Id);
         var painting = await TypeIdAsync(fromCatalog, "Painting");
         var installation = await fromCatalog.Types.AddAsync(new WorkTypeName("Installation"), [WorkField.DateCreated]);
-        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
-        var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
+        var material = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [painting, installation]);
+        var oil = await fromCatalog.Terms.AddAsync(material, new VocabularyTermName("Oil"));
         var gardens = await fromCatalog.Collections.AddAsync(new CollectionName("Gardens"), new CollectionSlug("gardens"));
         await fromCatalog.Works.AddManyAsync(
             [
@@ -733,10 +733,10 @@ public sealed class ExportTests(TestApp app)
             new WorkTypeName("Installation"),
             [WorkField.DateCreated, WorkField.HeightAndWidth, WorkField.Depth, WorkField.Duration]
         );
-        var medium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [painting, installation]);
-        var oil = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Oil"));
-        var bronze = await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Bronze"));
-        await fromCatalog.Terms.AddAsync(medium, new VocabularyTermName("Unused"));
+        var material = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [painting, installation]);
+        var oil = await fromCatalog.Terms.AddAsync(material, new VocabularyTermName("Oil"));
+        var bronze = await fromCatalog.Terms.AddAsync(material, new VocabularyTermName("Bronze"));
+        await fromCatalog.Terms.AddAsync(material, new VocabularyTermName("Unused"));
         var gardens = await fromCatalog.Collections.AddAsync(new CollectionName("Gardens; Summer"), new CollectionSlug("gardens-summer"));
         var original = (await fromCatalog.ProductTypes.GetAllAsync()).Single(type => type.IsDefault);
 
@@ -936,7 +936,7 @@ public sealed class ExportTests(TestApp app)
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
         var installation = await fromCatalog.Types.AddAsync(new WorkTypeName("Installation"), [WorkField.DateCreated]);
-        await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [installation]);
+        await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [installation]);
         var downloaded = await DownloadEverythingAsync(from);
         // as though Installation were gone by the time the import ran
         var folder = downloaded with
@@ -949,7 +949,7 @@ public sealed class ExportTests(TestApp app)
         var problem = await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), SiteWording.Default, _ => Task.CompletedTask);
 
         Assert.Equal(WebsiteCatalogImporter.ChangedSinceReviewProblem, problem);
-        Assert.DoesNotContain((await toCatalog.Vocabularies.GetAllAsync()), vocabulary => vocabulary.Name.Value == "Medium");
+        Assert.DoesNotContain((await toCatalog.Vocabularies.GetAllAsync()), vocabulary => vocabulary.Name.Value == "Material");
     }
 
     // a vocabulary here already isn't added again, but its new terms are
@@ -958,14 +958,14 @@ public sealed class ExportTests(TestApp app)
     {
         var from = await app.MakeSiteAsync();
         var fromCatalog = Catalog(from.Id);
-        var fromMedium = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [await TypeIdAsync(fromCatalog, "Painting")]);
-        await fromCatalog.Terms.AddAsync(fromMedium, new VocabularyTermName("Oil"));
-        await fromCatalog.Terms.AddAsync(fromMedium, new VocabularyTermName("Acrylic"));
+        var fromMaterial = await fromCatalog.Vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [await TypeIdAsync(fromCatalog, "Painting")]);
+        await fromCatalog.Terms.AddAsync(fromMaterial, new VocabularyTermName("Oil"));
+        await fromCatalog.Terms.AddAsync(fromMaterial, new VocabularyTermName("Acrylic"));
         var folder = await DownloadEverythingAsync(from);
         var to = await app.MakeSiteAsync();
         var toCatalog = Catalog(to.Id);
-        var toMedium = await toCatalog.Vocabularies.AddAsync(new VocabularyName("Medium"), isMutuallyExclusive: false, [await TypeIdAsync(toCatalog, "Painting")]);
-        await toCatalog.Terms.AddAsync(toMedium, new VocabularyTermName("Oil"));
+        var toMaterial = await toCatalog.Vocabularies.AddAsync(new VocabularyName("Material"), isMutuallyExclusive: false, [await TypeIdAsync(toCatalog, "Painting")]);
+        await toCatalog.Terms.AddAsync(toMaterial, new VocabularyTermName("Oil"));
         var stages = new List<WebsiteImportStageDone>();
 
         Assert.Null(await WebsiteCatalogImporter.ImportAsync(folder, Repositories(toCatalog), SiteWording.Default, stage => { stages.Add(stage); return Task.CompletedTask; }));

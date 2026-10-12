@@ -4,6 +4,9 @@
 @* rendered only while open, so each opening starts from the row's saved text *@
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   // null while the row's title is cleared
   [Parameter, EditorRequired]
   public string? WorkName { get; set; }
@@ -30,8 +33,8 @@
   }
 }
 
-<ModalDialog Title="@(WorkName is null ? "Description" : $"Description of {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose">
-  <label class="sr-only" for="description-draft">Description</label>
+<ModalDialog Title="@(WorkName is null ? Wording.Description.Heading : $"{Wording.Description.Heading} for {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose">
+  <label class="sr-only" for="description-draft">@Wording.Description.Heading</label>
   <textarea id="description-draft" class="mb-4 min-h-60 w-full border border-rule p-2" @bind="_draft"
             @bind:event="oninput" @onkeydown="KeyDownAsync" autofocus></textarea>
 

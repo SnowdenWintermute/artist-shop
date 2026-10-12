@@ -41,6 +41,7 @@ public sealed partial class WordingTests(TestApp app)
         ["Input.CollectionPlural"] = "Zorbs",
         ["Input.WorkSingular"] = "Quux",
         ["Input.WorkPlural"] = "Quuxes",
+        ["Input.DescriptionLabel"] = "Blorp",
     };
 
     private static Task<string> PageAsync(HttpClient client, string path) =>
@@ -246,7 +247,7 @@ public sealed partial class WordingTests(TestApp app)
         return WebUtility.HtmlDecode(string.Join(" ", [Tag().Replace(withoutCode, " "), .. labels]));
     }
 
-    [GeneratedRegex(@"\b(series|artworks?|collections?|works?)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(series|artworks?|collections?|works?|descriptions?|artist statements?)\b", RegexOptions.IgnoreCase)]
     private static partial Regex RenamedWord();
 
     [GeneratedRegex(@"<(script|style)\b.*?</\1>|<!--.*?-->|<(?<tag>\w+)[^>]*\btranslate=""no""[^>]*>.*?</\k<tag>>", RegexOptions.Singleline)]

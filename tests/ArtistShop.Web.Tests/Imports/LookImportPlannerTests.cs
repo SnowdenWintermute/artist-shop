@@ -46,7 +46,7 @@ public sealed class LookImportPlannerTests
     public void AWebsitesOwnChoicesAreKept()
     {
         var file = File(new ThemeInUseChoice.Preset(ThemePreset.Dark));
-        var own = new SiteWording(new NounChoice("Body of work", "Bodies of work", KeepsCase: false), NounChoice.Default);
+        var own = new SiteWording(new NounChoice("Body of work", "Bodies of work", KeepsCase: false), NounChoice.Default, LabelChoice.Default);
         var saved = new SavedTheme(new ThemeId(4), "Mine", Evening);
         var target = new SiteLook(own, saved.Named, [saved], [Logo(new('c', 64))]);
 
@@ -96,7 +96,7 @@ public sealed class LookImportPlannerTests
         Assert.True(Assert.Single(plan.BrandImages).WillUpload);
     }
 
-    private static readonly SiteWording Wording = new(new NounChoice("Project", "Projects", KeepsCase: false), NounChoice.Default);
+    private static readonly SiteWording Wording = new(new NounChoice("Project", "Projects", KeepsCase: false), NounChoice.Default, LabelChoice.Default);
 
     private static readonly string LogoSha256 = new('a', 64);
 

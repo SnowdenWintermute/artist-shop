@@ -29,7 +29,8 @@ public class WordingRepository(SiteDatabase database)
             """
             SELECT update_wording(
                 @CollectionSingular, @CollectionPlural, @CollectionKeepsCase,
-                @WorkSingular, @WorkPlural, @WorkKeepsCase
+                @WorkSingular, @WorkPlural, @WorkKeepsCase,
+                @DescriptionLabel, @DescriptionKeepsCase
             )
             """,
             new
@@ -40,6 +41,8 @@ public class WordingRepository(SiteDatabase database)
                 WorkSingular = wording.WorkChoice.Singular,
                 WorkPlural = wording.WorkChoice.Plural,
                 WorkKeepsCase = wording.WorkChoice.KeepsCase,
+                DescriptionLabel = wording.DescriptionChoice.Text,
+                DescriptionKeepsCase = wording.DescriptionChoice.KeepsCase,
             }
         );
     }
@@ -47,7 +50,8 @@ public class WordingRepository(SiteDatabase database)
     private static SiteWording ToWording(WordingRow row) =>
         new(
             new NounChoice(row.CollectionSingular, row.CollectionPlural, row.CollectionKeepsCase),
-            new NounChoice(row.WorkSingular, row.WorkPlural, row.WorkKeepsCase)
+            new NounChoice(row.WorkSingular, row.WorkPlural, row.WorkKeepsCase),
+            new LabelChoice(row.DescriptionLabel, row.DescriptionKeepsCase)
         );
 
     private sealed class WordingRow
@@ -58,5 +62,7 @@ public class WordingRepository(SiteDatabase database)
         public required string? WorkSingular { get; init; }
         public required string? WorkPlural { get; init; }
         public required bool WorkKeepsCase { get; init; }
+        public required string? DescriptionLabel { get; init; }
+        public required bool DescriptionKeepsCase { get; init; }
     }
 }

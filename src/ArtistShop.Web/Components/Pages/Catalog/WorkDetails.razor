@@ -108,6 +108,7 @@
 
   @if (Work.Description is { } description)
   {
+    <h2 class="mb-2 text-sm text-ink-faded">@Wording.Description.Heading</h2>
     @* whitespace-pre-line keeps the artist's own line breaks without letting a long line overflow *@
     <p class="mb-6 whitespace-pre-line">@description</p>
   }

@@ -23,6 +23,11 @@ public class WordingForm : IValidatableObject
 
     public bool WorkKeepsCase { get; set; }
 
+    [StringLength(ArtistShopLimits.WordingWordMaximumLength)]
+    public string? DescriptionLabel { get; set; }
+
+    public bool DescriptionKeepsCase { get; set; }
+
     public static WordingForm From(SiteWording wording) =>
         new()
         {
@@ -32,12 +37,15 @@ public class WordingForm : IValidatableObject
             WorkSingular = wording.WorkChoice.Singular,
             WorkPlural = wording.WorkChoice.Plural,
             WorkKeepsCase = wording.WorkChoice.KeepsCase,
+            DescriptionLabel = wording.DescriptionChoice.Text,
+            DescriptionKeepsCase = wording.DescriptionChoice.KeepsCase,
         };
 
     public SiteWording ToWording() =>
         new(
             new NounChoice(NounChoice.Word(CollectionSingular), NounChoice.Word(CollectionPlural), CollectionKeepsCase),
-            new NounChoice(NounChoice.Word(WorkSingular), NounChoice.Word(WorkPlural), WorkKeepsCase)
+            new NounChoice(NounChoice.Word(WorkSingular), NounChoice.Word(WorkPlural), WorkKeepsCase),
+            new LabelChoice(NounChoice.Word(DescriptionLabel), DescriptionKeepsCase)
         );
 
     // both forms or neither, so the website never has to guess a plural

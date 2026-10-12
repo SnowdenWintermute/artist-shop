@@ -10,6 +10,7 @@ public enum HintType
     UploadWorkImages,
     Collections,
     Vocabularies,
+    VocabularyTerms,
     StepByStepImport,
     LookAndWordingImport,
     WorkTypeImport,
@@ -19,4 +20,5 @@ public enum HintType
     WebsiteImport,
     WordingCollections,
     WordingWorks,
+    WordingDescription,
 }

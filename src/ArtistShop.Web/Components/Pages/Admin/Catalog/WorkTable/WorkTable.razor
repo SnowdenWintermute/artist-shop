@@ -124,6 +124,8 @@
         new("", SelectColumnClass, Pinned: true, Content: SelectAllCheckbox),
         new("", ImagesColumnClass, Pinned: true),
         new("Title", TitleColumnClass, Pinned: true),
+        "Vocabularies",
+        Wording.Collection.PluralHeading,
       ];
 
       if (Fields.Contains(WorkField.DateCreated))
@@ -146,7 +148,8 @@
         headings.Add("Duration");
       }
 
-      headings.AddRange(["Description", Wording.Collection.PluralHeading, "Vocabularies"]);
+      // last, so it isn't taken for the place to write details like "oil on canvas", which vocabularies hold
+      headings.Add(Wording.Description.Heading);
       return headings;
     }
   }
@@ -458,6 +461,18 @@ collection.Name.Value));
         <RowFieldError Message="@row.SaveError" />
       </DataTableCell>
 
+      <DataTableCell Class="@FieldCellClass">
+        <button type="button" class="@DialogButtonClass" @onclick="() => _vocabularyRow = row">
+          @(VocabularyText(row) is { Length: > 0 } terms ? terms : "Choose…")
+        </button>
+      </DataTableCell>
+
+      <DataTableCell Class="@FieldCellClass">
+        <button type="button" class="@DialogButtonClass" @onclick="() => _collectionRow = row">
+          @(row.Form.CollectionIds.Count is 0 ? "Choose…" : CollectionsText(row))
+        </button>
+      </DataTableCell>
+
       @if (Fields.Contains(WorkField.DateCreated))
       {
         <DataTableCell Class="@FieldCellClass">
@@ -520,21 +535,10 @@ collection.Name.Value));
         </DataTableCell>
       }
 
+
       <DataTableCell Class="@FieldCellClass">
         <button type="button" class="@DialogButtonClass" @onclick="() => _descriptionRow = row">
           @(string.IsNullOrWhiteSpace(row.Form.Description) ? "Edit…" : row.Form.Description)
-        </button>
-      </DataTableCell>
-
-      <DataTableCell Class="@FieldCellClass">
-        <button type="button" class="@DialogButtonClass" @onclick="() => _collectionRow = row">
-          @(row.Form.CollectionIds.Count is 0 ? "Choose…" : CollectionsText(row))
-        </button>
-      </DataTableCell>
-
-      <DataTableCell Class="@FieldCellClass">
-        <button type="button" class="@DialogButtonClass" @onclick="() => _vocabularyRow = row">
-          @(VocabularyText(row) is { Length: > 0 } terms ? terms : "Choose…")
         </button>
       </DataTableCell>
     </Row>

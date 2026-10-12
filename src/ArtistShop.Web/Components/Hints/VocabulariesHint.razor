@@ -1,0 +1,21 @@
+@using ArtistShop.Web.Domain.Platform
+
+@* what vocabularies are, wherever the admin may first meet them: dismissing it in one place
+   dismisses it everywhere *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+<Hint Type="HintType.Vocabularies" Class="@Class">
+  <p>
+    <span class="font-bold">Vocabularies</span> define lists of <span class="font-bold">terms</span> about
+    @Wording.Work.PluralInSentence. A painting might have a vocabulary
+    called "Support" whose terms could be "Canvas", "Paper" or "Stone
+    Slab".
+  </p>
+</Hint>

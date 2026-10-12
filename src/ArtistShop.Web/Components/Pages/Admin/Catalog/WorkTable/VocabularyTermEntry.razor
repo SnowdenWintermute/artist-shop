@@ -1,6 +1,8 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Vocabularies
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.VocabularyTerms
 @using ArtistShop.Web.Database
@@ -162,6 +164,7 @@
 
 @if (Vocabulary is null)
 {
+  <VocabulariesHint Class="shrink-0" />
   <EditForm EditContext="_vocabulary.EditContext" OnValidSubmit="() => AddingAsync(SaveVocabularyAsync)" class="mb-4 shrink-0">
     <DataAnnotationsValidator />
 
@@ -175,6 +178,9 @@
 }
 else
 {
+  <Hint Type="HintType.VocabularyTerms" Class="shrink-0">
+    <p>Add a list of terms that this vocabulary defines.</p>
+  </Hint>
   <p class="mb-2 shrink-0">@Vocabulary.Name.Value</p>
 
   @if (Vocabulary.Terms.Count > 0)

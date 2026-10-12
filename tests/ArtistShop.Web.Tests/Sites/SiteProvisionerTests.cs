@@ -24,6 +24,7 @@ public sealed class SiteProvisionerTests : IDisposable
         _provisioner = new SiteProvisioner(
             new SiteRepository(database.PlatformDataSource),
             new SiteSchemas(database.PlatformConnectionString),
+            database.SiteDatabases,
             _storageSettings
         );
     }

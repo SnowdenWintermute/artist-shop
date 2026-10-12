@@ -2,7 +2,6 @@
 @page "/admin/catalog/vocabularies/{Id:int}/edit"
 @layout VocabularyLayout
 @using ArtistShop.Web.Components.Hints
-@using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
@@ -57,14 +56,7 @@
 @* only on the new vocabulary page, which is where the admin's Vocabularies links land *@
 @if (Id is null)
 {
-  <Hint Type="HintType.Vocabularies">
-    <p>Controlled
-      vocabularies provide a way
-      to associate
-      your @Wording.Work.PluralInSentence with a defined list of terms. For example, a painting could have a vocabulary called "Support" whose
-      terms could be "Canvas", "Paper" or "Stone Slab".</p>
-
-    </Hint>
+  <VocabulariesHint />
   }
 
   <PageTitle>@(_loaded is null ? "New vocabulary" : _loaded.Vocabulary.Name.Value)</PageTitle>
@@ -88,7 +80,8 @@
       <Notice>
         <p class="mb-2">
           @(_unlinkedVocabularies.Count is 1 ? "This vocabulary isn't" : "These vocabularies aren't") linked to any
-          @Wording.Work.SingularInSentence type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show on
+          @Wording.Work.SingularInSentence type yet, so @(_unlinkedVocabularies.Count is 1 ? "it doesn't" : "they don't") show
+          on
           any @Wording.Work.SingularInSentence's form.
         </p>
         <ul class="list-disc pl-5">

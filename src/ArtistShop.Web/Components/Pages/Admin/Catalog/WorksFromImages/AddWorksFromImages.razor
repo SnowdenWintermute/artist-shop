@@ -23,23 +23,28 @@
     <h1 class="mb-4 text-xl">Add @Wording.Work.PluralInSentence from images</h1>
 
     <Hint Type="HintType.AddWorksFromImages">
-      <p>
-        @Wording.Work.PluralHeading are saved in the catalog under the name of each image uploaded. Edits made on this page are
-        automatically saved.
+      <p class="mb-4">
+        Select the @Wording.Work.SingularInSentence type first. By default the catalog includes <span
+        class="font-bold">paintings</span>, <span class="font-bold">photographs</span> and <span
+        class="font-bold">sculptures</span>. <a class="@LinkStyles.InSentence" href="@PageUrls.NewWorkType">Define
+        your own types here</a>.
       </p>
-    </Hint>
+      <p>
+        @Wording.Work.PluralHeading are saved in the catalog under the name of each image uploaded. You will have the
+        option to create a @Wording.Collection.SingularInSentence from the names each folder uploaded.</p>
+      </Hint>
 
-    <p class="mb-4 flex items-center">
-      <span class="text-ink flex items-center justify-center mr-2">
-        <SvgIcon Name="floppy-disc" Class="size-5" />
-      </span>
-      <span>@Wording.Work.PluralHeading are saved after each edit</span>
-    </p>
+      <p class="mb-4 flex items-center">
+        <span class="text-ink flex items-center justify-center mr-2">
+          <SvgIcon Name="floppy-disc" Class="size-5" />
+        </span>
+        <span>@Wording.Work.PluralHeading are saved after each edit</span>
+      </p>
 
-    @* the island posts each image to an endpoint that checks the antiforgery token, and there is
+      @* the island posts each image to an endpoint that checks the antiforgery token, and there is
        no form on this page to carry one *@
-    <AntiforgeryToken />
+      <AntiforgeryToken />
 
-    <WorksFromImagesEditor InitialWorkTypeId="TypeIdValue" />
-  </AdminPanel>
-</main>
+      <WorksFromImagesEditor InitialWorkTypeId="TypeIdValue" />
+    </AdminPanel>
+  </main>

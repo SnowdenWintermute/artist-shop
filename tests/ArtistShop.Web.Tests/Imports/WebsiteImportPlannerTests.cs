@@ -28,7 +28,8 @@ public sealed class WebsiteImportPlannerTests
               "formatVersion": 1,
               "wording": {
                 "collection": { "singular": null, "plural": null, "keepsCase": false },
-                "work": { "singular": null, "plural": null, "keepsCase": false }
+                "work": { "singular": null, "plural": null, "keepsCase": false },
+                "description": { "label": null, "keepsCase": false }
               },
               "themeInUse": { "preset": "Paper" },
               "themes": [],

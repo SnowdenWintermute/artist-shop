@@ -20,6 +20,8 @@ public static class LookExportArchive
     public const string WordingProperty = "wording";
     public const string CollectionWordingProperty = "collection";
     public const string WorkWordingProperty = "work";
+    public const string DescriptionWordingProperty = "description";
+    public const string LabelProperty = "label";
     public const string SingularProperty = "singular";
     public const string PluralProperty = "plural";
     public const string KeepsCaseProperty = "keepsCase";
@@ -123,6 +125,7 @@ public static class LookExportArchive
             {
                 [CollectionWordingProperty] = NounObject(look.Wording.CollectionChoice),
                 [WorkWordingProperty] = NounObject(look.Wording.WorkChoice),
+                [DescriptionWordingProperty] = LabelObject(look.Wording.DescriptionChoice),
             },
             [ThemeInUseProperty] = ThemeInUseObject(look),
             [ThemesProperty] = themes,
@@ -148,6 +151,9 @@ public static class LookExportArchive
             [PluralProperty] = choice.Plural,
             [KeepsCaseProperty] = choice.KeepsCase,
         };
+
+    private static JsonObject LabelObject(LabelChoice choice) =>
+        new() { [LabelProperty] = choice.Text, [KeepsCaseProperty] = choice.KeepsCase };
 
     private static string BrandFileName(BrandImageType type) =>
         type switch

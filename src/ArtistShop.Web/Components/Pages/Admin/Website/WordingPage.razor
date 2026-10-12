@@ -49,8 +49,9 @@
       <AdminUpLink />
       <h1 class="mb-4 text-xl">Wording</h1>
       <p class="mb-4">
-        Choose what your website calls <span class="font-bold">works</span> and <span
-        class="font-bold">collections</span>. Leave both words blank to use the default.
+        Choose what your website calls <span class="font-bold">works</span>, <span
+        class="font-bold">collections</span> and a work's <span class="font-bold">description</span>. Leave
+        a word blank to use the default.
       </p>
 
       @if (Saved && !_formWasPosted)
@@ -91,6 +92,21 @@
               <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.CollectionKeepsCase"
                              Hint="Otherwise the word is capitalised in headings and lowercase inside sentences." />
               <WordingPreview Examples="CollectionExamples(Wording.Collection)" />
+            </section>
+
+            <section class="mb-6">
+              <h2 class="mb-2 text-lg">Description</h2>
+              <Hint Type="HintType.WordingDescription">
+                <p>
+                  A <span class="font-bold">description</span> is any text that goes with a work. In the art world
+                  it's commonly called an <span class="font-bold">artist statement</span>.
+                </p>
+              </Hint>
+              <TextField Label="Name" @bind-Value="Input.DescriptionLabel"
+                         placeholder="@SiteWording.DefaultDescriptionLabel" />
+              <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.DescriptionKeepsCase"
+                             Hint="Otherwise the name is capitalised in headings and lowercase inside sentences." />
+              <WordingPreview Examples="[Wording.Description.Heading]" />
             </section>
             <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
           </EditForm>
