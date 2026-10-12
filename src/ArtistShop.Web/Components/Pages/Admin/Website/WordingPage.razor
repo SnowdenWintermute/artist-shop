@@ -40,6 +40,9 @@
 
   private static IReadOnlyList<string> WorkExamples(DisplayNoun work) =>
     [work.CountOf(1), work.CountOf(12)];
+
+  private static IReadOnlyList<string> DescriptionExamples(DisplayLabel description) =>
+    [description.Heading, $"The {description.InSentence}"];
 }
 
 <PageTitle>Wording</PageTitle>
@@ -106,7 +109,7 @@
                          placeholder="@SiteWording.DefaultDescriptionLabel" />
               <CheckboxField Label="Keep capitals as typed" @bind-Value="Input.DescriptionKeepsCase"
                              Hint="Otherwise the name is capitalised in headings and lowercase inside sentences." />
-              <WordingPreview Examples="[Wording.Description.Heading]" />
+              <WordingPreview Examples="DescriptionExamples(Wording.Description)" />
             </section>
             <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
           </EditForm>

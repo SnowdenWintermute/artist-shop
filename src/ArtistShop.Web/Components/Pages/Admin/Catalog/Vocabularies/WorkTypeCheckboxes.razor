@@ -16,8 +16,9 @@
 }
 
 <fieldset class="mb-4">
+  @* the legend stays the fieldset's first child, or it no longer names the group *@
+  <legend class="mb-1 text-sm">Applies to</legend>
   <div class="mb-2">
-    <legend class="mb-1 text-sm">Applies to</legend>
     @foreach (var workType in WorkTypes)
     {
       <label class="mr-4 inline-flex items-center gap-2 cursor-pointer">
