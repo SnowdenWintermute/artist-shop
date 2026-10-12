@@ -91,6 +91,11 @@ html {
   [popover] {
     @apply text-ink;
   }
+
+  /* set by js/pending-link.js between a link's click and its page arriving */
+  a[data-pending] {
+    opacity: 50%;
+  }
 }
 
 @theme {
