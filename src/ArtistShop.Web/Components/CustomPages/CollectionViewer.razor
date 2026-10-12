@@ -1,0 +1,24 @@
+@* the collections a visitor may see, in the artist's order *@
+@using ArtistShop.Web.Components.Pages.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject CollectionRepository CollectionRepository
+
+@code {
+  private IReadOnlyList<CollectionWithCover>? _collections;
+
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  protected override async Task OnInitializedAsync() =>
+    _collections = await CollectionRepository.GetVisibleWithCoversAsync();
+}
+
+@if (_collections is { } collections)
+{
+  <section>
+    <h1 class="mb-4">@Wording.Collection.PluralHeading</h1>
+
+    <CollectionGrid Collections="collections" />
+  </section>
+}

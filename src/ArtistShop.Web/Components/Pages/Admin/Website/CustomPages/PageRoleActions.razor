@@ -1,0 +1,26 @@
+@* making a page the home page, or the blog page that posts link up to, which needs a post list on it *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomPage Page { get; set; }
+  [Parameter, EditorRequired]
+  public bool CanBeBlog { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<CustomPage> OnMakeHome { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<CustomPage> OnMakeBlog { get; set; }
+}
+
+@if (!Page.IsHome)
+{
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => OnMakeHome.InvokeAsync(Page)">
+    Make home page
+  </ButtonBasic>
+}
+@if (CanBeBlog && !Page.IsBlog)
+{
+  <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => OnMakeBlog.InvokeAsync(Page)">
+    Make blog page
+  </ButtonBasic>
+}

@@ -1,0 +1,212 @@
+using System.Net;
+using System.Text.RegularExpressions;
+using ArtistShop.Web.Components;
+using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Publishing;
+using ArtistShop.Web.Domain.Website;
+using ArtistShop.Web.Sites;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace ArtistShop.Web.Tests.App;
+
+// what visitors see of a website's custom pages and nav, and the admin pages that change them
+[Collection(TestAppCollection.Name)]
+public sealed partial class CustomPageTests(TestApp app)
+{
+    private CustomPageRepository PagesOf(TestSite site) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+
+    private NavEntryRepository NavOf(TestSite site) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+
+    private static async Task<IEnumerable<(string Href, string Text)>> NavLinksAsync(HttpClient client)
+    {
+        var page = await client.GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        return NavLink().Matches(page).Select(match => (match.Groups["href"].Value, match.Groups["text"].Value.Trim()));
+    }
+
+    [Fact]
+    public async Task ANewSitesHomeShowsItsCollections()
+    {
+        var site = await app.MakeSiteAsync();
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains("<title>Home</title>", page);
+        Assert.Contains($"<h1 class=\"mb-4\">{SiteWording.Default.Collection.PluralHeading}</h1>", page);
+    }
+
+    [Fact]
+    public async Task TheHomePagesOwnAddressGoesToSlash()
+    {
+        var response = await app.ClientFor(TestApp.FirstSiteHost)
+            .GetAsync("/home", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/", response.Headers.Location?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task AnAddressNoPageHasIsNotFound()
+    {
+        var response = await app.ClientFor(TestApp.FirstSiteHost)
+            .GetAsync("/no-such-page", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // the bar's links come once in the bar and once in the drawer
+    [Fact]
+    public async Task ANewSitesNavIsHomeThenBlog()
+    {
+        var site = await app.MakeSiteAsync();
+
+        Assert.Equal(
+            [("/", "Home"), ("/posts", "Blog"), ("/", "Home"), ("/posts", "Blog")],
+            await NavLinksAsync(app.ClientFor(site.Host))
+        );
+    }
+
+    [Fact]
+    public async Task AnotherPageMadeHomeIsShownAtSlash()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var about = await pages.AddAsync("About", new CustomPageAddress("about"));
+        await pages.MakeHomeAsync(about);
+        var visitor = app.ClientFor(site.Host);
+
+        Assert.Contains("<title>About</title>", await visitor.GetStringAsync("/", TestContext.Current.CancellationToken));
+        Assert.Contains("<title>Home</title>", await visitor.GetStringAsync("/home", TestContext.Current.CancellationToken));
+        var response = await visitor.GetAsync("/about", TestContext.Current.CancellationToken);
+        Assert.Equal("/", response.Headers.Location?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task TheNavIsInItsSavedOrder()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var about = await pages.AddAsync("About", new CustomPageAddress("about"));
+        var blog = await pages.GetBlogAsync();
+
+        await NavOf(site).SetAsync([blog.Id, about]);
+
+        Assert.Equal(
+            [("/posts", "Blog"), ("/about", "About"), ("/posts", "Blog"), ("/about", "About")],
+            await NavLinksAsync(app.ClientFor(site.Host))
+        );
+    }
+
+    [Fact]
+    public async Task AnAddedPageOpensInItsEditor()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await TestApp.PostFormAsync(
+            client,
+            PageUrls.CustomPageList,
+            "add-custom-page",
+            new() { ["Input.Name"] = "About me" }
+        );
+
+        var added = Assert.IsType<CustomPage>(await PagesOf(site).GetByAddressAsync(new CustomPageAddress("about-me")));
+        Assert.Equal(PageUrls.EditCustomPage(added.Id), response.Headers.Location?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task APageCantHaveOneOfTheWebsitesOwnAddresses()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await TestApp.PostFormAsync(
+            client,
+            PageUrls.CustomPageList,
+            "add-custom-page",
+            new() { ["Input.Name"] = "Admin" }
+        );
+
+        Assert.Contains("/admin is one of the website", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Null(await PagesOf(site).GetByAddressAsync(new CustomPageAddress("admin")));
+    }
+
+    [Fact]
+    public async Task AChangedAddressIsWhereThePageIs()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await PagesOf(site).AddAsync("About", new CustomPageAddress("about"));
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditCustomPage(id),
+            "custom-page-details",
+            new() { ["Input.Name"] = "About me", ["Input.Address"] = "me" }
+        );
+
+        var visitor = app.ClientFor(site.Host);
+        Assert.Contains("<title>About me</title>", await visitor.GetStringAsync("/me", TestContext.Current.CancellationToken));
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await visitor.GetAsync("/about", TestContext.Current.CancellationToken)).StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task ADeletedPageLeavesTheNav()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var about = await pages.AddAsync("About", new CustomPageAddress("about"));
+        await NavOf(site).SetAsync([about]);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(client, PageUrls.EditCustomPage(about), "delete-custom-page", []);
+
+        Assert.Empty(await NavLinksAsync(app.ClientFor(site.Host)));
+        Assert.Null(await pages.GetAsync(about));
+    }
+
+    // NavItem's links, the only ones in the heading font, whatever order NavLink writes their attributes in
+    [Fact]
+    public async Task TheBlogPageCanBeHomeAndRenamed()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var blog = await pages.GetBlogAsync();
+        await pages.UpdateAsync(blog.Id, "Journal", blog.Address);
+        await pages.MakeHomeAsync(blog.Id);
+
+        var home = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains("<title>Journal</title>", home);
+        Assert.Contains("No posts yet.", home);
+    }
+
+    // the up link goes wherever the blog page is, by its name
+    [Fact]
+    public async Task APostLinksUpToTheBlogPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var pages = PagesOf(site);
+        var blog = await pages.GetBlogAsync();
+        await pages.UpdateAsync(blog.Id, "Journal", new CustomPageAddress("journal"));
+        await new PostRepository(database).AddAsync(
+            new PostTitle("Spring"),
+            PostSlug.FromTitle("Spring"),
+            new PostBody("""{"ops":[{"insert":"Hello\n"}]}"""),
+            PostStatus.Published
+        );
+
+        var post = await app.ClientFor(site.Host).GetStringAsync("/posts/spring", TestContext.Current.CancellationToken);
+
+        Assert.Matches("""<a [^>]*href="/journal"[^>]*>[^<]*Journal""", post);
+    }
+
+    [GeneratedRegex("""<a (?=[^>]*class="font-heading)[^>]*href="(?<href>[^"]*)"[^>]*>(?<text>[^<]*)</a>""")]
+    private static partial Regex NavLink();
+}

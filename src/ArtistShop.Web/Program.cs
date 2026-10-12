@@ -197,6 +197,9 @@ AddSiteRepository(database => new PostRepository(database));
 AddSiteRepository(database => new WordingRepository(database));
 AddSiteRepository(database => new ThemeRepository(database));
 AddSiteRepository(database => new BrandImageRepository(database));
+AddSiteRepository(database => new CustomPageRepository(database));
+AddSiteRepository(database => new NavEntryRepository(database));
+builder.Services.AddSingleton<OwnAddresses>();
 AddSiteRepository<WorkSearch>(database => new SqlWorkTitleSearch(database));
 
 // identity

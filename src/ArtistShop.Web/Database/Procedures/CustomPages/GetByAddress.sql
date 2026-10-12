@@ -1,0 +1,22 @@
+DROP FUNCTION IF EXISTS get_custom_page_by_address;
+
+CREATE FUNCTION get_custom_page_by_address (p_address text) RETURNS TABLE (
+    id int,
+    name text,
+    address text,
+    is_home boolean,
+    is_blog boolean
+) LANGUAGE sql STABLE AS $$
+SELECT
+    custom_pages.id,
+    custom_pages.name,
+    custom_pages.address,
+    home_page.page_id IS NOT NULL,
+    blog_page.page_id IS NOT NULL
+FROM
+    custom_pages
+    LEFT JOIN home_page ON home_page.page_id = custom_pages.id
+    LEFT JOIN blog_page ON blog_page.page_id = custom_pages.id
+WHERE
+    custom_pages.address = p_address;
+$$;

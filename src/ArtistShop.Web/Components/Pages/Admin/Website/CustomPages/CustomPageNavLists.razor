@@ -1,0 +1,123 @@
+@* The nav in order, which dragging and Hide save at once, then the pages that aren't in it *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Utilities
+@inject CustomPageRepository CustomPageRepository
+@inject NavEntryRepository NavEntryRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  private List<CustomPage> _nav = [];
+  // by name
+  private List<CustomPage> _others = [];
+  // the pages that can be the blog page
+  private HashSet<CustomPageId> _holdingPostLists = [];
+  private bool _isSaving;
+  private bool _changedElsewhere;
+
+  protected override Task OnInitializedAsync() => LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    _nav = await NavEntryRepository.GetAllAsync();
+    _others =
+    [
+      .. (await CustomPageRepository.GetAllAsync())
+        .Where(page => !_nav.Any(inNav => inNav.Id == page.Id))
+        .OrderBy(page => page.Name, NameOrder.ByName),
+    ];
+    _holdingPostLists = await CustomPageRepository.GetIdsHoldingAsync(CustomComponentType.PostList);
+  }
+
+  private Task MoveAsync((int OldIndex, int NewIndex) move) => SaveNavAsync(_nav.Moved(move));
+
+  private Task HideAsync(CustomPage page) => SaveNavAsync([.. _nav.Where(inNav => inNav.Id != page.Id)]);
+
+  private Task ShowAsync(CustomPage page) => SaveNavAsync([.. _nav, page]);
+
+  private Task SaveNavAsync(IReadOnlyList<CustomPage> nav) => SaveAsync(() => NavEntryRepository.SetAsync([.. nav.Select(page => page.Id)]));
+
+  private Task MakeHomeAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeHomeAsync(page.Id));
+
+  private Task MakeBlogAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeBlogAsync(page.Id));
+
+  // the lists are read again after each save, so they're always as saved, and as another tab left them
+  private async Task SaveAsync(Func<Task> save)
+  {
+    // a second change while the first is saving would be built from the old lists
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      await save();
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+    }
+
+    // the guard holds until the lists are read again
+    await LoadAsync();
+    _isSaving = false;
+
+    // the rest of the page, the nav bar above it included, is drawn by the server; this island keeps its state
+    NavigationManager.Refresh();
+  }
+}
+
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-error">Pages were changed somewhere else, so the list has been reloaded.</p>
+  }
+
+  <h2 class="mb-2 text-lg">In the nav</h2>
+  @if (_nav.Count == 0)
+  {
+    <p class="mb-6">Nothing is in the nav.</p>
+  }
+  else
+  {
+    <p class="mb-2 text-sm text-ink-faded">Drag to set the order visitors see.</p>
+
+    <div class="mb-6">
+      <SortableList TItem="CustomPage" Items="_nav" AriaLabel="Nav order" OnMove="MoveAsync">
+        <RowContent Context="customPage">
+          <PageSummary Page="customPage" />
+        </RowContent>
+        <RowActions Context="customPage">
+          <PageRoleActions Page="customPage" CanBeBlog="_holdingPostLists.Contains(customPage.Id)"
+                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => HideAsync(customPage)">Hide</ButtonBasic>
+        </RowActions>
+      </SortableList>
+    </div>
+  }
+
+  @if (_others.Count > 0)
+  {
+    <h2 class="mb-2 text-lg">Not in the nav</h2>
+    <p class="mb-2 text-sm text-ink-faded">Visitors reach these by their address or a link.</p>
+
+    <ul>
+      @foreach (var customPage in _others)
+      {
+        <li @key="customPage.Id" class="mb-2 flex items-center gap-2 border p-2 text-sm">
+          <PageSummary Page="customPage" />
+          <PageRoleActions Page="customPage" CanBeBlog="_holdingPostLists.Contains(customPage.Id)"
+                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => ShowAsync(customPage)">Show in nav</ButtonBasic>
+        </li>
+      }
+    </ul>
+  }
+</DisabledUntilInteractive>

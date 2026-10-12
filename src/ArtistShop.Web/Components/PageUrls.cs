@@ -79,6 +79,9 @@ public static class PageUrls
     // on a site's host
     public const string Home = "/";
 
+    // on a site's host: the home page is at / alone
+    public static string CustomPage(CustomPage page) => page.IsHome ? Home : $"/{page.Address.Value}";
+
     public const string AdminDashboard = "/admin";
 
     public const string PostList = "/admin/posts";
@@ -118,6 +121,11 @@ public static class PageUrls
 
     // on a site's host: the website's logos and browser tab icon
     public const string Branding = "/admin/website/branding";
+
+    // on a site's host: the artist's pages and the nav
+    public const string CustomPageList = "/admin/website/pages";
+
+    public static string EditCustomPage(CustomPageId id) => $"{CustomPageList}/{id.Value}";
 
     // on a site's host: the Theme page with that theme open
     public static string ThemeEditing(ThemeKey key) => WithQuery(Theme, ("theme", key.QueryValue));
@@ -213,8 +221,6 @@ public static class PageUrls
     public const string NewPost = "/admin/posts/new";
 
     public static string EditPost(PostId id) => $"/admin/posts/{id.Value}/edit";
-
-    public const string Blog = "/posts";
 
     public static string Post(PostSlug slug) => $"/posts/{slug.Value}";
 

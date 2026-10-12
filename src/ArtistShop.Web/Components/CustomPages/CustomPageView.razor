@@ -1,0 +1,30 @@
+@* a custom page's rows, read when its page is known *@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@inject CustomPageRepository CustomPageRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomPage Page { get; set; }
+
+  private CustomPageLayout? _layout;
+
+  protected override async Task OnParametersSetAsync() =>
+    _layout = await CustomPageRepository.GetLayoutAsync(Page.Id);
+}
+
+<PageTitle>@Page.Name</PageTitle>
+<LinkPreview Title="@Page.Name" />
+
+@if (_layout is { } layout)
+{
+  @* a component that names itself after its page, such as the post list, reads it from here *@
+  <CascadingValue Value="Page" IsFixed>
+    <main class="mx-auto flex max-w-[1200px] flex-col gap-8 p-4">
+      @foreach (var row in layout.Rows)
+      {
+        <PageRowView Row="row" />
+      }
+    </main>
+  </CascadingValue>
+}

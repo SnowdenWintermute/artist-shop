@@ -1,0 +1,20 @@
+@* a page's name, linking to its editor, its address, and whether it's the home or blog page *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomPage Page { get; set; }
+}
+
+<span class="flex grow flex-wrap items-baseline gap-x-4">
+  <a href="@PageUrls.EditCustomPage(Page.Id)" class="@LinkStyles.Standalone">@Page.Name</a>
+  <span class="text-ink-faded">@PageUrls.CustomPage(Page)</span>
+  @if (Page.IsHome)
+  {
+    <span class="font-bold">Home page</span>
+  }
+  @if (Page.IsBlog)
+  {
+    <span class="font-bold">Blog page</span>
+  }
+</span>

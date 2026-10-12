@@ -1,0 +1,18 @@
+@page "/admin/website/pages"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+
+<PageTitle>Pages</PageTitle>
+
+<main>
+  <AdminPanel>
+    <AdminUpLink />
+    <h1 class="mb-4 text-xl">Pages</h1>
+
+    <AddCustomPageForm />
+
+    <CustomPageNavLists @rendermode="InteractiveServer" />
+  </AdminPanel>
+</main>

@@ -104,7 +104,7 @@ public sealed class ThemePageTests(TestApp app)
         await ThemesOf(site).UseAsync(new ThemeKey.Saved(id));
         var visitor = app.ClientFor(site.Host);
 
-        foreach (var path in new[] { "/", PageUrls.Blog, "/not-found" })
+        foreach (var path in new[] { "/", "/posts", "/not-found" })
         {
             var page = await visitor.GetStringAsync(path, TestContext.Current.CancellationToken);
 

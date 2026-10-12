@@ -1,0 +1,29 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Sites
+@inject CustomPageRepository CustomPageRepository
+@inject OwnAddresses OwnAddresses
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromForm(FormName = "add-custom-page")]
+  private CustomPageNameForm Input { get; set; } = default!;
+
+  protected override void OnInitialized() => Input ??= new();
+
+  private async Task AddAsync()
+  {
+    if (await Input.AddAsync(CustomPageRepository, OwnAddresses) is { } id)
+    {
+      NavigationManager.NavigateTo(PageUrls.EditCustomPage(id));
+    }
+  }
+}
+
+<EditForm EditContext="Input.EditContext" FormName="add-custom-page" OnValidSubmit="AddAsync" Enhance class="mb-6">
+  <DataAnnotationsValidator />
+
+  <TextField Label="New page" @bind-Value="Input.Name" />
+  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Add page</ButtonBasic>
+</EditForm>

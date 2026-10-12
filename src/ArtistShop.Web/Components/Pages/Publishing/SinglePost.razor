@@ -9,6 +9,7 @@
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @inject PostRepository PostRepository
+@inject CustomPageRepository CustomPageRepository
 @inject ImageStorage ImageStorage
 @inject WorkRepository WorkRepository
 @inject NavigationManager NavigationManager
@@ -26,7 +27,8 @@
   private record LoadedPost(
     Post Post,
     PostDocument Document,
-    IReadOnlyDictionary<string, WorkImageWithWork> WorkImages
+    IReadOnlyDictionary<string, WorkImageWithWork> WorkImages,
+    CustomPage BlogPage
   );
 
   protected override async Task OnParametersSetAsync()
@@ -56,7 +58,7 @@
       [.. document.Blocks.OfType<WorkEmbedBlock>().Select(embed => embed.StorageKey).Distinct()]
     );
 
-    _loaded = new LoadedPost(post, document, workImages);
+    _loaded = new LoadedPost(post, document, workImages, await CustomPageRepository.GetBlogAsync());
   }
 }
 
@@ -66,7 +68,7 @@
   <LinkPreview Title="@loaded.Post.Title.Value" />
 
   <main class="@($"mx-auto p-4 {PostColumn.WidthClass}")">
-    <UpLink Class="mb-4" Href="@PageUrls.Blog" Label="Blog" />
+    <UpLink Class="mb-4" Href="@PageUrls.CustomPage(loaded.BlogPage)" Label="@loaded.BlogPage.Name" />
 
     @if (loaded.Post.PublishedAt is null)
     {

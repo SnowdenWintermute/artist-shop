@@ -135,7 +135,7 @@ public sealed partial class WordingTests(TestApp app)
         // so the check below can't pass by finding no page at all
         Assert.Contains("Zorbs", VisibleText(await PageAsync(visitor, "/")));
 
-        foreach (var path in new[] { "/", collectionPath, workPath, PageUrls.Blog })
+        foreach (var path in new[] { "/", collectionPath, workPath, "/posts" })
         {
             var text = VisibleText(await PageAsync(visitor, path));
 
@@ -170,6 +170,7 @@ public sealed partial class WordingTests(TestApp app)
             new PostBody("""{"ops":[{"insert":"Hello\n"}]}"""),
             PostStatus.Draft
         );
+        var home = await new CustomPageRepository(database).GetHomeAsync();
         await SaveAsync(site, MadeUpWords);
         var owner = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
@@ -183,6 +184,7 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/catalog/works/{Id:int}/edit"] = PageUrls.EditWork(work.Id),
             ["/admin/posts/pick-work/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),
             ["/admin/posts/{Id:int}/edit"] = PageUrls.EditPost(postId),
+            ["/admin/website/pages/{Id:int}"] = PageUrls.EditCustomPage(home.Id),
         };
         var routes = typeof(PageUrls).Assembly.GetTypes()
             .SelectMany(type => type.GetCustomAttributes<RouteAttribute>())

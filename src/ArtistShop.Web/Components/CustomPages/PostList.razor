@@ -1,46 +1,46 @@
-@page "/posts"
-@using ArtistShop.Web.Components.Catalog
+@* the published posts, newest first, a page at a time; admins too, since drafts are on the admin post list.
+   Headed with the custom page's name, as the blog was with "Blog" *@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Pages.Publishing
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
-@using ArtistShop.Web.Components.Atoms
 @inject PostRepository PostRepository
 @inject NavigationManager NavigationManager
 
 @code {
+  [CascadingParameter]
+  public CustomPage Page { get; set; } = default!;
+
   [SupplyParameterFromQuery(Name = PageLinks.PageKey)]
   private string? PageValue { get; set; }
 
-  private PostListPage? _page;
+  private PostListPage? _posts;
 
   // not OnInitializedAsync: turning a page is the same page with a new query parameter
   protected override async Task OnParametersSetAsync()
   {
     var pageNumber = PageLinks.ReadPageNumber(PageValue);
-    var page = await PostRepository.GetPublishedPageAsync(pageNumber);
+    var posts = await PostRepository.GetPublishedPageAsync(pageNumber);
 
     // a link to a page that has since emptied, because posts were unpublished or deleted
-    if (page.Items.Count == 0 && pageNumber > 1)
+    if (posts.Items.Count == 0 && pageNumber > 1)
     {
       NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter(PageLinks.PageKey, (int?)null));
       return;
     }
 
-    _page = page;
+    _posts = posts;
   }
 }
 
-<PageTitle>Blog</PageTitle>
-<LinkPreview Title="Blog" />
+<section class="@($"mx-auto w-full {PostColumn.WidthClass}")">
+  <PageHeading Class="mb-4">@Page.Name</PageHeading>
 
-@* published posts only, admins included: drafts are on the admin post list *@
-<main class="@($"mx-auto p-4 {PostColumn.WidthClass}")">
-  <PageHeading Class="mb-4">Blog</PageHeading>
-
-  @if (_page is { } page)
+  @if (_posts is { } posts)
   {
-    @if (page.Items.Count == 0)
+    @if (posts.Items.Count == 0)
     {
       <div class="flex">
         <p>No posts yet.</p>
@@ -57,13 +57,13 @@
     else
     {
       <ul>
-        @foreach (var post in page.Items)
+        @foreach (var post in posts.Items)
         {
           <BlogEntry @key="post.Id" Post="post" />
         }
       </ul>
     }
 
-    <PageLinks PageNumber="page.PageNumber" PageCount="page.PageCount" PreviousText="← Newer" NextText="Older →" />
+    <PageLinks PageNumber="posts.PageNumber" PageCount="posts.PageCount" PreviousText="← Newer" NextText="Older →" />
   }
-</main>
+</section>

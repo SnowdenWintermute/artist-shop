@@ -1,32 +1,16 @@
-@* a site's home page, which Home shows at / on a site's host *@
-@using ArtistShop.Web.Components.Pages.Catalog
+@* a site's home page, which Home shows at / on a site's host: whichever custom page the artist made home *@
+@using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain.Catalog
-@inject CollectionRepository CollectionRepository
+@inject CustomPageRepository CustomPageRepository
 
 @code {
-  // the page renders once before its first await finishes, so what it draws is set together
-  // or not at all
-  private IReadOnlyList<CollectionWithCover>? _collections;
-
-  [CascadingParameter]
-  public SiteWording Wording { get; set; } = default!;
+  private CustomPage? _page;
 
   protected override async Task OnInitializedAsync() =>
-    _collections = await CollectionRepository.GetVisibleWithCoversAsync();
+    _page = await CustomPageRepository.GetHomeAsync();
 }
 
-<PageTitle>Home</PageTitle>
-
-@if (_collections is { } collections)
+@if (_page is { } page)
 {
-  <main class="mx-auto max-w-[1200px] p-4">
-    @* one section among others to come, so the artist's name and anything else above it
-       can be added without touching the grid *@
-    <section>
-      <h1 class="mb-4">@Wording.Collection.PluralHeading</h1>
-
-      <CollectionGrid Collections="collections" />
-    </section>
-  </main>
+  <CustomPageView Page="page" />
 }

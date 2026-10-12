@@ -1,9 +1,15 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Sites
 
 @inject NavigationManager NavigationManager
+@inject NavEntryRepository NavEntryRepository
 
 @code {
+  private IReadOnlyList<CustomPage> _entries = [];
+
+  protected override async Task OnInitializedAsync() => _entries = await NavEntryRepository.GetAllAsync();
+
   // the button would only lead back to the page it's on
   private bool OnDashboard =>
     string.Equals(new Uri(NavigationManager.Uri).AbsolutePath.TrimEnd('/'), PageUrls.AdminDashboard,
@@ -13,8 +19,11 @@
 @* the nav bar on a website's pages *@
 <NavBar>
   <ChildContent>
-    <NavItem Text="Home" Href="" Match=NavLinkMatch.All></NavItem>
-    <NavItem Text="Blog" Href="@PageUrls.Blog"></NavItem>
+    @foreach (var customPage in _entries)
+    {
+      @* a custom page has no addresses under its own, and the home page's / starts every address *@
+      <NavItem Text="@customPage.Name" Href="@PageUrls.CustomPage(customPage)" Match="NavLinkMatch.All" />
+    }
   </ChildContent>
   <Actions Context="placement">
     <AuthorizeView Policy="@SitePolicies.Admin">

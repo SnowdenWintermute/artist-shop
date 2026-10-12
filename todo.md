@@ -1,5 +1,110 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Custom pages built from custom components, agreed 2026-10-12 (From Claude)
+
+**Steps 1a and 1b built 2026-10-12, uncommitted, 1126 tests pass, not tried in a browser.** Next is 1c, rows in
+the page editor.
+
+**Blog page, same day (Mike):** the blog is an ordinary, open custom page, not a fixed nav destination. 0009 was
+rewritten (Mike's dev `site_1` had its tables and journal row dropped): it seeds Blog at `/posts` holding a
+`PostList` component (`CustomComponentType.PostList`, the old `Blog.razor`, headed with its page's name, which
+`CustomPageView` cascades). `blog_page` is a one-row table like `home_page`; a post's ↑ link goes to it by name.
+"Make blog page" is offered only on pages holding a post list (`GetIdsHoldingAsync`); the blog page can't be
+deleted (SH022). `nav_entries` is pages only (`NavEntry` and `NavDestination` are gone). The Pages list
+refreshes after each save, so the site's nav bar updates too. Open: removing the post list from the blog page in
+1c leaves it the blog page; decide then whether to refuse that.
+
+1b, the Pages manager (`Components/Pages/Admin/Website/CustomPages/`, Dashboard → Pages):
+- `CustomPageList` at `/admin/website/pages`: `AddCustomPageForm` (name only; address made from it; opens the new
+  page's editor) and the `CustomPageNavLists` island. That island has two lists instead of the sketch's checkbox
+  per row: "In the nav" (drag, Hide) and "Not in the nav" (pages by name, then Blog; Show in nav appends). Each
+  row has Make home page. Every change saves the whole nav (`set_nav_entries`) and re-reads both lists.
+- `CustomPageEditor` at `/admin/website/pages/{id}`: name + address form (`CustomPageDetailsForm`), View page,
+  Delete page (static `ConfirmFormDialog`, not offered for the home page; `delete_custom_page` refuses it too, SH021).
+- `OwnAddresses` reads one-word literal routes from `EndpointDataSource`, so `/admin`, `/posts`, `/not-found`…
+  can't be a page's address. Name and address are each unique (`AddressAlreadyInUseException` is new).
+- SQL states SH020 (`CustomPageNoLongerExists`), SH021 (`CustomPageIsHome`).
+- Migration `0009_CreateCustomPages`: `custom_components`, `custom_pages`, `home_page` (one row), `page_rows`,
+  `row_slots`, `slot_placements`, `nav_entries`. It seeds Home (address `home`, one collection viewer) and the nav
+  (Home, Blog) in **every** site schema, existing ones included, so this is a migration and not C# seeding like
+  the starter vocabularies.
+- Domain (`Domain/Website`): `CustomPage`, `CustomPageLayout` → `PageRow` → `RowSlot` → `CustomComponent`,
+  `RowWidths`, `RowAlignment`, `CustomComponentType`, `CustomComponentSettings` (one record per type, now only
+  `CollectionViewerSettings`), `CustomComponentSettingsJson.Read(type, version, json)`, `NavEntry` (Page / Fixed;
+  not `NavItem`, which is the Razor link component). Repositories: `CustomPageRepository`, `NavEntryRepository`.
+- Public: `Components/CustomPages/` (`CustomPageView` reads the layout, `PageRowView` with `RowClasses`,
+  `CustomComponentView` switches on the settings record, `CollectionViewer` is the old `SiteHome` body).
+  `SiteHome` shows the home page; `Pages/CustomPages/CustomPageAtAddress` is `/{address}` and sends the home page's
+  own address to `/`. `NavMenu` reads `nav_entries`. `PageUrls.CustomPage(page)`.
+- For 1b: an address must not be one of our own single-segment routes (`admin`, `posts`, `collections`, …),
+  since literal routes win and the custom page would be unreachable; read them from the route table rather than a
+  list. Settings writing (`CustomComponentSettingsJson.Write`) is needed from 1d.
+- Open: whole-website export/import doesn't carry pages yet; `CollectionViewer` keeps the old home's `h1`
+  wherever it's placed.
+
+**Pitch.** PictureCord's edge is managing the catalog, not building websites. Public sites stay spare so the work is
+what people notice. The builder is for a landing page, a bio/CV and some light customization, not for competing with
+Shopify. Series, artwork and post pages stay fixed templates styled by the theme; only the artist's own pages are built.
+
+**Model.** A custom page is a list of rows; a row has 1-3 slots; a slot holds a stack of custom components.
+- `custom_components`: id, `CustomComponentType` (the template: Article, Image, CollectionViewer, Carousel,
+  RecentPosts, later ShowHistory and an operator-only HTML type), optional name, settings jsonb, settings version.
+  This is the website's component library. Each type is a settings record + settings form + renderer, so a new type
+  is a few files and an enum value, not a schema change.
+- `custom_pages`: id, name, address. Home is a one-row table (like `theme_in_use`).
+- `nav_items`: order + what it links to: a custom page, or a fixed destination (Blog). Blog isn't fixed: the artist
+  can move or hide it like a page. A page not in `nav_items` is reachable by its address only.
+- `page_rows`: page, order, width preset, alignment (`items-start` default / `items-center` / `items-end`).
+- `row_slots` / placements: row, slot index, order in the stack, component. A component placed twice is shared,
+  not copied.
+- Removing a component from a page leaves it in the library, marked "Not on any page"; it's deleted from there.
+
+**Widths** are presets per slot count, each mapped to fixed Tailwind classes in C# (no free percentages):
+two slots ½ ½, ⅓ ⅔, ⅔ ⅓; three slots equal, ¼ ½ ¼. Slots wrap in order on narrow screens. One site-wide gap
+between slots and rows; padding belongs in a component's own settings.
+
+**Editing.** Page editor (rows, reorder, hint for an empty page) → row editor (slots side by side, each with its
+stack and Add/reorder, width preset and alignment once there are two slots) → component settings page with a
+preview. ↑ Up links between them. A new row comes with one slot. Adding a component: start a new one from a type,
+or pick one from the library. Previews get a desktop/phone width toggle.
+
+**Types, as agreed so far.**
+- Article: the post editor (Quill) and renderers as they are; also covers a plain heading + text.
+- Image: not the post image embed. An artwork image or an upload; size (viewport height/width), fit/cover,
+  padding; details designed at that step. Uploads go through the image pipeline; the sweeper reads component settings.
+- Collection viewer: Mike's options to come (show only some collections, a chosen selection, loose artworks
+  mixed with collection cards).
+- Carousel: one type with a fade-or-slide setting, sourced from a series or a chosen set.
+- Operator HTML: later; Mike's scripted scroll sequence for one artist; needs its own CSP handling.
+
+**Home and nav.** New websites get a Home page holding one Collection viewer with default settings, seeded in C#
+like the starter vocabularies; the hard-coded `SiteHome` goes. The nav is `nav_items` in the artist's order; new
+websites start with Home and Blog. Logo position (left/centre) is a website layout setting
+beside theme and fonts, probably carried by the Look export.
+
+**Screens, agreed 2026-10-12.**
+- Pages `/admin/website/pages` (Dashboard → Pages): list with address, Home marker, In nav checkbox, Edit; drag
+  sets the nav order (Blog appears in the same list as a nav entry); New page; "Make home page" from a row menu.
+- Page editor `/admin/website/pages/{id}`: name + address + Save, View page; rows as scaled previews with drag,
+  Edit, Remove; Add row (one slot, opens the add-component chooser); hint when empty.
+- Row editor `…/pages/{id}/rows/{rowId}`: width preset + alignment once there are 2+ slots; slots side by side, each
+  a stack with drag, Edit, ✕ (removes the placement; the component stays in the library); Add component per slot;
+  Add slot up to 3; removing a slot confirms; desktop/phone preview toggle.
+- Add component dialog (separate trigger button): New from a type, or pick one already made.
+- Component settings `/admin/website/components/{id}`: the type's form + preview at the slot's width, "Used on"
+  when on 2+ pages, ↑ Up to the row it came from.
+- Component library page `/admin/website/components`: **deferred**; the data supports sharing from the start.
+
+**Build order.**
+1. Schema, Pages manager (name, address, nav, order, home), page and row editors with presets and alignment,
+   Collection viewer with no options, seeded as Home. Visitors see the same home page as today.
+   - 1a: schema, domain, repositories, Home + nav seeding, public rendering of custom pages and the nav.
+   - 1b: Pages manager. 1c: page editor. 1d: row editor, add-component dialog, component settings.
+2. Article.
+3. Image (design its settings with Mike first).
+4. Collection viewer options, then Carousel and Recent posts.
+5. Logo position, any time after 1.
+
 ## Look and wording export/import, agreed 2026-10-11 (From Claude)
 
 **Built 2026-10-11, uncommitted, 1103 tests pass, typecheck clean, not tried in a browser.** Pieces:
