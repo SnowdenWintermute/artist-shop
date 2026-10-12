@@ -8,8 +8,8 @@
 
 @* The nav bar's links when they don't fit in it, and the account's links, in a panel that slides in
    from the right.
-   <modal-dialog> (ModalDialog.razor.js) closes it on Escape, the close button, and, as data-menu
-   asks, a click outside it or on one of its links. Pinned to the right by its left margin; it
+   <modal-dialog> (ModalDialog.razor.js) closes it on Escape, the close button, a click outside
+   it, and, as data-menu asks, a click on one of its links. Pinned to the right by its left margin; it
    slides in when it opens, and closes at once *@
 <modal-dialog class="contents" data-starts-closed>
   <dialog id="@Id" aria-label="Menu" data-menu

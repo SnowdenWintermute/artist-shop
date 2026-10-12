@@ -47,11 +47,15 @@ customElements.define(
   class extends HTMLElement {
     /** @type {AbortController | null} */
     #listeners = null;
+    // a click that started inside the box, such as selecting a field's text, and was let go over the
+    // backdrop still lands on the dialog, and mustn't close it
+    #pressedOnBackdrop = false;
 
     connectedCallback() {
       this.#listeners = new AbortController();
       const { signal } = this.#listeners;
 
+      this.addEventListener("pointerdown", (event) => this.#onPointerDown(event), { signal });
       this.addEventListener("click", (event) => this.#onClick(event), { signal });
       // Escape fires "cancel" on the dialog, and preventing it keeps the dialog open. It doesn't bubble,
       // so this listens on the way down (capture) instead
@@ -76,6 +80,12 @@ customElements.define(
       this.#listeners?.abort();
     }
 
+    /** @param {PointerEvent} event */
+    #onPointerDown(event) {
+      const dialog = this.#dialog();
+      this.#pressedOnBackdrop = dialog !== null && isOnBackdrop(event, dialog);
+    }
+
     /** @param {MouseEvent} event */
     #onClick(event) {
       if (!(event.target instanceof Element)) {
@@ -89,7 +99,11 @@ customElements.define(
       } else if (dialog?.hasAttribute("data-closes-on-submit") && event.target.closest("button[type=submit]")) {
         // on the next turn, once the post has its data
         setTimeout(() => dialog.close(), 0);
-      } else if (dialog?.hasAttribute("data-menu") && (isOnBackdrop(event, dialog) || isLinkFollowed(event, event.target))) {
+      } else if (dialog && this.#pressedOnBackdrop && isOnBackdrop(event, dialog)) {
+        if (!dialog.hasAttribute("data-ignores-backdrop-click") && !dialog.hasAttribute("data-keep-open")) {
+          dialog.close();
+        }
+      } else if (dialog?.hasAttribute("data-menu") && isLinkFollowed(event, event.target)) {
         // enhanced navigation keeps the page's layout, and a menu in it would stay open on the next page
         dialog.close();
       }

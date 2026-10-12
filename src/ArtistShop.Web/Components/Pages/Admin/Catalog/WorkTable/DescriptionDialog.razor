@@ -33,7 +33,7 @@
   }
 }
 
-<ModalDialog Title="@(WorkName is null ? Wording.Description.Heading : $"{Wording.Description.Heading} for {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose">
+<ModalDialog Title="@(WorkName is null ? Wording.Description.Heading : $"{Wording.Description.Heading} for {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose" IgnoresBackdropClick>
   <label class="sr-only" for="description-draft">@Wording.Description.Heading</label>
   <textarea id="description-draft" class="mb-4 min-h-60 w-full border border-rule p-2" @bind="_draft"
             @bind:event="oninput" @onkeydown="KeyDownAsync" autofocus></textarea>

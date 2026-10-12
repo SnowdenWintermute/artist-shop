@@ -20,9 +20,13 @@
   // ModalCloseButton), so the island should stop rendering it
   [Parameter]
   public EventCallback OnClose { get; set; }
-  // islands only: Escape does nothing while this is true, e.g. while saving
+  // islands only: Escape and a click on the backdrop do nothing while this is true, e.g. while saving
   [Parameter]
   public bool KeepOpen { get; set; }
+  // a click on the backdrop closes the dialog unless this is true, for a dialog holding a draft that
+  // a stray click would throw away
+  [Parameter]
+  public bool IgnoresBackdropClick { get; set; }
   // static pages only: rendered closed, for a script to open with showModal, such as the post
   // editor's work picker, or a button with data-opens-dialog set to Id
   [Parameter]
@@ -56,10 +60,11 @@
    ("contents"), since an open modal sits above the page *@
 <modal-dialog class="contents" data-starts-closed="@StartsClosed">
   @* close fires however the dialog closed. data-keep-open: a bool attribute is only rendered while
-     true, and the script then cancels Escape. Not @oncancel:preventDefault, which the compiler emitted
+     true, and the script then cancels Escape and ignores the backdrop. Not @oncancel:preventDefault, which the compiler emitted
      as a literal attribute name that the browser rejects *@
   <dialog @attributes="AdditionalAttributes" id="@Id" aria-labelledby="@_titleId"
-          class="artist-shop-modal text-left @WidthClass @Class" data-keep-open="@KeepOpen" data-closes-on-submit="@ClosesOnSubmit" @onclose="OnClose">
+          class="artist-shop-modal text-left @WidthClass @Class" data-keep-open="@KeepOpen" data-closes-on-submit="@ClosesOnSubmit"
+          data-ignores-backdrop-click="@IgnoresBackdropClick" @onclose="OnClose">
     <div class="mb-4 flex shrink-0 items-baseline justify-between gap-4">
       <h2 id="@_titleId" class="text-lg">@Title</h2>
       @TitleEnd

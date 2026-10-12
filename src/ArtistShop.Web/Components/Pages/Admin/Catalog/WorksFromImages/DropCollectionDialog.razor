@@ -79,7 +79,7 @@ collection.Id)]
 }
 
 <ModalDialog Title="@($"{Wording.Collection.PluralHeading} for these {Wording.Work.PluralInSentence}")"
-             Width="ModalDialogWidth.Wide" OnClose="OnClose" KeepOpen="_isAddingCollection">
+             Width="ModalDialogWidth.Wide" OnClose="OnClose" KeepOpen="_isAddingCollection" IgnoresBackdropClick>
   @if (Folders.Count > 0)
   {
     <Hint Type="HintType.CollectionsFromFolders">

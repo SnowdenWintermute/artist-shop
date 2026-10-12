@@ -44,7 +44,7 @@
   }
 }
 
-<ModalDialog Title="@(WorkName is null ? "Images" : $"Images of {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose"
+<ModalDialog Title="@(WorkName is null ? "Images" : $"Images of {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose" IgnoresBackdropClick
              KeepOpen="_isSaving">
   <TitleEnd>
     @* no href while images upload, as leaving would cut them off *@
