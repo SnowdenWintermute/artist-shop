@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Database.Repositories;
 
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Utilities;
 using Dapper;
@@ -170,6 +171,19 @@ public class CustomPageRepository(SiteDatabase database)
         return row?.ToPage();
     }
 
+    // the pages with an article on them that embeds the work
+    public async Task<List<CustomPage>> GetMentioningWorkAsync(WorkId workId)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = await connection.QueryAsync<CustomPageRow>(
+            "SELECT * FROM get_custom_pages_mentioning_work(@WorkId)",
+            new { WorkId = workId.Value }
+        );
+
+        return [.. rows.Select(row => row.ToPage())];
+    }
+
     // empty when the page has no rows, or no longer exists
     public async Task<CustomPageLayout> GetLayoutAsync(CustomPageId id)
     {
@@ -227,7 +241,7 @@ public class CustomPageRepository(SiteDatabase database)
         public CustomComponent ToComponent() =>
             new(
                 new CustomComponentId(Unwrap.Value(ComponentId)),
-                ComponentName,
+                Unwrap.Value(ComponentName),
                 CustomComponentSettingsJson.Read(Unwrap.Value(ComponentType), Unwrap.Value(SettingsVersion), Unwrap.Value(Settings))
             );
     }

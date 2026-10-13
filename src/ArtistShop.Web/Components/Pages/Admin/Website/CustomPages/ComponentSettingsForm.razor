@@ -1,0 +1,25 @@
+@* the name every component has, then its type's own fields, and Save *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomComponentForm Input { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnSave { get; set; }
+  [Parameter, EditorRequired]
+  public bool HoldsUnsavedChanges { get; set; }
+  // the type's fields, if it has any
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+}
+
+<EnableSaveOnChange HoldsUnsavedChanges="HoldsUnsavedChanges">
+  <EditForm EditContext="Input.EditContext" FormName="custom-component" OnValidSubmit="OnSave" Enhance class="mb-8">
+    <DataAnnotationsValidator />
+
+    <TextField Label="Name" @bind-Value="Input.Name" />
+    @ChildContent
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+  </EditForm>
+</EnableSaveOnChange>

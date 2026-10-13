@@ -1,0 +1,21 @@
+@* RowPreview as an island of its own, for a static page: it reads the row, since a component's
+   settings are one of several records, which an island parameter can't be rebuilt as *@
+@using ArtistShop.Web.Database.Repositories
+@inject CustomPageRepository CustomPageRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomPage Page { get; set; }
+  [Parameter, EditorRequired]
+  public required PageRowId RowId { get; set; }
+
+  private PageRow? _row;
+
+  protected override async Task OnParametersSetAsync() =>
+    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Rows.FirstOrDefault(row => row.Id == RowId);
+}
+
+@if (_row is { } row)
+{
+  <RowPreview Page="Page" Row="row" />
+}

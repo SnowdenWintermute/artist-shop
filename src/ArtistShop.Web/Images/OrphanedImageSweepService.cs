@@ -51,6 +51,7 @@ public class OrphanedImageSweepService(
                     ImageStorage.ForSite(storageSettings, siteId),
                     new WorkImageRepository(database),
                     new PostRepository(database),
+                    new CustomComponentRepository(database),
                     new BrandImageRepository(database)
                 );
             }

@@ -54,9 +54,11 @@ public record VimeoVideo(string Id, string? UnlistedHash) : VideoSource;
 // Link is null for plain text, and only ever an http, https or mailto address, or a path on this site
 public record PostText(string Text, bool Bold, bool Italic, bool Underline, string? Link);
 
-// the page title is the h1, so a post's headings start at h2
+// The editor's heading levels, largest first, as Quill numbers them in the Delta. The page title is the
+// h1, so they're drawn as h2 to h4. One came later, above the two posts had, so theirs keep their size
 public enum HeadingLevel
 {
+    One = 1,
     Two = 2,
     Three = 3,
 }

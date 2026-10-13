@@ -62,13 +62,16 @@ public class PostForm : ServerValidatedForm, IValidatableObject
     {
         foreach (var image in images)
         {
-            var named = image.Alt is "" ? "An image" : $"The image \"{image.Alt}\"";
-
-            AddServerError(
-                nameof(Body),
-                $"{named} is no longer on the server because the post wasn't saved in time. Remove it and upload it again."
-            );
+            AddServerError(nameof(Body), MissingImageProblem(image, "post"));
         }
+    }
+
+    // also an article's, whose text is written in the same editor
+    public static string MissingImageProblem(PostImageEmbedBlock image, string noun)
+    {
+        var named = image.Alt is "" ? "An image" : $"The image \"{image.Alt}\"";
+
+        return $"{named} is no longer on the server because the {noun} wasn't saved in time. Remove it and upload it again.";
     }
 
     // the page would drop these, so they're refused rather than lost

@@ -161,12 +161,16 @@ public static class PostExportHtml
                 html.Append($"<p>{Inline(paragraph.Text, siteOrigin)}</p>\n");
                 break;
 
-            case HeadingBlock { Level: HeadingLevel.Two } heading:
+            case HeadingBlock { Level: HeadingLevel.One } heading:
                 html.Append($"<h2>{Inline(heading.Text, siteOrigin)}</h2>\n");
                 break;
 
-            case HeadingBlock heading:
+            case HeadingBlock { Level: HeadingLevel.Two } heading:
                 html.Append($"<h3>{Inline(heading.Text, siteOrigin)}</h3>\n");
+                break;
+
+            case HeadingBlock heading:
+                html.Append($"<h4>{Inline(heading.Text, siteOrigin)}</h4>\n");
                 break;
 
             case BlockquoteBlock quote:

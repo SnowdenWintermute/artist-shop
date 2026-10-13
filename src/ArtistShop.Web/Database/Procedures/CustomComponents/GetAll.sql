@@ -7,6 +7,7 @@ CREATE FUNCTION get_all_custom_components () RETURNS TABLE (
     name text,
     settings jsonb,
     settings_version int,
+    updated_at timestamptz,
     page_names text[]
 ) LANGUAGE sql STABLE AS $$
 SELECT
@@ -15,6 +16,7 @@ SELECT
     custom_components.name,
     custom_components.settings,
     custom_components.settings_version,
+    custom_components.updated_at,
     COALESCE(
         array_agg(DISTINCT custom_pages.name::text) FILTER (WHERE custom_pages.id IS NOT NULL),
         '{}'

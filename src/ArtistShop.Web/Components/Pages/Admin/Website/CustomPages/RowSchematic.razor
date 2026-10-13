@@ -2,9 +2,6 @@
 @using ArtistShop.Web.Components.CustomPages
 
 @code {
-  [CascadingParameter]
-  public SiteWording Wording { get; set; } = default!;
-
   [Parameter, EditorRequired]
   public required PageRow Row { get; set; }
 }
@@ -19,7 +16,7 @@
       }
       @foreach (var component in slot.Stack)
       {
-        <div>@CustomComponentNames.Of(component.Settings.Type, Wording)</div>
+        <div>@component.Name</div>
       }
     </div>
   }

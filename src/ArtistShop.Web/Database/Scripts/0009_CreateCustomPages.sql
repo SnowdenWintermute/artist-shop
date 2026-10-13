@@ -5,14 +5,17 @@ CREATE TABLE custom_components (
     id int GENERATED ALWAYS AS IDENTITY,
     CONSTRAINT primary_key_custom_components PRIMARY KEY (id),
     type int NOT NULL,
-    -- only for finding it again in the library; a page never shows it
-    name varchar(100) COLLATE case_insensitive,
+    -- for finding it again in the library; a page never shows it. A new one gets its type and a number
+    name varchar(100) COLLATE case_insensitive NOT NULL,
+    CONSTRAINT unique_custom_components_name UNIQUE (name),
     CONSTRAINT check_custom_components_name_not_blank CHECK (btrim(name) <> ''),
     -- keyed by the type's settings record, in one document so a new setting needs no migration
     settings jsonb NOT NULL,
     CONSTRAINT check_custom_components_settings_object CHECK (jsonb_typeof(settings) = 'object'),
     -- which shape of the type's settings the document has, so an old one can be read after a change
-    settings_version int NOT NULL
+    settings_version int NOT NULL,
+    -- tells the settings page's backup of unsaved edits whether the component was saved since
+    updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE custom_pages (
@@ -78,6 +81,19 @@ CREATE TABLE slot_placements (
 -- what deleting a component checks for
 CREATE INDEX index_slot_placements_component_id ON slot_placements (component_id);
 
+-- the works an article embeds, as post_and_works_junction is a post's. Derived from its text whenever
+-- it's saved, never written on its own
+CREATE TABLE custom_component_and_works_junction (
+    component_id int NOT NULL,
+    work_id int NOT NULL,
+    CONSTRAINT primary_key_custom_component_and_works_junction PRIMARY KEY (component_id, work_id),
+    CONSTRAINT foreign_key_custom_component_works_custom_components FOREIGN KEY (component_id) REFERENCES custom_components (id) ON DELETE CASCADE,
+    CONSTRAINT foreign_key_custom_component_works_works FOREIGN KEY (work_id) REFERENCES works (id) ON DELETE CASCADE
+);
+
+-- the work page's "mentioned in" list, and the cascade from a deleted work
+CREATE INDEX index_custom_component_and_works_junction_work ON custom_component_and_works_junction (work_id);
+
 -- the page posts link up to: one row per website, as home_page. It's chosen from the pages holding a
 -- post list, and can't be deleted while it's the blog page
 CREATE TABLE blog_page (
@@ -110,10 +126,11 @@ DECLARE
     v_page record;
 BEGIN
     FOR v_page IN
-        SELECT * FROM (VALUES ('Home', 'home', 1, 0), ('Blog', 'posts', 2, 1)) AS pages (name, address, component_type, nav_order)
+        SELECT * FROM (VALUES ('Home', 'home', 'Collection viewer', 1, 0), ('Blog', 'posts', 'Post list', 2, 1))
+            AS pages (name, address, component_name, component_type, nav_order)
     LOOP
-        INSERT INTO custom_components (type, settings, settings_version)
-        VALUES (v_page.component_type, '{}', 1)
+        INSERT INTO custom_components (type, name, settings, settings_version)
+        VALUES (v_page.component_type, v_page.component_name, '{}', 1)
         RETURNING id INTO v_component_id;
 
         INSERT INTO custom_pages (name, address)

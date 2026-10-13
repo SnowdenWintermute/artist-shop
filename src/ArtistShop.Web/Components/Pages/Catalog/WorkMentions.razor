@@ -1,16 +1,29 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Domain.Publishing
 
+@using ArtistShop.Web.Components.Catalog
+
 @code {
+  // the custom pages with an article that embeds the work, in no order
+  [Parameter, EditorRequired]
+  public IReadOnlyList<CustomPage> Pages { get; set; } = default!;
+
   // published only, newest first, as the repository hands them over
   [Parameter, EditorRequired]
   public IReadOnlyList<PostMention> Posts { get; set; } = default!;
 }
 
-@* The posts that show this work, each a row like the panel's products *@
+@* The pages, then the posts, that show this work, each a row like the panel's products. A page has no
+   date, so it leads *@
 <section>
   <h2 class="mb-2 text-sm text-ink-faded">Mentioned in</h2>
   <ul>
+    @foreach (var customPage in Pages.OrderBy(customPage => customPage.Name, NameOrder.ByName))
+    {
+      <li @key="customPage.Id" class="border-b py-2">
+        <a href="@PageUrls.CustomPage(customPage)" class="@LinkStyles.InSentence">@customPage.Name</a>
+      </li>
+    }
     @foreach (var post in Posts)
     {
       <li @key="post.Id" class="flex justify-between gap-4 border-b py-2">

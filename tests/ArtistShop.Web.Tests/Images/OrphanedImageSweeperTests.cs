@@ -109,6 +109,32 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     }
 
     [Fact]
+    public async Task KeepsUploadAnArticleNamesOlderThanGracePeriod()
+    {
+        var storageKey = await UploadImageAsync();
+        var pages = new CustomPageRepository(_database.Site);
+        var pageId = await pages.AddAsync($"Sweeper test page {storageKey}", new CustomPageAddress($"sweeper-test-{storageKey}"));
+        await new PageRowRepository(_database.Site).AddAsync(pageId);
+        var slot = Assert.Single(Assert.Single((await pages.GetLayoutAsync(pageId)).Rows).Slots);
+        await new CustomComponentRepository(_database.Site).AddToSlotAsync(
+            slot.Id,
+            $"Sweeper test article {storageKey}",
+            new ArticleSettings(
+                new PostBody(
+                    """{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600}}},{"insert":"\n"}]}"""
+                        .Replace("KEY", storageKey)
+                ),
+                ArticleWidth.Narrow
+            )
+        );
+
+        _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
+        await SweepAsync();
+
+        Assert.True(_imageStorage.OriginalExists(storageKey));
+    }
+
+    [Fact]
     public async Task KeepsABrandImageOriginalOlderThanGracePeriod()
     {
         var brandImageRepository = new BrandImageRepository(_database.Site);
@@ -165,6 +191,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
             _imageStorage,
             new WorkImageRepository(_database.Site),
             new PostRepository(_database.Site),
+            new CustomComponentRepository(_database.Site),
             new BrandImageRepository(_database.Site)
         );
 

@@ -31,12 +31,16 @@
         <p><PostInlineText Text="paragraph.Text" /></p>
         break;
 
+      case HeadingBlock { Level: HeadingLevel.One } heading:
+        <SectionHeading Class="text-4xl font-bold"><PostInlineText Text="heading.Text" /></SectionHeading>
+        break;
+
       case HeadingBlock { Level: HeadingLevel.Two } heading:
-        <SectionHeading Class="text-2xl font-bold"><PostInlineText Text="heading.Text" /></SectionHeading>
+        <h3 class="font-heading text-2xl font-bold"><PostInlineText Text="heading.Text" /></h3>
         break;
 
       case HeadingBlock heading:
-        <h3 class="text-lg font-bold"><PostInlineText Text="heading.Text" /></h3>
+        <h4 class="text-lg font-bold"><PostInlineText Text="heading.Text" /></h4>
         break;
 
       case BlockquoteBlock quote:

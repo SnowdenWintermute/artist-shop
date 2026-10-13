@@ -27,6 +27,7 @@ public class OrphanedImageSweeper(
         ImageStorage imageStorage,
         WorkImageRepository imageRepository,
         PostRepository postRepository,
+        CustomComponentRepository customComponentRepository,
         BrandImageRepository brandImageRepository
     )
     {
@@ -39,9 +40,10 @@ public class OrphanedImageSweeper(
             return;
         }
 
-        // a work's images, the ones uploaded into posts, and the logos' and favicon's originals
+        // a work's images, the ones uploaded into posts and articles, and the logos' and favicon's originals
         var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
         referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
+        referencedKeys.UnionWith(await customComponentRepository.GetAllImageStorageKeysAsync());
         referencedKeys.UnionWith(await brandImageRepository.GetAllStorageKeysAsync());
 
         var deletedCount = 0;

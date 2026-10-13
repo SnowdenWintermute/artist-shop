@@ -12,6 +12,9 @@
   case PostListSettings:
     <PostList />
     break;
+  case ArticleSettings article:
+    <ArticleView Settings="article" />
+    break;
   default:
     throw new InvalidOperationException($"{Component.Settings.Type} has no view.");
 }

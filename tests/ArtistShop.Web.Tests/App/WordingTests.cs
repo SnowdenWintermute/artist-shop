@@ -172,6 +172,10 @@ public sealed partial class WordingTests(TestApp app)
         );
         var home = await new CustomPageRepository(database).GetHomeAsync();
         var homeRow = Assert.Single((await new CustomPageRepository(database).GetLayoutAsync(home.Id)).Rows);
+        // A component's name is the artist's own text, like a collection's, and the starting one was
+        // made in the default words, before these were chosen
+        var homeComponent = Assert.Single(Assert.Single(homeRow.Slots).Stack);
+        await new CustomComponentRepository(database).UpdateAsync(homeComponent.Id, "Front grid", homeComponent.Settings);
         await SaveAsync(site, MadeUpWords);
         var owner = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
@@ -187,6 +191,7 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/posts/{Id:int}/edit"] = PageUrls.EditPost(postId),
             ["/admin/website/pages/{Id:int}"] = PageUrls.EditCustomPage(home.Id),
             ["/admin/website/pages/{PageId:int}/rows/{RowId:int}"] = PageUrls.EditPageRow(home.Id, homeRow.Id),
+            ["/admin/website/components/{Id:int}"] = PageUrls.EditCustomComponent(homeComponent.Id, home.Id, homeRow.Id),
         };
         var routes = typeof(PageUrls).Assembly.GetTypes()
             .SelectMany(type => type.GetCustomAttributes<RouteAttribute>())

@@ -83,4 +83,7 @@ public static class SqlStates
 
     // PlaceCustomComponent, ReorderSlotPlacements: the slot is gone or holds other components
     public const string RowSlotChangedSincePageLoad = "SH025";
+
+    // UpdateCustomComponent
+    public const string CustomComponentNoLongerExists = "SH026";
 }

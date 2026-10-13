@@ -1,0 +1,167 @@
+@page "/admin/website/components/{Id:int}"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject CustomComponentRepository CustomComponentRepository
+@inject CustomPageRepository CustomPageRepository
+@inject ImageStorage ImageStorage
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public int Id { get; set; }
+
+  // the row editor this was opened from, which Up goes back to and the preview shows
+  [SupplyParameterFromQuery(Name = PageUrls.ComponentPageKey)]
+  private int? FromPageId { get; set; }
+  [SupplyParameterFromQuery(Name = PageUrls.ComponentRowKey)]
+  private int? FromRowId { get; set; }
+
+  [SupplyParameterFromForm(FormName = "custom-component")]
+  private CustomComponentForm? Input { get; set; }
+  [SupplyParameterFromQuery(Name = "saved")]
+  private bool Saved { get; set; }
+
+  private CustomComponentInUse? _component;
+  private CustomPage? _fromPage;
+  // a successful save redirects, so a page rendered from a post is one that didn't go through
+  private bool _formWasPosted;
+  private bool _deletedElsewhere;
+
+  private CustomComponentId ComponentId => new(Id);
+
+  private string DocumentKey => $"component-{Id}";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _formWasPosted = Input is not null;
+    _component = await CustomComponentRepository.GetAsync(ComponentId);
+
+    if (FromPageId is int pageId)
+    {
+      _fromPage = await CustomPageRepository.GetAsync(new CustomPageId(pageId));
+    }
+
+    if (_component is not null)
+    {
+      Input ??= CustomComponentForm.From(_component.Component);
+    }
+  }
+
+  private async Task SaveAsync()
+  {
+    if (_component is null || Input is null || !Input.CheckText(ImageStorage))
+    {
+      return;
+    }
+
+    try
+    {
+      await CustomComponentRepository.UpdateAsync(ComponentId, Input.ToName(),
+Input.ToSettings(_component.Component.Settings));
+    }
+    catch (NameAlreadyInUseException)
+    {
+      Input.AddNameTakenError();
+      return;
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _deletedElsewhere = true;
+      return;
+    }
+
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["saved"] = true }));
+  }
+
+  // the pages besides the one this was opened from, which share every change
+  private IReadOnlyList<string> AlsoOn(CustomComponentInUse component) =>
+    [.. component.PageNames.Where(name => name != _fromPage?.Name).Order(StringComparer.CurrentCultureIgnoreCase)];
+}
+
+<PageTitle>@(_component?.Component.Name ?? "Component")</PageTitle>
+
+<main>
+  <AdminPanel>
+    @if (_fromPage is not null && FromRowId is int rowId)
+    {
+      <UpLink Class="mb-4" Href="@PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId))"
+              Label="@($"Row on {_fromPage.Name}")" />
+    }
+    else
+    {
+      <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+    }
+
+    @if (_component is null || Input is null)
+    {
+      <p>This component doesn't exist. It may have been deleted.</p>
+    }
+    else
+    {
+      var component = _component;
+
+      <h1 class="mb-1 text-xl">@component.Component.Name</h1>
+      <p class="mb-4 text-sm text-ink-faded">@CustomComponentNames.Of(component.Component.Settings.Type, Wording)</p>
+
+      @if (AlsoOn(component) is { Count: > 0 } alsoOn)
+      {
+        <p class="mb-4">Also used in: @string.Join(", ", alsoOn)</p>
+      }
+
+      @if (Saved && !_formWasPosted)
+      {
+        <SavedNotice>Saved.</SavedNotice>
+      }
+
+      @if (_deletedElsewhere)
+      {
+        <p class="mb-4 text-error">This component was deleted somewhere else, so nothing was saved.</p>
+      }
+
+      @if (component.Component.Settings is ArticleSettings)
+      {
+        <PostBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="article" TitleField="Input.Name"
+                    HoldsUnsavedChanges="_formWasPosted">
+          <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+            @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
+            <PostBodyEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
+            @* saves as soon as it changes, with the rest of the form *@
+            <SubmitOnChange>
+              <SelectField Label="Width" @bind-Value="Input.Width">
+                <option value="@ArticleWidth.Narrow">Narrow</option>
+                <option value="@ArticleWidth.Full">Full width</option>
+              </SelectField>
+            </SubmitOnChange>
+          </ComponentSettingsForm>
+        </PostBackup>
+
+        @* the editor's Video button opens this. Outside the form, since it has a form of its own *@
+        <VideoAddressDialog />
+      }
+      else
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" />
+      }
+
+      @if (_fromPage is not null && FromRowId is int previewRowId)
+      {
+        <h2 class="mb-2 text-lg">Preview</h2>
+        @* keyed by the save, so the island shows the row afresh after one *@
+        <SavedRowPreview @rendermode="InteractiveServer" @key="component.UpdatedAt" Page="_fromPage"
+                         RowId="new PageRowId(previewRowId)" />
+      }
+    }
+  </AdminPanel>
+</main>

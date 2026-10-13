@@ -5,6 +5,7 @@
 @using ArtistShop.Web.Domain.Catalog
 @inject WorkRepository WorkRepository
 @inject PostRepository PostRepository
+@inject CustomPageRepository CustomPageRepository
 @inject NavigationManager NavigationManager
 
 @code {
@@ -66,8 +67,9 @@
 
     var walk = await WorkWalk.LoadAsync(WorkRepository, work, CollectionValue);
     var mentions = await PostRepository.GetPublishedMentioningWorkAsync(work.Id);
+    var pageMentions = await CustomPageRepository.GetMentioningWorkAsync(work.Id);
 
-    _loaded = new LoadedWork(work, walk, mentions);
+    _loaded = new LoadedWork(work, walk, mentions, pageMentions);
   }
 }
 
@@ -99,7 +101,7 @@
                       NextUrl="@NextStepUrl(loaded)"
                       WalkStep="WorkWalkStep.For(loaded.Work, loaded.Walk)" />
 
-      <WorkDetails Work="loaded.Work" Mentions="loaded.Mentions" />
+      <WorkDetails Work="loaded.Work" Mentions="loaded.Mentions" PageMentions="loaded.PageMentions" />
     </div>
   </main>
 }

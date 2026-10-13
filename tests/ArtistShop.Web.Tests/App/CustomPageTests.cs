@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
+using ArtistShop.Web.Components.CustomPages;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
@@ -218,8 +219,8 @@ public sealed partial class CustomPageTests(TestApp app)
         await new RowSlotRepository(database).AddAsync(rowId, slotCount: 1);
         var slots = Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots;
         var components = new CustomComponentRepository(database);
-        await components.AddToSlotAsync(slots[0].Id, new CollectionViewerSettings());
-        await components.AddToSlotAsync(slots[1].Id, new PostListSettings());
+        await components.AddToSlotAsync(slots[0].Id, "Viewer", new CollectionViewerSettings());
+        await components.AddToSlotAsync(slots[1].Id, "Posts", new PostListSettings());
 
         var page = await app.ClientFor(site.Host).GetStringAsync("/both", TestContext.Current.CancellationToken);
 
@@ -258,6 +259,77 @@ public sealed partial class CustomPageTests(TestApp app)
         var page = ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Page).Hex;
         Assert.Matches($"<style>\\[data-row-preview\\] \\{{[^}}]*--theme-page: {page};", editor);
     }
+
+    [Fact]
+    public async Task AnArticleIsDrawnAtItsWidth()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var pageId = await PagesOf(site).AddAsync("About", new CustomPageAddress("about"));
+        await new PageRowRepository(database).AddAsync(pageId);
+        var slot = Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots);
+        await new CustomComponentRepository(database).AddToSlotAsync(
+            slot.Id,
+            "Statement",
+            new ArticleSettings(new PostBody("""{"ops":[{"insert":"I paint rooms.\n"}]}"""), ArticleWidth.Narrow)
+        );
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/about", TestContext.Current.CancellationToken);
+
+        Assert.Contains("I paint rooms.", page);
+        Assert.Contains("max-w-[42rem]", page);
+        Assert.DoesNotContain("Statement", page);
+    }
+
+    [Fact]
+    public async Task AComponentIsRenamedOnItsSettingsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var component = Assert.Single(Assert.Single(row.Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditCustomComponent(component.Id, home.Id, row.Id),
+            "custom-component",
+            new() { ["Input.Name"] = "Front grid" }
+        );
+
+        var saved = Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(database).GetAsync(component.Id));
+        Assert.Equal("Front grid", saved.Component.Name);
+        Assert.IsType<CollectionViewerSettings>(saved.Component.Settings);
+    }
+
+    [Fact]
+    public async Task AnArticlesSettingsPageHasThePostEditor()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var id = await new CustomComponentRepository(database).AddToSlotAsync(
+            Assert.Single(row.Slots).Id,
+            "Intro",
+            new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow)
+        );
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var settings = await client.GetStringAsync(PageUrls.EditCustomComponent(id, home.Id, row.Id), TestContext.Current.CancellationToken);
+
+        Assert.Contains("<post-body-editor", settings);
+        Assert.Contains("data-backup-key=\"component-", settings);
+        Assert.Contains("Row on Home", settings);
+    }
+
+    [Fact]
+    public void ANewComponentsNameSkipsTakenNumbers() =>
+        Assert.Equal(
+            ["Article 2", "Article 4"],
+            CustomComponentNames.NewNames(CustomComponentType.Article, SiteWording.Default, new HashSet<string> { "Article 1", "Article 3" }).Take(2)
+        );
 
     [GeneratedRegex("""<a (?=[^>]*class="font-heading)[^>]*href="(?<href>[^"]*)"[^>]*>(?<text>[^<]*)</a>""")]
     private static partial Regex NavLink();

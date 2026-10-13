@@ -6,8 +6,7 @@ const STORAGE_KEY_PREFIX = "artist-shop:post-backup:";
 const NEW_POST_BACKUP_KEY = "new";
 const WRITE_DELAY_MILLISECONDS = 500;
 
-// the names Blazor gives PostForm's fields
-const TITLE_FIELD = "Input.Title";
+// the name Blazor gives the text's field; the title's is in data-title-field
 const BODY_FIELD = "Input.Body";
 
 /**
@@ -164,7 +163,7 @@ class PostBackup extends HTMLElement {
 
   async #restore() {
     const backup = this.#offered;
-    const title = this.#field(TITLE_FIELD);
+    const title = this.#field(this.#titleField());
     const editor = this.querySelector("post-body-editor");
 
     if (backup === null || title === null || editor === null) {
@@ -221,9 +220,13 @@ class PostBackup extends HTMLElement {
   }
 
   #formValues() {
-    const title = this.#field(TITLE_FIELD);
+    const title = this.#field(this.#titleField());
     const body = this.#field(BODY_FIELD);
     return title === null || body === null ? null : { title: title.value, body: body.value };
+  }
+
+  #titleField() {
+    return this.dataset.titleField ?? "";
   }
 
   /** @param {string} name */

@@ -16,10 +16,31 @@ post-body-editor ::deep .ql-editor {
   line-height: inherit;
 }
 
-/* Quill leaves heading weight to the browser's defaults, which Tailwind's reset takes away */
+/* Quill leaves heading weight to the browser's defaults, which Tailwind's reset takes away. The sizes
+   and fonts are PostDocumentView's (font-heading's, for the two larger), so a heading looks as it will on the page */
+post-body-editor ::deep .ql-editor h1,
 post-body-editor ::deep .ql-editor h2,
 post-body-editor ::deep .ql-editor h3 {
   font-weight: 700;
+}
+
+post-body-editor ::deep .ql-editor h1 {
+  font-family: var(--theme-heading-font), ui-sans-serif, system-ui, sans-serif;
+  font-size-adjust: var(--theme-heading-font-size-adjust);
+  font-size: var(--text-4xl);
+  line-height: var(--text-4xl--line-height);
+}
+
+post-body-editor ::deep .ql-editor h2 {
+  font-family: var(--theme-heading-font), ui-sans-serif, system-ui, sans-serif;
+  font-size-adjust: var(--theme-heading-font-size-adjust);
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl--line-height);
+}
+
+post-body-editor ::deep .ql-editor h3 {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg--line-height);
 }
 
 /* Redo is Undo's icon turned round */

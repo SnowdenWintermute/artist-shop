@@ -1,5 +1,7 @@
+using System.Text.Json.Nodes;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Tests.Database;
@@ -12,6 +14,9 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
     private readonly PageRowRepository _rows = new(database.Site);
     private readonly RowSlotRepository _slots = new(database.Site);
     private readonly CustomComponentRepository _components = new(database.Site);
+
+    // the fixture's database is shared, so each test's components have names of their own
+    private static string UniqueName() => $"Component {Guid.NewGuid():n}";
 
     private async Task<CustomPageId> AddPageAsync()
     {
@@ -94,8 +99,8 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var pageId = await AddPageAsync();
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
-        var viewer = await _components.AddToSlotAsync(slotId, new CollectionViewerSettings());
-        var posts = await _components.AddToSlotAsync(slotId, new PostListSettings());
+        var viewer = await _components.AddToSlotAsync(slotId, UniqueName(), new CollectionViewerSettings());
+        var posts = await _components.AddToSlotAsync(slotId, UniqueName(), new PostListSettings());
 
         await _slots.ReorderPlacementsAsync(slotId, [posts, viewer]);
 
@@ -111,7 +116,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var pageId = await AddPageAsync();
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
-        var viewer = await _components.AddToSlotAsync(slotId, new CollectionViewerSettings());
+        var viewer = await _components.AddToSlotAsync(slotId, UniqueName(), new CollectionViewerSettings());
 
         await _slots.RemovePlacementAsync(slotId, viewer);
         Assert.Empty(Assert.Single(await _components.GetAllAsync(), made => made.Component.Id == viewer).PageNames);
@@ -132,9 +137,77 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var rowId = await _rows.AddAsync(pageId);
         await _slots.AddAsync(rowId, slotCount: 1);
         var slots = (await RowAsync(pageId, rowId)).Slots;
-        var viewer = await _components.AddToSlotAsync(slots[0].Id, new CollectionViewerSettings());
+        var viewer = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), new CollectionViewerSettings());
         await _slots.PlaceAsync(slots[1].Id, viewer);
 
         Assert.Equal([page.Name], Assert.Single(await _components.GetAllAsync(), made => made.Component.Id == viewer).PageNames);
+    }
+
+    [Fact]
+    public async Task AComponentsNameIsUniqueWhateverItsCase()
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
+        var name = UniqueName();
+        var first = await _components.AddToSlotAsync(slotId, name, new CollectionViewerSettings());
+        var second = await _components.AddToSlotAsync(slotId, UniqueName(), new PostListSettings());
+
+        await Assert.ThrowsAsync<NameAlreadyInUseException>(() =>
+            _components.AddToSlotAsync(slotId, name.ToUpperInvariant(), new PostListSettings())
+        );
+        await Assert.ThrowsAsync<NameAlreadyInUseException>(() => _components.UpdateAsync(second, name, new PostListSettings()));
+        Assert.Equal(name, Assert.IsType<CustomComponentInUse>(await _components.GetAsync(first)).Component.Name);
+    }
+
+    [Fact]
+    public async Task AnArticleReadsBackAsItWasSaved()
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
+        var id = await _components.AddToSlotAsync(slotId, UniqueName(), new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow));
+        var before = Assert.IsType<CustomComponentInUse>(await _components.GetAsync(id));
+        var name = UniqueName();
+
+        var body = """{"ops":[{"insert":"Hello\n"}]}""";
+
+        await _components.UpdateAsync(id, name, new ArticleSettings(new PostBody(body), ArticleWidth.Full));
+
+        var after = Assert.IsType<CustomComponentInUse>(await _components.GetAsync(id));
+        var article = Assert.IsType<ArticleSettings>(after.Component.Settings);
+        Assert.Equal(name, after.Component.Name);
+        Assert.Equal(ArticleWidth.Full, article.Width);
+        // jsonb may reorder and respace it, so compared as JSON
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(body), JsonNode.Parse(article.Body.Json)));
+        Assert.True(after.UpdatedAt > before.UpdatedAt);
+        Assert.Equal([before.PageNames.Single()], after.PageNames);
+    }
+
+    [Fact]
+    public async Task SavingADeletedComponentSaysItChanged() =>
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
+            _components.UpdateAsync(new CustomComponentId(int.MaxValue), UniqueName(), new PostListSettings())
+        );
+
+    // as a post's: derived from the text on every save, so a removed embed stops counting
+    [Fact]
+    public async Task APageMentionsTheWorksItsArticlesEmbed()
+    {
+        var workId = (await new CatalogTestData(database.Site).AddPaintingAsync($"Painting {Guid.NewGuid():n}", [], [], [])).Id;
+        var embedding = new PostBody(
+            """{"ops":[{"insert":{"artshop-work":{"workId":ID}}},{"insert":"\n"}]}""".Replace("ID", $"{workId.Value}")
+        );
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
+        var name = UniqueName();
+        var id = await _components.AddToSlotAsync(slotId, name, new ArticleSettings(embedding, ArticleWidth.Narrow));
+
+        Assert.Equal([pageId], (await _pages.GetMentioningWorkAsync(workId)).Select(page => page.Id));
+
+        await _components.UpdateAsync(id, name, new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow));
+
+        Assert.Empty(await _pages.GetMentioningWorkAsync(workId));
     }
 }

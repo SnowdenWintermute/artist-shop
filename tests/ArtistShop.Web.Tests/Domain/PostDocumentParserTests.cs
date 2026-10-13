@@ -72,10 +72,11 @@ public class PostDocumentParserTests
     }
 
     [Theory]
-    [InlineData(1, HeadingLevel.Two)]
+    [InlineData(1, HeadingLevel.One)]
+    [InlineData(2, HeadingLevel.Two)]
     [InlineData(3, HeadingLevel.Three)]
     [InlineData(4, HeadingLevel.Three)]
-    public void FoldsOtherHeadingLevelsIntoTheTwoOffered(int level, HeadingLevel expected)
+    public void FoldsLowerHeadingLevelsIntoTheSmallestOffered(int level, HeadingLevel expected)
     {
         var blocks = Parse(
             $$$"""{"ops":[{"insert":"Title"},{"insert":"\n","attributes":{"header":{{{level}}}}}]}"""

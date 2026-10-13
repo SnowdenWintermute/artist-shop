@@ -2,8 +2,38 @@
 
 ## Custom pages built from custom components, agreed 2026-10-12 (From Claude)
 
-**Step 1 (1a-1d) built 2026-10-12, uncommitted, 1135 tests pass, not tried in a browser.** Next is step 2, Article,
-which brings the first component with settings and so the component settings page.
+**Steps 1 and 2 built 2026-10-12/13, all uncommitted, 1146 tests pass; step 1 partly browser-checked (preview), step 2
+not.** Next session: review everything built for custom pages so far, with Mike, before step 3, Image (whose
+settings are designed with Mike first).
+
+Step 2, names, the component settings page and Article (agreed 2026-10-13):
+- Every component has a name, unique per website (`unique_custom_components_name`, case-insensitive). A new one gets
+  "<type> N", the lowest free number (`CustomComponentNames.NewNames`; `RowEditor` retries past a name taken
+  meanwhile). The seeded two are "Collection viewer" and "Post list". 0009 also gained `updated_at`. Mike's dev
+  `site_1` was altered by hand (names filled in, NOT NULL, unique, updated_at).
+- `CustomComponentSettingsPage` at `/admin/website/components/{id}?page=&row=` (from the row editor, where each
+  component's name links to it): name, the type's fields (`ComponentSettingsForm`, `CustomComponentForm`), Save,
+  "Also on: …" for the other pages it's on, ↑ to the row, and the row's preview (`SavedRowPreview` island keyed by
+  `updated_at`; `RowPreview` is shared with the row editor). Collection viewer and Post list have only a name.
+- Article (`CustomComponentType.Article`, `ArticleSettings(PostBody, ArticleWidth)`): the post editor
+  (`PostBodyEditor`, `VideoAddressDialog`) and `PostBackup`, which now takes its key (`component-{id}`), saved time,
+  noun and title field. Width: Text (the post column, centred) or Full. Settings JSON is
+  `{"body": <Delta object>, "width": "Text"}`, so `get_all_custom_component_image_storage_keys` reads uploaded
+  images as posts' are, and the orphan sweep keeps them. Saving refuses missing images and dropped links as a post does.
+  `ArticleView` draws it with `PostDocumentView`.
+- Mike's review, 2026-10-13: width options are Narrow / Full width (`ArticleWidth.Narrow`, was Text; "text width"
+  meant nothing to him); the Width select saves on change (`SubmitOnChange`, which saves the whole form); a Full
+  width article's writing area takes the editor's whole width (`ArticleColumns`, `PostBodyEditor.ColumnClass`; the
+  editor is keyed by width so it's rebuilt after the change); components in a slot get an Edit button like rows.
+- Headings, posts included: a larger level was added above the two there were. Quill header 1/2/3 =
+  `HeadingLevel.One/Two/Three` = h2 text-4xl (heading font) / h3 text-2xl (heading font) / h4 text-lg, so existing
+  posts' headers 2 and 3 keep their sizes. The editor's h1-h3 are styled to match.
+- Reverted the same day: the editor keeps the post column whatever the width (rebuilding it at a new width jumped
+  the page). `ArticleColumns` only holds the page's classes.
+- "Mentioned in": `custom_component_and_works_junction` (0009; created by hand on Mike's dev `site_1`), rebuilt by
+  `set_custom_component_works` on every add and update, as `set_post_works` is. `get_custom_pages_mentioning_work`;
+  the artwork page lists those pages (by name, no date) above its posts.
+- No inline font size: Mike had taken headings for a size control; whole-line headings are what he wants.
 
 1c-1d, rows (`Components/Pages/Admin/Website/CustomPages/`):
 - Page editor: `PageRowList` island under the name/address form: a `RowSchematic` per row (slots at their widths,

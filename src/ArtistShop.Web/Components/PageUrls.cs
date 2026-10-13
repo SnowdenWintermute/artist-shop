@@ -135,6 +135,18 @@ public static class PageUrls
 
     public const string NewRowKey = "new";
 
+    public const string ComponentPageKey = "page";
+
+    public const string ComponentRowKey = "row";
+
+    // from a row's editor, which its Up link goes back to and its preview shows
+    public static string EditCustomComponent(CustomComponentId id, CustomPageId pageId, PageRowId rowId) =>
+        WithQuery(
+            $"/admin/website/components/{id.Value}",
+            (ComponentPageKey, pageId.Value.ToString(CultureInfo.InvariantCulture)),
+            (ComponentRowKey, rowId.Value.ToString(CultureInfo.InvariantCulture))
+        );
+
     // on a site's host: the Theme page with that theme open
     public static string ThemeEditing(ThemeKey key) => WithQuery(Theme, ("theme", key.QueryValue));
 

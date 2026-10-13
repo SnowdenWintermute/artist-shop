@@ -1,5 +1,6 @@
 @page "/admin/posts/new"
 @page "/admin/posts/{Id:int}/edit"
+@using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Database
@@ -196,7 +197,8 @@
         </p>
       }
 
-      <PostBackup Post="_post" HoldsUnsavedChanges="_formWasPosted">
+      <PostBackup BackupKey="@(_post is null ? "new" : _post.Id.Value.ToString(CultureInfo.InvariantCulture))"
+                  SavedAt="_post?.UpdatedAt" Noun="post" TitleField="Input.Title" HoldsUnsavedChanges="_formWasPosted">
         <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
           <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
             <DataAnnotationsValidator />

@@ -42,7 +42,7 @@ const FORMATS = [
 // Undo and Redo first, as a phone's browser has no undo of its own for the text
 const TOOLBAR = [
   ["undo", "redo"],
-  [{ header: [2, 3, false] }],
+  [{ header: [1, 2, 3, false] }],
   ["bold", "italic", "underline", "link"],
   ["blockquote"],
   [WORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],

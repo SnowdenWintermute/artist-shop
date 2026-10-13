@@ -1,0 +1,38 @@
+@* A row as a visitor sees it, in the website's theme, at a desktop's or a phone's width. Inside an
+   island, which the Desktop and Phone buttons need *@
+@using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Database.Repositories
+@inject ThemeRepository ThemeRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomPage Page { get; set; }
+  [Parameter, EditorRequired]
+  public required PageRow Row { get; set; }
+
+  // the theme visitors see; null leaves the preview in the platform's
+  private NamedTheme? _theme;
+  private bool _showsPhone;
+
+  protected override async Task OnInitializedAsync() => _theme = await ThemeRepository.GetInUseAsync();
+}
+
+<div class="mb-2">
+  <ChoiceButtons TValue="bool" Label="Width" Values="[false, true]" Chosen="_showsPhone"
+                 LabelOf="@(showsPhone => showsPhone ? "Phone" : "Desktop")" OnChoose="showsPhone => _showsPhone = showsPhone" />
+</div>
+@* ThemeStyle sets the theme on this box alone, as on the Theme page's preview. inert: a link in the
+   preview would leave the editor. w-fit for the phone, so the box is the phone's width rather than the editor's *@
+@if (_theme is { } theme)
+{
+  <ThemeStyle Selector="[data-row-preview]" Theme="theme.Theme" />
+}
+<div data-row-preview class="@($"mb-4 max-w-full border border-rule bg-page font-text text-ink {(_showsPhone ? "w-fit" : "")}")" inert>
+  <RowPreviewFrame Pixels="@(_showsPhone ? CustomPageWidths.PhonePixels : CustomPageWidths.DesktopPixels)">
+    <div class="@CustomPageWidths.PaddingClass">
+      <CascadingValue Value="Page" IsFixed>
+        <PageRowView Row="Row" />
+      </CascadingValue>
+    </div>
+  </RowPreviewFrame>
+</div>

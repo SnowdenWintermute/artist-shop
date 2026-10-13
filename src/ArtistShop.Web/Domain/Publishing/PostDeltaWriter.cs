@@ -26,7 +26,7 @@ public static class PostDeltaWriter
                     break;
 
                 case HeadingBlock heading:
-                    AddLine(ops, heading.Text, new JsonObject { ["header"] = heading.Level is HeadingLevel.Two ? 2 : 3 });
+                    AddLine(ops, heading.Text, new JsonObject { ["header"] = (int)heading.Level });
                     endsWithLine = true;
                     break;
 

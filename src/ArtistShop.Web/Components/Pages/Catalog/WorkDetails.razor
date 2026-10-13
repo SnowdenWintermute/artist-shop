@@ -13,6 +13,9 @@
   [Parameter, EditorRequired]
   public IReadOnlyList<PostMention> Mentions { get; set; } = default!;
 
+  [Parameter, EditorRequired]
+  public IReadOnlyList<CustomPage> PageMentions { get; set; } = default!;
+
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
 
@@ -113,8 +116,8 @@
     <p class="mb-6 whitespace-pre-line">@description</p>
   }
 
-  @if (Mentions.Count > 0)
+  @if (Mentions.Count > 0 || PageMentions.Count > 0)
   {
-    <WorkMentions Posts="Mentions" />
+    <WorkMentions Pages="PageMentions" Posts="Mentions" />
   }
 </div>

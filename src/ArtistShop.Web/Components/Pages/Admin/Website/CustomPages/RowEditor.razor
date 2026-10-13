@@ -11,7 +11,6 @@
 @inject PageRowRepository PageRowRepository
 @inject RowSlotRepository RowSlotRepository
 @inject CustomComponentRepository CustomComponentRepository
-@inject ThemeRepository ThemeRepository
 
 @code {
   [CascadingParameter]
@@ -25,17 +24,13 @@
   public bool IsNew { get; set; }
 
   private PageRow? _row;
-  // the theme visitors see, which the preview takes; null leaves it in the platform's
-  private NamedTheme? _theme;
   private RowSlot? _addingTo;
   private RowSlot? _removingSlot;
-  private bool _showsPhone;
   private bool _isSaving;
   private bool _changedElsewhere;
 
   protected override async Task OnInitializedAsync()
   {
-    _theme = await ThemeRepository.GetInUseAsync();
     await LoadAsync();
 
     if (IsNew && _row?.Slots is [{ Stack.Count: 0 } slot])
@@ -72,8 +67,28 @@
   private async Task AddNewAsync(CustomComponentType type)
   {
     var slot = Unwrap.Value(_addingTo);
-    await SaveAsync(() => CustomComponentRepository.AddToSlotAsync(slot.Id, NewCustomComponentSettings.For(type)));
+    await SaveAsync(() => AddNamedAsync(slot, type));
     _addingTo = null;
+  }
+
+  // the first free name; one taken meanwhile by another tab is skipped for the next
+  private async Task AddNamedAsync(RowSlot slot, CustomComponentType type)
+  {
+    var taken = (await CustomComponentRepository.GetAllAsync())
+      .Select(made => made.Component.Name)
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var name in CustomComponentNames.NewNames(type, Wording, taken))
+    {
+      try
+      {
+        await CustomComponentRepository.AddToSlotAsync(slot.Id, name, NewCustomComponentSettings.For(type));
+        return;
+      }
+      catch (NameAlreadyInUseException)
+      {
+      }
+    }
   }
 
   private async Task AddExistingAsync(CustomComponent component)
@@ -145,9 +160,10 @@
           {
             <SortableList TItem="CustomComponent" Items="[.. slot.Stack]" AriaLabel="Component order" OnMove="move => MoveAsync(slot, move)">
               <RowContent Context="component">
-                <span class="grow">@CustomComponentNames.Of(component.Settings.Type, Wording)</span>
+                <span class="grow">@component.Name</span>
               </RowContent>
               <RowActions Context="component">
+                <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomComponent(component.Id, Page.Id, row.Id)">Edit</LinkButton>
                 <button type="button" class="cursor-pointer px-1" title="Take out of this slot" aria-label="Take out of this slot"
                         disabled="@_isSaving" @onclick="() => TakeOutAsync(slot, component)">
                   ✕
@@ -179,26 +195,7 @@
     }
 
     <h2 class="mb-2 text-lg">Preview</h2>
-    <div class="mb-2">
-      <ChoiceButtons TValue="bool" Label="Width" Values="[false, true]" Chosen="_showsPhone"
-                     LabelOf="@(showsPhone => showsPhone ? "Phone" : "Desktop")" OnChoose="showsPhone => _showsPhone = showsPhone" />
-    </div>
-    @* In the website's theme: ThemeStyle sets it on this box alone, as on the Theme page's preview.
-       inert: a link in the preview would leave the editor *@
-    @if (_theme is { } theme)
-    {
-      <ThemeStyle Selector="[data-row-preview]" Theme="theme.Theme" />
-    }
-    @* w-fit for the phone, so the box is the phone's width rather than the editor's *@
-    <div data-row-preview class="@($"mb-4 max-w-full border border-rule bg-page font-text text-ink {(_showsPhone ? "w-fit" : "")}")" inert>
-      <RowPreviewFrame Pixels="@(_showsPhone ? CustomPageWidths.PhonePixels : CustomPageWidths.DesktopPixels)">
-        <div class="@CustomPageWidths.PaddingClass">
-          <CascadingValue Value="Page" IsFixed>
-            <PageRowView Row="row" />
-          </CascadingValue>
-        </div>
-      </RowPreviewFrame>
-    </div>
+    <RowPreview Page="Page" Row="row" />
   }
 
   @if (_addingTo is { } addingTo)

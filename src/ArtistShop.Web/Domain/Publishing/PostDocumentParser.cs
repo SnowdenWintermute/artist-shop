@@ -135,9 +135,14 @@ public static partial class PostDocumentParser
 
         if (GetInt(attributes, "header") is int level)
         {
-            // the toolbar offers two levels, but a pasted h1 or h4 keeps its header, so it is
-            // folded into the nearer one rather than lost
-            blocks.Add(new HeadingBlock(level <= 2 ? HeadingLevel.Two : HeadingLevel.Three, text));
+            // the toolbar offers three levels, but a pasted h4 or lower keeps its header, so it is
+            // folded into the smallest rather than lost
+            blocks.Add(new HeadingBlock(level switch
+            {
+                <= 1 => HeadingLevel.One,
+                2 => HeadingLevel.Two,
+                _ => HeadingLevel.Three,
+            }, text));
         }
         else if (ReadListStyle(GetString(attributes, "list")) is ListStyle style)
         {
