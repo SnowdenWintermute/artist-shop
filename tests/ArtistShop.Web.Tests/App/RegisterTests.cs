@@ -8,7 +8,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // The platform's register page, which must answer the same whether an email has an account or not,
 // and the page its emailed link opens, which makes the account
-[Collection(TestAppCollection.Name)]
 public sealed partial class RegisterTests(TestApp app)
 {
     [Fact]

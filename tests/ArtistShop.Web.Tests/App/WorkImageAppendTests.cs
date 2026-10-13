@@ -13,7 +13,6 @@ using NetVips;
 namespace ArtistShop.Web.Tests.App;
 
 // The whole-website import's and the bulk upload's image sent to one work, after its others
-[Collection(TestAppCollection.Name)]
 public sealed class WorkImageAppendTests(TestApp app)
 {
     private static readonly byte[] Jpeg = CreateJpeg(ImageVariants.MinimumSourceWidth);

@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // The platform's "My websites" page, which lists the websites the signed-in account is a member of
-[Collection(TestAppCollection.Name)]
 public sealed class MySitesTests(TestApp app)
 {
     // each website's address links to its home, and Manage to its admin, which asks anyone not

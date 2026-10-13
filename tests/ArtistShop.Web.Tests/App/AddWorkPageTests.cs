@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-[Collection(TestAppCollection.Name)]
 public sealed class AddWorkPageTests(TestApp app)
 {
     // Firefox lets letters into a type="number" box and sends it empty, so the year is a text box:

@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 
 namespace ArtistShop.Web.Tests.App;
 
-[Collection(TestAppCollection.Name)]
 public sealed partial class ContentSecurityPolicyTests(TestApp app)
 {
     // the import map is the page's one inline script, allowed by the header's nonce, which changes

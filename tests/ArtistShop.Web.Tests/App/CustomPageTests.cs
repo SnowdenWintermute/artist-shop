@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // what visitors see of a website's custom pages and nav, and the admin pages that change them
-[Collection(TestAppCollection.Name)]
 public sealed partial class CustomPageTests(TestApp app)
 {
     private CustomPageRepository PagesOf(TestSite site) =>

@@ -10,7 +10,6 @@ using NetVips;
 namespace ArtistShop.Web.Tests.App;
 
 // The logos and browser tab icon set on the Branding page, as visitors' browsers get them
-[Collection(TestAppCollection.Name)]
 public sealed partial class BrandingTests(TestApp app)
 {
     private static byte[] Png(int width, int height)

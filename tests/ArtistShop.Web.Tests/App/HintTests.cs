@@ -12,7 +12,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // Hints dismissed with their X, for the account on every website it administers, and shown again from the Hints page.
 // Signing in gives the account the profile its dismissals hang off, so these save without making one
-[Collection(TestAppCollection.Name)]
 public sealed partial class HintTests(TestApp app)
 {
     private async Task<(TestSite Site, HttpClient Client)> SiteWithOwnerAsync()

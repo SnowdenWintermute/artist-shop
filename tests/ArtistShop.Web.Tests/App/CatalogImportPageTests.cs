@@ -9,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // the work type and vocabulary import pages; the planner and export tests cover what each plans
-[Collection(TestAppCollection.Name)]
 public sealed partial class CatalogImportPageTests(TestApp app)
 {
     [Theory]

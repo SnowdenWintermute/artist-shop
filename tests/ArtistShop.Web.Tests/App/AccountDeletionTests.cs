@@ -11,7 +11,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // Deleting an account from its page's Delete account box, on the platform, since an account is the
 // whole platform's. Owners are on sites of their own, since the other tests need the first site online
-[Collection(TestAppCollection.Name)]
 public sealed class AccountDeletionTests(TestApp app)
 {
     private const string Path = "/Account/Manage";

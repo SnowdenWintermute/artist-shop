@@ -9,7 +9,6 @@ namespace ArtistShop.Web.Tests.App;
 // What startup reports: a sign-up that crashed after making its site's schema and folders, but
 // before adding the site, leaves them unlisted. In the app's own databases, since the repository
 // tests share a schema with no site row
-[Collection(TestAppCollection.Name)]
 public sealed class UnlistedSiteTests(TestApp app)
 {
     [Fact]

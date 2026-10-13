@@ -22,7 +22,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace ArtistShop.Web.Tests.App;
 
 // The Export page's downloads, and what importing the catalog into another website gives back
-[Collection(TestAppCollection.Name)]
 public sealed class ExportTests(TestApp app)
 {
     [Fact]

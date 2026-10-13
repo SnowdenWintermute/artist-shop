@@ -15,15 +15,24 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
+// One app for the whole run, shared by every test class that asks for it. The classes run in parallel,
+// so a test keeps to its own accounts and sites, or to the first site without changing it. One that
+// acts on the whole platform goes in RunAloneCollection
+[assembly: AssemblyFixture(typeof(ArtistShop.Web.Tests.App.TestApp))]
+
 namespace ArtistShop.Web.Tests.App;
 
 // The whole app, Program.cs and all, answering requests in the test process with no network port
-// (ASP.NET's WebApplicationFactory). Its own databases on development's server, which
-// TestDatabaseFixture drops at the start of each run, and its own image folder. Program.cs's
-// startup runs as the fixture starts: migrations and the operator's account. Then the fixture adds
-// one site, as sign-up would
+// (ASP.NET's WebApplicationFactory). Its own databases on development's server, dropped as the
+// fixture starts, and its own image folder. Program.cs's startup runs as the fixture starts:
+// migrations and the operator's account. Then the fixture adds one site, as sign-up would
 public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    // dropped at the start of each run rather than at the end, so a failed run's rows can still be
+    // inspected. Its site schemas are inside its platform database, so they go with it
+    private const string PlatformDatabaseName = "artist_shop_tests_app_platform";
+    private const string IdentityDatabaseName = "artist_shop_tests_app_identity";
+
     public const string PlatformHost = "platform.test";
     public const string FirstSiteHost = "site1.test";
     public const string FirstSiteOwnerEmail = "owner@example.com";
@@ -53,11 +62,11 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
     {
         builder.UseSetting(
             "ConnectionStrings:ArtistShopPlatform",
-            TestDatabaseFixture.ConnectionStringFor(TestDatabaseFixture.AppPlatformDatabaseName)
+            TestDatabaseFixture.ConnectionStringFor(PlatformDatabaseName)
         );
         builder.UseSetting(
             "ConnectionStrings:ArtistShopIdentity",
-            TestDatabaseFixture.ConnectionStringFor(TestDatabaseFixture.AppIdentityDatabaseName)
+            TestDatabaseFixture.ConnectionStringFor(IdentityDatabaseName)
         );
         builder.UseSetting("ImageStorage:RootPath", _imageStorageRootPath);
 
@@ -87,6 +96,9 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
 
     public async ValueTask InitializeAsync()
     {
+        // before Services, which starts the app and its migrations
+        await TestDatabaseFixture.DropDatabasesAsync(PlatformDatabaseName, IdentityDatabaseName);
+
         using var scope = Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var owner = new ApplicationUser
@@ -401,10 +413,10 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
 
 public sealed record TestSite(SiteId Id, string Host, string OwnerEmail);
 
-// Every test class that runs the app shares one, since they'd otherwise each migrate the same
-// databases at once
-[CollectionDefinition(Name)]
-public sealed class TestAppCollection : ICollectionFixture<TestApp>
+// For the tests that act on the whole platform, such as signing everyone out, which would undo the
+// other tests' sign-ins. xUnit runs this collection after the others, with nothing beside it
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class RunAloneCollection
 {
-    public const string Name = "TestApp";
+    public const string Name = "Run alone";
 }

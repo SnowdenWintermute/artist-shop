@@ -9,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // the page that adds works to a collection; CollectionRepositoryTests cover where they land
-[Collection(TestAppCollection.Name)]
 public sealed class AddCollectionWorksPageTests(TestApp app)
 {
     private async Task<(CatalogTestData Catalog, CollectionRepository Collections, HttpClient Client)> SiteWithAdminAsync()

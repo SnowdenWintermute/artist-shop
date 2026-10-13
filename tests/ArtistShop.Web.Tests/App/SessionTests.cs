@@ -9,7 +9,6 @@ namespace ArtistShop.Web.Tests.App;
 // Sign-ins kept in the database (DatabaseTicketStore), which end at once when their row goes or the
 // account's security stamp changes. "Signed in" here means My websites loads rather than sending the
 // client to sign in
-[Collection(TestAppCollection.Name)]
 public sealed class SessionTests(TestApp app)
 {
     [Fact]
@@ -171,25 +170,7 @@ public sealed class SessionTests(TestApp app)
         Assert.Equal(1, await SessionCountAsync(live));
     }
 
-    // the operator's Sign everyone out
-    [Fact]
-    public async Task EndingAllSignInsSignsOutEveryAccountOnEveryHost()
-    {
-        var site = await app.MakeSiteAsync();
-        var other = await app.MakeAccountAsync();
-        var onPlatform = await app.SignedInClientAsync(TestApp.PlatformHost, site.OwnerEmail);
-        var onSite = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
-        var otherOnPlatform = await app.SignedInClientAsync(TestApp.PlatformHost, other);
-
-        await app.Services.GetRequiredService<DatabaseTicketStore>().EndAllAsync();
-
-        Assert.False(await IsSignedInAsync(onPlatform));
-        Assert.False(await IsSignedInAsync(otherOnPlatform));
-        var response = await onSite.GetAsync("/admin", TestContext.Current.CancellationToken);
-        Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
-    }
-
-    private static async Task<bool> IsSignedInAsync(HttpClient client)
+    public static async Task<bool> IsSignedInAsync(HttpClient client)
     {
         var response = await client.GetAsync("/sites", TestContext.Current.CancellationToken);
 

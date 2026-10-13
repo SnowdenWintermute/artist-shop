@@ -6,7 +6,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // The operator's Websites page: every website, the home page's examples, and deleting one outright.
 // Each test on a site of its own, since the other tests need the first site online
-[Collection(TestAppCollection.Name)]
 public sealed class OperatorSitesTests(TestApp app)
 {
     private const string SitesPath = "/operator/sites";

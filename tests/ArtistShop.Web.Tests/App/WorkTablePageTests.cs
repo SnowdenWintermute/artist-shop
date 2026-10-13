@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // the page that edits a filtered page of works as a table; its rows load once the circuit connects
-[Collection(TestAppCollection.Name)]
 public sealed class WorkTablePageTests(TestApp app)
 {
     private async Task<(CatalogTestData Catalog, HttpClient Client)> SiteWithAdminAsync()

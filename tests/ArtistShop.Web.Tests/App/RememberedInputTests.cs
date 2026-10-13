@@ -13,7 +13,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // The work type every type select shares: a page without one in its address starts at the type
 // its admin last chose
-[Collection(TestAppCollection.Name)]
 public sealed partial class RememberedInputTests(TestApp app)
 {
     private const string AddPath = PageUrls.AddWork;

@@ -4,7 +4,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // An owner deleting their website from My websites, and keeping it again. Each test on a site of its
 // own, since the other tests need the first site online
-[Collection(TestAppCollection.Name)]
 public sealed class SiteDeletionTests(TestApp app)
 {
     // the address in any case, as a host is

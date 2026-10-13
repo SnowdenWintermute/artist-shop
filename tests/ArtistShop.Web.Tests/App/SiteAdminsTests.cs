@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // A site's Admins page, where its owner invites and removes admins
-[Collection(TestAppCollection.Name)]
 public sealed class SiteAdminsTests(TestApp app)
 {
     private const string Path = "/admin/admins";

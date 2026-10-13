@@ -6,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
 
-[Collection(TestAppCollection.Name)]
 public sealed class OperatorFontsTests(TestApp app)
 {
     [Fact]

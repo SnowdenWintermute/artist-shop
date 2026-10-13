@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // Against the app's own identity database, which its startup has already synced once
-[Collection(TestAppCollection.Name)]
 public sealed class PlatformOperatorTests(TestApp app)
 {
     [Fact]

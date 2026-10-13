@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // the example vocabularies a new site starts with
-[Collection(TestAppCollection.Name)]
 public sealed class StarterVocabularyTests(TestApp app)
 {
     [Fact]

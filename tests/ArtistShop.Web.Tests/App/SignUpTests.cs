@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // The platform's /signup form, posted by a signed-in account as a browser would
-[Collection(TestAppCollection.Name)]
 public sealed class SignUpTests(TestApp app)
 {
     [Fact]

@@ -30,11 +30,6 @@ public class TestDatabaseFixture : IAsyncLifetime
 
     private SiteDatabase? _site;
 
-    // the databases of the whole app that TestApp runs, dropped at the start of each run with the
-    // other. Its site schemas are inside its platform database, so they go with it
-    public const string AppPlatformDatabaseName = "artist_shop_tests_app_platform";
-    public const string AppIdentityDatabaseName = "artist_shop_tests_app_identity";
-
     public TestDatabaseFixture()
     {
         PlatformConnectionString = ConnectionStringFor(DatabaseName);
@@ -63,7 +58,7 @@ public class TestDatabaseFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         // fresh every run, so edits to already-journaled scripts like 0001 take effect
-        await DropTestDatabasesAsync();
+        await DropDatabasesAsync(DatabaseName);
 
         EnsureDatabase.For.PostgresqlDatabase(PlatformConnectionString);
         SchemaMigrator.Platform.Upgrade(PlatformConnectionString, "public");
@@ -80,7 +75,7 @@ public class TestDatabaseFixture : IAsyncLifetime
         DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
 
-    private static async Task DropTestDatabasesAsync()
+    public static async Task DropDatabasesAsync(params string[] names)
     {
         // the database being dropped can't be the one we're connected to, and every Postgres
         // server has one called postgres
@@ -89,7 +84,7 @@ public class TestDatabaseFixture : IAsyncLifetime
         // FORCE disconnects other sessions, which would otherwise block the drop. A database name
         // is an identifier, not a value, so it can't be a parameter; these come from the constants
         // above
-        foreach (var name in (string[])[DatabaseName, AppPlatformDatabaseName, AppIdentityDatabaseName])
+        foreach (var name in names)
         {
             await connection.ExecuteAsync($"DROP DATABASE IF EXISTS {name} WITH (FORCE);");
         }

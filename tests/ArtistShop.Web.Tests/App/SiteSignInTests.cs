@@ -10,7 +10,6 @@ namespace ArtistShop.Web.Tests.App;
 // Signing in on a website through the platform (SiteSignIns): the website's Login sends the browser to
 // the platform's SignInTo, which signs in there if need be and sends it back to the website's Handoff
 // with a single-use code
-[Collection(TestAppCollection.Name)]
 public sealed class SiteSignInTests(TestApp app)
 {
     private const string Handoff = "Account/Handoff";

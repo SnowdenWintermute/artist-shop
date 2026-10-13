@@ -15,7 +15,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ArtistShop.Web.Tests.App;
 
 // What a website calls collections and works, chosen on the Wording page, as visitors and admins see it
-[Collection(TestAppCollection.Name)]
 public sealed partial class WordingTests(TestApp app)
 {
     // one collection holding one photographed work: the least that puts a card on the home page

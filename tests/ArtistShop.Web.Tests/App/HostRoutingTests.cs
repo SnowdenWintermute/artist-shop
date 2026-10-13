@@ -5,7 +5,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // Which host a request is for decides what answers it: UseKnownHosts, then UseServedOnHosts, then
 // sign-in. Program.cs's order matters, so these go through the whole app
-[Collection(TestAppCollection.Name)]
 public sealed class HostRoutingTests(TestApp app)
 {
     [Fact]

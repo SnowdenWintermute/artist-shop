@@ -13,7 +13,6 @@ namespace ArtistShop.Web.Tests.App;
 // where websites send their sign-ins, putting Google's login on the account with the email it has
 // verified. Google itself isn't reached: FakeGoogle leaves the external cookie as Google's handler
 // does, then the tests follow the app's callback, /Account/ExternalLogin
-[Collection(TestAppCollection.Name)]
 public sealed partial class GoogleSignInTests(TestApp app)
 {
     [Fact]

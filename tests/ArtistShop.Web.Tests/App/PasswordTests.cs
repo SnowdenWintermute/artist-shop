@@ -7,7 +7,6 @@ namespace ArtistShop.Web.Tests.App;
 
 // A password changes only by a link emailed to the account's address: from the account page's Password
 // box when signed in, or Forgot password when not
-[Collection(TestAppCollection.Name)]
 public sealed partial class PasswordTests(TestApp app)
 {
     [Fact]
