@@ -1,0 +1,16 @@
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  [Parameter, EditorRequired]
+  public UploadedImageEmbedBlock Embed { get; set; } = default!;
+
+  // as the artist checked it, and only when there's a wider version than the size shows: a
+  // lightbox would otherwise just blow up the same file
+  public static bool OpensLightbox(UploadedImageEmbedBlock embed) =>
+    embed.OpensLightbox && ImageVariants.LargestWidthFor(embed.Width) > ImageVariants.EmbedWidth(embed.Size);
+}
+
+<EmbedFigure Layout="Embed.Layout" Size="Embed.Size" StorageKey="@Embed.StorageKey" Alt="@Embed.Alt"
+             ImageWidth="Embed.Width" ImageHeight="Embed.Height" BlurDataUri="@Embed.BlurDataUri"
+             Caption="@Embed.Caption" Href="@null" OpensLightbox="OpensLightbox(Embed)" />

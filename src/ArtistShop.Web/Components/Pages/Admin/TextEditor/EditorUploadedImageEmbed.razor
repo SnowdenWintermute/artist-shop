@@ -1,0 +1,63 @@
+@using System.Globalization
+@using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+
+@code {
+  // stand in for an image's parts in the address below, which the embed fills in
+  private const string StorageKeyPlaceholder = "{storageKey}";
+  private const string WidthPlaceholder = "{width}";
+
+  private const string AltHelpId = "uploaded-image-alt-help";
+}
+
+@* The uploaded image embed's toolbar. EditorUploadedImageEmbed.razor.js defines the embed and its upload
+   placeholder, and does the uploading. The toolbar carries the image address and widths because
+   the server is what knows them, and a new image's layout, which the upload doesn't choose *@
+<EmbedToolbar data-part="image-embed-toolbar" data-storage-key-placeholder="@StorageKeyPlaceholder"
+                  data-width-placeholder="@WidthPlaceholder"
+                  data-variant-url="@ImageUrls.VariantTemplate(StorageKeyPlaceholder, WidthPlaceholder, ImageVariantFormat.Avif)"
+                  data-small-width="@ImageVariants.EmbedWidth(EmbedImageSize.Small).ToString(CultureInfo.InvariantCulture)"
+                  data-medium-width="@ImageVariants.EmbedWidth(EmbedImageSize.Medium).ToString(CultureInfo.InvariantCulture)"
+                  data-variant-widths="@string.Join(",", ImageVariants.Widths)" data-layout-classes="@EmbedToolbar.LayoutClasses"
+                  data-caption-class="@EmbedFigure.CaptionClass" data-upload-url="@ImageUploadEndpoints.RichTextImageUploadPath"
+                  data-accept="@ImageUploadValidation.FileInputAccept" data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">
+  <Lines>
+    @* The ⓘ button shows what alt text is for, since the file name it starts as rarely says what's
+       in the picture. Applied as it's typed, like the caption *@
+    <div>
+      <div class="@EmbedToolbar.FieldLineClass">
+        <label class="flex min-w-0 flex-1 items-center gap-2">
+          <span class="@EmbedToolbar.FieldNameClass">Alt text</span>
+          <input type="text" autocomplete="off" class="@EmbedToolbar.FieldClass min-w-0 flex-1" data-part="alt"
+                 aria-describedby="@AltHelpId" />
+        </label>
+        <button type="button"
+                class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border text-sm font-bold"
+                aria-label="What is alt text?" aria-expanded="false" aria-controls="@AltHelpId"
+                data-action="alt-help">i</button>
+      </div>
+      <p id="@AltHelpId" class="max-w-sm pt-2 text-sm" hidden>
+        Alt text describes the picture for visitors who can't see it. It is read aloud by accessibility technologies,
+        and browsers show it if the image doesn't load.
+      </p>
+    </div>
+    <EmbedCaptionField />
+    @* off when the upload is no wider than the size it's shown at, with the note saying why *@
+    <label class="flex items-center gap-2">
+      <input type="checkbox" data-part="lightbox" />
+      <span>Open full screen when clicked</span>
+      <span class="text-sm text-ink-faded" data-part="lightbox-note" hidden>(no bigger version of this image)</span>
+    </label>
+    @* how a Replace image upload is going, where the artist is looking *@
+    <p class="text-sm" aria-live="polite" data-part="upload-status" hidden></p>
+  </Lines>
+  <ChildContent>
+    <ImageEmbedControls />
+    <EmbedToolbarButton aria-label="Replace image" title="Replace image" data-quill-icon="image"
+                        data-action="replace-image" />
+  </ChildContent>
+</EmbedToolbar>
+
+@* The Image button and Replace image open this. No name, so the form never posts it *@
+<input type="file" accept="@ImageUploadValidation.FileInputAccept" multiple hidden data-part="image-file" />

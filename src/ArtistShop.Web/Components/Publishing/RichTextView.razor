@@ -1,0 +1,85 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Publishing
+
+@code {
+  [Parameter, EditorRequired]
+  public LoadedRichText Loaded { get; set; } = default!;
+
+  private RichTextDocument Document => Loaded.Document;
+
+  private bool HasLightboxImages =>
+    Document.Blocks.OfType<UploadedImageEmbedBlock>().Any(UploadedImageEmbedView.OpensLightbox);
+}
+
+@* Spacing follows the editor, where every line sits directly below the last and a gap is an
+   empty line the artist left. whitespace-pre-wrap keeps runs of spaces, as the editor does.
+   flow-root keeps a floated embed inside the text, rather than hanging below its end.
+   break-words is the editor's own word-wrap, so a word too long for the line breaks here too.
+   <rich-text-view>, from RichTextView.razor.js, opens the lightbox on the images that do,
+   stepping through all of them *@
+<rich-text-view class="mb-4 block">
+<div class="flow-root break-words whitespace-pre-wrap">
+  @foreach (var block in Document.Blocks)
+  {
+    @switch (block)
+    {
+      case ParagraphBlock paragraph:
+        <p><RichTextRuns Text="paragraph.Text" /></p>
+        break;
+
+      case HeadingBlock { Level: HeadingLevel.One } heading:
+        <PageHeading Class="text-4xl font-bold"><RichTextRuns Text="heading.Text" /></PageHeading>
+        break;
+
+      case HeadingBlock { Level: HeadingLevel.Two } heading:
+        <SectionHeading Class="text-2xl font-bold"><RichTextRuns Text="heading.Text" /></SectionHeading>
+        break;
+
+      case HeadingBlock heading:
+        <h3 class="text-lg font-bold"><RichTextRuns Text="heading.Text" /></h3>
+        break;
+
+      case BlockquoteBlock quote:
+        <blockquote class="border-l-4 border-rule pl-4"><RichTextRuns Text="quote.Text" /></blockquote>
+        break;
+
+      case ListBlock { Style: ListStyle.Bullet } list:
+        <ul class="list-disc pl-6">
+          @foreach (var item in list.Items)
+          {
+            <li><RichTextRuns Text="item" /></li>
+          }
+        </ul>
+        break;
+
+      case ListBlock list:
+        <ol class="list-decimal pl-6">
+          @foreach (var item in list.Items)
+          {
+            <li><RichTextRuns Text="item" /></li>
+          }
+        </ol>
+        break;
+
+      case WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, Loaded.WorkImages) is { } source:
+        <WorkEmbedView Embed="embed" Source="source" />
+        break;
+
+      case UploadedImageEmbedBlock image:
+        <UploadedImageEmbedView Embed="image" />
+        break;
+
+      case VideoEmbedBlock video:
+        <VideoEmbedView Embed="video" />
+        break;
+    }
+  }
+</div>
+
+@if (HasLightboxImages)
+{
+  <ImageLightbox />
+}
+</rich-text-view>

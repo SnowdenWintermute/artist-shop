@@ -107,7 +107,7 @@ public record PostImportItem(
     PostTitle? Title,
     PostSlug? Slug,
     DateTimeOffset? PublishedAt,
-    PostDocument? Document,
+    RichTextDocument? Document,
     IReadOnlyDictionary<string, string> FileIdsByPlaceholder,
     PostImportOutcome Outcome,
     IReadOnlyList<string> Problems,
@@ -119,7 +119,7 @@ public record PostImportItem(
 // Turns the folders of a post download into the posts importing them would add, without touching
 // the database or the files. Nothing the file says about this website is trusted: an uploaded
 // image is always a new upload of a file in its folder, and a work embed is only linked to an
-// work found here with the same image. Everything else goes through PostDocumentParser, as a
+// work found here with the same image. Everything else goes through RichTextParser, as a
 // save does
 public static class PostImportPlanner
 {
@@ -167,14 +167,14 @@ public static class PostImportPlanner
     // The post as it's saved: each placeholder swapped for its file's upload. Parsed and written
     // again, so what the browser reported about the uploads goes through the parser like
     // everything else
-    public static PostBody Finish(PostDocument document, IReadOnlyDictionary<string, ImageUploadResult> uploadsByPlaceholder)
+    public static RichText Finish(RichTextDocument document, IReadOnlyDictionary<string, ImageUploadResult> uploadsByPlaceholder)
     {
         var finished = document with
         {
             Blocks =
             [
                 .. document.Blocks.Select(block =>
-                    block is PostImageEmbedBlock image && uploadsByPlaceholder.TryGetValue(image.StorageKey, out var upload)
+                    block is UploadedImageEmbedBlock image && uploadsByPlaceholder.TryGetValue(image.StorageKey, out var upload)
                         ? image with
                         {
                             StorageKey = upload.StorageKey,
@@ -187,7 +187,7 @@ public static class PostImportPlanner
             ],
         };
 
-        return PostDeltaWriter.Write(PostDocumentParser.Parse(PostDeltaWriter.Write(finished)));
+        return RichTextDeltaWriter.Write(RichTextParser.Parse(RichTextDeltaWriter.Write(finished)));
     }
 
     private static PostImportItem PlanOne(PostImportFolder folder, PostImportTarget target, HashSet<string> slugsInImport)
@@ -211,9 +211,9 @@ public static class PostImportPlanner
         }
 
         var localized = Localize(file.Ops, folder, target, problems);
-        var body = new PostBody(new JsonObject { ["ops"] = localized.Ops }.ToJsonString());
+        var body = new RichText(new JsonObject { ["ops"] = localized.Ops }.ToJsonString());
 
-        problems.AddRange(PostDocumentParser.LinksDropped(body).Select(PostDocumentParser.DroppedLinkProblem));
+        problems.AddRange(RichTextParser.LinksDropped(body).Select(RichTextParser.DroppedLinkProblem));
 
         if (problems.Count > 0)
         {
@@ -230,7 +230,7 @@ public static class PostImportPlanner
             new PostTitle(title),
             slug,
             file.PublishedAt,
-            PostDocumentParser.Parse(body),
+            RichTextParser.Parse(body),
             localized.FileIdsByPlaceholder,
             skippedBecause is null ? PostImportOutcome.WillAdd : PostImportOutcome.Skipped,
             skippedBecause is null ? [] : [skippedBecause],
@@ -373,19 +373,19 @@ public static class PostImportPlanner
                 continue;
             }
 
-            if (insert[PostDocumentParser.PostImageEmbedName] is JsonObject image)
+            if (insert[RichTextParser.UploadedImageEmbedName] is JsonObject image)
             {
                 if (PlaceholderFor(image) is { } placeholder)
                 {
                     localized.Add(ImageOp(placeholder, image, alt: StringOf(image["alt"]) ?? ""));
                 }
             }
-            else if (insert[PostDocumentParser.WorkEmbedName] is JsonObject work)
+            else if (insert[RichTextParser.WorkEmbedName] is JsonObject work)
             {
                 if (Relink(work, target) is { } found)
                 {
                     var value = CopyLook(work, new JsonObject { ["workId"] = found.WorkId.Value, ["storageKey"] = found.StorageKey });
-                    localized.Add(new JsonObject { ["insert"] = new JsonObject { [PostDocumentParser.WorkEmbedName] = value } });
+                    localized.Add(new JsonObject { ["insert"] = new JsonObject { [RichTextParser.WorkEmbedName] = value } });
                     relinked++;
                 }
                 else if (PlaceholderFor(work) is { } placeholder)
@@ -395,9 +395,9 @@ public static class PostImportPlanner
                     pictureOnly.Add(workTitle);
                 }
             }
-            else if (insert[PostDocumentParser.VideoEmbedName] is JsonObject video)
+            else if (insert[RichTextParser.VideoEmbedName] is JsonObject video)
             {
-                localized.Add(new JsonObject { ["insert"] = new JsonObject { [PostDocumentParser.VideoEmbedName] = video.DeepClone() } });
+                localized.Add(new JsonObject { ["insert"] = new JsonObject { [RichTextParser.VideoEmbedName] = video.DeepClone() } });
             }
         }
 
@@ -414,7 +414,7 @@ public static class PostImportPlanner
             value["lightbox"] = true;
         }
 
-        return new JsonObject { ["insert"] = new JsonObject { [PostDocumentParser.PostImageEmbedName] = value } };
+        return new JsonObject { ["insert"] = new JsonObject { [RichTextParser.UploadedImageEmbedName] = value } };
     }
 
     private static readonly string[] LookProperties = ["size", "layout", "caption"];
@@ -453,12 +453,12 @@ public static class PostImportPlanner
 
     private static IEnumerable<JsonObject> WorkEmbedValues(JsonArray ops) =>
         ops.OfType<JsonObject>()
-            .Select(op => op["insert"] is JsonObject insert ? insert[PostDocumentParser.WorkEmbedName] as JsonObject : null)
+            .Select(op => op["insert"] is JsonObject insert ? insert[RichTextParser.WorkEmbedName] as JsonObject : null)
             .OfType<JsonObject>();
 
     // The links to this website's own pages that go nowhere here: a post, collection or work that
     // isn't here, or a path that isn't one of the public pages
-    private static IReadOnlyList<string> BrokenLinks(PostDocument? document, PostImportTarget target, IReadOnlySet<string> slugsInImport)
+    private static IReadOnlyList<string> BrokenLinks(RichTextDocument? document, PostImportTarget target, IReadOnlySet<string> slugsInImport)
     {
         if (document is null)
         {
@@ -491,7 +491,7 @@ public static class PostImportPlanner
         ];
     }
 
-    private static IEnumerable<PostText> TextOf(PostDocument document) =>
+    private static IEnumerable<RichTextRun> TextOf(RichTextDocument document) =>
         document.Blocks.SelectMany(block =>
             block switch
             {

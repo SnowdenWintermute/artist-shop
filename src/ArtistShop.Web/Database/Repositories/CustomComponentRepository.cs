@@ -91,7 +91,7 @@ public class CustomComponentRepository(SiteDatabase database)
         }
     }
 
-    // the images uploaded into articles that their text still names, for the orphan sweep
+    // the images uploaded into text components that their text still names, for the orphan sweep
     public async Task<HashSet<string>> GetAllImageStorageKeysAsync()
     {
         await using var connection = await database.OpenConnectionAsync();

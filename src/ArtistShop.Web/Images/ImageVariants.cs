@@ -98,14 +98,14 @@ public static partial class ImageVariants
     // than the medium embed, which only a post takes, also gets a copy at its own width, so an
     // embed stretches every pixel there is rather than a smaller variant. For a post image, then,
     // the file an embed shows is Math.Min(the embed's width, the image's), which
-    // PostImageEmbed.razor.js relies on
+    // EditorUploadedImageEmbed.razor.js relies on
     public static int[] WidthsFor(int imageWidth) =>
         imageWidth < EmbedWidth(EmbedImageSize.Medium) && !Widths.Contains(imageWidth)
             ? [.. Widths.Where(width => width < imageWidth), imageWidth]
             : [.. Widths.Where(width => width <= imageWidth)];
 
     // the widest file there is of the image. A post image's embed only opens the lightbox when this
-    // is wider than the size it's shown at, as PostImageEmbed.razor.js works out for its checkbox
+    // is wider than the size it's shown at, as EditorUploadedImageEmbed.razor.js works out for its checkbox
     public static int LargestWidthFor(int imageWidth) => WidthsFor(imageWidth)[^1];
 
     // the largest variant that exists and isn't wider than wanted; the smallest variant when even

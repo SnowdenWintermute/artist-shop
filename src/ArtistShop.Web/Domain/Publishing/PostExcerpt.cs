@@ -10,7 +10,7 @@ public static partial class PostExcerpt
     public const int MaximumLength = 300;
 
     // null when the post has no text at all, such as one that is only pictures
-    public static string? From(PostDocument document)
+    public static string? From(RichTextDocument document)
     {
         var text = "";
 
@@ -28,14 +28,14 @@ public static partial class PostExcerpt
     }
 
     // each block's text on its own, with runs of spaces and line breaks made single spaces
-    private static IEnumerable<string> TextPieces(PostDocument document) =>
+    private static IEnumerable<string> TextPieces(RichTextDocument document) =>
         document
             .Blocks.SelectMany(TextRunsOf)
             .Select(runs => WhitespacePattern().Replace(string.Concat(runs.Select(run => run.Text)), " ").Trim())
             .Where(piece => piece is not "");
 
     // a list gives one piece per item; an embed gives none
-    private static IEnumerable<IReadOnlyList<PostText>> TextRunsOf(PostBlock block)
+    private static IEnumerable<IReadOnlyList<RichTextRun>> TextRunsOf(RichTextBlock block)
     {
         switch (block)
         {

@@ -166,20 +166,20 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var pageId = await AddPageAsync();
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
-        var id = await _components.AddToSlotAsync(slotId, UniqueName(), new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow));
+        var id = await _components.AddToSlotAsync(slotId, UniqueName(), new TextSettings(RichText.Empty, TextWidth.Narrow));
         var before = Assert.IsType<CustomComponentInUse>(await _components.GetAsync(id));
         var name = UniqueName();
 
         var body = """{"ops":[{"insert":"Hello\n"}]}""";
 
-        await _components.UpdateAsync(id, name, new ArticleSettings(new PostBody(body), ArticleWidth.Full));
+        await _components.UpdateAsync(id, name, new TextSettings(new RichText(body), TextWidth.Full));
 
         var after = Assert.IsType<CustomComponentInUse>(await _components.GetAsync(id));
-        var article = Assert.IsType<ArticleSettings>(after.Component.Settings);
+        var text = Assert.IsType<TextSettings>(after.Component.Settings);
         Assert.Equal(name, after.Component.Name);
-        Assert.Equal(ArticleWidth.Full, article.Width);
+        Assert.Equal(TextWidth.Full, text.Width);
         // jsonb may reorder and respace it, so compared as JSON
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(body), JsonNode.Parse(article.Body.Json)));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(body), JsonNode.Parse(text.Body.Json)));
         Assert.True(after.UpdatedAt > before.UpdatedAt);
         Assert.Equal([before.PageNames.Single()], after.PageNames);
     }
@@ -195,18 +195,18 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
     public async Task APageMentionsTheWorksItsArticlesEmbed()
     {
         var workId = (await new CatalogTestData(database.Site).AddPaintingAsync($"Painting {Guid.NewGuid():n}", [], [], [])).Id;
-        var embedding = new PostBody(
+        var embedding = new RichText(
             """{"ops":[{"insert":{"artshop-work":{"workId":ID}}},{"insert":"\n"}]}""".Replace("ID", $"{workId.Value}")
         );
         var pageId = await AddPageAsync();
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
         var name = UniqueName();
-        var id = await _components.AddToSlotAsync(slotId, name, new ArticleSettings(embedding, ArticleWidth.Narrow));
+        var id = await _components.AddToSlotAsync(slotId, name, new TextSettings(embedding, TextWidth.Narrow));
 
         Assert.Equal([pageId], (await _pages.GetMentioningWorkAsync(workId)).Select(page => page.Id));
 
-        await _components.UpdateAsync(id, name, new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow));
+        await _components.UpdateAsync(id, name, new TextSettings(RichText.Empty, TextWidth.Narrow));
 
         Assert.Empty(await _pages.GetMentioningWorkAsync(workId));
     }

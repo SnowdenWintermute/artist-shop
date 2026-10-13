@@ -40,7 +40,7 @@ public class OrphanedImageSweeper(
             return;
         }
 
-        // a work's images, the ones uploaded into posts and articles, and the logos' and favicon's originals
+        // a work's images, the ones uploaded into posts and text components, and the logos' and favicon's originals
         var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
         referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
         referencedKeys.UnionWith(await customComponentRepository.GetAllImageStorageKeysAsync());

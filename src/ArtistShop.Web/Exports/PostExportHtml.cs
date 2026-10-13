@@ -54,8 +54,8 @@ public static class PostExportHtml
     // siteOrigin in front, since it would point nowhere from the folder
     public static string Page(
         Post post,
-        PostDocument document,
-        IReadOnlyDictionary<PostBlock, PostExportImage> images,
+        RichTextDocument document,
+        IReadOnlyDictionary<RichTextBlock, PostExportImage> images,
         string siteOrigin
     )
     {
@@ -150,8 +150,8 @@ public static class PostExportHtml
 
     private static void AppendBlock(
         StringBuilder html,
-        PostBlock block,
-        IReadOnlyDictionary<PostBlock, PostExportImage> images,
+        RichTextBlock block,
+        IReadOnlyDictionary<RichTextBlock, PostExportImage> images,
         string siteOrigin
     )
     {
@@ -193,7 +193,7 @@ public static class PostExportHtml
                 AppendFigure(html, image, embed.Size, embed.Layout, embed.Caption);
                 break;
 
-            case PostImageEmbedBlock embed when images.TryGetValue(embed, out var image):
+            case UploadedImageEmbedBlock embed when images.TryGetValue(embed, out var image):
                 AppendFigure(html, image, embed.Size, embed.Layout, embed.Caption);
                 break;
 
@@ -224,7 +224,7 @@ public static class PostExportHtml
     }
 
     // each wrapper goes around the one before it, as on the post page: <a><strong><em><u>
-    private static string Inline(IReadOnlyList<PostText> text, string siteOrigin)
+    private static string Inline(IReadOnlyList<RichTextRun> text, string siteOrigin)
     {
         if (text.Count == 0)
         {

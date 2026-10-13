@@ -1,4 +1,4 @@
-@page "/admin/posts/pick-work"
+@page "/admin/text-editor/pick-work"
 @layout FrameLayout
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
 @using ArtistShop.Web.Domain.Catalog
@@ -27,7 +27,7 @@
     item.ImageCount > 0 ? PageUrls.WorkPickerImages(item.Id, Trail) : null;
 }
 
-@* Step one of the post editor's work picker, shown in its frame *@
+@* Step one of the editor's work picker, shown in its frame *@
 <WorkPickerPage Heading="@($"Choose {Wording.Work.SingularInSentence}")">
   <WorkListBrowser RowHref="RowHref" ClearFiltersHref="@PageUrls.WorkPickerList(Trail with { ListQuery = null })"
                       KeptFields="KeptFields" />

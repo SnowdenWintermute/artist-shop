@@ -171,7 +171,7 @@ public class CustomPageRepository(SiteDatabase database)
         return row?.ToPage();
     }
 
-    // the pages with an article on them that embeds the work
+    // the pages with a text component on them that embeds the work
     public async Task<List<CustomPage>> GetMentioningWorkAsync(WorkId workId)
     {
         await using var connection = await database.OpenConnectionAsync();

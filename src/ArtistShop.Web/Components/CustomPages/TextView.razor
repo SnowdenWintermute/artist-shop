@@ -1,0 +1,24 @@
+@* a text component's text, drawn as a post's is, in a readable column or across its slot *@
+@using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Publishing
+@inject ImageStorage ImageStorage
+@inject WorkRepository WorkRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public required TextSettings Settings { get; set; }
+
+  private LoadedRichText? _loaded;
+
+  protected override async Task OnParametersSetAsync() =>
+    _loaded = await LoadedRichText.LoadAsync(Settings.Body, ImageStorage, WorkRepository);
+}
+
+@if (_loaded is { } loaded)
+{
+  <div class="@TextColumns.PageClass(Settings.Width)">
+    <RichTextView Loaded="loaded" />
+  </div>
+}

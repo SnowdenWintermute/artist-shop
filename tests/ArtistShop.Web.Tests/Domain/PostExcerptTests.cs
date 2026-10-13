@@ -5,9 +5,9 @@ namespace ArtistShop.Web.Tests.Domain;
 
 public class PostExcerptTests
 {
-    private static IReadOnlyList<PostText> Plain(string text) => [new PostText(text, false, false, false, null)];
+    private static IReadOnlyList<RichTextRun> Plain(string text) => [new RichTextRun(text, false, false, false, null)];
 
-    private static PostDocument Document(params PostBlock[] blocks) => new(blocks);
+    private static RichTextDocument Document(params RichTextBlock[] blocks) => new(blocks);
 
     private static readonly WorkEmbedBlock Work = new(
         new WorkId(1),
@@ -41,10 +41,10 @@ public class PostExcerptTests
                 Document(
                     new ParagraphBlock(
                         [
-                            new PostText("A ", false, false, false, null),
-                            new PostText("bold", true, false, false, null),
-                            new PostText(" link", false, false, false, "https://example.com"),
-                            new PostText("  \n here", false, false, false, null),
+                            new RichTextRun("A ", false, false, false, null),
+                            new RichTextRun("bold", true, false, false, null),
+                            new RichTextRun(" link", false, false, false, "https://example.com"),
+                            new RichTextRun("  \n here", false, false, false, null),
                         ]
                     )
                 )

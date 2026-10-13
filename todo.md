@@ -6,6 +6,21 @@
 not.** Next session: review everything built for custom pages so far, with Mike, before step 3, Image (whose
 settings are designed with Mike first).
 
+**Rich text rename, 2026-10-13 (From Claude), uncommitted, 1149 tests pass, JS typecheck clean, not browser-checked.**
+Article is now the **Text** component type (`CustomComponentType.Text`, still id 3; `TextSettings`, `TextWidth`,
+`TextView`, `TextColumns`; new ones are "Text N"). The editor's document is **rich text**: `RichText` (was
+`PostBody`, now its own file), `RichTextDocument`/`RichTextBlock`/`RichTextRun`, `RichTextParser`,
+`RichTextDeltaWriter`, `RichTextView` (`<rich-text-view>`), `RichTextRuns`, `RichTextColumn`, `LoadedRichText`,
+`RichTextChecks`, `RichTextEditor` (`<rich-text-editor>`), `RichTextBackup` (`<rich-text-backup>`, localStorage
+prefix `artist-shop:rich-text-backup:`, so older backups are dropped). Uploaded images: `UploadedImageEmbedBlock`,
+`UploadedImageEmbedView`, `UploadedImageFiles`, upload at `/admin/uploads/rich-text-image`. Editor embeds:
+`EditorWorkEmbed`, `EditorUploadedImageEmbed`, `EditorVideoEmbed`, `EmbedToolbar`. Work picker at
+`/admin/text-editor/pick-work`; its button says "Add this image". SQL `rich_text_work_ids`,
+`rich_text_image_storage_keys` in `Procedures/RichText/`. Stored data is unchanged.
+- Add component dialog: New buttons come from `CustomComponentStarter` (one per type, plus **Heading**: a Text
+  component, full width, holding one header-1 line "Heading", named "Heading N").
+- Mike's dev site keeps its "Article N" component names; rename them by hand if wanted.
+
 **Review of steps 1-2, 2026-10-13 (From Claude), uncommitted, 1148 tests pass, not browser-checked:**
 - The text editor's shared pieces moved to `Components/Pages/Admin/TextEditor/` (PostBodyEditor, PostBackup,
   the embeds and their toolbars, VideoAddressDialog, WorkPicker). Posts/ keeps only the post pages and `PostForm`.

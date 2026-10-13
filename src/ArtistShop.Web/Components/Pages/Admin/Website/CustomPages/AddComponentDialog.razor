@@ -1,4 +1,4 @@
-@* Adding a component to a slot: a new one of a type, or one already made. Rendered only while open,
+@* Adding a component to a slot: a new one from a starter, or one already made. Rendered only while open,
    so each opening reads the library afresh *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
@@ -15,7 +15,7 @@
   [Parameter, EditorRequired]
   public bool IsSaving { get; set; }
   [Parameter, EditorRequired]
-  public EventCallback<CustomComponentType> OnNew { get; set; }
+  public EventCallback<CustomComponentStarter> OnNew { get; set; }
   [Parameter, EditorRequired]
   public EventCallback<CustomComponent> OnExisting { get; set; }
   [Parameter, EditorRequired]
@@ -43,10 +43,10 @@
 <ModalDialog Title="Add a component" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="IsSaving">
   <h3 class="mb-2 font-bold">New</h3>
   <div class="mb-6 flex flex-wrap gap-2">
-    @foreach (var type in Enum.GetValues<CustomComponentType>())
+    @foreach (var starter in Enum.GetValues<CustomComponentStarter>())
     {
-      <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@IsSaving" @onclick="() => OnNew.InvokeAsync(type)">
-        @CustomComponentNames.Of(type, Wording)
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@IsSaving" @onclick="() => OnNew.InvokeAsync(starter)">
+        @CustomComponentNames.Of(starter, Wording)
       </ButtonBasic>
     }
   </div>

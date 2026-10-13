@@ -14,7 +14,7 @@ public static class CustomComponentSettingsJson
         {
             CollectionViewerSettings collectionViewer => (Serialize(collectionViewer), 1),
             PostListSettings postList => (Serialize(postList), 1),
-            ArticleSettings article => (WriteArticle(article), 1),
+            TextSettings text => (WriteText(text), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
         };
 
@@ -23,27 +23,27 @@ public static class CustomComponentSettingsJson
         {
             (CustomComponentType.CollectionViewer, 1) => Deserialize<CollectionViewerSettings>(json),
             (CustomComponentType.PostList, 1) => Deserialize<PostListSettings>(json),
-            (CustomComponentType.Article, 1) => ReadArticle(json),
+            (CustomComponentType.Text, 1) => ReadText(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
         };
 
     // The body is the editor's Delta as a JSON object, not a string holding one, so the database can
     // read the images in it as it reads a post's: {"body": {"ops": [...]}, "width": "Text"}
-    private static string WriteArticle(ArticleSettings article) =>
+    private static string WriteText(TextSettings text) =>
         new JsonObject
         {
-            ["body"] = JsonNode.Parse(article.Body.Json),
-            ["width"] = article.Width.ToString(),
+            ["body"] = JsonNode.Parse(text.Body.Json),
+            ["width"] = text.Width.ToString(),
         }.ToJsonString();
 
-    private static ArticleSettings ReadArticle(string json)
+    private static TextSettings ReadText(string json)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
-        return new ArticleSettings(
-            new PostBody(root.GetProperty("body").GetRawText()),
-            Enum.Parse<ArticleWidth>(root.GetProperty("width").GetString() ?? throw new InvalidOperationException("An article's width is null."))
+        return new TextSettings(
+            new RichText(root.GetProperty("body").GetRawText()),
+            Enum.Parse<TextWidth>(root.GetProperty("width").GetString() ?? throw new InvalidOperationException("A text component's width is null."))
         );
     }
 

@@ -130,22 +130,22 @@ Input.ToSettings(_component.Component.Settings));
         <p class="mb-4 text-error">This component was deleted somewhere else, so nothing was saved.</p>
       }
 
-      @if (component.Component.Settings is ArticleSettings)
+      @if (component.Component.Settings is TextSettings)
       {
-        <PostBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="article" TitleField="Input.Name" BodyField="Input.Body"
+        <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name" BodyField="Input.Body"
                     HoldsUnsavedChanges="_formWasPosted">
           <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
             @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
-            <PostBodyEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
+            <RichTextEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
             @* saves as soon as it changes, with the rest of the form *@
             <SubmitOnChange>
               <SelectField Label="Width" @bind-Value="Input.Width">
-                <option value="@ArticleWidth.Narrow">Narrow</option>
-                <option value="@ArticleWidth.Full">Full width</option>
+                <option value="@TextWidth.Narrow">Narrow</option>
+                <option value="@TextWidth.Full">Full width</option>
               </SelectField>
             </SubmitOnChange>
           </ComponentSettingsForm>
-        </PostBackup>
+        </RichTextBackup>
       }
       else
       {

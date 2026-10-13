@@ -10,7 +10,7 @@ public enum CustomComponentType
 {
     CollectionViewer = 1,
     PostList = 2,
-    Article = 3,
+    Text = 3,
 }
 
 // One record per type, holding what the artist chose. Kept in custom_components.settings as JSON
@@ -33,8 +33,8 @@ public sealed record PostListSettings : CustomComponentSettings
     public override CustomComponentType Type => CustomComponentType.PostList;
 }
 
-// how wide an article's text runs in its slot. The ids are only for ordering; settings store the names
-public enum ArticleWidth
+// how wide a text component's text runs in its slot. The ids are only for ordering; settings store the names
+public enum TextWidth
 {
     // a column of the post's width, centred, so lines stay a readable length in a wide slot
     Narrow = 1,
@@ -42,9 +42,9 @@ public enum ArticleWidth
 }
 
 // text written in the post editor, with its artwork, image and video embeds
-public sealed record ArticleSettings(PostBody Body, ArticleWidth Width) : CustomComponentSettings
+public sealed record TextSettings(RichText Body, TextWidth Width) : CustomComponentSettings
 {
-    public override CustomComponentType Type => CustomComponentType.Article;
+    public override CustomComponentType Type => CustomComponentType.Text;
 }
 
 // Name is for finding it again in the library and is unique; a page never shows it
@@ -54,15 +54,30 @@ public record CustomComponent(CustomComponentId Id, string Name, CustomComponent
 // UpdatedAt tells the settings page's backup whether it was saved since the copy was made
 public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames, DateTimeOffset UpdatedAt);
 
-// The settings a new component of each type starts with
+// What the Add component dialog's New buttons make: one of each type, and Heading, a text component
+// that starts as one large heading line, for an artist who wants only that
+public enum CustomComponentStarter
+{
+    CollectionViewer = 1,
+    PostList = 2,
+    Text = 3,
+    Heading = 4,
+}
+
+// the settings each starter makes a component with
 public static class NewCustomComponentSettings
 {
-    public static CustomComponentSettings For(CustomComponentType type) =>
-        type switch
+    public static CustomComponentSettings For(CustomComponentStarter starter) =>
+        starter switch
         {
-            CustomComponentType.CollectionViewer => new CollectionViewerSettings(),
-            CustomComponentType.PostList => new PostListSettings(),
-            CustomComponentType.Article => new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow),
-            _ => throw new InvalidOperationException($"{type} has no starting settings."),
+            CustomComponentStarter.CollectionViewer => new CollectionViewerSettings(),
+            CustomComponentStarter.PostList => new PostListSettings(),
+            CustomComponentStarter.Text => new TextSettings(RichText.Empty, TextWidth.Narrow),
+            CustomComponentStarter.Heading => new TextSettings(HeadingText, TextWidth.Full),
+            _ => throw new InvalidOperationException($"{starter} has no starting settings."),
         };
+
+    private static readonly RichText HeadingText = RichTextDeltaWriter.Write(
+        new RichTextDocument([new HeadingBlock(HeadingLevel.One, [new RichTextRun("Heading", false, false, false, null)])])
+    );
 }

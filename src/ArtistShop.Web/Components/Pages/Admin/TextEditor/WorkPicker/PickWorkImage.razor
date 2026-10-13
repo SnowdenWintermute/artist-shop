@@ -1,4 +1,4 @@
-@page "/admin/posts/pick-work/{Id:int}"
+@page "/admin/text-editor/pick-work/{Id:int}"
 @layout FrameLayout
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Database.Repositories
@@ -56,7 +56,7 @@
   }
 }
 
-@* Steps two and three of the post editor's work picker, shown in its frame *@
+@* Steps two and three of the editor's work picker, shown in its frame *@
 @if (_loaded is { Image: { } image } chosen)
 {
   <WorkPickerPage Heading="@(Trail.Mode is WorkPickerMode.ChangeImage ? $"Use this image of {chosen.Work.Name.Value}?" : $"How {chosen.Work.Name.Value} sits in the post")"

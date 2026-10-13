@@ -225,11 +225,11 @@ public static class ExportEndpoints
         [
             .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(
                 post,
-                LoadedPostDocument.Parse(post.Body, imageStorage)
+                LoadedRichText.Parse(post.Body, imageStorage)
             )),
         ];
 
-        var workImages = await LoadedPostDocument.GetWorkImagesAsync(posts.Select(post => post.Document), workRepository);
+        var workImages = await LoadedRichText.GetWorkImagesAsync(posts.Select(post => post.Document), workRepository);
 
         return (posts, workImages);
     }

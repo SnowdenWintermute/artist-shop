@@ -199,7 +199,7 @@ public sealed partial class CustomPageTests(TestApp app)
         await new PostRepository(database).AddAsync(
             new PostTitle("Spring"),
             PostSlug.FromTitle("Spring"),
-            new PostBody("""{"ops":[{"insert":"Hello\n"}]}"""),
+            new RichText("""{"ops":[{"insert":"Hello\n"}]}"""),
             PostStatus.Published
         );
 
@@ -271,7 +271,7 @@ public sealed partial class CustomPageTests(TestApp app)
         await new CustomComponentRepository(database).AddToSlotAsync(
             slot.Id,
             "Statement",
-            new ArticleSettings(new PostBody("""{"ops":[{"insert":"I paint rooms.\n"}]}"""), ArticleWidth.Narrow)
+            new TextSettings(new RichText("""{"ops":[{"insert":"I paint rooms.\n"}]}"""), TextWidth.Narrow)
         );
 
         var page = await app.ClientFor(site.Host).GetStringAsync("/about", TestContext.Current.CancellationToken);
@@ -313,13 +313,13 @@ public sealed partial class CustomPageTests(TestApp app)
         var id = await new CustomComponentRepository(database).AddToSlotAsync(
             Assert.Single(row.Slots).Id,
             "Intro",
-            new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow)
+            new TextSettings(RichText.Empty, TextWidth.Narrow)
         );
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var settings = await client.GetStringAsync(PageUrls.EditCustomComponent(id, home.Id, row.Id), TestContext.Current.CancellationToken);
 
-        Assert.Contains("<post-body-editor", settings);
+        Assert.Contains("<rich-text-editor", settings);
         Assert.Contains("data-backup-key=\"component-", settings);
         Assert.Contains("Row on Home", settings);
     }
@@ -327,9 +327,20 @@ public sealed partial class CustomPageTests(TestApp app)
     [Fact]
     public void ANewComponentsNameSkipsTakenNumbers() =>
         Assert.Equal(
-            ["Article 2", "Article 4"],
-            CustomComponentNames.NewNames(CustomComponentType.Article, SiteWording.Default, new HashSet<string> { "Article 1", "Article 3" }).Take(2)
+            ["Text 2", "Text 4"],
+            CustomComponentNames.NewNames(CustomComponentStarter.Text, SiteWording.Default, new HashSet<string> { "Text 1", "Text 3" }).Take(2)
         );
+
+    [Fact]
+    public void AHeadingIsATextComponentStartingWithOneLargeHeading()
+    {
+        var text = Assert.IsType<TextSettings>(NewCustomComponentSettings.For(CustomComponentStarter.Heading));
+        var heading = Assert.IsType<HeadingBlock>(Assert.Single(RichTextParser.Parse(text.Body).Blocks));
+
+        Assert.Equal(HeadingLevel.One, heading.Level);
+        Assert.Equal("Heading", Assert.Single(heading.Text).Text);
+        Assert.Equal("Heading 1", CustomComponentNames.NewNames(CustomComponentStarter.Heading, SiteWording.Default, new HashSet<string>()).First());
+    }
 
     [GeneratedRegex("""<a (?=[^>]*class="font-heading)[^>]*href="(?<href>[^"]*)"[^>]*>(?<text>[^<]*)</a>""")]
     private static partial Regex NavLink();

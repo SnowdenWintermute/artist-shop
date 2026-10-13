@@ -167,7 +167,7 @@ public sealed partial class WordingTests(TestApp app)
         var postId = await new PostRepository(database).AddAsync(
             new PostTitle("Spring"),
             PostSlug.FromTitle("Spring"),
-            new PostBody("""{"ops":[{"insert":"Hello\n"}]}"""),
+            new RichText("""{"ops":[{"insert":"Hello\n"}]}"""),
             PostStatus.Draft
         );
         var home = await new CustomPageRepository(database).GetHomeAsync();
@@ -187,7 +187,7 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/catalog/vocabularies/{Id:int}"] = PageUrls.VocabularyTerms(vocabularyId),
             ["/admin/catalog/vocabularies/{Id:int}/edit"] = PageUrls.EditVocabulary(vocabularyId),
             ["/admin/catalog/works/{Id:int}/edit"] = PageUrls.EditWork(work.Id),
-            ["/admin/posts/pick-work/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),
+            ["/admin/text-editor/pick-work/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),
             ["/admin/posts/{Id:int}/edit"] = PageUrls.EditPost(postId),
             ["/admin/website/pages/{Id:int}"] = PageUrls.EditCustomPage(home.Id),
             ["/admin/website/pages/{PageId:int}/rows/{RowId:int}"] = PageUrls.EditPageRow(home.Id, homeRow.Id),

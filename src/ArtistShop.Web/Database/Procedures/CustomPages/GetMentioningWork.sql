@@ -1,6 +1,6 @@
 DROP FUNCTION IF EXISTS get_custom_pages_mentioning_work;
 
--- the pages with an article on them that embeds the work. Every custom page is public
+-- the pages with a text component on them that embeds the work. Every custom page is public
 CREATE FUNCTION get_custom_pages_mentioning_work (p_work_id int) RETURNS TABLE (
     id int,
     name text,

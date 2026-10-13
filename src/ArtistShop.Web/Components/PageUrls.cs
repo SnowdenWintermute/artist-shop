@@ -246,7 +246,7 @@ public static class PageUrls
 
     // the post editor's work picker, which runs in a frame: the list, then one work's
     // images, then the choice of the image picked. The trail rides along in each address
-    public const string WorkPicker = "/admin/posts/pick-work";
+    public const string WorkPicker = "/admin/text-editor/pick-work";
 
     public const string WorkPickerImageKey = "image";
 

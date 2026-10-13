@@ -19,11 +19,11 @@ public sealed class CustomComponentFormTests : IDisposable
     public void Dispose() => _storageRoot.Delete(recursive: true);
 
     [Fact]
-    public void RefusesAnArticlePostedWithoutItsText()
+    public void RefusesATextComponentPostedWithoutItsText()
     {
-        var form = new CustomComponentForm { Name = "Article 1" };
+        var form = new CustomComponentForm { Name = "Text 1" };
 
-        Assert.False(form.CheckBody(_imageStorage, new ArticleSettings(PostBody.Empty, ArticleWidth.Narrow)));
+        Assert.False(form.CheckBody(_imageStorage, new TextSettings(RichText.Empty, TextWidth.Narrow)));
         Assert.Single(form.EditContext.GetValidationMessages(form.EditContext.Field(nameof(CustomComponentForm.Body))));
     }
 

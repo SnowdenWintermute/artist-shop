@@ -41,7 +41,7 @@
 
   // markup held in a property, shown wherever @PostAddress appears; null shows nothing.
   // It shows what was last saved, drafts included, since the artist is an admin. Edits not saved
-  // yet are kept by PostBackup and offered back on return
+  // yet are kept by RichTextBackup and offered back on return
   private RenderFragment? PostAddress =>
     _post is { } post
       ? @<p class="mb-4 text-sm text-ink-faded">
@@ -124,7 +124,7 @@
   }
 
   // A draft holding the post as last saved, opened for editing. Edits not saved yet stay with this
-  // post, kept by PostBackup
+  // post, kept by RichTextBackup
   private async Task CopyAsync()
   {
     if (_post is null)
@@ -192,7 +192,7 @@
         </p>
       }
 
-      <PostBackup BackupKey="@(_post is null ? "new" : _post.Id.Value.ToString(CultureInfo.InvariantCulture))"
+      <RichTextBackup BackupKey="@(_post is null ? "new" : _post.Id.Value.ToString(CultureInfo.InvariantCulture))"
                   SavedAt="_post?.UpdatedAt" Noun="post" TitleField="Input.Title" BodyField="Input.Body"
                   HoldsUnsavedChanges="_formWasPosted">
         <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
@@ -209,7 +209,7 @@
                 </ButtonBasic>
               }
             </div>
-            <PostBodyEditor Label="Text" DocumentKey="@BodyEditorKey" @bind-Value="Input.Body" />
+            <RichTextEditor Label="Text" DocumentKey="@BodyEditorKey" @bind-Value="Input.Body" />
 
             @* Each button posts the status it asks for. The first one is what Enter in the title
                presses, so it's the one that keeps the post as it is. On an existing post it waits for a
@@ -240,11 +240,11 @@
             </div>
           </EditForm>
         </EnableSaveOnChange>
-      </PostBackup>
+      </RichTextBackup>
 
       @* Rendered whenever there's a post, as a post is matched to its form by rendering the page before
-         the handler runs. Outside PostBackup, whose submit handler is the edit form's. Not enhanced, so
-         leaving the page runs PostBackup's pagehide, which writes edits typed a moment before *@
+         the handler runs. Outside RichTextBackup, whose submit handler is the edit form's. Not enhanced, so
+         leaving the page runs RichTextBackup's pagehide, which writes edits typed a moment before *@
       @if (_post is not null)
       {
         <form method="post" @formname="@CopyFormName" @onsubmit="CopyAsync" id="@CopyFormName">

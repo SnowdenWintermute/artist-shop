@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS set_custom_component_works;
 
--- Rebuilds an article's junction rows from its text, as set_post_works does a post's. Any other type
--- has no "body", so it has none. plpgsql, so post_body_work_ids is looked up when it runs and the
+-- Rebuilds a text component's junction rows from its text, as set_post_works does a post's. Any other type
+-- has no "body", so it has none. plpgsql, so rich_text_work_ids is looked up when it runs and the
 -- files can run in any order
 CREATE FUNCTION set_custom_component_works (p_component_id int) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -16,7 +16,7 @@ BEGIN
         work.id
     FROM
         custom_components AS component
-        CROSS JOIN LATERAL post_body_work_ids(component.settings -> 'body') AS embedded (work_id)
+        CROSS JOIN LATERAL rich_text_work_ids(component.settings -> 'body') AS embedded (work_id)
         JOIN works AS work ON work.id = embedded.work_id
     WHERE
         component.id = p_component_id;

@@ -121,16 +121,16 @@ public class PostRepository(SiteDatabase database)
     }
 
     // a published post is dated now
-    public Task<PostId> AddAsync(PostTitle title, PostSlug slug, PostBody body, PostStatus status) =>
+    public Task<PostId> AddAsync(PostTitle title, PostSlug slug, RichText body, PostStatus status) =>
         AddAsync(title, slug, body, isPublished: status is PostStatus.Published, publishedAt: null);
 
     // the post import's, keeping the date it was published on the other website; null is a draft
-    public Task<PostId> AddImportedAsync(PostTitle title, PostSlug slug, PostBody body, DateTimeOffset? publishedAt) =>
+    public Task<PostId> AddImportedAsync(PostTitle title, PostSlug slug, RichText body, DateTimeOffset? publishedAt) =>
         AddAsync(title, slug, body, isPublished: publishedAt is not null, publishedAt);
 
     // Npgsql sends a C# string as text, and Postgres has no implicit cast from text to jsonb, so
     // the body is cast in the call or the function isn't found
-    private async Task<PostId> AddAsync(PostTitle title, PostSlug slug, PostBody body, bool isPublished, DateTimeOffset? publishedAt)
+    private async Task<PostId> AddAsync(PostTitle title, PostSlug slug, RichText body, bool isPublished, DateTimeOffset? publishedAt)
     {
         await using var connection = await database.OpenConnectionAsync();
 
@@ -160,7 +160,7 @@ public class PostRepository(SiteDatabase database)
         PostId id,
         PostTitle title,
         PostSlug slug,
-        PostBody body,
+        RichText body,
         PostStatus status
     )
     {
@@ -214,7 +214,7 @@ public class PostRepository(SiteDatabase database)
                 new PostId(Id),
                 new PostTitle(Title),
                 new PostSlug(Slug),
-                new PostBody(Body),
+                new RichText(Body),
                 PublishedAt is DateTime publishedAt ? new DateTimeOffset(publishedAt) : null,
                 new DateTimeOffset(CreatedAt),
                 new DateTimeOffset(UpdatedAt)
@@ -264,7 +264,7 @@ public class PostRepository(SiteDatabase database)
                 new PostId(Id),
                 new PostTitle(Title),
                 new PostSlug(Slug),
-                new PostBody(Body),
+                new RichText(Body),
                 new DateTimeOffset(PublishedAt)
             );
     }

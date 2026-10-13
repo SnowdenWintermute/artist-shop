@@ -12,8 +12,8 @@
   case PostListSettings:
     <PostList />
     break;
-  case ArticleSettings article:
-    <ArticleView Settings="article" />
+  case TextSettings text:
+    <TextView Settings="text" />
     break;
   default:
     throw new InvalidOperationException($"{Component.Settings.Type} has no view.");

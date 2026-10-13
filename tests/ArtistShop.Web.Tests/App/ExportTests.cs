@@ -152,7 +152,7 @@ public sealed class ExportTests(TestApp app)
                 images: [dawnImage]
             )
         );
-        var body = new PostBody(
+        var body = new RichText(
             """{"ops":[{"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},{"insert":"\n"}]}"""
                 .Replace("WORK_ID", $"{dawn.Id.Value}")
                 .Replace("WORK_KEY", dawnImage.StorageKey)
@@ -220,7 +220,7 @@ public sealed class ExportTests(TestApp app)
         var upload = await SaveOriginalAsync(site.Id, tiff);
         var webCopy = await SaveWebCopyAsync(site.Id, upload.StorageKey);
         var posts = Posts(site.Id);
-        var body = new PostBody(
+        var body = new RichText(
             """
             {"ops":[
               {"insert":"See "},{"insert":"the gardens","attributes":{"bold":true,"link":"/collections/gardens"}},{"insert":"\n"},
@@ -235,7 +235,7 @@ public sealed class ExportTests(TestApp app)
                 .Replace("UPLOAD_KEY", upload.StorageKey)
         );
         await posts.AddAsync(new PostTitle("Spring notes"), new PostSlug("spring-notes"), body, PostStatus.Published);
-        await posts.AddAsync(new PostTitle("Unfinished"), new PostSlug("unfinished"), PostBody.Empty, PostStatus.Draft);
+        await posts.AddAsync(new PostTitle("Unfinished"), new PostSlug("unfinished"), RichText.Empty, PostStatus.Draft);
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
 
         var response = await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken);
@@ -280,7 +280,7 @@ public sealed class ExportTests(TestApp app)
         var shown = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
         await SaveWebCopyAsync(site.Id, shown.StorageKey);
         var withoutWebCopy = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
-        var body = new PostBody(
+        var body = new RichText(
             """
             {"ops":[
               {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","width":10,"height":10,"alt":"First"}}},
@@ -325,7 +325,7 @@ public sealed class ExportTests(TestApp app)
         );
         var upload = await SaveOriginalAsync(from.Id, [(byte)'I', (byte)'I', 0x2A, 0, 9]);
         await SaveWebCopyAsync(from.Id, upload.StorageKey);
-        var body = new PostBody(
+        var body = new RichText(
             """
             {"ops":[
               {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY","layout":"floatLeft","caption":"Early light"}}},
@@ -382,12 +382,12 @@ public sealed class ExportTests(TestApp app)
         Assert.NotNull(imported);
         Assert.NotNull(imported.PublishedAt);
         Assert.Equal(DateText.DateTimeAttribute(published.Value), DateText.DateTimeAttribute(imported.PublishedAt.Value));
-        var blocks = PostDocumentParser.Parse(imported.Body).Blocks;
+        var blocks = RichTextParser.Parse(imported.Body).Blocks;
         Assert.Equal(
             new WorkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.FloatLeft, "Early light"),
             blocks.OfType<WorkEmbedBlock>().Single()
         );
-        var image = blocks.OfType<PostImageEmbedBlock>().Single();
+        var image = blocks.OfType<UploadedImageEmbedBlock>().Single();
         Assert.Equal((uploaded.StorageKey, "A study"), (image.StorageKey, image.Alt));
         // the post shows on the work's page, as one written here would
         Assert.Single(await toPosts.GetPublishedMentioningWorkAsync(toDawn.Id));
@@ -421,7 +421,7 @@ public sealed class ExportTests(TestApp app)
             ]
         );
         var dawn = (await fromCatalog.Works.GetAllAsync()).Single(work => work.Name.Value == "Dawn");
-        var body = new PostBody(
+        var body = new RichText(
             """
             {"ops":[
               {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},
@@ -637,7 +637,7 @@ public sealed class ExportTests(TestApp app)
                 images: [dawnImage]
             )
         );
-        var body = new PostBody(
+        var body = new RichText(
             """{"ops":[{"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},{"insert":"\n"}]}"""
                 .Replace("WORK_ID", $"{dawn.Id.Value}")
                 .Replace("WORK_KEY", dawnImage.StorageKey)
@@ -681,7 +681,7 @@ public sealed class ExportTests(TestApp app)
         Assert.NotNull(imported);
         Assert.Equal(
             new WorkEmbedBlock(toDawn.Id, toImage.StorageKey, EmbedImageSize.Medium, EmbedLayout.Center, Caption: null),
-            Assert.Single(PostDocumentParser.Parse(imported.Body).Blocks.OfType<WorkEmbedBlock>())
+            Assert.Single(RichTextParser.Parse(imported.Body).Blocks.OfType<WorkEmbedBlock>())
         );
     }
 

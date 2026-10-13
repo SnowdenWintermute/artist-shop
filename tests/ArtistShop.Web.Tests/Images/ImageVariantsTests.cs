@@ -30,7 +30,7 @@ public sealed class ImageVariantsTests
         Assert.Equal(expected, ImageVariants.WidthsFor(imageWidth));
     }
 
-    // the rule PostImageEmbed.razor.js decides whether the lightbox checkbox is on by
+    // the rule EditorUploadedImageEmbed.razor.js decides whether the lightbox checkbox is on by
     [Theory]
     [InlineData(1)]
     [InlineData(120)]
@@ -51,7 +51,7 @@ public sealed class ImageVariantsTests
         Assert.Equal(expected, ImageVariants.LargestWidthFor(imageWidth));
     }
 
-    // the rule PostImageEmbed.razor.js picks a post image's file by
+    // the rule EditorUploadedImageEmbed.razor.js picks a post image's file by
     [Theory]
     [InlineData(1)]
     [InlineData(120)]

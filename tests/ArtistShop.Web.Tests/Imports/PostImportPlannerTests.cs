@@ -74,7 +74,7 @@ public class PostImportPlannerTests
 
         Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
         Assert.Equal(["Dawn"], item.PictureOnlyWorks);
-        var image = Assert.Single(DocumentOf(item).Blocks.OfType<PostImageEmbedBlock>());
+        var image = Assert.Single(DocumentOf(item).Blocks.OfType<UploadedImageEmbedBlock>());
         Assert.Equal("Dawn", image.Alt);
         Assert.Equal("Early", image.Caption);
         Assert.Equal(EmbedLayout.FloatLeft, image.Layout);
@@ -100,7 +100,7 @@ public class PostImportPlannerTests
 
         var item = PlanOne(Folder("spring", PostJson("Spring", $"{image},{image}"), "image-1-original.jpg"));
 
-        var embeds = DocumentOf(item).Blocks.OfType<PostImageEmbedBlock>().ToList();
+        var embeds = DocumentOf(item).Blocks.OfType<UploadedImageEmbedBlock>().ToList();
         Assert.Equal(2, embeds.Count);
         Assert.Equal(embeds[0].StorageKey, embeds[1].StorageKey);
         Assert.True(embeds[0].OpensLightbox);
@@ -124,7 +124,7 @@ public class PostImportPlannerTests
         var item = PlanOne(Folder("spring", PostJson("Spring", """{"insert":"click","attributes":{"link":"javascript:alert(1)"}}""")));
 
         Assert.Equal(PostImportOutcome.Refused, item.Outcome);
-        Assert.Equal([PostDocumentParser.DroppedLinkProblem("javascript:alert(1)")], item.Problems);
+        Assert.Equal([RichTextParser.DroppedLinkProblem("javascript:alert(1)")], item.Problems);
     }
 
     [Fact]
@@ -221,9 +221,9 @@ public class PostImportPlannerTests
 
         var body = PostImportPlanner.Finish(DocumentOf(item), new Dictionary<string, ImageUploadResult> { [placeholder] = upload });
 
-        var saved = Assert.Single(PostDocumentParser.Parse(body).Blocks.OfType<PostImageEmbedBlock>());
+        var saved = Assert.Single(RichTextParser.Parse(body).Blocks.OfType<UploadedImageEmbedBlock>());
         Assert.Equal(("cccccccccccccccccccccccccccccccc", 1200, 900, "data:image/webp;base64,AAAA", "Pencil"), (saved.StorageKey, saved.Width, saved.Height, saved.BlurDataUri, saved.Alt));
     }
 
-    private static PostDocument DocumentOf(PostImportItem item) => Unwrap.Value(item.Document);
+    private static RichTextDocument DocumentOf(PostImportItem item) => Unwrap.Value(item.Document);
 }

@@ -1,8 +1,8 @@
 // The dialog the editor's Video button, and a video embed's Change video, open. The server reads
 // a pasted YouTube or Vimeo link into which video it is, and the dialog says so when it can't,
-// rather than closing. Imported by PostBodyEditor.razor.js, which finds the element by its id
+// rather than closing. Imported by RichTextEditor.razor.js, which finds the element by its id
 
-/** @typedef {import("./PostVideoEmbed.razor.js").VideoSource} VideoSource */
+/** @typedef {import("./EditorVideoEmbed.razor.js").VideoSource} VideoSource */
 
 export class VideoAddressDialog extends HTMLElement {
   /** @type {AbortController | null} */

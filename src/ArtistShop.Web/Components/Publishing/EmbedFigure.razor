@@ -68,7 +68,7 @@
   private string BlurStyle => BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
 }
 
-@* An image embed in a post, placed as it was in the editor, from the same EmbedLayoutClasses. The
+@* An image embed in the text, placed as it was in the editor, from the same EmbedLayoutClasses. The
    figure is the size's width, so a caption wraps under the image rather than widening it, and the
    image fills it, stretched if the file is narrower *@
 <div class="@EmbedLayoutClasses.For(Layout)">

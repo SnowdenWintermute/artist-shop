@@ -2,7 +2,7 @@ namespace ArtistShop.Web.Components.Publishing;
 
 using ArtistShop.Web.Domain.Publishing;
 
-// The one place a video's addresses are built, for the post page and the editor alike: the player
+// The one place a video's addresses are built, for the page and the editor alike: the player
 // the page embeds, and the video's own page, which the editor shows as the embed's link. Each
 // player is its site's privacy-minded one: youtube-nocookie sets no cookies until the video plays,
 // and Vimeo's dnt stops it tracking the visitor

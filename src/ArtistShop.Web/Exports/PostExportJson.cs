@@ -41,13 +41,13 @@ public static class PostExportJson
     // from it is left out. Sha256ByStorageKey holds each work embed's original's hash
     public static string Write(
         Post post,
-        PostDocument document,
-        IReadOnlyDictionary<PostBlock, PostExportImage> images,
+        RichTextDocument document,
+        IReadOnlyDictionary<RichTextBlock, PostExportImage> images,
         IReadOnlyDictionary<string, WorkImageWithWork> workImages,
         IReadOnlyDictionary<string, string> sha256ByStorageKey
     )
     {
-        var body = PostDeltaWriter.Delta(
+        var body = RichTextDeltaWriter.Delta(
             document,
             block =>
                 block switch
@@ -56,7 +56,7 @@ public static class PostExportJson
                         when images.TryGetValue(embed, out var image)
                             && WorkEmbeds.SourceOf(embed, workImages) is { } source => new JsonObject
                         {
-                            [PostDocumentParser.WorkEmbedName] = PostDeltaWriter.WithLook(
+                            [RichTextParser.WorkEmbedName] = RichTextDeltaWriter.WithLook(
                                 new JsonObject
                                 {
                                     [WorkSlugProperty] = source.Work.Slug.Value,
@@ -69,9 +69,9 @@ public static class PostExportJson
                                 embed.Caption
                             ),
                         },
-                    PostImageEmbedBlock embed when images.TryGetValue(embed, out var image) => new JsonObject
+                    UploadedImageEmbedBlock embed when images.TryGetValue(embed, out var image) => new JsonObject
                     {
-                        [PostDocumentParser.PostImageEmbedName] = PostDeltaWriter.ImageValue(
+                        [RichTextParser.UploadedImageEmbedName] = RichTextDeltaWriter.ImageValue(
                             new JsonObject
                             {
                                 [FileProperty] = image.OriginalFileName,
@@ -83,8 +83,8 @@ public static class PostExportJson
                             blur: null
                         ),
                     },
-                    WorkEmbedBlock or PostImageEmbedBlock => null,
-                    _ => PostDeltaWriter.Embed(block),
+                    WorkEmbedBlock or UploadedImageEmbedBlock => null,
+                    _ => RichTextDeltaWriter.Embed(block),
                 }
         );
 

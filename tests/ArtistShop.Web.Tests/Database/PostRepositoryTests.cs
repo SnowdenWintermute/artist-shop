@@ -17,9 +17,9 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     private readonly WorkRepository _works = new(database.Site);
     private readonly CatalogTestData _catalog = new(database.Site);
 
-    private static readonly PostBody TextOnlyBody = new("""{"ops":[{"insert":"Hello\n"}]}""");
+    private static readonly RichText TextOnlyBody = new("""{"ops":[{"insert":"Hello\n"}]}""");
 
-    private static PostBody BodyEmbedding(params WorkId[] workIds) =>
+    private static RichText BodyEmbedding(params WorkId[] workIds) =>
         new(
             JsonSerializer.Serialize(
                 new
@@ -36,7 +36,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
             )
         );
 
-    private Task<PostId> AddPostAsync(PostBody body, PostStatus status)
+    private Task<PostId> AddPostAsync(RichText body, PostStatus status)
     {
         var title = $"Post {Guid.NewGuid():n}";
         return _posts.AddAsync(new PostTitle(title), PostSlug.FromTitle(title), body, status);
@@ -45,7 +45,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     private async Task<Post> GetExistingAsync(PostId id) =>
         await _posts.GetAsync(id) ?? throw new InvalidOperationException("The post is missing.");
 
-    private Task UpdateAsync(Post post, PostBody body, PostStatus status) =>
+    private Task UpdateAsync(Post post, RichText body, PostStatus status) =>
         _posts.UpdateAsync(post.Id, post.Title, post.Slug, body, status);
 
     private async Task<WorkId> AddWorkAsync() =>
@@ -110,7 +110,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     public async Task RefusesABodyThatIsNotADelta()
     {
         var exception = await Assert.ThrowsAsync<PostgresException>(() =>
-            AddPostAsync(new PostBody("""{"text":"Hello"}"""), PostStatus.Draft)
+            AddPostAsync(new RichText("""{"text":"Hello"}"""), PostStatus.Draft)
         );
 
         Assert.Equal("check_posts_body_ops", exception.ConstraintName);
@@ -286,7 +286,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     public async Task AnEmbedWhoseIdIsTextIsIgnored()
     {
         var workId = await AddWorkAsync();
-        var body = new PostBody(
+        var body = new RichText(
             JsonSerializer.Serialize(
                 new
                 {
@@ -314,7 +314,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     public async Task AnEmbedWhoseIdIsNotWholeIsIgnored()
     {
         var workId = await AddWorkAsync();
-        var body = new PostBody(
+        var body = new RichText(
             """{"ops":[{"insert":{"artshop-work":{"workId":"""
                 + (workId.Value - 0.5m).ToString(CultureInfo.InvariantCulture)
                 + """}}},{"insert":"\n"}]}"""
@@ -328,7 +328,7 @@ public sealed class PostRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task AnEmbedWhoseIdIsOutOfRangeStillSaves()
     {
-        var body = new PostBody(
+        var body = new RichText(
             """{"ops":[{"insert":{"artshop-work":{"workId":2147483648}}},{"insert":"\n"}]}"""
         );
 

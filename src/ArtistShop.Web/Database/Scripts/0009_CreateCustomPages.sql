@@ -81,7 +81,7 @@ CREATE TABLE slot_placements (
 -- what deleting a component checks for
 CREATE INDEX index_slot_placements_component_id ON slot_placements (component_id);
 
--- the works an article embeds, as post_and_works_junction is a post's. Derived from its text whenever
+-- the works a text component embeds, as post_and_works_junction is a post's. Derived from its text whenever
 -- it's saved, never written on its own
 CREATE TABLE custom_component_and_works_junction (
     component_id int NOT NULL,

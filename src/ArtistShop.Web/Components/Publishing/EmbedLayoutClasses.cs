@@ -4,7 +4,7 @@ using System.Globalization;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
 
-// How an embed sits in the text, for the post page and the editor alike: the editor's toolbar
+// How an embed sits in the text, for the page and the editor alike: the editor's toolbar
 // hands these to the editor's script, so what the artist sees while writing is what gets published.
 // Below the sm breakpoint a wrapped embed takes a centred line of its own, since a phone is too
 // narrow for text beside it

@@ -5,7 +5,7 @@
   [Parameter, EditorRequired]
   public PostListItem Post { get; set; } = default!;
 
-  private string? Excerpt => PostExcerpt.From(PostDocumentParser.Parse(Post.Body));
+  private string? Excerpt => PostExcerpt.From(RichTextParser.Parse(Post.Body));
 }
 
 @* The title links to the post. The excerpt is cut to a few lines here, whatever the screen's width *@

@@ -37,7 +37,7 @@ public static class ImageUploadEndpoints
     public const string WorkImageUploadPath = "/admin/uploads/work-image";
 
     // the post editor's script sends its images here
-    public const string PostImageUploadPath = "/admin/uploads/post-image";
+    public const string RichTextImageUploadPath = "/admin/uploads/rich-text-image";
 
     // the whole-website import's script sends each image here with the work it's for
     public const string AppendWorkImagePath = "/admin/uploads/work-image-appended";
@@ -78,7 +78,7 @@ public static class ImageUploadEndpoints
 
         endpoints
             .MapPost(
-                PostImageUploadPath,
+                RichTextImageUploadPath,
                 (
                     IFormFile file, // as above
                     ImageUploadStore imageUploadStore,

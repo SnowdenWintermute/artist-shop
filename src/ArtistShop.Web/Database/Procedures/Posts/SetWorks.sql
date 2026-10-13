@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS set_post_works;
 
 -- Rebuilds the post's junction rows from its body, so they can't disagree with what the post shows.
--- plpgsql, so post_body_work_ids is looked up when it runs and the files can run in any order
+-- plpgsql, so rich_text_work_ids is looked up when it runs and the files can run in any order
 CREATE FUNCTION set_post_works (p_post_id int) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     DELETE FROM post_and_works_junction
@@ -15,7 +15,7 @@ BEGIN
         work.id
     FROM
         posts AS post
-        CROSS JOIN LATERAL post_body_work_ids(post.body) AS embedded (work_id)
+        CROSS JOIN LATERAL rich_text_work_ids(post.body) AS embedded (work_id)
         -- a work deleted after the editor loaded leaves an embed that renders nothing, not an error
         JOIN works AS work ON work.id = embedded.work_id
     WHERE

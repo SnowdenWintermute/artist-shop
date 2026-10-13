@@ -5,19 +5,30 @@ using ArtistShop.Web.Domain.Website;
 // what the admin calls each type, in the website's words, and the names new components get from it
 public static class CustomComponentNames
 {
-    // "Article 1", then "Article 2" and on, skipping names already taken
-    public static IEnumerable<string> NewNames(CustomComponentType type, SiteWording wording, IReadOnlySet<string> taken) =>
+    // "Text 1", then "Text 2" and on, skipping names already taken
+    public static IEnumerable<string> NewNames(CustomComponentStarter starter, SiteWording wording, IReadOnlySet<string> taken) =>
         Enumerable
             .Range(1, int.MaxValue)
-            .Select(number => $"{Of(type, wording)} {number}")
+            .Select(number => $"{Of(starter, wording)} {number}")
             .Where(name => !taken.Contains(name));
+
+    // a New button's label, and the start of the names it gives
+    public static string Of(CustomComponentStarter starter, SiteWording wording) =>
+        starter switch
+        {
+            CustomComponentStarter.CollectionViewer => Of(CustomComponentType.CollectionViewer, wording),
+            CustomComponentStarter.PostList => Of(CustomComponentType.PostList, wording),
+            CustomComponentStarter.Text => Of(CustomComponentType.Text, wording),
+            CustomComponentStarter.Heading => "Heading",
+            _ => throw new InvalidOperationException($"{starter} has no name."),
+        };
 
     public static string Of(CustomComponentType type, SiteWording wording) =>
         type switch
         {
             CustomComponentType.CollectionViewer => $"{wording.Collection.SingularHeading} viewer",
             CustomComponentType.PostList => "Post list",
-            CustomComponentType.Article => "Article",
+            CustomComponentType.Text => "Text",
             _ => throw new InvalidOperationException($"{type} has no name."),
         };
 }

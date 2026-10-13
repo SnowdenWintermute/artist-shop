@@ -12,7 +12,7 @@ namespace ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
 // fails with "does not have a constructor"
 public class PostForm : ServerValidatedForm, IValidatableObject
 {
-    public static PostForm ForNew() => new() { Body = PostBody.Empty.Json };
+    public static PostForm ForNew() => new() { Body = RichText.Empty.Json };
 
     public static PostForm FromPost(Post post) =>
         new() { Title = post.Title.Value, Body = post.Body.Json };
@@ -38,9 +38,9 @@ public class PostForm : ServerValidatedForm, IValidatableObject
             );
         }
 
-        if (Body is not null && !PostBody.IsDelta(Body))
+        if (Body is not null && !RichText.IsDelta(Body))
         {
-            yield return new ValidationResult(PostBodyChecks.NotInEditorFormat("post"), [nameof(Body)]);
+            yield return new ValidationResult(RichTextChecks.NotInEditorFormat("post"), [nameof(Body)]);
         }
     }
 
@@ -55,7 +55,7 @@ public class PostForm : ServerValidatedForm, IValidatableObject
     // false when the form says under the text why it can't be saved
     public bool CheckBody(ImageStorage imageStorage)
     {
-        var problems = PostBodyChecks.SaveProblems(ToPostBody(), imageStorage, "post");
+        var problems = RichTextChecks.SaveProblems(ToPostBody(), imageStorage, "post");
 
         foreach (var problem in problems)
         {
@@ -69,5 +69,5 @@ public class PostForm : ServerValidatedForm, IValidatableObject
 
     public PostSlug ToPostSlug() => PostSlug.FromTitle(Unwrap.Value(Title));
 
-    public PostBody ToPostBody() => new(Unwrap.Value(Body));
+    public RichText ToPostBody() => new(Unwrap.Value(Body));
 }

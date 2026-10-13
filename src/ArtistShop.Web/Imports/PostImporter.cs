@@ -37,11 +37,11 @@ public static class PostImporter
 
         // The browser said where each upload went, so each must be a file here: the parser drops an
         // image whose key isn't a storage key's shape, and a save refuses one whose file is gone
-        var saved = PostDocumentParser.Parse(body);
+        var saved = RichTextParser.Parse(body);
 
         if (
-            saved.Blocks.OfType<PostImageEmbedBlock>().Count() != document.Blocks.OfType<PostImageEmbedBlock>().Count()
-            || PostImageFiles.MissingFrom(saved, imageStorage).Count > 0
+            saved.Blocks.OfType<UploadedImageEmbedBlock>().Count() != document.Blocks.OfType<UploadedImageEmbedBlock>().Count()
+            || UploadedImageFiles.MissingFrom(saved, imageStorage).Count > 0
         )
         {
             return ImageNotUploadedProblem;

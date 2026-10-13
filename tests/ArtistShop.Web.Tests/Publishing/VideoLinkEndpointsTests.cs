@@ -19,8 +19,8 @@ public class VideoLinkEndpointsTests
 
         // the JSON settings ASP.NET Core writes an endpoint's result with
         var parts = JsonSerializer.Serialize(VideoLinkEndpoints.ToParts(source), JsonSerializerOptions.Web);
-        var blocks = PostDocumentParser.Parse(
-            new PostBody("""{"ops":[{"insert":{"artshop-video":""" + parts + """}},{"insert":"\n"}]}""")
+        var blocks = RichTextParser.Parse(
+            new RichText("""{"ops":[{"insert":{"artshop-video":""" + parts + """}},{"insert":"\n"}]}""")
         ).Blocks;
 
         Assert.Equal(new VideoEmbedBlock(source, EmbedLayout.Center), blocks[0]);

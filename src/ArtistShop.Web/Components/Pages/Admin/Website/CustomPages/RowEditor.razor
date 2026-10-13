@@ -64,25 +64,25 @@
   private Task TakeOutAsync(RowSlot slot, CustomComponent component) =>
     SaveAsync(() => RowSlotRepository.RemovePlacementAsync(slot.Id, component.Id));
 
-  private async Task AddNewAsync(CustomComponentType type)
+  private async Task AddNewAsync(CustomComponentStarter starter)
   {
     var slot = Unwrap.Value(_addingTo);
-    await SaveAsync(() => AddNamedAsync(slot, type));
+    await SaveAsync(() => AddNamedAsync(slot, starter));
     _addingTo = null;
   }
 
   // the first free name; one taken meanwhile by another tab is skipped for the next
-  private async Task AddNamedAsync(RowSlot slot, CustomComponentType type)
+  private async Task AddNamedAsync(RowSlot slot, CustomComponentStarter starter)
   {
     var taken = (await CustomComponentRepository.GetAllAsync())
       .Select(made => made.Component.Name)
       .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    foreach (var name in CustomComponentNames.NewNames(type, Wording, taken))
+    foreach (var name in CustomComponentNames.NewNames(starter, Wording, taken))
     {
       try
       {
-        await CustomComponentRepository.AddToSlotAsync(slot.Id, name, NewCustomComponentSettings.For(type));
+        await CustomComponentRepository.AddToSlotAsync(slot.Id, name, NewCustomComponentSettings.For(starter));
         return;
       }
       catch (NameAlreadyInUseException)

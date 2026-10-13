@@ -94,7 +94,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await new PostRepository(_database.Site).AddAsync(
             new PostTitle($"Sweeper test post {storageKey}"),
             PostSlug.FromTitle($"Sweeper test post {storageKey}"),
-            new PostBody(
+            new RichText(
                 """{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600}}},{"insert":"\n"}]}"""
                     .Replace("KEY", storageKey)
             ),
@@ -118,13 +118,13 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         var slot = Assert.Single(Assert.Single((await pages.GetLayoutAsync(pageId)).Rows).Slots);
         await new CustomComponentRepository(_database.Site).AddToSlotAsync(
             slot.Id,
-            $"Sweeper test article {storageKey}",
-            new ArticleSettings(
-                new PostBody(
+            $"Sweeper test text {storageKey}",
+            new TextSettings(
+                new RichText(
                     """{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600}}},{"insert":"\n"}]}"""
                         .Replace("KEY", storageKey)
                 ),
-                ArticleWidth.Narrow
+                TextWidth.Narrow
             )
         );
 

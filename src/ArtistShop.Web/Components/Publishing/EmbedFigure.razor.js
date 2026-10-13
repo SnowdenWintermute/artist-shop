@@ -1,4 +1,4 @@
-// EmbedFigure.razor's figure, built in the post editor so an image embed looks there as it will on
+// EmbedFigure.razor's figure, built in the editor so an image embed looks there as it will on
 // the page. Imported by the editor's image embeds; the page itself needs no script
 
 /**

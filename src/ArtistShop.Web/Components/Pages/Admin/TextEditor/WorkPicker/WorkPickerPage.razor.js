@@ -1,7 +1,7 @@
-// The pages of the post editor's work picker, which run in a frame inside the editor's dialog.
+// The pages of the editor's work picker, which run in a frame inside the editor's dialog.
 // They tell the editor what was chosen, and pass on Escape, which a frame keeps to itself. Their
 // Back links return to where the list was scrolled through js/scroll-restoration.js
-import { sendToWorkPickerOwner } from "../PostWorkEmbed.razor.js";
+import { sendToWorkPickerOwner } from "../EditorWorkEmbed.razor.js";
 
 customElements.define(
   "work-picker-page",

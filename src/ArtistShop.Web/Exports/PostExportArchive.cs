@@ -7,7 +7,7 @@ using ArtistShop.Web.Images;
 namespace ArtistShop.Web.Exports;
 
 // A post and its parsed body
-public record ExportedPost(Post Post, PostDocument Document);
+public record ExportedPost(Post Post, RichTextDocument Document);
 
 // The post download: a README, an index page, then a folder for each post holding its page, its
 // images and the post.json the post import reads
@@ -52,7 +52,7 @@ public static class PostExportArchive
         foreach (var (post, document) in posts)
         {
             var postFolder = $"{folderName}/{post.Slug.Value}";
-            var images = new Dictionary<PostBlock, PostExportImage>();
+            var images = new Dictionary<RichTextBlock, PostExportImage>();
             var filesByStorageKey = new Dictionary<string, PostExportImage>();
             var sha256ByStorageKey = new Dictionary<string, string>();
 
@@ -179,12 +179,12 @@ public static class PostExportArchive
     private record ImageSource(string StorageKey, int Width, int Height, string Alt, bool KeepsOriginal);
 
     // null for a block that isn't an image, and for a work embed the post page leaves out
-    private static ImageSource? ImageOf(PostBlock block, IReadOnlyDictionary<string, WorkImageWithWork> workImages) =>
+    private static ImageSource? ImageOf(RichTextBlock block, IReadOnlyDictionary<string, WorkImageWithWork> workImages) =>
         block switch
         {
             WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, workImages) is { } source =>
                 new ImageSource(source.Image.StorageKey, source.Image.Width, source.Image.Height, source.Work.Name.Value, KeepsOriginal: false),
-            PostImageEmbedBlock embed => new ImageSource(embed.StorageKey, embed.Width, embed.Height, embed.Alt, KeepsOriginal: true),
+            UploadedImageEmbedBlock embed => new ImageSource(embed.StorageKey, embed.Width, embed.Height, embed.Alt, KeepsOriginal: true),
             _ => null,
         };
 }
