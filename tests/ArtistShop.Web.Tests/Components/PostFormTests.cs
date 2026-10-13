@@ -33,8 +33,9 @@ public sealed class PostFormTests : IDisposable
             Body = $$"""{"ops":[{{ImageOp(KeptKey)}},{{ImageOp(SweptKey)}},{"insert":"\n"}]}""",
         };
 
-        var missing = form.ImagesMissingFrom(_imageStorage);
+        Assert.False(form.CheckBody(_imageStorage));
 
-        Assert.Equal(SweptKey, Assert.Single(missing).StorageKey);
+        var problem = Assert.Single(form.EditContext.GetValidationMessages(form.EditContext.Field(nameof(PostForm.Body))));
+        Assert.Contains(SweptKey, problem);
     }
 }

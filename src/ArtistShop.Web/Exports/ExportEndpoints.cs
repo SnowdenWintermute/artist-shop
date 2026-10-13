@@ -5,6 +5,7 @@ using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
+using ArtistShop.Web.Publishing;
 using ArtistShop.Web.Sites;
 using ArtistShop.Web.Utilities;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -224,19 +225,11 @@ public static class ExportEndpoints
         [
             .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(
                 post,
-                PostImageFiles.WithoutMissing(PostDocumentParser.Parse(post.Body), imageStorage)
+                LoadedPostDocument.Parse(post.Body, imageStorage)
             )),
         ];
 
-        // every work embed's image in one query, however many posts there are
-        var workImages = await workRepository.GetImagesByStorageKeyAsync(
-            [
-                .. posts
-                    .SelectMany(post => post.Document.Blocks.OfType<WorkEmbedBlock>())
-                    .Select(embed => embed.StorageKey)
-                    .Distinct(),
-            ]
-        );
+        var workImages = await LoadedPostDocument.GetWorkImagesAsync(posts.Select(post => post.Document), workRepository);
 
         return (posts, workImages);
     }

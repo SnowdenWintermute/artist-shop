@@ -40,7 +40,7 @@
   }
 
   private async Task LoadAsync() =>
-    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Rows.FirstOrDefault(row => row.Id == RowId);
+    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Row(RowId);
 
   private Task SetWidthsAsync(PageRow row, RowWidths widths) =>
     SaveAsync(() => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, widths, row.Alignment));

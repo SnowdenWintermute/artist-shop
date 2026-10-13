@@ -2,7 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
-using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.WorkPicker;
+using ArtistShop.Web.Components.Pages.Admin.TextEditor.WorkPicker;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;

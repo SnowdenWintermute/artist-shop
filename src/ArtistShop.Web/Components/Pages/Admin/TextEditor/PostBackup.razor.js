@@ -6,9 +6,6 @@ const STORAGE_KEY_PREFIX = "artist-shop:post-backup:";
 const NEW_POST_BACKUP_KEY = "new";
 const WRITE_DELAY_MILLISECONDS = 500;
 
-// the name Blazor gives the text's field; the title's is in data-title-field
-const BODY_FIELD = "Input.Body";
-
 /**
  * @typedef {object} Backup
  * @property {string} title
@@ -221,7 +218,7 @@ class PostBackup extends HTMLElement {
 
   #formValues() {
     const title = this.#field(this.#titleField());
-    const body = this.#field(BODY_FIELD);
+    const body = this.#field(this.#bodyField());
     return title === null || body === null ? null : { title: title.value, body: body.value };
   }
 
@@ -229,6 +226,11 @@ class PostBackup extends HTMLElement {
     return this.dataset.titleField ?? "";
   }
 
+  #bodyField() {
+    return this.dataset.bodyField ?? "";
+  }
+
+  // in the first form, which is the edit form; the video dialog's comes after it
   /** @param {string} name */
   #field(name) {
     const field = this.querySelector("form")?.elements.namedItem(name);

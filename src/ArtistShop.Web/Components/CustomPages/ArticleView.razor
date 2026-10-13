@@ -1,9 +1,8 @@
 @* an article's text, drawn as a post's is, in a readable column or across its slot *@
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain.Catalog
-@using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Images
+@using ArtistShop.Web.Publishing
 @inject ImageStorage ImageStorage
 @inject WorkRepository WorkRepository
 
@@ -11,25 +10,15 @@
   [Parameter, EditorRequired]
   public required ArticleSettings Settings { get; set; }
 
-  private PostDocument? _document;
-  private IReadOnlyDictionary<string, WorkImageWithWork> _workImages = new Dictionary<string, WorkImageWithWork>();
+  private LoadedPostDocument? _loaded;
 
-
-  // as the post page does: the save refuses a missing image, but one saved before that check could still name one
-  protected override async Task OnParametersSetAsync()
-  {
-    var document = PostImageFiles.WithoutMissing(PostDocumentParser.Parse(Settings.Body), ImageStorage);
-
-    _workImages = await WorkRepository.GetImagesByStorageKeyAsync(
-      [.. document.Blocks.OfType<WorkEmbedBlock>().Select(embed => embed.StorageKey).Distinct()]
-    );
-    _document = document;
-  }
+  protected override async Task OnParametersSetAsync() =>
+    _loaded = await LoadedPostDocument.LoadAsync(Settings.Body, ImageStorage, WorkRepository);
 }
 
-@if (_document is { } document)
+@if (_loaded is { } loaded)
 {
   <div class="@ArticleColumns.PageClass(Settings.Width)">
-    <PostDocumentView Document="document" WorkImages="_workImages" />
+    <PostDocumentView Loaded="loaded" />
   </div>
 }

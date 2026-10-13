@@ -1,7 +1,7 @@
 using System.Globalization;
 using ArtistShop.Web.Components.Catalog;
 using ArtistShop.Web.Components.Forms;
-using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts.WorkPicker;
+using ArtistShop.Web.Components.Pages.Admin.TextEditor.WorkPicker;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;

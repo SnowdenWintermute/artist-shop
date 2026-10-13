@@ -12,7 +12,7 @@
   private PageRow? _row;
 
   protected override async Task OnParametersSetAsync() =>
-    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Rows.FirstOrDefault(row => row.Id == RowId);
+    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Row(RowId);
 }
 
 @if (_row is { } row)

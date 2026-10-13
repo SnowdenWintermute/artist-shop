@@ -1,15 +1,13 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
-@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Publishing
 
 @code {
   [Parameter, EditorRequired]
-  public PostDocument Document { get; set; } = default!;
+  public LoadedPostDocument Loaded { get; set; } = default!;
 
-  // the images the work embeds name, by storage key, loaded together by the page
-  [Parameter, EditorRequired]
-  public IReadOnlyDictionary<string, WorkImageWithWork> WorkImages { get; set; } = default!;
+  private PostDocument Document => Loaded.Document;
 
   private bool HasLightboxImages =>
     Document.Blocks.OfType<PostImageEmbedBlock>().Any(PostImageEmbedView.OpensLightbox);
@@ -32,15 +30,15 @@
         break;
 
       case HeadingBlock { Level: HeadingLevel.One } heading:
-        <SectionHeading Class="text-4xl font-bold"><PostInlineText Text="heading.Text" /></SectionHeading>
+        <PageHeading Class="text-4xl font-bold"><PostInlineText Text="heading.Text" /></PageHeading>
         break;
 
       case HeadingBlock { Level: HeadingLevel.Two } heading:
-        <h3 class="font-heading text-2xl font-bold"><PostInlineText Text="heading.Text" /></h3>
+        <SectionHeading Class="text-2xl font-bold"><PostInlineText Text="heading.Text" /></SectionHeading>
         break;
 
       case HeadingBlock heading:
-        <h4 class="text-lg font-bold"><PostInlineText Text="heading.Text" /></h4>
+        <h3 class="text-lg font-bold"><PostInlineText Text="heading.Text" /></h3>
         break;
 
       case BlockquoteBlock quote:
@@ -65,7 +63,7 @@
         </ol>
         break;
 
-      case WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, WorkImages) is { } source:
+      case WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, Loaded.WorkImages) is { } source:
         <WorkEmbedView Embed="embed" Source="source" />
         break;
 

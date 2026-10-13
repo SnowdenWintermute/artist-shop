@@ -8,7 +8,7 @@
 // editor calls it
 import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
 import { indexOfNode } from "/js/quill-document.js";
-import { createEmbedFigure } from "../../../../Publishing/EmbedFigure.razor.js";
+import { createEmbedFigure } from "../../../Publishing/EmbedFigure.razor.js";
 import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
 

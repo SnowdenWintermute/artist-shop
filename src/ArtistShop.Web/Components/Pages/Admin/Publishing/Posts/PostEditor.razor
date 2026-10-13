@@ -3,6 +3,7 @@
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.TextEditor
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
@@ -81,14 +82,8 @@
 
   private async Task SaveAsync()
   {
-    var missingImages = Input.ImagesMissingFrom(ImageStorage);
-
-    var droppedLinks = Input.LinksDropped();
-
-    if (missingImages.Count > 0 || droppedLinks.Count > 0)
+    if (!Input.CheckBody(ImageStorage))
     {
-      Input.AddMissingImageErrors(missingImages);
-      Input.AddDroppedLinkErrors(droppedLinks);
       return;
     }
 
@@ -198,7 +193,8 @@
       }
 
       <PostBackup BackupKey="@(_post is null ? "new" : _post.Id.Value.ToString(CultureInfo.InvariantCulture))"
-                  SavedAt="_post?.UpdatedAt" Noun="post" TitleField="Input.Title" HoldsUnsavedChanges="_formWasPosted">
+                  SavedAt="_post?.UpdatedAt" Noun="post" TitleField="Input.Title" BodyField="Input.Body"
+                  HoldsUnsavedChanges="_formWasPosted">
         <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
           <EditForm EditContext="Input.EditContext" FormName="edit-post" OnValidSubmit="SaveAsync" Enhance class="mb-8">
             <DataAnnotationsValidator />
@@ -255,9 +251,6 @@
           <AntiforgeryToken />
         </form>
       }
-
-      @* the editor's Video button opens this. Outside the post's form, since it has a form of its own *@
-      <VideoAddressDialog />
 
       @if (_post is not null)
       {

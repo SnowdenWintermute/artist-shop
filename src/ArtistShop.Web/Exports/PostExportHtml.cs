@@ -29,8 +29,8 @@ public static class PostExportHtml
     private const string Style = """
         body { max-width: 42rem; margin: 0 auto; padding: 1rem; font-family: system-ui, sans-serif; line-height: 1.5; }
         article { display: flow-root; overflow-wrap: break-word; }
-        article p, article h2, article h3, article blockquote, article ul, article ol { margin: 0; }
-        article p, article h2, article h3, article blockquote, article li { white-space: pre-wrap; }
+        article p, article h1, article h2, article h3, article blockquote, article ul, article ol { margin: 0; }
+        article p, article h1, article h2, article h3, article blockquote, article li { white-space: pre-wrap; }
         article ul, article ol { padding-left: 1.5rem; }
         blockquote { border-left: 4px solid #ccc; padding-left: 1rem; }
         figure { margin: 0.5rem 0; max-width: 100%; }
@@ -162,15 +162,15 @@ public static class PostExportHtml
                 break;
 
             case HeadingBlock { Level: HeadingLevel.One } heading:
-                html.Append($"<h2>{Inline(heading.Text, siteOrigin)}</h2>\n");
+                html.Append($"<h1>{Inline(heading.Text, siteOrigin)}</h1>\n");
                 break;
 
             case HeadingBlock { Level: HeadingLevel.Two } heading:
-                html.Append($"<h3>{Inline(heading.Text, siteOrigin)}</h3>\n");
+                html.Append($"<h2>{Inline(heading.Text, siteOrigin)}</h2>\n");
                 break;
 
             case HeadingBlock heading:
-                html.Append($"<h4>{Inline(heading.Text, siteOrigin)}</h4>\n");
+                html.Append($"<h3>{Inline(heading.Text, siteOrigin)}</h3>\n");
                 break;
 
             case BlockquoteBlock quote:

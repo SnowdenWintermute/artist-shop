@@ -6,4 +6,7 @@ namespace ArtistShop.Web.Components.Publishing;
 public static class PostColumn
 {
     public const string WidthClass = "box-content max-w-[42rem]";
+
+    // that column, centred in a wider space
+    public const string CenteredClass = $"mx-auto w-full {WidthClass}";
 }

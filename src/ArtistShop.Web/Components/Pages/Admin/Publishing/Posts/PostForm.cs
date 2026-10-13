@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ArtistShop.Web.Components.Forms;
+using ArtistShop.Web.Components.Pages.Admin.TextEditor;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
@@ -39,10 +40,7 @@ public class PostForm : ServerValidatedForm, IValidatableObject
 
         if (Body is not null && !PostBody.IsDelta(Body))
         {
-            yield return new ValidationResult(
-                "The post's text didn't arrive in the editor's format, so nothing was saved.",
-                [nameof(Body)]
-            );
+            yield return new ValidationResult(PostBodyChecks.NotInEditorFormat("post"), [nameof(Body)]);
         }
     }
 
@@ -54,35 +52,17 @@ public class PostForm : ServerValidatedForm, IValidatableObject
         );
     }
 
-    // saving would keep names of files that are gone
-    public IReadOnlyList<PostImageEmbedBlock> ImagesMissingFrom(ImageStorage imageStorage) =>
-        PostImageFiles.MissingFrom(PostDocumentParser.Parse(ToPostBody()), imageStorage);
-
-    public void AddMissingImageErrors(IEnumerable<PostImageEmbedBlock> images)
+    // false when the form says under the text why it can't be saved
+    public bool CheckBody(ImageStorage imageStorage)
     {
-        foreach (var image in images)
+        var problems = PostBodyChecks.SaveProblems(ToPostBody(), imageStorage, "post");
+
+        foreach (var problem in problems)
         {
-            AddServerError(nameof(Body), MissingImageProblem(image, "post"));
+            AddServerError(nameof(Body), problem);
         }
-    }
 
-    // also an article's, whose text is written in the same editor
-    public static string MissingImageProblem(PostImageEmbedBlock image, string noun)
-    {
-        var named = image.Alt is "" ? "An image" : $"The image \"{image.Alt}\"";
-
-        return $"{named} is no longer on the server because the {noun} wasn't saved in time. Remove it and upload it again.";
-    }
-
-    // the page would drop these, so they're refused rather than lost
-    public IReadOnlyList<string> LinksDropped() => PostDocumentParser.LinksDropped(ToPostBody());
-
-    public void AddDroppedLinkErrors(IEnumerable<string> links)
-    {
-        foreach (var link in links)
-        {
-            AddServerError(nameof(Body), PostDocumentParser.DroppedLinkProblem(link));
-        }
+        return problems.Count == 0;
     }
 
     public PostTitle ToPostTitle() => new(Unwrap.Value(Title).Trim());

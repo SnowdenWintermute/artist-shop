@@ -9,7 +9,7 @@ public static class ArticleColumns
     public static string PageClass(ArticleWidth width) =>
         width switch
         {
-            ArticleWidth.Narrow => $"mx-auto w-full {PostColumn.WidthClass}",
+            ArticleWidth.Narrow => PostColumn.CenteredClass,
             ArticleWidth.Full => "w-full",
             _ => throw new InvalidOperationException($"{width} has no class."),
         };

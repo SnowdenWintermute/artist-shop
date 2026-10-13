@@ -59,4 +59,8 @@ public record RowSlot(RowSlotId Id, IReadOnlyList<CustomComponent> Stack);
 public record PageRow(PageRowId Id, RowWidths Widths, RowAlignment Alignment, IReadOnlyList<RowSlot> Slots);
 
 // a page's rows, top to bottom
-public record CustomPageLayout(IReadOnlyList<PageRow> Rows);
+public record CustomPageLayout(IReadOnlyList<PageRow> Rows)
+{
+    // null when the row isn't on this page, as when it was removed
+    public PageRow? Row(PageRowId id) => Rows.FirstOrDefault(row => row.Id == id);
+}

@@ -3,9 +3,9 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Images
+@using ArtistShop.Web.Publishing
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @inject PostRepository PostRepository
@@ -24,12 +24,7 @@
 
   private LoadedPost? _loaded;
 
-  private record LoadedPost(
-    Post Post,
-    PostDocument Document,
-    IReadOnlyDictionary<string, WorkImageWithWork> WorkImages,
-    CustomPage BlogPage
-  );
+  private record LoadedPost(Post Post, LoadedPostDocument Document, CustomPage BlogPage);
 
   protected override async Task OnParametersSetAsync()
   {
@@ -49,16 +44,11 @@
       return;
     }
 
-    // The post's save refuses an uploaded image whose file is gone, but a post saved before that
-    // check could still name one
-    var document = PostImageFiles.WithoutMissing(PostDocumentParser.Parse(post.Body), ImageStorage);
-
-    // every work embed's image in one query, however many the post has
-    var workImages = await WorkRepository.GetImagesByStorageKeyAsync(
-      [.. document.Blocks.OfType<WorkEmbedBlock>().Select(embed => embed.StorageKey).Distinct()]
+    _loaded = new LoadedPost(
+      post,
+      await LoadedPostDocument.LoadAsync(post.Body, ImageStorage, WorkRepository),
+      await CustomPageRepository.GetBlogAsync()
     );
-
-    _loaded = new LoadedPost(post, document, workImages, await CustomPageRepository.GetBlogAsync());
   }
 }
 
@@ -96,7 +86,7 @@
       }
     </div>
 
-    <PostDocumentView Document="loaded.Document" WorkImages="loaded.WorkImages" />
+    <PostDocumentView Loaded="loaded.Document" />
 
   </main>
 }

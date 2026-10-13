@@ -2,7 +2,7 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Forms
-@using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts
+@using ArtistShop.Web.Components.Pages.Admin.TextEditor
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Images
@@ -60,7 +60,7 @@
 
   private async Task SaveAsync()
   {
-    if (_component is null || Input is null || !Input.CheckText(ImageStorage))
+    if (_component is null || Input is null || !Input.CheckBody(ImageStorage, _component.Component.Settings))
     {
       return;
     }
@@ -132,7 +132,7 @@ Input.ToSettings(_component.Component.Settings));
 
       @if (component.Component.Settings is ArticleSettings)
       {
-        <PostBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="article" TitleField="Input.Name"
+        <PostBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="article" TitleField="Input.Name" BodyField="Input.Body"
                     HoldsUnsavedChanges="_formWasPosted">
           <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
             @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
@@ -146,9 +146,6 @@ Input.ToSettings(_component.Component.Settings));
             </SubmitOnChange>
           </ComponentSettingsForm>
         </PostBackup>
-
-        @* the editor's Video button opens this. Outside the form, since it has a form of its own *@
-        <VideoAddressDialog />
       }
       else
       {

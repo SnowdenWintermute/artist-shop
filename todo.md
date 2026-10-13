@@ -6,6 +6,22 @@
 not.** Next session: review everything built for custom pages so far, with Mike, before step 3, Image (whose
 settings are designed with Mike first).
 
+**Review of steps 1-2, 2026-10-13 (From Claude), uncommitted, 1148 tests pass, not browser-checked:**
+- The text editor's shared pieces moved to `Components/Pages/Admin/TextEditor/` (PostBodyEditor, PostBackup,
+  the embeds and their toolbars, VideoAddressDialog, WorkPicker). Posts/ keeps only the post pages and `PostForm`.
+- `Publishing/LoadedPostDocument`: parse, leave out missing uploads, load the work embeds' images. Used by the post
+  page, `ArticleView` and the export; `PostDocumentView` takes it.
+- `TextEditor/PostBodyChecks`: the save checks (missing uploads, dropped links, not in the editor's format) for
+  `PostForm.CheckBody` and `CustomComponentForm.CheckBody`. An article posted without its text is now refused.
+- `PostBackup` takes `BodyField` like `TitleField`, and draws `VideoAddressDialog` after its form, so pages don't.
+- SQL: `post_body_work_ids` and `post_body_image_storage_keys` (`Procedures/PostBodies/`) hold the jsonpaths; the
+  post and component callers became plpgsql so the files can run in any order.
+- Headings: header 1/2/3 are h1/h2/h3 again (h1 text-4xl, h2 text-2xl, h3 text-lg); the post title is unchanged.
+  Exported posts match.
+- `PostColumn.CenteredClass`, `CustomPageLayout.Row(id)`.
+- Still to do: deleting components (on the library page). Collection viewer's own h1: Mike wants it to become just
+  a grid, with a separate heading component above it; to design.
+
 Step 2, names, the component settings page and Article (agreed 2026-10-13):
 - Every component has a name, unique per website (`unique_custom_components_name`, case-insensitive). A new one gets
   "<type> N", the lowest free number (`CustomComponentNames.NewNames`; `RowEditor` retries past a name taken

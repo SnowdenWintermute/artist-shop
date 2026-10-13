@@ -1,7 +1,7 @@
 // The work embed: a block in a post showing one of a work's images. The Delta holds only
 // what PostDocumentParser reads, and the public page looks up the title and image when it renders.
 // Imported by PostBodyEditor.razor.js; nothing here runs until an editor calls it
-import { createEmbedFigure } from "../../../../Publishing/EmbedFigure.razor.js";
+import { createEmbedFigure } from "../../../Publishing/EmbedFigure.razor.js";
 import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./PostEmbedToolbar.razor.js";
 

@@ -23,6 +23,10 @@
   [Parameter, EditorRequired]
   public string TitleField { get; set; } = default!;
 
+  // the form's field PostBodyEditor writes the text to
+  [Parameter, EditorRequired]
+  public string BodyField { get; set; } = default!;
+
   // true when the page came back from a save that didn't go through: the form already holds the
   // latest edits, so there is nothing to offer back, and a copy that matches it isn't saved yet
   [Parameter]
@@ -36,7 +40,7 @@
    as the artist types, and offers it back here when the page opens without it. The post editor's,
    and an article's on its component page *@
 <post-backup class="block" data-backup-key="@BackupKey" data-saved-version="@SavedVersion" data-title-field="@TitleField"
-             data-holds-unsaved-changes="@HoldsUnsavedChanges">
+             data-body-field="@BodyField" data-holds-unsaved-changes="@HoldsUnsavedChanges">
   <div class="mb-4 border border-rule bg-page p-3" data-part="notice" role="status" hidden>
     <p class="mb-2">
       You have unsaved changes to this @Noun from <span data-part="backed-up-at"></span>, kept in this
@@ -52,4 +56,7 @@
   </div>
 
   @ChildContent
+
+  @* the editor's Video button opens this. After the form, since it has a form of its own *@
+  <VideoAddressDialog />
 </post-backup>

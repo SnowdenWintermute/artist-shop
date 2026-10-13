@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ArtistShop.Web.Components.Forms;
-using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
+using ArtistShop.Web.Components.Pages.Admin.TextEditor;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
@@ -38,39 +38,31 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
     {
         if (Body is not null && !PostBody.IsDelta(Body))
         {
-            yield return new ValidationResult(
-                "The text didn't arrive in the editor's format, so nothing was saved.",
-                [nameof(Body)]
-            );
+            yield return new ValidationResult(PostBodyChecks.NotInEditorFormat("article"), [nameof(Body)]);
         }
     }
 
     public void AddNameTakenError() => AddServerError(nameof(Name), "Another component has this name.");
 
-    // An article's text, refused when the page would drop links from it or it names images gone
-    // from the server, as a post's is. False when the form says under the text why
-    public bool CheckText(ImageStorage imageStorage)
+    // An article's text, refused as a post's is. A post that left it out, as a script might, is refused
+    // too. False when the form says under the text why
+    public bool CheckBody(ImageStorage imageStorage, CustomComponentSettings saved)
     {
-        if (Body is null)
+        if (saved is not ArticleSettings)
         {
             return true;
         }
 
-        var body = new PostBody(Body);
-        var missingImages = PostImageFiles.MissingFrom(PostDocumentParser.Parse(body), imageStorage);
-        var droppedLinks = PostDocumentParser.LinksDropped(body);
+        IReadOnlyList<string> problems = Body is null
+            ? [PostBodyChecks.NotInEditorFormat("article")]
+            : PostBodyChecks.SaveProblems(new PostBody(Body), imageStorage, "article");
 
-        foreach (var image in missingImages)
+        foreach (var problem in problems)
         {
-            AddServerError(nameof(Body), PostForm.MissingImageProblem(image, "article"));
+            AddServerError(nameof(Body), problem);
         }
 
-        foreach (var link in droppedLinks)
-        {
-            AddServerError(nameof(Body), PostDocumentParser.DroppedLinkProblem(link));
-        }
-
-        return missingImages.Count == 0 && droppedLinks.Count == 0;
+        return problems.Count == 0;
     }
 
     public string ToName() => Unwrap.Value(Name).Trim();
