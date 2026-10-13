@@ -86,4 +86,8 @@ public static class SqlStates
 
     // UpdateCustomComponent
     public const string CustomComponentNoLongerExists = "SH026";
+
+    // CheckBlogPageHasPostList, from DeleteCustomComponent, RemoveSlotPlacement, DeleteRowSlot,
+    // DeletePageRow, MakeCustomPageBlog
+    public const string BlogPageNeedsPostList = "SH027";
 }

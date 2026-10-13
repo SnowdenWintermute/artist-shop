@@ -24,5 +24,7 @@ BEGIN
         widths = p_widths
     WHERE
         id = p_row_id;
+
+    PERFORM check_blog_page_has_post_list();
 END;
 $$;

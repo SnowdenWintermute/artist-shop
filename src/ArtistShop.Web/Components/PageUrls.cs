@@ -135,9 +135,11 @@ public static class PageUrls
 
     public const string NewRowKey = "new";
 
-    public const string ComponentPageKey = "page";
+    // not "page" and "row": the components in the page's preview read its address too, and a post list
+    // takes "page" as its page of posts
+    public const string ComponentPageKey = "fromPage";
 
-    public const string ComponentRowKey = "row";
+    public const string ComponentRowKey = "fromRow";
 
     // from a row's editor, which its Up link goes back to and its preview shows
     public static string EditCustomComponent(CustomComponentId id, CustomPageId pageId, PageRowId rowId) =>

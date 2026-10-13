@@ -185,6 +185,48 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task ADeletedComponentIsTakenOffEveryPageItWasOn()
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        await _slots.AddAsync(rowId, slotCount: 1);
+        var slots = (await RowAsync(pageId, rowId)).Slots;
+        var otherPageId = await AddPageAsync();
+        var otherRowId = await _rows.AddAsync(otherPageId);
+        var viewer = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), new CollectionViewerSettings());
+        var kept = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), new CollectionViewerSettings());
+        await _slots.PlaceAsync(slots[1].Id, viewer);
+        await _slots.PlaceAsync(Assert.Single((await RowAsync(otherPageId, otherRowId)).Slots).Id, viewer);
+
+        await _components.DeleteAsync(viewer);
+        // gone already: nothing to do
+        await _components.DeleteAsync(viewer);
+
+        Assert.Null(await _components.GetAsync(viewer));
+        Assert.Equal([[kept], []], (await RowAsync(pageId, rowId)).Slots.Select(slot => slot.Stack.Select(component => component.Id)));
+        Assert.Empty(Assert.Single((await RowAsync(otherPageId, otherRowId)).Slots).Stack);
+    }
+
+    // the mention goes with the component; the work stays
+    [Fact]
+    public async Task DeletingAComponentLeavesTheWorksItMentions()
+    {
+        var workId = (await new CatalogTestData(database.Site).AddPaintingAsync($"Painting {Guid.NewGuid():n}", [], [], [])).Id;
+        var embedding = new RichText(
+            """{"ops":[{"insert":{"artshop-work":{"workId":ID}}},{"insert":"\n"}]}""".Replace("ID", $"{workId.Value}")
+        );
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
+        var id = await _components.AddToSlotAsync(slotId, UniqueName(), new TextSettings(embedding, TextWidth.Narrow));
+
+        await _components.DeleteAsync(id);
+
+        Assert.Empty(await _pages.GetMentioningWorkAsync(workId));
+        Assert.NotNull(await new WorkRepository(database.Site).GetByIdAsync(workId));
+    }
+
+    [Fact]
     public async Task SavingADeletedComponentSaysItChanged() =>
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
             _components.UpdateAsync(new CustomComponentId(int.MaxValue), UniqueName(), new PostListSettings())

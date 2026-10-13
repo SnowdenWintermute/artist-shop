@@ -26,7 +26,14 @@ public class PageRowRepository(SiteDatabase database)
     {
         await using var connection = await database.OpenConnectionAsync();
 
-        await connection.ExecuteAsync("SELECT delete_page_row(@Id)", new { Id = id.Value });
+        try
+        {
+            await connection.ExecuteAsync("SELECT delete_page_row(@Id)", new { Id = id.Value });
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
+        {
+            throw new BlogPageNeedsPostListException(exception.MessageText, exception);
+        }
     }
 
     // rowIds is every row on the page, in the new order

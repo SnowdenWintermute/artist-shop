@@ -10,7 +10,9 @@ customElements.define(
     #observer = null;
 
     connectedCallback() {
-      this.#observer = new ResizeObserver(() => this.#fit());
+      // on the next frame: the zoom resizes the child within this box, and changing layout inside the
+      // callback makes the browser report a ResizeObserver loop error
+      this.#observer = new ResizeObserver(() => requestAnimationFrame(() => this.#fit()));
       this.#observer.observe(this);
     }
 

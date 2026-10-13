@@ -1,6 +1,7 @@
 @page "/admin/website/components/{Id:int}"
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Pages.Admin.TextEditor
 @using ArtistShop.Web.Database
@@ -15,6 +16,8 @@
 @inject NavigationManager NavigationManager
 
 @code {
+  private const string DeleteDialogId = "delete-custom-component";
+
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
 
@@ -37,6 +40,7 @@
   // a successful save redirects, so a page rendered from a post is one that didn't go through
   private bool _formWasPosted;
   private bool _deletedElsewhere;
+  private bool _isBlogPagesOnlyPostList;
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -55,6 +59,7 @@
     if (_component is not null)
     {
       Input ??= CustomComponentForm.From(_component.Component);
+      _isBlogPagesOnlyPostList = await CustomComponentRepository.IsBlogPagesOnlyPostListAsync(ComponentId);
     }
   }
 
@@ -85,6 +90,32 @@ Input.ToSettings(_component.Component.Settings));
     { ["saved"] = true }));
   }
 
+  private async Task DeleteAsync()
+  {
+    try
+    {
+      await CustomComponentRepository.DeleteAsync(ComponentId);
+    }
+    catch (BlogPageNeedsPostListException)
+    {
+      // the other post list was taken off the blog page meanwhile
+      _isBlogPagesOnlyPostList = true;
+      return;
+    }
+
+    NavigationManager.NavigateTo(UpHref);
+  }
+
+  // the row editor this was opened from, or the Pages list
+  private string UpHref =>
+    _fromPage is not null && FromRowId is int rowId ? PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId)) :
+PageUrls.CustomPageList;
+
+  private static string DeleteWarning(CustomComponentInUse component) =>
+    component.PageNames.Count == 0
+      ? "It isn't on any page."
+      : $"It will be taken off {string.Join(", ", component.PageNames.Order(StringComparer.CurrentCultureIgnoreCase))}.";
+
   // the pages besides the one this was opened from, which share every change
   private IReadOnlyList<string> AlsoOn(CustomComponentInUse component) =>
     [.. component.PageNames.Where(name => name != _fromPage?.Name).Order(StringComparer.CurrentCultureIgnoreCase)];
@@ -112,8 +143,22 @@ Input.ToSettings(_component.Component.Settings));
     {
       var component = _component;
 
-      <h1 class="mb-1 text-xl">@component.Component.Name</h1>
+      <div class="mb-1 flex flex-wrap items-baseline justify-between gap-4">
+        <h1 class="text-xl">@component.Component.Name</h1>
+        @if (!_isBlogPagesOnlyPostList)
+        {
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">
+            Delete component
+          </ButtonBasic>
+        }
+      </div>
       <p class="mb-4 text-sm text-ink-faded">@CustomComponentNames.Of(component.Component.Settings.Type, Wording)</p>
+
+      @if (_isBlogPagesOnlyPostList)
+      {
+        <p class="mb-4">This is the blog page's post list, so it can't be deleted. Make another page the blog page first.
+        </p>
+      }
 
       @if (AlsoOn(component) is { Count: > 0 } alsoOn)
       {
@@ -132,8 +177,8 @@ Input.ToSettings(_component.Component.Settings));
 
       @if (component.Component.Settings is TextSettings)
       {
-        <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name" BodyField="Input.Body"
-                    HoldsUnsavedChanges="_formWasPosted">
+        <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name"
+                        BodyField="Input.Body" HoldsUnsavedChanges="_formWasPosted">
           <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
             @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
             <RichTextEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
@@ -158,6 +203,14 @@ Input.ToSettings(_component.Component.Settings));
         @* keyed by the save, so the island shows the row afresh after one *@
         <SavedRowPreview @rendermode="InteractiveServer" @key="component.UpdatedAt" Page="_fromPage"
                          RowId="new PageRowId(previewRowId)" />
+      }
+
+      @if (!_isBlogPagesOnlyPostList)
+      {
+        <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
+                           OnConfirm="DeleteAsync">
+          @DeleteWarning(component)
+        </ConfirmFormDialog>
       }
     }
   </AdminPanel>

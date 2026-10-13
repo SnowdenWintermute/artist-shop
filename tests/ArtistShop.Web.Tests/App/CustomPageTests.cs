@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.CustomPages;
+using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
@@ -321,6 +322,110 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Contains("<rich-text-editor", settings);
         Assert.Contains("data-backup-key=\"component-", settings);
         Assert.Contains("Row on Home", settings);
+    }
+
+    // the preview's post list reads the address too, and once took the blog page's id for a page of posts
+    // that didn't exist, and redirected
+    [Fact]
+    public async Task APostListsSettingsPageKeepsTheRowItWasOpenedFrom()
+    {
+        var site = await app.MakeSiteAsync();
+        var blog = await PagesOf(site).GetBlogAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(blog.Id)).Rows);
+        var component = Assert.Single(Assert.Single(row.Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var settings = await client.GetStringAsync(PageUrls.EditCustomComponent(component.Id, blog.Id, row.Id), TestContext.Current.CancellationToken);
+
+        Assert.Contains("Row on Blog", settings);
+    }
+
+    // so a post's Up link always leads to its posts
+    [Fact]
+    public async Task TheBlogPagesOnlyPostListCantBeTakenOff()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var pages = PagesOf(site);
+        var blog = await pages.GetBlogAsync();
+        var row = Assert.Single((await pages.GetLayoutAsync(blog.Id)).Rows);
+        var slot = Assert.Single(row.Slots);
+        var postList = Assert.Single(slot.Stack);
+        var components = new CustomComponentRepository(database);
+        var slots = new RowSlotRepository(database);
+        await slots.AddAsync(row.Id, slotCount: 1);
+
+        Assert.True(await components.IsBlogPagesOnlyPostListAsync(postList.Id));
+        await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => components.DeleteAsync(postList.Id));
+        await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => slots.RemovePlacementAsync(slot.Id, postList.Id));
+        await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => slots.DeleteAsync(row.Id, slot.Id, slotCount: 2));
+        await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => new PageRowRepository(database).DeleteAsync(row.Id));
+        Assert.Equal([[postList.Id], []], Assert.Single((await pages.GetLayoutAsync(blog.Id)).Rows).Slots.Select(kept => kept.Stack.Select(component => component.Id)));
+    }
+
+    [Fact]
+    public async Task ABlogPagePostListCanGoWhileAnotherStays()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var blog = await PagesOf(site).GetBlogAsync();
+        var slot = Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(blog.Id)).Rows).Slots);
+        var components = new CustomComponentRepository(database);
+        var other = await components.AddToSlotAsync(slot.Id, "Recent", new PostListSettings());
+
+        Assert.False(await components.IsBlogPagesOnlyPostListAsync(Assert.Single(slot.Stack).Id));
+        await components.DeleteAsync(Assert.Single(slot.Stack).Id);
+
+        Assert.True(await components.IsBlogPagesOnlyPostListAsync(other));
+    }
+
+    [Fact]
+    public async Task APageWithoutAPostListCantBeMadeTheBlogPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var blog = await pages.GetBlogAsync();
+        var home = await pages.GetHomeAsync();
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => pages.MakeBlogAsync(home.Id));
+
+        Assert.Equal(blog.Id, (await pages.GetBlogAsync()).Id);
+    }
+
+    [Fact]
+    public async Task TheBlogPagesPostListSaysWhyItCantBeDeleted()
+    {
+        var site = await app.MakeSiteAsync();
+        var blog = await PagesOf(site).GetBlogAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(blog.Id)).Rows);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var settings = await client.GetStringAsync(
+            PageUrls.EditCustomComponent(Assert.Single(Assert.Single(row.Slots).Stack).Id, blog.Id, row.Id),
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Contains("Make another page the blog page first.", settings);
+        Assert.DoesNotContain("Delete component", settings);
+    }
+
+    [Fact]
+    public async Task AComponentIsDeletedFromItsSettingsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var component = Assert.Single(Assert.Single(row.Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var path = PageUrls.EditCustomComponent(component.Id, home.Id, row.Id);
+
+        var settings = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
+        var response = await TestApp.PostFormAsync(client, path, "delete-custom-component", []);
+
+        Assert.Contains("It will be taken off Home.", settings);
+        Assert.Equal(PageUrls.EditPageRow(home.Id, row.Id), response.Headers.Location?.AbsolutePath);
+        Assert.Null(await new CustomComponentRepository(database).GetAsync(component.Id));
     }
 
     [Fact]

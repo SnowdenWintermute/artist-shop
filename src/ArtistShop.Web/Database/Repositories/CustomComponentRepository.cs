@@ -91,6 +91,29 @@ public class CustomComponentRepository(SiteDatabase database)
         }
     }
 
+    // Off every page it's on as well. Leaving the blog page without a post list is refused
+    public async Task DeleteAsync(CustomComponentId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync("SELECT delete_custom_component(@Id)", new { Id = id.Value });
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
+        {
+            throw new BlogPageNeedsPostListException(exception.MessageText, exception);
+        }
+    }
+
+    // whether deleting it would leave the blog page without a post list
+    public async Task<bool> IsBlogPagesOnlyPostListAsync(CustomComponentId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        return await connection.QuerySingleAsync<bool>("SELECT is_blog_pages_only_post_list(@Id)", new { Id = id.Value });
+    }
+
     // the images uploaded into text components that their text still names, for the orphan sweep
     public async Task<HashSet<string>> GetAllImageStorageKeysAsync()
     {

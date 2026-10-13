@@ -2,9 +2,27 @@
 
 ## Custom pages built from custom components, agreed 2026-10-12 (From Claude)
 
-**Steps 1 and 2 built 2026-10-12/13, all uncommitted, 1146 tests pass; step 1 partly browser-checked (preview), step 2
-not.** Next session: review everything built for custom pages so far, with Mike, before step 3, Image (whose
+**Steps 1 and 2, their review fixes and the rich text rename are committed (c31d02a … cce8e62); the "uncommitted"
+notes below are older than that.** Step 1 partly browser-checked (preview), step 2 not. Then step 3, Image (whose
 settings are designed with Mike first).
+
+**Deleting components, built 2026-10-13 (From Claude), uncommitted, 1158 tests pass, not browser-checked.**
+- Component settings page: Delete component (danger text) beside the heading, `ConfirmFormDialog` saying "It will
+  be taken off Home, Blog." (or "It isn't on any page."); afterwards to the row editor it came from, else Pages.
+- `delete_custom_component` locks the component (holds off a concurrent placing), deletes its `slot_placements`,
+  then the component; mentions of works cascade, works stay. Gone already: nothing happens.
+- The blog page always holds a post list: `check_blog_page_has_post_list` (SH027, locks `blog_page` so concurrent
+  removals queue) runs last in `delete_custom_component`, `remove_slot_placement`, `delete_row_slot`,
+  `delete_page_row` and `make_custom_page_blog`. `get_blog_page_post_list_ids`, `is_blog_pages_only_post_list`.
+  `BlogPageNeedsPostListException`; the row editor and the page's row list say "The blog page needs its post list.
+  Make another page the blog page first."; the blog's only post list shows "This is the blog page's post list, so
+  it can't be deleted. …" instead of the Delete button. Make blog page refused → the nav lists' "changed elsewhere".
+
+**Back bug, fixed 2026-10-13 (uncommitted, 1151 tests pass, needs an app restart to see).** The component page's
+`?page=<id>` was read by the preview's post list as its page of posts; past the last one it redirected (dropping
+`page`), adding a second history entry. The keys are now `fromPage`/`fromRow`. Test
+`APostListsSettingsPageKeepsTheRowItWasOpenedFrom`. Also `RowPreviewFrame` fits on the next frame, which stops the
+"ResizeObserver loop" error. Throwaway admin removed.
 
 **Rich text rename, 2026-10-13 (From Claude), uncommitted, 1149 tests pass, JS typecheck clean, not browser-checked.**
 Article is now the **Text** component type (`CustomComponentType.Text`, still id 3; `TextSettings`, `TextWidth`,
@@ -34,7 +52,7 @@ prefix `artist-shop:rich-text-backup:`, so older backups are dropped). Uploaded 
 - Headings: header 1/2/3 are h1/h2/h3 again (h1 text-4xl, h2 text-2xl, h3 text-lg); the post title is unchanged.
   Exported posts match.
 - `PostColumn.CenteredClass`, `CustomPageLayout.Row(id)`.
-- Still to do: deleting components (on the library page). Collection viewer's own h1: Mike wants it to become just
+- Still to do: Collection viewer's own h1: Mike wants it to become just
   a grid, with a separate heading component above it; to design.
 
 Step 2, names, the component settings page and Article (agreed 2026-10-13):

@@ -28,6 +28,7 @@
   private RowSlot? _removingSlot;
   private bool _isSaving;
   private bool _changedElsewhere;
+  private bool _blogPageNeedsPostList;
 
   protected override async Task OnInitializedAsync()
   {
@@ -108,6 +109,7 @@
 
     _isSaving = true;
     _changedElsewhere = false;
+    _blogPageNeedsPostList = false;
 
     try
     {
@@ -116,6 +118,10 @@
     catch (ChangedSincePageLoadException)
     {
       _changedElsewhere = true;
+    }
+    catch (BlogPageNeedsPostListException)
+    {
+      _blogPageNeedsPostList = true;
     }
 
     // the guard holds until the row is read again
@@ -128,6 +134,11 @@
   @if (_changedElsewhere)
   {
     <p class="mb-4 text-error">The row was changed somewhere else, so it has been reloaded.</p>
+  }
+
+  @if (_blogPageNeedsPostList)
+  {
+    <p class="mb-4 text-error">The blog page needs its post list. Make another page the blog page first.</p>
   }
 
   @if (_row is null)

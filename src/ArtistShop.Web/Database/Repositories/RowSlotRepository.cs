@@ -50,7 +50,8 @@ public class RowSlotRepository(SiteDatabase database)
             new { Id = id.Value, ComponentIds = componentIds.Select(componentId => componentId.Value).ToArray() }
         );
 
-    // every way these find the row or slot no longer as the page showed it
+    // every way these find the row or slot no longer as the page showed it, or would leave the blog
+    // page without its post list
     private async Task ExecuteAsync(string sql, object parameters)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -66,6 +67,10 @@ public class RowSlotRepository(SiteDatabase database)
                 || exception.SqlState == PostgresErrorCodes.ForeignKeyViolation)
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
+        {
+            throw new BlogPageNeedsPostListException(exception.MessageText, exception);
         }
     }
 }

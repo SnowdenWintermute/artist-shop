@@ -17,6 +17,7 @@
   private PageRow? _removing;
   private bool _isSaving;
   private bool _changedElsewhere;
+  private bool _blogPageNeedsPostList;
 
   protected override Task OnParametersSetAsync() => LoadAsync();
 
@@ -66,6 +67,7 @@
 
     _isSaving = true;
     _changedElsewhere = false;
+    _blogPageNeedsPostList = false;
 
     try
     {
@@ -74,6 +76,10 @@
     catch (ChangedSincePageLoadException)
     {
       _changedElsewhere = true;
+    }
+    catch (BlogPageNeedsPostListException)
+    {
+      _blogPageNeedsPostList = true;
     }
 
     // the guard holds until the list is read again
@@ -86,6 +92,11 @@
   @if (_changedElsewhere)
   {
     <p class="mb-2 text-error">The rows were changed somewhere else, so the list has been reloaded.</p>
+  }
+
+  @if (_blogPageNeedsPostList)
+  {
+    <p class="mb-2 text-error">The blog page needs its post list. Make another page the blog page first.</p>
   }
 
   @if (_rows.Count == 0)

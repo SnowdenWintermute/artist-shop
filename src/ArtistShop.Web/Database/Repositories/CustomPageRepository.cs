@@ -110,7 +110,10 @@ public class CustomPageRepository(SiteDatabase database)
         {
             await connection.ExecuteAsync("SELECT make_custom_page_blog(@Id)", new { Id = id.Value });
         }
-        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.CustomPageNoLongerExists))
+        // the page lost its post list meanwhile, as the admin only offers this on pages holding one
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.CustomPageNoLongerExists)
+                || SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
