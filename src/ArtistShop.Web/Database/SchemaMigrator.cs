@@ -19,13 +19,16 @@ public class SchemaMigrator(string scriptsFolder, string proceduresFolder)
 
     // schema is where the list of migrations already run is kept: public for the platform, and a
     // site's own schema for a site, so each site has its own list. Named here, since otherwise DbUp
-    // takes the connection string's whole Search Path as one schema's name, and makes it
+    // takes the connection string's whole Search Path as one schema's name, and makes it.
+    // Each kind of script runs in one transaction rather than one per script: every commit waits for
+    // the disk, and with one per procedure that made bringing a site up to date take about seven
+    // times as long, at every startup for every site. A script that fails undoes the others with it
     public void Upgrade(string connectionString, string schema)
     {
         var migrations = DeployChanges
             .To.PostgresqlDatabase(connectionString, schema)
             .WithScriptsEmbeddedInAssembly(typeof(SchemaMigrator).Assembly, IsMigration)
-            .WithTransactionPerScript()
+            .WithTransaction()
             .LogToConsole()
             .Build();
 
@@ -34,7 +37,7 @@ public class SchemaMigrator(string scriptsFolder, string proceduresFolder)
         var procedures = DeployChanges
             .To.PostgresqlDatabase(connectionString, schema)
             .WithScriptsEmbeddedInAssembly(typeof(SchemaMigrator).Assembly, IsProcedure)
-            .WithTransactionPerScript()
+            .WithTransaction()
             .JournalTo(new NullJournal())
             .LogToConsole()
             .Build();

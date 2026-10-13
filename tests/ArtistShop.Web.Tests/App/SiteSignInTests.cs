@@ -96,12 +96,15 @@ public sealed class SiteSignInTests(TestApp app)
     [Fact]
     public async Task AnExpiredCodeIsRefused()
     {
-        var (_, cookie, handoff) = await StartAndGetHandoffAsync(TestApp.FirstSiteHost);
+        var (email, cookie, handoff) = await StartAndGetHandoffAsync(TestApp.FirstSiteHost);
+        var userId = await app.UserIdAsync(email);
         using (var scope = app.Services.CreateScope())
         {
+            // only this account's, as other tests' handoffs run beside this one
             await scope
                 .ServiceProvider.GetRequiredService<ApplicationDbContext>()
-                .SiteSignInCodes.ExecuteUpdateAsync(
+                .SiteSignInCodes.Where(code => code.UserId == userId)
+                .ExecuteUpdateAsync(
                     setters => setters.SetProperty(code => code.ExpiresAt, DateTimeOffset.UtcNow.AddSeconds(-1)),
                     TestContext.Current.CancellationToken
                 );

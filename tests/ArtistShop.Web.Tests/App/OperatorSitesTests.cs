@@ -1,5 +1,8 @@
 using System.Net;
+using ArtistShop.Web.Components;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
@@ -19,6 +22,23 @@ public sealed class OperatorSitesTests(TestApp app)
 
         Assert.Contains(site.Host, page);
         Assert.Contains(site.OwnerEmail, page);
+    }
+
+    // as between AccountDeletion deleting the account and removing it as owner
+    [Fact]
+    public async Task AnOwnerWhoseAccountIsGoneIsListedAsNone()
+    {
+        var site = await app.MakeSiteAsync();
+        using (var scope = app.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var owner = await userManager.FindByEmailAsync(site.OwnerEmail) ?? throw new InvalidOperationException("No owner.");
+            Assert.True((await userManager.DeleteAsync(owner)).Succeeded);
+        }
+        var client = await OperatorClientAsync();
+
+        Assert.Contains(site.Host, await ReadAsync(client, SitesPath));
+        Assert.DoesNotContain(site.OwnerEmail, await ReadAsync(client, PageUrls.OperatorDeleteSite(site.Id)));
     }
 
     [Fact]

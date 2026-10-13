@@ -15,10 +15,14 @@ public sealed class OperatorSites(SiteRepository siteRepository, UserEmails user
     public async Task<OperatorSite?> GetAsync(SiteId siteId) =>
         await siteRepository.GetAsync(siteId) is { } site ? (await WithOwnerEmailsAsync([site]))[0] : null;
 
+    // An owner whose account is being deleted shows as no owner, as it will once the deletion finishes
     private async Task<List<OperatorSite>> WithOwnerEmailsAsync(List<SiteListing> sites)
     {
-        var emails = await userEmails.GetAsync([.. sites.Select(site => site.OwnerUserId).OfType<string>()]);
+        var emails = await userEmails.GetExistingAsync([.. sites.Select(site => site.OwnerUserId).OfType<string>()]);
 
-        return [.. sites.Select(site => new OperatorSite(site, site.OwnerUserId is { } userId ? emails[userId] : null))];
+        return
+        [
+            .. sites.Select(site => new OperatorSite(site, site.OwnerUserId is { } userId ? emails.GetValueOrDefault(userId) : null)),
+        ];
     }
 }
