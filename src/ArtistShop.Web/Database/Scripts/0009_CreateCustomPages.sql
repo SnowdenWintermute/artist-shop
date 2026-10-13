@@ -70,7 +70,9 @@ CREATE TABLE slot_placements (
     CONSTRAINT primary_key_slot_placements PRIMARY KEY (slot_id, sort_order)
     DEFERRABLE,
     component_id int NOT NULL,
-    CONSTRAINT foreign_key_slot_placements_custom_components FOREIGN KEY (component_id) REFERENCES custom_components (id)
+    CONSTRAINT foreign_key_slot_placements_custom_components FOREIGN KEY (component_id) REFERENCES custom_components (id),
+    -- a component shows once per slot, so a stack's order can be given as component ids
+    CONSTRAINT unique_slot_placements_slot_component UNIQUE (slot_id, component_id)
 );
 
 -- what deleting a component checks for

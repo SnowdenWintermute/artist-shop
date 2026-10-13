@@ -1,0 +1,41 @@
+@page "/admin/website/pages/{PageId:int}/rows/{RowId:int}"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject CustomPageRepository CustomPageRepository
+
+@code {
+  [Parameter]
+  public int PageId { get; set; }
+  [Parameter]
+  public int RowId { get; set; }
+
+  // a new row's editor opens on adding a component to its slot
+  [SupplyParameterFromQuery(Name = PageUrls.NewRowKey)]
+  private bool IsNew { get; set; }
+
+  private CustomPage? _page;
+
+  protected override async Task OnInitializedAsync() => _page = await CustomPageRepository.GetAsync(new CustomPageId(PageId));
+}
+
+<PageTitle>Row</PageTitle>
+
+<main>
+  <AdminPanel>
+    @if (_page is null)
+    {
+      <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+      <p>This page doesn't exist. It may have been deleted.</p>
+    }
+    else
+    {
+      <UpLink Class="mb-4" Href="@PageUrls.EditCustomPage(_page.Id)" Label="@_page.Name" />
+      <h1 class="mb-4 text-xl">Row on @_page.Name</h1>
+
+      <RowEditor @rendermode="InteractiveServer" @key="RowId" Page="_page" RowId="new PageRowId(RowId)" IsNew="IsNew" />
+    }
+  </AdminPanel>
+</main>

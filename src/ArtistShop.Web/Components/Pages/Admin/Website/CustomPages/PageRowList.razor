@@ -1,0 +1,116 @@
+@* the page's rows, top to bottom: dragging saves at once, Edit opens a row, Add row makes one and opens it *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Utilities
+@inject CustomPageRepository CustomPageRepository
+@inject PageRowRepository PageRowRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomPageId PageId { get; set; }
+
+  private List<PageRow> _rows = [];
+  private PageRow? _removing;
+  private bool _isSaving;
+  private bool _changedElsewhere;
+
+  protected override Task OnParametersSetAsync() => LoadAsync();
+
+  private async Task LoadAsync() => _rows = [.. (await CustomPageRepository.GetLayoutAsync(PageId)).Rows];
+
+  private Task MoveAsync((int OldIndex, int NewIndex) move) =>
+    SaveAsync(() => PageRowRepository.ReorderAsync(PageId, [.. _rows.Moved(move).Select(row => row.Id)]));
+
+  private async Task RemoveAsync()
+  {
+    var row = Unwrap.Value(_removing);
+    await SaveAsync(() => PageRowRepository.DeleteAsync(row.Id));
+    _removing = null;
+  }
+
+  private async Task AddAsync()
+  {
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+
+    try
+    {
+      NavigationManager.NavigateTo(PageUrls.EditNewPageRow(PageId, await PageRowRepository.AddAsync(PageId)));
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      // the page was deleted, which the server's render of the page says
+      NavigationManager.Refresh();
+    }
+    finally
+    {
+      _isSaving = false;
+    }
+  }
+
+  private async Task SaveAsync(Func<Task> save)
+  {
+    // a second change while the first is saving would be built from the old list
+    if (_isSaving)
+    {
+      return;
+    }
+
+    _isSaving = true;
+    _changedElsewhere = false;
+
+    try
+    {
+      await save();
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+    }
+
+    // the guard holds until the list is read again
+    await LoadAsync();
+    _isSaving = false;
+  }
+}
+
+<DisabledUntilInteractive>
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-error">The rows were changed somewhere else, so the list has been reloaded.</p>
+  }
+
+  @if (_rows.Count == 0)
+  {
+    <p class="mb-4">No rows yet.</p>
+  }
+  else
+  {
+    <div class="mb-4">
+      <SortableList TItem="PageRow" Items="_rows" AriaLabel="Row order" OnMove="MoveAsync">
+        <RowContent Context="row">
+          <RowSchematic Row="row" />
+        </RowContent>
+        <RowActions Context="row">
+          <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditPageRow(PageId, row.Id)">Edit</LinkButton>
+          <ButtonBasic type="button" Variant="ButtonVariant.DangerText" @onclick="() => _removing = row">Remove</ButtonBasic>
+        </RowActions>
+      </SortableList>
+    </div>
+  }
+
+  <ButtonBasic type="button" Variant="ButtonVariant.Primary" Busy="_isSaving" @onclick="AddAsync">Add row</ButtonBasic>
+
+  <ConfirmDialog Open="_removing is not null" OpenChanged="open => _removing = open ? _removing : null"
+                 Title="Remove this row?" ConfirmLabel="Remove" OnConfirm="RemoveAsync" IsWorking="_isSaving">
+    Its components can still be added to other rows.
+  </ConfirmDialog>
+</DisabledUntilInteractive>

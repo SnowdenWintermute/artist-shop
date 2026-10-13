@@ -171,6 +171,7 @@ public sealed partial class WordingTests(TestApp app)
             PostStatus.Draft
         );
         var home = await new CustomPageRepository(database).GetHomeAsync();
+        var homeRow = Assert.Single((await new CustomPageRepository(database).GetLayoutAsync(home.Id)).Rows);
         await SaveAsync(site, MadeUpWords);
         var owner = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
@@ -185,6 +186,7 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/posts/pick-work/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),
             ["/admin/posts/{Id:int}/edit"] = PageUrls.EditPost(postId),
             ["/admin/website/pages/{Id:int}"] = PageUrls.EditCustomPage(home.Id),
+            ["/admin/website/pages/{PageId:int}/rows/{RowId:int}"] = PageUrls.EditPageRow(home.Id, homeRow.Id),
         };
         var routes = typeof(PageUrls).Assembly.GetTypes()
             .SelectMany(type => type.GetCustomAttributes<RouteAttribute>())

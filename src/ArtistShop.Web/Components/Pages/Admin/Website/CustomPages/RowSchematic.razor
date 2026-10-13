@@ -1,0 +1,26 @@
+@* a row drawn as its slots at their widths, each naming its components, so a page's shape reads at a glance *@
+@using ArtistShop.Web.Components.CustomPages
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required PageRow Row { get; set; }
+}
+
+<div class="flex grow gap-2">
+  @foreach (var (slot, growth) in Row.Slots.Zip(RowClasses.SlotGrowth(Row.Widths)))
+  {
+    <div class="@($"min-w-0 basis-0 border border-dashed border-rule p-2 {growth}")">
+      @if (slot.Stack.Count == 0)
+      {
+        <span class="text-ink-faded">Empty</span>
+      }
+      @foreach (var component in slot.Stack)
+      {
+        <div>@CustomComponentNames.Of(component.Settings.Type, Wording)</div>
+      }
+    </div>
+  }
+</div>

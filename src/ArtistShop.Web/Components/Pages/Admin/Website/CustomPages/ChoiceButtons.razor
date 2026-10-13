@@ -1,0 +1,31 @@
+@* a row of buttons choosing one value, the chosen one pressed *@
+@using ArtistShop.Web.Components.Atoms
+@typeparam TValue
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<TValue> Values { get; set; }
+  [Parameter, EditorRequired]
+  public required TValue Chosen { get; set; }
+  [Parameter, EditorRequired]
+  public required Func<TValue, string> LabelOf { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<TValue> OnChoose { get; set; }
+  [Parameter]
+  public bool Disabled { get; set; }
+}
+
+<div role="group" aria-label="@Label" class="flex flex-wrap items-center gap-2">
+  <span class="mr-2">@Label</span>
+  @foreach (var value in Values)
+  {
+    var isChosen = EqualityComparer<TValue>.Default.Equals(value, Chosen);
+    <ButtonBasic type="button" Variant="@(isChosen ? ButtonVariant.Primary : ButtonVariant.Outline)"
+                 aria-pressed="@(isChosen ? "true" : "false")" disabled="@Disabled"
+                 @onclick="() => OnChoose.InvokeAsync(value)">
+      @LabelOf(value)
+    </ButtonBasic>
+  }
+</div>

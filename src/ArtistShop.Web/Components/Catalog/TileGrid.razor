@@ -1,8 +1,17 @@
 @code {
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
+
+  // in C#, where @ needs no escaping, so Tailwind reads the classes as written. @container makes the
+  // wrapper the box the @min- variants measure
+  private const string ContainerClass = "@container";
+  private const string GridClass = "grid grid-cols-1 gap-4 @min-[40rem]:grid-cols-2 @min-[48rem]:grid-cols-3 @min-[64rem]:grid-cols-4";
 }
 
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-  @ChildContent
+@* Columns by the grid's own width, not the screen's, so it fits a slot of a custom page or the row editor's
+   preview as it fits a whole page. The widths are the screen breakpoints this used before (sm, md, lg) *@
+<div class="@ContainerClass">
+  <div class="@GridClass">
+    @ChildContent
+  </div>
 </div>

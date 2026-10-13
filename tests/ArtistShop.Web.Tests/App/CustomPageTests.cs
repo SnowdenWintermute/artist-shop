@@ -207,6 +207,58 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Matches("""<a [^>]*href="/journal"[^>]*>[^<]*Journal""", post);
     }
 
+    // what the row editor makes: two slots side by side, both drawn on the page
+    [Fact]
+    public async Task ARowShowsEachSlotsComponents()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var pageId = await PagesOf(site).AddAsync("Both", new CustomPageAddress("both"));
+        var rowId = await new PageRowRepository(database).AddAsync(pageId);
+        await new RowSlotRepository(database).AddAsync(rowId, slotCount: 1);
+        var slots = Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots;
+        var components = new CustomComponentRepository(database);
+        await components.AddToSlotAsync(slots[0].Id, new CollectionViewerSettings());
+        await components.AddToSlotAsync(slots[1].Id, new PostListSettings());
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/both", TestContext.Current.CancellationToken);
+
+        Assert.Contains($">{SiteWording.Default.Collection.PluralHeading}</h1>", page);
+        Assert.Contains("No posts yet.", page);
+    }
+
+    [Fact]
+    public async Task ANewRowOpensOnAddingAComponent()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var home = await PagesOf(site).GetHomeAsync();
+        var rowId = await new PageRowRepository(database).AddAsync(home.Id);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var editor = await client.GetStringAsync(PageUrls.EditNewPageRow(home.Id, rowId), TestContext.Current.CancellationToken);
+
+        Assert.Contains("Add a component", editor);
+        Assert.Contains("Post list", editor);
+    }
+
+    // the preview takes the theme visitors see, not the admin's
+    [Fact]
+    public async Task TheRowPreviewIsInTheWebsitesTheme()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        await new ThemeRepository(database).UseAsync(new ThemeKey.Preset(ThemePreset.Dark));
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var editor = await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken);
+
+        var page = ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Page).Hex;
+        Assert.Matches($"<style>\\[data-row-preview\\] \\{{[^}}]*--theme-page: {page};", editor);
+    }
+
     [GeneratedRegex("""<a (?=[^>]*class="font-heading)[^>]*href="(?<href>[^"]*)"[^>]*>(?<text>[^<]*)</a>""")]
     private static partial Regex NavLink();
 }

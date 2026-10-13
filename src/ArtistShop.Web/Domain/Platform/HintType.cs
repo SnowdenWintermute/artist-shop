@@ -21,4 +21,5 @@ public enum HintType
     WordingCollections,
     WordingWorks,
     WordingDescription,
+    CustomPages,
 }

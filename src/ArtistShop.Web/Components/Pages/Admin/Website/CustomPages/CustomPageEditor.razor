@@ -122,6 +122,9 @@
         </EditForm>
       </EnableSaveOnChange>
 
+      <h2 class="mb-2 text-lg">Rows</h2>
+      <PageRowList @rendermode="InteractiveServer" @key="Id" PageId="PageId" />
+
       @if (!_page.IsHome && !_page.IsBlog)
       {
         <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {_page.Name}?")" ConfirmLabel="Delete"

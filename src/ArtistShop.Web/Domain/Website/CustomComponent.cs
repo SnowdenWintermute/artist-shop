@@ -33,3 +33,18 @@ public sealed record PostListSettings : CustomComponentSettings
 
 // Name is only for finding it again in the library; a page never shows it
 public record CustomComponent(CustomComponentId Id, string? Name, CustomComponentSettings Settings);
+
+// a component with the names of the pages it's on, for choosing one already made
+public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames);
+
+// The settings a new component of each type starts with
+public static class NewCustomComponentSettings
+{
+    public static CustomComponentSettings For(CustomComponentType type) =>
+        type switch
+        {
+            CustomComponentType.CollectionViewer => new CollectionViewerSettings(),
+            CustomComponentType.PostList => new PostListSettings(),
+            _ => throw new InvalidOperationException($"{type} has no starting settings."),
+        };
+}

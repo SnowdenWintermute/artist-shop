@@ -2,8 +2,39 @@
 
 ## Custom pages built from custom components, agreed 2026-10-12 (From Claude)
 
-**Steps 1a and 1b built 2026-10-12, uncommitted, 1126 tests pass, not tried in a browser.** Next is 1c, rows in
-the page editor.
+**Step 1 (1a-1d) built 2026-10-12, uncommitted, 1135 tests pass, not tried in a browser.** Next is step 2, Article,
+which brings the first component with settings and so the component settings page.
+
+1c-1d, rows (`Components/Pages/Admin/Website/CustomPages/`):
+- Page editor: `PageRowList` island under the name/address form: a `RowSchematic` per row (slots at their widths,
+  naming their components; a sketch, not the scaled preview the screens agreed, since View page shows the real
+  thing and the row editor has a preview), drag, Edit, Remove (confirm), Add row (new row with one slot, opens
+  its editor with `?new=true`, which opens the add-component dialog on its empty slot).
+- Row editor `PageRowEditor` at `/admin/website/pages/{pageId}/rows/{rowId}`, island `RowEditor`: widths
+  (`RowWidthChoices.For(count)`, the first is what a row gets on reaching that count) and Line up
+  (Top/Middle/Bottom) once there are 2+ slots, via `ChoiceButtons`; slots side by side, each a `SortableList`
+  stack with ✕ (take out; stays in the library), Add component, Remove slot (confirm); Add slot up to 3;
+  preview of the real row (`inert`, Desktop/Phone 390px).
+- `AddComponentDialog`: New (one button per `CustomComponentType`) or One you've made (the library, minus the
+  slot's own, with "On Home, Blog" / "Not on any page").
+- SQL: `add_page_row`, `delete_page_row`, `reorder_page_rows` (SH023), `set_page_row_layout`, `add_row_slot`,
+  `delete_row_slot` (the page sends the slot count it saw; another count is SH024), `place_custom_component`,
+  `remove_slot_placement`, `reorder_slot_placements` (SH025), `add_custom_component_to_slot` (makes and places in
+  one step, so no orphan), `get_all_custom_components` (with page names). 0009 gained
+  `unique_slot_placements_slot_component` (added by hand to Mike's dev `site_1`).
+- Repositories `PageRowRepository`, `RowSlotRepository`, `CustomComponentRepository`. `PageRow`/`RowSlot` carry ids.
+- Hint `HintType.CustomPages` on the Pages list explains rows and slots.
+- `TileGrid` sizes its columns with container queries (`@container`, `@min-[40rem]` etc., the old sm/md/lg widths),
+  so a collection viewer fits its slot and the phone preview, not the screen. `TileImage`'s `sizes` is still by
+  screen width, so a narrow slot may fetch a larger file than it needs (capped at the card width).
+- The row preview takes the website's theme in use, scoped by `ThemeStyle` to `[data-row-preview]`.
+- The row preview is drawn at the page's real width (`CustomPageWidths`: 1200px desktop, 390px phone, padding
+  inside) and shrunk to fit by `RowPreviewFrame` (`<row-preview-frame>` sets `--preview-zoom` from its width;
+  CSS `zoom`), so its container queries switch where a visitor's do. Agreed 2026-10-12 instead of going back to
+  screen breakpoints. Card size (Small/Medium/Large, `repeat(auto-fill, minmax(…, 1fr))`) is to come as a
+  collection viewer option in step 4, rather than breakpoint sliders.
+- No component settings page yet: neither type has settings. It comes with Article (step 2), where Edit appears
+  on a component that has settings.
 
 **Blog page, same day (Mike):** the blog is an ordinary, open custom page, not a fixed nav destination. 0009 was
 rewritten (Mike's dev `site_1` had its tables and journal row dropped): it seeds Blog at `/posts` holding a

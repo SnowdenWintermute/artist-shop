@@ -26,6 +26,21 @@ public enum RowWidths
     QuarterHalfQuarter = 6,
 }
 
+// the splits offered for each number of slots, the first being the one a row gets when it reaches that number
+public static class RowWidthChoices
+{
+    public const int MaximumSlotCount = 3;
+
+    public static IReadOnlyList<RowWidths> For(int slotCount) =>
+        slotCount switch
+        {
+            1 => [RowWidths.Whole],
+            2 => [RowWidths.Halves, RowWidths.ThirdThenTwoThirds, RowWidths.TwoThirdsThenThird],
+            3 => [RowWidths.Thirds, RowWidths.QuarterHalfQuarter],
+            _ => throw new ArgumentOutOfRangeException(nameof(slotCount), slotCount, "A row has one to three slots."),
+        };
+}
+
 // the ids are stored in page_rows.alignment: where slots of different heights line up
 public enum RowAlignment
 {
@@ -34,10 +49,14 @@ public enum RowAlignment
     End = 3,
 }
 
-// a slot's components, top to bottom
-public record RowSlot(IReadOnlyList<CustomComponent> Stack);
+public record PageRowId(int Value);
 
-public record PageRow(RowWidths Widths, RowAlignment Alignment, IReadOnlyList<RowSlot> Slots);
+public record RowSlotId(int Value);
+
+// a slot's components, top to bottom
+public record RowSlot(RowSlotId Id, IReadOnlyList<CustomComponent> Stack);
+
+public record PageRow(PageRowId Id, RowWidths Widths, RowAlignment Alignment, IReadOnlyList<RowSlot> Slots);
 
 // a page's rows, top to bottom
 public record CustomPageLayout(IReadOnlyList<PageRow> Rows);

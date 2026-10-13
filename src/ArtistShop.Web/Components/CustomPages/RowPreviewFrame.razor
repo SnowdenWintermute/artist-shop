@@ -1,0 +1,17 @@
+@* A row as a visitor sees it, drawn at a page's real width and shrunk to fit, so what's inside
+   lays out and switches its container queries as it will on the page. <row-preview-frame>, defined in
+   RowPreviewFrame.razor.js, sets --preview-zoom from its own width; zoom, unlike a transform, shrinks
+   the room the content takes too *@
+
+@code {
+  [Parameter, EditorRequired]
+  public int Pixels { get; set; }
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+<row-preview-frame class="block" data-width="@Pixels">
+  <div class="[zoom:var(--preview-zoom,1)]" style="width: @(Pixels)px">
+    @ChildContent
+  </div>
+</row-preview-frame>

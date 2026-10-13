@@ -1,0 +1,74 @@
+@* Adding a component to a slot: a new one of a type, or one already made. Rendered only while open,
+   so each opening reads the library afresh *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database.Repositories
+@inject CustomComponentRepository CustomComponentRepository
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required RowSlot Slot { get; set; }
+  [Parameter, EditorRequired]
+  public bool IsSaving { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<CustomComponentType> OnNew { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<CustomComponent> OnExisting { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+
+  // the ones not in this slot already, by type then the pages they're on
+  private List<CustomComponentInUse>? _made;
+
+  protected override async Task OnInitializedAsync() =>
+    _made =
+    [
+      .. (await CustomComponentRepository.GetAllAsync())
+        .Where(made => !Slot.Stack.Any(inSlot => inSlot.Id == made.Component.Id))
+        .OrderBy(made => CustomComponentNames.Of(made.Component.Settings.Type, Wording), StringComparer.CurrentCultureIgnoreCase)
+        .ThenBy(PageList, StringComparer.CurrentCultureIgnoreCase),
+    ];
+
+  private static string PageList(CustomComponentInUse made) =>
+    string.Join(", ", made.PageNames.Order(StringComparer.CurrentCultureIgnoreCase));
+
+  private static string WhereItIs(CustomComponentInUse made) =>
+    made.PageNames.Count == 0 ? "Not on any page" : $"On {PageList(made)}";
+}
+
+<ModalDialog Title="Add a component" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="IsSaving">
+  <h3 class="mb-2 font-bold">New</h3>
+  <div class="mb-6 flex flex-wrap gap-2">
+    @foreach (var type in Enum.GetValues<CustomComponentType>())
+    {
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@IsSaving" @onclick="() => OnNew.InvokeAsync(type)">
+        @CustomComponentNames.Of(type, Wording)
+      </ButtonBasic>
+    }
+  </div>
+
+  @if (_made is { Count: > 0 } made)
+  {
+    <h3 class="mb-2 font-bold">One you've made</h3>
+    <ul class="mb-6">
+      @foreach (var component in made)
+      {
+        <li @key="component.Component.Id" class="mb-2">
+          <button type="button" class="w-full cursor-pointer border p-2 text-left" disabled="@IsSaving"
+                  @onclick="() => OnExisting.InvokeAsync(component.Component)">
+            <span class="block">@(component.Component.Name ?? CustomComponentNames.Of(component.Component.Settings.Type, Wording))</span>
+            <span class="block text-sm text-ink-faded">@WhereItIs(component)</span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" Disabled="IsSaving" />
+  </ModalDialogActions>
+</ModalDialog>

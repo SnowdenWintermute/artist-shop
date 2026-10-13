@@ -188,12 +188,13 @@ public class CustomPageRepository(SiteDatabase database)
             var first = row.First();
             var slots = row
                 .Where(placement => placement.SlotId is not null)
-                .GroupBy(placement => placement.SlotId)
+                .GroupBy(placement => Unwrap.Value(placement.SlotId))
                 .Select(slot => new RowSlot(
+                    new RowSlotId(slot.Key),
                     [.. slot.Where(placement => placement.ComponentId is not null).Select(placement => placement.ToComponent())]
                 ));
 
-            rows.Add(new PageRow(first.Widths, first.Alignment, [.. slots]));
+            rows.Add(new PageRow(new PageRowId(row.Key), first.Widths, first.Alignment, [.. slots]));
         }
 
         return new CustomPageLayout(rows);

@@ -74,4 +74,13 @@ public static class SqlStates
 
     // DeleteCustomPage
     public const string CustomPageIsBlog = "SH022";
+
+    // ReorderPageRows
+    public const string PageRowsChangedSincePageLoad = "SH023";
+
+    // SetPageRowLayout, AddRowSlot, DeleteRowSlot: the row is gone or has other slots
+    public const string PageRowChangedSincePageLoad = "SH024";
+
+    // PlaceCustomComponent, ReorderSlotPlacements: the slot is gone or holds other components
+    public const string RowSlotChangedSincePageLoad = "SH025";
 }

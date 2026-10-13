@@ -1,5 +1,7 @@
 @page "/admin/website/pages"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
@@ -10,6 +12,11 @@
   <AdminPanel>
     <AdminUpLink />
     <h1 class="mb-4 text-xl">Pages</h1>
+
+    <Hint Type="HintType.CustomPages">
+      <p>A page is a stack of rows. A row has up to three slots side by side, and each slot holds components, one
+        above the other.</p>
+    </Hint>
 
     <AddCustomPageForm />
 

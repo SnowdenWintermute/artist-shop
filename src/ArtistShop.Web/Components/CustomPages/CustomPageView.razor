@@ -20,7 +20,7 @@
 {
   @* a component that names itself after its page, such as the post list, reads it from here *@
   <CascadingValue Value="Page" IsFixed>
-    <main class="mx-auto flex max-w-[1200px] flex-col gap-8 p-4">
+    <main class="@CustomPageWidths.MainClass">
       @foreach (var row in layout.Rows)
       {
         <PageRowView Row="row" />
