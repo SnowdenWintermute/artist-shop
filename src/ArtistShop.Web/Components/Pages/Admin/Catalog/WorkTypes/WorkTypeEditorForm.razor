@@ -6,6 +6,7 @@
 @using ArtistShop.Web.Domain.Catalog
 @inject WorkTypeRepository WorkTypeRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   [CascadingParameter]
@@ -24,8 +25,6 @@
   // only when Save itself was clicked; a dialog's confirm button spins for the saves and deletes
   // it starts
   private bool SaveButtonBusy => _isSaving && !_switchOffDialogOpen && !_deleteDialogOpen;
-  // keys the notice, so each save draws a new one, visible until the first edit hides it
-  private int _saveCount;
   private bool _switchOffDialogOpen;
   private bool _deleteDialogOpen;
 
@@ -74,8 +73,9 @@
       }
 
       await WorkTypeRepository.UpdateAsync(Loaded.WorkType.Id, name, _form.Fields);
-      _saveCount++;
-      NavigationManager.Refresh();
+      // the page draws the saved notice beside its up link, which is outside this island
+      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+      { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
     }
     catch (NameAlreadyInUseException exception)
     {
@@ -121,11 +121,6 @@
 
     <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
     <WorkFieldCheckboxes FieldDefinitions="FieldDefinitions" Selected="_form.Fields" OnToggle="ToggleField" />
-
-    @if (_saveCount > 0)
-    {
-      <SavedNotice @key="_saveCount">Saved.</SavedNotice>
-    }
 
     <div class="flex items-baseline justify-between">
       <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="SaveButtonBusy"

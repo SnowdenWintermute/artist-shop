@@ -1,5 +1,8 @@
+using System.Net;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
+using ArtistShop.Web.Components.CustomPages;
+using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
@@ -137,6 +140,20 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
         Assert.Contains($"<h1 class=\"mb-4\">{firstName}</h1>", plain);
     }
 
+    // the Desktop and Phone buttons work in the browser, so the preview's reads happen once, with no circuit
+    [Fact]
+    public async Task ThePreviewIsDrawnWithoutAnIsland()
+    {
+        var site = await app.MakeSiteAsync();
+        await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var page = await client.GetStringAsync(PageUrls.CollectionPageSettings, TestContext.Current.CancellationToken);
+
+        Assert.Contains($"data-preview-width=\"{CustomPageWidths.PhonePixels}\"", page);
+        Assert.DoesNotContain("<!--Blazor:", page);
+    }
+
     // so changing the layout doesn't jump the preview back to another collection
     [Fact]
     public async Task ASaveKeepsTheCollectionBeingPreviewed()
@@ -162,16 +179,89 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
         Assert.Contains($"{PageUrls.PreviewCollectionKey}={second.Value}", response.Headers.Location?.Query);
     }
 
+    // the time travels in the address, so a reload still says when the save was
     [Fact]
-    public async Task WithNothingToShowThePreviewSaysSo()
+    public async Task ASaveLeadsToANoticeOfItsTime()
     {
         var site = await app.MakeSiteAsync();
-        await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await TestApp.PostFormAsync(
+            client,
+            PageUrls.CollectionPageSettings,
+            "collection-page",
+            new()
+            {
+                ["Input.CardsPerPage"] = "12",
+                ["Input.Layout"] = nameof(CardGridLayout.Rows),
+            }
+        );
+        var location = Assert.IsType<Uri>(response.Headers.Location);
+        var page = await client.GetStringAsync(location, TestContext.Current.CancellationToken);
+
+        Assert.Matches($"[?&]{SavedAtQuery.Key}=\\d+", location.OriginalString);
+        Assert.Matches("Saved at <local-time><time datetime=\"[^\"]+Z\">\\d{2}:\\d{2}</time></local-time>", page);
+    }
+
+    [Fact]
+    public async Task ASavedValueThatIsntATimeShowsNoNotice()
+    {
+        var site = await app.MakeSiteAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var page = await client.GetStringAsync(
+            $"{PageUrls.CollectionPageSettings}?{SavedAtQuery.Key}=true",
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.DoesNotContain("Saved at", page);
+    }
+
+    // its page is still there for a visitor, and its Edit page link opens this
+    [Fact]
+    public async Task AnEmptyCollectionIsPreviewedAndMarkedEmpty()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = DatabaseOf(site);
+        var catalog = new CatalogTestData(database);
+        await catalog.AddPaintingInCollectionAsync(await catalog.AddCollectionAsync(), [CatalogTestData.CreateTestImage()]);
+        var empty = await catalog.AddCollectionAsync();
+        var emptyName = Assert.IsType<Collection>(await new CollectionRepository(database).GetByIdAsync(empty)).Name.Value;
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var page = await client.GetStringAsync(PageUrls.CollectionPageSettingsFor(empty), TestContext.Current.CancellationToken);
+
+        Assert.Contains($"<h1 class=\"mb-4\">{emptyName}</h1>", page);
+        Assert.Contains($"{emptyName} (no {SiteWording.Default.Work.PluralInSentence} with images yet)", page);
+    }
+
+    [Fact]
+    public async Task WithNoCollectionsThePreviewSaysSo()
+    {
+        var site = await app.MakeSiteAsync();
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var page = await client.GetStringAsync(PageUrls.CollectionPageSettings, TestContext.Current.CancellationToken);
 
         Assert.Contains("Nothing to preview", page);
+    }
+
+    // an edited link, or one to a collection deleted since
+    [Theory]
+    [InlineData("999999")]
+    [InlineData("abc")]
+    public async Task AnUnknownCollectionToPreviewIsNotFound(string collection)
+    {
+        var site = await app.MakeSiteAsync();
+        await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await client.GetAsync(
+            $"{PageUrls.CollectionPageSettings}?{PageUrls.PreviewCollectionKey}={collection}",
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [GeneratedRegex("""<a href="/works/[^"]*" class="block">""")]

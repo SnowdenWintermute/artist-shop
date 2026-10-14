@@ -10,6 +10,10 @@
   [Parameter, EditorRequired]
   public RenderFragment<string> ChildContent { get; set; } = default!;
 
+  // shown under the input, in smaller text
+  [Parameter]
+  public string? Hint { get; set; }
+
   // unique per instance, so two fields bound to the same property name can share a page
   private readonly string _idSuffix = Guid.NewGuid().ToString("n");
 
@@ -19,6 +23,10 @@
 <div class="mb-4">
   <label class="artist-shop-field-label" for="@ElementId">@Label</label>
   @ChildContent(ElementId)
+  @if (Hint is not null)
+  {
+    <p class="text-sm text-ink-faded">@Hint</p>
+  }
   <ValidationMessage class="text-error" For="ValueExpression" />
 </div>
 

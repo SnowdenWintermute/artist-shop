@@ -10,7 +10,7 @@
   [Parameter]
   public EventCallback<CardGridLayout> ValueChanged { get; set; }
 
-  [Parameter]
+  [Parameter, EditorRequired]
   public Expression<Func<CardGridLayout>> ValueExpression { get; set; } = default!;
 
   // none for a layout a post left out, which the forms refuse
@@ -24,12 +24,8 @@
     };
 }
 
-<SelectField Label="Layout" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression">
+<SelectField Label="Layout" Hint="@Hint(Value)" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression">
   <option value="@CardGridLayout.EvenGrid">Even grid</option>
   <option value="@CardGridLayout.Rows">Rows</option>
   <option value="@CardGridLayout.Masonry">Masonry</option>
 </SelectField>
-@if (Hint(Value) is { } hint)
-{
-  <p class="mb-4 text-sm text-ink-faded">@hint</p>
-}

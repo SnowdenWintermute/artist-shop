@@ -9,6 +9,7 @@
 @inject ThemeRepository ThemeRepository
 @inject FontRepository FontRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 @inject ILogger<ThemePage> Logger
 @inject IHostEnvironment Environment
 
@@ -21,8 +22,6 @@
   // the theme open, as ThemeKey.QueryValue; with none, the one in use
   [SupplyParameterFromQuery(Name = "theme")]
   private string? ThemeQuery { get; set; }
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
   // a save redirects, so a page rendered from a post is a preview, or a save that didn't go through
   private bool _formWasPosted;
 
@@ -140,8 +139,7 @@ StringComparer.CurrentCultureIgnoreCase)];
     NavigationManager.NavigateTo(
       NavigationManager.GetUriWithQueryParameters(PageUrls.ThemeEditing(key), new Dictionary<string, object?>
       {
-        ["saved"] =
-true
+        [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()),
       })
     );
 
@@ -205,7 +203,10 @@ open.Theme.Fonts.For(role);
 
   <main>
     <AdminPanel>
-      <AdminUpLink />
+      <FormTopBar>
+        <AdminUpLink Class="" />
+      </FormTopBar>
+      <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
       <h1 class="mb-4 text-xl">Theme</h1>
       <p class="mb-4">
         Admin pages keep the default theme. Public pages' theme can be customized.
@@ -217,11 +218,6 @@ open.Theme.Fonts.For(role);
       else
       {
         <p class="mb-4">Your website's theme no longer exists, so its public pages show @ThemePresets.Paper.Name.</p>
-      }
-
-      @if (Saved && !_formWasPosted)
-      {
-        <SavedNotice>Saved.</SavedNotice>
       }
 
       <ThemePicker Open="open.Key" Themes="_themes" />

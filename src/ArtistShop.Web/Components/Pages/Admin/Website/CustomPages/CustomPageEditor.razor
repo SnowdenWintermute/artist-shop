@@ -11,6 +11,7 @@
 @inject CustomPageRepository CustomPageRepository
 @inject OwnAddresses OwnAddresses
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   private const string DeleteDialogId = "delete-custom-page";
@@ -20,8 +21,6 @@
 
   [SupplyParameterFromForm(FormName = "custom-page-details")]
   private CustomPageDetailsForm? Input { get; set; }
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
 
   private CustomPage? _page;
   // a successful save redirects, so a page rendered from a post is one that didn't go through
@@ -48,7 +47,7 @@
       if (await Unwrap.Value(Input).SaveAsync(PageId, CustomPageRepository, OwnAddresses))
       {
         NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-        { ["saved"] = true }));
+        { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
       }
     }
     catch (ChangedSincePageLoadException)
@@ -76,7 +75,10 @@
 
 <main>
   <AdminPanel>
-    <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+    <FormTopBar>
+      <UpLink Href="@PageUrls.CustomPageList" Label="Pages" />
+    </FormTopBar>
+    <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
 
     @if (_page is null || Input is null)
     {
@@ -100,11 +102,6 @@
       @if (_changedElsewhere)
       {
         <p class="mb-4 text-error">This page became the home or blog page somewhere else, so it can't be deleted.</p>
-      }
-
-      @if (Saved && !_formWasPosted)
-      {
-        <SavedNotice>Saved.</SavedNotice>
       }
 
       <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">

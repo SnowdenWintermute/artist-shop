@@ -1,0 +1,17 @@
+@using Microsoft.AspNetCore.Components.Sections
+
+@code {
+  // the page's UpLink
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // where SavedAtNotice draws, from the page or a layout's page alike
+  public const string SavedNoticeSectionName = "form-top-bar-saved-notice";
+}
+
+@* the up link with, opposite it, when the page last saved. The up link sets the line's height, so the
+   notice coming and going moves nothing below *@
+<div class="mb-4 flex flex-wrap items-baseline justify-between gap-x-4">
+  @ChildContent
+  <SectionOutlet SectionName="@SavedNoticeSectionName" />
+</div>

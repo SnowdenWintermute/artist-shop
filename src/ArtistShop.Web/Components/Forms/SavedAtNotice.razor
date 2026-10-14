@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Components.Atoms
+@using Microsoft.AspNetCore.Components.Sections
+
+@code {
+  // a page rendered from a post that didn't go through says nothing, though the address still has the last save's time
+  [Parameter, EditorRequired]
+  public bool HoldsUnsavedChanges { get; set; }
+
+  [SupplyParameterFromQuery(Name = SavedAtQuery.Key)]
+  private string? SavedAt { get; set; }
+}
+
+@* drawn in the page's FormTopBar, wherever on the page this is *@
+@if (!HoldsUnsavedChanges && SavedAtQuery.Read(SavedAt) is { } moment)
+{
+  <SectionContent SectionName="@FormTopBar.SavedNoticeSectionName">
+    <SavedNotice Class="text-sm">Saved at <LocalTime Moment="moment" /></SavedNotice>
+  </SectionContent>
+}

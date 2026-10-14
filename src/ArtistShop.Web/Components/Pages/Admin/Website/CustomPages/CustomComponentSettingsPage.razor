@@ -16,6 +16,7 @@
 @inject CollectionRepository CollectionRepository
 @inject ImageStorage ImageStorage
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   private const string DeleteDialogId = "delete-custom-component";
@@ -34,8 +35,6 @@
 
   [SupplyParameterFromForm(FormName = "custom-component")]
   private CustomComponentForm? Input { get; set; }
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
 
   private CustomComponentInUse? _component;
   private CustomPage? _fromPage;
@@ -100,7 +99,7 @@ Input.ToSettings(_component.Component.Settings));
     }
 
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-    { ["saved"] = true }));
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
   }
 
   private async Task DeleteAsync()
@@ -156,15 +155,17 @@ PageUrls.CustomPageList;
 
 <main>
   <AdminPanel>
-    @if (_fromPage is not null && FromRowId is int rowId)
-    {
-      <UpLink Class="mb-4" Href="@PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId))"
-              Label="@($"Row on {_fromPage.Name}")" />
-    }
-    else
-    {
-      <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
-    }
+    <FormTopBar>
+      @if (_fromPage is not null && FromRowId is int rowId)
+      {
+        <UpLink Href="@PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId))" Label="@($"Row on {_fromPage.Name}")" />
+      }
+      else
+      {
+        <UpLink Href="@PageUrls.CustomPageList" Label="Pages" />
+      }
+    </FormTopBar>
+    <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
 
     @if (_component is null || Input is null)
     {
@@ -194,11 +195,6 @@ PageUrls.CustomPageList;
       @if (AlsoOn(component) is { Count: > 0 } alsoOn)
       {
         <p class="mb-4">Also used in: @string.Join(", ", alsoOn)</p>
-      }
-
-      @if (Saved && !_formWasPosted)
-      {
-        <SavedNotice>Saved.</SavedNotice>
       }
 
       @if (_deletedElsewhere)
@@ -287,9 +283,7 @@ PageUrls.CustomPageList;
       @if (_fromPage is not null && FromRowId is int previewRowId)
       {
         <h2 class="mb-2 text-lg">Preview</h2>
-        @* keyed by the save, so the island shows the row afresh after one *@
-        <SavedRowPreview @rendermode="InteractiveServer" @key="component.UpdatedAt" Page="_fromPage"
-                         RowId="new PageRowId(previewRowId)" />
+        <SavedRowPreview Page="_fromPage" RowId="new PageRowId(previewRowId)" />
       }
 
       @if (!_isBlogPagesOnlyPostList)

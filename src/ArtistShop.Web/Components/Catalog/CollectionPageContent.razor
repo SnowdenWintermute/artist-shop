@@ -9,7 +9,9 @@
   public SiteWording Wording { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public required CollectionWithCover Collection { get; set; }
+  public required CollectionId Id { get; set; }
+  [Parameter, EditorRequired]
+  public required CollectionName Name { get; set; }
   [Parameter, EditorRequired]
   public required CollectionPageSettings Settings { get; set; }
 }
@@ -17,7 +19,7 @@
 <UpLink Class="mb-4" Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
 @* not PageHeading: a collection's name keeps the text font, rather than the theme's heading font *@
-<h1 class="mb-4">@Collection.Name.Value</h1>
+<h1 class="mb-4">@Name.Value</h1>
 
 @* the page's only grid, so it keeps the plain page key *@
-<CardGridView Settings="Settings.GridFor(Collection.Id)" PageKey="@PageLinks.PageKey" />
+<CardGridView Settings="Settings.GridFor(Id)" PageKey="@PageLinks.PageKey" />

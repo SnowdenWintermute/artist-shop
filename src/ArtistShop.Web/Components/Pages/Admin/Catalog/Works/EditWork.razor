@@ -16,6 +16,7 @@
 @inject VocabularyRepository VocabularyRepository
 @inject CollectionRepository CollectionRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 @inject ImageStorage ImageStorage
 
 @code {
@@ -28,9 +29,7 @@
 
   [SupplyParameterFromForm]
   private WorkForm Input { get; set; } = default!;
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
-  // A post keeps the address, ?saved=true from the last save included, and a successful save
+  // A post keeps the address, ?saved= from the last save included, and a successful save
   // redirects, so a page rendered from a post is always a save that didn't go through
   private bool _formWasPosted;
 
@@ -118,7 +117,7 @@
 
     // reloading is what shows the saved values, including a slug the procedure may have numbered
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-    { ["saved"] = true }));
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
   }
 }
 
@@ -128,7 +127,10 @@
 
   <main>
     <AdminPanel>
-      <UpLink Class="mb-4" Href="@PageUrls.WorkList" Label="@Wording.Work.PluralHeading" />
+      <FormTopBar>
+        <UpLink Href="@PageUrls.WorkList" Label="@Wording.Work.PluralHeading" />
+      </FormTopBar>
+      <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
 
       <div class="mb-4 flex items-baseline justify-between">
         <h1>Editing
@@ -139,15 +141,6 @@
         <span class="text-sm text-ink-faded">@_work.Type.Name.Value</span>
       </div>
 
-      <div>
-
-        @if (Saved && !_formWasPosted)
-        {
-          <SavedNotice>
-            Updated.
-          </SavedNotice>
-        }
-      </div>
 
       @if (_deletedElsewhere)
       {

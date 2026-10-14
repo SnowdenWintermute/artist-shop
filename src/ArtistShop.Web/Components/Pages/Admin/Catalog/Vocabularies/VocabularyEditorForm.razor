@@ -5,6 +5,7 @@
 @using ArtistShop.Web.Domain.Catalog
 @inject VocabularyRepository VocabularyRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   [CascadingParameter]
@@ -23,8 +24,6 @@
   // only when Save itself was clicked; a dialog's confirm button spins for the saves and deletes
   // it starts
   private bool SaveButtonBusy => _isSaving && !_removeTermsDialogOpen && !_deleteDialogOpen;
-  // keys the notice, so each save draws a new one, visible until the first edit hides it
-  private int _saveCount;
   private bool _removeTermsDialogOpen;
   private bool _deleteDialogOpen;
 
@@ -74,8 +73,9 @@
       }
 
       await VocabularyRepository.UpdateAsync(Loaded.Vocabulary.Id, name, _form.IsMutuallyExclusive, _form.WorkTypeIds);
-      _saveCount++;
-      NavigationManager.Refresh();
+      // the page draws the saved notice beside its up link, which is outside this island
+      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+      { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
     }
     catch (NameAlreadyInUseException exception)
     {
@@ -118,11 +118,6 @@
                            OnToggle="_form.ToggleWorkType" />
     <CheckboxField Label="Mutually exclusive" @bind-Value="_form.IsMutuallyExclusive"
                    Hint="@($"Each {Wording.Work.SingularInSentence} may only have one of these terms.")" />
-
-    @if (_saveCount > 0)
-    {
-      <SavedNotice @key="_saveCount">Saved.</SavedNotice>
-    }
 
     <div class="flex justify-between">
       <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="SaveButtonBusy"

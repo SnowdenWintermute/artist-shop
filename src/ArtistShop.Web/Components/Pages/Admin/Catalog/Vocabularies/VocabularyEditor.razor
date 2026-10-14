@@ -3,6 +3,7 @@
 @layout VocabularyLayout
 @using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog
 @using ArtistShop.Web.Database.Repositories
@@ -101,6 +102,9 @@
         Check the types it applies to below and save.
       </UnlinkedVocabularyNotice>
     }
+
+    @* the island saves without posting this page, so the page never holds unsaved changes *@
+    <SavedAtNotice HoldsUnsavedChanges="false" />
 
     @* @key: a different vocabulary gets a fresh island rather than inheriting this one's state *@
     <VocabularyEditorForm @rendermode="InteractiveServer" @key="Id" WorkTypes="_workTypes" Loaded="_loaded" />

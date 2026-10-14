@@ -13,6 +13,7 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject PostRepository PostRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 @inject ImageStorage ImageStorage
 
 @code {
@@ -22,11 +23,9 @@
 
   [SupplyParameterFromForm(FormName = "edit-post")]
   private PostForm Input { get; set; } = default!;
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
   [SupplyParameterFromQuery(Name = "copied")]
   private bool Copied { get; set; }
-  // A post keeps the address, ?saved=true from the last save included, and a successful save
+  // A post keeps the address, ?saved= from the last save included, and a successful save
   // redirects, so a page rendered from a post is always a save that didn't go through
   private bool _formWasPosted;
 
@@ -94,7 +93,7 @@
       {
         var id = await PostRepository.AddAsync(
           Input.ToPostTitle(), Input.ToPostSlug(), Input.ToPostBody(), Input.Status);
-        NavigationManager.NavigateTo($"{PageUrls.EditPost(id)}?saved=true");
+        NavigationManager.NavigateTo($"{PageUrls.EditPost(id)}?{SavedAtQuery.Key}={SavedAtQuery.Value(TimeProvider.GetUtcNow())}");
         return;
       }
 
@@ -118,9 +117,9 @@
     }
 
     // reloading is what shows the saved values, including the new status. A copy's "Copied." goes,
-    // so it isn't shown with "Saved."
+    // so it isn't shown with "Saved at"
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-    { ["saved"] = true, ["copied"] = null }));
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()), ["copied"] = null }));
   }
 
   // A draft holding the post as last saved, opened for editing. Edits not saved yet stay with this
@@ -160,7 +159,10 @@
 {
   <main>
     <AdminPanel>
-      <UpLink Class="mb-4" Href="@PageUrls.PostList" Label="Posts" />
+      <FormTopBar>
+        <UpLink Href="@PageUrls.PostList" Label="Posts" />
+      </FormTopBar>
+      <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
 
       <div class="mb-4 flex items-baseline justify-between">
         <h1 class="text-xl">@Heading</h1>
@@ -173,11 +175,6 @@
       </div>
 
       @PostAddress
-
-      @if (Saved && !_formWasPosted)
-      {
-        <SavedNotice>Saved.</SavedNotice>
-      }
 
       @if (Copied && !_formWasPosted)
       {

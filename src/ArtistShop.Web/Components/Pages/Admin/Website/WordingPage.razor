@@ -9,6 +9,7 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject WordingRepository WordingRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   // the saved wording, which the previews show rather than what's typed but not yet saved: a
@@ -17,8 +18,6 @@
   public SiteWording Wording { get; set; } = default!;
   [SupplyParameterFromForm]
   private WordingForm Input { get; set; } = default!;
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
   // a successful save redirects, so a page rendered from a post is one that didn't go through
   private bool _formWasPosted;
 
@@ -32,7 +31,7 @@
   {
     await WordingRepository.UpdateAsync(Input.ToWording());
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-    { ["saved"] = true }));
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
   }
 
   private static IReadOnlyList<string> CollectionExamples(DisplayNoun collection) =>
@@ -49,18 +48,16 @@
 
 <main>
     <AdminPanel>
-      <AdminUpLink />
+      <FormTopBar>
+        <AdminUpLink Class="" />
+      </FormTopBar>
+      <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
       <h1 class="mb-4 text-xl">Wording</h1>
       <p class="mb-4">
         Choose what your website calls <span class="font-bold">works</span>, <span
         class="font-bold">collections</span> and a work's <span class="font-bold">description</span>. Leave
         a word blank to use the default.
       </p>
-
-      @if (Saved && !_formWasPosted)
-      {
-        <SavedNotice>Saved.</SavedNotice>
-      }
 
       <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
         <EditForm Model="Input" FormName="wording" OnValidSubmit="SaveAsync" Enhance data-waits-for-pending class="mb-8">

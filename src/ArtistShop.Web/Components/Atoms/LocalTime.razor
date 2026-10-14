@@ -1,0 +1,10 @@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public DateTimeOffset Moment { get; set; }
+}
+
+@* As LocalDate, for the time of day: the server writes it as it falls in UTC, and <local-time>, defined in
+   LocalTime.razor.js, rewrites it for the browser's time zone *@
+<local-time><time datetime="@DateText.DateTimeAttribute(Moment)">@DateText.Time(Moment)</time></local-time>

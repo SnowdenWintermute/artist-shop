@@ -1,5 +1,6 @@
-@* Public content as a visitor sees it, in the website's theme, at a desktop's or a phone's width. Inside an
-   island, which the Desktop and Phone buttons need *@
+@* Public content as a visitor sees it, in the website's theme, at a desktop's or a phone's width. <themed-preview>,
+   defined in ThemedPreview.razor.js, switches the width in the browser, so the preview needs no island *@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Database.Repositories
 @inject ThemeRepository ThemeRepository
@@ -10,23 +11,31 @@
 
   // the theme visitors see; null leaves the preview in the platform's
   private NamedTheme? _theme;
-  private bool _showsPhone;
+
+  // looks as ChoiceButtons' do: Primary when pressed, else Outline
+  private const string WidthButtonClass = "aria-pressed:bg-accent aria-pressed:text-on-accent";
 
   protected override async Task OnInitializedAsync() => _theme = await ThemeRepository.GetInUseAsync();
 }
 
-<div class="mb-2">
-  <ChoiceButtons TValue="bool" Label="Width" Values="[false, true]" Chosen="_showsPhone"
-                 LabelOf="@(showsPhone => showsPhone ? "Phone" : "Desktop")" OnChoose="showsPhone => _showsPhone = showsPhone" />
-</div>
-@* ThemeStyle sets the theme on this box alone, as on the Theme page's preview. inert: a link in the
-   preview would leave the editor. w-fit for the phone, so the box is the phone's width rather than the editor's *@
-@if (_theme is { } theme)
-{
-  <ThemeStyle Selector="[data-themed-preview]" Theme="theme.Theme" />
-}
-<div data-themed-preview class="@($"mb-4 max-w-full border border-rule bg-page font-text text-ink {(_showsPhone ? "w-fit" : "")}")" inert>
-  <RowPreviewFrame Pixels="@(_showsPhone ? CustomPageWidths.PhonePixels : CustomPageWidths.DesktopPixels)">
-    @ChildContent
-  </RowPreviewFrame>
-</div>
+<themed-preview class="group/preview block">
+  <div role="group" aria-label="Width" class="mb-2 flex flex-wrap items-center gap-2">
+    <span class="mr-2">Width</span>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="true"
+                 data-preview-width="@CustomPageWidths.DesktopPixels">Desktop</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="false"
+                 data-preview-width="@CustomPageWidths.PhonePixels" data-phone>Phone</ButtonBasic>
+  </div>
+  @* ThemeStyle sets the theme on this box alone, as on the Theme page's preview. inert: a link in the
+     preview would leave the editor. w-fit for the phone, so the box is the phone's width rather than the editor's *@
+  @if (_theme is { } theme)
+  {
+    <ThemeStyle Selector="[data-themed-preview]" Theme="theme.Theme" />
+  }
+  <div data-themed-preview
+       class="mb-4 max-w-full border border-rule bg-page font-text text-ink group-data-shows-phone/preview:w-fit" inert>
+    <RowPreviewFrame Pixels="CustomPageWidths.DesktopPixels">
+      @ChildContent
+    </RowPreviewFrame>
+  </div>
+</themed-preview>

@@ -11,7 +11,10 @@ public class CollectionPageRepository(SiteDatabase database)
 
         var row = await connection.QuerySingleAsync<CollectionPageRow>("SELECT * FROM get_collection_page()");
 
-        return new CollectionPageSettings(row.Layout, row.CardsPerPage);
+        return new CollectionPageSettings(
+            row.Layout ?? CollectionPageSettings.Default.Layout,
+            row.CardsPerPage ?? CollectionPageSettings.Default.CardsPerPage
+        );
     }
 
     public async Task UpdateAsync(CollectionPageSettings settings)
@@ -26,7 +29,7 @@ public class CollectionPageRepository(SiteDatabase database)
 
     private sealed class CollectionPageRow
     {
-        public required CardGridLayout Layout { get; init; }
-        public required int CardsPerPage { get; init; }
+        public required CardGridLayout? Layout { get; init; }
+        public required int? CardsPerPage { get; init; }
     }
 }

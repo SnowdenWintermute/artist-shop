@@ -13,12 +13,16 @@
   [Parameter]
   public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;
 
+  // shown under the select, in smaller text
+  [Parameter]
+  public string? Hint { get; set; }
+
   // the <option>s
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 }
 
-<FieldLayout TValue="TValue" Label="@Label" ValueExpression="ValueExpression" Context="elementId">
+<FieldLayout TValue="TValue" Label="@Label" Hint="@Hint" ValueExpression="ValueExpression" Context="elementId">
   <InputSelect class="artist-shop-field-input" TValue="TValue" id="@elementId" Value="Value" ValueChanged="ValueChanged"
                ValueExpression="ValueExpression">
     @ChildContent

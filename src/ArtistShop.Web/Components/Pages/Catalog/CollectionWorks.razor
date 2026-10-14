@@ -21,15 +21,17 @@
 
   protected override async Task OnParametersSetAsync()
   {
-    _collection = await CollectionRepository.GetWithCoverBySlugAsync(Slug);
+    // side by side, since the settings are the same for every collection
+    var collection = CollectionRepository.GetWithCoverBySlugAsync(Slug);
+    var settings = CollectionPageRepository.GetAsync();
+    await Task.WhenAll(collection, settings);
+    _collection = await collection;
+    _settings = await settings;
 
     if (_collection is null)
     {
       NavigationManager.NotFound();
-      return;
     }
-
-    _settings = await CollectionPageRepository.GetAsync();
   }
 
   // the page's settings are Edit page; which works it shows are the collection's own
@@ -45,6 +47,6 @@
   <LinkPreview Title="@collection.Name.Value" Image="collection.Cover" />
 
   <main class="mx-auto max-w-[1200px] p-4">
-    <CollectionPageContent Collection="collection" Settings="settings" />
+    <CollectionPageContent Id="collection.Id" Name="collection.Name" Settings="settings" />
   </main>
 }

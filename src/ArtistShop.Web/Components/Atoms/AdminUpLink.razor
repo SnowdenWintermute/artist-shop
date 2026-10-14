@@ -1,1 +1,7 @@
-<UpLink Class="mb-4" Href="@PageUrls.AdminDashboard" Label="Admin Dashboard" />
+@code {
+  // spacing, which depends on what follows; none inside a FormTopBar
+  [Parameter]
+  public string? Class { get; set; } = "mb-4";
+}
+
+<UpLink Class="@Class" Href="@PageUrls.AdminDashboard" Label="Admin Dashboard" />

@@ -1,8 +1,13 @@
+@using ArtistShop.Web.Utilities
+
 @code {
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
+  // spacing and size, which depend on where it sits
+  [Parameter]
+  public string Class { get; set; } = "mb-4";
 }
 
 @* <saved-notice>, defined in SavedNotice.razor.js, removes itself on the first edit, the way the
    islands' forms hide "Saved." once they have changes *@
-<saved-notice class="mb-4 block text-success">@ChildContent</saved-notice>
+<saved-notice class="@ClassNames.Join("block text-success", Class)">@ChildContent</saved-notice>

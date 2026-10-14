@@ -1,5 +1,6 @@
 @page "/admin/website/collection-page"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
 @using ArtistShop.Web.Database.Repositories
@@ -10,6 +11,7 @@
 @inject CollectionPageRepository CollectionPageRepository
 @inject CollectionRepository CollectionRepository
 @inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   [CascadingParameter]
@@ -17,17 +19,16 @@
 
   [SupplyParameterFromForm(FormName = "collection-page")]
   private CollectionPageForm? Input { get; set; }
-  [SupplyParameterFromQuery(Name = "saved")]
-  private bool Saved { get; set; }
   // the collection whose page's Edit page link opened this, or the one chosen to preview since. In the address, so
   // a save, which posts to it, keeps it
+  // read as text, so a value that isn't a number is a missing page rather than an error
   [SupplyParameterFromQuery(Name = PageUrls.PreviewCollectionKey)]
-  private int? PreviewCollectionId { get; set; }
+  private string? PreviewCollectionId { get; set; }
   // a successful save redirects, so a page rendered from a post is one that didn't go through
   private bool _formWasPosted;
   // what the preview shows, rather than a post that didn't go through
   private CollectionPageSettings? _saved;
-  // the ones a visitor can see, which are the ones to preview
+  // every one, since an empty collection still has a page, which an Edit page link can open this from
   private IReadOnlyList<CollectionWithCover> _collections = [];
   // the one asked for, else the first
   private CollectionWithCover? _previewed;
@@ -39,10 +40,29 @@
     _formWasPosted = Input is not null;
     _saved = await CollectionPageRepository.GetAsync();
     Input ??= CollectionPageForm.From(_saved);
-    _collections = await CollectionRepository.GetVisibleWithCoversAsync();
-    _previewed = _collections.FirstOrDefault(collection => collection.Id.Value == PreviewCollectionId)
-      ?? _collections.FirstOrDefault();
+    _collections = await CollectionRepository.GetAllWithCoversAsync();
+
+    if (PreviewCollectionId is null)
+    {
+      _previewed = _collections.FirstOrDefault();
+      return;
+    }
+
+    _previewed = int.TryParse(PreviewCollectionId, out var id)
+      ? _collections.FirstOrDefault(collection => collection.Id.Value == id)
+      : null;
+
+    if (_previewed is null)
+    {
+      NavigationManager.NotFound();
+    }
   }
+
+  // no cover means no work with an image, so a visitor sees an empty page
+  private string OptionLabel(CollectionWithCover collection) =>
+    collection.Cover is null
+      ? $"{collection.Name.Value} (no {Wording.Work.PluralInSentence} with images yet)"
+      : collection.Name.Value;
 
   private async Task SaveAsync()
   {
@@ -53,7 +73,7 @@
 
     await CollectionPageRepository.UpdateAsync(Input.ToSettings());
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
-    { ["saved"] = true }));
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
   }
 }
 
@@ -61,13 +81,11 @@
 
 <main>
   <AdminPanel>
-    <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+    <FormTopBar>
+      <UpLink Href="@PageUrls.CustomPageList" Label="Pages" />
+    </FormTopBar>
+    <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
     <h1 class="mb-4 text-xl">@Title</h1>
-
-    @if (Saved && !_formWasPosted)
-    {
-      <SavedNotice>Saved.</SavedNotice>
-    }
 
     @if (Input is not null)
     {
@@ -93,7 +111,7 @@
           <select id="preview-collection" name="@PageUrls.PreviewCollectionKey" class="artist-shop-field-input mb-2">
             @foreach (var collection in _collections)
             {
-              <option @key="collection.Id" value="@collection.Id.Value" selected="@(collection == previewed)">@collection.Name.Value</option>
+              <option @key="collection.Id" value="@collection.Id.Value" selected="@(collection == previewed)">@OptionLabel(collection)</option>
             }
           </select>
           @* app.css hides this unless the browser runs no scripts *@
@@ -101,13 +119,15 @@
         </SubmitOnChange>
       </form>
 
-      <CollectionPagePreview @rendermode="InteractiveServer" CollectionId="previewed.Id.Value" Layout="saved.Layout"
-                             CardsPerPage="saved.CardsPerPage" />
+      <ThemedPreview>
+        <div class="p-4">
+          <CollectionPageContent Id="previewed.Id" Name="previewed.Name" Settings="saved" />
+        </div>
+      </ThemedPreview>
     }
     else
     {
-      <p class="mb-4">Nothing to preview: no @Wording.Collection.SingularInSentence holds @Wording.Work.PluralInSentence
-        with images yet.</p>
+      <p class="mb-4">Nothing to preview: there are no @Wording.Collection.PluralInSentence yet.</p>
     }
   </AdminPanel>
 </main>

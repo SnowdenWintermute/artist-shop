@@ -20,8 +20,9 @@ customElements.define(
       this.#observer?.disconnect();
     }
 
-    // the Desktop and Phone buttons change the width
+    // the Desktop and Phone buttons change the width. Set here rather than on the child, which Blazor owns
     attributeChangedCallback() {
+      this.style.setProperty("--preview-width", `${Number(this.dataset.width)}px`);
       this.#fit();
     }
 

@@ -9,6 +9,10 @@ public static class DateText
     public static string Day(DateTimeOffset moment) =>
         moment.UtcDateTime.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
+    // "14:05"
+    public static string Time(DateTimeOffset moment) =>
+        moment.UtcDateTime.ToString("HH:mm", CultureInfo.InvariantCulture);
+
     // "2026-09-03T14:05:09Z", for a <time> element's datetime. Whole seconds: a datetime attribute
     // and JavaScript's Date are only promised up to milliseconds, and "O" writes seven digits of fraction
     public static string DateTimeAttribute(DateTimeOffset moment) =>

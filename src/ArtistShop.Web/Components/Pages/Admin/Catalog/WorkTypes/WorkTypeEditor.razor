@@ -1,6 +1,7 @@
 @page "/admin/catalog/types/new"
 @page "/admin/catalog/types/{Id:int}/edit"
 @layout WorkTypeLayout
+@using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Sites
@@ -52,6 +53,9 @@ else
     Choose which <a class="underline" href="@PageUrls.NewVocabulary">vocabularies</a> apply to a type on each
     vocabulary's page.
   </p>
+
+  @* the island saves without posting this page, so the page never holds unsaved changes *@
+  <SavedAtNotice HoldsUnsavedChanges="false" />
 
   @* @key: a different type gets a fresh island rather than inheriting this one's state *@
   <WorkTypeEditorForm @rendermode="InteractiveServer" @key="Id" FieldDefinitions="_fieldDefinitions" Loaded="_loaded" />
