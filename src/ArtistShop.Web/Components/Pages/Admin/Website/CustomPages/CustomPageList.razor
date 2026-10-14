@@ -14,12 +14,17 @@
     <h1 class="mb-4 text-xl">Pages</h1>
 
     <Hint Type="HintType.CustomPages">
-      <p>A page is a stack of rows. A row has up to three slots side by side, and each slot holds components, one
+      <p class="mb-4">A page is a stack of rows. A row has up to three slots side by side, and each slot holds
+        components, one
         above the other.</p>
-    </Hint>
+        <p>Setting a page as <span class="font-bold">site home</span> means the site's brand links to it. Setting
+          a page as
+          <span class="font-bold">blog home</span> means the blog posts link back to it.
+        </p>
+      </Hint>
 
-    <AddCustomPageForm />
+      <AddCustomPageForm />
 
-    <CustomPageNavLists @rendermode="InteractiveServer" />
-  </AdminPanel>
-</main>
+      <CustomPageNavLists @rendermode="InteractiveServer" />
+    </AdminPanel>
+  </main>

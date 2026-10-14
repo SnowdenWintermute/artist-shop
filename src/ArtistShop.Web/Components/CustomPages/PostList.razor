@@ -13,21 +13,22 @@
   [CascadingParameter]
   public CustomPage Page { get; set; } = default!;
 
-  [SupplyParameterFromQuery(Name = PageLinks.PageKey)]
-  private string? PageValue { get; set; }
+  // the query parameter its page number is kept in
+  [Parameter, EditorRequired]
+  public required string PageKey { get; set; }
 
   private PostListPage? _posts;
 
   // not OnInitializedAsync: turning a page is the same page with a new query parameter
   protected override async Task OnParametersSetAsync()
   {
-    var pageNumber = PageLinks.ReadPageNumber(PageValue);
+    var pageNumber = PageLinks.ReadPageNumber(NavigationManager, PageKey);
     var posts = await PostRepository.GetPublishedPageAsync(pageNumber);
 
     // a link to a page that has since emptied, because posts were unpublished or deleted
     if (posts.Items.Count == 0 && pageNumber > 1)
     {
-      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter(PageLinks.PageKey, (int?)null));
+      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter(PageKey, (int?)null));
       return;
     }
 
@@ -64,6 +65,6 @@
       </ul>
     }
 
-    <PageLinks PageNumber="posts.PageNumber" PageCount="posts.PageCount" PreviousText="← Newer" NextText="Older →" />
+    <PageLinks Key="@PageKey" PageNumber="posts.PageNumber" PageCount="posts.PageCount" PreviousText="← Newer" NextText="Older →" />
   }
 </section>

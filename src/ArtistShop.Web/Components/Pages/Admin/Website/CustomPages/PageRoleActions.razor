@@ -15,12 +15,12 @@
 @if (!Page.IsHome)
 {
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => OnMakeHome.InvokeAsync(Page)">
-    Make home page
+    Make site home
   </ButtonBasic>
 }
 @if (CanBeBlog && !Page.IsBlog)
 {
   <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => OnMakeBlog.InvokeAsync(Page)">
-    Make blog page
+    Make blog home
   </ButtonBasic>
 }

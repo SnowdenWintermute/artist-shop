@@ -16,7 +16,7 @@ public static class CustomComponentNames
     public static string Of(CustomComponentStarter starter, SiteWording wording) =>
         starter switch
         {
-            CustomComponentStarter.CollectionViewer => Of(CustomComponentType.CollectionViewer, wording),
+            CustomComponentStarter.CollectionViewer => $"{wording.Collection.SingularHeading} viewer",
             CustomComponentStarter.PostList => Of(CustomComponentType.PostList, wording),
             CustomComponentStarter.Text => Of(CustomComponentType.Text, wording),
             CustomComponentStarter.Heading => "Heading",
@@ -26,7 +26,7 @@ public static class CustomComponentNames
     public static string Of(CustomComponentType type, SiteWording wording) =>
         type switch
         {
-            CustomComponentType.CollectionViewer => $"{wording.Collection.SingularHeading} viewer",
+            CustomComponentType.CardGrid => "Card grid",
             CustomComponentType.PostList => "Post list",
             CustomComponentType.Text => "Text",
             _ => throw new InvalidOperationException($"{type} has no name."),

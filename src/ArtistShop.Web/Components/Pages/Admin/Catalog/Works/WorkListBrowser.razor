@@ -5,6 +5,7 @@
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTypes
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Search
 @using ArtistShop.Web.Sites
@@ -129,7 +130,7 @@
     var searchMatches =
       filter.SearchText is null ? null : await WorkSearch.FindAsync(filter.SearchText);
 
-    var works = await WorkRepository.GetListAsync(filter, searchMatches, ExcludedCollectionId);
+    var works = await WorkRepository.GetListAsync(filter, searchMatches, ExcludedCollectionId, ArtistShopLimits.WorkListPageSize);
 
     // a link to a page that has since emptied, because the filter narrowed or works were deleted
     if (works.Items.Count == 0 && filter.PageNumber > 1)

@@ -1,0 +1,16 @@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [Parameter, EditorRequired]
+  public required CollectionWithCover Collection { get; set; }
+
+  [Parameter, EditorRequired]
+  public required bool IsSameSize { get; set; }
+
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
+<LinkTile Href="@PageUrls.Collection(Collection.Slug)" Title="@Collection.Name.Value" Image="Collection.Cover"
+          Caption="@Wording.Work.CountOf(Collection.WorkCount)" IsSameSize="IsSameSize" />

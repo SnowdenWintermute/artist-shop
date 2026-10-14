@@ -20,7 +20,7 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
         var row = Assert.Single(layout.Rows);
         Assert.Equal((RowWidths.Whole, RowAlignment.Start), (row.Widths, row.Alignment));
         var component = Assert.Single(Assert.Single(row.Slots).Stack);
-        Assert.IsType<CollectionViewerSettings>(component.Settings);
+        Assert.Equal(CardGridSettings.AllCollections, component.Settings);
     }
 
     [Fact]

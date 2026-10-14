@@ -12,6 +12,9 @@
   public string? Caption { get; set; }
   [Parameter]
   public string BoxClass { get; set; } = "w-full aspect-[4/3]";
+  // one line of title, cut short, and the caption's line kept even without one, so every tile is one height
+  [Parameter]
+  public bool IsSameSize { get; set; }
 }
 
 <a href="@Href" class="block">
@@ -19,10 +22,18 @@
     <TileImage Image="Image" BoxClass="@BoxClass" />
   </span>
 
-  <span class="block">@Title</span>
-
-  @if (Caption is { } caption)
+  @if (IsSameSize)
   {
-    <span class="block text-sm text-ink-faded">@caption</span>
+    <span class="block truncate" title="@Title">@Title</span>
+    <span class="block truncate text-sm text-ink-faded">@(Caption ?? "\u00a0")</span>
+  }
+  else
+  {
+    <span class="block">@Title</span>
+
+    @if (Caption is { } caption)
+    {
+      <span class="block text-sm text-ink-faded">@caption</span>
+    }
   }
 </a>

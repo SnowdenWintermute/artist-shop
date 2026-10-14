@@ -8,7 +8,7 @@ public record CustomComponentId(int Value);
 // the ids are stored in custom_components.type: the templates an artist makes components from
 public enum CustomComponentType
 {
-    CollectionViewer = 1,
+    CardGrid = 1,
     PostList = 2,
     Text = 3,
 }
@@ -19,12 +19,6 @@ public abstract record CustomComponentSettings
 {
     [JsonIgnore]
     public abstract CustomComponentType Type { get; }
-}
-
-// the collections a visitor may see, in the artist's order. Its options are still to be designed
-public sealed record CollectionViewerSettings : CustomComponentSettings
-{
-    public override CustomComponentType Type => CustomComponentType.CollectionViewer;
 }
 
 // the published posts, newest first, a page of them at a time
@@ -55,7 +49,8 @@ public record CustomComponent(CustomComponentId Id, string Name, CustomComponent
 public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames, DateTimeOffset UpdatedAt);
 
 // What the Add component dialog's New buttons make: one of each type, and Heading, a text component
-// that starts as one large heading line, for an artist who wants only that
+// that starts as one large heading line, for an artist who wants only that. A card grid starts as
+// the collection viewer
 public enum CustomComponentStarter
 {
     CollectionViewer = 1,
@@ -70,7 +65,7 @@ public static class NewCustomComponentSettings
     public static CustomComponentSettings For(CustomComponentStarter starter) =>
         starter switch
         {
-            CustomComponentStarter.CollectionViewer => new CollectionViewerSettings(),
+            CustomComponentStarter.CollectionViewer => CardGridSettings.AllCollections,
             CustomComponentStarter.PostList => new PostListSettings(),
             CustomComponentStarter.Text => new TextSettings(RichText.Empty, TextWidth.Narrow),
             CustomComponentStarter.Heading => new TextSettings(HeadingText, TextWidth.Full),

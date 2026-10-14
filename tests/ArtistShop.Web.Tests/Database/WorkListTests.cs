@@ -35,7 +35,7 @@ public sealed class WorkListTests(TestDatabaseFixture database)
         );
 
     private Task<WorkListPage> ListAsync(WorkListFilter filter) =>
-        _works.GetListAsync(filter, searchMatches: null, excludedCollectionId: null);
+        _works.GetListAsync(filter, searchMatches: null, excludedCollectionId: null, ArtistShopLimits.WorkListPageSize);
 
     [Fact]
     public async Task SeveralTermsFromOneVocabularyWidenTheSearch()
@@ -136,7 +136,7 @@ public sealed class WorkListTests(TestDatabaseFixture database)
             images: []
         );
 
-        var page = await _works.GetListAsync(FilterFor(collectionId), searchMatches: null, excludedCollectionId);
+        var page = await _works.GetListAsync(FilterFor(collectionId), searchMatches: null, excludedCollectionId, ArtistShopLimits.WorkListPageSize);
 
         Assert.Equal(outside.Id, Assert.Single(page.Items).Id);
     }
@@ -157,7 +157,8 @@ public sealed class WorkListTests(TestDatabaseFixture database)
         var page = await _works.GetListAsync(
             FilterFor(collectionId) with { Collection = new WorkCollectionFilter.InNoCollection() },
             searchMatches: [inCollection.Id, inNoCollection.Id],
-            excludedCollectionId: null
+            excludedCollectionId: null,
+            ArtistShopLimits.WorkListPageSize
         );
 
         Assert.Equal(inNoCollection.Id, Assert.Single(page.Items).Id);
@@ -366,7 +367,7 @@ public sealed class WorkListTests(TestDatabaseFixture database)
             images: []
         );
 
-        var page = await _works.GetListAsync(FilterFor(collectionId), searchMatches: [], excludedCollectionId: null);
+        var page = await _works.GetListAsync(FilterFor(collectionId), searchMatches: [], excludedCollectionId: null, ArtistShopLimits.WorkListPageSize);
 
         Assert.Empty(page.Items);
         Assert.Equal(0, page.TotalCount);

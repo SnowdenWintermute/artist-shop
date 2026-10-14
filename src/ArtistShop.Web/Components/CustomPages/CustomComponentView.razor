@@ -1,3 +1,5 @@
+@using ArtistShop.Web.Components.CustomPages.CardGrids
+
 
 @code {
   [Parameter, EditorRequired]
@@ -6,11 +8,11 @@
 
 @switch (Component.Settings)
 {
-  case CollectionViewerSettings:
-    <CollectionViewer />
+  case CardGridSettings cardGrid:
+    <CardGridView Settings="cardGrid" PageKey="@CustomComponentPageKey.For(Component.Id)" />
     break;
   case PostListSettings:
-    <PostList />
+    <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" />
     break;
   case TextSettings text:
     <TextView Settings="text" />

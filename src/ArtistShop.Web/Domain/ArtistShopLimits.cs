@@ -38,6 +38,9 @@ public static class ArtistShopLimits
 
     public const int BlogPageSize = 10;
 
+    public const int CardGridMaximumCardsPerPage = 100;
+    public const int CardGridHeadingMaximumLength = 200;
+
     public const int PostTitleMaximumLength = 200;
 
     // sign_up_codes.note

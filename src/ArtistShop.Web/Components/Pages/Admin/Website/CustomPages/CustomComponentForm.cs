@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Components.Pages.Admin.TextEditor;
 using ArtistShop.Web.Domain;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Images;
@@ -9,8 +10,8 @@ using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
-// A component's name, and the settings of its type: a text component's text and width. Form posts create
-// this, so it keeps a single public constructor
+// A component's name, and the settings of its type: a text component's text and width, a card grid's source,
+// heading and paging. Form posts create this, so it keeps a single public constructor
 public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 {
     [Required]
@@ -22,6 +23,23 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
     public TextWidth Width { get; set; }
 
+    public CardGridSourceType Source { get; set; }
+
+    // the collection whose works a card grid shows
+    public int? CollectionId { get; set; }
+
+    public CardGridHeadingType HeadingType { get; set; }
+
+    [StringLength(ArtistShopLimits.CardGridHeadingMaximumLength)]
+    public string? HeadingText { get; set; }
+
+    [Range(1, ArtistShopLimits.CardGridMaximumCardsPerPage)]
+    public int? CardsPerPage { get; set; }
+
+    public bool HasPageLinks { get; set; }
+
+    public bool HasSameSizeCards { get; set; }
+
     public static CustomComponentForm From(CustomComponent component) =>
         component.Settings switch
         {
@@ -30,6 +48,19 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
                 Name = component.Name,
                 Body = text.Body.Json,
                 Width = text.Width,
+            },
+            CardGridSettings cardGrid => new()
+            {
+                Name = component.Name,
+                Source = cardGrid.Source.Type,
+                CollectionId = cardGrid.Source is CardGridSource.WorksInCollection inCollection
+                    ? inCollection.CollectionId.Value
+                    : null,
+                HeadingType = cardGrid.Heading.Type,
+                HeadingText = cardGrid.Heading is CardGridHeading.Custom custom ? custom.Text : null,
+                CardsPerPage = cardGrid.CardsPerPage,
+                HasPageLinks = cardGrid.HasPageLinks,
+                HasSameSizeCards = cardGrid.HasSameSizeCards,
             },
             _ => new() { Name = component.Name },
         };
@@ -65,6 +96,38 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         return problems.Count == 0;
     }
 
+    // A card grid's choices that depend on each other or on the catalog. False when the form says by the
+    // field why
+    public bool CheckCardGrid(CustomComponentSettings saved, IReadOnlyList<Collection> collections)
+    {
+        if (saved is not CardGridSettings)
+        {
+            return true;
+        }
+
+        var isValid = true;
+
+        if (CardsPerPage is null)
+        {
+            AddServerError(nameof(CardsPerPage), "Say how many cards a page holds.");
+            isValid = false;
+        }
+
+        if (Source is CardGridSourceType.WorksInCollection && !collections.Any(collection => collection.Id.Value == CollectionId))
+        {
+            AddServerError(nameof(CollectionId), "Choose one.");
+            isValid = false;
+        }
+
+        if (HeadingType is CardGridHeadingType.Custom && string.IsNullOrWhiteSpace(HeadingText))
+        {
+            AddServerError(nameof(HeadingText), "Write the heading, or choose None.");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
     public string ToName() => Unwrap.Value(Name).Trim();
 
     // the saved settings with this form's changes; a type with none comes back as it was
@@ -72,6 +135,26 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         saved switch
         {
             TextSettings => new TextSettings(new RichText(Unwrap.Value(Body)), Width),
+            CardGridSettings => new CardGridSettings(ToCardGridSource(), ToCardGridHeading(), Unwrap.Value(CardsPerPage), HasPageLinks,
+                HasSameSizeCards),
             _ => saved,
+        };
+
+    private CardGridSource ToCardGridSource() =>
+        Source switch
+        {
+            CardGridSourceType.AllCollections => new CardGridSource.AllCollections(),
+            CardGridSourceType.WorksInCollection => new CardGridSource.WorksInCollection(new CollectionId(Unwrap.Value(CollectionId))),
+            CardGridSourceType.CollectionsAndLooseWorks => new CardGridSource.CollectionsAndLooseWorks(),
+            _ => throw new InvalidOperationException($"{Source} isn't a card grid source."),
+        };
+
+    private CardGridHeading ToCardGridHeading() =>
+        HeadingType switch
+        {
+            CardGridHeadingType.None => new CardGridHeading.None(),
+            CardGridHeadingType.Automatic => new CardGridHeading.Automatic(),
+            CardGridHeadingType.Custom => new CardGridHeading.Custom(Unwrap.Value(HeadingText).Trim()),
+            _ => throw new InvalidOperationException($"{HeadingType} isn't a card grid heading."),
         };
 }

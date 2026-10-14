@@ -1,0 +1,8 @@
+@using ArtistShop.Web.Components.Catalog
+
+@* holds a missing card's place on a short last page, so the grid keeps its full height. A same-size tile, which
+   every card kind fits, kept out of sight, the tab order and screen readers *@
+<div class="invisible" aria-hidden="true">
+  @* a space, as an empty title line would have no height *@
+  <LinkTile Href="" Title="@("\u00a0")" IsSameSize />
+</div>

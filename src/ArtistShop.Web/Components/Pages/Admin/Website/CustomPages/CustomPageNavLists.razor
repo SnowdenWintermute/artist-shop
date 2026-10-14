@@ -95,6 +95,7 @@
           <PageSummary Page="customPage" />
         </RowContent>
         <RowActions Context="customPage">
+          <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
           <PageRoleActions Page="customPage" CanBeBlog="_holdingPostLists.Contains(customPage.Id)"
                            OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
           <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => HideAsync(customPage)">Hide</ButtonBasic>
@@ -113,6 +114,7 @@
       {
         <li @key="customPage.Id" class="mb-2 flex items-center gap-2 border p-2 text-sm">
           <PageSummary Page="customPage" />
+          <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
           <PageRoleActions Page="customPage" CanBeBlog="_holdingPostLists.Contains(customPage.Id)"
                            OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
           <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => ShowAsync(customPage)">Show in nav</ButtonBasic>

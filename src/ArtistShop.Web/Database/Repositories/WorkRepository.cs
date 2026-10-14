@@ -262,12 +262,11 @@ public class WorkRepository(SiteDatabase database)
     public async Task<WorkListPage> GetListAsync(
         WorkListFilter filter,
         IReadOnlyList<WorkId>? searchMatches,
-        CollectionId? excludedCollectionId
+        CollectionId? excludedCollectionId,
+        int pageSize
     )
     {
         await using var connection = await database.OpenConnectionAsync();
-
-        var pageSize = ArtistShopLimits.WorkListPageSize;
 
         int? collectionId = filter.Collection is WorkCollectionFilter.InCollection inCollection ? inCollection.CollectionId.Value : null;
 

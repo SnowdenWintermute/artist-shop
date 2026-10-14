@@ -6,12 +6,14 @@
 @using ArtistShop.Web.Components.Pages.Admin.TextEditor
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject CustomComponentRepository CustomComponentRepository
 @inject CustomPageRepository CustomPageRepository
+@inject CollectionRepository CollectionRepository
 @inject ImageStorage ImageStorage
 @inject NavigationManager NavigationManager
 
@@ -41,6 +43,9 @@
   private bool _formWasPosted;
   private bool _deletedElsewhere;
   private bool _isBlogPagesOnlyPostList;
+  // a card grid's to choose from, and the ones a visitor would see anything in
+  private IReadOnlyList<Collection> _collections = [];
+  private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -61,11 +66,19 @@
       Input ??= CustomComponentForm.From(_component.Component);
       _isBlogPagesOnlyPostList = await CustomComponentRepository.IsBlogPagesOnlyPostListAsync(ComponentId);
     }
+
+    if (_component?.Component.Settings is CardGridSettings)
+    {
+      _collections = await CollectionRepository.GetAllAsync();
+      _visibleCollectionIds = (await CollectionRepository.GetVisibleWithCoversAsync()).Select(collection =>
+collection.Id).ToHashSet();
+    }
   }
 
   private async Task SaveAsync()
   {
-    if (_component is null || Input is null || !Input.CheckBody(ImageStorage, _component.Component.Settings))
+    if (_component is null || Input is null || !Input.CheckBody(ImageStorage, _component.Component.Settings)
+        || !Input.CheckCardGrid(_component.Component.Settings, _collections))
     {
       return;
     }
@@ -110,6 +123,23 @@ Input.ToSettings(_component.Component.Settings));
   private string UpHref =>
     _fromPage is not null && FromRowId is int rowId ? PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId)) :
 PageUrls.CustomPageList;
+
+  // what Automatic would say, so the choice shows it
+  private string AutomaticLabel(CardGridSourceType source) =>
+    source switch
+    {
+      CardGridSourceType.AllCollections => $"Automatic ({Wording.Collection.PluralHeading})",
+      CardGridSourceType.WorksInCollection => $"Automatic (the {Wording.Collection.SingularInSentence}'s name)",
+      CardGridSourceType.CollectionsAndLooseWorks => $"Automatic ({Wording.Work.PluralHeading})",
+      _ => throw new InvalidOperationException($"{source} has no automatic heading."),
+    };
+
+  // a chosen collection that's gone, or that a visitor would find empty
+  private string? ChosenCollectionProblem(CustomComponentForm input) =>
+    input.Source is not CardGridSourceType.WorksInCollection || input.CollectionId is not int id ? null
+      : _collections.All(collection => collection.Id.Value != id) ? $"The {Wording.Collection.SingularInSentence} it showed was deleted."
+      : !_visibleCollectionIds.Contains(new CollectionId(id)) ? "None of its works has an image, so the grid is empty."
+      : null;
 
   private static string DeleteWarning(CustomComponentInUse component) =>
     component.PageNames.Count == 0
@@ -191,6 +221,64 @@ PageUrls.CustomPageList;
             </SubmitOnChange>
           </ComponentSettingsForm>
         </RichTextBackup>
+      }
+      else if (component.Component.Settings is CardGridSettings)
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          @* each select saves as soon as it changes, so the fields it brings in appear *@
+          <SubmitOnChange>
+            <SelectField Label="Shows" @bind-Value="Input.Source">
+              <option value="@CardGridSourceType.AllCollections">All @Wording.Collection.PluralInSentence</option>
+              <option value="@CardGridSourceType.WorksInCollection">
+                @Wording.Work.PluralHeading in one @Wording.Collection.SingularInSentence
+              </option>
+              <option value="@CardGridSourceType.CollectionsAndLooseWorks">
+                All @Wording.Collection.PluralInSentence, then @Wording.Work.PluralInSentence in none
+              </option>
+            </SelectField>
+          </SubmitOnChange>
+
+          @if (Input.Source is CardGridSourceType.WorksInCollection)
+          {
+            @if (ChosenCollectionProblem(Input) is { } problem)
+            {
+              <p class="mb-2 text-sm text-error">@problem</p>
+            }
+            <SubmitOnChange>
+              <SelectField Label="@Wording.Collection.SingularHeading" @bind-Value="Input.CollectionId">
+                <option value="">Choose…</option>
+                @foreach (var collection in _collections)
+                {
+                  <option @key="collection.Id" value="@collection.Id.Value">@collection.Name.Value</option>
+                }
+              </SelectField>
+            </SubmitOnChange>
+          }
+
+          <SubmitOnChange>
+            <SelectField Label="Heading" @bind-Value="Input.HeadingType">
+              <option value="@CardGridHeadingType.None">None</option>
+              <option value="@CardGridHeadingType.Automatic">@AutomaticLabel(Input.Source)</option>
+              <option value="@CardGridHeadingType.Custom">Custom</option>
+            </SelectField>
+          </SubmitOnChange>
+
+          @if (Input.HeadingType is CardGridHeadingType.Custom)
+          {
+            <TextField Label="Heading text" @bind-Value="Input.HeadingText" />
+          }
+
+          <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
+          <SubmitOnChange>
+            <CheckboxField Label="Page links" Hint="Show buttons for next/previous page in the grid."
+                           @bind-Value="Input.HasPageLinks" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <CheckboxField Label="Consistent card sizes"
+                           Hint="Long titles are truncated. Pages of the grid will be the same height."
+                           @bind-Value="Input.HasSameSizeCards" />
+          </SubmitOnChange>
+        </ComponentSettingsForm>
       }
       else
       {

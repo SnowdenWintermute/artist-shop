@@ -2,6 +2,7 @@ namespace ArtistShop.Web.Domain.Website;
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 
 // A component's settings as the custom_components table keeps them: the type's settings record as
@@ -12,7 +13,7 @@ public static class CustomComponentSettingsJson
     public static (string Json, int Version) Write(CustomComponentSettings settings) =>
         settings switch
         {
-            CollectionViewerSettings collectionViewer => (Serialize(collectionViewer), 1),
+            CardGridSettings cardGrid => (WriteCardGrid(cardGrid), 3),
             PostListSettings postList => (Serialize(postList), 1),
             TextSettings text => (WriteText(text), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
@@ -21,7 +22,11 @@ public static class CustomComponentSettingsJson
     public static CustomComponentSettings Read(CustomComponentType type, int version, string json) =>
         (type, version) switch
         {
-            (CustomComponentType.CollectionViewer, 1) => Deserialize<CollectionViewerSettings>(json),
+            // the collection viewer it was, which had no settings
+            (CustomComponentType.CardGrid, 1) => CardGridSettings.AllCollections,
+            // before same-size cards, which it had in effect never had
+            (CustomComponentType.CardGrid, 2) => ReadCardGrid(json, hasSameSizeCards: true),
+            (CustomComponentType.CardGrid, 3) => ReadCardGrid(json, hasSameSizeCards: null),
             (CustomComponentType.PostList, 1) => Deserialize<PostListSettings>(json),
             (CustomComponentType.Text, 1) => ReadText(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
@@ -46,6 +51,71 @@ public static class CustomComponentSettingsJson
             Enum.Parse<TextWidth>(root.GetProperty("width").GetString() ?? throw new InvalidOperationException("A text component's width is null."))
         );
     }
+
+    // {"source": {"type": "WorksInCollection", "collectionId": 4}, "heading": {"type": "Custom", "text": "…"},
+    //  "cardsPerPage": 24, "hasPageLinks": true, "hasSameSizeCards": true}
+    private static string WriteCardGrid(CardGridSettings cardGrid)
+    {
+        var source = new JsonObject { ["type"] = cardGrid.Source.Type.ToString() };
+
+        if (cardGrid.Source is CardGridSource.WorksInCollection inCollection)
+        {
+            source["collectionId"] = inCollection.CollectionId.Value;
+        }
+
+        var heading = new JsonObject { ["type"] = cardGrid.Heading.Type.ToString() };
+
+        if (cardGrid.Heading is CardGridHeading.Custom custom)
+        {
+            heading["text"] = custom.Text;
+        }
+
+        return new JsonObject
+        {
+            ["source"] = source,
+            ["heading"] = heading,
+            ["cardsPerPage"] = cardGrid.CardsPerPage,
+            ["hasPageLinks"] = cardGrid.HasPageLinks,
+            ["hasSameSizeCards"] = cardGrid.HasSameSizeCards,
+        }.ToJsonString();
+    }
+
+    // hasSameSizeCards is what a version written before that setting gets; null reads it from the JSON
+    private static CardGridSettings ReadCardGrid(string json, bool? hasSameSizeCards)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var source = root.GetProperty("source");
+        var heading = root.GetProperty("heading");
+
+        return new CardGridSettings(
+            ReadEnum<CardGridSourceType>(source) switch
+            {
+                CardGridSourceType.AllCollections => new CardGridSource.AllCollections(),
+                CardGridSourceType.WorksInCollection => new CardGridSource.WorksInCollection(
+                    new CollectionId(source.GetProperty("collectionId").GetInt32())
+                ),
+                CardGridSourceType.CollectionsAndLooseWorks => new CardGridSource.CollectionsAndLooseWorks(),
+                var type => throw new InvalidOperationException($"A card grid has an unknown source, {type}."),
+            },
+            ReadEnum<CardGridHeadingType>(heading) switch
+            {
+                CardGridHeadingType.None => new CardGridHeading.None(),
+                CardGridHeadingType.Automatic => new CardGridHeading.Automatic(),
+                CardGridHeadingType.Custom => new CardGridHeading.Custom(ReadString(heading, "text")),
+                var type => throw new InvalidOperationException($"A card grid has an unknown heading, {type}."),
+            },
+            root.GetProperty("cardsPerPage").GetInt32(),
+            root.GetProperty("hasPageLinks").GetBoolean(),
+            hasSameSizeCards ?? root.GetProperty("hasSameSizeCards").GetBoolean()
+        );
+    }
+
+    private static T ReadEnum<T>(JsonElement element)
+        where T : struct, Enum => Enum.Parse<T>(ReadString(element, "type"));
+
+    private static string ReadString(JsonElement element, string name) =>
+        element.GetProperty(name).GetString() ?? throw new InvalidOperationException($"A component's {name} is null.");
 
     private static string Serialize<T>(T settings)
         where T : CustomComponentSettings => JsonSerializer.Serialize(settings, JsonSerializerOptions.Web);

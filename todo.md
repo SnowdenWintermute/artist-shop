@@ -6,6 +6,55 @@
 notes below are older than that.** Step 1 partly browser-checked (preview), step 2 not. Then step 3, Image (whose
 settings are designed with Mike first).
 
+**Card grid part 1 built 2026-10-13 (From Claude), uncommitted, 1165 tests pass, not browser-checked.**
+`CustomComponentType.CardGrid` (id 1, was CollectionViewer); `CardGridSettings` (`Domain/Website/CardGridSettings.cs`,
+JSON version 2; version 1, the old empty collection viewer, reads as `CardGridSettings.AllCollections`).
+`CardGridView` with `CollectionCard`/`WorkCard` in `Components/CustomPages/CardGrids/`; the collection page draws its
+works with it (heading None, key `page`). Source 3 is `get_collections_and_loose_works_page` via `CardGridRepository`
+(loose works `WorkListSort.RecentlyAdded`). `GetListAsync` takes a page size. `PageLinks` takes `Key`;
+`CustomComponentPageKey.For(id)` for grids and post lists. Settings page: Shows / collection / Heading selects save on
+change; `CustomComponentForm.CheckCardGrid`. Tests in `App/CardGridTests.cs`. `CollectionViewer.razor` and
+`CollectionGrid.razor` deleted. Next: part 2, chosen cards.
+- 2026-10-14 (Mike): Automatic heads the mix with the Works word (no refusal). "Same size cards" (checked by
+  default, JSON version 3; version 2 reads as checked): `LinkTile.IsSameSize` cuts the title to one line (full title
+  in `title`) and keeps the caption's line; a short last page of a grid with several pages is filled with invisible
+  `CardPlaceholder`s, so turning pages keeps one height at any column count. Unchecked: full titles, no padding.
+  A future collection card look must fit the same cell. The collection page uses same-size cards. 1167 tests pass.
+- Fixed 2026-10-14: the placeholder's empty title line had no height (now a non-breaking space). Page links and
+  Consistent card sizes save on change. Pages list: Edit button on each page, in and out of the nav.
+
+**Card grid, agreed 2026-10-13 (From Claude).** Replaces the Collection viewer's own h1 problem: one
+component type with a source and a heading among its settings.
+- Sources: (1) all collections; (2) works in a chosen collection; (3) all collections, then works in no collection;
+  (4) chosen cards, any mix of collections and works in the artist's order.
+- Heading: None, Automatic or custom text. Automatic is the collection plural from Wording for (1) and the
+  collection's name for (2); not offered for (3) and (4).
+- "Collection viewer" becomes a starter in the Add component dialog: source (1), heading Automatic.
+- (3) orders the loose works newest first; the stored function takes the order as a parameter and the repository
+  chooses it, so changing it needs no migration.
+- (4) is a junction table referencing collections and works, with positions; deletes cascade. A chosen card that
+  isn't visible (a collection with no work with an image, a work with no image) stays in the list on the settings
+  page, marked as not shown and why. Picking: `WorkListBrowser` already does the multi-select (`WorkListSelection`,
+  checks in the address); `AddCollectionWorks` is a thin page over it. Extract that page's shell (selection in the
+  address, "Add selected (n)", an exclusion) so both it and the card grid use it, rather than a second picker.
+  Collections have no checkable list yet.
+- Collection cards and work cards stay separate components (both `LinkTile` today), so each can get its own look
+  later; the grid draws each card with its kind's component.
+- Nothing visible: a fixed message, shown to visitors for now. Better to tell the artist when it would happen.
+- The fixed collection page keeps its own h1 and draws the grid with no heading.
+- Build order: the type, settings page, sources 1-3, heading and fallback first; then (4) with its table, picker and
+  ordering.
+- Paging: each grid and post list on a custom page keeps its page number under its own key, `page-<component id>`,
+  so two on one page page separately (the same component placed twice shares one). `PageLinks` takes the key
+  (it already keeps every other query parameter); components read it from the query themselves, since
+  `SupplyParameterFromQuery` needs a fixed name. The fixed collection page keeps plain `page`.
+- Cards per page is a setting (Mike: e.g. a small "sample works" grid of 3 on a larger page). A number field,
+  1 to a maximum in `ArtistShopLimits`; new grids default to 24 (fills rows of 2, 3, 4 or 6). The functions take
+  the page size, as `get_published_post_page` does.
+- "Page links" setting, checked by default; unchecked, the grid shows only its first page (a sample). A "See all"
+  link waits until sources 1 and 3 have somewhere to link to.
+- Pages stay out of the whole-website export/import until each component type and the editing workflow settle.
+
 **Deleting components, built 2026-10-13 (From Claude), uncommitted, 1158 tests pass, not browser-checked.**
 - Component settings page: Delete component (danger text) beside the heading, `ConfirmFormDialog` saying "It will
   be taken off Home, Blog." (or "It isn't on any page."); afterwards to the row editor it came from, else Pages.

@@ -219,7 +219,7 @@ public sealed partial class CustomPageTests(TestApp app)
         await new RowSlotRepository(database).AddAsync(rowId, slotCount: 1);
         var slots = Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots;
         var components = new CustomComponentRepository(database);
-        await components.AddToSlotAsync(slots[0].Id, "Viewer", new CollectionViewerSettings());
+        await components.AddToSlotAsync(slots[0].Id, "Viewer", CardGridSettings.AllCollections);
         await components.AddToSlotAsync(slots[1].Id, "Posts", new PostListSettings());
 
         var page = await app.ClientFor(site.Host).GetStringAsync("/both", TestContext.Current.CancellationToken);
@@ -295,12 +295,20 @@ public sealed partial class CustomPageTests(TestApp app)
             client,
             PageUrls.EditCustomComponent(component.Id, home.Id, row.Id),
             "custom-component",
-            new() { ["Input.Name"] = "Front grid" }
+            new()
+            {
+                ["Input.Name"] = "Front grid",
+                ["Input.Source"] = nameof(CardGridSourceType.AllCollections),
+                ["Input.HeadingType"] = nameof(CardGridHeadingType.Automatic),
+                ["Input.CardsPerPage"] = "24",
+                ["Input.HasPageLinks"] = "true",
+                ["Input.HasSameSizeCards"] = "true",
+            }
         );
 
         var saved = Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(database).GetAsync(component.Id));
         Assert.Equal("Front grid", saved.Component.Name);
-        Assert.IsType<CollectionViewerSettings>(saved.Component.Settings);
+        Assert.Equal(CardGridSettings.AllCollections, saved.Component.Settings);
     }
 
     [Fact]

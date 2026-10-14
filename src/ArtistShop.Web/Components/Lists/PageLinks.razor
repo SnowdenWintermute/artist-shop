@@ -1,8 +1,9 @@
 @using ArtistShop.Web.Components.Atoms
+@using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager NavigationManager
 
 @code {
-  // the query parameter every paged list keeps its page number in
+  // the query parameter a paged list keeps its page number in, unless it shares its page with others
   public const string PageKey = "page";
 
   // far past any list's end, and small enough that no page size times it overflows an int offset.
@@ -13,8 +14,16 @@
   public static int ReadPageNumber(string? value) =>
     int.TryParse(value, out var pageNumber) && pageNumber > 1 ? Math.Min(pageNumber, MaximumPageNumber) : 1;
 
+  // for a key [SupplyParameterFromQuery] can't name, as it's only known at run time
+  public static int ReadPageNumber(NavigationManager navigationManager, string key) =>
+    ReadPageNumber(QueryHelpers.ParseQuery(navigationManager.ToAbsoluteUri(navigationManager.Uri).Query)
+      .TryGetValue(key, out var values) ? values.FirstOrDefault() : null);
+
   [Parameter, EditorRequired]
   public int PageNumber { get; set; }
+
+  [Parameter]
+  public string Key { get; set; } = PageKey;
 
   [Parameter, EditorRequired]
   public int PageCount { get; set; }
@@ -29,7 +38,7 @@
   // every other query parameter stays in the address as it is; the first page drops the
   // parameter instead of spelling out page=1
   private string UrlFor(int pageNumber) =>
-    NavigationManager.GetUriWithQueryParameter(PageKey, pageNumber <= 1 ? null : (int?)pageNumber);
+    NavigationManager.GetUriWithQueryParameter(Key, pageNumber <= 1 ? null : (int?)pageNumber);
 
   private bool IsOnLastPage => PageNumber == PageCount;
   private bool IsOnFirstPage => PageNumber == 1;

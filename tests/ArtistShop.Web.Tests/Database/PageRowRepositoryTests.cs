@@ -99,7 +99,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var pageId = await AddPageAsync();
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
-        var viewer = await _components.AddToSlotAsync(slotId, UniqueName(), new CollectionViewerSettings());
+        var viewer = await _components.AddToSlotAsync(slotId, UniqueName(), CardGridSettings.AllCollections);
         var posts = await _components.AddToSlotAsync(slotId, UniqueName(), new PostListSettings());
 
         await _slots.ReorderPlacementsAsync(slotId, [posts, viewer]);
@@ -116,7 +116,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var pageId = await AddPageAsync();
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
-        var viewer = await _components.AddToSlotAsync(slotId, UniqueName(), new CollectionViewerSettings());
+        var viewer = await _components.AddToSlotAsync(slotId, UniqueName(), CardGridSettings.AllCollections);
 
         await _slots.RemovePlacementAsync(slotId, viewer);
         Assert.Empty(Assert.Single(await _components.GetAllAsync(), made => made.Component.Id == viewer).PageNames);
@@ -137,7 +137,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var rowId = await _rows.AddAsync(pageId);
         await _slots.AddAsync(rowId, slotCount: 1);
         var slots = (await RowAsync(pageId, rowId)).Slots;
-        var viewer = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), new CollectionViewerSettings());
+        var viewer = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), CardGridSettings.AllCollections);
         await _slots.PlaceAsync(slots[1].Id, viewer);
 
         Assert.Equal([page.Name], Assert.Single(await _components.GetAllAsync(), made => made.Component.Id == viewer).PageNames);
@@ -150,7 +150,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var rowId = await _rows.AddAsync(pageId);
         var slotId = Assert.Single((await RowAsync(pageId, rowId)).Slots).Id;
         var name = UniqueName();
-        var first = await _components.AddToSlotAsync(slotId, name, new CollectionViewerSettings());
+        var first = await _components.AddToSlotAsync(slotId, name, CardGridSettings.AllCollections);
         var second = await _components.AddToSlotAsync(slotId, UniqueName(), new PostListSettings());
 
         await Assert.ThrowsAsync<NameAlreadyInUseException>(() =>
@@ -193,8 +193,8 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         var slots = (await RowAsync(pageId, rowId)).Slots;
         var otherPageId = await AddPageAsync();
         var otherRowId = await _rows.AddAsync(otherPageId);
-        var viewer = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), new CollectionViewerSettings());
-        var kept = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), new CollectionViewerSettings());
+        var viewer = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), CardGridSettings.AllCollections);
+        var kept = await _components.AddToSlotAsync(slots[0].Id, UniqueName(), CardGridSettings.AllCollections);
         await _slots.PlaceAsync(slots[1].Id, viewer);
         await _slots.PlaceAsync(Assert.Single((await RowAsync(otherPageId, otherRowId)).Slots).Id, viewer);
 
