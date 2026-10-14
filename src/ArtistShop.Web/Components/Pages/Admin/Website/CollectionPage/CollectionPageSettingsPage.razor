@@ -1,0 +1,113 @@
+@page "/admin/website/collection-page"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject CollectionPageRepository CollectionPageRepository
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [SupplyParameterFromForm(FormName = "collection-page")]
+  private CollectionPageForm? Input { get; set; }
+  [SupplyParameterFromQuery(Name = "saved")]
+  private bool Saved { get; set; }
+  // the collection whose page's Edit page link opened this, or the one chosen to preview since. In the address, so
+  // a save, which posts to it, keeps it
+  [SupplyParameterFromQuery(Name = PageUrls.PreviewCollectionKey)]
+  private int? PreviewCollectionId { get; set; }
+  // a successful save redirects, so a page rendered from a post is one that didn't go through
+  private bool _formWasPosted;
+  // what the preview shows, rather than a post that didn't go through
+  private CollectionPageSettings? _saved;
+  // the ones a visitor can see, which are the ones to preview
+  private IReadOnlyList<CollectionWithCover> _collections = [];
+  // the one asked for, else the first
+  private CollectionWithCover? _previewed;
+
+  private string Title => $"{Wording.Collection.SingularHeading} page";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _formWasPosted = Input is not null;
+    _saved = await CollectionPageRepository.GetAsync();
+    Input ??= CollectionPageForm.From(_saved);
+    _collections = await CollectionRepository.GetVisibleWithCoversAsync();
+    _previewed = _collections.FirstOrDefault(collection => collection.Id.Value == PreviewCollectionId)
+      ?? _collections.FirstOrDefault();
+  }
+
+  private async Task SaveAsync()
+  {
+    if (Input is null || !Input.Check())
+    {
+      return;
+    }
+
+    await CollectionPageRepository.UpdateAsync(Input.ToSettings());
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { ["saved"] = true }));
+  }
+}
+
+<PageTitle>@Title</PageTitle>
+
+<main>
+  <AdminPanel>
+    <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+    <h1 class="mb-4 text-xl">@Title</h1>
+
+    @if (Saved && !_formWasPosted)
+    {
+      <SavedNotice>Saved.</SavedNotice>
+    }
+
+    @if (Input is not null)
+    {
+      <EditForm EditContext="Input.EditContext" FormName="collection-page" OnValidSubmit="SaveAsync" Enhance
+                data-waits-for-pending class="mb-8">
+        <DataAnnotationsValidator />
+        <SubmitOnChange>
+          <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
+          <CardGridLayoutField @bind-Value="Input.Layout" />
+          @* app.css hides this unless the browser runs no scripts *@
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>
+        </SubmitOnChange>
+      </EditForm>
+    }
+
+    <h2 class="mb-2 text-lg">Preview</h2>
+    @if (_saved is { } saved && _previewed is { } previewed)
+    {
+      @* a form of its own, since forms can't be nested: choosing loads the page again with the collection *@
+      <form method="get" action="@PageUrls.CollectionPageSettings" data-enhance class="mb-4">
+        <SubmitOnChange>
+          <label class="artist-shop-field-label" for="preview-collection">@Wording.Collection.SingularHeading to preview</label>
+          <select id="preview-collection" name="@PageUrls.PreviewCollectionKey" class="artist-shop-field-input mb-2">
+            @foreach (var collection in _collections)
+            {
+              <option @key="collection.Id" value="@collection.Id.Value" selected="@(collection == previewed)">@collection.Name.Value</option>
+            }
+          </select>
+          @* app.css hides this unless the browser runs no scripts *@
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Preview</ButtonBasic>
+        </SubmitOnChange>
+      </form>
+
+      <CollectionPagePreview @rendermode="InteractiveServer" CollectionId="previewed.Id.Value" Layout="saved.Layout"
+                             CardsPerPage="saved.CardsPerPage" />
+    }
+    else
+    {
+      <p class="mb-4">Nothing to preview: no @Wording.Collection.SingularInSentence holds @Wording.Work.PluralInSentence
+        with images yet.</p>
+    }
+  </AdminPanel>
+</main>

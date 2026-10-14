@@ -6,6 +6,10 @@
   // the admin page that edits what this page shows
   [Parameter, EditorRequired]
   public required string Href { get; set; }
+
+  // after Edit page, for a page whose content is edited somewhere else than its settings
+  [Parameter]
+  public IReadOnlyList<FooterEditLink> MoreLinks { get; set; } = [];
 }
 
 @* drawn in the site footer, for admins only *@
@@ -14,6 +18,11 @@
     <Authorized>
       <span class="mx-1">|</span>
       <a href="@Href" class="@LinkStyles.InSentence">Edit page</a>
+      @foreach (var link in MoreLinks)
+      {
+        <span class="mx-1">|</span>
+        <a href="@link.Href" class="@LinkStyles.InSentence">@link.Label</a>
+      }
     </Authorized>
   </AuthorizeView>
 </SectionContent>

@@ -1,0 +1,16 @@
+@* the pages the website draws itself, whose few settings are the artist's *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
+<h2 class="mb-2 text-lg">Fixed pages</h2>
+<ul>
+  <li class="mb-2 flex items-center gap-2 border p-2 text-sm">
+    @* no address: its /collections/ would say the default word on a website that renamed it *@
+    <a href="@PageUrls.CollectionPageSettings" class="@LinkStyles.Standalone grow">@Wording.Collection.SingularHeading page</a>
+    <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.CollectionPageSettings">Edit</LinkButton>
+  </li>
+</ul>

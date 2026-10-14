@@ -198,6 +198,7 @@ AddSiteRepository(database => new WordingRepository(database));
 AddSiteRepository(database => new ThemeRepository(database));
 AddSiteRepository(database => new BrandImageRepository(database));
 AddSiteRepository(database => new CustomPageRepository(database));
+AddSiteRepository(database => new CollectionPageRepository(database));
 AddSiteRepository(database => new NavEntryRepository(database));
 AddSiteRepository(database => new PageRowRepository(database));
 AddSiteRepository(database => new RowSlotRepository(database));

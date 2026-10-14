@@ -125,6 +125,15 @@ public static class PageUrls
     // on a site's host: the artist's pages and the nav
     public const string CustomPageList = "/admin/website/pages";
 
+    // on a site's host: the settings of the fixed page each collection has
+    public const string CollectionPageSettings = "/admin/website/collection-page";
+
+    // the collection the settings page previews
+    public const string PreviewCollectionKey = "collection";
+
+    // previewing the collection whose page this was opened from
+    public static string CollectionPageSettingsFor(CollectionId id) => $"{CollectionPageSettings}?{PreviewCollectionKey}={id.Value}";
+
     public static string EditCustomPage(CustomPageId id) => $"{CustomPageList}/{id.Value}";
 
     public static string EditPageRow(CustomPageId pageId, PageRowId rowId) => $"{EditCustomPage(pageId)}/rows/{rowId.Value}";

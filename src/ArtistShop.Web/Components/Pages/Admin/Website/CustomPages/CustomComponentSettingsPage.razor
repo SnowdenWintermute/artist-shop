@@ -135,16 +135,6 @@ PageUrls.CustomPageList;
       _ => "Automatic",
     };
 
-  // none for a layout a post left out, which the form refuses
-  private static string? LayoutHint(CardGridLayout layout) =>
-    layout switch
-    {
-      CardGridLayout.EvenGrid => "Long titles are truncated. Pages of the grid will be the same height.",
-      CardGridLayout.Rows => "Pictures keep their shapes, in rows.",
-      CardGridLayout.Masonry => "Pictures keep their shapes, packed into columns.",
-      _ => null,
-    };
-
   // a chosen collection that's gone, or that a visitor would find empty
   private string? ChosenCollectionProblem(CustomComponentForm input) =>
     input.Source is not CardGridSourceType.WorksInCollection || input.CollectionId is not int id ? null
@@ -285,16 +275,8 @@ PageUrls.CustomPageList;
                            @bind-Value="Input.HasPageLinks" />
           </SubmitOnChange>
           <SubmitOnChange>
-            <SelectField Label="Layout" @bind-Value="Input.Layout">
-              <option value="@CardGridLayout.EvenGrid">Even grid</option>
-              <option value="@CardGridLayout.Rows">Rows</option>
-              <option value="@CardGridLayout.Masonry">Masonry</option>
-            </SelectField>
+            <CardGridLayoutField @bind-Value="Input.Layout" />
           </SubmitOnChange>
-          @if (LayoutHint(Input.Layout) is { } layoutHint)
-          {
-            <p class="mb-4 text-sm text-ink-faded">@layoutHint</p>
-          }
         </ComponentSettingsForm>
       }
       else

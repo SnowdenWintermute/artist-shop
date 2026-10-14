@@ -257,7 +257,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var editor = await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken);
 
         var page = ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Page).Hex;
-        Assert.Matches($"<style>\\[data-row-preview\\] \\{{[^}}]*--theme-page: {page};", editor);
+        Assert.Matches($"<style>\\[data-themed-preview\\] \\{{[^}}]*--theme-page: {page};", editor);
     }
 
     [Fact]

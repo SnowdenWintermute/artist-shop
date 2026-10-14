@@ -1,0 +1,35 @@
+@* a card grid's Layout select with a line on what the chosen layout does; the component settings page
+   and the collection page's settings both use it *@
+@using System.Linq.Expressions
+@using ArtistShop.Web.Components.Forms
+
+@code {
+  [Parameter]
+  public CardGridLayout Value { get; set; }
+
+  [Parameter]
+  public EventCallback<CardGridLayout> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<CardGridLayout>> ValueExpression { get; set; } = default!;
+
+  // none for a layout a post left out, which the forms refuse
+  private static string? Hint(CardGridLayout layout) =>
+    layout switch
+    {
+      CardGridLayout.EvenGrid => "Long titles are truncated. Pages of the grid will be the same height.",
+      CardGridLayout.Rows => "Pictures keep their shapes, in rows.",
+      CardGridLayout.Masonry => "Pictures keep their shapes, packed into columns.",
+      _ => null,
+    };
+}
+
+<SelectField Label="Layout" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression">
+  <option value="@CardGridLayout.EvenGrid">Even grid</option>
+  <option value="@CardGridLayout.Rows">Rows</option>
+  <option value="@CardGridLayout.Masonry">Masonry</option>
+</SelectField>
+@if (Hint(Value) is { } hint)
+{
+  <p class="mb-4 text-sm text-ink-faded">@hint</p>
+}

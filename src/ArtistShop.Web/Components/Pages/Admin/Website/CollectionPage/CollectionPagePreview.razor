@@ -1,0 +1,34 @@
+@* A collection's page with the saved settings, as an island of its own, for the static settings page *@
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject CollectionRepository CollectionRepository
+
+@code {
+  // one a visitor can see, which the settings page chose
+  [Parameter, EditorRequired]
+  public int CollectionId { get; set; }
+  [Parameter, EditorRequired]
+  public CardGridLayout Layout { get; set; }
+  [Parameter, EditorRequired]
+  public int CardsPerPage { get; set; }
+
+  private IReadOnlyList<CollectionWithCover> _collections = [];
+  private CollectionWithCover? _shown;
+
+  protected override async Task OnInitializedAsync() => _collections = await CollectionRepository.GetVisibleWithCoversAsync();
+
+  // choosing another collection navigates, which keeps this island and gives it the new id
+  protected override void OnParametersSet() =>
+    _shown = _collections.FirstOrDefault(collection => collection.Id.Value == CollectionId);
+}
+
+@if (_shown is { } shown)
+{
+  <ThemedPreview>
+    <div class="p-4">
+      <CollectionPageContent Collection="shown" Settings="new CollectionPageSettings(Layout, CardsPerPage)" />
+    </div>
+  </ThemedPreview>
+}

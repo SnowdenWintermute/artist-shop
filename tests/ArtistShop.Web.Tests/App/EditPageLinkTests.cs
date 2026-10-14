@@ -2,6 +2,7 @@ using ArtistShop.Web.Components;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Sites;
 using ArtistShop.Web.Tests.Database;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,8 +16,9 @@ public sealed class EditPageLinkTests(TestApp app)
 
     private static string EditLink(string href) => $"<a href=\"{href}\" class=\"text-link underline\">Edit page</a>";
 
+    // the page's settings are Edit page; which works it shows are edited on the collection
     [Fact]
-    public async Task ACollectionPageLinksAdminsToItsEditor()
+    public async Task ACollectionPageLinksAdminsToItsSettingsAndItsWorks()
     {
         var site = await app.MakeSiteAsync();
         var collectionId = await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
@@ -24,8 +26,16 @@ public sealed class EditPageLinkTests(TestApp app)
         var path = PageUrls.Collection(collection.Slug);
         var admin = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
-        Assert.Contains(EditLink(PageUrls.EditCollection(collectionId)), await admin.GetStringAsync(path, TestContext.Current.CancellationToken));
-        Assert.DoesNotContain("Edit page", await app.ClientFor(site.Host).GetStringAsync(path, TestContext.Current.CancellationToken));
+        var page = await admin.GetStringAsync(path, TestContext.Current.CancellationToken);
+
+        Assert.Contains(EditLink(PageUrls.CollectionPageSettingsFor(collectionId)), page);
+        Assert.Contains(
+            $"<a href=\"{PageUrls.EditCollection(collectionId)}\" class=\"text-link underline\">Edit {SiteWording.Default.Work.PluralInSentence}</a>",
+            page
+        );
+        var visitorPage = await app.ClientFor(site.Host).GetStringAsync(path, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("Edit page", visitorPage);
+        Assert.DoesNotContain(PageUrls.EditCollection(collectionId), visitorPage);
     }
 
     [Fact]

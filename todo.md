@@ -6,6 +6,26 @@
 notes below are older than that.** Step 1 partly browser-checked (preview), step 2 not. Then step 3, Image (whose
 settings are designed with Mike first).
 
+**Collection page settings, agreed and built 2026-10-14 (From Claude), uncommitted, 1182 tests, not browser-checked.**
+The collection page stays a fixed template (it draws every collection by its slug, so making it a custom page would
+need a "collection in the address" source and page-only components); the artist picks only what's unlocked. Site-wide
+for now; a per-collection override can come later. A future artist statement would be a Show / position setting here.
+- `collection_page` table (0010), one row per site, columns `layout` (`CardGridLayout` id) and `cards_per_page`;
+  defaults Even grid and 24 (was 25 from `WorkListPageSize`). `CollectionPageSettings.GridFor`,
+  `CollectionPageRepository`.
+- `/admin/website/collection-page` (`CollectionPage/CollectionPageSettingsPage`, `CollectionPageForm`): Cards per page
+  and Layout, both save on change. Pages list: "Fixed pages" section (`FixedPageList`) with "<Collection> page" and
+  Edit; no address shown, since `/collections/` would say the default word.
+- `CardGridLayoutField` (select + hint) shared with the component settings page.
+- Stays out of the whole-website export, like pages.
+- Same day: footer on a collection page is "Edit page" → `PageUrls.CollectionPageSettingsFor(id)` (`?collection=`) and
+  "Edit works" → the collection editor (`EditPageLink.MoreLinks`, `FooterEditLink`). The settings page has a Preview
+  (`CollectionPagePreview` island: the collection it was opened from, else the first visible; saved settings only).
+  The collection select is a GET form on the static page setting `?collection=`, so a save, which posts to the
+  address, keeps it (it was in the island first and jumped back on save). Shared pieces: `CollectionPageContent` (Up link, h1, grid) used by the public page and the
+  preview; `ThemedPreview` (theme, Desktop/Phone, frame) used by `RowPreview` too, selector `data-themed-preview`.
+  1185 tests, not browser-checked.
+
 **Card grid part 1 built 2026-10-13 (From Claude), uncommitted, 1165 tests pass, not browser-checked.**
 `CustomComponentType.CardGrid` (id 1, was CollectionViewer); `CardGridSettings` (`Domain/Website/CardGridSettings.cs`,
 JSON version 2; version 1, the old empty collection viewer, reads as `CardGridSettings.AllCollections`).

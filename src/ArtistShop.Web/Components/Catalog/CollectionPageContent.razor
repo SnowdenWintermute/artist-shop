@@ -1,0 +1,23 @@
+@* what a collection's page shows inside its <main>; the settings page's preview draws it too *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages.CardGrids
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required CollectionWithCover Collection { get; set; }
+  [Parameter, EditorRequired]
+  public required CollectionPageSettings Settings { get; set; }
+}
+
+<UpLink Class="mb-4" Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+
+@* not PageHeading: a collection's name keeps the text font, rather than the theme's heading font *@
+<h1 class="mb-4">@Collection.Name.Value</h1>
+
+@* the page's only grid, so it keeps the plain page key *@
+<CardGridView Settings="Settings.GridFor(Collection.Id)" PageKey="@PageLinks.PageKey" />

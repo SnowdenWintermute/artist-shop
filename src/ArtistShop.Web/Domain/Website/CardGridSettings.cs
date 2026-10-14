@@ -85,7 +85,7 @@ public abstract record CardGridHeading
     }
 }
 
-// how a grid's cards sit. The ids are only for ordering; settings store the names
+// how a grid's cards sit. Component settings store the names; collection_page stores the ids
 public enum CardGridLayout
 {
     // same-size cards with long titles cut short, and a short last page padded, so turning pages keeps one height
