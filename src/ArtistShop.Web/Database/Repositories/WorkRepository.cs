@@ -266,6 +266,22 @@ public class WorkRepository(SiteDatabase database)
         int pageSize
     )
     {
+        var slice = await GetSliceAsync(filter, searchMatches, excludedCollectionId, (filter.PageNumber - 1) * pageSize, pageSize);
+
+        // the page component sends a page number past the end back to the first page
+        return new WorkListPage(slice.Items, slice.TotalCount, filter.PageNumber, pageSize);
+    }
+
+    // GetListAsync's works from any offset, for a list whose pages don't start at whole pages of works; the
+    // filter's page number is left unread
+    public async Task<WorkListSlice> GetSliceAsync(
+        WorkListFilter filter,
+        IReadOnlyList<WorkId>? searchMatches,
+        CollectionId? excludedCollectionId,
+        int offset,
+        int count
+    )
+    {
         await using var connection = await database.OpenConnectionAsync();
 
         int? collectionId = filter.Collection is WorkCollectionFilter.InCollection inCollection ? inCollection.CollectionId.Value : null;
@@ -290,8 +306,8 @@ public class WorkRepository(SiteDatabase database)
                     filter.HasImages,
                     filter.IsForSale,
                     Sort = (short)filter.Sort,
-                    Offset = (filter.PageNumber - 1) * pageSize,
-                    PageSize = pageSize,
+                    Offset = offset,
+                    PageSize = count,
                 }
             )
         ).ToList();
@@ -311,11 +327,8 @@ public class WorkRepository(SiteDatabase database)
             ))
             .ToList();
 
-        // the count rides on the rows, so an empty page carries none; the page component
-        // sends a page number past the end back to the first page
-        var totalCount = rows.Count is 0 ? 0 : rows[0].TotalCount;
-
-        return new WorkListPage(items, totalCount, filter.PageNumber, pageSize);
+        // the count rides on the rows, so an empty slice carries none
+        return new WorkListSlice(items, rows.Count is 0 ? 0 : rows[0].TotalCount);
     }
 
     // the slug comes back because the function decides it: a rename can land on a numbered one

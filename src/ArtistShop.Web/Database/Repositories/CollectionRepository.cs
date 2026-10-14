@@ -33,26 +33,16 @@ public class CollectionRepository(SiteDatabase database)
 
     // the artist sees every collection, empty ones included, so they can fill them
     public Task<List<CollectionWithCover>> GetAllWithCoversAsync() =>
-        GetWithCoversAsync(onlyWorksWithImages: false);
+        GetWithCoversAsync(onlyWorksWithImages: false, slug: null);
 
     // a visitor sees only what there is something to look at in, and the counts follow the
     // same rule, so a card can't promise more than the collection page shows
     public Task<List<CollectionWithCover>> GetVisibleWithCoversAsync() =>
-        GetWithCoversAsync(onlyWorksWithImages: true);
+        GetWithCoversAsync(onlyWorksWithImages: true, slug: null);
 
-    public async Task<Collection?> GetBySlugAsync(string slug)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        var row = await connection.QuerySingleOrDefaultAsync<CollectionRow>(
-            "SELECT * FROM get_collection_by_slug(@Slug)",
-            new { Slug = slug }
-        );
-
-        return row is null
-            ? null
-            : new Collection(new CollectionId(row.Id), new CollectionName(row.Name), new CollectionSlug(row.Slug));
-    }
+    // found even with nothing in it to look at; its cover is the one the visitor's list shows, its count every work
+    public async Task<CollectionWithCover?> GetWithCoverBySlugAsync(string slug) =>
+        (await GetWithCoversAsync(onlyWorksWithImages: false, slug)).SingleOrDefault();
 
     // the collection alone, for a page that shows its name but not its works
     public async Task<Collection?> GetByIdAsync(CollectionId id)
@@ -69,13 +59,13 @@ public class CollectionRepository(SiteDatabase database)
             : new Collection(new CollectionId(row.Id), new CollectionName(row.Name), new CollectionSlug(row.Slug));
     }
 
-    private async Task<List<CollectionWithCover>> GetWithCoversAsync(bool onlyWorksWithImages)
+    private async Task<List<CollectionWithCover>> GetWithCoversAsync(bool onlyWorksWithImages, string? slug)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<CollectionWithCoverRow>(
-            "SELECT * FROM get_collections_with_covers(@OnlyWorksWithImages)",
-            new { OnlyWorksWithImages = onlyWorksWithImages }
+            "SELECT * FROM get_collections_with_covers(@OnlyWorksWithImages, @Slug)",
+            new { OnlyWorksWithImages = onlyWorksWithImages, Slug = slug }
         );
 
         return

@@ -53,5 +53,5 @@ public record PostListItem(PostId Id, PostTitle Title, PostSlug Slug, RichText B
 
 public record PostListPage(IReadOnlyList<PostListItem> Items, int TotalCount, int PageNumber, int PageSize)
 {
-    public int PageCount => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+    public int PageCount => Paging.PageCountOf(TotalCount, PageSize);
 }

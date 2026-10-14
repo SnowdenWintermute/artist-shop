@@ -25,10 +25,8 @@
     var pageNumber = PageLinks.ReadPageNumber(NavigationManager, PageKey);
     var posts = await PostRepository.GetPublishedPageAsync(pageNumber);
 
-    // a link to a page that has since emptied, because posts were unpublished or deleted
-    if (posts.Items.Count == 0 && pageNumber > 1)
+    if (PageLinks.LeaveEmptiedPage(NavigationManager, PageKey, pageNumber, posts.Items.Count))
     {
-      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter(PageKey, (int?)null));
       return;
     }
 

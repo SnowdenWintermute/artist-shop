@@ -210,10 +210,10 @@ public sealed class CollectionRepositoryTests(TestDatabaseFixture database)
         var name = $"Harbour {Guid.NewGuid():n}";
         var id = await AddNamedCollectionAsync(name);
 
-        var found = await _collections.GetBySlugAsync(CollectionSlug.FromName(name).Value);
+        var found = await _collections.GetWithCoverBySlugAsync(CollectionSlug.FromName(name).Value);
 
         Assert.Equal(id, found?.Id);
-        Assert.Null(await _collections.GetBySlugAsync($"missing-{Guid.NewGuid():n}"));
+        Assert.Null(await _collections.GetWithCoverBySlugAsync($"missing-{Guid.NewGuid():n}"));
     }
 
     [Fact]

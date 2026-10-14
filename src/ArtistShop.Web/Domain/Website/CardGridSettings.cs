@@ -15,6 +15,18 @@ public abstract record CardGridSource
 {
     public abstract CardGridSourceType Type { get; }
 
+    // collectionId is only for WorksInCollection, which needs it
+    public static CardGridSource Of(CardGridSourceType type, CollectionId? collectionId) =>
+        type switch
+        {
+            CardGridSourceType.AllCollections => new AllCollections(),
+            CardGridSourceType.WorksInCollection => new WorksInCollection(
+                collectionId ?? throw new InvalidOperationException("Works in a collection need the collection.")
+            ),
+            CardGridSourceType.CollectionsAndLooseWorks => new CollectionsAndLooseWorks(),
+            _ => throw new InvalidOperationException($"{type} isn't a card grid source."),
+        };
+
     // in the artist's order
     public sealed record AllCollections : CardGridSource
     {
@@ -46,6 +58,16 @@ public enum CardGridHeadingType
 public abstract record CardGridHeading
 {
     public abstract CardGridHeadingType Type { get; }
+
+    // text is only for Custom, which needs it
+    public static CardGridHeading Of(CardGridHeadingType type, string? text) =>
+        type switch
+        {
+            CardGridHeadingType.None => new None(),
+            CardGridHeadingType.Automatic => new Automatic(),
+            CardGridHeadingType.Custom => new Custom(text ?? throw new InvalidOperationException("A custom heading needs its text.")),
+            _ => throw new InvalidOperationException($"{type} isn't a card grid heading."),
+        };
 
     public sealed record None : CardGridHeading
     {

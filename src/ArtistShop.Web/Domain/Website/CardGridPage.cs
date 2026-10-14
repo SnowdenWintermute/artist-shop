@@ -12,5 +12,5 @@ public abstract record GridCard
 
 public record CardGridPage(IReadOnlyList<GridCard> Cards, int TotalCount, int PageNumber, int PageSize)
 {
-    public int PageCount => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+    public int PageCount => Paging.PageCountOf(TotalCount, PageSize);
 }

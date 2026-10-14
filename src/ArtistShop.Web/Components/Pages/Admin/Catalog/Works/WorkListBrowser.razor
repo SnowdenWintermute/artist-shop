@@ -132,12 +132,8 @@
 
     var works = await WorkRepository.GetListAsync(filter, searchMatches, ExcludedCollectionId, ArtistShopLimits.WorkListPageSize);
 
-    // a link to a page that has since emptied, because the filter narrowed or works were deleted
-    if (works.Items.Count == 0 && filter.PageNumber > 1)
+    if (PageLinks.LeaveEmptiedPage(NavigationManager, PageLinks.PageKey, filter.PageNumber, works.Items.Count))
     {
-      NavigationManager.NavigateTo(
-        NavigationManager.GetUriWithQueryParameter(PageLinks.PageKey, (int?)null)
-      );
       return;
     }
 

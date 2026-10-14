@@ -19,6 +19,19 @@
     ReadPageNumber(QueryHelpers.ParseQuery(navigationManager.ToAbsoluteUri(navigationManager.Uri).Query)
       .TryGetValue(key, out var values) ? values.FirstOrDefault() : null);
 
+  // A link to a page that has since emptied, as items were deleted or a filter narrowed, goes to the first page.
+  // True when it went, and the caller stops loading
+  public static bool LeaveEmptiedPage(NavigationManager navigationManager, string key, int pageNumber, int itemCount)
+  {
+    if (itemCount > 0 || pageNumber <= 1)
+    {
+      return false;
+    }
+
+    navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(key, (int?)null));
+    return true;
+  }
+
   [Parameter, EditorRequired]
   public int PageNumber { get; set; }
 

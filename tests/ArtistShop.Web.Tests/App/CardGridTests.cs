@@ -96,6 +96,41 @@ public sealed partial class CardGridTests(TestApp app)
     }
 
     [Fact]
+    public async Task LooseWorksPageOnFromWhereTheCollectionsEnd()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var collections = new CollectionRepository(DatabaseOf(site));
+        var first = await catalog.AddCollectionAsync();
+        var second = await catalog.AddCollectionAsync();
+        await catalog.AddPaintingInCollectionAsync(first, [CatalogTestData.CreateTestImage()]);
+        await catalog.AddPaintingInCollectionAsync(second, [CatalogTestData.CreateTestImage()]);
+        var oldest = await catalog.AddPaintingAsync("Oldest", [], [], [CatalogTestData.CreateTestImage()]);
+        var middle = await catalog.AddPaintingAsync("Middle", [], [], [CatalogTestData.CreateTestImage()]);
+        var newest = await catalog.AddPaintingAsync("Newest", [], [], [CatalogTestData.CreateTestImage()]);
+        var gridPage = await AddGridPageAsync(site, CardGridSettings.AllCollections with
+        {
+            Source = new CardGridSource.CollectionsAndLooseWorks(),
+            CardsPerPage = 2,
+        });
+        var key = $"page-{gridPage.Grids[0].Value}";
+        var visitor = app.ClientFor(site.Host);
+
+        var pageOne = await visitor.GetStringAsync("/grid", TestContext.Current.CancellationToken);
+        var pageTwo = await visitor.GetStringAsync($"/grid?{key}=2", TestContext.Current.CancellationToken);
+        var pageThree = await visitor.GetStringAsync($"/grid?{key}=3", TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [PageUrls.Collection(await SlugOfAsync(collections, first)), PageUrls.Collection(await SlugOfAsync(collections, second))],
+            CardLinks(pageOne)
+        );
+        // the collections fill the first page, and the works after them still count towards its page links
+        Assert.Contains("Page 1 of 3", pageOne);
+        Assert.Equal([$"/works/{newest.Slug.Value}", $"/works/{middle.Slug.Value}"], CardLinks(pageTwo));
+        Assert.Equal([$"/works/{oldest.Slug.Value}"], CardLinks(pageThree));
+    }
+
+    [Fact]
     public async Task TwoGridsOnOnePageTurnTheirPagesSeparately()
     {
         var site = await app.MakeSiteAsync();

@@ -194,7 +194,6 @@ AddSiteRepository(database => new ProductTypeRepository(database));
 AddSiteRepository(database => new VocabularyRepository(database));
 AddSiteRepository(database => new VocabularyTermRepository(database));
 AddSiteRepository(database => new PostRepository(database));
-AddSiteRepository(database => new CardGridRepository(database));
 AddSiteRepository(database => new WordingRepository(database));
 AddSiteRepository(database => new ThemeRepository(database));
 AddSiteRepository(database => new BrandImageRepository(database));

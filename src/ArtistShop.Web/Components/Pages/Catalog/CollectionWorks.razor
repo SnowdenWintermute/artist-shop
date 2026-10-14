@@ -17,24 +17,17 @@
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
 
-  private LoadedCollection? _loaded;
+  // the cover is for the card a pasted link turns into
+  private CollectionWithCover? _collection;
 
   protected override async Task OnParametersSetAsync()
   {
-    var collection = await CollectionRepository.GetBySlugAsync(Slug);
+    _collection = await CollectionRepository.GetWithCoverBySlugAsync(Slug);
 
-    if (collection is null)
+    if (_collection is null)
     {
       NavigationManager.NotFound();
-      return;
     }
-
-    // the same cover the home page shows, for the card a pasted link turns into
-    var cover = (await CollectionRepository.GetVisibleWithCoversAsync())
-      .FirstOrDefault(collectionWithCover => collectionWithCover.Id == collection.Id)
-      ?.Cover;
-
-    _loaded = new LoadedCollection(collection, cover);
   }
 
   // headed by the page's own h1, and the page's only grid, so it keeps the plain page key
@@ -43,18 +36,18 @@
       HasPageLinks: true, CardGridLayout.EvenGrid);
 }
 
-@if (_loaded is { } loaded)
+@if (_collection is { } collection)
 {
-  <PageTitle>@loaded.Collection.Name.Value</PageTitle>
-  <EditPageLink Href="@PageUrls.EditCollection(loaded.Collection.Id)" />
-  <LinkPreview Title="@loaded.Collection.Name.Value" Image="loaded.Cover" />
+  <PageTitle>@collection.Name.Value</PageTitle>
+  <EditPageLink Href="@PageUrls.EditCollection(collection.Id)" />
+  <LinkPreview Title="@collection.Name.Value" Image="collection.Cover" />
 
   <main class="mx-auto max-w-[1200px] p-4">
     <UpLink Class="mb-4" Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
     @* not PageHeading: a collection's name keeps the text font, rather than the theme's heading font *@
-    <h1 class="mb-4">@loaded.Collection.Name.Value</h1>
+    <h1 class="mb-4">@collection.Name.Value</h1>
 
-    <CardGridView Settings="GridFor(loaded.Collection.Id)" PageKey="@PageLinks.PageKey" />
+    <CardGridView Settings="GridFor(collection.Id)" PageKey="@PageLinks.PageKey" />
   </main>
 }

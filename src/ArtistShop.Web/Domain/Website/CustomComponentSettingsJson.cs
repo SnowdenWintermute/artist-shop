@@ -13,7 +13,7 @@ public static class CustomComponentSettingsJson
     public static (string Json, int Version) Write(CustomComponentSettings settings) =>
         settings switch
         {
-            CardGridSettings cardGrid => (WriteCardGrid(cardGrid), 4),
+            CardGridSettings cardGrid => (WriteCardGrid(cardGrid), 1),
             PostListSettings postList => (Serialize(postList), 1),
             TextSettings text => (WriteText(text), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
@@ -22,13 +22,7 @@ public static class CustomComponentSettingsJson
     public static CustomComponentSettings Read(CustomComponentType type, int version, string json) =>
         (type, version) switch
         {
-            // the collection viewer it was, which had no settings
-            (CustomComponentType.CardGrid, 1) => CardGridSettings.AllCollections,
-            // before layouts: version 2 had none, and drew an even grid; version 3 had a same-size checkbox
-            (CustomComponentType.CardGrid, 2) => ReadCardGrid(json, _ => CardGridLayout.EvenGrid),
-            (CustomComponentType.CardGrid, 3) => ReadCardGrid(json, root =>
-                root.GetProperty("hasSameSizeCards").GetBoolean() ? CardGridLayout.EvenGrid : CardGridLayout.Rows),
-            (CustomComponentType.CardGrid, 4) => ReadCardGrid(json, root => Enum.Parse<CardGridLayout>(ReadString(root, "layout"))),
+            (CustomComponentType.CardGrid, 1) => ReadCardGrid(json),
             (CustomComponentType.PostList, 1) => Deserialize<PostListSettings>(json),
             (CustomComponentType.Text, 1) => ReadText(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
@@ -82,8 +76,7 @@ public static class CustomComponentSettingsJson
         }.ToJsonString();
     }
 
-    // readLayout reads the layout as the document's version wrote it
-    private static CardGridSettings ReadCardGrid(string json, Func<JsonElement, CardGridLayout> readLayout)
+    private static CardGridSettings ReadCardGrid(string json)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -91,25 +84,17 @@ public static class CustomComponentSettingsJson
         var heading = root.GetProperty("heading");
 
         return new CardGridSettings(
-            ReadEnum<CardGridSourceType>(source) switch
-            {
-                CardGridSourceType.AllCollections => new CardGridSource.AllCollections(),
-                CardGridSourceType.WorksInCollection => new CardGridSource.WorksInCollection(
-                    new CollectionId(source.GetProperty("collectionId").GetInt32())
-                ),
-                CardGridSourceType.CollectionsAndLooseWorks => new CardGridSource.CollectionsAndLooseWorks(),
-                var type => throw new InvalidOperationException($"A card grid has an unknown source, {type}."),
-            },
-            ReadEnum<CardGridHeadingType>(heading) switch
-            {
-                CardGridHeadingType.None => new CardGridHeading.None(),
-                CardGridHeadingType.Automatic => new CardGridHeading.Automatic(),
-                CardGridHeadingType.Custom => new CardGridHeading.Custom(ReadString(heading, "text")),
-                var type => throw new InvalidOperationException($"A card grid has an unknown heading, {type}."),
-            },
+            CardGridSource.Of(
+                ReadEnum<CardGridSourceType>(source),
+                source.TryGetProperty("collectionId", out var collectionId) ? new CollectionId(collectionId.GetInt32()) : null
+            ),
+            CardGridHeading.Of(
+                ReadEnum<CardGridHeadingType>(heading),
+                heading.TryGetProperty("text", out var text) ? text.GetString() : null
+            ),
             root.GetProperty("cardsPerPage").GetInt32(),
             root.GetProperty("hasPageLinks").GetBoolean(),
-            readLayout(root)
+            Enum.Parse<CardGridLayout>(ReadString(root, "layout"))
         );
     }
 

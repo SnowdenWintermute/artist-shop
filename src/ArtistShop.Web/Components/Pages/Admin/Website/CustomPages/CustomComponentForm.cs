@@ -150,26 +150,11 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         saved switch
         {
             TextSettings => new TextSettings(new RichText(Unwrap.Value(Body)), Width),
-            CardGridSettings => new CardGridSettings(ToCardGridSource(), ToCardGridHeading(), Unwrap.Value(CardsPerPage), HasPageLinks,
+            CardGridSettings => new CardGridSettings(
+                CardGridSource.Of(Source, CollectionId is int collectionId ? new CollectionId(collectionId) : null),
+                CardGridHeading.Of(HeadingType, HeadingText?.Trim()),
+                Unwrap.Value(CardsPerPage), HasPageLinks,
                 Layout),
             _ => saved,
-        };
-
-    private CardGridSource ToCardGridSource() =>
-        Source switch
-        {
-            CardGridSourceType.AllCollections => new CardGridSource.AllCollections(),
-            CardGridSourceType.WorksInCollection => new CardGridSource.WorksInCollection(new CollectionId(Unwrap.Value(CollectionId))),
-            CardGridSourceType.CollectionsAndLooseWorks => new CardGridSource.CollectionsAndLooseWorks(),
-            _ => throw new InvalidOperationException($"{Source} isn't a card grid source."),
-        };
-
-    private CardGridHeading ToCardGridHeading() =>
-        HeadingType switch
-        {
-            CardGridHeadingType.None => new CardGridHeading.None(),
-            CardGridHeadingType.Automatic => new CardGridHeading.Automatic(),
-            CardGridHeadingType.Custom => new CardGridHeading.Custom(Unwrap.Value(HeadingText).Trim()),
-            _ => throw new InvalidOperationException($"{HeadingType} isn't a card grid heading."),
         };
 }

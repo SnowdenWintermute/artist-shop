@@ -58,6 +58,9 @@ public record WorkListItem(
     WorkImage? PrimaryImage
 );
 
+// TotalCount is every work the filter keeps, not only the ones in Items
+public record WorkListSlice(IReadOnlyList<WorkListItem> Items, int TotalCount);
+
 public record WorkListPage(
     IReadOnlyList<WorkListItem> Items,
     int TotalCount,
@@ -65,5 +68,5 @@ public record WorkListPage(
     int PageSize
 )
 {
-    public int PageCount => Math.Max(1, (TotalCount + PageSize - 1) / PageSize);
+    public int PageCount => Paging.PageCountOf(TotalCount, PageSize);
 }

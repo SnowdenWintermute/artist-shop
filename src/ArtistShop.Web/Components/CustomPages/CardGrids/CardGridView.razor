@@ -5,7 +5,6 @@
 @using ArtistShop.Web.Domain.Catalog
 @inject CollectionRepository CollectionRepository
 @inject WorkRepository WorkRepository
-@inject CardGridRepository CardGridRepository
 @inject NavigationManager NavigationManager
 
 @code {
@@ -27,10 +26,8 @@
     var pageNumber = Settings.HasPageLinks ? PageLinks.ReadPageNumber(NavigationManager, PageKey) : 1;
     var loaded = await LoadAsync(pageNumber);
 
-    // a link to a page that has since emptied
-    if (loaded.Page.Cards.Count == 0 && pageNumber > 1)
+    if (PageLinks.LeaveEmptiedPage(NavigationManager, PageKey, pageNumber, loaded.Page.Cards.Count))
     {
-      NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter(PageKey, (int?)null));
       return;
     }
 
@@ -70,11 +67,28 @@
 
       case CardGridSource.CollectionsAndLooseWorks:
         return new LoadedCardGrid(HeadingText(Wording.Work.PluralHeading),
-          await CardGridRepository.GetCollectionsAndLooseWorksPageAsync(pageNumber, pageSize), WorksCollection: null);
+          await CollectionsThenLooseWorksAsync(pageNumber, pageSize), WorksCollection: null);
 
       default:
         throw new InvalidOperationException($"A card grid can't show {Settings.Source.Type}.");
     }
+  }
+
+  // The loose works pick up where the collections end, so a page can hold some of each
+  private async Task<CardGridPage> CollectionsThenLooseWorksAsync(int pageNumber, int pageSize)
+  {
+    var collections = await CollectionRepository.GetVisibleWithCoversAsync();
+    var start = (pageNumber - 1) * pageSize;
+    List<GridCard> cards = [.. collections.Skip(start).Take(pageSize).Select(collection => new GridCard.OfCollection(collection))];
+
+    // at least one, even on a page the collections fill, as the works' count comes back only on a work
+    var looseWorks = await WorkRepository.GetSliceAsync(LooseWorks, searchMatches: null, excludedCollectionId: null,
+      offset: Math.Max(0, start - collections.Count), count: Math.Max(1, pageSize - cards.Count));
+
+    cards.AddRange(looseWorks.Items.Take(pageSize - cards.Count)
+      .Select(work => new GridCard.OfWork(work.Id, work.Name, work.Slug, work.PrimaryImage)));
+
+    return new CardGridPage(cards, collections.Count + looseWorks.TotalCount, pageNumber, pageSize);
   }
 
   // the cards missing from a short last page, when there are other pages to keep it level with
@@ -89,6 +103,19 @@
       CardGridHeading.Custom custom => custom.Text,
       _ => null,
     };
+
+  // works in no collection that have something to show, newest first
+  private static readonly WorkListFilter LooseWorks =
+    new(
+      WorkTypeIds: [],
+      VocabularyTermIds: [],
+      Collection: new WorkCollectionFilter.InNoCollection(),
+      SearchText: null,
+      HasImages: true,
+      IsForSale: null,
+      Sort: WorkListSort.RecentlyAdded,
+      PageNumber: 1
+    );
 
   // a work with no photograph has nothing to show, while one with nothing for sale is still the artist's work.
   // The artist's own order inside the collection

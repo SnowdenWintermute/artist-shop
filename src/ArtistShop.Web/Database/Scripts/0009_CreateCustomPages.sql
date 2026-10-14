@@ -126,11 +126,15 @@ DECLARE
     v_page record;
 BEGIN
     FOR v_page IN
-        SELECT * FROM (VALUES ('Home', 'home', 'Collection viewer', 1, 0), ('Blog', 'posts', 'Post list', 2, 1))
-            AS pages (name, address, component_name, component_type, nav_order)
+        -- the settings as CustomComponentSettingsJson writes CardGridSettings.AllCollections and PostListSettings
+        SELECT * FROM (VALUES
+            ('Home', 'home', 'Collection viewer', 1,
+                '{"source":{"type":"AllCollections"},"heading":{"type":"Automatic"},"cardsPerPage":24,"hasPageLinks":true,"layout":"EvenGrid"}', 0),
+            ('Blog', 'posts', 'Post list', 2, '{}', 1))
+            AS pages (name, address, component_name, component_type, component_settings, nav_order)
     LOOP
         INSERT INTO custom_components (type, name, settings, settings_version)
-        VALUES (v_page.component_type, v_page.component_name, '{}', 1)
+        VALUES (v_page.component_type, v_page.component_name, v_page.component_settings::jsonb, 1)
         RETURNING id INTO v_component_id;
 
         INSERT INTO custom_pages (name, address)
