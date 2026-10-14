@@ -63,17 +63,29 @@ public abstract record CardGridHeading
     }
 }
 
-// Without page links the grid shows only its first page, as a sample. Same-size cards cut long titles short, and
-// pad a short last page, so turning pages doesn't change the grid's height
+// how a grid's cards sit. The ids are only for ordering; settings store the names
+public enum CardGridLayout
+{
+    // same-size cards with long titles cut short, and a short last page padded, so turning pages keeps one height
+    EvenGrid = 1,
+    // pictures in their own shapes, cards in rows as tall as their tallest
+    Rows = 2,
+    // pictures in their own shapes, packed into columns in the artist's order, left to right
+    Masonry = 3,
+}
+
+// Without page links the grid shows only its first page, as a sample
 public sealed record CardGridSettings(
     CardGridSource Source,
     CardGridHeading Heading,
     int CardsPerPage,
     bool HasPageLinks,
-    bool HasSameSizeCards
+    CardGridLayout Layout
 ) : CustomComponentSettings
 {
     public override CustomComponentType Type => CustomComponentType.CardGrid;
+
+    public bool HasSameSizeCards => Layout is CardGridLayout.EvenGrid;
 
     public const int DefaultCardsPerPage = 24;
 
@@ -82,6 +94,6 @@ public sealed record CardGridSettings(
         new CardGridHeading.Automatic(),
         DefaultCardsPerPage,
         HasPageLinks: true,
-        HasSameSizeCards: true
+        CardGridLayout.EvenGrid
     );
 }

@@ -76,6 +76,7 @@
 @if (_loaded is { } loaded)
 {
   <PageTitle>@loaded.Work.Name.Value</PageTitle>
+  <EditPageLink Href="@PageUrls.EditWork(loaded.Work.Id)" />
   <LinkPreview Title="@loaded.Work.Name.Value" Description="@loaded.Work.Description"
                Image="loaded.Work.Images.ElementAtOrDefault(loaded.Work.MainImageIndex)" />
 

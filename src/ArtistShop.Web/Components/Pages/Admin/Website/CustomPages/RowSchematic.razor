@@ -3,20 +3,20 @@
 
 @code {
   [Parameter, EditorRequired]
-  public required PageRow Row { get; set; }
+  public required RowSketch Row { get; set; }
 }
 
 <div class="flex grow gap-2">
   @foreach (var (slot, growth) in Row.Slots.Zip(RowClasses.SlotGrowth(Row.Widths)))
   {
     <div class="@($"min-w-0 basis-0 border border-dashed border-rule p-2 {growth}")">
-      @if (slot.Stack.Count == 0)
+      @if (slot.ComponentNames.Count == 0)
       {
         <span class="text-ink-faded">Empty</span>
       }
-      @foreach (var component in slot.Stack)
+      @foreach (var name in slot.ComponentNames)
       {
-        <div>@component.Name</div>
+        <div>@name</div>
       }
     </div>
   }

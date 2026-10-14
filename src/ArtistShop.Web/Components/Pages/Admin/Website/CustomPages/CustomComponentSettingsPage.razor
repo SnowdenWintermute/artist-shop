@@ -131,7 +131,18 @@ PageUrls.CustomPageList;
       CardGridSourceType.AllCollections => $"Automatic ({Wording.Collection.PluralHeading})",
       CardGridSourceType.WorksInCollection => $"Automatic (the {Wording.Collection.SingularInSentence}'s name)",
       CardGridSourceType.CollectionsAndLooseWorks => $"Automatic ({Wording.Work.PluralHeading})",
-      _ => throw new InvalidOperationException($"{source} has no automatic heading."),
+      // a source a post left out, which the form refuses
+      _ => "Automatic",
+    };
+
+  // none for a layout a post left out, which the form refuses
+  private static string? LayoutHint(CardGridLayout layout) =>
+    layout switch
+    {
+      CardGridLayout.EvenGrid => "Long titles are truncated. Pages of the grid will be the same height.",
+      CardGridLayout.Rows => "Pictures keep their shapes, in rows.",
+      CardGridLayout.Masonry => "Pictures keep their shapes, packed into columns.",
+      _ => null,
     };
 
   // a chosen collection that's gone, or that a visitor would find empty
@@ -274,10 +285,16 @@ PageUrls.CustomPageList;
                            @bind-Value="Input.HasPageLinks" />
           </SubmitOnChange>
           <SubmitOnChange>
-            <CheckboxField Label="Consistent card sizes"
-                           Hint="Long titles are truncated. Pages of the grid will be the same height."
-                           @bind-Value="Input.HasSameSizeCards" />
+            <SelectField Label="Layout" @bind-Value="Input.Layout">
+              <option value="@CardGridLayout.EvenGrid">Even grid</option>
+              <option value="@CardGridLayout.Rows">Rows</option>
+              <option value="@CardGridLayout.Masonry">Masonry</option>
+            </SelectField>
           </SubmitOnChange>
+          @if (LayoutHint(Input.Layout) is { } layoutHint)
+          {
+            <p class="mb-4 text-sm text-ink-faded">@layoutHint</p>
+          }
         </ComponentSettingsForm>
       }
       else

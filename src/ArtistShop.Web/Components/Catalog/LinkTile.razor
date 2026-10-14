@@ -15,11 +15,14 @@
   // one line of title, cut short, and the caption's line kept even without one, so every tile is one height
   [Parameter]
   public bool IsSameSize { get; set; }
+  // the whole picture in its own shape, rather than cropped to the box
+  [Parameter]
+  public bool IsUncropped { get; set; }
 }
 
 <a href="@Href" class="block">
   <span class="mb-2 block">
-    <TileImage Image="Image" BoxClass="@BoxClass" />
+    <TileImage Image="Image" BoxClass="@BoxClass" IsUncropped="IsUncropped" />
   </span>
 
   @if (IsSameSize)

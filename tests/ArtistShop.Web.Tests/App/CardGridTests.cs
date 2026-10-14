@@ -157,6 +157,7 @@ public sealed partial class CardGridTests(TestApp app)
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.Custom),
                 ["Input.HeadingText"] = " Recent work ",
                 ["Input.CardsPerPage"] = "3",
+                ["Input.Layout"] = nameof(CardGridLayout.Masonry),
             }
         );
 
@@ -167,7 +168,7 @@ public sealed partial class CardGridTests(TestApp app)
                 new CardGridHeading.Custom("Recent work"),
                 3,
                 HasPageLinks: false,
-                HasSameSizeCards: false
+                CardGridLayout.Masonry
             ),
             saved.Component.Settings
         );
@@ -190,6 +191,7 @@ public sealed partial class CardGridTests(TestApp app)
                 ["Input.Source"] = nameof(CardGridSourceType.WorksInCollection),
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.None),
                 ["Input.CardsPerPage"] = "24",
+                ["Input.Layout"] = nameof(CardGridLayout.EvenGrid),
             }
         );
 
@@ -210,9 +212,10 @@ public sealed partial class CardGridTests(TestApp app)
     }
 
     [Theory]
-    [InlineData(true, 1)]
-    [InlineData(false, 0)]
-    public async Task SameSizeCardsFillAShortLastPage(bool hasSameSizeCards, int placeholderCount)
+    [InlineData(CardGridLayout.EvenGrid, 1)]
+    [InlineData(CardGridLayout.Rows, 0)]
+    [InlineData(CardGridLayout.Masonry, 0)]
+    public async Task AnEvenGridFillsAShortLastPage(CardGridLayout layout, int placeholderCount)
     {
         var site = await app.MakeSiteAsync();
         var catalog = new CatalogTestData(DatabaseOf(site));
@@ -223,7 +226,7 @@ public sealed partial class CardGridTests(TestApp app)
         }
 
         var gridPage = await AddGridPageAsync(site,
-            CardGridSettings.AllCollections with { CardsPerPage = 2, HasSameSizeCards = hasSameSizeCards });
+            CardGridSettings.AllCollections with { CardsPerPage = 2, Layout = layout });
         var visitor = app.ClientFor(site.Host);
 
         var first = await visitor.GetStringAsync("/grid", TestContext.Current.CancellationToken);
@@ -234,6 +237,54 @@ public sealed partial class CardGridTests(TestApp app)
         Assert.Equal(placeholderCount, Placeholder().Count(last));
         // an empty title line has no height, which made a placeholder shorter than a card
         Assert.DoesNotContain("title=\"\"></span>", last);
+    }
+
+    [Theory]
+    [InlineData(CardGridLayout.EvenGrid, false)]
+    [InlineData(CardGridLayout.Rows, true)]
+    [InlineData(CardGridLayout.Masonry, true)]
+    public async Task CardsKeepTheirPicturesShapeOnlyOutsideAnEvenGrid(CardGridLayout layout, bool isUncropped)
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        await catalog.AddPaintingInCollectionAsync(await catalog.AddCollectionAsync(), [CatalogTestData.CreateTestImage()]);
+        await catalog.AddPaintingAsync("Loose", [], [], [CatalogTestData.CreateTestImage()]);
+        await AddGridPageAsync(site, CardGridSettings.AllCollections with
+        {
+            Source = new CardGridSource.CollectionsAndLooseWorks(),
+            Layout = layout,
+        });
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/grid", TestContext.Current.CancellationToken);
+
+        // the collection's cover and the loose work, both 800 by 600 test images
+        Assert.Equal(isUncropped ? 2 : 0, Regex.Count(page, "aspect-ratio: 800 / 600;"));
+        Assert.Equal(layout is CardGridLayout.Masonry, page.Contains("<tile-masonry"));
+    }
+
+    [Fact]
+    public async Task ALayoutLeftOutIsRefused()
+    {
+        var site = await app.MakeSiteAsync();
+        var gridPage = await AddGridPageAsync(site, CardGridSettings.AllCollections);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var response = await TestApp.PostFormAsync(
+            client,
+            gridPage.SettingsUrl,
+            "custom-component",
+            new()
+            {
+                ["Input.Name"] = "Grid 0",
+                ["Input.Source"] = nameof(CardGridSourceType.AllCollections),
+                ["Input.HeadingType"] = nameof(CardGridHeadingType.None),
+                ["Input.CardsPerPage"] = "24",
+            }
+        );
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var saved = Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(gridPage.Grids[0]));
+        Assert.Equal(CardGridSettings.AllCollections, saved.Component.Settings);
     }
 
     [GeneratedRegex("<div class=\"invisible\" aria-hidden=\"true\">")]

@@ -14,6 +14,7 @@
 }
 
 <PageTitle>@Page.Name</PageTitle>
+<EditPageLink Href="@PageUrls.EditCustomPage(Page.Id)" />
 <LinkPreview Title="@Page.Name" />
 
 @if (_layout is { } layout)

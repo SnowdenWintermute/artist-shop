@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Components.Sections
+
+@code {
+  // the admin page that edits what this page shows
+  [Parameter, EditorRequired]
+  public required string Href { get; set; }
+}
+
+@* drawn in the site footer, for admins only *@
+<SectionContent SectionName="@SiteFooter.EditLinkSectionName">
+  <AuthorizeView Policy="@SitePolicies.Admin">
+    <Authorized>
+      <span class="mx-1">|</span>
+      <a href="@Href" class="@LinkStyles.InSentence">Edit page</a>
+    </Authorized>
+  </AuthorizeView>
+</SectionContent>

@@ -1,5 +1,6 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Components.Sections
 
 @inject NavigationManager NavigationManager
 @inject PlatformSettings PlatformSettings
@@ -7,6 +8,8 @@
 @code {
   // where MainLayout shows it, filled by PublicLayout
   public const string SectionName = "site-footer";
+  // where a page with an admin editor puts EditPageLink
+  public const string EditLinkSectionName = "site-footer-edit-link";
 }
 
 @* the footer under a website's public pages: the way in for the artist when signed out *@
@@ -16,5 +19,6 @@
     <div>Created with <a href="@PageUrls.PlatformHome(NavigationManager.BaseUri, PlatformSettings.Host)" class="@LinkStyles.InSentence">PictureCord</a></div>
     <span class="mx-1">|</span>
     <a href="@PageUrls.AdminDashboard" class="@LinkStyles.InSentence">Manage website</a>
+    <SectionOutlet SectionName="@EditLinkSectionName" />
   </div>
 </footer>

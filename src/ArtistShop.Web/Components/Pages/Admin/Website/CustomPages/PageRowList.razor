@@ -13,18 +13,34 @@
   [Parameter, EditorRequired]
   public required CustomPageId PageId { get; set; }
 
-  private List<PageRow> _rows = [];
-  private PageRow? _removing;
+  // read while prerendering and handed to the interactive render, which would otherwise start empty
+  [PersistentState]
+  public List<RowSketch>? Rows { get; set; }
+
+  private RowSketch? _removing;
+  private bool _hasLoaded;
   private bool _isSaving;
   private bool _changedElsewhere;
   private bool _blogPageNeedsPostList;
 
-  protected override Task OnParametersSetAsync() => LoadAsync();
+  protected override async Task OnParametersSetAsync()
+  {
+    // the first time in the interactive render, the prerender's rows have come across already
+    if (!_hasLoaded && Rows is not null)
+    {
+      _hasLoaded = true;
+      return;
+    }
 
-  private async Task LoadAsync() => _rows = [.. (await CustomPageRepository.GetLayoutAsync(PageId)).Rows];
+    _hasLoaded = true;
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync() =>
+    Rows = [.. (await CustomPageRepository.GetLayoutAsync(PageId)).Rows.Select(RowSketch.Of)];
 
   private Task MoveAsync((int OldIndex, int NewIndex) move) =>
-    SaveAsync(() => PageRowRepository.ReorderAsync(PageId, [.. _rows.Moved(move).Select(row => row.Id)]));
+    SaveAsync(() => PageRowRepository.ReorderAsync(PageId, [.. Unwrap.Value(Rows).Moved(move).Select(row => row.Id)]));
 
   private async Task RemoveAsync()
   {
@@ -99,14 +115,14 @@
     <p class="mb-2 text-error">The blog page needs its post list. Make another page the blog page first.</p>
   }
 
-  @if (_rows.Count == 0)
+  @if (Rows is { Count: 0 })
   {
     <p class="mb-4">No rows yet.</p>
   }
-  else
+  else if (Rows is { } rows)
   {
     <div class="mb-4">
-      <SortableList TItem="PageRow" Items="_rows" AriaLabel="Row order" OnMove="MoveAsync">
+      <SortableList TItem="RowSketch" Items="rows" AriaLabel="Row order" OnMove="MoveAsync">
         <RowContent Context="row">
           <RowSchematic Row="row" />
         </RowContent>

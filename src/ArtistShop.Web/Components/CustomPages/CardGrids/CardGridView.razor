@@ -121,7 +121,7 @@
     else
     {
       <div class="mb-4">
-        <TileGrid>
+        <TileGrid IsMasonry="Settings.Layout is CardGridLayout.Masonry">
           @foreach (var card in loaded.Page.Cards)
           {
             @switch (card)

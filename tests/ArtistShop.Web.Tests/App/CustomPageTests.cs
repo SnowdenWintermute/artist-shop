@@ -302,7 +302,7 @@ public sealed partial class CustomPageTests(TestApp app)
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.Automatic),
                 ["Input.CardsPerPage"] = "24",
                 ["Input.HasPageLinks"] = "true",
-                ["Input.HasSameSizeCards"] = "true",
+                ["Input.Layout"] = nameof(CardGridLayout.EvenGrid),
             }
         );
 

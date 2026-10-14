@@ -40,12 +40,13 @@
   // headed by the page's own h1, and the page's only grid, so it keeps the plain page key
   private static CardGridSettings GridFor(CollectionId collectionId) =>
     new(new CardGridSource.WorksInCollection(collectionId), new CardGridHeading.None(), ArtistShopLimits.WorkListPageSize,
-      HasPageLinks: true, HasSameSizeCards: true);
+      HasPageLinks: true, CardGridLayout.EvenGrid);
 }
 
 @if (_loaded is { } loaded)
 {
   <PageTitle>@loaded.Collection.Name.Value</PageTitle>
+  <EditPageLink Href="@PageUrls.EditCollection(loaded.Collection.Id)" />
   <LinkPreview Title="@loaded.Collection.Name.Value" Image="loaded.Cover" />
 
   <main class="mx-auto max-w-[1200px] p-4">

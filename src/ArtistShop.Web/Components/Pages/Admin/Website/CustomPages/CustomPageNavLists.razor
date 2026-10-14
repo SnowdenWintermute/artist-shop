@@ -10,33 +10,39 @@
 @inject NavigationManager NavigationManager
 
 @code {
-  private List<CustomPage> _nav = [];
-  // by name
-  private List<CustomPage> _others = [];
-  // the pages that can be the blog page
-  private HashSet<CustomPageId> _holdingPostLists = [];
+  // read once while prerendering and handed to the interactive render, which would otherwise start empty
+  [PersistentState]
+  public PageNavLists? Lists { get; set; }
+
   private bool _isSaving;
   private bool _changedElsewhere;
 
-  protected override Task OnInitializedAsync() => LoadAsync();
+  protected override async Task OnInitializedAsync() => Lists ??= await ReadAsync();
 
-  private async Task LoadAsync()
+  private async Task LoadAsync() => Lists = await ReadAsync();
+
+  private async Task<PageNavLists> ReadAsync()
   {
-    _nav = await NavEntryRepository.GetAllAsync();
-    _others =
-    [
-      .. (await CustomPageRepository.GetAllAsync())
-        .Where(page => !_nav.Any(inNav => inNav.Id == page.Id))
-        .OrderBy(page => page.Name, NameOrder.ByName),
-    ];
-    _holdingPostLists = await CustomPageRepository.GetIdsHoldingAsync(CustomComponentType.PostList);
+    var nav = await NavEntryRepository.GetAllAsync();
+
+    return new PageNavLists(
+      nav,
+      [
+        .. (await CustomPageRepository.GetAllAsync())
+          .Where(page => !nav.Any(inNav => inNav.Id == page.Id))
+          .OrderBy(page => page.Name, NameOrder.ByName),
+      ],
+      [.. await CustomPageRepository.GetIdsHoldingAsync(CustomComponentType.PostList)]
+    );
   }
 
-  private Task MoveAsync((int OldIndex, int NewIndex) move) => SaveNavAsync(_nav.Moved(move));
+  private List<CustomPage> Nav => Unwrap.Value(Lists).Nav;
 
-  private Task HideAsync(CustomPage page) => SaveNavAsync([.. _nav.Where(inNav => inNav.Id != page.Id)]);
+  private Task MoveAsync((int OldIndex, int NewIndex) move) => SaveNavAsync(Nav.Moved(move));
 
-  private Task ShowAsync(CustomPage page) => SaveNavAsync([.. _nav, page]);
+  private Task HideAsync(CustomPage page) => SaveNavAsync([.. Nav.Where(inNav => inNav.Id != page.Id)]);
+
+  private Task ShowAsync(CustomPage page) => SaveNavAsync([.. Nav, page]);
 
   private Task SaveNavAsync(IReadOnlyList<CustomPage> nav) => SaveAsync(() => NavEntryRepository.SetAsync([.. nav.Select(page => page.Id)]));
 
@@ -74,6 +80,8 @@
   }
 }
 
+@if (Lists is { } lists)
+{
 <DisabledUntilInteractive>
   @if (_changedElsewhere)
   {
@@ -81,7 +89,7 @@
   }
 
   <h2 class="mb-2 text-lg">In the nav</h2>
-  @if (_nav.Count == 0)
+  @if (lists.Nav.Count == 0)
   {
     <p class="mb-6">Nothing is in the nav.</p>
   }
@@ -90,13 +98,13 @@
     <p class="mb-2 text-sm text-ink-faded">Drag to set the order visitors see.</p>
 
     <div class="mb-6">
-      <SortableList TItem="CustomPage" Items="_nav" AriaLabel="Nav order" OnMove="MoveAsync">
+      <SortableList TItem="CustomPage" Items="lists.Nav" AriaLabel="Nav order" OnMove="MoveAsync">
         <RowContent Context="customPage">
           <PageSummary Page="customPage" />
         </RowContent>
         <RowActions Context="customPage">
           <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
-          <PageRoleActions Page="customPage" CanBeBlog="_holdingPostLists.Contains(customPage.Id)"
+          <PageRoleActions Page="customPage" CanBeBlog="lists.HoldingPostLists.Contains(customPage.Id)"
                            OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
           <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => HideAsync(customPage)">Hide</ButtonBasic>
         </RowActions>
@@ -104,18 +112,18 @@
     </div>
   }
 
-  @if (_others.Count > 0)
+  @if (lists.Others.Count > 0)
   {
     <h2 class="mb-2 text-lg">Not in the nav</h2>
     <p class="mb-2 text-sm text-ink-faded">Visitors reach these by their address or a link.</p>
 
     <ul>
-      @foreach (var customPage in _others)
+      @foreach (var customPage in lists.Others)
       {
         <li @key="customPage.Id" class="mb-2 flex items-center gap-2 border p-2 text-sm">
           <PageSummary Page="customPage" />
           <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
-          <PageRoleActions Page="customPage" CanBeBlog="_holdingPostLists.Contains(customPage.Id)"
+          <PageRoleActions Page="customPage" CanBeBlog="lists.HoldingPostLists.Contains(customPage.Id)"
                            OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
           <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => ShowAsync(customPage)">Show in nav</ButtonBasic>
         </li>
@@ -123,3 +131,4 @@
     </ul>
   }
 </DisabledUntilInteractive>
+}

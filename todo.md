@@ -22,6 +22,21 @@ change; `CustomComponentForm.CheckCardGrid`. Tests in `App/CardGridTests.cs`. `C
   A future collection card look must fit the same cell. The collection page uses same-size cards. 1167 tests pass.
 - Fixed 2026-10-14: the placeholder's empty title line had no height (now a non-breaking space). Page links and
   Consistent card sizes save on change. Pages list: Edit button on each page, in and out of the nav.
+- 2026-10-14 later (uncommitted, 1171 tests, not browser-checked): unchecked sizes show every card's picture uncropped
+  in its own shape (`LinkTile.IsUncropped`), collection covers included: the grid decides, the same for every kind. Flicker: `CustomPageNavLists` and `PageRowList` keep
+  their lists in `[PersistentState]` (`PageNavLists`; `RowSketch`, since a `PageRow`'s settings don't round-trip
+  through JSON), so the interactive render starts with the prerender's lists. `RowEditor` still loads itself.
+  Footer: `EditPageLink` (admins only, via a section in `SiteFooter`) on custom pages, collection, work and post
+  pages; the post page keeps its own Edit by the title too.
+- Layout, 2026-10-14 (Mike): the Consistent card sizes checkbox became a Layout select (`CardGridLayout`): Even grid
+  (same-size cards, padded last page), Rows (pictures in their own shapes), Masonry (own shapes, packed into columns
+  by `<tile-masonry>` in `TileGrid.razor.js`: each tile spans as many 1px rows as it's tall, so the order stays left to
+  right; plain rows without the script). Settings JSON version 4 (`layout`); version 3's checkbox reads as Even grid or
+  Rows. Selects a post leaves out are refused ("Choose one.") instead of saving 0. 1174 tests, typecheck clean, not
+  browser-checked.
+- Same day: `TileGrid` is `items-start`, so a short tile's link ends at its text, not its row's height. Masonry in
+  the row preview: the script now watches its own subtree (Blazor inserts an island's element before its children)
+  and divides measured heights by the preview's zoom.
 
 **Card grid, agreed 2026-10-13 (From Claude).** Replaces the Collection viewer's own h1 problem: one
 component type with a source and a heading among its settings.

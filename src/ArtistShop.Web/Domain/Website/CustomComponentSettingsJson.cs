@@ -13,7 +13,7 @@ public static class CustomComponentSettingsJson
     public static (string Json, int Version) Write(CustomComponentSettings settings) =>
         settings switch
         {
-            CardGridSettings cardGrid => (WriteCardGrid(cardGrid), 3),
+            CardGridSettings cardGrid => (WriteCardGrid(cardGrid), 4),
             PostListSettings postList => (Serialize(postList), 1),
             TextSettings text => (WriteText(text), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
@@ -24,9 +24,11 @@ public static class CustomComponentSettingsJson
         {
             // the collection viewer it was, which had no settings
             (CustomComponentType.CardGrid, 1) => CardGridSettings.AllCollections,
-            // before same-size cards, which it had in effect never had
-            (CustomComponentType.CardGrid, 2) => ReadCardGrid(json, hasSameSizeCards: true),
-            (CustomComponentType.CardGrid, 3) => ReadCardGrid(json, hasSameSizeCards: null),
+            // before layouts: version 2 had none, and drew an even grid; version 3 had a same-size checkbox
+            (CustomComponentType.CardGrid, 2) => ReadCardGrid(json, _ => CardGridLayout.EvenGrid),
+            (CustomComponentType.CardGrid, 3) => ReadCardGrid(json, root =>
+                root.GetProperty("hasSameSizeCards").GetBoolean() ? CardGridLayout.EvenGrid : CardGridLayout.Rows),
+            (CustomComponentType.CardGrid, 4) => ReadCardGrid(json, root => Enum.Parse<CardGridLayout>(ReadString(root, "layout"))),
             (CustomComponentType.PostList, 1) => Deserialize<PostListSettings>(json),
             (CustomComponentType.Text, 1) => ReadText(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
@@ -53,7 +55,7 @@ public static class CustomComponentSettingsJson
     }
 
     // {"source": {"type": "WorksInCollection", "collectionId": 4}, "heading": {"type": "Custom", "text": "…"},
-    //  "cardsPerPage": 24, "hasPageLinks": true, "hasSameSizeCards": true}
+    //  "cardsPerPage": 24, "hasPageLinks": true, "layout": "EvenGrid"}
     private static string WriteCardGrid(CardGridSettings cardGrid)
     {
         var source = new JsonObject { ["type"] = cardGrid.Source.Type.ToString() };
@@ -76,12 +78,12 @@ public static class CustomComponentSettingsJson
             ["heading"] = heading,
             ["cardsPerPage"] = cardGrid.CardsPerPage,
             ["hasPageLinks"] = cardGrid.HasPageLinks,
-            ["hasSameSizeCards"] = cardGrid.HasSameSizeCards,
+            ["layout"] = cardGrid.Layout.ToString(),
         }.ToJsonString();
     }
 
-    // hasSameSizeCards is what a version written before that setting gets; null reads it from the JSON
-    private static CardGridSettings ReadCardGrid(string json, bool? hasSameSizeCards)
+    // readLayout reads the layout as the document's version wrote it
+    private static CardGridSettings ReadCardGrid(string json, Func<JsonElement, CardGridLayout> readLayout)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -107,7 +109,7 @@ public static class CustomComponentSettingsJson
             },
             root.GetProperty("cardsPerPage").GetInt32(),
             root.GetProperty("hasPageLinks").GetBoolean(),
-            hasSameSizeCards ?? root.GetProperty("hasSameSizeCards").GetBoolean()
+            readLayout(root)
         );
     }
 

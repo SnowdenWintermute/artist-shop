@@ -38,7 +38,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
     public bool HasPageLinks { get; set; }
 
-    public bool HasSameSizeCards { get; set; }
+    public CardGridLayout Layout { get; set; }
 
     public static CustomComponentForm From(CustomComponent component) =>
         component.Settings switch
@@ -60,7 +60,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
                 HeadingText = cardGrid.Heading is CardGridHeading.Custom custom ? custom.Text : null,
                 CardsPerPage = cardGrid.CardsPerPage,
                 HasPageLinks = cardGrid.HasPageLinks,
-                HasSameSizeCards = cardGrid.HasSameSizeCards,
+                Layout = cardGrid.Layout,
             },
             _ => new() { Name = component.Name },
         };
@@ -107,6 +107,21 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
         var isValid = true;
 
+        // a post that left a select out, as a script might, would otherwise save its type's default of 0
+        foreach (var (isDefined, field) in new[]
+        {
+            (Enum.IsDefined(Source), nameof(Source)),
+            (Enum.IsDefined(HeadingType), nameof(HeadingType)),
+            (Enum.IsDefined(Layout), nameof(Layout)),
+        })
+        {
+            if (!isDefined)
+            {
+                AddServerError(field, "Choose one.");
+                isValid = false;
+            }
+        }
+
         if (CardsPerPage is null)
         {
             AddServerError(nameof(CardsPerPage), "Say how many cards a page holds.");
@@ -136,7 +151,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         {
             TextSettings => new TextSettings(new RichText(Unwrap.Value(Body)), Width),
             CardGridSettings => new CardGridSettings(ToCardGridSource(), ToCardGridHeading(), Unwrap.Value(CardsPerPage), HasPageLinks,
-                HasSameSizeCards),
+                Layout),
             _ => saved,
         };
 
