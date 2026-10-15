@@ -6,7 +6,11 @@ using ArtistShop.Web.Domain.Website;
 public static class CustomComponentNames
 {
     // "Text 1", then "Text 2" and on, skipping names already taken
-    public static IEnumerable<string> NewNames(CustomComponentStarter starter, SiteWording wording, IReadOnlySet<string> taken) =>
+    public static IEnumerable<string> NewNames(
+        CustomComponentStarter starter,
+        SiteWording wording,
+        IReadOnlySet<string> taken
+    ) =>
         Enumerable
             .Range(1, int.MaxValue)
             .Select(number => $"{Of(starter, wording)} {number}")
@@ -16,7 +20,8 @@ public static class CustomComponentNames
     public static string Of(CustomComponentStarter starter, SiteWording wording) =>
         starter switch
         {
-            CustomComponentStarter.CollectionViewer => $"{wording.Collection.SingularHeading} viewer",
+            CustomComponentStarter.CollectionViewer =>
+                $"{wording.Collection.SingularHeading} viewer",
             CustomComponentStarter.PostList => Of(CustomComponentType.PostList, wording),
             CustomComponentStarter.Text => Of(CustomComponentType.Text, wording),
             CustomComponentStarter.Heading => "Heading",
@@ -28,7 +33,7 @@ public static class CustomComponentNames
         {
             CustomComponentType.CardGrid => "Card grid",
             CustomComponentType.PostList => "Post list",
-            CustomComponentType.Text => "Text",
+            CustomComponentType.Text => "Text / article",
             _ => throw new InvalidOperationException($"{type} has no name."),
         };
 }
