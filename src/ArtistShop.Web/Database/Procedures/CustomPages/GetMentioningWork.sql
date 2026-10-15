@@ -24,7 +24,8 @@ FROM
         WHERE
             junction.work_id = p_work_id
         UNION
-        -- only while the grid shows its custom list, and only a work a visitor sees there
+        -- only while the grid shows its custom list, and only a work a visitor sees there: one with the
+        -- primary image its card shows
         SELECT
             chosen.component_id
         FROM
@@ -39,6 +40,7 @@ FROM
                     work_images AS image
                 WHERE
                     image.work_id = p_work_id
+                    AND image.is_primary
             )
     ) AS mentioning
     JOIN slot_placements ON slot_placements.component_id = mentioning.component_id

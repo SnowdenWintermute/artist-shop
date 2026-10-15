@@ -76,15 +76,11 @@
           await CollectionsThenLooseWorksAsync(pageNumber, pageSize), WorksCollection: null);
 
       case CardGridSource.ChosenCards:
-        // few enough to page here; the ones a visitor wouldn't see are left out, and the settings page says why
-        var chosen = (await CardGridChosenCardRepository.GetAsync(ComponentId
-            ?? throw new InvalidOperationException("A custom list needs the component it belongs to.")))
-          .Where(card => card.IsVisible)
-          .ToList();
-
+        // the ones a visitor wouldn't see are left out, and the settings page says why
         return new LoadedCardGrid(HeadingText(automatic: null),
-          new CardGridPage([.. chosen.Skip((pageNumber - 1) * pageSize).Take(pageSize).Select(card => card.Card)],
-            chosen.Count, pageNumber, pageSize),
+          await CardGridChosenCardRepository.GetVisiblePageAsync(
+            ComponentId ?? throw new InvalidOperationException("A custom list needs the component it belongs to."),
+            pageNumber, pageSize),
           WorksCollection: null);
 
       default:

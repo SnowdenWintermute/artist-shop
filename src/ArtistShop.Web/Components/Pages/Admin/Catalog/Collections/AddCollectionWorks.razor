@@ -52,11 +52,10 @@
 
 @if (_collection is null)
 {
-  <PageTitle>Add @Wording.Work.PluralInSentence to @Wording.Collection.SingularInSentence</PageTitle>
-
-  <UpLink Class="mb-4" Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
-
-  <p>This @Wording.Collection.SingularInSentence doesn't exist. It may have been deleted.</p>
+  <AddMissingTarget Title="@($"Add {Wording.Work.PluralInSentence} to {Wording.Collection.SingularInSentence}")"
+                    UpHref="@PageUrls.CollectionList" UpLabel="@($"All {Wording.Collection.PluralInSentence}")"
+                    Message="@($"This {Wording.Collection.SingularInSentence} doesn't exist. It may have been deleted.")"
+                    FormName="@AddFormName" OnAdd="AddAsync" />
 }
 else
 {

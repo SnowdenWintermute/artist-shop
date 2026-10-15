@@ -1,76 +1,33 @@
 @page "/admin/website/components/{Id:int}/add-works"
+@inherits AddToCardGridPage
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
-@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
-@inject CustomComponentRepository CustomComponentRepository
 @inject CardGridChosenCardRepository CardGridChosenCardRepository
-@inject NavigationManager NavigationManager
 
 @code {
-  [CascadingParameter]
-  public SiteWording Wording { get; set; } = default!;
-
   private const string AddFormName = "add-card-grid-works";
 
-  [Parameter]
-  public int Id { get; set; }
+  private WorkListSelection Selection => new(PageUrls.AddCheckedKey, [.. CheckedIdValues.Select(id => new WorkId(id))]);
 
-  [SupplyParameterFromQuery(Name = PageUrls.AddCheckedKey)]
-  private int[]? CheckedIds { get; set; }
-  [SupplyParameterFromQuery(Name = PageUrls.ComponentPageKey)]
-  private int? FromPageId { get; set; }
-  [SupplyParameterFromQuery(Name = PageUrls.ComponentRowKey)]
-  private int? FromRowId { get; set; }
-
-  private CustomComponent? _grid;
-
-  private CustomComponentId ComponentId => new(Id);
-
-  private CustomComponentOrigin? Origin => CustomComponentOrigin.Of(FromPageId, FromRowId);
-
-  // a work checked twice, in an address edited by hand, counts once
-  private WorkListSelection Selection =>
-    new(PageUrls.AddCheckedKey, [.. (CheckedIds ?? []).Distinct().Select(id => new WorkId(id))]);
-
-  protected override async Task OnInitializedAsync() =>
-    _grid = await CustomComponentRepository.GetAsync(ComponentId) is { Component.Settings: CardGridSettings } found
-      ? found.Component
-      : null;
-
-  private async Task AddAsync()
-  {
-    try
-    {
-      await CardGridChosenCardRepository.AddWorksAsync(ComponentId, Selection.Ids);
-    }
-    catch (ChangedSincePageLoadException)
-    {
-      // the grid was deleted elsewhere; its settings page says so
-    }
-
-    NavigationManager.NavigateTo(PageUrls.EditCustomComponent(ComponentId, Origin));
-  }
+  protected override Task AddCheckedAsync() => CardGridChosenCardRepository.AddWorksAsync(ComponentId, Selection.Ids);
 }
 
 <main>
   <AdminPanel>
-    @if (_grid is null)
+    @if (Grid is null)
     {
-      <PageTitle>Add @Wording.Work.PluralInSentence</PageTitle>
-
-      <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
-
-      <p>This card grid doesn't exist. It may have been deleted.</p>
+      <AddMissingTarget Title="@($"Add {Wording.Work.PluralInSentence}")" UpHref="@PageUrls.CustomPageList" UpLabel="Pages"
+                        Message="@MissingMessage" FormName="@AddFormName" OnAdd="AddAsync" />
     }
     else
     {
-      <AddCheckedShell Title="@($"Add {Wording.Work.PluralInSentence} to {_grid.Name}")"
-                       UpHref="@PageUrls.EditCustomComponent(ComponentId, Origin)" UpLabel="@_grid.Name" FormName="@AddFormName"
+      <AddCheckedShell Title="@($"Add {Wording.Work.PluralInSentence} to {Grid.Name}")"
+                       UpHref="@PageUrls.EditCustomComponent(ComponentId, Origin)" UpLabel="@Grid.Name" FormName="@AddFormName"
                        CheckedCount="Selection.Ids.Count" OnAdd="AddAsync">
         @* only works not on the list yet. A row's title is text, since this page is for checking works, not
            opening them *@

@@ -39,7 +39,12 @@
     });
 
   private Task RemoveAsync(ChosenCardListItem item) =>
-    SaveAsync(() => CardGridChosenCardRepository.RemoveAsync(ComponentId, item.Id));
+    SaveAsync(async () =>
+    {
+      await CardGridChosenCardRepository.RemoveAsync(ComponentId, item.Id);
+      // at once, as a drag before the refresh lands would otherwise send an order holding this card
+      _items = [.. _items.Where(other => other.Id != item.Id)];
+    });
 
   private async Task SaveAsync(Func<Task> save)
   {

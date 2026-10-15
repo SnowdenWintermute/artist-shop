@@ -6,6 +6,16 @@
 notes below are older than that.** Step 1 partly browser-checked (preview), step 2 not. Then step 3, Image (whose
 settings are designed with Mike first).
 
+**Custom list review fixes, 2026-10-15 (From Claude), uncommitted, 1206 tests, not browser-checked.**
+- Pickers: `AddToCardGridPage` base class shared by Add works / Add collections; `AddMissingTarget` (all three
+  pickers, collection's Add works too) still draws the add form, so "Add selected" after the target was deleted
+  lands on its page instead of a 400. `lock_card_grid_chosen_cards` also refuses a component that isn't a card grid.
+- Public grid pages the custom list in SQL (`GetVisiblePageAsync`; `get_card_grid_chosen_cards` takes only-visible,
+  offset, count and returns `total_count`); covers are worked out only for the list's collections
+  (`get_collections_with_covers` gained `p_ids`).
+- ✕ drops the card at once; "There are no collections yet." on an empty site; "Mentioned in" uses the primary image
+  like the grid; reorder check is one pass. Automatic → None on switching to a custom list kept (Mike).
+
 **Card grid part 2, custom list (source 4), built 2026-10-14 (From Claude), uncommitted, 1200 tests pass, not
 browser-checked.** Mike: the Shows option is "Custom list"; ✕ takes a card off (no checkboxes); the list is kept when
 the grid shows another source; a work on a shown custom list counts in the work page's "Mentioned in".

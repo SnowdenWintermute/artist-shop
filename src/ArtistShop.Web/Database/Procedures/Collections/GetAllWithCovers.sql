@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS get_collections_with_covers;
 
--- p_slug narrows it to that one collection; NULL keeps them all
-CREATE FUNCTION get_collections_with_covers (p_only_works_with_images boolean, p_slug text) RETURNS TABLE (
+-- p_slug narrows it to that one collection and p_ids to those collections; NULL keeps them all
+CREATE FUNCTION get_collections_with_covers (p_only_works_with_images boolean, p_slug text, p_ids int[]) RETURNS TABLE (
     id int,
     name text,
     slug text,
@@ -68,6 +68,10 @@ WHERE
     (
         p_slug IS NULL
         OR collections.slug = p_slug
+    )
+    AND (
+        p_ids IS NULL
+        OR collections.id = ANY (p_ids)
     )
     AND (
         -- a collection whose works have no photographs yet has nothing a visitor could look at

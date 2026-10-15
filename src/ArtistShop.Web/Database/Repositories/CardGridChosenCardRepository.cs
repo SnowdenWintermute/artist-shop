@@ -9,16 +9,29 @@ using Npgsql;
 public class CardGridChosenCardRepository(SiteDatabase database)
 {
     // every card on the list, the ones a visitor wouldn't see included
-    public async Task<List<ChosenCard>> GetAsync(CustomComponentId componentId)
+    public async Task<List<ChosenCard>> GetAsync(CustomComponentId componentId) =>
+        [.. (await GetRowsAsync(componentId, onlyVisible: false, offset: 0, count: null)).Select(row => row.ToChosenCard())];
+
+    // one page of the cards a visitor sees
+    public async Task<CardGridPage> GetVisiblePageAsync(CustomComponentId componentId, int pageNumber, int pageSize)
+    {
+        var rows = await GetRowsAsync(componentId, onlyVisible: true, (pageNumber - 1) * pageSize, pageSize);
+
+        // a page past the end has no rows to count on; the grid sends it back to the first page
+        return new CardGridPage([.. rows.Select(row => row.ToChosenCard().Card)], rows.FirstOrDefault()?.TotalCount ?? 0, pageNumber,
+            pageSize);
+    }
+
+    private async Task<List<ChosenCardRow>> GetRowsAsync(CustomComponentId componentId, bool onlyVisible, int offset, int? count)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<ChosenCardRow>(
-            "SELECT * FROM get_card_grid_chosen_cards(@ComponentId)",
-            new { ComponentId = componentId.Value }
+            "SELECT * FROM get_card_grid_chosen_cards(@ComponentId, @OnlyVisible, @Offset, @Count)",
+            new { ComponentId = componentId.Value, OnlyVisible = onlyVisible, Offset = offset, Count = count }
         );
 
-        return [.. rows.Select(row => row.ToChosenCard())];
+        return [.. rows];
     }
 
     // at the end of the list, in the order given
@@ -88,6 +101,7 @@ public class CardGridChosenCardRepository(SiteDatabase database)
         public int? ImageWidth { get; init; }
         public int? ImageHeight { get; init; }
         public string? ImageBlurDataUri { get; init; }
+        public required int TotalCount { get; init; }
 
         private WorkImage? Image =>
             this is { ImageStorageKey: string storageKey, ImageWidth: int width, ImageHeight: int height }

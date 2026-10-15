@@ -518,6 +518,83 @@ public sealed partial class CardGridTests(TestApp app)
         Assert.Empty(await chosen.GetAsync(gridPage.Grids[0]));
     }
 
+    // the page turns over the visible cards only, so a hidden one takes no place on any page
+    [Fact]
+    public async Task ACustomListPagesOverItsVisibleCards()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var first = await catalog.AddPaintingAsync("First", [], [], [CatalogTestData.CreateTestImage()]);
+        var hidden = await catalog.AddPaintingAsync("Hidden", [], [], []);
+        var second = await catalog.AddPaintingAsync("Second", [], [], [CatalogTestData.CreateTestImage()]);
+        var gridPage = await AddGridPageAsync(site, CustomList with { CardsPerPage = 1 });
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddWorksAsync(gridPage.Grids[0], [first.Id, hidden.Id, second.Id]);
+        var client = app.ClientFor(site.Host);
+
+        var secondPage = await client.GetStringAsync($"/grid?page-{gridPage.Grids[0].Value}=2", TestContext.Current.CancellationToken);
+        var pastTheEnd = await client.GetAsync($"/grid?page-{gridPage.Grids[0].Value}=3", TestContext.Current.CancellationToken);
+
+        Assert.Equal([$"/works/{second.Slug.Value}"], CardLinks(secondPage));
+        Assert.Contains("Page 2 of 2", secondPage);
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, pastTheEnd.StatusCode);
+    }
+
+    // "Add selected" clicked on a picker opened before the grid was deleted
+    [Theory]
+    [InlineData("add-card-grid-works")]
+    [InlineData("add-card-grid-collections")]
+    public async Task AddingToADeletedGridGoesToItsSettingsPage(string formName)
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var work = await catalog.AddPaintingAsync("Work", [], [], []);
+        var collection = await catalog.AddCollectionAsync();
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var origin = new CustomComponentOrigin(gridPage.PageId, gridPage.RowId);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var url = formName == "add-card-grid-works"
+            ? PageUrls.AddCardGridWorks(gridPage.Grids[0], origin, [work.Id])
+            : PageUrls.AddCardGridCollections(gridPage.Grids[0], origin, [collection]);
+
+        await new CustomComponentRepository(DatabaseOf(site)).DeleteAsync(gridPage.Grids[0]);
+        var response = await TestApp.PostFormAsync(client, url, formName, []);
+        var settingsPage = await client.GetStringAsync(gridPage.SettingsUrl, TestContext.Current.CancellationToken);
+
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(gridPage.SettingsUrl, response.Headers.Location?.PathAndQuery);
+        Assert.Contains("This component doesn't exist.", settingsPage);
+    }
+
+    // an address edited by hand to name a component that isn't a card grid
+    [Fact]
+    public async Task NothingIsAddedToAComponentThatIsNotACardGrid()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var work = await catalog.AddPaintingAsync("Work", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var slot = Assert.Single(Assert.Single((await new CustomPageRepository(DatabaseOf(site)).GetLayoutAsync(gridPage.PageId)).Rows).Slots);
+        var postList = await new CustomComponentRepository(DatabaseOf(site)).AddToSlotAsync(slot.Id, "Posts", new PostListSettings());
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => chosen.AddWorksAsync(postList, [work.Id]));
+        Assert.Empty(await chosen.GetAsync(postList));
+    }
+
+    [Fact]
+    public async Task AddingCollectionsOnASiteWithNoneSaysSo()
+    {
+        var site = await app.MakeSiteAsync();
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var picker = await client.GetStringAsync(PageUrls.AddCardGridCollections(gridPage.Grids[0], origin: null, []),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains($"There are no {SiteWording.Default.Collection.PluralInSentence} yet.", picker);
+    }
+
     [GeneratedRegex("<div class=\"invisible\" aria-hidden=\"true\">")]
     private static partial Regex Placeholder();
 

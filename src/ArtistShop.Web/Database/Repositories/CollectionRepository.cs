@@ -64,7 +64,7 @@ public class CollectionRepository(SiteDatabase database)
         await using var connection = await database.OpenConnectionAsync();
 
         var rows = await connection.QueryAsync<CollectionWithCoverRow>(
-            "SELECT * FROM get_collections_with_covers(@OnlyWorksWithImages, @Slug)",
+            "SELECT * FROM get_collections_with_covers(@OnlyWorksWithImages, @Slug, NULL)",
             new { OnlyWorksWithImages = onlyWorksWithImages, Slug = slug }
         );
 

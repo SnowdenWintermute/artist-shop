@@ -1,0 +1,28 @@
+@* What a page adding checked items shows once the thing it adds to is gone. It still draws the add form,
+   empty, so "Add selected" clicked on the page as it was before lands: OnAdd finds the target gone and sends
+   the artist to its page, which says so. Without the form, Blazor answers the post with a bare 400 *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Title { get; set; }
+  [Parameter, EditorRequired]
+  public required string UpHref { get; set; }
+  [Parameter, EditorRequired]
+  public required string UpLabel { get; set; }
+  [Parameter, EditorRequired]
+  public required string Message { get; set; }
+  // the same as AddCheckedShell's
+  [Parameter, EditorRequired]
+  public required string FormName { get; set; }
+  [Parameter, EditorRequired]
+  public required EventCallback OnAdd { get; set; }
+}
+
+<PageTitle>@Title</PageTitle>
+
+<UpLink Class="mb-4" Href="@UpHref" Label="@UpLabel" />
+
+<p>@Message</p>
+
+<form method="post" @formname="@FormName" @onsubmit="OnAdd"></form>
