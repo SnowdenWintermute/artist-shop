@@ -7,14 +7,14 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
-@using ArtistShop.Web.Images
+@using ArtistShop.Web.Publishing
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject PostRepository PostRepository
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
-@inject ImageStorage ImageStorage
+@inject UploadedImageRepository UploadedImageRepository
 
 @code {
   // by id, not slug: a new title changes the slug, and this page is what changes it
@@ -76,12 +76,14 @@
     }
 
     // on a post the binder has already filled this in, so only a fresh page seeds it
-    Input ??= _post is null ? PostForm.ForNew() : PostForm.FromPost(_post);
+    Input ??= _post is null
+      ? PostForm.ForNew()
+      : PostForm.FromPost(_post, await UploadedImageRepository.GetByStorageKeysAsync(LibraryImageFields.StorageKeysIn(_post.Body)));
   }
 
   private async Task SaveAsync()
   {
-    if (!Input.CheckBody(ImageStorage))
+    if (!await Input.CheckBodyAsync(UploadedImageRepository))
     {
       return;
     }

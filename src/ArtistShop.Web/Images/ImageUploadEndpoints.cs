@@ -19,6 +19,10 @@ public record ImageUploadResult(
     string BlurDataUri
 );
 
+// What the text editor's and the post import's uploads answer with: the library image's size, blur
+// and alt text, which starts as the file name
+public record LibraryImageUploadResult(string StorageKey, int Width, int Height, string BlurDataUri, string AltText);
+
 // what the bulk page's report shows for one file. Outcome is the same classification the
 // pre-check uses; OneImagelessWork means the image was attached
 public record WorkImageMatchResult(
@@ -76,26 +80,7 @@ public static class ImageUploadEndpoints
 
         endpoints.MapPost(AppendWorkImagePath, UploadAndAppendAsync).AsImageUpload();
 
-        endpoints
-            .MapPost(
-                RichTextImageUploadPath,
-                (
-                    IFormFile file, // as above
-                    ImageUploadStore imageUploadStore,
-                    HttpResponse response,
-                    ILoggerFactory loggerFactory,
-                    CancellationToken cancellationToken
-                ) =>
-                    UploadAsync(
-                        file,
-                        ImageVariants.MinimumPostImageWidth,
-                        imageUploadStore,
-                        response,
-                        loggerFactory,
-                        cancellationToken
-                    )
-            )
-            .AsImageUpload();
+        endpoints.MapPost(RichTextImageUploadPath, UploadToLibraryAsync).AsImageUpload();
     }
 
     // what every image upload endpoint needs: admin only, rate limited, with room for one image
@@ -137,6 +122,61 @@ public static class ImageUploadEndpoints
                     stored.Processed.BlurDataUri
                 )
             );
+        }
+        catch (VipsException exception)
+        {
+            loggerFactory
+                .CreateLogger(typeof(ImageUploadEndpoints))
+                .LogWarning(exception, "libvips could not read an uploaded image.");
+
+            return Rejected(UnreadableImageMessage);
+        }
+        catch (Exception exception) when (IsRejectedImage(exception))
+        {
+            return Rejected(exception.Message);
+        }
+        catch (ImageProcessingBusyException exception)
+        {
+            return Busy(response, exception);
+        }
+    }
+
+    // Into the image library, whose row keeps the file
+    private static async Task<
+        Results<Ok<LibraryImageUploadResult>, ContentHttpResult, StatusCodeHttpResult>
+    > UploadToLibraryAsync(
+        IFormFile file, // as above
+        ImageUploadStore imageUploadStore,
+        ImageStorage imageStorage,
+        UploadedImageRepository uploadedImageRepository,
+        HttpResponse response,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken
+    )
+    {
+        if (ImageUploadValidation.FindProblem(file) is string problem)
+        {
+            return Rejected(problem);
+        }
+
+        try
+        {
+            await using var content = file.OpenReadStream();
+            var stored = await imageUploadStore.SaveAsync(content, ImageVariants.MinimumPostImageWidth, cancellationToken);
+            var image = stored.ToUploadedImage(ImageUploadValidation.OriginalFileName(file));
+
+            try
+            {
+                await uploadedImageRepository.AddAsync(image);
+            }
+            catch
+            {
+                // nothing references it, so it goes now rather than waiting for the sweep
+                imageStorage.Delete(stored.StorageKey);
+                throw;
+            }
+
+            return TypedResults.Ok(new LibraryImageUploadResult(image.StorageKey, image.Width, image.Height, image.BlurDataUri, image.AltText));
         }
         catch (VipsException exception)
         {

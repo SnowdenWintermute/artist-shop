@@ -203,6 +203,7 @@ AddSiteRepository(database => new PostRepository(database));
 AddSiteRepository(database => new WordingRepository(database));
 AddSiteRepository(database => new ThemeRepository(database));
 AddSiteRepository(database => new BrandImageRepository(database));
+AddSiteRepository(database => new UploadedImageRepository(database));
 AddSiteRepository(database => new CustomPageRepository(database));
 AddSiteRepository(database => new CollectionPageRepository(database));
 AddSiteRepository(database => new NavEntryRepository(database));
@@ -387,6 +388,7 @@ app.MapAdditionalIdentityEndpoints();
 
 // image endpoints
 app.MapImageUploadEndpoints();
+app.MapUploadedImageEndpoints();
 app.MapVariantEndpoints();
 app.MapBrandImageEndpoints();
 

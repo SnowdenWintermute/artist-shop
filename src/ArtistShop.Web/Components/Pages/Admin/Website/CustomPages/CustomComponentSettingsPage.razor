@@ -7,7 +7,8 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
-@using ArtistShop.Web.Images
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Publishing
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
@@ -15,7 +16,7 @@
 @inject CustomPageRepository CustomPageRepository
 @inject CollectionRepository CollectionRepository
 @inject CardGridChosenCardRepository CardGridChosenCardRepository
-@inject ImageStorage ImageStorage
+@inject UploadedImageRepository UploadedImageRepository
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
 
@@ -65,7 +66,11 @@
 
     if (_component is not null)
     {
-      Input ??= CustomComponentForm.From(_component.Component);
+      Input ??= CustomComponentForm.From(
+        _component.Component,
+        _component.Component.Settings is TextSettings text
+          ? await UploadedImageRepository.GetByStorageKeysAsync(LibraryImageFields.StorageKeysIn(text.Body))
+          : new Dictionary<string, UploadedImage>());
       _isBlogPagesOnlyPostList = await CustomComponentRepository.IsBlogPagesOnlyPostListAsync(ComponentId);
     }
 
@@ -86,7 +91,7 @@ collection.Id).ToHashSet();
 
   private async Task SaveAsync()
   {
-    if (_component is null || Input is null || !Input.CheckBody(ImageStorage, _component.Component.Settings)
+    if (_component is null || Input is null || !await Input.CheckBodyAsync(UploadedImageRepository, _component.Component.Settings)
         || !Input.CheckCardGrid(_component.Component.Settings, _collections))
     {
       return;

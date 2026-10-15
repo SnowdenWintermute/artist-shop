@@ -96,8 +96,11 @@ public enum PostImportOutcome
     Refused,
 }
 
+// One of a planned post's image files, and the alt text its library image gets
+public record PlannedPostImage(string FileId, string AltText);
+
 // Document is the post as it will be saved, but for its uploaded images, whose storage keys are
-// placeholders until their files are uploaded: FileIdsByPlaceholder says which file each one is.
+// placeholders until their files are uploaded: ImagesByPlaceholder says which file each one is.
 // Problems say why a post is skipped or refused. BrokenLinks are links to this website's pages
 // that don't exist here, which don't stop the import. PictureOnlyWorks are the titles of
 // works the post shows that aren't on this website with the same image, so the post shows
@@ -108,7 +111,7 @@ public record PostImportItem(
     PostSlug? Slug,
     DateTimeOffset? PublishedAt,
     RichTextDocument? Document,
-    IReadOnlyDictionary<string, string> FileIdsByPlaceholder,
+    IReadOnlyDictionary<string, PlannedPostImage> ImagesByPlaceholder,
     PostImportOutcome Outcome,
     IReadOnlyList<string> Problems,
     IReadOnlyList<string> BrokenLinks,
@@ -167,7 +170,7 @@ public static class PostImportPlanner
     // The post as it's saved: each placeholder swapped for its file's upload. Parsed and written
     // again, so what the browser reported about the uploads goes through the parser like
     // everything else
-    public static RichText Finish(RichTextDocument document, IReadOnlyDictionary<string, ImageUploadResult> uploadsByPlaceholder)
+    public static RichText Finish(RichTextDocument document, IReadOnlyDictionary<string, LibraryImageUploadResult> uploadsByPlaceholder)
     {
         var finished = document with
         {
@@ -175,13 +178,7 @@ public static class PostImportPlanner
             [
                 .. document.Blocks.Select(block =>
                     block is UploadedImageEmbedBlock image && uploadsByPlaceholder.TryGetValue(image.StorageKey, out var upload)
-                        ? image with
-                        {
-                            StorageKey = upload.StorageKey,
-                            Width = upload.Width,
-                            Height = upload.Height,
-                            BlurDataUri = upload.BlurDataUri,
-                        }
+                        ? image with { StorageKey = upload.StorageKey }
                         : block
                 ),
             ],
@@ -231,7 +228,7 @@ public static class PostImportPlanner
             slug,
             file.PublishedAt,
             RichTextParser.Parse(body),
-            localized.FileIdsByPlaceholder,
+            localized.ImagesByPlaceholder,
             skippedBecause is null ? PostImportOutcome.WillAdd : PostImportOutcome.Skipped,
             skippedBecause is null ? [] : [skippedBecause],
             BrokenLinks: [],
@@ -247,7 +244,7 @@ public static class PostImportPlanner
             Slug: null,
             PublishedAt: null,
             Document: null,
-            new Dictionary<string, string>(),
+            new Dictionary<string, PlannedPostImage>(),
             PostImportOutcome.Refused,
             problems,
             BrokenLinks: [],
@@ -323,23 +320,24 @@ public static class PostImportPlanner
 
     private record Localized(
         JsonArray Ops,
-        IReadOnlyDictionary<string, string> FileIdsByPlaceholder,
+        IReadOnlyDictionary<string, PlannedPostImage> ImagesByPlaceholder,
         IReadOnlyList<string> PictureOnlyWorks,
         int RelinkedWorkCount
     );
 
     // The file's ops with every embed rebuilt from the parts that are safe to take from it. An
     // uploaded image, and a work not found here, becomes an image embed whose storage key is a
-    // placeholder for its file. Each file gets one placeholder however often the post shows it
+    // placeholder for its file. Each file gets one placeholder however often the post shows it, and
+    // the alt text of the first image showing it
     private static Localized Localize(JsonArray ops, PostImportFolder folder, PostImportTarget target, List<string> problems)
     {
         var localized = new JsonArray();
         var placeholdersByFileName = new Dictionary<string, string>();
-        var fileIdsByPlaceholder = new Dictionary<string, string>();
+        var imagesByPlaceholder = new Dictionary<string, PlannedPostImage>();
         var pictureOnly = new List<string>();
         var relinked = 0;
 
-        string? PlaceholderFor(JsonObject value)
+        string? PlaceholderFor(JsonObject value, string altText)
         {
             if (StringOf(value[PostExportJson.FileProperty]) is not { } fileName)
             {
@@ -358,7 +356,13 @@ public static class PostImportPlanner
                 // 32 hex digits, the shape the parser takes as a storage key; none is ever saved
                 placeholder = (placeholdersByFileName.Count + 1).ToString("x32", CultureInfo.InvariantCulture);
                 placeholdersByFileName[fileName] = placeholder;
-                fileIdsByPlaceholder[placeholder] = fileId;
+
+                if (altText.Length > ArtistShopLimits.UploadedImageAltTextMaximumLength)
+                {
+                    problems.Add($"The alt text of {fileName} is longer than {ArtistShopLimits.UploadedImageAltTextMaximumLength} characters.");
+                }
+
+                imagesByPlaceholder[placeholder] = new PlannedPostImage(fileId, altText);
             }
 
             return placeholder;
@@ -375,9 +379,9 @@ public static class PostImportPlanner
 
             if (insert[RichTextParser.UploadedImageEmbedName] is JsonObject image)
             {
-                if (PlaceholderFor(image) is { } placeholder)
+                if (PlaceholderFor(image, altText: StringOf(image["alt"])?.Trim() ?? "") is { } placeholder)
                 {
-                    localized.Add(ImageOp(placeholder, image, alt: StringOf(image["alt"]) ?? ""));
+                    localized.Add(ImageOp(placeholder, image));
                 }
             }
             else if (insert[RichTextParser.WorkEmbedName] is JsonObject work)
@@ -388,11 +392,15 @@ public static class PostImportPlanner
                     localized.Add(new JsonObject { ["insert"] = new JsonObject { [RichTextParser.WorkEmbedName] = value } });
                     relinked++;
                 }
-                else if (PlaceholderFor(work) is { } placeholder)
+                else
                 {
                     var workTitle = StringOf(work[PostExportJson.WorkTitleProperty]) ?? "";
-                    localized.Add(ImageOp(placeholder, work, alt: workTitle));
-                    pictureOnly.Add(workTitle);
+
+                    if (PlaceholderFor(work, altText: workTitle) is { } placeholder)
+                    {
+                        localized.Add(ImageOp(placeholder, work));
+                        pictureOnly.Add(workTitle);
+                    }
                 }
             }
             else if (insert[RichTextParser.VideoEmbedName] is JsonObject video)
@@ -401,13 +409,12 @@ public static class PostImportPlanner
             }
         }
 
-        return new Localized(localized, fileIdsByPlaceholder, pictureOnly, relinked);
+        return new Localized(localized, imagesByPlaceholder, pictureOnly, relinked);
     }
 
-    // Width and height are the upload's once it's done; 1 until then, the least the parser takes
-    private static JsonObject ImageOp(string placeholder, JsonObject from, string alt)
+    private static JsonObject ImageOp(string placeholder, JsonObject from)
     {
-        var value = CopyLook(from, new JsonObject { ["storageKey"] = placeholder, ["width"] = 1, ["height"] = 1, ["alt"] = alt });
+        var value = CopyLook(from, new JsonObject { ["storageKey"] = placeholder });
 
         if (from["lightbox"] is JsonValue lightbox && lightbox.GetValueKind() is JsonValueKind.True)
         {

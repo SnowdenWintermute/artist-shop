@@ -1,9 +1,8 @@
 @* a text component's text, drawn as a post's is, in a readable column or across its slot *@
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Images
 @using ArtistShop.Web.Publishing
-@inject ImageStorage ImageStorage
+@inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
 
 @code {
@@ -13,7 +12,7 @@
   private LoadedRichText? _loaded;
 
   protected override async Task OnParametersSetAsync() =>
-    _loaded = await LoadedRichText.LoadAsync(Settings.Body, ImageStorage, WorkRepository);
+    _loaded = await LoadedRichText.LoadAsync(Settings.Body, WorkRepository, UploadedImageRepository);
 }
 
 @if (_loaded is { } loaded)

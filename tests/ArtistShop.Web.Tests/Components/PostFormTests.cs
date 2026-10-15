@@ -1,47 +1,45 @@
 using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
+using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Tests.Database;
 
 namespace ArtistShop.Web.Tests.Components;
 
-public sealed class PostFormTests : IAsyncLifetime
+[Collection(DatabaseCollection.Name)]
+public sealed class PostFormTests(TestDatabaseFixture database)
 {
-    private const string KeptKey = "0123456789abcdef0123456789abcdef";
-    private const string SweptKey = "fedcba9876543210fedcba9876543210";
-
-    private readonly DirectoryInfo _storageRoot;
-    private readonly ImageStorage _imageStorage;
-
-    public PostFormTests()
-    {
-        _storageRoot = Directory.CreateTempSubdirectory("artist-shop-tests-");
-        _imageStorage = new ImageStorage(_storageRoot.FullName);
-        _imageStorage.Create();
-    }
-
-    public async ValueTask InitializeAsync() =>
-        await _imageStorage.SaveOriginalAsync(new MemoryStream("an upload"u8.ToArray()), KeptKey, TestContext.Current.CancellationToken);
-
-    public ValueTask DisposeAsync()
-    {
-        _storageRoot.Delete(recursive: true);
-        return ValueTask.CompletedTask;
-    }
+    private readonly UploadedImageRepository _library = new(database.Site);
 
     private static string ImageOp(string storageKey) =>
         """{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600,"alt":"KEY"}}}""".Replace("KEY", storageKey);
 
     [Fact]
-    public void FindsTheUploadedImagesWhoseFilesTheSweepRemoved()
+    public async Task FindsTheImagesDeletedFromTheLibrary()
     {
+        var keptKey = ImageStorage.NewStorageKey();
+        await _library.AddAsync(new UploadedImageAddition(keptKey, "kept.jpg", new string('0', 64), 800, 600, "data:image/webp;base64,AAAA", "Kept"));
         var form = new PostForm
         {
             Title = "Missing images",
-            Body = $$"""{"ops":[{{ImageOp(KeptKey)}},{{ImageOp(SweptKey)}},{"insert":"\n"}]}""",
+            Body = $$"""{"ops":[{{ImageOp(keptKey)}},{{ImageOp(ImageStorage.NewStorageKey())}},{"insert":"\n"}]}""",
         };
 
-        Assert.False(form.CheckBody(_imageStorage));
+        Assert.False(await form.CheckBodyAsync(_library));
 
-        var problem = Assert.Single(form.EditContext.GetValidationMessages(form.EditContext.Field(nameof(PostForm.Body))));
-        Assert.Contains(SweptKey, problem);
+        Assert.Single(form.EditContext.GetValidationMessages(form.EditContext.Field(nameof(PostForm.Body))));
+    }
+
+    // the editor's copy of the library's fields isn't kept with the post
+    [Fact]
+    public void SavesTheBodyWithoutTheLibrarysFields()
+    {
+        var storageKey = ImageStorage.NewStorageKey();
+        var form = new PostForm { Title = "Saved", Body = $$"""{"ops":[{{ImageOp(storageKey)}},{"insert":"\n"}]}""" };
+
+        Assert.Equal(
+            $$$$"""{"ops":[{"insert":{"artshop-image":{"storageKey":"{{{{storageKey}}}}"}}},{"insert":"\n"}]}""",
+            form.ToPostBody().Json
+        );
     }
 }

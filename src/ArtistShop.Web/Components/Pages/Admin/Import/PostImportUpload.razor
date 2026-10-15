@@ -11,6 +11,7 @@
 @inject WorkRepository WorkRepository
 @inject WorkImageRepository WorkImageRepository
 @inject ImageStorage ImageStorage
+@inject UploadedImageRepository UploadedImageRepository
 @inject IJSRuntime JS
 @inject ILogger<PostImportUpload> Logger
 @implements IAsyncDisposable
@@ -139,7 +140,7 @@
   }
 
   [JSInvokable]
-  public void OnFileUploaded(string fileId, ImageUploadResult result) => _run.FileUploaded(fileId, result);
+  public void OnFileUploaded(string fileId, LibraryImageUploadResult result) => _run.FileUploaded(fileId, result);
 
   [JSInvokable]
   public async Task OnPostFailed(int index, string message)
@@ -152,7 +153,7 @@
   [JSInvokable]
   public async Task OnPostUploaded(int index)
   {
-    await _run.PostUploadedAsync(index, PostRepository, ImageStorage, Logger);
+    await _run.PostUploadedAsync(index, PostRepository, UploadedImageRepository, Logger);
     await InvokeAsync(StateHasChanged);
   }
 

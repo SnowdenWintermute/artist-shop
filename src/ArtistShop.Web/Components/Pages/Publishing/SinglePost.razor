@@ -4,13 +4,12 @@
 @using ArtistShop.Web.Components.Publishing
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
-@using ArtistShop.Web.Images
 @using ArtistShop.Web.Publishing
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @inject PostRepository PostRepository
 @inject CustomPageRepository CustomPageRepository
-@inject ImageStorage ImageStorage
+@inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
 @inject NavigationManager NavigationManager
 @inject IAuthorizationService AuthorizationService
@@ -46,7 +45,7 @@
 
     _loaded = new LoadedPost(
       post,
-      await LoadedRichText.LoadAsync(post.Body, ImageStorage, WorkRepository),
+      await LoadedRichText.LoadAsync(post.Body, WorkRepository, UploadedImageRepository),
       await CustomPageRepository.GetBlogAsync()
     );
   }

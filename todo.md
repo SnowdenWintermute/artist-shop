@@ -73,11 +73,14 @@ size on demand needs the same queue.
     estimate (decoded size x `MemoryEstimateMultiplier` 2) is too high for big images (274 MB estimated for 48 MP) and
     too low by ~40 MB for small ones. Harmless with one slot on the VPS; revisit the model in step 3 (the queue runs
     one image at a time anyway), after measuring on the VPS. The 2026-09-17 table predates 86a134f.
-- Restarts: the stored sizes are the record of what's done; nothing new in the database. At startup the queue
-  lists each site's originals and queues any expected size (`ImageVariants.WidthsFor(width)`) that's missing,
-  post images included. Each size is saved under a temporary name and then renamed, so a crash never leaves a half
-  file that counts as done. An in-memory list of pending images and their ready sizes answers pages; the startup
-  pass rebuilds it. The large size isn't expected, so it's queued when an Image component is saved, and again when
+- Restarts (changed 2026-10-15 after the review): the stored sizes are the record of what's done; nothing new in
+  the database. `ImageStorage` keeps a "sizes pending" mark per image (`MarkSizesPending`, `ClearSizesPending`,
+  `ListKeysWithSizesPending`; a local `sizes-pending/` folder today, hidden from callers so it can stay local when
+  originals move to a bucket). The queue marks on `Enqueue` and clears when the image's last job is done. At startup
+  the worker's `StartAsync` (before the server answers requests) runs `MissingImageSizes.Find` on marked images only,
+  queuing any missing size (`ImageVariants.WidthsFor(width)`); scanning every original was measured at 20-80 s for
+  10,000 images with a cold disk cache. Each size is saved under a temporary name and then renamed, so a crash never
+  leaves a half file that counts as done. The large size isn't expected, so it's queued when an Image component is saved, and again when
   a page renders one and finds it missing.
 - Storage stays behind `ImageStorage`, which speaks in storage keys and sizes, never directories or paths:
   images will move to an S3-style bucket one day. Callers that use paths today move to key-based methods first
@@ -96,6 +99,14 @@ size on demand needs the same queue.
   measured on the VPS. `tools/measure-image-memory/measure.cs` no longer compiles (calls `Process(key)` without
   `minimumWidth`).
 
+- **Where A stands, 2026-10-15:** steps 1-4 committed by Mike as `a60fccc`. Reviewed the same day; fixes built,
+  1233 tests pass, uncommitted, not browser-checked: the marks above; the post export falls back to the widest
+  ready size and says so (Export page notice, "Smaller images" in the posts README); "Processing…" shows only when a
+  size that picture uses is pending (`IsProcessing(storageKey, maximumWidth)`); `SizesFinished` listeners called
+  one by one; `ImageUrls.UrlOf`, `readVariantWidths`, `PostExportArchive.LoadPostsAsync` shared;
+  `PostRepository.CountAsync` removed. To browser-check: the Export page notice, no label on admin-list thumbnails
+  after an upload, post embeds labelled until their own sizes are made. Step 5 (large size on demand) comes with C.
+
 **B. Image library.** Arbitrary uploads are piling up (post images now, Image components next), and the same image
 can't be reused without uploading it again.
 - `uploaded_images` table: storage key, width, height, alt text, upload time. The row is what keeps the file; the
@@ -106,7 +117,55 @@ can't be reused without uploading it again.
 - Deleting an image that's in use: warn, list where it's used ("this will be blank"), and offer to remove those
   embeds and components too.
 - Not in the library: brand images (one per role, own sizes, SVG) and work images (they belong to their work).
-- Existing post images get rows when this is built.
+
+Agreed with Mike 2026-10-15:
+- No backfill. Nothing deployed has an uploaded-image embed, so embeds simply change shape; local dev posts and
+  text components with uploaded images get fixed or deleted by hand.
+- An embed can't override its image's alt text. The embed toolbar's Alt text field stays, but it edits the
+  library image's alt text, so the change shows wherever that image is used. Embeds stop carrying `Alt`.
+- Text component images are handled exactly like post images, wherever possible.
+- The sweeper stays the garbage collector for stored files: it removes files with no row (an upload cut off
+  before its row, a race, an early exit). The post and text component body scans
+  (`rich_text_image_storage_keys`) stop keeping files alive and become the "where is this used" lookup.
+- Images page: an edit table in the style of the artwork table (`WorkTable`: `DataTable`, saves a row when a field
+  loses focus, checkboxes + bulk bar, delete confirm). Reuse what pays rather than copying it; decide what to
+  extract when building.
+- Picker: a modal like the work picker (`WorkPickerDialog`, pages in a frame), with an upload section and a
+  searchable grid of library images. The text editor's Image button opens it; so do an embed's Replace image and
+  the Image component. Dropping or pasting files into the editor still uploads straight into the library and
+  embeds them, without the picker.
+- Search matches alt text and the original file name, both stored on the row. Images page columns: checkbox,
+  thumbnail, alt text (editable), file name, size in pixels, upload date, Used in.
+- Build order, each step leaving the app working: (1) table, rows written by uploads, sweeper keeps files by row;
+  (2) embeds point at rows and read alt text from them; (3) Images page; (4) picker; (5) deleting an image in use.
+- Step 1 built 2026-10-15, uncommitted, 1234 tests: migration `0011_CreateUploadedImages.sql` (`uploaded_images`;
+  drops `get_all_post_image_storage_keys` and `get_all_custom_component_image_storage_keys`),
+  `UploadedImageRepository` (`AddAsync`, `GetAllStorageKeysAsync`), `UploadedImageAddition`,
+  `StoredImage.ToUploadedImage` (alt text starts as the file name without its extension). The editor's upload
+  endpoint (also the post import's) writes the row, deleting the file if that fails. The sweeper keeps files by
+  library row instead of reading bodies. **Local dev posts and text components with uploaded images have no rows,
+  so the sweep removes their files after the grace period.**
+- Step 2 built 2026-10-15, uncommitted, 1234 tests, not browser-checked. Alt text saves at once (Mike chose this
+  over saving with the text, which could put back an older alt text).
+  - `UploadedImageEmbedBlock` is only `StorageKey`, `Size`, `Layout`, `Caption`, `OpensLightbox`; the parser ignores
+    width, height, blur and alt. `UploadedImage` (+ `UploadedImageId`) is the library row;
+    `UploadedImageRepository.GetByStorageKeysAsync` / `SetAltTextAsync`.
+  - `RichTextImages` (work images + library images by storage key) replaces the work-image dictionary in
+    `LoadedRichText` and the post export. An embed whose image isn't in the library is left out, like a work
+    embed whose image is gone. `UploadedImageFiles` removed.
+  - Editor: `LibraryImageFields.Fill` adds width/height/blur/alt from the library when the post or text component
+    form loads (dropping embeds whose image is gone); `Strip` takes them out on save (`PostForm.ToPostBody`,
+    `CustomComponentForm.ToSettings`). The save check (`RichTextChecks.SaveProblemsAsync`) refuses images no longer
+    in the library.
+  - `UploadedImageEndpoints` (`/admin/uploaded-images/alt-text`): the toolbar's alt field posts on "change"; on
+    success every embed of that image in the editor takes the new alt in place, without an edit to the text.
+    404/failure shows in the toolbar's status line. The upload answers with `LibraryImageUploadResult` (alt text
+    included); Replace image takes the new image's alt text.
+  - Post export writes the library alt text into post.json (no width/height any more); the import plans
+    `PlannedPostImage(FileId, AltText)` per file (first embed's alt; too long refuses the post) and
+    `PostImporter` sets it on the new library row.
+- Delete warning, wording to be revised by Mike once the whole thing is built: "Used in 2 places. Deleting it
+  leaves those blank." + the list of posts and pages, and a "Also remove it from those" checkbox (checked).
 
 **C. Image component.**
 - Source: a library image or a work's image.

@@ -79,32 +79,17 @@ public static class RichTextDeltaWriter
             },
             UploadedImageEmbedBlock image => new JsonObject
             {
-                [RichTextParser.UploadedImageEmbedName] = ImageValue(
-                    new JsonObject
-                    {
-                        ["storageKey"] = image.StorageKey,
-                        ["width"] = image.Width,
-                        ["height"] = image.Height,
-                    },
-                    image,
-                    image.BlurDataUri
-                ),
+                [RichTextParser.UploadedImageEmbedName] = ImageValue(new JsonObject { ["storageKey"] = image.StorageKey }, image),
             },
             VideoEmbedBlock video => new JsonObject { [RichTextParser.VideoEmbedName] = VideoValue(video) },
             _ => null,
         };
 
     // An uploaded image's own settings added to where its file is: a storage key here, a file in the
-    // folder for the export. Blur is null to leave it out
-    public static JsonObject ImageValue(JsonObject where, UploadedImageEmbedBlock image, string? blur)
+    // folder for the export
+    public static JsonObject ImageValue(JsonObject where, UploadedImageEmbedBlock image)
     {
-        if (blur is not null)
-        {
-            where["blur"] = blur;
-        }
-
         WithLook(where, image.Size, image.Layout, image.Caption);
-        where["alt"] = image.Alt;
 
         if (image.OpensLightbox)
         {

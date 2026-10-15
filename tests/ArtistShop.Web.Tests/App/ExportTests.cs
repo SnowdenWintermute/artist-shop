@@ -217,6 +217,7 @@ public sealed class ExportTests(TestApp app)
         );
         byte[] tiff = [(byte)'I', (byte)'I', 0x2A, 0, 4, 5, 6];
         var upload = await SaveOriginalAsync(site.Id, tiff);
+        await AddToLibraryAsync(site.Id, upload, "A study");
         var webCopy = await SaveWebCopyAsync(site.Id, upload.StorageKey);
         var posts = Posts(site.Id);
         var body = new RichText(
@@ -224,7 +225,7 @@ public sealed class ExportTests(TestApp app)
             {"ops":[
               {"insert":"See "},{"insert":"the gardens","attributes":{"bold":true,"link":"/collections/gardens"}},{"insert":"\n"},
               {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY","layout":"floatLeft"}}},
-              {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","width":10,"height":10,"alt":"A study","caption":"Early"}}},
+              {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","caption":"Early"}}},
               {"insert":{"artshop-video":{"provider":"youtube","videoId":"dQw4w9WgXcQ"}}},
               {"insert":"\n"}
             ]}
@@ -277,14 +278,16 @@ public sealed class ExportTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
         var shown = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
+        await AddToLibraryAsync(site.Id, shown, "Shown");
         await SaveWebCopyAsync(site.Id, shown.StorageKey);
         var withoutWebCopy = await SaveOriginalAsync(site.Id, [0xFF, 0xD8, 0xFF]);
+        await AddToLibraryAsync(site.Id, withoutWebCopy, "Gone");
         var body = new RichText(
             """
             {"ops":[
-              {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","width":10,"height":10,"alt":"First"}}},
-              {"insert":{"artshop-image":{"storageKey":"MISSING_KEY","width":10,"height":10,"alt":"Gone"}}},
-              {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","width":10,"height":10,"alt":"Again"}}},
+              {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","caption":"First"}}},
+              {"insert":{"artshop-image":{"storageKey":"MISSING_KEY"}}},
+              {"insert":{"artshop-image":{"storageKey":"SHOWN_KEY","caption":"Again"}}},
               {"insert":"\n"}
             ]}
             """
@@ -301,8 +304,7 @@ public sealed class ExportTests(TestApp app)
             files.Keys.Order(StringComparer.Ordinal)
         );
         var page = files["twice/twice.html"];
-        Assert.Contains("""<img src="image-1.webp" alt="First" """, page);
-        Assert.Contains("""<img src="image-1.webp" alt="Again" """, page);
+        Assert.Equal(2, page.Split("""<img src="image-1.webp" alt="Shown" """).Length - 1);
         Assert.DoesNotContain("Gone", page);
     }
 
@@ -370,12 +372,13 @@ public sealed class ExportTests(TestApp app)
             )
         );
         var upload = await SaveOriginalAsync(from.Id, [(byte)'I', (byte)'I', 0x2A, 0, 9]);
+        await AddToLibraryAsync(from.Id, upload, "A study");
         await SaveWebCopyAsync(from.Id, upload.StorageKey);
         var body = new RichText(
             """
             {"ops":[
               {"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY","layout":"floatLeft","caption":"Early light"}}},
-              {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY","width":10,"height":10,"alt":"A study"}}},
+              {"insert":{"artshop-image":{"storageKey":"UPLOAD_KEY"}}},
               {"insert":"More at "},{"insert":"the gardens","attributes":{"link":"/collections/gardens"}},{"insert":"\n"}
             ]}
             """
@@ -414,15 +417,17 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
         Assert.Equal(1, item.RelinkedWorkCount);
         Assert.Equal(["/collections/gardens"], item.BrokenLinks);
-        var fileId = Assert.Single(item.FileIdsByPlaceholder.Values);
-        Assert.Equal("spring-notes/image-2-original.tiff", fileId);
-        var uploaded = await SaveOriginalAsync(to.Id, files[fileId]);
-        var uploads = new Dictionary<string, ImageUploadResult>
+        var planned = Assert.Single(item.ImagesByPlaceholder.Values);
+        Assert.Equal(new PlannedPostImage("spring-notes/image-2-original.tiff", "A study"), planned);
+        // as the upload endpoint adds it, its alt text the file name
+        var uploaded = await SaveOriginalAsync(to.Id, files[planned.FileId]);
+        await AddToLibraryAsync(to.Id, uploaded, "image-2-original");
+        var uploads = new Dictionary<string, LibraryImageUploadResult>
         {
-            [fileId] = new(uploaded.StorageKey, "image-2-original.tiff", 10, 10, "data:image/webp;base64,AAAA"),
+            [planned.FileId] = new(uploaded.StorageKey, 10, 10, "data:image/webp;base64,AAAA", "image-2-original"),
         };
 
-        Assert.Null(await PostImporter.SaveAsync(item, uploads, toPosts, toStorage));
+        Assert.Null(await PostImporter.SaveAsync(item, uploads, toPosts, Library(to.Id)));
 
         var imported = await toPosts.GetBySlugAsync(new PostSlug("spring-notes"));
         Assert.NotNull(imported);
@@ -434,7 +439,8 @@ public sealed class ExportTests(TestApp app)
             blocks.OfType<WorkEmbedBlock>().Single()
         );
         var image = blocks.OfType<UploadedImageEmbedBlock>().Single();
-        Assert.Equal((uploaded.StorageKey, "A study"), (image.StorageKey, image.Alt));
+        Assert.Equal(uploaded.StorageKey, image.StorageKey);
+        Assert.Equal("A study", (await Library(to.Id).GetByStorageKeysAsync([uploaded.StorageKey]))[uploaded.StorageKey].AltText);
         // the post shows on the work's page, as one written here would
         Assert.Single(await toPosts.GetPublishedMentioningWorkAsync(toDawn.Id));
     }
@@ -719,7 +725,7 @@ public sealed class ExportTests(TestApp app)
         var batch = Assert.Single(run.Start());
         Assert.Empty(batch.FileIds);
 
-        await run.PostUploadedAsync(batch.Index, toPosts, toStorage, NullLogger.Instance);
+        await run.PostUploadedAsync(batch.Index, toPosts, Library(to.Id), NullLogger.Instance);
 
         Assert.Null(run.Results[batch.Index]);
         Assert.Empty(run.Start());
@@ -1157,6 +1163,15 @@ public sealed class ExportTests(TestApp app)
 
     private PostRepository Posts(SiteId siteId) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+
+    private UploadedImageRepository Library(SiteId siteId) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+
+    // a library row for an original saved by SaveOriginalAsync, as an editor upload adds one
+    private async Task AddToLibraryAsync(SiteId siteId, WorkImage upload, string altText) =>
+        await Library(siteId).AddAsync(
+            new UploadedImageAddition(upload.StorageKey, "upload.jpg", new string('0', 64), upload.Width, upload.Height, "data:image/webp;base64,AAAA", altText)
+        );
 
     private WordingRepository Wording(SiteId siteId) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));

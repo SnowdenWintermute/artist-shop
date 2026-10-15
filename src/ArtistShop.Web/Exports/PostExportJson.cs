@@ -71,16 +71,10 @@ public static class PostExportJson
                         },
                     UploadedImageEmbedBlock embed when images.TryGetValue(embed, out var image) => new JsonObject
                     {
+                        // the alt text goes into the library image the import adds
                         [RichTextParser.UploadedImageEmbedName] = RichTextDeltaWriter.ImageValue(
-                            new JsonObject
-                            {
-                                [FileProperty] = image.OriginalFileName,
-                                ["width"] = embed.Width,
-                                ["height"] = embed.Height,
-                            },
-                            embed,
-                            // processing the upload makes a new one
-                            blur: null
+                            new JsonObject { [FileProperty] = image.OriginalFileName, ["alt"] = image.Alt },
+                            embed
                         ),
                     },
                     WorkEmbedBlock or UploadedImageEmbedBlock => null,

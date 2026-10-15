@@ -1,3 +1,4 @@
+using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
@@ -34,7 +35,7 @@ public class PostImportPlannerTests
         );
 
     private static string PostJson(string title, string ops, string publishedAt = "\"2025-03-04T05:06:07Z\"") =>
-        $$$"""{"formatVersion":1,"title":"{{{title}}}","publishedAt":{{{publishedAt}}},"body":{"ops":[{{{ops}}},{"insert":"\n"}]}}""";
+        $$$$"""{"formatVersion":1,"title":"{{{{title}}}}","publishedAt":{{{{publishedAt}}}},"body":{"ops":[{{{{ops}}}},{"insert":"\n"}]}}""";
 
     private static PostImportFolder Folder(string name, string json, params string[] files) =>
         new(name, json, files.ToDictionary(file => file, file => $"id-{file}"));
@@ -55,7 +56,7 @@ public class PostImportPlannerTests
         var embed = Assert.Single(DocumentOf(item).Blocks.OfType<WorkEmbedBlock>());
         Assert.Equal(new WorkEmbedBlock(Dawn.Id, DawnKey, EmbedImageSize.Small, EmbedLayout.FloatLeft, "Early"), embed);
         // its web copy isn't needed, so nothing is uploaded
-        Assert.Empty(item.FileIdsByPlaceholder);
+        Assert.Empty(item.ImagesByPlaceholder);
     }
 
     // the catalog import makes a slug from the title, so one taken here gives the work another
@@ -75,17 +76,17 @@ public class PostImportPlannerTests
         Assert.Equal(PostImportOutcome.WillAdd, item.Outcome);
         Assert.Equal(["Dawn"], item.PictureOnlyWorks);
         var image = Assert.Single(DocumentOf(item).Blocks.OfType<UploadedImageEmbedBlock>());
-        Assert.Equal("Dawn", image.Alt);
         Assert.Equal("Early", image.Caption);
         Assert.Equal(EmbedLayout.FloatLeft, image.Layout);
-        Assert.Equal("id-image-1.webp", item.FileIdsByPlaceholder[image.StorageKey]);
+        // the work's title is its alt text
+        Assert.Equal(new PlannedPostImage("id-image-1.webp", "Dawn"), item.ImagesByPlaceholder[image.StorageKey]);
     }
 
     // a key in the file could name another image on this website, so only the file counts
     [Fact]
     public void AStorageKeyInTheFileIsNeverUsed()
     {
-        var ops = $$$$"""{"insert":{"artshop-image":{"storageKey":"{{{{DawnKey}}}}","width":10,"height":10,"alt":"Stolen"}}}""";
+        var ops = $$$$"""{"insert":{"artshop-image":{"storageKey":"{{{{DawnKey}}}}","alt":"Stolen"}}}""";
 
         var item = PlanOne(Folder("spring", PostJson("Spring", ops)));
 
@@ -96,21 +97,23 @@ public class PostImportPlannerTests
     [Fact]
     public void AnImageShownTwiceIsUploadedOnce()
     {
-        const string image = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","width":10,"height":10,"alt":"Pencil","lightbox":true}}}""";
+        const string first = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","alt":" Pencil ","lightbox":true}}}""";
+        const string second = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","alt":"Another"}}}""";
 
-        var item = PlanOne(Folder("spring", PostJson("Spring", $"{image},{image}"), "image-1-original.jpg"));
+        var item = PlanOne(Folder("spring", PostJson("Spring", $"{first},{second}"), "image-1-original.jpg"));
 
         var embeds = DocumentOf(item).Blocks.OfType<UploadedImageEmbedBlock>().ToList();
         Assert.Equal(2, embeds.Count);
         Assert.Equal(embeds[0].StorageKey, embeds[1].StorageKey);
         Assert.True(embeds[0].OpensLightbox);
-        Assert.Equal(["id-image-1-original.jpg"], item.FileIdsByPlaceholder.Values);
+        // one library image, with the first one's alt text
+        Assert.Equal([new PlannedPostImage("id-image-1-original.jpg", "Pencil")], item.ImagesByPlaceholder.Values);
     }
 
     [Fact]
     public void AnImageWhoseFileIsMissingRefusesThePost()
     {
-        const string image = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","width":10,"height":10,"alt":""}}}""";
+        const string image = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","alt":""}}}""";
 
         var item = PlanOne(Folder("spring", PostJson("Spring", image)));
 
@@ -134,7 +137,7 @@ public class PostImportPlannerTests
         var links = string.Join(
             ",",
             paths.Select(link =>
-                $$$"""{"insert":"x","attributes":{"link":"{{{link}}}"}}"""
+                $$$$"""{"insert":"x","attributes":{"link":"{{{{link}}}}"}}"""
             )
         );
 
@@ -212,17 +215,29 @@ public class PostImportPlannerTests
     }
 
     [Fact]
+    public void AnAltTextTooLongForTheLibraryRefusesThePost()
+    {
+        var alt = new string('a', ArtistShopLimits.UploadedImageAltTextMaximumLength + 1);
+        var image = $$$$"""{"insert":{"artshop-image":{"file":"image-1-original.jpg","alt":"{{{{alt}}}}"}}}""";
+
+        var item = PlanOne(Folder("spring", PostJson("Spring", image), "image-1-original.jpg"));
+
+        Assert.Equal(PostImportOutcome.Refused, item.Outcome);
+        Assert.Single(item.Problems);
+    }
+
+    [Fact]
     public void FinishingSwapsEachPlaceholderForItsUpload()
     {
-        const string image = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","width":10,"height":10,"alt":"Pencil"}}}""";
+        const string image = """{"insert":{"artshop-image":{"file":"image-1-original.jpg","alt":"Pencil","caption":"Early"}}}""";
         var item = PlanOne(Folder("spring", PostJson("Spring", image), "image-1-original.jpg"));
-        var placeholder = Assert.Single(item.FileIdsByPlaceholder.Keys);
-        var upload = new ImageUploadResult("cccccccccccccccccccccccccccccccc", "x.jpg", 1200, 900, "data:image/webp;base64,AAAA");
+        var placeholder = Assert.Single(item.ImagesByPlaceholder.Keys);
+        var upload = new LibraryImageUploadResult("cccccccccccccccccccccccccccccccc", 1200, 900, "data:image/webp;base64,AAAA", "x");
 
-        var body = PostImportPlanner.Finish(DocumentOf(item), new Dictionary<string, ImageUploadResult> { [placeholder] = upload });
+        var body = PostImportPlanner.Finish(DocumentOf(item), new Dictionary<string, LibraryImageUploadResult> { [placeholder] = upload });
 
         var saved = Assert.Single(RichTextParser.Parse(body).Blocks.OfType<UploadedImageEmbedBlock>());
-        Assert.Equal(("cccccccccccccccccccccccccccccccc", 1200, 900, "data:image/webp;base64,AAAA", "Pencil"), (saved.StorageKey, saved.Width, saved.Height, saved.BlurDataUri, saved.Alt));
+        Assert.Equal(("cccccccccccccccccccccccccccccccc", "Early"), (saved.StorageKey, saved.Caption));
     }
 
     private static RichTextDocument DocumentOf(PostImportItem item) => Unwrap.Value(item.Document);

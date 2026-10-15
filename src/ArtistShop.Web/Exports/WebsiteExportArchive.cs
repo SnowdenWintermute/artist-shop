@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Imports;
+using ArtistShop.Web.Publishing;
 
 namespace ArtistShop.Web.Exports;
 
@@ -31,7 +32,7 @@ public static class WebsiteExportArchive
         IReadOnlyList<Work> works,
         SiteLook look,
         IReadOnlyList<ExportedPost> posts,
-        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
+        RichTextImages postImages,
         string folderName,
         string host,
         string siteOrigin,
@@ -54,7 +55,7 @@ public static class WebsiteExportArchive
             imageStorage,
             cancellationToken
         );
-        await PostExportArchive.AddAsync(zip, posts, workImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken);
+        await PostExportArchive.AddAsync(zip, posts, postImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken);
     }
 
     public static string Manifest(CatalogSetupSnapshot snapshot, IReadOnlyList<Work> works)

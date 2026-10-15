@@ -1,4 +1,5 @@
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Publishing;
 
 namespace ArtistShop.Web.Images;
 
@@ -7,6 +8,18 @@ public record StoredImage(string StorageKey, string Sha256, ProcessedImage Proce
 {
     public WorkImage ToWorkImage(string originalFileName) =>
         new(StorageKey, originalFileName, Processed.Width, Processed.Height, Processed.BlurDataUri);
+
+    // its alt text starts as the file name without its extension, which the artist rewrites
+    public UploadedImageAddition ToUploadedImage(string originalFileName) =>
+        new(
+            StorageKey,
+            originalFileName,
+            Sha256,
+            Processed.Width,
+            Processed.Height,
+            Processed.BlurDataUri,
+            Path.GetFileNameWithoutExtension(originalFileName)
+        );
 }
 
 // Saves an uploaded image and makes its first size, and hands the rest to the queue

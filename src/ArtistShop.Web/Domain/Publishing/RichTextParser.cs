@@ -196,29 +196,16 @@ public static partial class RichTextParser
         {
             var storageKey = GetString(image, "storageKey");
 
-            if (
-                storageKey is null
-                || !StorageKeyPattern().IsMatch(storageKey)
-                || GetInt(image, "width") is not (> 0 and var width)
-                || GetInt(image, "height") is not (> 0 and var height)
-            )
+            if (storageKey is null || !StorageKeyPattern().IsMatch(storageKey))
             {
                 return null;
             }
 
-            // A style's url(), so it must be exactly the processor's kind of blur. One that isn't
-            // loses only the blur
-            var blur = GetString(image, "blur");
-
             return new UploadedImageEmbedBlock(
                 storageKey,
-                width,
-                height,
-                blur is { Length: <= MaximumBlurLength } && BlurPattern().IsMatch(blur) ? blur : null,
                 ReadSize(image),
                 EmbedLayoutNames.Parse(GetString(image, "layout")),
                 ReadCaption(image),
-                GetString(image, "alt")?.Trim() ?? "",
                 IsTrue(image, "lightbox")
             );
         }
@@ -291,10 +278,4 @@ public static partial class RichTextParser
     // \z is the very end: $ would also match before a final "\n", letting one through
     [GeneratedRegex(@"^[0-9a-f]{32}\z")]
     private static partial Regex StorageKeyPattern();
-
-    // what ImageProcessor makes, in no more room than work_images.blur_data_uri gives it
-    private const int MaximumBlurLength = 1000;
-
-    [GeneratedRegex(@"^data:image/webp;base64,[A-Za-z0-9+/]+={0,2}\z")]
-    private static partial Regex BlurPattern();
 }

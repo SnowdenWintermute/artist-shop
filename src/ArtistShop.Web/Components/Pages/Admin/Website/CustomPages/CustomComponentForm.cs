@@ -5,7 +5,8 @@ using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
-using ArtistShop.Web.Images;
+using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Publishing;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
@@ -40,13 +41,15 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
     public CardGridLayout Layout { get; set; }
 
-    public static CustomComponentForm From(CustomComponent component) =>
+    // LibraryImages holds the library images a text component's text shows, which the editor draws its
+    // image embeds from
+    public static CustomComponentForm From(CustomComponent component, IReadOnlyDictionary<string, UploadedImage> libraryImages) =>
         component.Settings switch
         {
             TextSettings text => new()
             {
                 Name = component.Name,
-                Body = text.Body.Json,
+                Body = LibraryImageFields.Fill(text.Body, libraryImages).Json,
                 Width = text.Width,
             },
             CardGridSettings cardGrid => new()
@@ -77,7 +80,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
     // A text component's text, refused as a post's is. A post that left it out, as a script might, is refused
     // too. False when the form says under the text why
-    public bool CheckBody(ImageStorage imageStorage, CustomComponentSettings saved)
+    public async Task<bool> CheckBodyAsync(UploadedImageRepository uploadedImageRepository, CustomComponentSettings saved)
     {
         if (saved is not TextSettings)
         {
@@ -86,7 +89,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
         IReadOnlyList<string> problems = Body is null
             ? [RichTextChecks.NotInEditorFormat("component")]
-            : RichTextChecks.SaveProblems(new RichText(Body), imageStorage, "component");
+            : await RichTextChecks.SaveProblemsAsync(new RichText(Body), uploadedImageRepository, "component");
 
         foreach (var problem in problems)
         {
@@ -149,7 +152,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
     public CustomComponentSettings ToSettings(CustomComponentSettings saved) =>
         saved switch
         {
-            TextSettings => new TextSettings(new RichText(Unwrap.Value(Body)), Width),
+            TextSettings => new TextSettings(LibraryImageFields.Strip(new RichText(Unwrap.Value(Body))), Width),
             CardGridSettings => new CardGridSettings(
                 CardGridSource.Of(Source, CollectionId is int collectionId ? new CollectionId(collectionId) : null),
                 // a custom list has nothing to name it by, so Automatic, which a grid had before switching to one, is None

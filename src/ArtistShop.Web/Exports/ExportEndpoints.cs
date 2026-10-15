@@ -124,12 +124,13 @@ public static class ExportEndpoints
         TimeProvider timeProvider,
         PostRepository postRepository,
         WorkRepository workRepository,
+        UploadedImageRepository uploadedImageRepository,
         ImageStorage imageStorage,
         ImageSizeQueue imageSizeQueue,
         ExportLock exportLock
     )
     {
-        var (posts, workImages) = await PostExportArchive.LoadPostsAsync(postRepository, workRepository, imageStorage);
+        var (posts, postImages) = await PostExportArchive.LoadPostsAsync(postRepository, workRepository, uploadedImageRepository);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-posts-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
         var siteOrigin = SiteOrigin(context);
@@ -140,7 +141,7 @@ public static class ExportEndpoints
             exportLock,
             name,
             (body, cancellationToken) =>
-                PostExportArchive.WriteAsync(body, posts, workImages, name, host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken)
+                PostExportArchive.WriteAsync(body, posts, postImages, name, host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken)
         );
     }
 
@@ -154,6 +155,7 @@ public static class ExportEndpoints
         WorkTypeRepository workTypeRepository,
         VocabularyRepository vocabularyRepository,
         PostRepository postRepository,
+        UploadedImageRepository uploadedImageRepository,
         WordingRepository wordingRepository,
         ThemeRepository themeRepository,
         BrandImageStore brandImageStore,
@@ -165,7 +167,7 @@ public static class ExportEndpoints
         var snapshot = await CatalogSetupSnapshot.LoadAsync(workFieldRepository, workTypeRepository, vocabularyRepository);
         var works = await workRepository.GetAllAsync();
         var look = await SiteLook.LoadAsync(wordingRepository, themeRepository, brandImageStore);
-        var (posts, workImages) = await PostExportArchive.LoadPostsAsync(postRepository, workRepository, imageStorage);
+        var (posts, postImages) = await PostExportArchive.LoadPostsAsync(postRepository, workRepository, uploadedImageRepository);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-website-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
         var siteOrigin = SiteOrigin(context);
@@ -182,7 +184,7 @@ public static class ExportEndpoints
                     works,
                     look,
                     posts,
-                    workImages,
+                    postImages,
                     name,
                     host,
                     siteOrigin,

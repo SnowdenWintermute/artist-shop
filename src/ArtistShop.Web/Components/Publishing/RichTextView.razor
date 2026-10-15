@@ -10,7 +10,9 @@
   private RichTextDocument Document => Loaded.Document;
 
   private bool HasLightboxImages =>
-    Document.Blocks.OfType<UploadedImageEmbedBlock>().Any(UploadedImageEmbedView.OpensLightbox);
+    Document.Blocks.OfType<UploadedImageEmbedBlock>()
+      .Any(embed => Loaded.Images.UploadedImages.TryGetValue(embed.StorageKey, out var image)
+                    && UploadedImageEmbedView.OpensLightbox(embed, image));
 }
 
 @* Spacing follows the editor, where every line sits directly below the last and a gap is an
@@ -63,12 +65,13 @@
         </ol>
         break;
 
-      case WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, Loaded.WorkImages) is { } source:
+      case WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, Loaded.Images.WorkImages) is { } source:
         <WorkEmbedView Embed="embed" Source="source" />
         break;
 
-      case UploadedImageEmbedBlock image:
-        <UploadedImageEmbedView Embed="image" />
+      @* left out when its image was deleted from the library, as a work embed's is *@
+      case UploadedImageEmbedBlock embed when Loaded.Images.UploadedImages.TryGetValue(embed.StorageKey, out var image):
+        <UploadedImageEmbedView Embed="embed" Image="image" />
         break;
 
       case VideoEmbedBlock video:

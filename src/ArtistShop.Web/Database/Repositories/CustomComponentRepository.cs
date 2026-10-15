@@ -114,16 +114,6 @@ public class CustomComponentRepository(SiteDatabase database)
         return await connection.QuerySingleAsync<bool>("SELECT is_blog_pages_only_post_list(@Id)", new { Id = id.Value });
     }
 
-    // the images uploaded into text components that their text still names, for the orphan sweep
-    public async Task<HashSet<string>> GetAllImageStorageKeysAsync()
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        var storageKeys = await connection.QueryAsync<string>("SELECT * FROM get_all_custom_component_image_storage_keys()");
-
-        return [.. storageKeys];
-    }
-
     private sealed class ComponentRow
     {
         public required int Id { get; init; }

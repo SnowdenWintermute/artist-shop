@@ -26,8 +26,7 @@ public class OrphanedImageSweeper(
     public async Task SweepAsync(
         ImageStorage imageStorage,
         WorkImageRepository imageRepository,
-        PostRepository postRepository,
-        CustomComponentRepository customComponentRepository,
+        UploadedImageRepository uploadedImageRepository,
         BrandImageRepository brandImageRepository
     )
     {
@@ -49,10 +48,9 @@ public class OrphanedImageSweeper(
 
         if (candidateKeys.Count > 0)
         {
-            // a work's images, the ones uploaded into posts and text components, and the logos' and favicon's originals
+            // a work's images, the library's, and the logos' and favicon's originals
             var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
-            referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
-            referencedKeys.UnionWith(await customComponentRepository.GetAllImageStorageKeysAsync());
+            referencedKeys.UnionWith(await uploadedImageRepository.GetAllStorageKeysAsync());
             referencedKeys.UnionWith(await brandImageRepository.GetAllStorageKeysAsync());
 
             orphanedKeys.AddRange(candidateKeys.Where(storageKey => !referencedKeys.Contains(storageKey)));

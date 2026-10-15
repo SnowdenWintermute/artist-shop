@@ -21,51 +21,47 @@ public static class PostExportArchive
     // heads the README's list of posts with smaller copies
     public const string SmallerCopiesHeading = "Smaller images";
 
-    // drafts included, with every work image the posts embed
-    public static async Task<(List<ExportedPost> Posts, IReadOnlyDictionary<string, WorkImageWithWork> WorkImages)> LoadPostsAsync(
+    // drafts included, with every image the posts embed
+    public static async Task<(List<ExportedPost> Posts, RichTextImages Images)> LoadPostsAsync(
         PostRepository postRepository,
         WorkRepository workRepository,
-        ImageStorage imageStorage
+        UploadedImageRepository uploadedImageRepository
     )
     {
-        // missing uploads left out, as on the post page
         List<ExportedPost> posts =
         [
-            .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(
-                post,
-                LoadedRichText.Parse(post.Body, imageStorage)
-            )),
+            .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(post, RichTextParser.Parse(post.Body))),
         ];
 
-        var workImages = await LoadedRichText.GetWorkImagesAsync(posts.Select(post => post.Document), workRepository);
+        var images = await RichTextImages.LoadAsync([.. posts.Select(post => post.Document)], workRepository, uploadedImageRepository);
 
-        return (posts, workImages);
+        return (posts, images);
     }
 
     // the posts a download made now would give a smaller copy of an image, since the image's web copy
     // size isn't made yet. The Export page warns before, and the README after
     public static List<Post> PostsWithSmallerCopies(
         IEnumerable<ExportedPost> posts,
-        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
+        RichTextImages images,
         ImageSizeQueue imageSizeQueue
     ) =>
         [
             .. posts
                 .Where(exported =>
                     exported.Document.Blocks.Any(block =>
-                        ImageOf(block, workImages) is { } source && imageSizeQueue.IsProcessing(source.StorageKey, WebCopyWidth)
+                        ImageOf(block, images) is { } source && imageSizeQueue.IsProcessing(source.StorageKey, WebCopyWidth)
                     )
                 )
                 .Select(exported => exported.Post),
         ];
 
     // A post's image files, in the order the post shows them, named image-1, image-2 and so on.
-    // An image the post shows twice is one file. WorkImages holds every work embed's image by
-    // storage key, as the post page loads them
+    // An image the post shows twice is one file. Images holds every embed's image by storage key,
+    // as the post page loads them
     public static async Task WriteAsync(
         Stream destination,
         IReadOnlyList<ExportedPost> posts,
-        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
+        RichTextImages images,
         string folderName,
         string host,
         string siteOrigin,
@@ -75,13 +71,13 @@ public static class PostExportArchive
     )
     {
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
-        await AddAsync(zip, posts, workImages, folderName, host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken);
+        await AddAsync(zip, posts, images, folderName, host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken);
     }
 
     public static async Task AddAsync(
         ZipArchive zip,
         IReadOnlyList<ExportedPost> posts,
-        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
+        RichTextImages images,
         string folderName,
         string host,
         string siteOrigin,
@@ -90,27 +86,27 @@ public static class PostExportArchive
         CancellationToken cancellationToken
     )
     {
-        var readme = Readme(host) + SmallerCopiesNote(PostsWithSmallerCopies(posts, workImages, imageSizeQueue));
+        var readme = Readme(host) + SmallerCopiesNote(PostsWithSmallerCopies(posts, images, imageSizeQueue));
         await ExportZip.AddTextAsync(zip, $"{folderName}/{ExportZip.ReadmeFileName}", readme, cancellationToken);
         await ExportZip.AddTextAsync(zip, $"{folderName}/{PostExportHtml.IndexFileName}", PostExportHtml.Index(host, [.. posts.Select(exported => exported.Post)]), cancellationToken);
 
         foreach (var (post, document) in posts)
         {
             var postFolder = $"{folderName}/{post.Slug.Value}";
-            var images = new Dictionary<RichTextBlock, PostExportImage>();
+            var files = new Dictionary<RichTextBlock, PostExportImage>();
             var filesByStorageKey = new Dictionary<string, PostExportImage>();
             var sha256ByStorageKey = new Dictionary<string, string>();
 
             foreach (var block in document.Blocks)
             {
-                if (ImageOf(block, workImages) is not { } source)
+                if (ImageOf(block, images) is not { } source)
                 {
                     continue;
                 }
 
                 if (filesByStorageKey.TryGetValue(source.StorageKey, out var existing))
                 {
-                    images[block] = existing with { Alt = source.Alt };
+                    files[block] = existing with { Alt = source.Alt };
                     continue;
                 }
 
@@ -145,20 +141,20 @@ public static class PostExportArchive
 
                 var image = new PostExportImage(fileName, originalFileName, source.Alt, source.Width, source.Height);
                 filesByStorageKey[source.StorageKey] = image;
-                images[block] = image;
+                files[block] = image;
             }
 
             await ExportZip.AddTextAsync(
                 zip,
                 $"{folderName}/{PostExportHtml.PagePath(post)}",
-                PostExportHtml.Page(post, document, images, siteOrigin),
+                PostExportHtml.Page(post, document, files, siteOrigin),
                 cancellationToken
             );
 
             await ExportZip.AddTextAsync(
                 zip,
                 $"{postFolder}/{PostExportJson.FileName}",
-                PostExportJson.Write(post, document, images, workImages, sha256ByStorageKey),
+                PostExportJson.Write(post, document, files, images.WorkImages, sha256ByStorageKey),
                 cancellationToken
             );
         }
@@ -229,13 +225,14 @@ public static class PostExportArchive
     // KeepsOriginal is true for an image uploaded into the post
     private record ImageSource(string StorageKey, int Width, int Height, string Alt, bool KeepsOriginal);
 
-    // null for a block that isn't an image, and for a work embed the post page leaves out
-    private static ImageSource? ImageOf(RichTextBlock block, IReadOnlyDictionary<string, WorkImageWithWork> workImages) =>
+    // null for a block that isn't an image, and for an embed the post page leaves out
+    private static ImageSource? ImageOf(RichTextBlock block, RichTextImages images) =>
         block switch
         {
-            WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, workImages) is { } source =>
+            WorkEmbedBlock embed when WorkEmbeds.SourceOf(embed, images.WorkImages) is { } source =>
                 new ImageSource(source.Image.StorageKey, source.Image.Width, source.Image.Height, source.Work.Name.Value, KeepsOriginal: false),
-            UploadedImageEmbedBlock embed => new ImageSource(embed.StorageKey, embed.Width, embed.Height, embed.Alt, KeepsOriginal: true),
+            UploadedImageEmbedBlock embed when images.UploadedImages.TryGetValue(embed.StorageKey, out var image) =>
+                new ImageSource(image.StorageKey, image.Width, image.Height, image.AltText, KeepsOriginal: true),
             _ => null,
         };
 }

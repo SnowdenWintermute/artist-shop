@@ -3,7 +3,8 @@ using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Components.Pages.Admin.TextEditor;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Publishing;
-using ArtistShop.Web.Images;
+using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Publishing;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
@@ -14,8 +15,9 @@ public class PostForm : ServerValidatedForm, IValidatableObject
 {
     public static PostForm ForNew() => new() { Body = RichText.Empty.Json };
 
-    public static PostForm FromPost(Post post) =>
-        new() { Title = post.Title.Value, Body = post.Body.Json };
+    // LibraryImages holds the library images the body shows, which the editor draws its image embeds from
+    public static PostForm FromPost(Post post, IReadOnlyDictionary<string, UploadedImage> libraryImages) =>
+        new() { Title = post.Title.Value, Body = LibraryImageFields.Fill(post.Body, libraryImages).Json };
 
     [Required]
     [StringLength(ArtistShopLimits.PostTitleMaximumLength)]
@@ -53,9 +55,9 @@ public class PostForm : ServerValidatedForm, IValidatableObject
     }
 
     // false when the form says under the text why it can't be saved
-    public bool CheckBody(ImageStorage imageStorage)
+    public async Task<bool> CheckBodyAsync(UploadedImageRepository uploadedImageRepository)
     {
-        var problems = RichTextChecks.SaveProblems(ToPostBody(), imageStorage, "post");
+        var problems = await RichTextChecks.SaveProblemsAsync(ToPostBody(), uploadedImageRepository, "post");
 
         foreach (var problem in problems)
         {
@@ -69,5 +71,5 @@ public class PostForm : ServerValidatedForm, IValidatableObject
 
     public PostSlug ToPostSlug() => PostSlug.FromTitle(Unwrap.Value(Title));
 
-    public RichText ToPostBody() => new(Unwrap.Value(Body));
+    public RichText ToPostBody() => LibraryImageFields.Strip(new RichText(Unwrap.Value(Body)));
 }

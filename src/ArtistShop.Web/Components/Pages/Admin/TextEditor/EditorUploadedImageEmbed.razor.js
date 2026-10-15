@@ -1,18 +1,23 @@
-// The uploaded image embed: an image the artist put into the text itself, rather than a work's.
-// The file goes through the same upload pipeline as a work's, and the Delta holds everything
-// the page needs to show it, since no table does.
+// The uploaded image embed: a library image the artist put into the text, rather than a work's.
+// The file goes through the same upload pipeline as a work's. The Delta saved holds the embed's own
+// settings; the image's size, blur and alt text are the library's, filled in when the editor loads.
 // While a new image uploads, a placeholder stands where it will go. The placeholder comes and
 // goes as "api" changes, which the editor's history (userOnly) never records, so the only undo
 // step is the finished image. It's never saved either: the editor leaves placeholders out of
 // what it writes to the form. Imported by RichTextEditor.razor.js; nothing here runs until an
 // editor calls it
-import { sendUpload, uploadErrorMessage } from "/js/upload-request.js";
+import {
+  REQUEST_VERIFICATION_TOKEN_INPUT_NAME,
+  antiforgeryToken,
+  sendUpload,
+  uploadErrorMessage,
+} from "/js/upload-request.js";
 import { indexOfNode } from "/js/quill-document.js";
 import { createEmbedFigure } from "../../../Publishing/EmbedFigure.razor.js";
 import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./EmbedToolbar.razor.js";
 
-// the name Quill stores it under, and the parser and get_all_post_image_storage_keys read
+// the name Quill stores it under, and the parser and rich_text_image_storage_keys read
 export const IMAGE_EMBED = "artshop-image";
 
 const EMBED_CLASS = "artshop-image";
@@ -40,8 +45,9 @@ export function isUploadPlaceholder(op) {
 }
 
 /**
- * width and height are the upload's own, which may be narrower than the size. blur is the tiny
- * copy the page shows while the image loads
+ * width and height are the image's own, which may be narrower than the size. blur is the tiny
+ * copy the page shows while the image loads. Those and alt are the library image's, left out of
+ * what's saved (LibraryImageFields)
  * @typedef {import("./ImageEmbedControls.razor.js").ImageEmbedLook & {
  *   storageKey: string,
  *   width: number,
@@ -53,13 +59,13 @@ export function isUploadPlaceholder(op) {
  */
 
 /**
- * What the upload endpoint answers with, its ImageUploadResult
+ * What the upload endpoint answers with, its LibraryImageUploadResult
  * @typedef {object} UploadedImage
  * @property {string} storageKey
- * @property {string} originalFileName
  * @property {number} width
  * @property {number} height
  * @property {string} blurDataUri
+ * @property {string} altText
  */
 
 /** @param {HTMLElement} node */
@@ -406,8 +412,7 @@ export function createImageUploads(quill, toolbar) {
             blur: uploaded.blurDataUri,
             size: "medium",
             layout: newLayout,
-            // the file name without its extension, until the artist writes something better
-            alt: uploaded.originalFileName.replace(/\.[^.]*$/, ""),
+            alt: uploaded.altText,
             // the page ignores it while there's no version wider than the size shown
             lightbox: true,
           },
@@ -465,7 +470,8 @@ export function addUploadedImageEmbed(quill, picker, uploads) {
 }
 
 // The toolbar for an uploaded image: its alt text, the controls it shares with the work embed,
-// and Replace image, which keeps everything but the picture itself
+// and Replace image, which keeps everything but the picture itself. The alt text is the library
+// image's, saved there as the field is left, so it's never part of the text's own edits
 /**
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
@@ -496,6 +502,9 @@ export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads,
 
   const widths = readEmbedWidths(toolbar);
   const variantWidths = readVariantWidths(toolbar);
+  const altTextUrl = readToolbarSetting(toolbar, "altTextUrl");
+  const storageKeyField = readToolbarSetting(toolbar, "storageKeyField");
+  const altTextField = readToolbarSetting(toolbar, "altTextField");
 
   // ImageVariants.LargestWidthFor, which the page checks too: an image narrower than the medium
   // size has a copy at its own width, and any other the widest standard one it reaches
@@ -536,6 +545,72 @@ export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads,
     };
   };
 
+  /**
+   * @param {string} storageKey
+   * @param {string} message
+   */
+  const showAltTextProblem = (storageKey, message) => {
+    uploadStatusFor = storageKey;
+    uploadStatus.textContent = message;
+    uploadStatus.classList.add("text-error");
+    uploadStatus.hidden = false;
+  };
+
+  // the image the toolbar was last shown for, which a change to the field is about even once the
+  // toolbar has closed, as leaving the field by closing it does
+  /** @type {string | null} */
+  let altTextFor = null;
+
+  // Every embed of the image takes the new alt text in place, without an edit to the text: it isn't
+  // saved with the text, and the history shouldn't step through it
+  /**
+   * @param {string} storageKey
+   * @param {string} altText
+   */
+  const showAltText = (storageKey, altText) => {
+    for (const node of quill.root.querySelectorAll(`.${EMBED_CLASS}[data-storage-key="${CSS.escape(storageKey)}"]`)) {
+      if (node instanceof HTMLElement) {
+        node.dataset.alt = altText;
+        node.querySelector("img")?.setAttribute("alt", altText);
+      }
+    }
+  };
+
+  altField.addEventListener(
+    "change",
+    async () => {
+      const storageKey = altTextFor;
+      // the server trims it too
+      const altText = altField.value.trim();
+
+      if (storageKey === null) {
+        return;
+      }
+
+      const body = new URLSearchParams({
+        [storageKeyField]: storageKey,
+        [altTextField]: altText,
+        [REQUEST_VERIFICATION_TOKEN_INPUT_NAME]: antiforgeryToken(),
+      });
+
+      try {
+        // keepalive lets the save finish if the page is left right after
+        const response = await fetch(altTextUrl, { method: "POST", body, keepalive: true });
+
+        if (response.ok) {
+          showAltText(storageKey, altText);
+        } else if (response.status === 404) {
+          showAltTextProblem(storageKey, "This image was deleted from the image library.");
+        } else {
+          showAltTextProblem(storageKey, "Couldn't save the alt text. Try again.");
+        }
+      } catch {
+        showAltTextProblem(storageKey, "Couldn't save the alt text. Check the connection and try again.");
+      }
+    },
+    { signal }
+  );
+
   attachEmbedToolbar(
     quill,
     toolbar,
@@ -547,6 +622,7 @@ export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads,
       show(value) {
         controls.show(value);
         uploadStatus.hidden = uploadStatusFor !== value.storageKey;
+        altTextFor = value.storageKey;
 
         // only when it differs, as with the caption, or the cursor would jump on every keystroke
         if (altField.value !== value.alt) {
@@ -576,19 +652,21 @@ export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads,
             const uploaded = await uploads.upload(file, toolbarReport(embed.value.storageKey, file.name));
 
             if (uploaded !== null) {
-              const { storageKey, width, height, blurDataUri } = uploaded;
-              embed.replace({ storageKey, width, height, blur: blurDataUri });
+              const { storageKey, width, height, blurDataUri, altText } = uploaded;
+              embed.replace({ storageKey, width, height, blur: blurDataUri, alt: altText });
             }
           });
         }
       },
 
-      // Applied as it's typed, like the caption. An emptied field stays empty rather than going
-      // back to the file name: no alt text is the right answer for a purely decorative image
+      // The alt text is saved when the field is left, above. An emptied field stays empty rather
+      // than going back to the file name: no alt text is the right answer for a purely decorative image
       onInput(field, embed) {
         if (field === altField) {
-          embed.update({ alt: field.value });
-        } else if (field === lightboxBox) {
+          return;
+        }
+
+        if (field === lightboxBox) {
           embed.update({ lightbox: field.checked ? true : undefined });
         } else {
           controls.onInput(field, embed.update);

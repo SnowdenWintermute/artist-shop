@@ -43,6 +43,9 @@ public static class ArtistShopLimits
 
     public const int PostTitleMaximumLength = 200;
 
+    // uploaded_images.alt_text
+    public const int UploadedImageAltTextMaximumLength = 500;
+
     // sign_up_codes.note
     public const int SignUpCodeNoteMaximumLength = 200;
 

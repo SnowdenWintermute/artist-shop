@@ -26,18 +26,14 @@ public record WorkEmbedBlock(
     string? Caption
 ) : RichTextBlock;
 
-// An image uploaded into the text. Width and Height are the upload's own, which may be narrower
-// than the size picked. Alt is empty when the artist cleared it. OpensLightbox is what the artist
-// checked; the page also needs a version wider than the size before a click opens one
+// A library image. Its size, blur and alt text are the library's, loaded beside the document.
+// OpensLightbox is what the artist checked; the page also needs a version wider than the size
+// before a click opens one
 public record UploadedImageEmbedBlock(
     string StorageKey,
-    int Width,
-    int Height,
-    string? BlurDataUri,
     EmbedImageSize Size,
     EmbedLayout Layout,
     string? Caption,
-    string Alt,
     bool OpensLightbox
 ) : RichTextBlock;
 

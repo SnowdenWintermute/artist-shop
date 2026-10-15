@@ -12,7 +12,7 @@ public class PostImportRun(IReadOnlyList<PostImportItem> items)
 {
     public const string SomethingWentWrongProblem = "Something went wrong saving this post. Press Import to try again.";
 
-    private readonly Dictionary<string, ImageUploadResult> _uploadsByFileId = [];
+    private readonly Dictionary<string, LibraryImageUploadResult> _uploadsByFileId = [];
     private readonly Dictionary<int, string?> _results = [];
 
     public IReadOnlyList<PostImportItem> Items => items;
@@ -41,18 +41,18 @@ public class PostImportRun(IReadOnlyList<PostImportItem> items)
             _results.Remove(index);
         }
 
-        return [.. indexes.Select(index => new PostImportBatch(index, [.. items[index].FileIdsByPlaceholder.Values]))];
+        return [.. indexes.Select(index => new PostImportBatch(index, [.. items[index].ImagesByPlaceholder.Values.Select(image => image.FileId)]))];
     }
 
     // what the upload endpoint answered, as the browser reported it
-    public void FileUploaded(string fileId, ImageUploadResult result) => _uploadsByFileId[fileId] = result;
+    public void FileUploaded(string fileId, LibraryImageUploadResult result) => _uploadsByFileId[fileId] = result;
 
     public void PostFailed(int index, string problem) => _results[index] = problem;
 
     // Saved before the script goes on to the next post, since it waits for this. The database
     // failing, say, is logged and shown: thrown back to the script, it would end the run with no
     // word to the artist
-    public async Task PostUploadedAsync(int index, PostRepository posts, ImageStorage imageStorage, ILogger logger)
+    public async Task PostUploadedAsync(int index, PostRepository posts, UploadedImageRepository uploadedImages, ILogger logger)
     {
         if (index < 0 || index >= items.Count)
         {
@@ -61,7 +61,7 @@ public class PostImportRun(IReadOnlyList<PostImportItem> items)
 
         try
         {
-            _results[index] = await PostImporter.SaveAsync(items[index], _uploadsByFileId, posts, imageStorage);
+            _results[index] = await PostImporter.SaveAsync(items[index], _uploadsByFileId, posts, uploadedImages);
         }
         catch (Exception exception)
         {

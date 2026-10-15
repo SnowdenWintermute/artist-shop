@@ -1,5 +1,6 @@
 @using System.Globalization
 @using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Domain
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Images
 
@@ -21,16 +22,18 @@
                   data-medium-width="@ImageVariants.EmbedWidth(EmbedImageSize.Medium).ToString(CultureInfo.InvariantCulture)"
                   data-variant-widths="@string.Join(",", ImageVariants.Widths)" data-layout-classes="@EmbedToolbar.LayoutClasses"
                   data-caption-class="@EmbedFigure.CaptionClass" data-upload-url="@ImageUploadEndpoints.RichTextImageUploadPath"
-                  data-accept="@ImageUploadValidation.FileInputAccept" data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)">
+                  data-accept="@ImageUploadValidation.FileInputAccept" data-new-layout="@EmbedLayoutNames.Of(EmbedLayout.Center)"
+                  data-alt-text-url="@UploadedImageEndpoints.AltTextPath" data-storage-key-field="@UploadedImageEndpoints.StorageKeyField"
+                  data-alt-text-field="@UploadedImageEndpoints.AltTextField">
   <Lines>
     @* The ⓘ button shows what alt text is for, since the file name it starts as rarely says what's
-       in the picture. Applied as it's typed, like the caption *@
+       in the picture. Saved to the library image as the field is left, for every text showing it *@
     <div>
       <div class="@EmbedToolbar.FieldLineClass">
         <label class="flex min-w-0 flex-1 items-center gap-2">
           <span class="@EmbedToolbar.FieldNameClass">Alt text</span>
           <input type="text" autocomplete="off" class="@EmbedToolbar.FieldClass min-w-0 flex-1" data-part="alt"
-                 aria-describedby="@AltHelpId" />
+                 maxlength="@ArtistShopLimits.UploadedImageAltTextMaximumLength" aria-describedby="@AltHelpId" />
         </label>
         <button type="button"
                 class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border text-sm font-bold"
@@ -49,7 +52,7 @@
       <span>Open full screen when clicked</span>
       <span class="text-sm text-ink-faded" data-part="lightbox-note" hidden>(no bigger version of this image)</span>
     </label>
-    @* how a Replace image upload is going, where the artist is looking *@
+    @* how a Replace image upload, or saving the alt text, is going, where the artist is looking *@
     <p class="text-sm" aria-live="polite" data-part="upload-status" hidden></p>
   </Lines>
   <ChildContent>

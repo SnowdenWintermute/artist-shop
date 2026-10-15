@@ -102,7 +102,21 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     }
 
     [Fact]
-    public async Task KeepsUploadAPostNamesOlderThanGracePeriod()
+    public async Task KeepsALibraryImageOlderThanGracePeriod()
+    {
+        var stored = await UploadAsync(_uploadStore);
+        await new UploadedImageRepository(_database.Site).AddAsync(stored.ToUploadedImage("Dawn.jpg"));
+
+        _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
+        await SweepAsync();
+
+        Assert.True(_imageStorage.OriginalExists(stored.StorageKey));
+        Assert.NotEmpty(_imageStorage.VariantFileNames(stored.StorageKey));
+    }
+
+    // a post's body naming an image no longer keeps it: only its library row does
+    [Fact]
+    public async Task DeletesAnUploadAPostNamesWithoutALibraryRow()
     {
         var storageKey = await UploadImageAsync();
         await new PostRepository(_database.Site).AddAsync(
@@ -118,34 +132,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
         await SweepAsync();
 
-        Assert.True(_imageStorage.OriginalExists(storageKey));
-        Assert.NotEmpty(_imageStorage.VariantFileNames(storageKey));
-    }
-
-    [Fact]
-    public async Task KeepsUploadAnArticleNamesOlderThanGracePeriod()
-    {
-        var storageKey = await UploadImageAsync();
-        var pages = new CustomPageRepository(_database.Site);
-        var pageId = await pages.AddAsync($"Sweeper test page {storageKey}", new CustomPageAddress($"sweeper-test-{storageKey}"));
-        await new PageRowRepository(_database.Site).AddAsync(pageId);
-        var slot = Assert.Single(Assert.Single((await pages.GetLayoutAsync(pageId)).Rows).Slots);
-        await new CustomComponentRepository(_database.Site).AddToSlotAsync(
-            slot.Id,
-            $"Sweeper test text {storageKey}",
-            new TextSettings(
-                new RichText(
-                    """{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600}}},{"insert":"\n"}]}"""
-                        .Replace("KEY", storageKey)
-                ),
-                TextWidth.Narrow
-            )
-        );
-
-        _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
-        await SweepAsync();
-
-        Assert.True(_imageStorage.OriginalExists(storageKey));
+        Assert.False(_imageStorage.OriginalExists(storageKey));
     }
 
     [Fact]
@@ -204,8 +191,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _sweeper.SweepAsync(
             _imageStorage,
             new WorkImageRepository(_database.Site),
-            new PostRepository(_database.Site),
-            new CustomComponentRepository(_database.Site),
+            new UploadedImageRepository(_database.Site),
             new BrandImageRepository(_database.Site)
         );
 
@@ -220,7 +206,10 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
     private Task<string> UploadImageAsync() => UploadImageAsync(_uploadStore);
 
-    private static async Task<string> UploadImageAsync(ImageUploadStore uploadStore)
+    private static async Task<string> UploadImageAsync(ImageUploadStore uploadStore) =>
+        (await UploadAsync(uploadStore)).StorageKey;
+
+    private static async Task<StoredImage> UploadAsync(ImageUploadStore uploadStore)
     {
         // NetVips can create an image from nothing. Black, 800 by 600, 3 colour channels (red,
         // green, blue) like a real photo: wide enough to get variants
@@ -229,8 +218,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
 
         // TestContext.Current.CancellationToken is cancelled if the test run is stopped or times
         // out; xUnit's analyzer asks for it wherever a method accepts a cancellation token
-        var stored = await uploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
-        return stored.StorageKey;
+        return await uploadStore.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
     }
 
     // goes through the real AddWork procedure, so this test also proves the

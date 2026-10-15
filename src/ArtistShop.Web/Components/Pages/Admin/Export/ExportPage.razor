@@ -11,6 +11,7 @@
 @inject WorkRepository WorkRepository
 @inject ImageStorage ImageStorage
 @inject PostRepository PostRepository
+@inject UploadedImageRepository UploadedImageRepository
 @inject ImageSizeQueue ImageSizeQueue
 
 <PageTitle>Export your website</PageTitle>
@@ -154,9 +155,9 @@
         .Parts(await WorkRepository.GetAllAsync())
         .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
     ];
-    var (posts, workImages) = await PostExportArchive.LoadPostsAsync(PostRepository, WorkRepository, ImageStorage);
+    var (posts, postImages) = await PostExportArchive.LoadPostsAsync(PostRepository, WorkRepository, UploadedImageRepository);
     _postCount = posts.Count;
-    _postsWithSmallerCopiesCount = PostExportArchive.PostsWithSmallerCopies(posts, workImages, ImageSizeQueue).Count;
+    _postsWithSmallerCopiesCount = PostExportArchive.PostsWithSmallerCopies(posts, postImages, ImageSizeQueue).Count;
   }
 
   private static string Size(long bytes) =>

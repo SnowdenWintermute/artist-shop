@@ -22,6 +22,7 @@
 @inject ThemeRepository ThemeRepository
 @inject BrandImageStore BrandImageStore
 @inject ImageStorage ImageStorage
+@inject UploadedImageRepository UploadedImageRepository
 @inject IJSRuntime JS
 @inject ILogger<WebsiteImportUpload> Logger
 @implements IAsyncDisposable
@@ -304,7 +305,7 @@
 #pragma warning restore BL0016
 
   [JSInvokable]
-  public void OnFileUploaded(string fileId, ImageUploadResult result) => _postRun.FileUploaded(fileId, result);
+  public void OnFileUploaded(string fileId, LibraryImageUploadResult result) => _postRun.FileUploaded(fileId, result);
 
   [JSInvokable]
   public async Task OnPostFailed(int index, string message)
@@ -317,7 +318,7 @@
   [JSInvokable]
   public async Task OnPostUploaded(int index)
   {
-    await _postRun.PostUploadedAsync(index, PostRepository, ImageStorage, Logger);
+    await _postRun.PostUploadedAsync(index, PostRepository, UploadedImageRepository, Logger);
     await InvokeAsync(StateHasChanged);
   }
 

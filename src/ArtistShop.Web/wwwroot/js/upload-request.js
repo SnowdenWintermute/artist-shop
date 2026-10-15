@@ -1,7 +1,7 @@
 // One file sent to an upload endpoint, for every page that uploads: with the page's antiforgery
 // token, and read back with the server's short plain-text message when it turns the file away
 
-const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
+export const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
 
 /**
  * How the request ended. A network error arrives as status 0
@@ -12,7 +12,7 @@ const REQUEST_VERIFICATION_TOKEN_INPUT_NAME = "__RequestVerificationToken";
  * @property {string | null} retryAfter
  */
 
-function antiforgeryToken() {
+export function antiforgeryToken() {
   const input = document.querySelector(`input[name="${REQUEST_VERIFICATION_TOKEN_INPUT_NAME}"]`);
   return input instanceof HTMLInputElement ? input.value : "";
 }

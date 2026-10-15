@@ -15,17 +15,17 @@ public static class PostImporter
     // for each file, as the browser reported it
     public static async Task<string?> SaveAsync(
         PostImportItem item,
-        IReadOnlyDictionary<string, ImageUploadResult> uploadsByFileId,
+        IReadOnlyDictionary<string, LibraryImageUploadResult> uploadsByFileId,
         PostRepository posts,
-        ImageStorage imageStorage
+        UploadedImageRepository uploadedImages
     )
     {
         var document = Unwrap.Value(item.Document);
-        var uploadsByPlaceholder = new Dictionary<string, ImageUploadResult>();
+        var uploadsByPlaceholder = new Dictionary<string, LibraryImageUploadResult>();
 
-        foreach (var (placeholder, fileId) in item.FileIdsByPlaceholder)
+        foreach (var (placeholder, image) in item.ImagesByPlaceholder)
         {
-            if (!uploadsByFileId.TryGetValue(fileId, out var upload))
+            if (!uploadsByFileId.TryGetValue(image.FileId, out var upload))
             {
                 return ImageNotUploadedProblem;
             }
@@ -35,16 +35,22 @@ public static class PostImporter
 
         var body = PostImportPlanner.Finish(document, uploadsByPlaceholder);
 
-        // The browser said where each upload went, so each must be a file here: the parser drops an
-        // image whose key isn't a storage key's shape, and a save refuses one whose file is gone
+        // The browser said where each upload went, so each must be in the library here: the parser
+        // drops an image whose key isn't a storage key's shape
         var saved = RichTextParser.Parse(body);
+        var storageKeys = uploadsByPlaceholder.Values.Select(upload => upload.StorageKey).Distinct().ToList();
 
         if (
             saved.Blocks.OfType<UploadedImageEmbedBlock>().Count() != document.Blocks.OfType<UploadedImageEmbedBlock>().Count()
-            || UploadedImageFiles.MissingFrom(saved, imageStorage).Count > 0
+            || (await uploadedImages.GetByStorageKeysAsync(storageKeys)).Count != storageKeys.Count
         )
         {
             return ImageNotUploadedProblem;
+        }
+
+        foreach (var (placeholder, image) in item.ImagesByPlaceholder)
+        {
+            await uploadedImages.SetAltTextAsync(uploadsByPlaceholder[placeholder].StorageKey, image.AltText);
         }
 
         try
