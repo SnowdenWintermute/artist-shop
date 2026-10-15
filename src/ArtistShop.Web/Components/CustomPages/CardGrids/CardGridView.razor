@@ -5,11 +5,17 @@
 @using ArtistShop.Web.Domain.Catalog
 @inject CollectionRepository CollectionRepository
 @inject WorkRepository WorkRepository
+@inject CardGridChosenCardRepository CardGridChosenCardRepository
 @inject NavigationManager NavigationManager
 
 @code {
   [Parameter, EditorRequired]
   public required CardGridSettings Settings { get; set; }
+
+  // the component drawn, whose custom list a ChosenCards source shows; null for the collection page's grid,
+  // which isn't one
+  [Parameter, EditorRequired]
+  public required CustomComponentId? ComponentId { get; set; }
 
   // the query parameter its page number is kept in
   [Parameter, EditorRequired]
@@ -58,7 +64,7 @@
         }
 
         var works = await WorkRepository.GetListAsync(VisibleWorksIn(collection.Id, pageNumber), searchMatches: null,
-          excludedCollectionId: null, pageSize);
+          exclusion: null, pageSize);
 
         return new LoadedCardGrid(HeadingText(collection.Name.Value),
           new CardGridPage([.. works.Items.Select(work => new GridCard.OfWork(work.Id, work.Name, work.Slug, work.PrimaryImage))],
@@ -68,6 +74,18 @@
       case CardGridSource.CollectionsAndLooseWorks:
         return new LoadedCardGrid(HeadingText(Wording.Work.PluralHeading),
           await CollectionsThenLooseWorksAsync(pageNumber, pageSize), WorksCollection: null);
+
+      case CardGridSource.ChosenCards:
+        // few enough to page here; the ones a visitor wouldn't see are left out, and the settings page says why
+        var chosen = (await CardGridChosenCardRepository.GetAsync(ComponentId
+            ?? throw new InvalidOperationException("A custom list needs the component it belongs to.")))
+          .Where(card => card.IsVisible)
+          .ToList();
+
+        return new LoadedCardGrid(HeadingText(automatic: null),
+          new CardGridPage([.. chosen.Skip((pageNumber - 1) * pageSize).Take(pageSize).Select(card => card.Card)],
+            chosen.Count, pageNumber, pageSize),
+          WorksCollection: null);
 
       default:
         throw new InvalidOperationException($"A card grid can't show {Settings.Source.Type}.");
@@ -82,7 +100,7 @@
     List<GridCard> cards = [.. collections.Skip(start).Take(pageSize).Select(collection => new GridCard.OfCollection(collection))];
 
     // at least one, even on a page the collections fill, as the works' count comes back only on a work
-    var looseWorks = await WorkRepository.GetSliceAsync(LooseWorks, searchMatches: null, excludedCollectionId: null,
+    var looseWorks = await WorkRepository.GetSliceAsync(LooseWorks, searchMatches: null, exclusion: null,
       offset: Math.Max(0, start - collections.Count), count: Math.Max(1, pageSize - cards.Count));
 
     cards.AddRange(looseWorks.Items.Take(pageSize - cards.Count)

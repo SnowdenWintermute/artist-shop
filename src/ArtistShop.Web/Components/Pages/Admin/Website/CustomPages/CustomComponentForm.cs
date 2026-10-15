@@ -152,7 +152,11 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             TextSettings => new TextSettings(new RichText(Unwrap.Value(Body)), Width),
             CardGridSettings => new CardGridSettings(
                 CardGridSource.Of(Source, CollectionId is int collectionId ? new CollectionId(collectionId) : null),
-                CardGridHeading.Of(HeadingType, HeadingText?.Trim()),
+                // a custom list has nothing to name it by, so Automatic, which a grid had before switching to one, is None
+                CardGridHeading.Of(
+                    Source is CardGridSourceType.ChosenCards && HeadingType is CardGridHeadingType.Automatic ? CardGridHeadingType.None : HeadingType,
+                    HeadingText?.Trim()
+                ),
                 Unwrap.Value(CardsPerPage), HasPageLinks,
                 Layout),
             _ => saved,

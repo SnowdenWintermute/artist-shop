@@ -322,6 +322,202 @@ public sealed partial class CardGridTests(TestApp app)
         Assert.Equal(CardGridSettings.AllCollections, saved.Component.Settings);
     }
 
+    private static readonly CardGridSettings CustomList = CardGridSettings.AllCollections with
+    {
+        Source = new CardGridSource.ChosenCards(),
+        Heading = new CardGridHeading.None(),
+    };
+
+    [Fact]
+    public async Task ACustomListShowsItsVisibleCardsInTheArtistsOrder()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var collections = new CollectionRepository(DatabaseOf(site));
+        var shown = await catalog.AddCollectionAsync();
+        await catalog.AddPaintingInCollectionAsync(shown, [CatalogTestData.CreateTestImage()]);
+        var empty = await catalog.AddCollectionAsync();
+        await catalog.AddPaintingInCollectionAsync(empty, []);
+        var withImage = await catalog.AddPaintingAsync("With image", [], [], [CatalogTestData.CreateTestImage()]);
+        var withoutImage = await catalog.AddPaintingAsync("Without image", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddWorksAsync(gridPage.Grids[0], [withImage.Id, withoutImage.Id]);
+        await chosen.AddCollectionsAsync(gridPage.Grids[0], [shown, empty]);
+        var cards = await chosen.GetAsync(gridPage.Grids[0]);
+        await chosen.ReorderAsync(gridPage.Grids[0], [cards[2].Id, cards[3].Id, cards[1].Id, cards[0].Id]);
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/grid", TestContext.Current.CancellationToken);
+
+        Assert.Equal([true, false, true, false], cards.Select(card => card.IsVisible));
+        Assert.Equal([PageUrls.Collection(await SlugOfAsync(collections, shown)), $"/works/{withImage.Slug.Value}"], CardLinks(page));
+    }
+
+    [Fact]
+    public async Task TheSettingsPageSaysWhyACardIsNotShown()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var empty = await catalog.AddCollectionAsync();
+        var withoutImage = await catalog.AddPaintingAsync("Without image", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddCollectionsAsync(gridPage.Grids[0], [empty]);
+        await chosen.AddWorksAsync(gridPage.Grids[0], [withoutImage.Id]);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var page = await client.GetStringAsync(gridPage.SettingsUrl, TestContext.Current.CancellationToken);
+
+        Assert.Contains("2 cards", page);
+        Assert.Contains($"Not shown: none of its {SiteWording.Default.Work.PluralInSentence} has an image.", page);
+        Assert.Contains("Not shown: no image.", page);
+        // the pages adding to the list come back to this one as it was opened
+        Assert.Contains(PageUrls.AddCardGridWorks(gridPage.Grids[0], new CustomComponentOrigin(gridPage.PageId, gridPage.RowId), [])
+            .Replace("&", "&amp;"), page);
+    }
+
+    [Fact]
+    public async Task SwitchingToACustomListMakesAnAutomaticHeadingNone()
+    {
+        var site = await app.MakeSiteAsync();
+        var gridPage = await AddGridPageAsync(site, CardGridSettings.AllCollections);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            gridPage.SettingsUrl,
+            "custom-component",
+            new()
+            {
+                ["Input.Name"] = "Grid 0",
+                ["Input.Source"] = nameof(CardGridSourceType.ChosenCards),
+                ["Input.HeadingType"] = nameof(CardGridHeadingType.Automatic),
+                ["Input.CardsPerPage"] = "24",
+                ["Input.HasPageLinks"] = "true",
+                ["Input.Layout"] = nameof(CardGridLayout.EvenGrid),
+            }
+        );
+
+        var saved = Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(gridPage.Grids[0]));
+        Assert.Equal(CustomList, saved.Component.Settings);
+    }
+
+    [Fact]
+    public async Task AddingWorksLeavesOutTheOnesOnTheListAndReturnsToTheSettingsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var onList = await catalog.AddPaintingAsync("On the list", [], [], []);
+        var first = await catalog.AddPaintingAsync("First", [], [], []);
+        var second = await catalog.AddPaintingAsync("Second", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var origin = new CustomComponentOrigin(gridPage.PageId, gridPage.RowId);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddWorksAsync(gridPage.Grids[0], [onList.Id]);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var picker = await client.GetStringAsync(PageUrls.AddCardGridWorks(gridPage.Grids[0], origin, [second.Id]),
+            TestContext.Current.CancellationToken);
+        var response = await TestApp.PostFormAsync(client, PageUrls.AddCardGridWorks(gridPage.Grids[0], origin, [second.Id, first.Id]),
+            "add-card-grid-works", []);
+
+        Assert.Contains($"name=\"add\" value=\"{second.Id.Value}\" checked", picker);
+        Assert.Contains($"name=\"add\" value=\"{first.Id.Value}\"", picker);
+        Assert.DoesNotContain($"name=\"add\" value=\"{onList.Id.Value}\"", picker);
+        // the filter form keeps where the settings page was opened from
+        Assert.Contains($"<input type=\"hidden\" name=\"{PageUrls.ComponentRowKey}\" value=\"{gridPage.RowId.Value}\"", picker);
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(PageUrls.EditCustomComponent(gridPage.Grids[0], origin), response.Headers.Location?.PathAndQuery);
+        Assert.Equal(
+            [onList.Id, second.Id, first.Id],
+            (await chosen.GetAsync(gridPage.Grids[0])).Select(card => Assert.IsType<GridCard.OfWork>(card.Card).Id)
+        );
+    }
+
+    [Fact]
+    public async Task AddingCollectionsLeavesOutTheOnesOnTheList()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var onList = await catalog.AddCollectionAsync();
+        var other = await catalog.AddCollectionAsync();
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddCollectionsAsync(gridPage.Grids[0], [onList]);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var picker = await client.GetStringAsync(PageUrls.AddCardGridCollections(gridPage.Grids[0], origin: null, []),
+            TestContext.Current.CancellationToken);
+        var response = await TestApp.PostFormAsync(client, PageUrls.AddCardGridCollections(gridPage.Grids[0], origin: null, [other]),
+            "add-card-grid-collections", []);
+
+        Assert.Contains($"name=\"add\" value=\"{other.Value}\"", picker);
+        Assert.DoesNotContain($"name=\"add\" value=\"{onList.Value}\"", picker);
+        Assert.Contains("Add selected (0)", picker);
+        Assert.Equal(PageUrls.EditCustomComponent(gridPage.Grids[0], origin: null), response.Headers.Location?.PathAndQuery);
+        Assert.Equal(
+            [onList, other],
+            (await chosen.GetAsync(gridPage.Grids[0])).Select(card => Assert.IsType<GridCard.OfCollection>(card.Card).Collection.Id)
+        );
+    }
+
+    // the list is kept while the grid shows another source, but only names the page while it shows the list
+    [Fact]
+    public async Task AWorkOnTheCustomListMentionsThePageOnlyWhileTheGridShowsIt()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var withImage = await catalog.AddPaintingAsync("With image", [], [], [CatalogTestData.CreateTestImage()]);
+        var withoutImage = await catalog.AddPaintingAsync("Without image", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddWorksAsync(gridPage.Grids[0], [withImage.Id, withoutImage.Id]);
+        var pages = new CustomPageRepository(DatabaseOf(site));
+        var components = new CustomComponentRepository(DatabaseOf(site));
+
+        var whileShown = await pages.GetMentioningWorkAsync(withImage.Id);
+        var notVisible = await pages.GetMentioningWorkAsync(withoutImage.Id);
+        await components.UpdateAsync(gridPage.Grids[0], "Grid 0", CardGridSettings.AllCollections);
+        var afterSwitching = await pages.GetMentioningWorkAsync(withImage.Id);
+
+        Assert.Equal(gridPage.PageId, Assert.Single(whileShown).Id);
+        Assert.Empty(notVisible);
+        Assert.Empty(afterSwitching);
+        Assert.Equal(2, (await chosen.GetAsync(gridPage.Grids[0])).Count);
+    }
+
+    [Fact]
+    public async Task ReorderingAListChangedElsewhereIsRefused()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var first = await catalog.AddPaintingAsync("First", [], [], []);
+        var second = await catalog.AddPaintingAsync("Second", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddWorksAsync(gridPage.Grids[0], [first.Id]);
+        var seen = await chosen.GetAsync(gridPage.Grids[0]);
+        await chosen.AddWorksAsync(gridPage.Grids[0], [second.Id]);
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
+            chosen.ReorderAsync(gridPage.Grids[0], [.. seen.Select(card => card.Id)]));
+    }
+
+    [Fact]
+    public async Task DeletingAWorkTakesItOffTheList()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        var work = await catalog.AddPaintingAsync("Work", [], [], []);
+        var gridPage = await AddGridPageAsync(site, CustomList);
+        var chosen = new CardGridChosenCardRepository(DatabaseOf(site));
+        await chosen.AddWorksAsync(gridPage.Grids[0], [work.Id]);
+
+        await new WorkRepository(DatabaseOf(site)).DeleteAsync(work.Id);
+
+        Assert.Empty(await chosen.GetAsync(gridPage.Grids[0]));
+    }
+
     [GeneratedRegex("<div class=\"invisible\" aria-hidden=\"true\">")]
     private static partial Regex Placeholder();
 

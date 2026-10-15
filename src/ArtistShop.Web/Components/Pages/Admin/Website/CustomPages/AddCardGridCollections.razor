@@ -1,0 +1,135 @@
+@page "/admin/website/components/{Id:int}/add-collections"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject CustomComponentRepository CustomComponentRepository
+@inject CardGridChosenCardRepository CardGridChosenCardRepository
+@inject CollectionRepository CollectionRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  private const string AddFormName = "add-card-grid-collections";
+
+  [Parameter]
+  public int Id { get; set; }
+
+  [SupplyParameterFromQuery(Name = PageUrls.AddCheckedKey)]
+  private int[]? CheckedIds { get; set; }
+  [SupplyParameterFromQuery(Name = PageUrls.ComponentPageKey)]
+  private int? FromPageId { get; set; }
+  [SupplyParameterFromQuery(Name = PageUrls.ComponentRowKey)]
+  private int? FromRowId { get; set; }
+
+  private CustomComponent? _grid;
+  // in the artist's order, leaving out the ones on the list already
+  private List<CollectionWithCover> _collections = [];
+
+  private CustomComponentId ComponentId => new(Id);
+
+  private CustomComponentOrigin? Origin => CustomComponentOrigin.Of(FromPageId, FromRowId);
+
+  // a collection checked twice, in an address edited by hand, counts once
+  private IReadOnlyList<CollectionId> Checked => [.. (CheckedIds ?? []).Distinct().Select(id => new CollectionId(id))];
+
+  protected override async Task OnInitializedAsync()
+  {
+    _grid = await CustomComponentRepository.GetAsync(ComponentId) is { Component.Settings: CardGridSettings } found
+      ? found.Component
+      : null;
+
+    if (_grid is null)
+    {
+      return;
+    }
+
+    var onList = (await CardGridChosenCardRepository.GetAsync(ComponentId))
+      .Select(card => card.Card)
+      .OfType<GridCard.OfCollection>()
+      .Select(card => card.Collection.Id)
+      .ToHashSet();
+
+    _collections = [.. (await CollectionRepository.GetAllWithCoversAsync()).Where(collection => !onList.Contains(collection.Id))];
+  }
+
+  private async Task AddAsync()
+  {
+    try
+    {
+      await CardGridChosenCardRepository.AddCollectionsAsync(ComponentId, Checked);
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      // the grid was deleted elsewhere; its settings page says so
+    }
+
+    NavigationManager.NavigateTo(PageUrls.EditCustomComponent(ComponentId, Origin));
+  }
+}
+
+<main>
+  <AdminPanel>
+    @if (_grid is null)
+    {
+      <PageTitle>Add @Wording.Collection.PluralInSentence</PageTitle>
+
+      <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+
+      <p>This card grid doesn't exist. It may have been deleted.</p>
+    }
+    else
+    {
+      <AddCheckedShell Title="@($"Add {Wording.Collection.PluralInSentence} to {_grid.Name}")"
+                       UpHref="@PageUrls.EditCustomComponent(ComponentId, Origin)" UpLabel="@_grid.Name" FormName="@AddFormName"
+                       CheckedCount="Checked.Count" OnAdd="AddAsync">
+        @if (_collections.Count == 0)
+        {
+          <p>Every @Wording.Collection.SingularInSentence is on the list already.</p>
+        }
+        else
+        {
+          @* a GET form, so a check changes the address and nothing else, as on the page adding works *@
+          <form method="get" data-enhance>
+            @foreach (var (name, value) in PageUrls.OriginFields(Origin))
+            {
+              <input type="hidden" name="@name" value="@value" />
+            }
+
+            <SubmitOnChange>
+              <fieldset class="mb-4">
+                <legend class="sr-only">@Wording.Collection.PluralHeading</legend>
+                @foreach (var collection in _collections)
+                {
+                  <label @key="collection.Id" class="flex cursor-pointer items-center gap-2 border-b p-2 has-checked:bg-selected">
+                    <input type="checkbox" class="cursor-pointer" name="@PageUrls.AddCheckedKey" value="@collection.Id.Value"
+                           checked="@Checked.Contains(collection.Id)" />
+                    <WorkThumbnail Image="collection.Cover" />
+                    <span class="grow">
+                      @collection.Name.Value
+                      <span class="block text-xs text-ink-faded">@Wording.Work.CountOf(collection.WorkCount)</span>
+                      @if (collection.Cover is null)
+                      {
+                        <span class="block text-xs text-error">
+                          Not shown: none of its @Wording.Work.PluralInSentence has an image.
+                        </span>
+                      }
+                    </span>
+                  </label>
+                }
+              </fieldset>
+
+              <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Update checks</ButtonBasic>
+            </SubmitOnChange>
+          </form>
+        }
+      </AddCheckedShell>
+    }
+  </AdminPanel>
+</main>

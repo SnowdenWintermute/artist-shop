@@ -203,6 +203,7 @@ AddSiteRepository(database => new NavEntryRepository(database));
 AddSiteRepository(database => new PageRowRepository(database));
 AddSiteRepository(database => new RowSlotRepository(database));
 AddSiteRepository(database => new CustomComponentRepository(database));
+AddSiteRepository(database => new CardGridChosenCardRepository(database));
 builder.Services.AddSingleton<OwnAddresses>();
 AddSiteRepository<WorkSearch>(database => new SqlWorkTitleSearch(database));
 

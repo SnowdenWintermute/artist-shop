@@ -191,6 +191,8 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/website/pages/{Id:int}"] = PageUrls.EditCustomPage(home.Id),
             ["/admin/website/pages/{PageId:int}/rows/{RowId:int}"] = PageUrls.EditPageRow(home.Id, homeRow.Id),
             ["/admin/website/components/{Id:int}"] = PageUrls.EditCustomComponent(homeComponent.Id, home.Id, homeRow.Id),
+            ["/admin/website/components/{Id:int}/add-works"] = PageUrls.AddCardGridWorks(homeComponent.Id, origin: null, []),
+            ["/admin/website/components/{Id:int}/add-collections"] = PageUrls.AddCardGridCollections(homeComponent.Id, origin: null, []),
         };
         var routes = typeof(PageUrls).Assembly.GetTypes()
             .SelectMany(type => type.GetCustomAttributes<RouteAttribute>())

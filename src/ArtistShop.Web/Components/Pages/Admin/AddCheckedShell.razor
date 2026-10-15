@@ -1,0 +1,39 @@
+@* A page adding the items checked in its list somewhere: Up, the heading, and "Add selected (n)", with the
+   list below. The checks live in the address, so the list's own forms keep them *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Title { get; set; }
+  [Parameter, EditorRequired]
+  public required string UpHref { get; set; }
+  [Parameter, EditorRequired]
+  public required string UpLabel { get; set; }
+  [Parameter, EditorRequired]
+  public required string FormName { get; set; }
+  [Parameter, EditorRequired]
+  public required int CheckedCount { get; set; }
+  // the form posts to the page's own address, so the checks arrive in it
+  [Parameter, EditorRequired]
+  public required EventCallback OnAdd { get; set; }
+  [Parameter, EditorRequired]
+  public required RenderFragment ChildContent { get; set; }
+}
+
+<PageTitle>@Title</PageTitle>
+
+<UpLink Class="mb-4" Href="@UpHref" Label="@UpLabel" />
+
+<div class="mb-4 flex items-baseline justify-between gap-4">
+  <h1 class="text-xl">@Title</h1>
+
+  @* posts to the address, so a click while a check is still on its way waits for it *@
+  <form method="post" @formname="@FormName" @onsubmit="OnAdd" data-enhance data-waits-for-pending>
+    <AntiforgeryToken />
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@(CheckedCount == 0)">
+      Add selected (@CheckedCount)
+    </ButtonBasic>
+  </form>
+</div>
+
+@ChildContent

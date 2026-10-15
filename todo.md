@@ -6,6 +6,24 @@
 notes below are older than that.** Step 1 partly browser-checked (preview), step 2 not. Then step 3, Image (whose
 settings are designed with Mike first).
 
+**Card grid part 2, custom list (source 4), built 2026-10-14 (From Claude), uncommitted, 1200 tests pass, not
+browser-checked.** Mike: the Shows option is "Custom list"; ✕ takes a card off (no checkboxes); the list is kept when
+the grid shows another source; a work on a shown custom list counts in the work page's "Mentioned in".
+- `card_grid_chosen_cards` (0009; add by hand to dev schemas): one collection or one work per row, `sort_order`
+  DEFERRABLE, cascades from the component, collection and work. Procedures in `Procedures/CardGridChosenCards/`;
+  `lock_card_grid_chosen_cards` (component row lock, SH026 if gone), reorder refuses a changed list (SH028).
+- `CardGridSource.ChosenCards`, `ChosenCard` (`IsVisible`: collection cover / work image), `CardGridChosenCardRepository`.
+  `CardGridView` takes `ComponentId` (null on the collection page) and pages the visible cards in C#.
+- Automatic heading isn't offered for a custom list; switching to one saves Automatic as None.
+- Settings page: "Custom list" section after the form (`ChosenCardList` island over `ChosenCardListItem`): drag, ✕,
+  "Not shown: …" reasons, Add works / Add collections.
+- Pickers at `/admin/website/components/{id}/add-works` and `/add-collections`, sharing `AddCheckedShell` with
+  `AddCollectionWorks`; they keep the settings page's origin (`CustomComponentOrigin`, `PageUrls.OriginFields`).
+  `WorkListBrowser.Exclusion` (`WorkListExclusion.InCollection` / `OnCardGrid`) replaced `ExcludedCollectionId`;
+  `get_work_list` gained `p_excluded_card_grid_id`. `AddCollectionWorksCheckedKey` → `AddCheckedKey`.
+- `get_custom_pages_mentioning_work` also reads custom lists, only while the source is ChosenCards and the work has
+  an image.
+
 **Collection page settings, agreed and built 2026-10-14 (From Claude), uncommitted, 1182 tests, not browser-checked.**
 The collection page stays a fixed template (it draws every collection by its slug, so making it a custom page would
 need a "collection in the address" source and page-only components); the artist picks only what's unlocked. Site-wide

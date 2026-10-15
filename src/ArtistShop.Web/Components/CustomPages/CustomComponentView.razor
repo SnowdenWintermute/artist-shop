@@ -9,7 +9,7 @@
 @switch (Component.Settings)
 {
   case CardGridSettings cardGrid:
-    <CardGridView Settings="cardGrid" PageKey="@CustomComponentPageKey.For(Component.Id)" />
+    <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)" />
     break;
   case PostListSettings:
     <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" />

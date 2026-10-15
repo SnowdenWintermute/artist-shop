@@ -258,15 +258,15 @@ public class WorkRepository(SiteDatabase database)
     }
 
     // the search runs elsewhere and hands its matches in; null means nothing was searched for
-    // excludedCollectionId leaves out the works already in that collection, for a page adding to it
+    // exclusion leaves out the works a page adding them somewhere finds there already
     public async Task<WorkListPage> GetListAsync(
         WorkListFilter filter,
         IReadOnlyList<WorkId>? searchMatches,
-        CollectionId? excludedCollectionId,
+        WorkListExclusion? exclusion,
         int pageSize
     )
     {
-        var slice = await GetSliceAsync(filter, searchMatches, excludedCollectionId, (filter.PageNumber - 1) * pageSize, pageSize);
+        var slice = await GetSliceAsync(filter, searchMatches, exclusion, (filter.PageNumber - 1) * pageSize, pageSize);
 
         // the page component sends a page number past the end back to the first page
         return new WorkListPage(slice.Items, slice.TotalCount, filter.PageNumber, pageSize);
@@ -277,7 +277,7 @@ public class WorkRepository(SiteDatabase database)
     public async Task<WorkListSlice> GetSliceAsync(
         WorkListFilter filter,
         IReadOnlyList<WorkId>? searchMatches,
-        CollectionId? excludedCollectionId,
+        WorkListExclusion? exclusion,
         int offset,
         int count
     )
@@ -285,13 +285,15 @@ public class WorkRepository(SiteDatabase database)
         await using var connection = await database.OpenConnectionAsync();
 
         int? collectionId = filter.Collection is WorkCollectionFilter.InCollection inCollection ? inCollection.CollectionId.Value : null;
+        int? excludedCollectionId = exclusion is WorkListExclusion.InCollection excludedCollection ? excludedCollection.CollectionId.Value : null;
+        int? excludedCardGridId = exclusion is WorkListExclusion.OnCardGrid excludedGrid ? excludedGrid.ComponentId.Value : null;
 
         var rows = (
             await connection.QueryAsync<WorkListRow>(
                 """
                 SELECT * FROM get_work_list(
                     @WorkTypeIds, @VocabularyTermIds, @MatchingWorkIds, @IsSearching,
-                    @CollectionId, @IsInNoCollection, @ExcludedCollectionId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
+                    @CollectionId, @IsInNoCollection, @ExcludedCollectionId, @ExcludedCardGridId, @HasImages, @IsForSale, @Sort, @Offset, @PageSize
                 )
                 """,
                 new
@@ -302,7 +304,8 @@ public class WorkRepository(SiteDatabase database)
                     IsSearching = searchMatches is not null,
                     CollectionId = collectionId,
                     IsInNoCollection = filter.Collection is WorkCollectionFilter.InNoCollection,
-                    ExcludedCollectionId = excludedCollectionId?.Value,
+                    ExcludedCollectionId = excludedCollectionId,
+                    ExcludedCardGridId = excludedCardGridId,
                     filter.HasImages,
                     filter.IsForSale,
                     Sort = (short)filter.Sort,

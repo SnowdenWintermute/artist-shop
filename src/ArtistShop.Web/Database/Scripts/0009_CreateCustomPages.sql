@@ -94,6 +94,32 @@ CREATE TABLE custom_component_and_works_junction (
 -- the work page's "mentioned in" list, and the cascade from a deleted work
 CREATE INDEX index_custom_component_and_works_junction_work ON custom_component_and_works_junction (work_id);
 
+-- A card grid's custom list (CardGridSource.ChosenCards): each row is one collection or one work, in the
+-- artist's order. Kept while the grid shows another source, so switching back brings them back
+CREATE TABLE card_grid_chosen_cards (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_card_grid_chosen_cards PRIMARY KEY (id),
+    component_id int NOT NULL,
+    CONSTRAINT foreign_key_card_grid_chosen_cards_custom_components FOREIGN KEY (component_id) REFERENCES custom_components (id) ON DELETE CASCADE,
+    collection_id int,
+    CONSTRAINT foreign_key_card_grid_chosen_cards_collections FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
+    work_id int,
+    CONSTRAINT foreign_key_card_grid_chosen_cards_works FOREIGN KEY (work_id) REFERENCES works (id) ON DELETE CASCADE,
+    CONSTRAINT check_card_grid_chosen_cards_one_item CHECK (num_nonnulls(collection_id, work_id) = 1),
+    -- NULLs are distinct, so a collection's row doesn't collide with a work's
+    CONSTRAINT unique_card_grid_chosen_cards_collection UNIQUE (component_id, collection_id),
+    CONSTRAINT unique_card_grid_chosen_cards_work UNIQUE (component_id, work_id),
+    sort_order int NOT NULL,
+    -- DEFERRABLE so a reorder can swap two cards in one statement
+    CONSTRAINT unique_card_grid_chosen_cards_sort_order UNIQUE (component_id, sort_order)
+    DEFERRABLE
+);
+
+-- the cascades from a deleted collection or work, and the work page's "mentioned in" list
+CREATE INDEX index_card_grid_chosen_cards_collection ON card_grid_chosen_cards (collection_id);
+
+CREATE INDEX index_card_grid_chosen_cards_work ON card_grid_chosen_cards (work_id);
+
 -- the page posts link up to: one row per website, as home_page. It's chosen from the pages holding a
 -- post list, and can't be deleted while it's the blog page
 CREATE TABLE blog_page (

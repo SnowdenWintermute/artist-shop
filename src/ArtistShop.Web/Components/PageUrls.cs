@@ -60,8 +60,8 @@ public static class PageUrls
 
     public static string EditCollection(CollectionId id) => $"{CollectionList}/{id.Value}";
 
-    // one parameter per work checked on the page that adds works to a collection
-    public const string AddCollectionWorksCheckedKey = "add";
+    // one parameter per item checked on a page that adds works or collections somewhere
+    public const string AddCheckedKey = "add";
 
     public static string AddCollectionWorks(CollectionId id) => $"{EditCollection(id)}/add-works";
 
@@ -71,7 +71,7 @@ public static class PageUrls
             AddCollectionWorks(id),
             [
                 .. checkedIds.Select(checkedId =>
-                    (AddCollectionWorksCheckedKey, (string?)checkedId.Value.ToString(CultureInfo.InvariantCulture))
+                    (AddCheckedKey, (string?)checkedId.Value.ToString(CultureInfo.InvariantCulture))
                 ),
             ]
         );
@@ -152,11 +152,35 @@ public static class PageUrls
 
     // from a row's editor, which its Up link goes back to and its preview shows
     public static string EditCustomComponent(CustomComponentId id, CustomPageId pageId, PageRowId rowId) =>
-        WithQuery(
-            $"/admin/website/components/{id.Value}",
-            (ComponentPageKey, pageId.Value.ToString(CultureInfo.InvariantCulture)),
-            (ComponentRowKey, rowId.Value.ToString(CultureInfo.InvariantCulture))
-        );
+        EditCustomComponent(id, new CustomComponentOrigin(pageId, rowId));
+
+    // origin is the row editor the settings page was opened from, if it was
+    public static string EditCustomComponent(CustomComponentId id, CustomComponentOrigin? origin) =>
+        WithQuery(CustomComponent(id), [.. OriginFields(origin)]);
+
+    // A card grid's pages adding to its custom list, with these items checked and no filters; they keep the
+    // settings page's origin, so they can go back to it as it was
+    public static string AddCardGridWorks(CustomComponentId id, CustomComponentOrigin? origin, IReadOnlyList<WorkId> checkedIds) =>
+        WithQuery($"{CustomComponent(id)}/add-works", [.. OriginFields(origin), .. CheckedFields(checkedIds.Select(checkedId => checkedId.Value))]);
+
+    public static string AddCardGridCollections(CustomComponentId id, CustomComponentOrigin? origin, IReadOnlyList<CollectionId> checkedIds) =>
+        WithQuery($"{CustomComponent(id)}/add-collections",
+            [.. OriginFields(origin), .. CheckedFields(checkedIds.Select(checkedId => checkedId.Value))]);
+
+    private static string CustomComponent(CustomComponentId id) => $"/admin/website/components/{id.Value}";
+
+    // for a GET form on those pages to keep, as it sends only its own fields
+    public static (string Key, string Value)[] OriginFields(CustomComponentOrigin? origin) =>
+        origin is null
+            ? []
+            :
+            [
+                (ComponentPageKey, origin.PageId.Value.ToString(CultureInfo.InvariantCulture)),
+                (ComponentRowKey, origin.RowId.Value.ToString(CultureInfo.InvariantCulture)),
+            ];
+
+    private static IEnumerable<(string Key, string? Value)> CheckedFields(IEnumerable<int> checkedIds) =>
+        checkedIds.Select(checkedId => (AddCheckedKey, (string?)checkedId.ToString(CultureInfo.InvariantCulture)));
 
     // on a site's host: the Theme page with that theme open
     public static string ThemeEditing(ThemeKey key) => WithQuery(Theme, ("theme", key.QueryValue));

@@ -14,6 +14,7 @@
 @inject CustomComponentRepository CustomComponentRepository
 @inject CustomPageRepository CustomPageRepository
 @inject CollectionRepository CollectionRepository
+@inject CardGridChosenCardRepository CardGridChosenCardRepository
 @inject ImageStorage ImageStorage
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
@@ -45,6 +46,8 @@
   // a card grid's to choose from, and the ones a visitor would see anything in
   private IReadOnlyList<Collection> _collections = [];
   private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
+  // a card grid's custom list, read only while it shows it
+  private List<ChosenCardListItem>? _chosenCards;
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -71,6 +74,13 @@
       _collections = await CollectionRepository.GetAllAsync();
       _visibleCollectionIds = (await CollectionRepository.GetVisibleWithCoversAsync()).Select(collection =>
 collection.Id).ToHashSet();
+    }
+
+    if (_component?.Component.Settings is CardGridSettings { Source: CardGridSource.ChosenCards })
+    {
+      // a List built by ToList, not a collection expression's generated type, as an island parameter is rebuilt
+      // from its runtime type
+      _chosenCards = (await CardGridChosenCardRepository.GetAsync(ComponentId)).Select(ChosenCardListItem.From).ToList();
     }
   }
 
@@ -130,7 +140,7 @@ PageUrls.CustomPageList;
       CardGridSourceType.AllCollections => $"Automatic ({Wording.Collection.PluralHeading})",
       CardGridSourceType.WorksInCollection => $"Automatic (the {Wording.Collection.SingularInSentence}'s name)",
       CardGridSourceType.CollectionsAndLooseWorks => $"Automatic ({Wording.Work.PluralHeading})",
-      // a source a post left out, which the form refuses
+      // a source a post left out, which the form refuses; a custom list doesn't offer it
       _ => "Automatic",
     };
 
@@ -232,6 +242,7 @@ PageUrls.CustomPageList;
               <option value="@CardGridSourceType.CollectionsAndLooseWorks">
                 All @Wording.Collection.PluralInSentence, then @Wording.Work.PluralInSentence in none
               </option>
+              <option value="@CardGridSourceType.ChosenCards">Custom list</option>
             </SelectField>
           </SubmitOnChange>
 
@@ -255,7 +266,10 @@ PageUrls.CustomPageList;
           <SubmitOnChange>
             <SelectField Label="Heading" @bind-Value="Input.HeadingType">
               <option value="@CardGridHeadingType.None">None</option>
-              <option value="@CardGridHeadingType.Automatic">@AutomaticLabel(Input.Source)</option>
+              @if (Input.Source is not CardGridSourceType.ChosenCards)
+              {
+                <option value="@CardGridHeadingType.Automatic">@AutomaticLabel(Input.Source)</option>
+              }
               <option value="@CardGridHeadingType.Custom">Custom</option>
             </SelectField>
           </SubmitOnChange>
@@ -274,6 +288,15 @@ PageUrls.CustomPageList;
             <CardGridLayoutField @bind-Value="Input.Layout" />
           </SubmitOnChange>
         </ComponentSettingsForm>
+
+        @if (_chosenCards is not null)
+        {
+          <h2 class="mb-2 text-lg">Custom list</h2>
+          <div class="mb-8">
+            <ChosenCardList @rendermode="InteractiveServer" @key="Id" ComponentId="ComponentId"
+                            Origin="CustomComponentOrigin.Of(FromPageId, FromRowId)" Items="_chosenCards" />
+          </div>
+        }
       }
       else
       {

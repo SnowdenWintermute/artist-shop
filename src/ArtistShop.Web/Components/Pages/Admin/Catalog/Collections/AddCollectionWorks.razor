@@ -20,7 +20,7 @@
   [Parameter]
   public int Id { get; set; }
 
-  [SupplyParameterFromQuery(Name = PageUrls.AddCollectionWorksCheckedKey)]
+  [SupplyParameterFromQuery(Name = PageUrls.AddCheckedKey)]
   private int[]? CheckedIds { get; set; }
 
   private Collection? _collection;
@@ -29,7 +29,7 @@
 
   // a work checked twice, in an address edited by hand, counts once
   private WorkListSelection Selection =>
-    new(PageUrls.AddCollectionWorksCheckedKey, [.. (CheckedIds ?? []).Distinct().Select(id => new WorkId(id))]);
+    new(PageUrls.AddCheckedKey, [.. (CheckedIds ?? []).Distinct().Select(id => new WorkId(id))]);
 
   protected override async Task OnInitializedAsync() =>
     _collection = await CollectionRepository.GetByIdAsync(CollectionId);
@@ -50,32 +50,22 @@
   }
 }
 
-<PageTitle>Add @Wording.Work.PluralInSentence to @(_collection?.Name.Value ?? Wording.Collection.SingularInSentence)</PageTitle>
-
 @if (_collection is null)
 {
+  <PageTitle>Add @Wording.Work.PluralInSentence to @Wording.Collection.SingularInSentence</PageTitle>
+
   <UpLink Class="mb-4" Href="@PageUrls.CollectionList" Label="@($"All {Wording.Collection.PluralInSentence}")" />
 
   <p>This @Wording.Collection.SingularInSentence doesn't exist. It may have been deleted.</p>
 }
 else
 {
-  <UpLink Class="mb-4" Href="@PageUrls.EditCollection(CollectionId)" Label="@_collection.Name.Value" />
-
-  <div class="mb-4 flex items-baseline justify-between gap-4">
-    <h1 class="text-xl">Add @Wording.Work.PluralInSentence to @_collection.Name.Value</h1>
-
-    @* posts to the address, so a click while a check is still on its way waits for it *@
-    <form method="post" @formname="@AddFormName" @onsubmit="AddAsync" data-enhance data-waits-for-pending>
-      <AntiforgeryToken />
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" disabled="@(Selection.Ids.Count == 0)">
-        Add selected (@Selection.Ids.Count)
-      </ButtonBasic>
-    </form>
-  </div>
-
-  @* only works not in the collection yet. A row's title is text, since this page is for checking
-     works, not opening them *@
-  <WorkListBrowser RowHref="_ => null" ClearFiltersHref="@PageUrls.AddCollectionWorks(CollectionId, Selection.Ids)"
-                      ExcludedCollectionId="CollectionId" Selection="Selection" />
+  <AddCheckedShell Title="@($"Add {Wording.Work.PluralInSentence} to {_collection.Name.Value}")"
+                   UpHref="@PageUrls.EditCollection(CollectionId)" UpLabel="@_collection.Name.Value" FormName="@AddFormName"
+                   CheckedCount="Selection.Ids.Count" OnAdd="AddAsync">
+    @* only works not in the collection yet. A row's title is text, since this page is for checking
+       works, not opening them *@
+    <WorkListBrowser RowHref="_ => null" ClearFiltersHref="@PageUrls.AddCollectionWorks(CollectionId, Selection.Ids)"
+                     Exclusion="new WorkListExclusion.InCollection(CollectionId)" Selection="Selection" />
+  </AddCheckedShell>
 }

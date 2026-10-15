@@ -84,10 +84,13 @@ public static class SqlStates
     // PlaceCustomComponent, ReorderSlotPlacements: the slot is gone or holds other components
     public const string RowSlotChangedSincePageLoad = "SH025";
 
-    // UpdateCustomComponent
+    // UpdateCustomComponent, LockCardGridChosenCards (adding to or reordering a custom list)
     public const string CustomComponentNoLongerExists = "SH026";
 
     // CheckBlogPageHasPostList, from DeleteCustomComponent, RemoveSlotPlacement, DeleteRowSlot,
     // DeletePageRow, MakeCustomPageBlog
     public const string BlogPageNeedsPostList = "SH027";
+
+    // ReorderCardGridChosenCards
+    public const string CardGridChosenCardsChangedSincePageLoad = "SH028";
 }

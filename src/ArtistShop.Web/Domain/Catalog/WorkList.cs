@@ -1,5 +1,7 @@
 namespace ArtistShop.Web.Domain.Catalog;
 
+using ArtistShop.Web.Domain.Website;
+
 // the numbers travel to get_work_list, which orders by them
 public enum WorkListSort : byte
 {
@@ -22,6 +24,17 @@ public abstract record WorkCollectionFilter
     public sealed record InCollection(CollectionId CollectionId) : WorkCollectionFilter;
 
     public sealed record InNoCollection : WorkCollectionFilter;
+}
+
+// works a page adding them somewhere leaves out, as they're there already
+public abstract record WorkListExclusion
+{
+    // only the two below
+    private WorkListExclusion() { }
+
+    public sealed record InCollection(CollectionId CollectionId) : WorkListExclusion;
+
+    public sealed record OnCardGrid(CustomComponentId ComponentId) : WorkListExclusion;
 }
 
 // a null for a three-state filter means the filter is off: HasImages null keeps both

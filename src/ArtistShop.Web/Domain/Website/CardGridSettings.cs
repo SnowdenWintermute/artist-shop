@@ -2,12 +2,13 @@ namespace ArtistShop.Web.Domain.Website;
 
 using ArtistShop.Web.Domain.Catalog;
 
-// The ids are only for ordering; settings store the names
+// The ids are only for ordering; settings store the names, and get_custom_pages_mentioning_work reads ChosenCards
 public enum CardGridSourceType
 {
     AllCollections = 1,
     WorksInCollection = 2,
     CollectionsAndLooseWorks = 3,
+    ChosenCards = 4,
 }
 
 // which cards a grid shows, all of them ones a visitor may see
@@ -24,6 +25,7 @@ public abstract record CardGridSource
                 collectionId ?? throw new InvalidOperationException("Works in a collection need the collection.")
             ),
             CardGridSourceType.CollectionsAndLooseWorks => new CollectionsAndLooseWorks(),
+            CardGridSourceType.ChosenCards => new ChosenCards(),
             _ => throw new InvalidOperationException($"{type} isn't a card grid source."),
         };
 
@@ -44,13 +46,19 @@ public abstract record CardGridSource
     {
         public override CardGridSourceType Type => CardGridSourceType.CollectionsAndLooseWorks;
     }
+
+    // the artist's custom list, any mix of collections and works in their order, kept in card_grid_chosen_cards
+    public sealed record ChosenCards : CardGridSource
+    {
+        public override CardGridSourceType Type => CardGridSourceType.ChosenCards;
+    }
 }
 
 public enum CardGridHeadingType
 {
     None = 1,
     // the collections word for all collections, the collection's name for one collection's works, the works
-    // word for the mix
+    // word for the mix. Not offered for a custom list
     Automatic = 2,
     Custom = 3,
 }

@@ -12,6 +12,8 @@ CREATE FUNCTION get_work_list (
     p_is_in_no_collection boolean,
     -- the collection a work is being added to, so the list leaves out what's in it already
     p_excluded_collection_id int,
+    -- the card grid a work is being chosen for, so the list leaves out what its custom list holds already
+    p_excluded_card_grid_id int,
     p_has_images boolean,
     p_is_for_sale boolean,
     p_sort smallint,
@@ -148,6 +150,17 @@ BEGIN
                 WHERE
                     excluded.work_id = work.id
                     AND excluded.collection_id = p_excluded_collection_id
+            )
+        )
+        AND (
+            p_excluded_card_grid_id IS NULL
+            OR NOT EXISTS (
+                SELECT
+                FROM
+                    card_grid_chosen_cards AS excluded
+                WHERE
+                    excluded.work_id = work.id
+                    AND excluded.component_id = p_excluded_card_grid_id
             )
         )
         AND (

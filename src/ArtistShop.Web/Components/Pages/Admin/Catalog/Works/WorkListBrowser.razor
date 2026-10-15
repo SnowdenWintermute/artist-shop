@@ -39,9 +39,9 @@
   [Parameter]
   public IReadOnlyList<(string Name, string Value)>? KeptFields { get; set; }
 
-  // leaves out the works already in this collection, for a page adding to it
+  // leaves out the works already where a page is adding them
   [Parameter]
-  public CollectionId? ExcludedCollectionId { get; set; }
+  public WorkListExclusion? Exclusion { get; set; }
 
   // gives each row a checkbox; a check submits at once and lands in the address
   [Parameter]
@@ -130,7 +130,7 @@
     var searchMatches =
       filter.SearchText is null ? null : await WorkSearch.FindAsync(filter.SearchText);
 
-    var works = await WorkRepository.GetListAsync(filter, searchMatches, ExcludedCollectionId, ArtistShopLimits.WorkListPageSize);
+    var works = await WorkRepository.GetListAsync(filter, searchMatches, Exclusion, ArtistShopLimits.WorkListPageSize);
 
     if (PageLinks.LeaveEmptiedPage(NavigationManager, PageLinks.PageKey, filter.PageNumber, works.Items.Count))
     {
@@ -143,7 +143,8 @@
       types,
       VocabularyOrder.SortedByName(vocabularies),
       // filtering by the excluded collection could only ever show nothing
-      [.. (await CollectionRepository.GetAllAsync()).Where(collection => collection.Id != ExcludedCollectionId)]
+      [.. (await CollectionRepository.GetAllAsync()).Where(collection =>
+        Exclusion is not WorkListExclusion.InCollection excluded || collection.Id != excluded.CollectionId)]
     );
   }
 
