@@ -20,7 +20,7 @@
       @foreach (var provider in externalLogins)
       {
         <ButtonBasic type="submit" Variant="ButtonVariant.Outline" name="provider" value="@provider.Name">
-          <span class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-2">
             @* Google's own logo and wording, as its branding rules ask *@
             @if (provider.Name == GoogleDefaults.AuthenticationScheme)
             {

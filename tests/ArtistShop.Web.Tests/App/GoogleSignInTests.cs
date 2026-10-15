@@ -41,6 +41,21 @@ public sealed partial class GoogleSignInTests(TestApp app)
         Assert.Equal($"http://{TestApp.PlatformHost}/signin-google", QueryHelpers.ParseQuery(location.Query)["redirect_uri"]);
     }
 
+    // Google's handler answers its callback, though a page's "/{address}" route matches it too. With no
+    // state from a real sign-in it fails, rather than the page's 404
+    [Fact]
+    public async Task ThePlatformsGoogleCallbackReachesGooglesHandler()
+    {
+        var response = await app.ClientFor(TestApp.PlatformHost)
+            .GetAsync("/signin-google", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains(
+            "The oauth state was missing or invalid.",
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)
+        );
+    }
+
     // a website's sign-in happens on the platform, Google's included
     [Fact]
     public async Task AWebsiteDoesntSendToGoogleItself()

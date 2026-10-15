@@ -358,12 +358,15 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+// before UseServedOnHosts: Google's handler answers /signin-google here, which has no endpoint of its
+// own, and a page's route like "/{address}" would otherwise claim it and be refused on the platform
+app.UseAuthentication();
+
 app.UseServedOnHosts();
 
 // called here rather than left for ASP.NET to add, which it does at the start of the pipeline:
 // SitePolicies.Admin asks about the current site, so it must only run once the page is known to be
 // a site's
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
