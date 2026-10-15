@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
 using ArtistShop.Web.Images;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ArtistShop.Web.Tests.Images;
 
 // The tests' size queue: makes the sizes at once, so a test can read every size as soon as the upload
 // answers. The app's queue has tests of its own
-public sealed class ImmediateImageSizeQueue : ImageSizeQueue
+public sealed class ImmediateImageSizeQueue() : ImageSizeQueue(NullLogger.Instance)
 {
     private readonly ConcurrentDictionary<string, IReadOnlySet<int>> _heldBack = new();
 

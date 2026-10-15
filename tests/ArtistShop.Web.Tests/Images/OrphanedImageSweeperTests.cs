@@ -68,10 +68,12 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     {
         var storageKey = ImageStorage.NewStorageKey();
         _imageStorage.SaveVariant(storageKey, ImageVariants.FileName(800, ImageVariantFormat.Webp), "a size"u8);
+        _imageStorage.MarkSizesPending(storageKey);
 
         await SweepAsync();
 
         Assert.DoesNotContain(storageKey, _imageStorage.ListKeysWithVariants());
+        Assert.DoesNotContain(storageKey, _imageStorage.ListKeysWithSizesPending());
     }
 
     [Fact]

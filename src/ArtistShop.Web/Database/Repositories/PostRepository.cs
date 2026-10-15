@@ -70,14 +70,6 @@ public class PostRepository(SiteDatabase database)
         return [.. rows.Select(row => row.ToPostSummary())];
     }
 
-    // drafts included
-    public async Task<int> CountAsync()
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        return await connection.ExecuteScalarAsync<int>("SELECT count_posts()");
-    }
-
     // drafts included, with their bodies, for the site export
     public async Task<List<Post>> GetAllWithBodiesAsync()
     {

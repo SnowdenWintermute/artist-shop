@@ -39,10 +39,11 @@ public class OrphanedImageSweeper(
             .Select(original => original.StorageKey)
             .ToList();
 
-        // with no grace period: an upload saves its original before any size, so sizes without one are
-        // always left over, such as the ones made for an image deleted while its sizes were being made
+        // with no grace period: an upload saves its original before any size or mark, so sizes or a
+        // mark without one are always left over, such as from an image deleted while its sizes were made
         var orphanedKeys = imageStorage
             .ListKeysWithVariants()
+            .Union(imageStorage.ListKeysWithSizesPending())
             .Where(storageKey => !imageStorage.OriginalExists(storageKey))
             .ToList();
 

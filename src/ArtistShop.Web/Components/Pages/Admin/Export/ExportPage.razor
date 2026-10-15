@@ -11,6 +11,7 @@
 @inject WorkRepository WorkRepository
 @inject ImageStorage ImageStorage
 @inject PostRepository PostRepository
+@inject ImageSizeQueue ImageSizeQueue
 
 <PageTitle>Export your website</PageTitle>
 
@@ -75,6 +76,13 @@
         }
       </p>
     </div>
+    @if (_postsWithSmallerCopiesCount > 0)
+    {
+      <Notice data-test="smaller-copies-notice">
+        Some images in @CountText.Of(_postsWithSmallerCopiesCount, "post") are still being processed,
+        so downloading now gives smaller copies of them.
+      </Notice>
+    }
     @if (_postCount > 0)
     {
       @* no download attribute, as for the images below *@
@@ -136,6 +144,7 @@
 
   private List<(ImageExportPart Part, (int Count, long Bytes) Size)> _parts = [];
   private int _postCount;
+  private int _postsWithSmallerCopiesCount;
 
   protected override async Task OnInitializedAsync()
   {
@@ -145,7 +154,9 @@
         .Parts(await WorkRepository.GetAllAsync())
         .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
     ];
-    _postCount = await PostRepository.CountAsync();
+    var (posts, workImages) = await PostExportArchive.LoadPostsAsync(PostRepository, WorkRepository, ImageStorage);
+    _postCount = posts.Count;
+    _postsWithSmallerCopiesCount = PostExportArchive.PostsWithSmallerCopies(posts, workImages, ImageSizeQueue).Count;
   }
 
   private static string Size(long bytes) =>

@@ -44,9 +44,12 @@ public sealed partial class TestApp
     public ImageStorage ImageStorageOf(TestSite site) =>
         ImageStorage.ForSite(Services.GetRequiredService<ImageStorageSettings>(), site.Id);
 
-    // both formats of one size, as a crash part way through an image's sizes leaves it
+    // both formats of one size, with the image still marked, as a crash part way through its sizes
+    // leaves it
     public void DeleteImageSize(TestSite site, string storageKey, int width)
     {
+        ImageStorageOf(site).MarkSizesPending(storageKey);
+
         var directory = Path.Combine(
             _imageStorageRootPath,
             "sites",

@@ -36,6 +36,7 @@ public static class WebsiteExportArchive
         string host,
         string siteOrigin,
         ImageStorage imageStorage,
+        ImageSizeQueue imageSizeQueue,
         BrandImageStore brandImageStore,
         CancellationToken cancellationToken
     )
@@ -53,7 +54,7 @@ public static class WebsiteExportArchive
             imageStorage,
             cancellationToken
         );
-        await PostExportArchive.AddAsync(zip, posts, workImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, cancellationToken);
+        await PostExportArchive.AddAsync(zip, posts, workImages, $"{folderName}/{PostsFolder}", host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken);
     }
 
     public static string Manifest(CatalogSetupSnapshot snapshot, IReadOnlyList<Work> works)

@@ -55,16 +55,17 @@
   // the size's own file, or the image's when it's narrower, for a browser that ignores srcset
   private string Src => ImageUrls.Variant(StorageKey, ReadyWidths, Width, ImageVariantFormat.Avif);
 
-  // Every file the browser may pick from for the screen it's on: up to the first as wide as a 2x
-  // screen needs, since there may be no variant at exactly that width. A lightbox needs them all,
-  // up to the widest it shows
+  // the widest file the page itself shows: the first as wide as a 2x screen needs, since there may
+  // be no variant at exactly that width
+  private int PageMaximumWidth => ImageVariants.Widths.First(width => width >= Width * MaximumPixelRatio);
+
+  // Every file the browser may pick from for the screen it's on. A lightbox needs them all, up to
+  // the widest it shows
   private string SourceSet =>
     ImageUrls.SourceSet(
       StorageKey,
       ReadyWidths,
-      OpensLightbox
-        ? ImageVariants.MainImageWidth
-        : ImageVariants.Widths.First(width => width >= Width * MaximumPixelRatio),
+      OpensLightbox ? ImageVariants.MainImageWidth : PageMaximumWidth,
       ImageVariantFormat.Avif
     );
 
@@ -103,7 +104,8 @@
            alt="@Alt" width="@Width.ToString(CultureInfo.InvariantCulture)"
            height="@Height.ToString(CultureInfo.InvariantCulture)" loading="lazy"
            class="block h-auto w-full bg-cover bg-center" style="@BlurStyle" />
-      @if (ImageSizeQueue.IsProcessing(StorageKey))
+      @* only for the picture on the page: a lightbox's wider sizes still being made don't soften it *@
+      @if (ImageSizeQueue.IsProcessing(StorageKey, PageMaximumWidth))
       {
         <ProcessingLabel />
       }

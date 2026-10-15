@@ -27,6 +27,12 @@ export const UPLOAD_PLACEHOLDER = "artshop-image-upload";
  * @property {string} fileName
  */
 
+// ImageVariants.Widths, smallest first
+/** @param {HTMLElement} toolbar */
+function readVariantWidths(toolbar) {
+  return readToolbarSetting(toolbar, "variantWidths").split(",").map(Number);
+}
+
 // for the editor, which writes the Delta to the form without them
 /** @param {QuillOperation} op */
 export function isUploadPlaceholder(op) {
@@ -85,7 +91,7 @@ export function registerUploadedImageEmbed(toolbar) {
   const storageKeyPlaceholder = readToolbarSetting(toolbar, "storageKeyPlaceholder");
   const widthPlaceholder = readToolbarSetting(toolbar, "widthPlaceholder");
   const widths = readEmbedWidths(toolbar);
-  const smallestVariantWidth = Number(readToolbarSetting(toolbar, "variantWidths").split(",")[0]);
+  const smallestVariantWidth = readVariantWidths(toolbar)[0];
   const captionClass = readToolbarSetting(toolbar, "captionClass");
   const newLayout = readToolbarSetting(toolbar, "newLayout");
   // the page's own classes for each layout, so the editor places an embed as the page will
@@ -489,7 +495,7 @@ export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads,
   }
 
   const widths = readEmbedWidths(toolbar);
-  const variantWidths = readToolbarSetting(toolbar, "variantWidths").split(",").map(Number);
+  const variantWidths = readVariantWidths(toolbar);
 
   // ImageVariants.LargestWidthFor, which the page checks too: an image narrower than the medium
   // size has a copy at its own width, and any other the widest standard one it reaches

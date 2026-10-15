@@ -578,6 +578,12 @@ owner's, not a dialog): type the address, "Email the owner" checked by default w
 `SiteDeletions.EraseNowAsync` makes it due now (`schedule_site_erasing_now`), reloads hosts, emails, then
 `SiteEraser.EraseAsync` (split out of `EraseDueAsync`; a failure is left for the daily cleanup).
 
+**Later, agreed 2026-10-15: leftovers on this page.** `SiteProvisioner.FindUnlistedAsync` (schemas or image
+storage with no site row) is only a startup log warning, which nobody reads. List them here instead, each with a
+Remove button for after the operator has looked. Two sources: a sign-up that crashed part way, and an image size
+written just as an "Erase now" ran, which recreates `sites/<id>/variants/<key>`. With this list, that rare race
+needs no per-site write lock in `ImageStorage`.
+
 ## Review of 664ffa3 and 404fb15, 2026-10-06 (From Claude)
 
 Uncommitted, 921 tests pass, not browser-checked. Text fixes, "PictureCord" everywhere. Every remaining hardcoded

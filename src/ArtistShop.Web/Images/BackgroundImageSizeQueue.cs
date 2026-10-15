@@ -1,10 +1,10 @@
 namespace ArtistShop.Web.Images;
 
-// In memory: ImageSizeQueueWorker finds what a restart lost by looking for missing sizes. Each image's
-// small sizes come before any image's larger ones, since a list of new uploads shows the small ones
-// first. A width stays pending from Enqueue until MarkDone, and after a failure, until a restart
-// queues it again
-public sealed class BackgroundImageSizeQueue : ImageSizeQueue
+// In memory, with each queued image marked in its storage so ImageSizeQueueWorker can find what a
+// restart lost. Each image's small sizes come before any image's larger ones, since a list of new
+// uploads shows the small ones first. A width stays pending from Enqueue until MarkDone, and after a
+// failure, until a restart queues it again
+public sealed class BackgroundImageSizeQueue(ILogger<BackgroundImageSizeQueue> logger) : ImageSizeQueue(logger)
 {
     // what an admin list and a small browse tile ask for
     private const int SmallSizeWidth = 400;
@@ -21,6 +21,11 @@ public sealed class BackgroundImageSizeQueue : ImageSizeQueue
     {
         int[] small = [.. job.Widths.Where(width => width <= SmallSizeWidth)];
         int[] larger = [.. job.Widths.Where(width => width > SmallSizeWidth)];
+
+        if (job.Widths.Count > 0)
+        {
+            job.ImageStorage.MarkSizesPending(job.StorageKey);
+        }
 
         lock (_lock)
         {
@@ -71,6 +76,8 @@ public sealed class BackgroundImageSizeQueue : ImageSizeQueue
 
             _pendingWidthsByStorageKey.Remove(job.StorageKey);
         }
+
+        job.ImageStorage.ClearSizesPending(job.StorageKey);
 
         // outside the lock, so a handler that reads the queue doesn't wait on it
         OnSizesFinished(job.StorageKey);

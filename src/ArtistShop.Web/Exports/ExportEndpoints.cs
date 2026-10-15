@@ -125,10 +125,11 @@ public static class ExportEndpoints
         PostRepository postRepository,
         WorkRepository workRepository,
         ImageStorage imageStorage,
+        ImageSizeQueue imageSizeQueue,
         ExportLock exportLock
     )
     {
-        var (posts, workImages) = await LoadPostsAsync(postRepository, workRepository, imageStorage);
+        var (posts, workImages) = await PostExportArchive.LoadPostsAsync(postRepository, workRepository, imageStorage);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-posts-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
         var siteOrigin = SiteOrigin(context);
@@ -139,7 +140,7 @@ public static class ExportEndpoints
             exportLock,
             name,
             (body, cancellationToken) =>
-                PostExportArchive.WriteAsync(body, posts, workImages, name, host, siteOrigin, imageStorage, cancellationToken)
+                PostExportArchive.WriteAsync(body, posts, workImages, name, host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken)
         );
     }
 
@@ -157,13 +158,14 @@ public static class ExportEndpoints
         ThemeRepository themeRepository,
         BrandImageStore brandImageStore,
         ImageStorage imageStorage,
+        ImageSizeQueue imageSizeQueue,
         ExportLock exportLock
     )
     {
         var snapshot = await CatalogSetupSnapshot.LoadAsync(workFieldRepository, workTypeRepository, vocabularyRepository);
         var works = await workRepository.GetAllAsync();
         var look = await SiteLook.LoadAsync(wordingRepository, themeRepository, brandImageStore);
-        var (posts, workImages) = await LoadPostsAsync(postRepository, workRepository, imageStorage);
+        var (posts, workImages) = await PostExportArchive.LoadPostsAsync(postRepository, workRepository, imageStorage);
         var host = currentSite.MainHost.Value;
         var name = $"{host}-website-{DateText.FileNameDay(timeProvider.GetUtcNow())}";
         var siteOrigin = SiteOrigin(context);
@@ -185,6 +187,7 @@ public static class ExportEndpoints
                     host,
                     siteOrigin,
                     imageStorage,
+                    imageSizeQueue,
                     brandImageStore,
                     cancellationToken
                 )
@@ -212,26 +215,6 @@ public static class ExportEndpoints
             name,
             (body, cancellationToken) => LookExportArchive.WriteAsync(body, look, name, brandImageStore, cancellationToken)
         );
-    }
-
-    private static async Task<(List<ExportedPost> Posts, IReadOnlyDictionary<string, WorkImageWithWork> WorkImages)> LoadPostsAsync(
-        PostRepository postRepository,
-        WorkRepository workRepository,
-        ImageStorage imageStorage
-    )
-    {
-        // missing uploads left out, as on the post page
-        List<ExportedPost> posts =
-        [
-            .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(
-                post,
-                LoadedRichText.Parse(post.Body, imageStorage)
-            )),
-        ];
-
-        var workImages = await LoadedRichText.GetWorkImagesAsync(posts.Select(post => post.Document), workRepository);
-
-        return (posts, workImages);
     }
 
     private static string SiteOrigin(HttpContext context) => $"{context.Request.Scheme}://{context.Request.Host}";

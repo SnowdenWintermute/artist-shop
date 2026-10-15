@@ -1,7 +1,9 @@
 using System.IO.Compression;
+using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Publishing;
 
 namespace ArtistShop.Web.Exports;
 
@@ -16,6 +18,47 @@ public static class PostExportArchive
     // widest a post shows it
     public const int WebCopyWidth = 800;
 
+    // heads the README's list of posts with smaller copies
+    public const string SmallerCopiesHeading = "Smaller images";
+
+    // drafts included, with every work image the posts embed
+    public static async Task<(List<ExportedPost> Posts, IReadOnlyDictionary<string, WorkImageWithWork> WorkImages)> LoadPostsAsync(
+        PostRepository postRepository,
+        WorkRepository workRepository,
+        ImageStorage imageStorage
+    )
+    {
+        // missing uploads left out, as on the post page
+        List<ExportedPost> posts =
+        [
+            .. (await postRepository.GetAllWithBodiesAsync()).Select(post => new ExportedPost(
+                post,
+                LoadedRichText.Parse(post.Body, imageStorage)
+            )),
+        ];
+
+        var workImages = await LoadedRichText.GetWorkImagesAsync(posts.Select(post => post.Document), workRepository);
+
+        return (posts, workImages);
+    }
+
+    // the posts a download made now would give a smaller copy of an image, since the image's web copy
+    // size isn't made yet. The Export page warns before, and the README after
+    public static List<Post> PostsWithSmallerCopies(
+        IEnumerable<ExportedPost> posts,
+        IReadOnlyDictionary<string, WorkImageWithWork> workImages,
+        ImageSizeQueue imageSizeQueue
+    ) =>
+        [
+            .. posts
+                .Where(exported =>
+                    exported.Document.Blocks.Any(block =>
+                        ImageOf(block, workImages) is { } source && imageSizeQueue.IsProcessing(source.StorageKey, WebCopyWidth)
+                    )
+                )
+                .Select(exported => exported.Post),
+        ];
+
     // A post's image files, in the order the post shows them, named image-1, image-2 and so on.
     // An image the post shows twice is one file. WorkImages holds every work embed's image by
     // storage key, as the post page loads them
@@ -27,11 +70,12 @@ public static class PostExportArchive
         string host,
         string siteOrigin,
         ImageStorage imageStorage,
+        ImageSizeQueue imageSizeQueue,
         CancellationToken cancellationToken
     )
     {
         await using var zip = await ExportZip.CreateAsync(destination, cancellationToken);
-        await AddAsync(zip, posts, workImages, folderName, host, siteOrigin, imageStorage, cancellationToken);
+        await AddAsync(zip, posts, workImages, folderName, host, siteOrigin, imageStorage, imageSizeQueue, cancellationToken);
     }
 
     public static async Task AddAsync(
@@ -42,10 +86,12 @@ public static class PostExportArchive
         string host,
         string siteOrigin,
         ImageStorage imageStorage,
+        ImageSizeQueue imageSizeQueue,
         CancellationToken cancellationToken
     )
     {
-        await ExportZip.AddTextAsync(zip, $"{folderName}/{ExportZip.ReadmeFileName}", Readme(host), cancellationToken);
+        var readme = Readme(host) + SmallerCopiesNote(PostsWithSmallerCopies(posts, workImages, imageSizeQueue));
+        await ExportZip.AddTextAsync(zip, $"{folderName}/{ExportZip.ReadmeFileName}", readme, cancellationToken);
         await ExportZip.AddTextAsync(zip, $"{folderName}/{PostExportHtml.IndexFileName}", PostExportHtml.Index(host, [.. posts.Select(exported => exported.Post)]), cancellationToken);
 
         foreach (var (post, document) in posts)
@@ -68,10 +114,9 @@ public static class PostExportArchive
                     continue;
                 }
 
-                var webCopy = imageStorage.OpenVariant(
-                    source.StorageKey,
-                    ImageVariants.FileName(ImageVariants.LargestWidthUpTo(source.Width, WebCopyWidth), ImageVariantFormat.Webp)
-                );
+                // the widest made so far, when the web copy size isn't yet; the README says which posts
+                var webCopyWidth = ImageVariants.LargestWidthUpTo(imageSizeQueue.ReadyWidths(source.StorageKey, source.Width), WebCopyWidth);
+                var webCopy = imageStorage.OpenVariant(source.StorageKey, ImageVariants.FileName(webCopyWidth, ImageVariantFormat.Webp));
 
                 // a web copy or original gone since the post was saved leaves the embed out
                 if (webCopy is null || !imageStorage.OriginalExists(source.StorageKey))
@@ -168,6 +213,18 @@ public static class PostExportArchive
           again. Then choose this whole folder, unzipped, under Import > Posts. A post whose title is
           already there is skipped, so running it again only adds what's missing.
         """;
+
+    private static string SmallerCopiesNote(List<Post> posts) =>
+        posts.Count is 0
+            ? ""
+            : $"""
+
+
+              {SmallerCopiesHeading}
+                These posts' newest images were still being processed, so their copies here are smaller.
+                Download again in a few minutes for the full ones.
+              {string.Join("\n", posts.Select(post => $"  - {post.Slug.Value}/"))}
+              """;
 
     // KeepsOriginal is true for an image uploaded into the post
     private record ImageSource(string StorageKey, int Width, int Height, string Alt, bool KeepsOriginal);

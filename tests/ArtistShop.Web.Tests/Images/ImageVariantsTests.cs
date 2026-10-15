@@ -15,7 +15,7 @@ public sealed class ImageVariantsTests
     [InlineData(4000, 100, 160)]
     public void PicksTheLargestVariantThatExistsUpToTheWantedWidth(int imageWidth, int wantedWidth, int expected)
     {
-        Assert.Equal(expected, ImageVariants.LargestWidthUpTo(imageWidth, wantedWidth));
+        Assert.Equal(expected, ImageVariants.LargestWidthUpTo(ImageVariants.WidthsFor(imageWidth), wantedWidth));
     }
 
     // only a post takes an image this narrow
@@ -77,7 +77,7 @@ public sealed class ImageVariantsTests
         foreach (var size in Enum.GetValues<EmbedImageSize>())
         {
             var embedWidth = ImageVariants.EmbedWidth(size);
-            Assert.Equal(Math.Min(embedWidth, imageWidth), ImageVariants.LargestWidthUpTo(imageWidth, embedWidth));
+            Assert.Equal(Math.Min(embedWidth, imageWidth), ImageVariants.LargestWidthUpTo(ImageVariants.WidthsFor(imageWidth), embedWidth));
         }
     }
 

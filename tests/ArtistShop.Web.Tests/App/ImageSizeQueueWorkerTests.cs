@@ -1,10 +1,11 @@
 using ArtistShop.Web.Images;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ArtistShop.Web.Tests.App;
 
 // The worker the app runs, which TestApp leaves out. Run alone, since its startup pass looks at every
-// site's images and would remake sizes other tests leave out on purpose
+// site's marked images and would remake sizes other tests leave out on purpose
 [Collection(RunAloneCollection.Name)]
 public sealed class ImageSizeQueueWorkerTests(TestApp app)
 {
@@ -34,7 +35,7 @@ public sealed class ImageSizeQueueWorkerTests(TestApp app)
         var (queuedSite, _, queuedKey) = await app.MakeSiteWithAWorkImageAsync(ImageWidth);
         app.DeleteImageSize(queuedSite, queuedKey, 800);
 
-        var queue = new BackgroundImageSizeQueue();
+        var queue = new BackgroundImageSizeQueue(NullLogger<BackgroundImageSizeQueue>.Instance);
         using var worker = ActivatorUtilities.CreateInstance<ImageSizeQueueWorker>(app.Services, queue);
         await worker.StartAsync(TestContext.Current.CancellationToken);
 

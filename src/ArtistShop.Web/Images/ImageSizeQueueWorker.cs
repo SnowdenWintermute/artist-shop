@@ -1,24 +1,26 @@
-using ArtistShop.Web.Database.Repositories;
-using ArtistShop.Web.Domain.Sites;
-using ArtistShop.Web.Sites;
-
 namespace ArtistShop.Web.Images;
 
 // Makes the sizes uploads didn't wait for, one job at a time, under the same limiter as uploads. At
-// startup it first queues what a restart lost: every size missing from an image a site uses
+// startup it first queues what a restart lost
 public sealed class ImageSizeQueueWorker(
     BackgroundImageSizeQueue queue,
     ImageProcessingLimiter processingLimiter,
     ImageProcessingSettings processingSettings,
     MissingImageSizes missingImageSizes,
-    SiteRepository siteRepository,
+    ImageStorageSettings storageSettings,
     ILogger<ImageSizeQueueWorker> logger
 ) : BackgroundService
 {
+    // The app answers no request until every hosted service has started, so no page is shown sizes
+    // the queue doesn't yet know are missing, and no upload is queued twice
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        QueueMissingSizes();
+        return base.StartAsync(cancellationToken);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await QueueMissingSizesAsync();
-
         while (!stoppingToken.IsCancellationRequested)
         {
             ImageSizeJob job;
@@ -86,26 +88,14 @@ public sealed class ImageSizeQueueWorker(
         }
     }
 
-    private async Task QueueMissingSizesAsync()
+    private void QueueMissingSizes()
     {
-        List<SiteId> siteIds;
-
-        try
-        {
-            siteIds = await siteRepository.GetIdsAsync();
-        }
-        catch (Exception exception)
-        {
-            logger.LogError(exception, "Couldn't read the list of sites to find images missing sizes");
-            return;
-        }
-
-        foreach (var siteId in siteIds)
+        foreach (var siteId in ImageStorage.SiteIdsWithStorage(storageSettings))
         {
             // each site on its own, so one failing doesn't stop the rest
             try
             {
-                foreach (var job in await missingImageSizes.FindAsync(siteId))
+                foreach (var job in missingImageSizes.Find(siteId))
                 {
                     queue.Enqueue(job);
                 }

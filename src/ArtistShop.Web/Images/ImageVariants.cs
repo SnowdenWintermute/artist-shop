@@ -114,11 +114,8 @@ public static partial class ImageVariants
     // is wider than the size it's shown at, as EditorUploadedImageEmbed.razor.js works out for its checkbox
     public static int LargestWidthFor(int imageWidth) => WidthsFor(imageWidth)[^1];
 
-    // the largest variant that exists and isn't wider than wanted; the smallest variant when even
-    // that is wider than wanted
-    public static int LargestWidthUpTo(int imageWidth, int wantedWidth) => LargestWidthUpTo(WidthsFor(imageWidth), wantedWidth);
-
-    // the same, from the widths there are now, smallest first, such as ImageSizeQueue.ReadyWidths
+    // the largest of widths (smallest first, such as ImageSizeQueue.ReadyWidths) that isn't wider than
+    // wanted; the smallest when even that is wider than wanted
     public static int LargestWidthUpTo(IReadOnlyList<int> widths, int wantedWidth)
     {
         if (widths.Count is 0)

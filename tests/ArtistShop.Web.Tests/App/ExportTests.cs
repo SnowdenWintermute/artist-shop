@@ -306,6 +306,53 @@ public sealed class ExportTests(TestApp app)
         Assert.DoesNotContain("Gone", page);
     }
 
+    // a work image whose web copy size isn't made yet: the post gets the widest made so far, and the
+    // README and the Export page say so
+    [Fact]
+    public async Task APostImageStillProcessingGetsItsWidestReadySizeAndIsReported()
+    {
+        var (site, workSlug, storageKey) = await app.MakeSiteWithAWorkImageAsync(2000);
+        app.ImageSizeQueue.HoldBack(storageKey, 800, 1600);
+        var work = await Catalog(site.Id).Works.GetBySlugAsync(workSlug.Value) ?? throw new InvalidOperationException("The work is gone.");
+        var body = new RichText(
+            """{"ops":[{"insert":{"artshop-work":{"workId":WORK_ID,"storageKey":"WORK_KEY"}}},{"insert":"\n"}]}"""
+                .Replace("WORK_ID", $"{work.Id.Value}")
+                .Replace("WORK_KEY", storageKey)
+        );
+        await Posts(site.Id).AddAsync(new PostTitle("Fresh"), new PostSlug("fresh"), body, PostStatus.Published);
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var exportPage = await client.GetStringAsync(PageUrls.Export, TestContext.Current.CancellationToken);
+        var files = await ReadZipAsync(await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken), ReadBytesAsync);
+
+        Assert.Contains("data-test=\"smaller-copies-notice\"", exportPage);
+        var readyCopy = app.ImageStorageOf(site).OpenVariant(storageKey, ImageVariants.FileName(400, ImageVariantFormat.Webp))
+            ?? throw new InvalidOperationException("The 400 size wasn't made.");
+        await using (readyCopy.Content)
+        {
+            using var expected = new MemoryStream();
+            await readyCopy.Content.CopyToAsync(expected, TestContext.Current.CancellationToken);
+            Assert.Equal(expected.ToArray(), files["fresh/image-1.webp"]);
+        }
+        var readme = Encoding.UTF8.GetString(files[ExportZip.ReadmeFileName]);
+        Assert.Contains(PostExportArchive.SmallerCopiesHeading, readme);
+        Assert.Contains("fresh/", readme[readme.IndexOf(PostExportArchive.SmallerCopiesHeading, StringComparison.Ordinal)..]);
+    }
+
+    [Fact]
+    public async Task APostWithEveryImageSizeIsntReported()
+    {
+        var site = await app.MakeSiteAsync();
+        await Posts(site.Id).AddAsync(new PostTitle("Plain"), new PostSlug("plain"), RichText.Empty, PostStatus.Published);
+        var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
+
+        var exportPage = await client.GetStringAsync(PageUrls.Export, TestContext.Current.CancellationToken);
+        var files = await ReadZipAsync(await client.GetAsync(ExportEndpoints.PostsPath, TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain("data-test=\"smaller-copies-notice\"", exportPage);
+        Assert.DoesNotContain(PostExportArchive.SmallerCopiesHeading, files[ExportZip.ReadmeFileName]);
+    }
+
     // Downloaded from one website and imported into another that has the same work, as the Import
     // page's post import does, with the browser's uploads written straight to the new website's disk
     [Fact]

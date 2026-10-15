@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using ArtistShop.Web.Images;
+using Microsoft.Extensions.Logging.Abstractions;
 using NetVips;
 
 namespace ArtistShop.Web.Tests.Images;
@@ -55,7 +56,7 @@ public sealed class ImageUploadStoreTests : IDisposable
     [Fact]
     public async Task HandsTheLaterSizesToTheQueue()
     {
-        var queue = new BackgroundImageSizeQueue();
+        var queue = new BackgroundImageSizeQueue(NullLogger<BackgroundImageSizeQueue>.Instance);
         var store = new ImageUploadStore(
             _imageStorage,
             new ImageProcessor(_imageStorage),
@@ -71,6 +72,8 @@ public sealed class ImageUploadStoreTests : IDisposable
             [ImageVariants.FileName(160, ImageVariantFormat.Avif), ImageVariants.FileName(160, ImageVariantFormat.Webp)],
             _imageStorage.VariantFileNames(stored.StorageKey).Order()
         );
+        // marked before the upload answers, so a restart from here still makes the rest
+        Assert.Equal([stored.StorageKey], _imageStorage.ListKeysWithSizesPending());
         var smallSizes = await queue.TakeAsync(TestContext.Current.CancellationToken);
         var largerSizes = await queue.TakeAsync(TestContext.Current.CancellationToken);
         Assert.Equal(stored.StorageKey, smallSizes.StorageKey);

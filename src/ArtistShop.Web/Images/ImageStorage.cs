@@ -52,12 +52,14 @@ public class ImageStorage(string siteRootPath)
 
     private string Originals { get; } = Path.Combine(siteRootPath, "originals");
     private string Variants { get; } = Path.Combine(siteRootPath, "variants");
+    private string SizesPending { get; } = Path.Combine(siteRootPath, "sizes-pending");
 
     // safe to run again
     public void Create()
     {
         Directory.CreateDirectory(Originals);
         Directory.CreateDirectory(Variants);
+        Directory.CreateDirectory(SizesPending);
     }
 
     // every image the site has, when it's erased. Nothing happens if it's already gone
@@ -72,6 +74,8 @@ public class ImageStorage(string siteRootPath)
     private string OriginalPath(string storageKey) => Path.Combine(Originals, storageKey);
 
     private string VariantDirectory(string storageKey) => Path.Combine(Variants, storageKey);
+
+    private string SizesPendingPath(string storageKey) => Path.Combine(SizesPending, storageKey);
 
     public bool OriginalExists(string? storageKey) =>
         storageKey is not null && IsStorageKey(storageKey) && File.Exists(OriginalPath(storageKey));
@@ -158,6 +162,28 @@ public class ImageStorage(string siteRootPath)
             : [];
     }
 
+    // Survives a restart, so startup looks only at images whose sizes weren't all made rather than at
+    // every image. Safe to run again
+    public void MarkSizesPending(string storageKey)
+    {
+        Directory.CreateDirectory(SizesPending);
+        File.WriteAllBytes(SizesPendingPath(storageKey), []);
+    }
+
+    // nothing happens if it isn't marked
+    public void ClearSizesPending(string storageKey)
+    {
+        if (Directory.Exists(SizesPending))
+        {
+            File.Delete(SizesPendingPath(storageKey));
+        }
+    }
+
+    public IEnumerable<string> ListKeysWithSizesPending() =>
+        Directory.Exists(SizesPending)
+            ? Directory.EnumerateFiles(SizesPending).Select(Path.GetFileName).OfType<string>().Where(IsStorageKey)
+            : [];
+
     public void Delete(string storageKey)
     {
         // trying to delete a directory that doesn't exist
@@ -167,6 +193,8 @@ public class ImageStorage(string siteRootPath)
         {
             Directory.Delete(variantDirectory, recursive: true);
         }
+
+        ClearSizesPending(storageKey);
 
         // delete originals last because sweep looks for originals
         // to determine orphans

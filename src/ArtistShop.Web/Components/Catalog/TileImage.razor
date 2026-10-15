@@ -77,7 +77,7 @@
          sizes="@Sizes" alt="@Alt" loading="@(IsEager ? "eager" : "lazy")"
          class="@($"size-full {(IsUncropped ? "object-contain" : "object-cover")}")" />
 
-    @if (ImageSizeQueue.IsProcessing(image.StorageKey))
+    @if (ImageSizeQueue.IsProcessing(image.StorageKey, MaximumWidth))
     {
       <ProcessingLabel />
     }
