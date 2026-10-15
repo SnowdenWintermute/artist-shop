@@ -33,27 +33,33 @@ public class OrphanedImageSweeper(
     {
         var uploadedBefore = timeProvider.GetUtcNow() - settings.GracePeriod;
 
-        var candidateKeys = FindStorageKeysUploadedBefore(imageStorage, uploadedBefore);
+        var candidateKeys = imageStorage
+            .ListOriginals()
+            .Where(original => original.SavedAt < uploadedBefore)
+            .Select(original => original.StorageKey)
+            .ToList();
 
-        if (candidateKeys.Count is 0)
+        // with no grace period: an upload saves its original before any size, so sizes without one are
+        // always left over, such as the ones made for an image deleted while its sizes were being made
+        var orphanedKeys = imageStorage
+            .ListKeysWithVariants()
+            .Where(storageKey => !imageStorage.OriginalExists(storageKey))
+            .ToList();
+
+        if (candidateKeys.Count > 0)
         {
-            return;
+            // a work's images, the ones uploaded into posts and text components, and the logos' and favicon's originals
+            var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
+            referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
+            referencedKeys.UnionWith(await customComponentRepository.GetAllImageStorageKeysAsync());
+            referencedKeys.UnionWith(await brandImageRepository.GetAllStorageKeysAsync());
+
+            orphanedKeys.AddRange(candidateKeys.Where(storageKey => !referencedKeys.Contains(storageKey)));
         }
 
-        // a work's images, the ones uploaded into posts and text components, and the logos' and favicon's originals
-        var referencedKeys = await imageRepository.GetAllStorageKeysAsync();
-        referencedKeys.UnionWith(await postRepository.GetAllImageStorageKeysAsync());
-        referencedKeys.UnionWith(await customComponentRepository.GetAllImageStorageKeysAsync());
-        referencedKeys.UnionWith(await brandImageRepository.GetAllStorageKeysAsync());
-
         var deletedCount = 0;
-        foreach (var storageKey in candidateKeys)
+        foreach (var storageKey in orphanedKeys)
         {
-            if (referencedKeys.Contains(storageKey))
-            {
-                continue;
-            }
-
             try
             {
                 imageStorage.Delete(storageKey);
@@ -76,30 +82,5 @@ public class OrphanedImageSweeper(
             logger.LogInformation("Removed {DeletedCount} orphaned images", deletedCount);
 #pragma warning restore CA1873
         }
-    }
-
-    private static List<string> FindStorageKeysUploadedBefore(ImageStorage imageStorage, DateTimeOffset uploadedBefore)
-    {
-        var storageKeys = new List<string>();
-
-        foreach (var originalPath in Directory.EnumerateFiles(imageStorage.Originals))
-        {
-            var name = Path.GetFileName(originalPath);
-
-            // skip anything not named like an upload
-            if (!Guid.TryParseExact(name, "N", out _))
-            {
-                continue;
-            }
-
-            // the file system records the modified time as a DateTime in UTC,
-            // so compare against the UTC DateTime form of the cutoff
-            if (File.GetLastWriteTimeUtc(originalPath) < uploadedBefore.UtcDateTime)
-            {
-                storageKeys.Add(name);
-            }
-        }
-
-        return storageKeys;
     }
 }

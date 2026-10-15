@@ -67,15 +67,13 @@ public static class LookExportArchive
 
         foreach (var image in look.BrandImages)
         {
-            var path = brandImageStore.OriginalPath(image);
+            await using var original = brandImageStore.OpenOriginal(image);
 
             // left out, as a work image's missing original is
-            if (!File.Exists(path))
+            if (original is null)
             {
                 continue;
             }
-
-            await using var original = ExportZip.OpenFile(path);
 
             // an SVG has no format here, so its uploaded name's extension is used, as for a work image
             var format = await ExportImageFormat.ReadAsync(original, cancellationToken);

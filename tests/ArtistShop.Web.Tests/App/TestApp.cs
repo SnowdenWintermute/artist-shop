@@ -8,6 +8,8 @@ using ArtistShop.Web.Sites;
 using ArtistShop.Web.Tests.Database;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Email;
+using ArtistShop.Web.Images;
+using ArtistShop.Web.Tests.Images;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -40,6 +42,8 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
     public const string OperatorEmail = "operator@example.com";
     // meets Identity's default password rules
     public const string Password = "Test-password-1";
+
+    public ImmediateImageSizeQueue ImageSizeQueue { get; } = new();
 
     // every email the app sends, kept rather than sent
     public CapturingMailer Mailer { get; } = new();
@@ -85,6 +89,10 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
             services.AddSingleton<Mailer>(Mailer);
             services.AddSingleton<EmailQueue>(new ImmediateEmailQueue(Mailer));
             services.AddSingleton<EmailSendLimit>(EmailSendLimit);
+            services.AddSingleton<ImageSizeQueue>(ImageSizeQueue);
+            // nothing reaches the background queue, and its startup look for missing sizes would race
+            // tests that leave sizes out on purpose. ImageSizeQueueWorkerTests start one of their own
+            services.Remove(services.Single(service => service.ImplementationType == typeof(ImageSizeQueueWorker)));
             services.AddTransient<IStartupFilter, FakeGoogle>();
 
             // every request runs the security stamp check, which production runs on a cookie's first

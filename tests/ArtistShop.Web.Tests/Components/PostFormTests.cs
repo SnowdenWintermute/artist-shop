@@ -3,7 +3,7 @@ using ArtistShop.Web.Images;
 
 namespace ArtistShop.Web.Tests.Components;
 
-public sealed class PostFormTests : IDisposable
+public sealed class PostFormTests : IAsyncLifetime
 {
     private const string KeptKey = "0123456789abcdef0123456789abcdef";
     private const string SweptKey = "fedcba9876543210fedcba9876543210";
@@ -15,11 +15,17 @@ public sealed class PostFormTests : IDisposable
     {
         _storageRoot = Directory.CreateTempSubdirectory("artist-shop-tests-");
         _imageStorage = new ImageStorage(_storageRoot.FullName);
-        Directory.CreateDirectory(_imageStorage.Originals);
-        File.WriteAllText(_imageStorage.OriginalPath(KeptKey), "an upload");
+        _imageStorage.Create();
     }
 
-    public void Dispose() => _storageRoot.Delete(recursive: true);
+    public async ValueTask InitializeAsync() =>
+        await _imageStorage.SaveOriginalAsync(new MemoryStream("an upload"u8.ToArray()), KeptKey, TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync()
+    {
+        _storageRoot.Delete(recursive: true);
+        return ValueTask.CompletedTask;
+    }
 
     private static string ImageOp(string storageKey) =>
         """{"insert":{"artshop-image":{"storageKey":"KEY","width":800,"height":600,"alt":"KEY"}}}""".Replace("KEY", storageKey);

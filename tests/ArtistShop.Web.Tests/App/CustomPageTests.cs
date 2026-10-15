@@ -437,11 +437,15 @@ public sealed partial class CustomPageTests(TestApp app)
     }
 
     [Fact]
-    public void ANewComponentsNameSkipsTakenNumbers() =>
+    public void ANewComponentsNameSkipsTakenNumbers()
+    {
+        var name = CustomComponentNames.Of(CustomComponentStarter.Text, SiteWording.Default);
+
         Assert.Equal(
-            ["Text 2", "Text 4"],
-            CustomComponentNames.NewNames(CustomComponentStarter.Text, SiteWording.Default, new HashSet<string> { "Text 1", "Text 3" }).Take(2)
+            [$"{name} 2", $"{name} 4"],
+            CustomComponentNames.NewNames(CustomComponentStarter.Text, SiteWording.Default, new HashSet<string> { $"{name} 1", $"{name} 3" }).Take(2)
         );
+    }
 
     [Fact]
     public void AHeadingIsATextComponentStartingWithOneLargeHeading()

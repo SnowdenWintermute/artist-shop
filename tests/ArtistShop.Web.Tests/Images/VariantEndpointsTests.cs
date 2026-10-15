@@ -17,8 +17,7 @@ public sealed class VariantEndpointsTests : IDisposable
     {
         _storageSettings = new ImageStorageSettings(_storageRoot.FullName);
         _imageStorage = ImageStorage.ForSite(_storageSettings, new SiteId(1));
-        Directory.CreateDirectory(_imageStorage.VariantDirectory(StorageKey));
-        File.WriteAllText(Path.Combine(_imageStorage.VariantDirectory(StorageKey), "800.avif"), "a variant");
+        _imageStorage.SaveVariant(StorageKey, "800.avif", "a variant"u8);
     }
 
     public void Dispose() => _storageRoot.Delete(recursive: true);
@@ -30,8 +29,11 @@ public sealed class VariantEndpointsTests : IDisposable
 
         var result = VariantEndpoints.Serve(StorageKey, "800.avif", _imageStorage, response).Result;
 
-        var file = Assert.IsType<PhysicalFileHttpResult>(result);
-        Assert.Equal(Path.Combine(_imageStorage.VariantDirectory(StorageKey), "800.avif"), file.FileName);
+        var file = Assert.IsType<FileStreamHttpResult>(result);
+        using (var reader = new StreamReader(file.FileStream))
+        {
+            Assert.Equal("a variant", reader.ReadToEnd());
+        }
         Assert.Equal("image/avif", file.ContentType);
         Assert.Equal("public, max-age=604800, immutable", response.Headers.CacheControl);
     }

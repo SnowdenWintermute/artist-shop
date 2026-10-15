@@ -1,4 +1,5 @@
 import { createFileCollection } from "/js/collect-files.js";
+import { guardLeaving } from "/js/leave-guard.js";
 import { createUploadProgress } from "/js/upload-progress.js";
 import { uploadWithRetries } from "/js/upload-request.js";
 
@@ -7,6 +8,9 @@ const UPLOAD_URL = "/admin/uploads/work-image-by-name";
 
 // another image of a work, like "Dawn (2)", after the ones it has
 const APPEND_URL = "/admin/uploads/work-image-appended";
+
+// leaving part way leaves works without their images
+const LEAVE_QUESTION = "Images are still uploading. Leave anyway?";
 
 // a courtesy to the server, which has its own limits and doesn't trust this number. Each worker
 // takes a whole work, so a work's files still go in order
@@ -100,6 +104,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
   async function run(works, typeId) {
     isStopped = false;
     isRunning = true;
+    const stopGuarding = guardLeaving(LEAVE_QUESTION);
     workTypeId = typeId;
     queue = [...works];
     progress = createUploadProgress(
@@ -116,6 +121,7 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     } finally {
       // without this the island stays "uploading" for good when a worker throws
       isRunning = false;
+      stopGuarding();
       progress.done();
       notify("OnUploadFinished");
     }

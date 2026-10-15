@@ -27,12 +27,12 @@ public record WorkWalkStep(
     int TotalImageCount
 )
 {
-    public static WorkWalkStep For(Work work, WorkWalk walk)
+    public static WorkWalkStep For(Work work, WorkWalk walk, ImageSizeQueue imageSizeQueue)
     {
         var collectionSlug = walk.Collection?.Slug.Value;
 
         return new WorkWalkStep(
-            [.. work.Images.Select((image, index) => ImageFor(work, collectionSlug, image, index))],
+            [.. work.Images.Select((image, index) => ImageFor(work, collectionSlug, image, index, imageSizeQueue))],
             walk.Neighbours.Previous is { } previous
                 ? WorkWalkEndpoints.WalkUrl(previous.Slug.Value, previous.CollectionSlug.Value)
                 : null,
@@ -42,13 +42,20 @@ public record WorkWalkStep(
         );
     }
 
-    private static WorkWalkImage ImageFor(Work work, string? collectionSlug, WorkImage image, int index)
+    private static WorkWalkImage ImageFor(
+        Work work,
+        string? collectionSlug,
+        WorkImage image,
+        int index,
+        ImageSizeQueue imageSizeQueue
+    )
     {
-        var width = ImageVariants.LargestWidthUpTo(image.Width, ImageVariants.MainImageWidth);
+        var readyWidths = imageSizeQueue.ReadyWidths(image.StorageKey, image.Width);
+        var width = ImageVariants.LargestWidthUpTo(readyWidths, ImageVariants.MainImageWidth);
 
         return new WorkWalkImage(
-            ImageUrls.Variant(image.StorageKey, image.Width, ImageVariants.MainImageWidth, ImageVariantFormat.Avif),
-            ImageUrls.SourceSet(image.StorageKey, image.Width, ImageVariants.MainImageWidth, ImageVariantFormat.Avif),
+            ImageUrls.Variant(image.StorageKey, readyWidths, ImageVariants.MainImageWidth, ImageVariantFormat.Avif),
+            ImageUrls.SourceSet(image.StorageKey, readyWidths, ImageVariants.MainImageWidth, ImageVariantFormat.Avif),
             width,
             (int)Math.Round((double)width * image.Height / image.Width),
             work.Name.Value,

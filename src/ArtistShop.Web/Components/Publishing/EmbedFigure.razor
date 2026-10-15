@@ -1,7 +1,9 @@
 @using System.Globalization
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Images
+@inject ImageSizeQueue ImageSizeQueue
 
 @code {
   // the editor's toolbars hand this to the editor, so a caption looks the same while writing
@@ -48,8 +50,10 @@
   // written on the img so the page keeps the image's room while it loads, rather than jumping
   private int Height => (int)Math.Round((double)Width * ImageHeight / ImageWidth);
 
+  private int[] ReadyWidths => ImageSizeQueue.ReadyWidths(StorageKey, ImageWidth);
+
   // the size's own file, or the image's when it's narrower, for a browser that ignores srcset
-  private string Src => ImageUrls.Variant(StorageKey, ImageWidth, Width, ImageVariantFormat.Avif);
+  private string Src => ImageUrls.Variant(StorageKey, ReadyWidths, Width, ImageVariantFormat.Avif);
 
   // Every file the browser may pick from for the screen it's on: up to the first as wide as a 2x
   // screen needs, since there may be no variant at exactly that width. A lightbox needs them all,
@@ -57,7 +61,7 @@
   private string SourceSet =>
     ImageUrls.SourceSet(
       StorageKey,
-      ImageWidth,
+      ReadyWidths,
       OpensLightbox
         ? ImageVariants.MainImageWidth
         : ImageVariants.Widths.First(width => width >= Width * MaximumPixelRatio),
@@ -94,8 +98,14 @@
 
 @code {
   private RenderFragment Image =>
-    @<img src="@Src" srcset="@SourceSet" sizes="@($"{Width.ToString(CultureInfo.InvariantCulture)}px")"
-          alt="@Alt" width="@Width.ToString(CultureInfo.InvariantCulture)"
-          height="@Height.ToString(CultureInfo.InvariantCulture)" loading="lazy"
-          class="block h-auto w-full bg-cover bg-center" style="@BlurStyle" />;
+    @<span class="relative block">
+      <img src="@Src" srcset="@SourceSet" sizes="@($"{Width.ToString(CultureInfo.InvariantCulture)}px")"
+           alt="@Alt" width="@Width.ToString(CultureInfo.InvariantCulture)"
+           height="@Height.ToString(CultureInfo.InvariantCulture)" loading="lazy"
+           class="block h-auto w-full bg-cover bg-center" style="@BlurStyle" />
+      @if (ImageSizeQueue.IsProcessing(StorageKey))
+      {
+        <ProcessingLabel />
+      }
+    </span>;
 }

@@ -4,7 +4,7 @@ using ArtistShop.Web.Domain.Website;
 namespace ArtistShop.Web.Images;
 
 // The website's logos and favicon. Callers don't know where anything is kept: the served files are
-// in the site's database, and each original is in its image folder, read only by export
+// in the site's database, and each original is in the site's image storage, read only by export
 public class BrandImageStore(
     BrandImageRepository repository,
     ImageStorage imageStorage,
@@ -16,7 +16,8 @@ public class BrandImageStore(
 
     public Task<List<BrandImageOriginal>> GetAllOriginalsAsync() => repository.GetAllOriginalsAsync();
 
-    public string OriginalPath(BrandImageOriginal original) => imageStorage.OriginalPath(original.StorageKey);
+    // null when it's gone
+    public Stream? OpenOriginal(BrandImageOriginal original) => imageStorage.OpenOriginal(original.StorageKey);
 
     public Task<(BrandImageFormat Format, byte[] Bytes)?> GetFileAsync(string sha256) => repository.GetFileAsync(sha256);
 

@@ -77,6 +77,8 @@ export function registerWorkEmbed(toolbar) {
 
       const figure = createEmbedFigure({
         src: imageUrl(value),
+        // the small size, which an upload makes before it answers, while the medium one is made
+        fallbackSrc: value.size === "small" ? undefined : imageUrl({ ...value, size: "small" }),
         alt: "",
         width: widths.of(value.size),
         caption: value.caption,

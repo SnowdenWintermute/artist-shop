@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Images
+@inject ImageSizeQueue ImageSizeQueue
 
 @code {
   [Parameter, EditorRequired]
@@ -17,7 +18,7 @@
    the choice to the editor around the frame, which adds the embed or changes its image; nothing
    here is posted *@
 <work-embed-choice class="block" data-work-id="@WorkId.Value" data-storage-key="@Image.StorageKey">
-  <img src="@ImageUrls.EmbedVariant(Image.StorageKey, EmbedImageSize.Medium)" alt=""
+  <img src="@ImageUrls.Variant(Image.StorageKey, ImageSizeQueue.ReadyWidths(Image.StorageKey, Image.Width), ImageVariants.EmbedWidth(EmbedImageSize.Medium), ImageVariantFormat.Avif)" alt=""
        class="mb-4 max-h-64 max-w-full" />
 
   @if (Mode is WorkPickerMode.Add)

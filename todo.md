@@ -1,5 +1,129 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Image component and what it needs, agreed 2026-10-15 (From Claude)
+
+Five pieces, built in this order: A, then B → C → D, with E later. Custom pages' step 3 (Image) is C.
+
+**A. Background image processing (first; designed before it's built).** Testers notice slow uploads, and the large
+size on demand needs the same queue.
+- An upload saves the original, reads the header, and from one small decode makes the 160 size and the blur (the
+  blur is a data URI in the image's row, so it must exist before the row is written). Then it returns; 400 and up
+  become queued jobs. Admin lists (`AdminThumbnailWidth` 160) show real thumbnails at once.
+- Priority across images: 400 first, then 800 and 1600, then any large size on demand. A collection's thumbnails are
+  what someone looks at right after an upload.
+- A `srcset` lists only the sizes that are ready, so an image can show stretched from a smaller size for a while.
+  Every page, admin and public, says it's still processing and to refresh in a while, so it doesn't look blurry
+  for good (Mike: simpler, and visitors learn why it's soft). A small "Processing…" label over each such image's
+  corner, so a refreshed grid shows which are done and progress is visible.
+- Build steps, each leaving the app working: (1) `ImageStorage` key-based, callers moved, no behaviour change;
+  (2) processor split into first pass (160 + blur) and size jobs, saves via temporary name + rename, uploads still
+  wait; (3) queue: background service, in-memory pending list, one image at a time under the memory limiter,
+  startup pass, uploads return after the first pass, Busy (503) handling trimmed; (4) pages: ready-only `srcset`s
+  and the label on tiles, the artwork page, post embeds and the lightbox; (5) large size on demand as a job type,
+  used once C exists.
+- Step 1 built 2026-10-15, uncommitted: `ImageStorage` keeps its paths private. Public: `Create`, `DeleteAll`,
+  `SiteIdsWithStorage`, `OriginalExists`, `ListOriginals` (`StoredOriginal` key + saved time, used by the sweeper),
+  `OriginalSize`, `OpenOriginal`, `OriginalSha256Async`, `UseLocalOriginal` (`LocalOriginal` for libvips),
+  `SaveOriginalAsync`, `SaveVariant` (temporary name + rename), `OpenVariant` (`StoredVariant`; the variant endpoint
+  now returns a stream result), `VariantFileNames`, `Delete`. `ExportZip.OpenFile` and
+  `PostExportArchive.Sha256Async` removed; `measure.cs` fixed. 1205 of 1206 tests pass; the one failure is
+  `ANewComponentsNameSkipsTakenNumbers`, from the "Text / article" rename in 334aa31.
+- Step 2 built 2026-10-15, uncommitted, 1213 tests: `ImageProcessor.MakeFirstSize` (smallest size + blur from one
+  small decode, checks the minimum width) and `MakeSizes(widths)` (largest from the original, each smaller from the one
+  before); `ImageVariants.FirstWidth`/`LaterWidths`. `ImageUploadStore` still calls both inside one lease.
+- Step 3 built 2026-10-15, uncommitted, 1220 tests: `ImageSizeQueue` (abstract, like `EmailQueue`) with
+  `BackgroundImageSizeQueue` (in memory; widths up to 400 before any larger ones) and `ImageSizeQueueWorker` (one
+  job at a time under `ImageProcessingLimiter`; a busy limiter puts the job back after `RetryAfter`). Sizes made
+  for an image deleted meanwhile are left to the sweep (Mike: one way of deleting), which now also removes, with no
+  grace period, sizes whose original is gone (`ImageStorage.ListKeysWithVariants`). At startup it queues `MissingImageSizes.FindAsync(siteId)` for every listed
+  site: work, post and text component images (not brand images) with a missing AVIF or WebP
+  (`ImageProcessor.FindMissingSizes`). `ImageUploadStore` returns after the first size. Tests use
+  `ImmediateImageSizeQueue`, and `TestApp` leaves the worker out (its startup pass would race tests that leave sizes
+  out on purpose); `ImageSizeQueueWorkerTests` starts a real one in `RunAloneCollection` (adds ~3 s to the run).
+  Helpers `TestApp.MakeSiteWithAWorkImageAsync`, `ImageStorageOf`, `DeleteImageSize` (`TestApp.Images.cs`). 1222 tests. **Until step 4, a page asking for a
+  size not made yet gets a 404 for a few seconds: commit 3 and 4 together.** Step 4 must also cover the text
+  editor's uploaded-image embed (it asks for 400 straight after the upload) and the work edit page's 400 preview.
+- Step 4 built 2026-10-15, uncommitted, 1226 tests: `ImageSizeQueue.PendingWidths` / `IsProcessing` /
+  `ReadyWidths` (`BackgroundImageSizeQueue` tracks widths from `Enqueue` to `MarkDone`; a failed job stays pending
+  until a restart queues it again). `ImageUrls.Variant`/`SourceSet` take ready widths. `TileImage`, `EmbedFigure`,
+  `LinkPreview`, `WorkEmbedChoice` and the lightbox's `WorkWalkStep` use them; `ProcessingLabel` (atom,
+  `data-test="processing-label"`) sits top-left on tiles and post embeds. The editor's embeds
+  (`EmbedFigure.razor.js` `fallbackSrc`) switch to the first size, with the same label, when the file isn't made
+  yet. Tests: `ImmediateImageSizeQueue.HoldBack`, `ImageProcessingLabelTests`. Not covered: the lightbox shows ready
+  sizes but no label; the editor fallback is only checked in the browser; just after a restart, until the startup
+  pass has queued everything, pages may ask for a missing size.
+- After Mike's browser check 2026-10-15 (uncommitted, 1227 tests): `ImageSizeQueue.SizesFinished` (raised by
+  `MarkDone` once an image has every size); `TileImage` in an island subscribes and re-renders, so thumbnails on
+  Add from images, Upload images and the work edit page turn sharp without a refresh (static pages still need one).
+  `wwwroot/js/leave-guard.js` `guardLeaving(question)`: the browser's own question on close/reload and a confirm
+  before an in-page link, while `bulk-work-uploader.js` runs ("Images are still uploading. Leave anyway?"). The
+  Back isn't guarded (Mike, 2026-10-15: accepted). `NavigationLock` can't (enhanced navigation's popstate reloads
+  without asking it, checked in blazor.web.js), and the workaround (a pushed history entry plus a capture popstate
+  listener) was judged too hacky. Neither change is covered by tests (no bUnit).
+- `npm run typecheck` has errors older than this work: `format` redeclared in `LocalDate`/`LocalTime.razor.js`,
+  `storageKey` in `ThemedPreview.razor.js`/`scroll-restoration.js`, and `String` not callable in
+  `scroll-restoration.js`.
+- Found while testing step 2, both older than it:
+  - Fixed 2026-10-15 (uncommitted): iPhone JPEGs with an Ultra HDR gain map (e.g. iPhone 13 mini, iOS 26) open with
+    libvips' `uhdrload`, which wasn't in `ImageHeader.PermittedLoaders`, so they were refused. Added; test fixture
+    `Images/Fixtures/ultra-hdr.jpg` is a black image with a blank gain map and no camera metadata.
+  - Memory, measured on the desktop 2026-10-15 with `measure.cs` (current code): peak above baseline is nearly flat,
+    46 MB for a 1920 x 1080 PNG, 83-100 MB for 8-12 MP photos, 77-95 MB for 48 MP (PNG, and JPEG with a rotation tag).
+    `Image.Thumbnail` streams the decode (and shrinks on load for JPEG), so memory no longer grows with the image. The
+    estimate (decoded size x `MemoryEstimateMultiplier` 2) is too high for big images (274 MB estimated for 48 MP) and
+    too low by ~40 MB for small ones. Harmless with one slot on the VPS; revisit the model in step 3 (the queue runs
+    one image at a time anyway), after measuring on the VPS. The 2026-09-17 table predates 86a134f.
+- Restarts: the stored sizes are the record of what's done; nothing new in the database. At startup the queue
+  lists each site's originals and queues any expected size (`ImageVariants.WidthsFor(width)`) that's missing,
+  post images included. Each size is saved under a temporary name and then renamed, so a crash never leaves a half
+  file that counts as done. An in-memory list of pending images and their ready sizes answers pages; the startup
+  pass rebuilds it. The large size isn't expected, so it's queued when an Image component is saved, and again when
+  a page renders one and finds it missing.
+- Storage stays behind `ImageStorage`, which speaks in storage keys and sizes, never directories or paths:
+  images will move to an S3-style bucket one day. Callers that use paths today move to key-based methods first
+  (processor, sweeper, variant endpoint, exports, image hashes, brand images): list originals with upload times
+  (the startup pass and the sweeper share it), open an original, save a size, which sizes exist, serve a size.
+  libvips wants a local file, so the processor borrows a local copy of the original (the file itself on disk, a
+  download in a bucket). Still a class, not an interface, until a second implementation exists.
+- One mechanism for every image: "make the large size of this image" is one more job, used when a work image or a
+  library image goes into a full-bleed component. Nothing makes the large size up front (most images never need it,
+  and it would slow bulk work uploads).
+- One CPU on the VPS: the queue competes with page requests, so probably one image at a time, maybe at a lower
+  priority. The upload pages' Busy (503) handling mostly goes away.
+- Measured locally 2026-10-15 (20 cores, libvips concurrency 1, effort 1): decoding twice (160/400 pass, then
+  800/1600 pass) instead of once added 0.01-0.03 s to 0.4-0.9 s per image for phone JPEGs and small PNGs (~3-4%),
+  and 0.09 s to ~1 s for a 12-megapixel PNG (~10%, no shrink-on-load). Encoding is ~90% either way. Not yet
+  measured on the VPS. `tools/measure-image-memory/measure.cs` no longer compiles (calls `Process(key)` without
+  `minimumWidth`).
+
+**B. Image library.** Arbitrary uploads are piling up (post images now, Image components next), and the same image
+can't be reused without uploading it again.
+- `uploaded_images` table: storage key, width, height, alt text, upload time. The row is what keeps the file; the
+  sweeper removes files with no row. Rich text embeds and Image components point at library images.
+- Alt text is stored once, on the image.
+- An Images admin page and a picker shared by the text editor and the Image component.
+- An upload left in an unsaved post stays in the library (visible, deletable) instead of being swept.
+- Deleting an image that's in use: warn, list where it's used ("this will be blank"), and offer to remove those
+  embeds and components too.
+- Not in the library: brand images (one per role, own sizes, SVG) and work images (they belong to their work).
+- Existing post images get rows when this is built.
+
+**C. Image component.**
+- Source: a library image or a work's image.
+- Fit: cover or contain. No focal point for now.
+- Padding: presets.
+- Link: none, lightbox (any image), the artwork's page (work source only), or a page on the site.
+- Alt text: the work's title for a work image; the library image's alt text otherwise.
+
+**D. Row settings.**
+- Height: Natural, or Fill the screen (the screen height below the nav, at least; `svh` so the iPhone toolbar
+  doesn't make it jump). A minimum, so text on a phone isn't cut off; a cover image fills whatever the row is.
+- Width: Page width, or Edge to edge.
+- So a home page can open with one full-bleed image filling the first screen, and no scroll if there's no other row.
+
+**E. Slot background images (later).** A slot gets an image + fit as its background, and a Text component sits on
+top; uses D's height. Replaces the idea of text overlaid on an Image component.
+
 ## Custom pages built from custom components, agreed 2026-10-12 (From Claude)
 
 **Steps 1 and 2, their review fixes and the rich text rename are committed (c31d02a … cce8e62); the "uncommitted"

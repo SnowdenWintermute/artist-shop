@@ -18,14 +18,14 @@ public sealed class UnlistedSiteTests(TestApp app)
         var storageSettings = app.Services.GetRequiredService<ImageStorageSettings>();
         var unlisted = await app.Services.GetRequiredService<SiteRepository>().ReserveIdAsync();
         schemas.Migrate(unlisted);
-        ImageStorage.ForSite(storageSettings, unlisted).CreateFolders();
+        ImageStorage.ForSite(storageSettings, unlisted).Create();
 
         var found = await app.Services.GetRequiredService<SiteProvisioner>().FindUnlistedAsync();
 
         Assert.Contains(unlisted, found);
         Assert.DoesNotContain(app.FirstSiteId, found);
         Assert.Contains(unlisted, await schemas.GetSiteIdsAsync());
-        Assert.Contains(unlisted, ImageStorage.SiteIdsWithFolders(storageSettings));
+        Assert.Contains(unlisted, ImageStorage.SiteIdsWithStorage(storageSettings));
 
         await schemas.DropAsync(unlisted);
         ImageStorage.ForSite(storageSettings, unlisted).DeleteAll();

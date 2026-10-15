@@ -42,7 +42,7 @@ public class SiteProvisioner(
         return siteId;
     }
 
-    // The sites with a schema or image folders but no row, most likely left by a sign-up that
+    // The sites with a schema or image storage but no row, most likely left by a sign-up that
     // crashed after making them. Found for someone to look at and remove by hand, never removed
     // here: a sign-up in progress on another instance, such as during a deploy, has them before
     // its site is listed, and a GetIdsAsync that ever left sites out would take their content with it
@@ -53,7 +53,7 @@ public class SiteProvisioner(
         return
         [
             .. (await siteSchemas.GetSiteIdsAsync())
-                .Concat(ImageStorage.SiteIdsWithFolders(imageStorageSettings))
+                .Concat(ImageStorage.SiteIdsWithStorage(imageStorageSettings))
                 .Where(siteId => !listed.Contains(siteId))
                 .Distinct(),
         ];
@@ -64,6 +64,6 @@ public class SiteProvisioner(
     public void Prepare(SiteId siteId)
     {
         siteSchemas.Migrate(siteId);
-        ImageStorage.ForSite(imageStorageSettings, siteId).CreateFolders();
+        ImageStorage.ForSite(imageStorageSettings, siteId).Create();
     }
 }

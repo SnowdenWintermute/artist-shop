@@ -17,7 +17,7 @@ public static class VariantEndpoints
             )
             .WithMetadata(new ServedOnAttribute(HostTypes.Site));
 
-    public static Results<PhysicalFileHttpResult, NotFound> Serve(
+    public static Results<FileStreamHttpResult, NotFound> Serve(
         string storageKey,
         string fileName,
         ImageStorage imageStorage,
@@ -30,9 +30,7 @@ public static class VariantEndpoints
             return TypedResults.NotFound();
         }
 
-        var file = new FileInfo(Path.Combine(imageStorage.VariantDirectory(storageKey), fileName));
-
-        if (!file.Exists)
+        if (imageStorage.OpenVariant(storageKey, fileName) is not { } variant)
         {
             return TypedResults.NotFound();
         }
@@ -41,10 +39,10 @@ public static class VariantEndpoints
         response.Headers.CacheControl = ImageUrls.CacheControl;
 
         // the modified time answers a browser's If-Modified-Since with 304
-        return TypedResults.PhysicalFile(
-            file.FullName,
+        return TypedResults.Stream(
+            variant.Content,
             ImageVariants.ContentType(format),
-            lastModified: file.LastWriteTimeUtc
+            lastModified: variant.LastModified
         );
     }
 }

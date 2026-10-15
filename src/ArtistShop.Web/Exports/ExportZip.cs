@@ -16,9 +16,6 @@ public static class ExportZip
     public static Task<ZipArchive> CreateAsync(Stream destination, CancellationToken cancellationToken) =>
         ZipArchive.CreateAsync(destination, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, cancellationToken);
 
-    public static Stream OpenFile(string path) =>
-        new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 81_920, useAsync: true);
-
     public static async Task AddFileAsync(
         ZipArchive zip,
         string path,

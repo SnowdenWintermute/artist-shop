@@ -85,6 +85,7 @@ export function registerUploadedImageEmbed(toolbar) {
   const storageKeyPlaceholder = readToolbarSetting(toolbar, "storageKeyPlaceholder");
   const widthPlaceholder = readToolbarSetting(toolbar, "widthPlaceholder");
   const widths = readEmbedWidths(toolbar);
+  const smallestVariantWidth = Number(readToolbarSetting(toolbar, "variantWidths").split(",")[0]);
   const captionClass = readToolbarSetting(toolbar, "captionClass");
   const newLayout = readToolbarSetting(toolbar, "newLayout");
   // the page's own classes for each layout, so the editor places an embed as the page will
@@ -94,11 +95,19 @@ export function registerUploadedImageEmbed(toolbar) {
 
   // The file the page shows: the narrower of the size and the image itself, which
   // ImageVariants.WidthsFor makes sure exists. The page stretches a narrower one to the size
+  /**
+   * @param {string} storageKey
+   * @param {number} width
+   */
+  const urlOf = (storageKey, width) =>
+    variantUrl.replace(storageKeyPlaceholder, storageKey).replace(widthPlaceholder, String(width));
+
   /** @param {UploadedImageEmbedValue} value */
-  const imageUrl = (value) =>
-    variantUrl
-      .replace(storageKeyPlaceholder, value.storageKey)
-      .replace(widthPlaceholder, String(Math.min(widths.of(value.size), value.width)));
+  const imageUrl = (value) => urlOf(value.storageKey, Math.min(widths.of(value.size), value.width));
+
+  // ImageVariants.FirstWidth: the size an upload makes before it answers, while the rest are made
+  /** @param {UploadedImageEmbedValue} value */
+  const firstSizeUrl = (value) => urlOf(value.storageKey, Math.min(smallestVariantWidth, value.width));
 
   const BlockEmbed = Quill.import("blots/block/embed");
 
@@ -134,6 +143,7 @@ export function registerUploadedImageEmbed(toolbar) {
       node.append(
         createEmbedFigure({
           src: imageUrl(value),
+          fallbackSrc: firstSizeUrl(value),
           alt: value.alt,
           width: widths.of(value.size),
           caption: value.caption,

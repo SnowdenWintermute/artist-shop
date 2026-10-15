@@ -2,6 +2,7 @@ namespace ArtistShop.Web.Catalog;
 
 using ArtistShop.Web.Components.Pages.Catalog;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Images;
 using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,8 @@ public static class WorkWalkEndpoints
     private static async Task<Results<Ok<WorkWalkStep>, NotFound>> GetAsync(
         string slug,
         [FromQuery(Name = WorkPageQuery.CollectionKey)] string? collectionValue,
-        WorkRepository works
+        WorkRepository works,
+        ImageSizeQueue imageSizeQueue
     )
     {
         if (await works.GetBySlugAsync(slug) is not { } work)
@@ -31,6 +33,6 @@ public static class WorkWalkEndpoints
 
         var walk = await WorkWalk.LoadAsync(works, work, collectionValue);
 
-        return TypedResults.Ok(WorkWalkStep.For(work, walk));
+        return TypedResults.Ok(WorkWalkStep.For(work, walk, imageSizeQueue));
     }
 }

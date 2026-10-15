@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
@@ -69,33 +68,34 @@ public static class PostExportArchive
                     continue;
                 }
 
-                var webCopyPath = Path.Combine(
-                    imageStorage.VariantDirectory(source.StorageKey),
+                var webCopy = imageStorage.OpenVariant(
+                    source.StorageKey,
                     ImageVariants.FileName(ImageVariants.LargestWidthUpTo(source.Width, WebCopyWidth), ImageVariantFormat.Webp)
                 );
 
                 // a web copy or original gone since the post was saved leaves the embed out
-                if (!File.Exists(webCopyPath) || !imageStorage.OriginalExists(source.StorageKey))
+                if (webCopy is null || !imageStorage.OriginalExists(source.StorageKey))
                 {
+                    webCopy?.Content.Dispose();
                     continue;
                 }
 
                 var name = $"image-{filesByStorageKey.Count + 1}";
                 var fileName = name + ExportImageFormat.Webp.Extension;
 
-                await using (var webCopy = ExportZip.OpenFile(webCopyPath))
+                await using (webCopy.Content)
                 {
-                    await ExportZip.AddFileAsync(zip, $"{postFolder}/{fileName}", webCopy, ExportZip.CompressionFor(ExportImageFormat.Webp), cancellationToken);
+                    await ExportZip.AddFileAsync(zip, $"{postFolder}/{fileName}", webCopy.Content, ExportZip.CompressionFor(ExportImageFormat.Webp), cancellationToken);
                 }
 
                 var originalFileName = source.KeepsOriginal
-                    ? await AddOriginalAsync(zip, postFolder, name, imageStorage.OriginalPath(source.StorageKey), cancellationToken)
+                    ? await AddOriginalAsync(zip, postFolder, name, imageStorage, source.StorageKey, cancellationToken)
                     : null;
 
                 // a work's original is in the image download, not here, so post.json names it by its hash
                 if (!source.KeepsOriginal)
                 {
-                    sha256ByStorageKey[source.StorageKey] = await Sha256Async(imageStorage.OriginalPath(source.StorageKey), cancellationToken);
+                    sha256ByStorageKey[source.StorageKey] = await imageStorage.OriginalSha256Async(source.StorageKey, cancellationToken);
                 }
 
                 var image = new PostExportImage(fileName, originalFileName, source.Alt, source.Width, source.Height);
@@ -124,11 +124,13 @@ public static class PostExportArchive
         ZipArchive zip,
         string postFolder,
         string name,
-        string originalPath,
+        ImageStorage imageStorage,
+        string storageKey,
         CancellationToken cancellationToken
     )
     {
-        await using var original = ExportZip.OpenFile(originalPath);
+        // checked by the caller just before
+        await using var original = imageStorage.OpenOriginal(storageKey) ?? throw new FileNotFoundException("The original is gone.", storageKey);
         var format = await ExportImageFormat.ReadAsync(original, cancellationToken);
         var fileName = $"{name}-original{format?.Extension ?? ""}";
 
@@ -166,14 +168,6 @@ public static class PostExportArchive
           again. Then choose this whole folder, unzipped, under Import > Posts. A post whose title is
           already there is skipped, so running it again only adds what's missing.
         """;
-
-    // lower case hex, as Convert.ToHexStringLower writes it
-    public static async Task<string> Sha256Async(string path, CancellationToken cancellationToken)
-    {
-        await using var file = ExportZip.OpenFile(path);
-
-        return Convert.ToHexStringLower(await SHA256.HashDataAsync(file, cancellationToken));
-    }
 
     // KeepsOriginal is true for an image uploaded into the post
     private record ImageSource(string StorageKey, int Width, int Height, string Alt, bool KeepsOriginal);

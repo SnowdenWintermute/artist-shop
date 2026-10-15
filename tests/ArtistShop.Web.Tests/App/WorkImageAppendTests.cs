@@ -47,7 +47,7 @@ public sealed class WorkImageAppendTests(TestApp app)
         await response.Content.ReadFromJsonAsync<WorkImage>(TestContext.Current.CancellationToken);
 
     private int OriginalCount(TestSite site) =>
-        Directory.GetFiles(ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), site.Id).Originals).Length;
+        ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), site.Id).ListOriginals().Count();
 
     // an upload that got in but whose answer was lost comes again, and it's there once
     [Fact]

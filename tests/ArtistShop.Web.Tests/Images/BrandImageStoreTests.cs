@@ -18,7 +18,7 @@ public sealed class BrandImageStoreTests : IDisposable
     public BrandImageStoreTests(TestDatabaseFixture database)
     {
         _imageStorage = new ImageStorage(_storageRoot.FullName);
-        _imageStorage.CreateFolders();
+        _imageStorage.Create();
         _repository = new BrandImageRepository(database.Site);
         _store = new BrandImageStore(
             _repository,
@@ -41,7 +41,7 @@ public sealed class BrandImageStoreTests : IDisposable
         );
     }
 
-    private List<string> OriginalsOnDisk() => [.. Directory.EnumerateFiles(_imageStorage.Originals).Select(Path.GetFileName).OfType<string>()];
+    private List<string> StoredOriginals() => [.. _imageStorage.ListOriginals().Select(original => original.StorageKey)];
 
     [Fact]
     public async Task AReplacedImagesFilesAreServedAndItsOriginalKept()
@@ -54,19 +54,19 @@ public sealed class BrandImageStoreTests : IDisposable
         Assert.NotNull(icon);
         var served = await _store.GetFileAsync(icon.Sha256);
         Assert.Equal(BrandImageFormat.Png, served?.Format);
-        Assert.Contains(Assert.Single(OriginalsOnDisk()), await _repository.GetAllStorageKeysAsync());
+        Assert.Contains(Assert.Single(StoredOriginals()), await _repository.GetAllStorageKeysAsync());
     }
 
     [Fact]
     public async Task ReplacingDeletesTheOriginalItReplaced()
     {
         await ReplaceAsync(BrandImageType.Logo, 200, 100);
-        var first = Assert.Single(OriginalsOnDisk());
+        var first = Assert.Single(StoredOriginals());
 
         await ReplaceAsync(BrandImageType.Logo, 300, 100);
 
-        Assert.DoesNotContain(first, OriginalsOnDisk());
-        Assert.Single(OriginalsOnDisk());
+        Assert.DoesNotContain(first, StoredOriginals());
+        Assert.Single(StoredOriginals());
         Assert.Equal("300x100.png", (await _store.GetAllAsync())[BrandImageType.Logo].OriginalFileName);
     }
 
@@ -74,11 +74,11 @@ public sealed class BrandImageStoreTests : IDisposable
     public async Task ARefusedImageLeavesTheCurrentOneInPlace()
     {
         await ReplaceAsync(BrandImageType.LogoOnDark, 200, 100);
-        var kept = Assert.Single(OriginalsOnDisk());
+        var kept = Assert.Single(StoredOriginals());
 
         await Assert.ThrowsAsync<UnusableImageException>(() => ReplaceAsync(BrandImageType.LogoOnDark, 200, 10));
 
-        Assert.Equal([kept], OriginalsOnDisk());
+        Assert.Equal([kept], StoredOriginals());
         Assert.Equal("200x100.png", (await _store.GetAllAsync())[BrandImageType.LogoOnDark].OriginalFileName);
     }
 
@@ -93,6 +93,6 @@ public sealed class BrandImageStoreTests : IDisposable
 
         Assert.False((await _store.GetAllAsync()).ContainsKey(BrandImageType.LogoOnDark));
         Assert.Null(await _store.GetFileAsync(sha256));
-        Assert.Empty(OriginalsOnDisk());
+        Assert.Empty(StoredOriginals());
     }
 }

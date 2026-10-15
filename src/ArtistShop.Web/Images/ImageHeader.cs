@@ -8,7 +8,7 @@ public record ImageHeader(int Width, int Height, long DecodedBytes, bool IsSvg)
 {
     // libvips can also read PDFs and other formats whatever the browser called the file, so only the
     // loaders for the types ImageUploadValidation and BrandImageUploadValidation allow get through
-    private static readonly string[] PermittedLoaders = ["jpegload", "pngload", "webpload", "heifload", "tiffload", "svgload"];
+    private static readonly string[] PermittedLoaders = ["jpegload", "uhdrload", "pngload", "webpload", "heifload", "tiffload", "svgload"];
 
     // image must be opened but not yet decoded, as NewFromFile and NewFromBuffer leave it.
     // The decoder allocates what the header states, so a lying header can't make the decode bigger

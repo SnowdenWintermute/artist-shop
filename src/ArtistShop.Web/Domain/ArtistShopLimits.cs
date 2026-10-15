@@ -34,7 +34,7 @@ public static class ArtistShopLimits
     // wording's word columns
     public const int WordingWordMaximumLength = 40;
 
-    public const int WorkListPageSize = 25;
+    public const int WorkListPageSize = 50;
 
     public const int BlogPageSize = 10;
 

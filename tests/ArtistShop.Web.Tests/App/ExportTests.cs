@@ -1097,15 +1097,13 @@ public sealed class ExportTests(TestApp app)
         );
     }
 
-    // an original on the site's disk, as an upload leaves it
+    // an original in the site's storage, as an upload leaves it
     private async Task<WorkImage> SaveOriginalAsync(SiteId siteId, byte[] bytes)
     {
         var storageKey = Guid.NewGuid().ToString("N");
-        await File.WriteAllBytesAsync(
-            ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId).OriginalPath(storageKey),
-            bytes,
-            TestContext.Current.CancellationToken
-        );
+        await ImageStorage
+            .ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId)
+            .SaveOriginalAsync(new MemoryStream(bytes), storageKey, TestContext.Current.CancellationToken);
 
         return new WorkImage(storageKey, OriginalFileName: null, Width: 10, Height: 10, BlurDataUri: null);
     }
@@ -1130,10 +1128,10 @@ public sealed class ExportTests(TestApp app)
     // the web copy an upload of an image 10 pixels wide gets, at its own width
     private async Task<byte[]> SaveWebCopyAsync(SiteId siteId, string storageKey)
     {
-        var directory = ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId).VariantDirectory(storageKey);
-        Directory.CreateDirectory(directory);
         byte[] bytes = [(byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'W', (byte)'E', (byte)'B', (byte)'P', 1];
-        await File.WriteAllBytesAsync(Path.Combine(directory, ImageVariants.FileName(10, ImageVariantFormat.Webp)), bytes, TestContext.Current.CancellationToken);
+        ImageStorage
+            .ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId)
+            .SaveVariant(storageKey, ImageVariants.FileName(10, ImageVariantFormat.Webp), bytes);
 
         return bytes;
     }

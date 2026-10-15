@@ -46,12 +46,12 @@ public static class ImageExportArchive
 
         foreach (var entry in entries)
         {
-            if (!imageStorage.OriginalExists(entry.Image.StorageKey))
+            await using var original = imageStorage.OpenOriginal(entry.Image.StorageKey);
+
+            if (original is null)
             {
                 continue;
             }
-
-            await using var original = ExportZip.OpenFile(imageStorage.OriginalPath(entry.Image.StorageKey));
 
             // uploads are checked by libvips, not by these first bytes, so an original can be in a
             // format this doesn't recognise; its uploaded name's extension is the best guess then
@@ -67,12 +67,12 @@ public static class ImageExportArchive
         await ExportZip.AddCsvAsync(zip, $"{folderName}/{ImageListFileName}", imageList.ToString(), cancellationToken);
     }
 
-    // what the Export page lists for a download: the originals still on disk and their total size
+    // what the Export page lists for a download: the originals still stored and their total size
     public static (int Count, long Bytes) Measure(IEnumerable<ImageExportEntry> entries, ImageStorage imageStorage)
     {
         var sizes = entries
-            .Where(entry => imageStorage.OriginalExists(entry.Image.StorageKey))
-            .Select(entry => new FileInfo(imageStorage.OriginalPath(entry.Image.StorageKey)).Length)
+            .Select(entry => imageStorage.OriginalSize(entry.Image.StorageKey))
+            .OfType<long>()
             .ToList();
 
         return (sizes.Count, sizes.Sum());

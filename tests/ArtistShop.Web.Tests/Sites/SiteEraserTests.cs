@@ -50,14 +50,14 @@ public sealed class SiteEraserTests : IDisposable
         await _eraser.EraseDueAsync();
 
         Assert.True(await SchemaExistsAsync(siteId));
-        Assert.True(Directory.Exists(ImageStorage.ForSite(_storageSettings, siteId).Originals));
+        Assert.Contains(siteId, ImageStorage.SiteIdsWithStorage(_storageSettings));
         Assert.Contains(siteId, await _sites.GetIdsAsync());
 
         _time.Advance(TimeSpan.FromMinutes(1));
         await _eraser.EraseDueAsync();
 
         Assert.False(await SchemaExistsAsync(siteId));
-        Assert.False(Directory.Exists(ImageStorage.ForSite(_storageSettings, siteId).Originals));
+        Assert.DoesNotContain(siteId, ImageStorage.SiteIdsWithStorage(_storageSettings));
         Assert.DoesNotContain(siteId, await _sites.GetIdsAsync());
     }
 
@@ -86,7 +86,7 @@ public sealed class SiteEraserTests : IDisposable
         await _eraser.EraseDueAsync();
 
         Assert.DoesNotContain(siteId, await _sites.GetIdsAsync());
-        Assert.False(Directory.Exists(ImageStorage.ForSite(_storageSettings, siteId).Originals));
+        Assert.DoesNotContain(siteId, ImageStorage.SiteIdsWithStorage(_storageSettings));
     }
 
     // the operator's deletion, which has no grace period
@@ -99,7 +99,7 @@ public sealed class SiteEraserTests : IDisposable
         Assert.True(await _eraser.EraseAsync(siteId));
 
         Assert.False(await SchemaExistsAsync(siteId));
-        Assert.False(Directory.Exists(ImageStorage.ForSite(_storageSettings, siteId).Originals));
+        Assert.DoesNotContain(siteId, ImageStorage.SiteIdsWithStorage(_storageSettings));
         Assert.DoesNotContain(siteId, await _sites.GetIdsAsync());
     }
 

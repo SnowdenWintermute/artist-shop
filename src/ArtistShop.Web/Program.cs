@@ -154,6 +154,12 @@ builder.Services.AddScoped<BrandImageStore>();
 builder.Services.AddScoped<PageBrandImages>();
 builder.Services.AddImageUploadRateLimiter();
 
+// the sizes uploads don't wait for, made in the background for every site
+builder.Services.AddSingleton<BackgroundImageSizeQueue>();
+builder.Services.AddSingleton<ImageSizeQueue>(services => services.GetRequiredService<BackgroundImageSizeQueue>());
+builder.Services.AddSingleton<MissingImageSizes>();
+builder.Services.AddHostedService<ImageSizeQueueWorker>();
+
 // reads from appsettings.json, environment variables or any other configuration source
 var orphanedImageSweepSettings = ValidatedSettings.Read<OrphanedImageSweepSettings>(
     builder.Configuration,

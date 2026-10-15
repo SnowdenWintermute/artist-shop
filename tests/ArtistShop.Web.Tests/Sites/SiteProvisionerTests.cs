@@ -46,7 +46,7 @@ public sealed class SiteProvisionerTests : IDisposable
 
         var siteId = Assert.IsType<SiteId>(made);
         Assert.DoesNotContain(siteId, await new SiteSchemas(_database.PlatformConnectionString).GetSiteIdsAsync());
-        Assert.DoesNotContain(siteId, ImageStorage.SiteIdsWithFolders(_storageSettings));
+        Assert.DoesNotContain(siteId, ImageStorage.SiteIdsWithStorage(_storageSettings));
     }
 
     [Fact]

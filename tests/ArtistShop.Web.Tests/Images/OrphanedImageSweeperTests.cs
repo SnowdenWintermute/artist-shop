@@ -35,7 +35,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         _storageSettings = new ImageStorageSettings(_storageRoot.FullName);
         _imageStorage = ImageStorage.ForSite(_storageSettings, new SiteId(1));
         _uploadStore = UploadStoreFor(_imageStorage);
-        _imageStorage.CreateFolders();
+        _imageStorage.Create();
 
         var startTime = DateTimeOffset.UtcNow;
         _time = new FakeTimeProvider(startTime);
@@ -59,7 +59,19 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await SweepAsync();
 
         Assert.False(_imageStorage.OriginalExists(storageKey));
-        Assert.False(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
+        Assert.Empty(_imageStorage.VariantFileNames(storageKey));
+    }
+
+    // as the size queue leaves an image deleted while its sizes were being made
+    [Fact]
+    public async Task RemovesSizesWhoseOriginalIsGoneAtOnce()
+    {
+        var storageKey = ImageStorage.NewStorageKey();
+        _imageStorage.SaveVariant(storageKey, ImageVariants.FileName(800, ImageVariantFormat.Webp), "a size"u8);
+
+        await SweepAsync();
+
+        Assert.DoesNotContain(storageKey, _imageStorage.ListKeysWithVariants());
     }
 
     [Fact]
@@ -71,7 +83,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await SweepAsync();
 
         Assert.True(_imageStorage.OriginalExists(storageKey));
-        Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
+        Assert.NotEmpty(_imageStorage.VariantFileNames(storageKey));
     }
 
     [Fact]
@@ -84,7 +96,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await SweepAsync();
 
         Assert.True(_imageStorage.OriginalExists(storageKey));
-        Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
+        Assert.NotEmpty(_imageStorage.VariantFileNames(storageKey));
     }
 
     [Fact]
@@ -105,7 +117,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
         await SweepAsync();
 
         Assert.True(_imageStorage.OriginalExists(storageKey));
-        Assert.True(Directory.Exists(_imageStorage.VariantDirectory(storageKey)));
+        Assert.NotEmpty(_imageStorage.VariantFileNames(storageKey));
     }
 
     [Fact]
@@ -161,7 +173,7 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     [Fact]
     public async Task LeavesFilesNotNamedLikeUploadsAlone()
     {
-        var strayFilePath = Path.Combine(_imageStorage.Originals, "notes.txt");
+        var strayFilePath = Path.Combine(_storageRoot.FullName, "sites", "1", "originals", "notes.txt");
         File.WriteAllText(strayFilePath, "not an upload");
 
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
@@ -176,14 +188,14 @@ public sealed class OrphanedImageSweeperTests : IDisposable
     public async Task LeavesAnotherSitesFilesAlone()
     {
         var otherSiteStorage = ImageStorage.ForSite(_storageSettings, new SiteId(2));
-        otherSiteStorage.CreateFolders();
+        otherSiteStorage.Create();
         var otherSiteKey = await UploadImageAsync(UploadStoreFor(otherSiteStorage));
 
         _time.Advance(GracePeriod + TimeSpan.FromMinutes(1));
         await SweepAsync();
 
         Assert.True(otherSiteStorage.OriginalExists(otherSiteKey));
-        Assert.True(Directory.Exists(otherSiteStorage.VariantDirectory(otherSiteKey)));
+        Assert.NotEmpty(otherSiteStorage.VariantFileNames(otherSiteKey));
     }
 
     private Task SweepAsync() =>
@@ -200,7 +212,8 @@ public sealed class OrphanedImageSweeperTests : IDisposable
             imageStorage,
             new ImageProcessor(imageStorage),
             TestImageProcessing.CreateAmpleLimiter(),
-            TestImageProcessing.Settings
+            TestImageProcessing.Settings,
+            new ImmediateImageSizeQueue()
         );
 
     private Task<string> UploadImageAsync() => UploadImageAsync(_uploadStore);

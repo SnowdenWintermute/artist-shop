@@ -9,12 +9,13 @@ public record StoredImage(string StorageKey, string Sha256, ProcessedImage Proce
         new(StorageKey, originalFileName, Processed.Width, Processed.Height, Processed.BlurDataUri);
 }
 
-// Saves an uploaded image and generates its variants
+// Saves an uploaded image and makes its first size, and hands the rest to the queue
 public class ImageUploadStore(
     ImageStorage imageStorage,
     ImageProcessor imageProcessor,
     ImageProcessingLimiter processingLimiter,
-    ImageProcessingSettings processingSettings
+    ImageProcessingSettings processingSettings,
+    ImageSizeQueue imageSizeQueue
 )
 {
     public async Task<StoredImage> SaveAsync(Stream content, int minimumWidth, CancellationToken cancellationToken)
@@ -24,13 +25,23 @@ public class ImageUploadStore(
 
         try
         {
-            using var lease = await ImageProcessingAdmission.AcquireAsync(
-                imageProcessor.ReadHeader(storageKey),
-                processingLimiter,
-                processingSettings,
-                cancellationToken
-            );
-            return new StoredImage(storageKey, sha256, imageProcessor.Process(storageKey, minimumWidth));
+            ProcessedImage processed;
+
+            using (
+                await ImageProcessingAdmission.AcquireAsync(
+                    imageProcessor.ReadHeader(storageKey),
+                    processingLimiter,
+                    processingSettings,
+                    cancellationToken
+                )
+            )
+            {
+                processed = imageProcessor.MakeFirstSize(storageKey, minimumWidth);
+            }
+
+            imageSizeQueue.Enqueue(new ImageSizeJob(imageStorage, storageKey, ImageVariants.LaterWidths(processed.Width)));
+
+            return new StoredImage(storageKey, sha256, processed);
         }
         catch
         {

@@ -30,6 +30,19 @@ public sealed class ImageVariantsTests
         Assert.Equal(expected, ImageVariants.WidthsFor(imageWidth));
     }
 
+    // between them, the first and later widths are every width the image has, each once
+    [Theory]
+    [InlineData(120)]
+    [InlineData(300)]
+    [InlineData(1000)]
+    [InlineData(4000)]
+    public void TheFirstWidthIsTheSmallestAndTheRestComeLater(int imageWidth)
+    {
+        int[] together = [ImageVariants.FirstWidth(imageWidth), .. ImageVariants.LaterWidths(imageWidth)];
+        Assert.Equal(ImageVariants.WidthsFor(imageWidth), together);
+        Assert.Equal(ImageVariants.WidthsFor(imageWidth).Min(), ImageVariants.FirstWidth(imageWidth));
+    }
+
     // the rule EditorUploadedImageEmbed.razor.js decides whether the lightbox checkbox is on by
     [Theory]
     [InlineData(1)]
@@ -73,7 +86,17 @@ public sealed class ImageVariantsTests
     {
         Assert.Equal(
             "/media/0123abcd/400.webp",
-            ImageUrls.Variant("0123abcd", imageWidth: 600, wantedWidth: 800, ImageVariantFormat.Webp)
+            ImageUrls.Variant("0123abcd", readyWidths: ImageVariants.WidthsFor(600), wantedWidth: 800, ImageVariantFormat.Webp)
+        );
+    }
+
+    // an image still being made offers only what's there, so nothing points at a file not made yet
+    [Fact]
+    public void ASourceSetHasOnlyTheReadySizes()
+    {
+        Assert.Equal(
+            "/media/0123abcd/160.avif 160w, /media/0123abcd/400.avif 400w",
+            ImageUrls.SourceSet("0123abcd", readyWidths: [160, 400], maximumWidth: 1600, ImageVariantFormat.Avif)
         );
     }
 

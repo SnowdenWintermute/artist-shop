@@ -104,24 +104,29 @@ public static partial class ImageVariants
             ? [.. Widths.Where(width => width < imageWidth), imageWidth]
             : [.. Widths.Where(width => width <= imageWidth)];
 
+    // the size an upload makes before it returns: the smallest, which admin lists show
+    public static int FirstWidth(int imageWidth) => WidthsFor(imageWidth)[0];
+
+    // the sizes made after the upload returns
+    public static int[] LaterWidths(int imageWidth) => WidthsFor(imageWidth)[1..];
+
     // the widest file there is of the image. A post image's embed only opens the lightbox when this
     // is wider than the size it's shown at, as EditorUploadedImageEmbed.razor.js works out for its checkbox
     public static int LargestWidthFor(int imageWidth) => WidthsFor(imageWidth)[^1];
 
     // the largest variant that exists and isn't wider than wanted; the smallest variant when even
     // that is wider than wanted
-    public static int LargestWidthUpTo(int imageWidth, int wantedWidth)
-    {
-        var existingWidths = WidthsFor(imageWidth);
+    public static int LargestWidthUpTo(int imageWidth, int wantedWidth) => LargestWidthUpTo(WidthsFor(imageWidth), wantedWidth);
 
-        if (existingWidths.Length is 0)
+    // the same, from the widths there are now, smallest first, such as ImageSizeQueue.ReadyWidths
+    public static int LargestWidthUpTo(IReadOnlyList<int> widths, int wantedWidth)
+    {
+        if (widths.Count is 0)
         {
-            // ImageProcessor turns away images narrower than the smallest variant
-            throw new InvalidOperationException(
-                $"An image {imageWidth} pixels wide has no variants."
-            );
+            // an upload makes the smallest variant before it answers
+            throw new InvalidOperationException("An image has no variants.");
         }
 
-        return existingWidths.LastOrDefault(width => width <= wantedWidth, existingWidths[0]);
+        return widths.LastOrDefault(width => width <= wantedWidth, widths[0]);
     }
 }

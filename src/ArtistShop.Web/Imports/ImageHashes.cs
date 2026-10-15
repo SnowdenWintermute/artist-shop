@@ -1,12 +1,11 @@
 using ArtistShop.Web.Database.Repositories;
-using ArtistShop.Web.Exports;
 using ArtistShop.Web.Images;
 
 namespace ArtistShop.Web.Imports;
 
 public static class ImageHashes
 {
-    // The SHA-256 of each original still on disk, by storage key: the one stored with the image, or
+    // The SHA-256 of each original still stored, by storage key: the one stored with the image, or
     // else read from the file, for an image saved without one
     public static async Task<Dictionary<string, string>> LoadAsync(
         IEnumerable<string> storageKeys,
@@ -22,7 +21,7 @@ public static class ImageHashes
         {
             sha256ByStorageKey[storageKey] = stored.TryGetValue(storageKey, out var sha256)
                 ? sha256
-                : await PostExportArchive.Sha256Async(imageStorage.OriginalPath(storageKey), CancellationToken.None);
+                : await imageStorage.OriginalSha256Async(storageKey, CancellationToken.None);
         }
 
         return sha256ByStorageKey;

@@ -34,21 +34,22 @@ var root = Directory.CreateTempSubdirectory("measure-image-memory-");
 try
 {
     var storage = new ImageStorage(root.FullName);
-    Directory.CreateDirectory(storage.Originals);
-    Directory.CreateDirectory(storage.Variants);
+    storage.Create();
     var processor = new ImageProcessor(storage);
 
     // warm-up: loads libvips and compiles the code path, so the measurement is only the image itself
-    var warmUpKey = NewStorageKey();
+    var warmUpKey = ImageStorage.NewStorageKey();
     using (var warmUp = NetVips.Image.Black(800, 600, bands: 3))
     {
-        warmUp.WriteToFile(storage.OriginalPath(warmUpKey) + ".jpg");
+        await storage.SaveOriginalAsync(new MemoryStream(warmUp.WriteToBuffer(".jpg")), warmUpKey, CancellationToken.None);
     }
-    File.Move(storage.OriginalPath(warmUpKey) + ".jpg", storage.OriginalPath(warmUpKey));
-    processor.Process(warmUpKey);
+    MakeAllSizes(processor, warmUpKey);
 
-    var key = NewStorageKey();
-    File.Copy(args[0], storage.OriginalPath(key));
+    var key = ImageStorage.NewStorageKey();
+    await using (var photo = File.OpenRead(args[0]))
+    {
+        await storage.SaveOriginalAsync(photo, key, CancellationToken.None);
+    }
     var header = processor.ReadHeader(key);
 
     GC.Collect();
@@ -60,7 +61,7 @@ try
     File.WriteAllText("/proc/self/clear_refs", "5");
 
     var stopwatch = Stopwatch.StartNew();
-    processor.Process(key);
+    MakeAllSizes(processor, key);
     stopwatch.Stop();
 
     var peakMegabytes = (ReadStatusKilobytes("VmHWM") - baselineKilobytes) / 1024.0;
@@ -78,7 +79,11 @@ finally
     root.Delete(recursive: true);
 }
 
-static string NewStorageKey() => Guid.CreateVersion7().ToString("n");
+static void MakeAllSizes(ImageProcessor processor, string storageKey)
+{
+    var processed = processor.MakeFirstSize(storageKey, ImageVariants.MinimumPostImageWidth);
+    processor.MakeSizes(storageKey, ImageVariants.LaterWidths(processed.Width));
+}
 
 static long ReadStatusKilobytes(string field)
 {

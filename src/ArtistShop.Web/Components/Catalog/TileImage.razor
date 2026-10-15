@@ -1,5 +1,8 @@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Images
+@inject ImageSizeQueue ImageSizeQueue
+@implements IDisposable
 
 @code {
   // a work with no photograph never reaches a visitor, but the artist's own pages
@@ -37,6 +40,26 @@
   private string BlurStyle =>
     Image?.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
 
+  // In an island, the picture is swapped for the sharp one once its sizes are made; a static page's
+  // waits for a refresh
+  protected override void OnInitialized()
+  {
+    if (RendererInfo.IsInteractive)
+    {
+      ImageSizeQueue.SizesFinished += SizesFinished;
+    }
+  }
+
+  private void SizesFinished(string storageKey)
+  {
+    if (Image?.StorageKey == storageKey)
+    {
+      _ = InvokeAsync(StateHasChanged);
+    }
+  }
+
+  public void Dispose() => ImageSizeQueue.SizesFinished -= SizesFinished;
+
   // an uncropped box takes the picture's own shape, so the box is the picture and nothing else:
   // the blur sits behind the work rather than beside it, and a click lands only on the work
   private string AspectStyle =>
@@ -44,13 +67,20 @@
 }
 
 @* a span made block rather than a div, so it can sit inside a button or a link *@
-<span class="@($"{BoxClass} block overflow-hidden bg-placeholder bg-cover bg-center")" style="@BlurStyle @AspectStyle">
+<span class="@($"{BoxClass} relative block overflow-hidden bg-placeholder bg-cover bg-center")" style="@BlurStyle @AspectStyle">
   @if (Image is { } image)
   {
-    <img src="@ImageUrls.Variant(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
-         srcset="@ImageUrls.SourceSet(image.StorageKey, image.Width, MaximumWidth, ImageVariantFormat.Avif)"
+    var readyWidths = ImageSizeQueue.ReadyWidths(image.StorageKey, image.Width);
+
+    <img src="@ImageUrls.Variant(image.StorageKey, readyWidths, MaximumWidth, ImageVariantFormat.Avif)"
+         srcset="@ImageUrls.SourceSet(image.StorageKey, readyWidths, MaximumWidth, ImageVariantFormat.Avif)"
          sizes="@Sizes" alt="@Alt" loading="@(IsEager ? "eager" : "lazy")"
          class="@($"size-full {(IsUncropped ? "object-contain" : "object-cover")}")" />
+
+    @if (ImageSizeQueue.IsProcessing(image.StorageKey))
+    {
+      <ProcessingLabel />
+    }
   }
   else
   {

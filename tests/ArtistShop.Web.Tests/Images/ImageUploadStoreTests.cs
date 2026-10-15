@@ -16,14 +16,13 @@ public sealed class ImageUploadStoreTests : IDisposable
     {
         _storageRoot = Directory.CreateTempSubdirectory("artist-shop-tests-");
         _imageStorage = new ImageStorage(_storageRoot.FullName);
-        Directory.CreateDirectory(_imageStorage.Originals);
-        Directory.CreateDirectory(_imageStorage.Variants);
+        _imageStorage.Create();
     }
 
     public void Dispose() => _storageRoot.Delete(recursive: true);
 
     private ImageUploadStore CreateStore(ImageProcessingLimiter limiter, ImageProcessingSettings settings) =>
-        new(_imageStorage, new ImageProcessor(_imageStorage), limiter, settings);
+        new(_imageStorage, new ImageProcessor(_imageStorage), limiter, settings, new ImmediateImageSizeQueue());
 
     private static MemoryStream CreateJpeg(int width, int height)
     {
@@ -33,8 +32,9 @@ public sealed class ImageUploadStoreTests : IDisposable
 
     private void AssertNothingStored()
     {
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_imageStorage.Originals));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_imageStorage.Variants));
+        Assert.Empty(_imageStorage.ListOriginals());
+        // no variant either, nor a folder for one
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(_storageRoot.FullName, "variants")));
     }
 
     [Fact]
@@ -46,9 +46,35 @@ public sealed class ImageUploadStoreTests : IDisposable
         var stored = await store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
 
         Assert.True(_imageStorage.OriginalExists(stored.StorageKey));
-        Assert.True(File.Exists(Path.Combine(_imageStorage.VariantDirectory(stored.StorageKey), "800.webp")));
+        Assert.Contains("800.webp", _imageStorage.VariantFileNames(stored.StorageKey));
         Assert.Equal(800, stored.Processed.Width);
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(content.ToArray())), stored.Sha256);
+    }
+
+    // the upload waits only for the smallest size; the rest go to the queue
+    [Fact]
+    public async Task HandsTheLaterSizesToTheQueue()
+    {
+        var queue = new BackgroundImageSizeQueue();
+        var store = new ImageUploadStore(
+            _imageStorage,
+            new ImageProcessor(_imageStorage),
+            TestImageProcessing.CreateAmpleLimiter(),
+            TestImageProcessing.Settings,
+            queue
+        );
+        using var content = CreateJpeg(2000, 1500);
+
+        var stored = await store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [ImageVariants.FileName(160, ImageVariantFormat.Avif), ImageVariants.FileName(160, ImageVariantFormat.Webp)],
+            _imageStorage.VariantFileNames(stored.StorageKey).Order()
+        );
+        var smallSizes = await queue.TakeAsync(TestContext.Current.CancellationToken);
+        var largerSizes = await queue.TakeAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(stored.StorageKey, smallSizes.StorageKey);
+        Assert.Equal([400, 800, 1600], [.. smallSizes.Widths, .. largerSizes.Widths]);
     }
 
     [Fact]
@@ -73,7 +99,7 @@ public sealed class ImageUploadStoreTests : IDisposable
 
         Assert.Equal(
             ["160.avif", "160.webp", "300.avif", "300.webp"],
-            Directory.EnumerateFiles(_imageStorage.VariantDirectory(stored.StorageKey)).Select(Path.GetFileName).Order()
+            _imageStorage.VariantFileNames(stored.StorageKey).Order()
         );
     }
 
@@ -137,6 +163,20 @@ public sealed class ImageUploadStoreTests : IDisposable
         );
         Assert.Equal(ImageProcessor.UnsupportedHeicMessage, exception.Message);
         AssertNothingStored();
+    }
+
+    // the JPEG recent iPhones take, with an HDR gain map that libvips opens with its own loader. Made
+    // from a black image, with a blank gain map
+    [Fact]
+    public async Task StoresAnUltraHdrJpeg()
+    {
+        var store = CreateStore(TestImageProcessing.CreateAmpleLimiter(), TestImageProcessing.Settings);
+        await using var content = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Images", "Fixtures", "ultra-hdr.jpg"));
+
+        var stored = await store.SaveAsync(content, ImageVariants.MinimumSourceWidth, TestContext.Current.CancellationToken);
+
+        Assert.Equal((800, 1067), (stored.Processed.Width, stored.Processed.Height));
+        Assert.Contains("800.webp", _imageStorage.VariantFileNames(stored.StorageKey));
     }
 
     // only logos and icons may be SVG, whatever the browser called the file
