@@ -49,6 +49,6 @@ public sealed class LibraryImageFieldsTests
     [Fact]
     public void FindsEachImageOnce()
     {
-        Assert.Equal([KeptKey, DeletedKey], LibraryImageFields.StorageKeysIn(Body(KeptKey, DeletedKey, KeptKey)));
+        Assert.Equal([KeptKey, DeletedKey], RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(Body(KeptKey, DeletedKey, KeptKey))]));
     }
 }

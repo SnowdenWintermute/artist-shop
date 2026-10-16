@@ -4,8 +4,6 @@ import { startPostImport } from "/js/post-import-run.js";
 import { uploadWithRetries } from "/js/upload-request.js";
 import { importBrandImages } from "/js/brand-image-import.js";
 
-const APPEND_IMAGE_URL = "/admin/uploads/work-image-appended";
-
 // a courtesy to the server, which has its own limits and doesn't trust this number. Each worker
 // takes a whole work, so a work's images still go in order
 const CONCURRENT_WORKS = 3;
@@ -16,8 +14,10 @@ const CONCURRENT_WORKS = 3;
  * @param {HTMLElement} zone an element wrapping the drop zone
  * @param {{ invokeMethodAsync: (method: string, ...args: unknown[]) => Promise<unknown> }} dotNetReference
  * @param {number} maximumFiles
+ * @param {string} appendImageUrl where each work's image goes, ImageUploadEndpoints.AppendWorkImagePath
+ * @param {string} libraryImageUrl where each post's image goes, ImageUploadEndpoints.LibraryImageUploadPath
  */
-export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
+export function createWebsiteImporter(zone, dotNetReference, maximumFiles, appendImageUrl, libraryImageUrl) {
   /** @type {Set<() => void>} */
   const aborts = new Set();
   let isStopped = false;
@@ -48,7 +48,7 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
       const outcome = file
         ? await uploadWithRetries({
             id: fileId,
-            url: APPEND_IMAGE_URL,
+            url: appendImageUrl,
             file,
             fields: { workId: String(work.workId) },
             progress,
@@ -123,6 +123,7 @@ export function createWebsiteImporter(zone, dotNetReference, maximumFiles) {
   function runPosts(batches) {
     isRunning = true;
     posts = startPostImport(batches, {
+      uploadUrl: libraryImageUrl,
       fileOf: files.fileOf,
       dotNetReference,
       onProgress: reportProgress,

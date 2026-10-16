@@ -1,7 +1,7 @@
 namespace ArtistShop.Web.Images;
 
 using ArtistShop.Web.Database.Repositories;
-using ArtistShop.Web.Domain;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Sites;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -29,13 +29,11 @@ public static class UploadedImageEndpoints
         UploadedImageRepository uploadedImageRepository
     )
     {
-        var trimmed = altText.Trim();
-
-        if (trimmed.Length > ArtistShopLimits.UploadedImageAltTextMaximumLength)
+        if (AltText.Read(altText) is not { } read)
         {
             return TypedResults.BadRequest();
         }
 
-        return await uploadedImageRepository.SetAltTextAsync(storageKey, trimmed) ? TypedResults.NoContent() : TypedResults.NotFound();
+        return await uploadedImageRepository.SetAltTextAsync(storageKey, read) ? TypedResults.NoContent() : TypedResults.NotFound();
     }
 }

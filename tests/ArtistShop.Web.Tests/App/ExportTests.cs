@@ -418,7 +418,7 @@ public sealed class ExportTests(TestApp app)
         Assert.Equal(1, item.RelinkedWorkCount);
         Assert.Equal(["/collections/gardens"], item.BrokenLinks);
         var planned = Assert.Single(item.ImagesByPlaceholder.Values);
-        Assert.Equal(new PlannedPostImage("spring-notes/image-2-original.tiff", "A study"), planned);
+        Assert.Equal(new PlannedPostImage("spring-notes/image-2-original.tiff", Unwrap.Value(AltText.Read("A study"))), planned);
         // as the upload endpoint adds it, its alt text the file name
         var uploaded = await SaveOriginalAsync(to.Id, files[planned.FileId]);
         await AddToLibraryAsync(to.Id, uploaded, "image-2-original");
@@ -1170,7 +1170,7 @@ public sealed class ExportTests(TestApp app)
     // a library row for an original saved by SaveOriginalAsync, as an editor upload adds one
     private async Task AddToLibraryAsync(SiteId siteId, WorkImage upload, string altText) =>
         await Library(siteId).AddAsync(
-            new UploadedImageAddition(upload.StorageKey, "upload.jpg", new string('0', 64), upload.Width, upload.Height, "data:image/webp;base64,AAAA", altText)
+            new UploadedImageAddition(upload.StorageKey, "upload.jpg", new string('0', 64), upload.Width, upload.Height, "data:image/webp;base64,AAAA", Unwrap.Value(AltText.Read(altText)))
         );
 
     private WordingRepository Wording(SiteId siteId) =>

@@ -21,5 +21,6 @@ BEGIN
     END IF;
 
     PERFORM set_post_works(p_id);
+    PERFORM set_post_uploaded_images(p_id);
 END;
 $$;

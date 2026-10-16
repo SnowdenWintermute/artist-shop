@@ -97,7 +97,7 @@
     // null when the page closed before the importer started, so nothing will be dropped on it
     _importer = await InteropObject<WebsiteImportUpload>.CreateAsync(
       JS, "./Components/Pages/Admin/Import/Website/WebsiteImportUpload.razor.js", "createWebsiteImporter", this,
-      self => [_zone, self, MaximumFiles]);
+      self => [_zone, self, MaximumFiles, ImageUploadEndpoints.AppendWorkImagePath, ImageUploadEndpoints.LibraryImageUploadPath]);
   }
 
   [JSInvokable]

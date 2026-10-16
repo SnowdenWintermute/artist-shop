@@ -18,7 +18,7 @@ public static class RichTextChecks
         string noun
     )
     {
-        var storageKeys = LibraryImageFields.StorageKeysIn(body);
+        var storageKeys = RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(body)]);
         var found = await uploadedImageRepository.GetByStorageKeysAsync(storageKeys);
 
         return

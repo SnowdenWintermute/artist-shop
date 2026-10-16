@@ -8,5 +8,5 @@ public record UploadedImageAddition(
     int Width,
     int Height,
     string BlurDataUri,
-    string AltText
+    AltText AltText
 );

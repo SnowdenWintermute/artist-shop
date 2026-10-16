@@ -1,5 +1,6 @@
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
+using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Images;
 
@@ -9,7 +10,8 @@ public record StoredImage(string StorageKey, string Sha256, ProcessedImage Proce
     public WorkImage ToWorkImage(string originalFileName) =>
         new(StorageKey, originalFileName, Processed.Width, Processed.Height, Processed.BlurDataUri);
 
-    // its alt text starts as the file name without its extension, which the artist rewrites
+    // its alt text starts as the file name without its extension, which the artist rewrites. Upload
+    // validation keeps file names shorter than alt text can be
     public UploadedImageAddition ToUploadedImage(string originalFileName) =>
         new(
             StorageKey,
@@ -18,7 +20,7 @@ public record StoredImage(string StorageKey, string Sha256, ProcessedImage Proce
             Processed.Width,
             Processed.Height,
             Processed.BlurDataUri,
-            Path.GetFileNameWithoutExtension(originalFileName)
+            Unwrap.Value(AltText.Read(Path.GetFileNameWithoutExtension(originalFileName)))
         );
 }
 

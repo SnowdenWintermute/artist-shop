@@ -17,5 +17,6 @@ BEGIN
     END IF;
 
     PERFORM set_custom_component_works(p_id);
+    PERFORM set_custom_component_uploaded_images(p_id);
 END;
 $$;

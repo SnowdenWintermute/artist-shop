@@ -97,7 +97,7 @@ public enum PostImportOutcome
 }
 
 // One of a planned post's image files, and the alt text its library image gets
-public record PlannedPostImage(string FileId, string AltText);
+public record PlannedPostImage(string FileId, AltText AltText);
 
 // Document is the post as it will be saved, but for its uploaded images, whose storage keys are
 // placeholders until their files are uploaded: ImagesByPlaceholder says which file each one is.
@@ -357,12 +357,15 @@ public static class PostImportPlanner
                 placeholder = (placeholdersByFileName.Count + 1).ToString("x32", CultureInfo.InvariantCulture);
                 placeholdersByFileName[fileName] = placeholder;
 
-                if (altText.Length > ArtistShopLimits.UploadedImageAltTextMaximumLength)
+                // a problem refuses the whole post, so the image needn't be planned
+                if (AltText.Read(altText) is { } read)
+                {
+                    imagesByPlaceholder[placeholder] = new PlannedPostImage(fileId, read);
+                }
+                else
                 {
                     problems.Add($"The alt text of {fileName} is longer than {ArtistShopLimits.UploadedImageAltTextMaximumLength} characters.");
                 }
-
-                imagesByPlaceholder[placeholder] = new PlannedPostImage(fileId, altText);
             }
 
             return placeholder;

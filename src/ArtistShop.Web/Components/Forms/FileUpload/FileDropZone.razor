@@ -47,6 +47,14 @@
     }
   }
 
+  // a failed file sent again, its error and progress cleared first
+  public async Task RetryAsync(SelectedFile file)
+  {
+    file.Error = null;
+    file.UploadPercentComplete = 0;
+    await UploadAsync(file.Id);
+  }
+
   public async Task ForgetAsync(string id)
   {
     if (_uploader is not null)

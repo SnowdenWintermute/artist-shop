@@ -42,10 +42,6 @@ public static class LibraryImageFields
             }
         );
 
-    // the storage keys of the library images the text shows, as a page loads them
-    public static IReadOnlyList<string> StorageKeysIn(RichText body) =>
-        [.. RichTextParser.Parse(body).Blocks.OfType<UploadedImageEmbedBlock>().Select(image => image.StorageKey).Distinct()];
-
     // change is given each image embed's value and storage key, and returns false to leave the embed out
     private static RichText Rewrite(RichText body, Func<JsonObject, string?, bool> change)
     {

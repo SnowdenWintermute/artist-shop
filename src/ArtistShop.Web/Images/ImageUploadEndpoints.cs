@@ -176,7 +176,7 @@ public static class ImageUploadEndpoints
                 throw;
             }
 
-            return TypedResults.Ok(new LibraryImageUploadResult(image.StorageKey, image.Width, image.Height, image.BlurDataUri, image.AltText));
+            return TypedResults.Ok(new LibraryImageUploadResult(image.StorageKey, image.Width, image.Height, image.BlurDataUri, image.AltText.Value));
         }
         catch (VipsException exception)
         {

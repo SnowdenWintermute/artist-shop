@@ -7,6 +7,8 @@
     "checkJs": true,
     "strict": true,
     "noEmit": true,
+    // every script is loaded as a module, though some import nothing, so none share a global scope
+    "moduleDetection": "force",
     // the address a script imports /js/ modules by, as the browser serves wwwroot
     "paths": { "/js/*": ["./wwwroot/js/*"] }
   },

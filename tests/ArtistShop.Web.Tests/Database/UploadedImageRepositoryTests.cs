@@ -2,6 +2,7 @@ using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Tests.Database;
 
@@ -17,7 +18,7 @@ public sealed class UploadedImageRepositoryTests(TestDatabaseFixture database)
     {
         var storageKey = ImageStorage.NewStorageKey();
         await _library.AddAsync(
-            new UploadedImageAddition(storageKey, originalFileName, new string('0', 64), 800, 600, "data:image/webp;base64,AAAA", altText)
+            new UploadedImageAddition(storageKey, originalFileName, new string('0', 64), 800, 600, "data:image/webp;base64,AAAA", Unwrap.Value(AltText.Read(altText)))
         );
         return storageKey;
     }
@@ -77,6 +78,25 @@ public sealed class UploadedImageRepositoryTests(TestDatabaseFixture database)
         var item = Assert.Single((await _library.GetPageAsync(word, pageNumber: 1)).Items);
 
         Assert.Equal(2, item.UsedInCount);
+    }
+
+    [Fact]
+    public async Task APostSavedWithoutTheImageStopsCounting()
+    {
+        var word = NewWord();
+        var storageKey = await AddAsync("pier.jpg", word);
+        var (postId, _) = await ShowInAPostAndAComponentAsync(word, storageKey);
+
+        await new PostRepository(database.Site).UpdateAsync(
+            postId,
+            new PostTitle(word),
+            PostSlug.FromTitle(word),
+            new RichText("""{"ops":[{"insert":"\n"}]}"""),
+            PostStatus.Draft
+        );
+
+        var item = Assert.Single((await _library.GetPageAsync(word, pageNumber: 1)).Items);
+        Assert.Equal(1, item.UsedInCount);
     }
 
     [Fact]

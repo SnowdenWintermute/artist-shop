@@ -78,7 +78,7 @@
     // on a post the binder has already filled this in, so only a fresh page seeds it
     Input ??= _post is null
       ? PostForm.ForNew()
-      : PostForm.FromPost(_post, await UploadedImageRepository.GetByStorageKeysAsync(LibraryImageFields.StorageKeysIn(_post.Body)));
+      : PostForm.FromPost(_post, await UploadedImageRepository.GetByStorageKeysAsync(RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(_post.Body)])));
   }
 
   private async Task SaveAsync()

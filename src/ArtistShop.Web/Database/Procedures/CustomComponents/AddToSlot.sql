@@ -13,6 +13,7 @@ BEGIN
 
     PERFORM place_custom_component(p_slot_id, v_component_id);
     PERFORM set_custom_component_works(v_component_id);
+    PERFORM set_custom_component_uploaded_images(v_component_id);
 
     RETURN v_component_id;
 END;

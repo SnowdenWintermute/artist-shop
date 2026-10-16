@@ -60,9 +60,8 @@ size on demand needs the same queue.
   Back isn't guarded (Mike, 2026-10-15: accepted). `NavigationLock` can't (enhanced navigation's popstate reloads
   without asking it, checked in blazor.web.js), and the workaround (a pushed history entry plus a capture popstate
   listener) was judged too hacky. Neither change is covered by tests (no bUnit).
-- `npm run typecheck` has errors older than this work: `format` redeclared in `LocalDate`/`LocalTime.razor.js`,
-  `storageKey` in `ThemedPreview.razor.js`/`scroll-restoration.js`, and `String` not callable in
-  `scroll-restoration.js`.
+- `npm run typecheck` is clean since 2026-10-16: scripts that import nothing were read as sharing one global
+  scope, fixed with `"moduleDetection": "force"` in `jsconfig.json`.
 - Found while testing step 2, both older than it:
   - Fixed 2026-10-15 (uncommitted): iPhone JPEGs with an Ultra HDR gain map (e.g. iPhone 13 mini, iOS 26) open with
     libvips' `uhdrload`, which wasn't in `ImageHeader.PermittedLoaders`, so they were refused. Added; test fixture
@@ -212,6 +211,20 @@ Agreed with Mike 2026-10-15:
   - Images table: "Select images to delete them:", confirm "Delete 2 images?", "Also removed from:" list when in
     use, "This action is permanent." After deleting, the rows go and the page refreshes for the count.
 - Delete warning wording: built as above (step 5); Mike to revise once the whole thing is in.
+- Reviewed 2026-10-16 (03537e3 + 7b11b69); fixes uncommitted, 1241 tests, not browser-checked (From Claude):
+  Images hint wording ("and"), `PageUrls` picker comments back in place, `LocalDate` in `ImageTable` was missing
+  its `@using` (the Uploaded column didn't render). `UploadedImage.Name` / `TileImage` shared by the Images table and the picker
+  (`ImageTableRow` now holds the `UploadedImage`); `RichTextImages.UploadedImageKeysOf` replaces
+  `LibraryImageFields.StorageKeysIn`; the post and whole-website imports get their upload URLs from C#; `AltText`
+  value type (`Read`/`ProblemWith`, trimmed) for every alt text write; `ImageUploader`'s file inherits `SelectedFile`.
+  Junction tables built the same day (Mike's go-ahead): `post_and_uploaded_images_junction` and
+  `custom_component_and_uploaded_images_junction` in 0011, rebuilt by `set_post_uploaded_images` /
+  `set_custom_component_uploaded_images` beside the works' rebuilds; Used in, the uses list and delete read them.
+  site_1's dev schema patched by hand the same day (tables + rows from the bodies; none embed library images).
+  Drop zone uploads now go through `uploadWithRetries`, so a busy server is retried as the import runs are
+  (each file has its own aborts, so `forget` stops its retries too); `FileDropZone.RetryAsync(SelectedFile)`
+  is used by `ImageListEditor` and the Images page's uploader, which also got Retry and a Dismiss that forgets
+  the file. Not browser-checked (no JS tests).
 
 **C. Image component.**
 - Source: a library image or a work's image.

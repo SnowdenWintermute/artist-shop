@@ -12,7 +12,16 @@ public class UploadedImageRepository(SiteDatabase database)
 
         return await connection.QuerySingleAsync<int>(
             "SELECT add_uploaded_image(@StorageKey, @OriginalFileName, @Sha256, @Width, @Height, @BlurDataUri, @AltText)",
-            image
+            new
+            {
+                image.StorageKey,
+                image.OriginalFileName,
+                image.Sha256,
+                image.Width,
+                image.Height,
+                image.BlurDataUri,
+                AltText = image.AltText.Value,
+            }
         );
     }
 
@@ -80,13 +89,13 @@ public class UploadedImageRepository(SiteDatabase database)
     }
 
     // false when no image has this key
-    public async Task<bool> SetAltTextAsync(string storageKey, string altText)
+    public async Task<bool> SetAltTextAsync(string storageKey, AltText altText)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         return await connection.QuerySingleAsync<bool>(
             "SELECT set_uploaded_image_alt_text(@StorageKey, @AltText)",
-            new { StorageKey = storageKey, AltText = altText }
+            new { StorageKey = storageKey, AltText = altText.Value }
         );
     }
 

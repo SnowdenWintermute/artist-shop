@@ -5,7 +5,6 @@
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Components.Pages.Admin.Publishing.Images
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
@@ -36,10 +35,6 @@
 
     _images = images;
   }
-
-  // what TileImage draws, a work's image or not
-  private static WorkImage TileOf(UploadedImage image) =>
-    new(image.StorageKey, image.OriginalFileName, image.Width, image.Height, image.BlurDataUri);
 }
 
 @* The image picker's library step, shown in its frame. <library-image-choice>, defined in
@@ -67,9 +62,9 @@
                     data-storage-key="@image.StorageKey" data-width="@image.Width.ToString(CultureInfo.InvariantCulture)"
                     data-height="@image.Height.ToString(CultureInfo.InvariantCulture)" data-blur="@image.BlurDataUri"
                     data-alt="@image.AltText">
-              <span class="mb-1 block"><TileImage Image="TileOf(image)" /></span>
+              <span class="mb-1 block"><TileImage Image="image.TileImage" /></span>
               @* the alt text, or the file name for an image without one, names the button *@
-              <span class="block truncate text-sm">@(image.AltText is "" ? image.OriginalFileName : image.AltText)</span>
+              <span class="block truncate text-sm">@image.Name</span>
             </button>
           }
         </TileGrid>

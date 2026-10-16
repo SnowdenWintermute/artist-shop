@@ -79,7 +79,7 @@ public class PostImportPlannerTests
         Assert.Equal("Early", image.Caption);
         Assert.Equal(EmbedLayout.FloatLeft, image.Layout);
         // the work's title is its alt text
-        Assert.Equal(new PlannedPostImage("id-image-1.webp", "Dawn"), item.ImagesByPlaceholder[image.StorageKey]);
+        Assert.Equal(new PlannedPostImage("id-image-1.webp", Unwrap.Value(AltText.Read("Dawn"))), item.ImagesByPlaceholder[image.StorageKey]);
     }
 
     // a key in the file could name another image on this website, so only the file counts
@@ -107,7 +107,7 @@ public class PostImportPlannerTests
         Assert.Equal(embeds[0].StorageKey, embeds[1].StorageKey);
         Assert.True(embeds[0].OpensLightbox);
         // one library image, with the first one's alt text
-        Assert.Equal([new PlannedPostImage("id-image-1-original.jpg", "Pencil")], item.ImagesByPlaceholder.Values);
+        Assert.Equal([new PlannedPostImage("id-image-1-original.jpg", Unwrap.Value(AltText.Read("Pencil")))], item.ImagesByPlaceholder.Values);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 @rendermode InteractiveServer
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTable
 @using ArtistShop.Web.Components.Tables
@@ -29,12 +30,17 @@
   // null when it saved
   private async Task<string?> SaveErrorOfAsync(ImageTableRow row)
   {
-    // trimmed as it will be saved, so the field shows what's saved
-    row.AltText = row.AltText.Trim();
+    if (AltText.Read(row.AltText) is not { } altText)
+    {
+      return AltText.ProblemWith(row.AltText);
+    }
+
+    // trimmed as it's saved, so the field shows what's saved
+    row.AltText = altText.Value;
 
     try
     {
-      return await UploadedImageRepository.SetAltTextAsync(row.StorageKey, row.AltText)
+      return await UploadedImageRepository.SetAltTextAsync(row.Image.StorageKey, altText)
         ? null
         : "This image was deleted. Reload the page.";
     }
@@ -44,7 +50,7 @@
     }
   }
 
-  private static List<string> StorageKeysOf(IReadOnlyList<ImageTableRow> rows) => [.. rows.Select(row => row.StorageKey)];
+  private static List<string> StorageKeysOf(IReadOnlyList<ImageTableRow> rows) => [.. rows.Select(row => row.Image.StorageKey)];
 
   private async Task ReadUsesAsync(IReadOnlyList<ImageTableRow> rows) =>
     _uses = await UploadedImageRepository.GetUsesAsync(StorageKeysOf(rows));
@@ -70,7 +76,7 @@
 
 <p class="mb-2 text-sm text-ink-faded">Each change saves when you leave its field.</p>
 
-<EditableTable TRow="ImageTableRow" Rows="Rows" Headings="Headings" RowName="@(row => row.AltText is "" ? row.OriginalFileName : row.AltText)"
+<EditableTable TRow="ImageTableRow" Rows="Rows" Headings="Headings" RowName="@(row => row.Image.Name)"
                SelectionPrompt="Select images to delete them:" DeleteTitle="@(rows => $"Delete {CountText.Of(rows.Count, "image")}?")"
                OnDeleteAsked="ReadUsesAsync" OnDelete="DeleteAsync">
   <DeleteWarning>
@@ -89,7 +95,7 @@
   <Row Context="row">
     <DataTableCell Class="w-12">
       <div class="relative size-10 overflow-hidden">
-        <TileImage Image="row.Thumbnail" BoxClass="size-10" MaximumWidth="ImageVariants.AdminThumbnailWidth" Sizes="2.5rem" />
+        <TileImage Image="row.Image.TileImage" BoxClass="size-10" MaximumWidth="ImageVariants.AdminThumbnailWidth" Sizes="2.5rem" />
         <SavedFlash SaveCount="row.SaveCount" />
       </div>
     </DataTableCell>
@@ -99,9 +105,9 @@
              @bind="row.AltText" @bind:after="() => SaveAltTextAsync(row)" />
       <RowFieldError Message="@row.SaveError" />
     </DataTableCell>
-    <DataTableCell Class="max-w-48 truncate text-sm">@row.OriginalFileName</DataTableCell>
-    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded">@row.Width × @row.Height</DataTableCell>
-    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded"><LocalDate Moment="row.UploadedAt" /></DataTableCell>
+    <DataTableCell Class="max-w-48 truncate text-sm">@row.Image.OriginalFileName</DataTableCell>
+    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded">@row.Image.Width × @row.Image.Height</DataTableCell>
+    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded"><LocalDate Moment="row.Image.UploadedAt" /></DataTableCell>
     <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded">@UsedInText(row.UsedInCount)</DataTableCell>
   </Row>
 </EditableTable>

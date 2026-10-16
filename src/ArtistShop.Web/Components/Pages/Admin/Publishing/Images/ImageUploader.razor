@@ -7,26 +7,23 @@
    where the new ones are; a file that failed stays here, saying why *@
 
 @code {
-  private sealed class UploadingFile(string id, string name)
+  private sealed class UploadingFile(string id, string name, long size) : SelectedFile(id, name, size)
   {
-    public string Id { get; } = id;
-    public string Name { get; } = name;
-    public int PercentComplete { get; set; }
-    public string? Error { get; set; }
     public bool IsDone { get; set; }
   }
 
   private readonly List<UploadingFile> _files = [];
+  private FileDropZone<LibraryImageUploadResult>? _dropZone;
 
   private UploadingFile? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
 
-  private void OnSelected((string Id, string Name, long Size) file) => _files.Add(new UploadingFile(file.Id, file.Name));
+  private void OnSelected((string Id, string Name, long Size) file) => _files.Add(new UploadingFile(file.Id, file.Name, file.Size));
 
   private void OnProgress((string Id, int PercentComplete) progress)
   {
     if (FindFile(progress.Id) is { } file)
     {
-      file.PercentComplete = progress.PercentComplete;
+      file.UploadPercentComplete = progress.PercentComplete;
     }
   }
 
@@ -59,12 +56,28 @@
     NavigationManager.NavigateTo(PageUrls.Images);
   }
 
-  private void Dismiss(UploadingFile file) => _files.Remove(file);
+  private async Task RetryAsync(UploadingFile file)
+  {
+    if (_dropZone is not null)
+    {
+      await _dropZone.RetryAsync(file);
+    }
+  }
+
+  private async Task DismissAsync(UploadingFile file)
+  {
+    _files.Remove(file);
+
+    if (_dropZone is not null)
+    {
+      await _dropZone.ForgetAsync(file.Id);
+    }
+  }
 }
 
 <div class="mb-4">
   <div class="mb-2">
-    <FileDropZone TResult="LibraryImageUploadResult" UploadUrl="@ImageUploadEndpoints.LibraryImageUploadPath" Prompt="Drop images here"
+    <FileDropZone TResult="LibraryImageUploadResult" @ref="_dropZone" UploadUrl="@ImageUploadEndpoints.LibraryImageUploadPath" Prompt="Drop images here"
                   Accept="@ImageUploadValidation.FileInputAccept" Multiple="true" OnSelected="OnSelected" OnProgress="OnProgress"
                   OnCompleted="OnCompleted" OnFailed="OnFailed" />
   </div>
@@ -79,7 +92,8 @@
           @if (file.Error is not null)
           {
             <span class="text-error">@file.Error</span>
-            <button type="button" class="cursor-pointer underline" @onclick="() => Dismiss(file)">Dismiss</button>
+            <button type="button" class="cursor-pointer underline" @onclick="() => RetryAsync(file)">Retry</button>
+            <button type="button" class="cursor-pointer underline" @onclick="() => DismissAsync(file)">Dismiss</button>
           }
           else if (file.IsDone)
           {
@@ -87,7 +101,7 @@
           }
           else
           {
-            <span class="text-ink-faded">@(file.PercentComplete == 100 ? "Processing…" : $"Uploading… {file.PercentComplete}%")</span>
+            <span class="text-ink-faded">@(file.UploadPercentComplete == 100 ? "Processing…" : $"Uploading… {file.UploadPercentComplete}%")</span>
           }
         </li>
       }

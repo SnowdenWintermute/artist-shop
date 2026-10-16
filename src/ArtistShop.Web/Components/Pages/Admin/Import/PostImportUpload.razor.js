@@ -5,8 +5,9 @@ import { startPostImport } from "/js/post-import-run.js";
  * @param {HTMLElement} zone an element wrapping the drop zone
  * @param {{ invokeMethodAsync: (method: string, ...args: unknown[]) => Promise<unknown> }} dotNetReference
  * @param {number} maximumFiles
+ * @param {string} uploadUrl where each image goes, ImageUploadEndpoints.LibraryImageUploadPath
  */
-export function createPostImporter(zone, dotNetReference, maximumFiles) {
+export function createPostImporter(zone, dotNetReference, maximumFiles, uploadUrl) {
   /** @type {{ finished: Promise<boolean>, stop: () => void } | null} */
   let current = null;
   let isRunning = false;
@@ -29,6 +30,7 @@ export function createPostImporter(zone, dotNetReference, maximumFiles) {
   function run(posts) {
     isRunning = true;
     current = startPostImport(posts, {
+      uploadUrl,
       fileOf: files.fileOf,
       dotNetReference,
       onProgress: (percentComplete) => notify("OnUploadProgress", percentComplete),

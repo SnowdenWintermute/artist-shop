@@ -2,6 +2,7 @@ using ArtistShop.Web.Components.Pages.Admin.Publishing.Posts;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
+using ArtistShop.Web.Utilities;
 using ArtistShop.Web.Tests.Database;
 
 namespace ArtistShop.Web.Tests.Components;
@@ -18,7 +19,7 @@ public sealed class PostFormTests(TestDatabaseFixture database)
     public async Task FindsTheImagesDeletedFromTheLibrary()
     {
         var keptKey = ImageStorage.NewStorageKey();
-        await _library.AddAsync(new UploadedImageAddition(keptKey, "kept.jpg", new string('0', 64), 800, 600, "data:image/webp;base64,AAAA", "Kept"));
+        await _library.AddAsync(new UploadedImageAddition(keptKey, "kept.jpg", new string('0', 64), 800, 600, "data:image/webp;base64,AAAA", Unwrap.Value(AltText.Read("Kept"))));
         var form = new PostForm
         {
             Title = "Missing images",
