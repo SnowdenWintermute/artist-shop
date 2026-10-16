@@ -1,0 +1,154 @@
+@typeparam TRow where TRow : EditableTableRow
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Utilities
+
+@* A table of EditableTableRows with a checkbox on each, and a bar above for what can be done to the
+   checked ones: the caller's own buttons, then Delete, which asks first. The caller writes the other
+   columns, as with a DataTable *@
+
+@code {
+  // the checkbox column's, pinned at the left; a caller pinning more columns starts them at left-10
+  public const string SelectColumnClass = "sticky left-0 w-10 min-w-10 bg-panel";
+  // on a pinned cell, so the columns scrolling sideways go under it
+  public const string PinnedCellClass = "z-10";
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<TRow> Rows { get; set; } = default!;
+
+  // the caller's columns, after the checkboxes
+  [Parameter, EditorRequired]
+  public IReadOnlyList<DataTableHeading> Headings { get; set; } = default!;
+
+  // one row's cells, after its checkbox
+  [Parameter, EditorRequired]
+  public RenderFragment<TRow> Row { get; set; } = default!;
+
+  // what a row's checkbox is labelled as selecting, such as its title
+  [Parameter, EditorRequired]
+  public Func<TRow, string> RowName { get; set; } = default!;
+
+  // above the bar, saying what checking rows is for
+  [Parameter, EditorRequired]
+  public string SelectionPrompt { get; set; } = default!;
+
+  // the confirm's title and what it says, for the checked rows
+  [Parameter, EditorRequired]
+  public Func<IReadOnlyList<TRow>, string> DeleteTitle { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public RenderFragment<IReadOnlyList<TRow>> DeleteWarning { get; set; } = default!;
+
+  // deletes the checked rows, once confirmed; the caller then takes them out of Rows
+  [Parameter, EditorRequired]
+  public EventCallback<IReadOnlyList<TRow>> OnDelete { get; set; }
+
+  // as the confirm opens, for a caller that reads what its warning says
+  [Parameter]
+  public EventCallback<IReadOnlyList<TRow>> OnDeleteAsked { get; set; }
+
+  // the caller's buttons before Delete, given the checked rows
+  [Parameter]
+  public RenderFragment<IReadOnlyList<TRow>>? BulkActions { get; set; }
+
+  // the caller is changing the checked rows, so Delete waits
+  [Parameter]
+  public bool IsBusy { get; set; }
+
+  // why the checked rows can't be deleted yet, or null when they can
+  [Parameter]
+  public Func<IReadOnlyList<TRow>, string?>? DeleteBlockedBy { get; set; }
+
+  // passed to the DataTable
+  [Parameter]
+  public string? Class { get; set; }
+  [Parameter]
+  public bool FitsContent { get; set; }
+  [Parameter]
+  public bool StickyHeadings { get; set; }
+
+  // a box the table scrolls in, such as one with a height for sticky headings
+  [Parameter]
+  public string? BoxClass { get; set; }
+
+  private bool _isConfirmingDelete;
+  private bool _isDeleting;
+
+  private List<TRow> SelectedRows => [.. Rows.Where(row => row.IsSelected)];
+
+  private bool IsAllSelected => Rows.Count > 0 && Rows.All(row => row.IsSelected);
+
+  private void SetAllSelected(bool selected)
+  {
+    foreach (var row in Rows)
+    {
+      row.IsSelected = selected;
+    }
+  }
+
+  private IReadOnlyList<DataTableHeading> AllHeadings =>
+    [new("", SelectColumnClass, Pinned: true, Content: SelectAllCheckbox), .. Headings];
+
+  private RenderFragment SelectAllCheckbox =>
+    @<div class="flex justify-center">
+      <input type="checkbox" class="size-5 cursor-pointer" aria-label="Select all" checked="@IsAllSelected"
+             @onchange="() => SetAllSelected(!IsAllSelected)" />
+    </div>;
+
+  private async Task AskToDeleteAsync(IReadOnlyList<TRow> rows)
+  {
+    await OnDeleteAsked.InvokeAsync(rows);
+    _isConfirmingDelete = true;
+  }
+
+  private async Task DeleteSelectedAsync()
+  {
+    var rows = SelectedRows;
+    _isDeleting = true;
+
+    try
+    {
+      await OnDelete.InvokeAsync(rows);
+    }
+    finally
+    {
+      _isDeleting = false;
+    }
+
+    _isConfirmingDelete = false;
+  }
+}
+
+@{
+  var selectedRows = SelectedRows;
+  var deleteBlockedBy = selectedRows.Count > 0 ? DeleteBlockedBy?.Invoke(selectedRows) : null;
+}
+
+<div class="mb-2">
+  <p class="mb-2">@SelectionPrompt</p>
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="mr-2 text-sm" role="status">@selectedRows.Count selected</span>
+    @BulkActions?.Invoke(selectedRows)
+    <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline"
+                 disabled="@(selectedRows.Count == 0 || IsBusy || deleteBlockedBy is not null)" title="@deleteBlockedBy"
+                 @onclick="() => AskToDeleteAsync(selectedRows)">Delete</ButtonBasic>
+  </div>
+</div>
+
+<div class="@BoxClass">
+  <DataTable Items="Rows" Headings="AllHeadings" Class="@Class" FitsContent="FitsContent" StickyHeadings="StickyHeadings">
+    <Row Context="row">
+      <DataTableCell Class="@($"align-top {SelectColumnClass} {PinnedCellClass}")">
+        @* as tall as the inputs, so the box lines up with the row's first field *@
+        <div class="flex h-10 items-center justify-center">
+          <input type="checkbox" class="size-5 cursor-pointer" aria-label="@($"Select {RowName(row)}")" @bind="row.IsSelected" />
+        </div>
+      </DataTableCell>
+      @Row(row)
+    </Row>
+  </DataTable>
+</div>
+
+<ConfirmDialog @bind-Open="_isConfirmingDelete" Title="@DeleteTitle(selectedRows)" ConfirmLabel="Delete" OnConfirm="DeleteSelectedAsync"
+               IsWorking="_isDeleting">
+  @DeleteWarning(selectedRows)
+</ConfirmDialog>

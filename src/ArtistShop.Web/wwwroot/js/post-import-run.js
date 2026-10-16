@@ -5,7 +5,7 @@ import { createUploadProgress } from "/js/upload-progress.js";
 import { uploadWithRetries } from "/js/upload-request.js";
 
 // the post editor's own upload, so an imported image is processed as one dropped into a post
-const UPLOAD_URL = "/admin/uploads/rich-text-image";
+const UPLOAD_URL = "/admin/uploads/library-image";
 
 /**
  * Started at once. .NET hears each file (OnFileUploaded), each post that couldn't upload

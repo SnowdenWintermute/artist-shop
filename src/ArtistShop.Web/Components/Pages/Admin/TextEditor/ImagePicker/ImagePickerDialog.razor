@@ -1,0 +1,19 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+
+@* The dialog the toolbar's Image button, and an image embed's Replace image, open: the image library in
+   a frame, and Upload new image above it. Upload is a button on the editor's own page rather than in
+   the frame, so the browser lets it open the file chooser. EditorUploadedImageEmbed.razor.js opens it
+   and hears back from the frame, which is only given its page on opening *@
+<ModalDialog Title="Choose an image" Width="ModalDialogWidth.Wide" StartsClosed data-part="image-picker">
+  <div class="mb-4">
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-action="upload">Upload new image</ButtonBasic>
+  </div>
+
+  <iframe title="Image library" class="mb-4 h-[65vh] w-full shrink-0 border border-rule"
+          data-src="@PageUrls.ImagePicker"></iframe>
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" />
+  </ModalDialogActions>
+</ModalDialog>

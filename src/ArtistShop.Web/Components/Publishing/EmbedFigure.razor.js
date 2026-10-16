@@ -1,10 +1,12 @@
 // EmbedFigure.razor's figure, built in the editor so an image embed looks there as it will on
 // the page. Imported by the editor's image embeds; the page itself needs no script
+import { waitForImage } from "/js/wait-for-image.js";
 
 /**
  * The image at the size's width, so a caption wraps under it, with a note in its place if the file
  * is gone. A file not made yet, just after an upload, falls back to fallbackSrc, the smallest size,
- * which an upload makes before it answers, with ProcessingLabel.razor's label over it
+ * which an upload makes before it answers, with ProcessingLabel.razor's label over it, until src
+ * has been made
  * @param {object} figureParts
  * @param {string} figureParts.src
  * @param {string | undefined} figureParts.fallbackSrc
@@ -43,6 +45,11 @@ export function createEmbedFigure({ src, fallbackSrc, alt, width, caption, capti
       isFallingBack = true;
       processing.hidden = false;
       image.src = fallbackSrc;
+
+      waitForImage(src, figure, () => {
+        image.src = src;
+        processing.hidden = true;
+      });
       return;
     }
 

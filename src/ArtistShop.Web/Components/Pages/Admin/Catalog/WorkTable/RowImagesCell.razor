@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Tables
 
 @* The row's main image, a spinner while none has arrived, and how its other images fared. A button
    for the images dialog once nothing is uploading, since the dialog saves the whole list *@
@@ -67,14 +68,6 @@ else
             title="@($"{Row.Images.Count} images")">+@(Row.Images.Count - 1)</span>
     }
 
-    @* a new element for each save, so the animation plays again *@
-    @if (Row.SaveCount > 0)
-    {
-      <span @key="Row.SaveCount"
-            class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-accent" role="status">
-        <SvgIcon Name="floppy-disc" Class="size-5" />
-        <span class="sr-only">Saved</span>
-      </span>
-    }
+    <SavedFlash SaveCount="Row.SaveCount" />
   </text>;
 }

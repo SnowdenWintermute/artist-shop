@@ -86,6 +86,8 @@ public static class PageUrls
 
     public const string PostList = "/admin/posts";
 
+    public const string Images = "/admin/images";
+
     // on the platform's host
     public const string Operator = "/operator";
 
@@ -281,6 +283,9 @@ public static class PageUrls
 
     // the post editor's work picker, which runs in a frame: the list, then one work's
     // images, then the choice of the image picked. The trail rides along in each address
+    // the image picker's library step, in its frame
+    public const string ImagePicker = "/admin/text-editor/pick-image";
+
     public const string WorkPicker = "/admin/text-editor/pick-work";
 
     public const string WorkPickerImageKey = "image";

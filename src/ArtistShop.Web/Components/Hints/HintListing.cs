@@ -30,6 +30,7 @@ public static class HintListing
             HintType.WordingDescription => $"Wording for the {wording.Description.InSentence}",
             HintType.LookAndWordingImport => "Importing look and wording",
             HintType.CustomPages => "How pages are built",
+            HintType.Images => "What the Images page is for",
         };
 
     // the page it shows on
@@ -56,5 +57,6 @@ public static class HintListing
             HintType.WordingDescription => PageUrls.Wording,
             HintType.LookAndWordingImport => PageUrls.LookImport,
             HintType.CustomPages => PageUrls.CustomPageList,
+            HintType.Images => PageUrls.Images,
         };
 }

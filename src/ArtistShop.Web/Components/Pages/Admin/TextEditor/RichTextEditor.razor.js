@@ -10,8 +10,9 @@ import {
   UPLOAD_PLACEHOLDER,
   acceptedImageTypes,
   addUploadedImageEmbed,
+  attachImagePicker,
   attachUploadedImageEmbedToolbar,
-  createImagePicker,
+  createFilePicker,
   createImageUploads,
   isUploadPlaceholder,
   registerUploadedImageEmbed,
@@ -139,6 +140,7 @@ customElements.define(
       const imageFileInput = this.querySelector('input[data-part="image-file"]');
       const videoToolbar = this.querySelector('[data-part="video-embed-toolbar"]');
       const workPicker = this.querySelector('dialog[data-part="work-picker"]');
+      const imagePickerDialog = this.querySelector('dialog[data-part="image-picker"]');
       const undoIcon = this.querySelector('template[data-part="undo-icon"]');
       const quillSource = this.dataset.quillSrc;
 
@@ -157,11 +159,12 @@ customElements.define(
         !(imageFileInput instanceof HTMLInputElement) ||
         !(videoToolbar instanceof HTMLElement) ||
         !(workPicker instanceof HTMLDialogElement) ||
+        !(imagePickerDialog instanceof HTMLDialogElement) ||
         !(undoIcon instanceof HTMLTemplateElement) ||
         quillSource === undefined
       ) {
         throw new Error(
-          "The rich text editor is missing its input, an embed toolbar, the image file input, the work picker, the undo icon or Quill's address."
+          "The rich text editor is missing its input, an embed toolbar, the image file input, the work picker, the image picker, the undo icon or Quill's address."
         );
       }
 
@@ -184,7 +187,8 @@ customElements.define(
 
       this.#listeners = new AbortController();
       const picker = attachWorkPicker(workPicker, this.#listeners.signal);
-      const imagePicker = createImagePicker(imageFileInput);
+      const filePicker = createFilePicker(imageFileInput);
+      const imagePicker = attachImagePicker(imagePickerDialog, this.#listeners.signal);
 
       const quill = new Quill(editingArea, {
         theme: "snow",
@@ -197,7 +201,7 @@ customElements.define(
               undo: () => quill.getModule("history").undo(),
               redo: () => quill.getModule("history").redo(),
               [WORK_EMBED]: () => addWorkEmbed(quill, picker),
-              [IMAGE_EMBED]: () => addUploadedImageEmbed(quill, imagePicker, imageUploads),
+              [IMAGE_EMBED]: () => addUploadedImageEmbed(quill, imagePicker, filePicker, imageUploads),
               [VIDEO_EMBED]: () => addVideoEmbed(quill, videoToolbar, this.#videoAddressDialog()),
             },
           },
@@ -288,7 +292,7 @@ customElements.define(
       attachEmbedSelection(quill);
       attachEmbedDrag(quill, this.#listeners.signal);
       attachWorkEmbedToolbar(quill, workToolbar, picker, lines, this.#listeners.signal);
-      attachUploadedImageEmbedToolbar(quill, imageToolbar, imagePicker, imageUploads, lines, this.#listeners.signal);
+      attachUploadedImageEmbedToolbar(quill, imageToolbar, imagePicker, filePicker, imageUploads, lines, this.#listeners.signal);
       attachVideoEmbedToolbar(quill, videoToolbar, () => this.#videoAddressDialog(), lines, this.#listeners.signal);
       this.#mounted.resolve(quill);
     }

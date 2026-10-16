@@ -164,8 +164,54 @@ Agreed with Mike 2026-10-15:
   - Post export writes the library alt text into post.json (no width/height any more); the import plans
     `PlannedPostImage(FileId, AltText)` per file (first embed's alt; too long refuses the post) and
     `PostImporter` sets it on the new library row.
-- Delete warning, wording to be revised by Mike once the whole thing is built: "Used in 2 places. Deleting it
-  leaves those blank." + the list of posts and pages, and a "Also remove it from those" checkbox (checked).
+- Step 2 committed by Mike as `03537e3` after a browser check.
+- Step 3 built 2026-10-15, uncommitted, 1238 tests, not browser-checked. Mike chose: "Images" in the dashboard's
+  Publishing box, `/admin/images`; a drop zone above the table; listing like the work table (search + pages in the
+  address, an island for the table). `Components/Pages/Admin/Publishing/Images/`: `ImagesPage` (static: search
+  form, count, `PageLinks`, 50 a page, newest first), `ImageUploader` (island, `FileDropZone` to the library
+  endpoint, now `LibraryImageUploadPath` = `/admin/uploads/library-image`; goes to the first page once every file
+  is done, failures stay with Dismiss), `ImageTable` (island: thumbnail, alt text saved on change, file name,
+  size, upload date, Used in) and `ImageTableRow`. `get_uploaded_image_page` (search on alt text or file name,
+  case and accent insensitive; used-in count of posts and text components) behind
+  `UploadedImageRepository.GetPageAsync`. Checkboxes and Delete wait for step 5.
+  - Shared with the work table (Mike, 2026-10-15: share the row, not a generic table that owns columns):
+    `Components/Tables/EditableTableRow` (IsSaving/SaveAgain/SaveError/SaveCount, virtual `Validate`, static
+    `SaveAsync(row, save)` loop that counts saves), `SavedFlash` (the floppy mark over the thumbnail) and
+    `SavedAfterEachEditNote`. `WorkTableRow` and `ImageTableRow` inherit the row. Step 5 moves the checkbox
+    column, select-all, bulk bar and delete confirm into an `EditableTable` wrapper, once the Images table uses them.
+  - `HintType.Images` ("What the Images page is for") on the Images page: the library is for blog posts and page
+    components, not for works' images.
+- Step 4 built 2026-10-15, uncommitted, 1239 tests, browser-checked by Mike. After his check the dialog opens
+  straight on the library frame, with "Upload new image" above it (a button on the editor's page, not in the
+  frame, so every browser lets it open the native file chooser); the first choice step and Back are gone. `TextEditor/ImagePicker/`:
+  `ImagePickerDialog` (Upload new image, library frame, Cancel), `PickLibraryImage` (`/admin/text-editor/pick-image`,
+  `PageUrls.ImagePicker`: search, page links, grid; a click sends the image in the upload endpoint's shape) and
+  its script. The Image button and Replace image open it (`attachImagePicker` in EditorUploadedImageEmbed.razor.js;
+  `uploads.insertChosen` adds a library image as a finished upload is added). Shared by both pickers:
+  `wwwroot/js/picker-frame.js` (`sendToPickerOwner`, `listenToPickerFrame`, which hears only its own frame),
+  `PickerFramePage` (was `WorkPickerPage`, Escape handling), `WorkEmbedChoice.razor.js` split out.
+  `ImageSearchForm` shared by the Images page and the picker. `createImagePicker` (the hidden file input) is now
+  `createFilePicker`. Drop and paste into the editor are unchanged.
+  - "Processing…" stuck in the editor (Mike's check): Quill draws the embed with `createEmbedFigure`, which fell back
+    to the first size and never looked again. `wwwroot/js/wait-for-image.js` `waitForImage(src, owner, onLoaded)`
+    retries the address (2 s, doubling, at most 30 s apart, giving up after 10 min; numbers in app-consts.js) until
+    it loads or the owner leaves the page; the editor's figure then swaps it in and hides the label. Only the
+    editor uses it for now (Mike, 2026-10-15): static pages still say refresh, islands still use `SizesFinished`;
+    using it on static pages would need the full srcset in a data attribute and a wrapper element.
+- Step 5 built 2026-10-15, uncommitted, 1241 tests, browser-checked by Mike. B is done; next session: C, the Image component (Mike designs its settings first). Mike chose: embeds of a deleted image are
+  always taken out (no checkbox: a missing image's embed is skipped everywhere anyway, so leaving it only left
+  dead references), and taking them out doesn't change a post's or component's updated_at.
+  - `Components/Tables/EditableTable<TRow>`: pinned checkbox column with select-all, "N selected" bar with the
+    caller's `BulkActions` then Delete (`IsBusy`, `DeleteBlockedBy`), the delete `ConfirmDialog` (`DeleteTitle`,
+    `DeleteWarning`, `OnDeleteAsked`, `OnDelete`). `IsSelected` moved onto `EditableTableRow`. `WorkTable` uses it
+    (its bulk buttons read the rows the table hands `BulkActions`, since a check re-renders only the table).
+  - SQL: `rich_text_without_images(body, keys)`, `get_uploaded_image_uses(keys)` (posts by title, components by
+    name with their pages), `delete_uploaded_images(keys)` (strips embeds from posts and components, then deletes
+    the rows; files left to the sweep). `UploadedImageRepository.GetUsesAsync` / `DeleteAsync`,
+    `UploadedImageUse` + `UploadedImageUseType`.
+  - Images table: "Select images to delete them:", confirm "Delete 2 images?", "Also removed from:" list when in
+    use, "This action is permanent." After deleting, the rows go and the page refreshes for the count.
+- Delete warning wording: built as above (step 5); Mike to revise once the whole thing is in.
 
 **C. Image component.**
 - Source: a library image or a work's image.

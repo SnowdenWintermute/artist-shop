@@ -36,6 +36,8 @@ public static class ArtistShopLimits
 
     public const int WorkListPageSize = 50;
 
+    public const int ImageListPageSize = 50;
+
     public const int BlogPageSize = 10;
 
     public const int CardGridMaximumCardsPerPage = 100;

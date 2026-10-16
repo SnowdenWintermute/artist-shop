@@ -1,0 +1,83 @@
+@page "/admin/text-editor/pick-image"
+@layout FrameLayout
+@using System.Globalization
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Pages.Admin.Publishing.Images
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject UploadedImageRepository UploadedImageRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [SupplyParameterFromQuery(Name = ImageSearchForm.SearchKey)]
+  private string? SearchValue { get; set; }
+  [SupplyParameterFromQuery(Name = PageLinks.PageKey)]
+  private string? PageValue { get; set; }
+
+  private string? _search;
+  private UploadedImageListPage? _images;
+
+  // not OnInitializedAsync: a search or another page is the same page with new query parameters
+  protected override async Task OnParametersSetAsync()
+  {
+    _search = ImageSearchForm.Read(SearchValue);
+    var pageNumber = PageLinks.ReadPageNumber(PageValue);
+    var images = await UploadedImageRepository.GetPageAsync(_search, pageNumber);
+
+    if (PageLinks.LeaveEmptiedPage(NavigationManager, PageLinks.PageKey, pageNumber, images.Items.Count))
+    {
+      return;
+    }
+
+    _images = images;
+  }
+
+  // what TileImage draws, a work's image or not
+  private static WorkImage TileOf(UploadedImage image) =>
+    new(image.StorageKey, image.OriginalFileName, image.Width, image.Height, image.BlurDataUri);
+}
+
+@* The image picker's library step, shown in its frame. <library-image-choice>, defined in
+   PickLibraryImage.razor.js, sends the clicked image to the editor around the frame *@
+<PickerFramePage Heading="Choose from the image library">
+  <ImageSearchForm Search="@_search" ClearHref="@PageUrls.ImagePicker" />
+
+  @if (_images is { } images)
+  {
+    @if (images.TotalCount == 0)
+    {
+      <p>@(_search is null ? "The image library is empty. Upload a new image above." : "No images match this search.")</p>
+    }
+    else
+    {
+      <div class="mb-2 flex justify-end">
+        <PageLinks PageNumber="images.PageNumber" PageCount="images.PageCount" />
+      </div>
+
+      <library-image-choice class="mb-2 block">
+        <TileGrid>
+          @foreach (var image in images.Items.Select(item => item.Image))
+          {
+            <button type="button" class="block w-full cursor-pointer text-left" data-test="library-image"
+                    data-storage-key="@image.StorageKey" data-width="@image.Width.ToString(CultureInfo.InvariantCulture)"
+                    data-height="@image.Height.ToString(CultureInfo.InvariantCulture)" data-blur="@image.BlurDataUri"
+                    data-alt="@image.AltText">
+              <span class="mb-1 block"><TileImage Image="TileOf(image)" /></span>
+              @* the alt text, or the file name for an image without one, names the button *@
+              <span class="block truncate text-sm">@(image.AltText is "" ? image.OriginalFileName : image.AltText)</span>
+            </button>
+          }
+        </TileGrid>
+      </library-image-choice>
+
+      <div class="flex justify-end">
+        <PageLinks PageNumber="images.PageNumber" PageCount="images.PageCount" />
+      </div>
+    }
+  }
+</PickerFramePage>

@@ -1,0 +1,107 @@
+@rendermode InteractiveServer
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTable
+@using ArtistShop.Web.Components.Tables
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Images
+@using ArtistShop.Web.Utilities
+@inject UploadedImageRepository UploadedImageRepository
+@inject NavigationManager NavigationManager
+
+@* One page of the image library. An alt text saves when its field loses focus with a changed value:
+   @bind updates on "change", as in the work table *@
+
+@code {
+  // a List, not IReadOnlyList: an island parameter is rebuilt from its runtime type
+  [Parameter, EditorRequired]
+  public List<ImageTableRow> Rows { get; set; } = default!;
+
+  private static readonly IReadOnlyList<DataTableHeading> Headings =
+    ["", "Alt text", "File name", "Size", "Uploaded", "Used in"];
+
+  // where the images about to be deleted are shown, read as the confirm opens
+  private List<UploadedImageUse> _uses = [];
+
+  private Task SaveAltTextAsync(ImageTableRow row) => EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(row));
+
+  // null when it saved
+  private async Task<string?> SaveErrorOfAsync(ImageTableRow row)
+  {
+    // trimmed as it will be saved, so the field shows what's saved
+    row.AltText = row.AltText.Trim();
+
+    try
+    {
+      return await UploadedImageRepository.SetAltTextAsync(row.StorageKey, row.AltText)
+        ? null
+        : "This image was deleted. Reload the page.";
+    }
+    catch (Exception)
+    {
+      return "Couldn't save. Try again.";
+    }
+  }
+
+  private static List<string> StorageKeysOf(IReadOnlyList<ImageTableRow> rows) => [.. rows.Select(row => row.StorageKey)];
+
+  private async Task ReadUsesAsync(IReadOnlyList<ImageTableRow> rows) =>
+    _uses = await UploadedImageRepository.GetUsesAsync(StorageKeysOf(rows));
+
+  // the refresh brings the count and the page links up to date
+  private async Task DeleteAsync(IReadOnlyList<ImageTableRow> rows)
+  {
+    await UploadedImageRepository.DeleteAsync(StorageKeysOf(rows));
+    Rows.RemoveAll(rows.Contains);
+    NavigationManager.Refresh();
+  }
+
+  private static string UseText(UploadedImageUse use) =>
+    use.Type switch
+    {
+      UploadedImageUseType.Post => $"{use.Name} (post)",
+      UploadedImageUseType.Component when use.PageNames.Count == 0 => $"{use.Name} (component, on no page)",
+      UploadedImageUseType.Component => $"{use.Name} (component on {string.Join(", ", use.PageNames)})",
+    };
+
+  private static string UsedInText(int count) => count == 0 ? "Nowhere" : CountText.Of(count, "place");
+}
+
+<p class="mb-2 text-sm text-ink-faded">Each change saves when you leave its field.</p>
+
+<EditableTable TRow="ImageTableRow" Rows="Rows" Headings="Headings" RowName="@(row => row.AltText is "" ? row.OriginalFileName : row.AltText)"
+               SelectionPrompt="Select images to delete them:" DeleteTitle="@(rows => $"Delete {CountText.Of(rows.Count, "image")}?")"
+               OnDeleteAsked="ReadUsesAsync" OnDelete="DeleteAsync">
+  <DeleteWarning>
+    @if (_uses.Count > 0)
+    {
+      <p class="mb-2">Also removed from:</p>
+      <ul class="mb-2 list-disc pl-6" data-test="image-uses">
+        @foreach (var use in _uses)
+        {
+          <li>@UseText(use)</li>
+        }
+      </ul>
+    }
+    <p>This action is permanent.</p>
+  </DeleteWarning>
+  <Row Context="row">
+    <DataTableCell Class="w-12">
+      <div class="relative size-10 overflow-hidden">
+        <TileImage Image="row.Thumbnail" BoxClass="size-10" MaximumWidth="ImageVariants.AdminThumbnailWidth" Sizes="2.5rem" />
+        <SavedFlash SaveCount="row.SaveCount" />
+      </div>
+    </DataTableCell>
+    <DataTableCell>
+      <input type="text" class="artist-shop-field-input w-48 sm:w-64" aria-label="Alt text"
+             maxlength="@ArtistShopLimits.UploadedImageAltTextMaximumLength" data-test="alt-text"
+             @bind="row.AltText" @bind:after="() => SaveAltTextAsync(row)" />
+      <RowFieldError Message="@row.SaveError" />
+    </DataTableCell>
+    <DataTableCell Class="max-w-48 truncate text-sm">@row.OriginalFileName</DataTableCell>
+    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded">@row.Width × @row.Height</DataTableCell>
+    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded"><LocalDate Moment="row.UploadedAt" /></DataTableCell>
+    <DataTableCell Class="text-sm whitespace-nowrap text-ink-faded">@UsedInText(row.UsedInCount)</DataTableCell>
+  </Row>
+</EditableTable>

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Numerics;
 using ArtistShop.Web.Components.Pages.Admin.Catalog.Works;
+using ArtistShop.Web.Components.Tables;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Imports;
@@ -47,7 +48,7 @@ public class RowImage
 
 // One work as the table edits it. Its fields are a WorkForm, so a row is checked by the same
 // rules as the add and edit pages
-public class WorkTableRow
+public class WorkTableRow : EditableTableRow
 {
     private WorkTableRow(WorkId id, WorkForm form, List<RowImage> images)
     {
@@ -156,22 +157,8 @@ public class WorkTableRow
     // by form property name, the first message for each
     public IReadOnlyDictionary<string, string> Errors { get; private set; } = new Dictionary<string, string>();
 
-    // what the database said on the last save, such as the work having been deleted
-    public string? SaveError { get; set; }
-
     // the images dialog saves apart from the other fields, so its outcome can't clear their error
     public string? ImagesSaveError { get; set; }
-
-    // counts up with each save, so the thumbnail's saved mark plays again
-    public int SaveCount { get; set; }
-
-    public bool IsSaving { get; set; }
-
-    // checked for the table's bulk changes
-    public bool IsSelected { get; set; }
-
-    // a field changed while a save was running, so another save follows it
-    public bool SaveAgain { get; set; }
 
     // nothing typed wrongly, saving or refused by the database
     public bool IsSaved => !IsSaving && Errors.Count is 0 && SaveError is null && ImagesSaveError is null;
@@ -180,7 +167,7 @@ public class WorkTableRow
 
     public string? ErrorFor(string propertyName) => Errors.GetValueOrDefault(propertyName);
 
-    public bool Validate()
+    public override bool Validate()
     {
         var results = new List<ValidationResult>();
         Validator.TryValidateObject(Form, new ValidationContext(Form), results, validateAllProperties: true);

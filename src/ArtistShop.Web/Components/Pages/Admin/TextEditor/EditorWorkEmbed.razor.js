@@ -1,6 +1,7 @@
 // The work embed: a block in the text showing one of a work's images. The Delta holds only
 // what RichTextParser reads, and the public page looks up the title and image when it renders.
 // Imported by RichTextEditor.razor.js; nothing here runs until an editor calls it
+import { listenToPickerFrame } from "/js/picker-frame.js";
 import { createEmbedFigure } from "../../../Publishing/EmbedFigure.razor.js";
 import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./EmbedToolbar.razor.js";
@@ -108,9 +109,6 @@ function insertWorkEmbed(quill, value, index) {
   quill.setSelection(index + 1, 0, "user");
 }
 
-// marks the picker's messages, since any page in any frame can post to this window
-const WORK_PICKER_MESSAGE = "artshop-work-picker";
-
 /**
  * What the artist picked. Size and layout come only when adding: changing an embed's image keeps
  * the size and layout it has
@@ -121,8 +119,6 @@ const WORK_PICKER_MESSAGE = "artshop-work-picker";
  * @property {string} [layout]
  */
 
-/** @typedef {{ action: "close" } | { action: "choose", choice: WorkPickerChoice }} WorkPickerMessage */
-
 /**
  * @typedef {object} WorkPicker
  * @property {string} addUrl the picker's first page for adding an embed
@@ -130,15 +126,6 @@ const WORK_PICKER_MESSAGE = "artshop-work-picker";
  *   changing an embed's image
  * @property {(url: string, onChosen: (choice: WorkPickerChoice) => void) => void} open
  */
-
-// Called by the picker's pages inside the frame. A picker page opened on its own, outside a frame,
-// has no editor to tell
-/** @param {WorkPickerMessage} message */
-export function sendToWorkPickerOwner(message) {
-  if (window.parent !== window) {
-    window.parent.postMessage({ type: WORK_PICKER_MESSAGE, ...message }, location.origin);
-  }
-}
 
 // Wires up the dialog holding the picker's frame. Its addresses come from the server, with a
 // placeholder where a work's id goes
@@ -159,21 +146,10 @@ export function attachWorkPicker(dialog, signal) {
   /** @type {((choice: WorkPickerChoice) => void) | null} */
   let onChosen = null;
 
-  window.addEventListener(
-    "message",
-    (event) => {
-      // only this editor's own frame, showing a page of this site
-      if (event.origin !== location.origin || event.source !== frame.contentWindow) {
-        return;
-      }
-
-      /** @type {(WorkPickerMessage & { type: unknown }) | null} */
-      const message = event.data;
-
-      if (message?.type !== WORK_PICKER_MESSAGE) {
-        return;
-      }
-
+  listenToPickerFrame(
+    frame,
+    /** @param {import("/js/picker-frame.js").PickerMessage<WorkPickerChoice>} message */
+    (message) => {
       const chosen = onChosen;
       // closed first, so the focus it hands back doesn't land after the cursor is placed
       dialog.close();
@@ -182,7 +158,7 @@ export function attachWorkPicker(dialog, signal) {
         chosen?.(message.choice);
       }
     },
-    { signal }
+    signal
   );
 
   // the next opening starts again from its first page, and the page left behind stops running

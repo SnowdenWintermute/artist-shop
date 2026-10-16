@@ -13,6 +13,7 @@ import {
   uploadErrorMessage,
 } from "/js/upload-request.js";
 import { indexOfNode } from "/js/quill-document.js";
+import { listenToPickerFrame } from "/js/picker-frame.js";
 import { createEmbedFigure } from "../../../Publishing/EmbedFigure.razor.js";
 import { attachImageEmbedControls, readEmbedWidths } from "./ImageEmbedControls.razor.js";
 import { attachEmbedToolbar, readToolbarSetting } from "./EmbedToolbar.razor.js";
@@ -59,7 +60,8 @@ export function isUploadPlaceholder(op) {
  */
 
 /**
- * What the upload endpoint answers with, its LibraryImageUploadResult
+ * What the upload endpoint answers with, its LibraryImageUploadResult, and what the image picker's
+ * library step sends in the same shape
  * @typedef {object} UploadedImage
  * @property {string} storageKey
  * @property {number} width
@@ -273,7 +275,7 @@ export function acceptedImageTypes(toolbar) {
 }
 
 /**
- * Uploads the editor's images: from the Image button, a drop, a paste, or Replace image
+ * Uploads the editor's images: from the image picker, a drop, or a paste
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
  */
@@ -359,6 +361,29 @@ export function createImageUploads(quill, toolbar) {
     }
   }
 
+  /**
+   * @param {number} index
+   * @param {UploadedImage} image
+   */
+  function insertImage(index, image) {
+    quill.insertEmbed(
+      index,
+      IMAGE_EMBED,
+      {
+        storageKey: image.storageKey,
+        width: image.width,
+        height: image.height,
+        blur: image.blurDataUri,
+        size: "medium",
+        layout: newLayout,
+        alt: image.altText,
+        // the page ignores it while there's no version wider than the size shown
+        lightbox: true,
+      },
+      "user"
+    );
+  }
+
   return {
     // A placeholder for each file goes in at index at once, then the files upload one at a time,
     // each image taking its placeholder's place. Deleting a placeholder drops its image
@@ -402,33 +427,28 @@ export function createImageUploads(quill, toolbar) {
 
         // two changes, so the history records only the image
         quill.updateContents(new Delta().retain(at).delete(1), "api");
-        quill.insertEmbed(
-          at,
-          IMAGE_EMBED,
-          {
-            storageKey: uploaded.storageKey,
-            width: uploaded.width,
-            height: uploaded.height,
-            blur: uploaded.blurDataUri,
-            size: "medium",
-            layout: newLayout,
-            alt: uploaded.altText,
-            // the page ignores it while there's no version wider than the size shown
-            lightbox: true,
-          },
-          "user"
-        );
+        insertImage(at, uploaded);
       }
+    },
+
+    // an image from the library, which goes in as a finished upload does, with the cursor after it
+    /**
+     * @param {number} index
+     * @param {UploadedImage} image
+     */
+    insertChosen(index, image) {
+      insertImage(index, image);
+      quill.setSelection(index + 1, 0, "user");
     },
 
     upload,
   };
 }
 
-// The hidden file input both the Image button and Replace image open, which says what was picked
-// to whichever opened it last
+// The hidden file input the image picker's Upload new image opens, for the Image button or Replace
+// image, which says what was picked to whichever opened it last
 /** @param {HTMLInputElement} fileInput */
-export function createImagePicker(fileInput) {
+export function createFilePicker(fileInput) {
   /** @type {((files: File[]) => void) | null} */
   let onPicked = null;
 
@@ -455,18 +475,94 @@ export function createImagePicker(fileInput) {
   };
 }
 
-/** @typedef {ReturnType<typeof createImageUploads>} ImageUploads */
-/** @typedef {ReturnType<typeof createImagePicker>} ImagePicker */
+/**
+ * What one opening of the image picker does with the artist's answer
+ * @typedef {object} ImagePickerOpening
+ * @property {() => void} onUpload Upload new image was clicked, so the file chooser can open
+ * @property {(image: UploadedImage) => void} onChosen an image from the library
+ */
 
-// The toolbar's Image button. The cursor's place is kept now, since the file picker takes the focus
+// The dialog the Image button and Replace image open: the library in a frame, which is only given its
+// page on opening and goes blank again on closing, and Upload new image above it
+/**
+ * @param {HTMLDialogElement} dialog
+ * @param {AbortSignal} signal
+ */
+export function attachImagePicker(dialog, signal) {
+  const frame = dialog.querySelector("iframe");
+  const uploadButton = dialog.querySelector('button[data-action="upload"]');
+  const librarySrc = frame?.dataset.src;
+
+  if (!(frame instanceof HTMLIFrameElement) || !(uploadButton instanceof HTMLButtonElement) || librarySrc === undefined) {
+    throw new Error("The image picker is missing its library frame or its upload button.");
+  }
+
+  /** @type {ImagePickerOpening | null} */
+  let opening = null;
+
+  // closed first, so the focus it hands back doesn't land after the cursor is placed
+  /** @param {(current: ImagePickerOpening) => void} answer */
+  const closeAndAnswer = (answer) => {
+    const current = opening;
+    dialog.close();
+
+    if (current !== null) {
+      answer(current);
+    }
+  };
+
+  // still inside the click, which is what lets the file chooser open
+  uploadButton.addEventListener("click", () => closeAndAnswer((current) => current.onUpload()), { signal });
+
+  listenToPickerFrame(
+    frame,
+    /** @param {import("/js/picker-frame.js").PickerMessage<UploadedImage>} message */
+    (message) =>
+      closeAndAnswer((current) => {
+        if (message.action === "choose") {
+          current.onChosen(message.choice);
+        }
+      }),
+    signal
+  );
+
+  dialog.addEventListener(
+    "close",
+    () => {
+      opening = null;
+      frame.setAttribute("src", "about:blank");
+    },
+    { signal }
+  );
+
+  return {
+    /** @param {ImagePickerOpening} handlers */
+    open(handlers) {
+      opening = handlers;
+      frame.setAttribute("src", librarySrc);
+      dialog.showModal();
+    },
+  };
+}
+
+/** @typedef {ReturnType<typeof createImageUploads>} ImageUploads */
+/** @typedef {ReturnType<typeof createFilePicker>} FilePicker */
+/** @typedef {ReturnType<typeof attachImagePicker>} ImagePicker */
+
+// The toolbar's Image button. The cursor's place is kept now, since the dialog takes the focus
 /**
  * @param {Quill} quill
- * @param {ImagePicker} picker
+ * @param {ImagePicker} imagePicker
+ * @param {FilePicker} filePicker
  * @param {ImageUploads} uploads
  */
-export function addUploadedImageEmbed(quill, picker, uploads) {
+export function addUploadedImageEmbed(quill, imagePicker, filePicker, uploads) {
   const { index } = quill.getSelection(true);
-  picker.open({ multiple: true }, (files) => uploads.insert(index, files));
+
+  imagePicker.open({
+    onUpload: () => filePicker.open({ multiple: true }, (files) => uploads.insert(index, files)),
+    onChosen: (image) => uploads.insertChosen(index, image),
+  });
 }
 
 // The toolbar for an uploaded image: its alt text, the controls it shares with the work embed,
@@ -475,12 +571,13 @@ export function addUploadedImageEmbed(quill, picker, uploads) {
 /**
  * @param {Quill} quill
  * @param {HTMLElement} toolbar
- * @param {ImagePicker} picker
+ * @param {ImagePicker} imagePicker
+ * @param {FilePicker} filePicker
  * @param {ImageUploads} uploads
  * @param {import("/js/embed-lines.js").EmbedLines} lines
  * @param {AbortSignal} signal
  */
-export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads, lines, signal) {
+export function attachUploadedImageEmbedToolbar(quill, toolbar, imagePicker, filePicker, uploads, lines, signal) {
   const controls = attachImageEmbedControls(toolbar);
   const altField = toolbar.querySelector('input[data-part="alt"]');
   const altHelpButton = toolbar.querySelector('button[data-action="alt-help"]');
@@ -648,13 +745,20 @@ export function attachUploadedImageEmbedToolbar(quill, toolbar, picker, uploads,
           altHelp.hidden = !altHelp.hidden;
           altHelpButton.setAttribute("aria-expanded", String(!altHelp.hidden));
         } else if (action === "replace-image") {
-          picker.open({ multiple: false }, async ([file]) => {
-            const uploaded = await uploads.upload(file, toolbarReport(embed.value.storageKey, file.name));
+          /** @param {UploadedImage} image */
+          const replaceWith = ({ storageKey, width, height, blurDataUri, altText }) =>
+            embed.replace({ storageKey, width, height, blur: blurDataUri, alt: altText });
 
-            if (uploaded !== null) {
-              const { storageKey, width, height, blurDataUri, altText } = uploaded;
-              embed.replace({ storageKey, width, height, blur: blurDataUri, alt: altText });
-            }
+          imagePicker.open({
+            onUpload: () =>
+              filePicker.open({ multiple: false }, async ([file]) => {
+                const uploaded = await uploads.upload(file, toolbarReport(embed.value.storageKey, file.name));
+
+                if (uploaded !== null) {
+                  replaceWith(uploaded);
+                }
+              }),
+            onChosen: replaceWith,
           });
         }
       },

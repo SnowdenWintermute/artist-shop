@@ -1,32 +1,5 @@
-// The pages of the editor's work picker, which run in a frame inside the editor's dialog.
-// They tell the editor what was chosen, and pass on Escape, which a frame keeps to itself. Their
-// Back links return to where the list was scrolled through js/scroll-restoration.js
-import { sendToWorkPickerOwner } from "../EditorWorkEmbed.razor.js";
-
-customElements.define(
-  "work-picker-page",
-  class extends HTMLElement {
-    /** @type {AbortController | null} */
-    #listeners = null;
-
-    connectedCallback() {
-      this.#listeners = new AbortController();
-      document.addEventListener(
-        "keydown",
-        (event) => {
-          if (event.key === "Escape") {
-            sendToWorkPickerOwner({ action: "close" });
-          }
-        },
-        { signal: this.#listeners.signal }
-      );
-    }
-
-    disconnectedCallback() {
-      this.#listeners?.abort();
-    }
-  }
-);
+// The work picker's last step, which sends the choice to the editor around the frame
+import { sendToPickerOwner } from "/js/picker-frame.js";
 
 customElements.define(
   "work-embed-choice",
@@ -56,7 +29,7 @@ customElements.define(
       const size = this.#input('input[name="size"]:checked')?.value;
       const layout = this.#input('input[name="layout"]:checked')?.value;
 
-      sendToWorkPickerOwner({
+      sendToPickerOwner({
         action: "choose",
         choice: {
           workId: Number(workId),

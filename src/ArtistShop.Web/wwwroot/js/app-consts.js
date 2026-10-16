@@ -32,3 +32,9 @@ export const gestureClickSwallowMilliseconds = 300;
 // how near the top or bottom of the window a drag scrolls the page, and how fast at the very edge
 export const dragScrollEdgePixels = 60;
 export const dragScrollMaxPixelsPerFrame = 16;
+
+// how wait-for-image.js tries a size not made yet: first after this long, each wait twice the last,
+// none longer than the longest, and no more tries after giving up
+export const imageWaitFirstMilliseconds = 2000;
+export const imageWaitLongestMilliseconds = 30_000;
+export const imageWaitGiveUpMilliseconds = 10 * 60 * 1000;

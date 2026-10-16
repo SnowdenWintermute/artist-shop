@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using ArtistShop.Web.Components;
+using ArtistShop.Web.Components.Pages.Admin.Publishing.Images;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Images;
 using ArtistShop.Web.Sites;
@@ -30,7 +32,7 @@ public sealed class ImageLibraryTests(TestApp app)
         return await TestApp.PostFileAsync(
             client,
             PageUrls.NewPost,
-            ImageUploadEndpoints.RichTextImageUploadPath,
+            ImageUploadEndpoints.LibraryImageUploadPath,
             FileName,
             "image/jpeg",
             image.WriteToBuffer(".jpg"),
@@ -97,5 +99,39 @@ public sealed class ImageLibraryTests(TestApp app)
         var response = await SetAltTextAsync(client, ImageStorage.NewStorageKey(), "Gone");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TheImagesPageListsAnUploadWithItsAltText()
+    {
+        var (_, client) = await SiteWithAdminAsync();
+        var uploaded = await (await UploadAsync(client)).Content.ReadFromJsonAsync<LibraryImageUploadResult>(TestContext.Current.CancellationToken);
+        Assert.NotNull(uploaded);
+
+        var page = await client.GetStringAsync(PageUrls.Images, TestContext.Current.CancellationToken);
+
+        Assert.Contains("data-test=\"alt-text\"", page);
+        Assert.Contains($"value=\"{uploaded.AltText}\"", page);
+        Assert.Contains(FileName, page);
+        Assert.Contains($"data-hint=\"{nameof(HintType.Images)}\"", page);
+    }
+
+    // the editor's image picker lists the library in its frame, searched as the Images page is
+    [Fact]
+    public async Task ThePickerListsLibraryImagesMatchingItsSearch()
+    {
+        var (_, client) = await SiteWithAdminAsync();
+        var uploaded = await (await UploadAsync(client)).Content.ReadFromJsonAsync<LibraryImageUploadResult>(TestContext.Current.CancellationToken);
+        Assert.NotNull(uploaded);
+
+        var page = await client.GetStringAsync(PageUrls.ImagePicker, TestContext.Current.CancellationToken);
+        var searched = await client.GetStringAsync(
+            $"{PageUrls.ImagePicker}?{ImageSearchForm.SearchKey}=nothing-has-this",
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Contains("data-test=\"library-image\"", page);
+        Assert.Contains($"data-storage-key=\"{uploaded.StorageKey}\"", page);
+        Assert.DoesNotContain("data-test=\"library-image\"", searched);
     }
 }

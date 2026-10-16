@@ -40,8 +40,8 @@ public static class ImageUploadEndpoints
 
     public const string WorkImageUploadPath = "/admin/uploads/work-image";
 
-    // the post editor's script sends its images here
-    public const string RichTextImageUploadPath = "/admin/uploads/rich-text-image";
+    // into the image library: the text editor's uploads, the post import's and the Images page's
+    public const string LibraryImageUploadPath = "/admin/uploads/library-image";
 
     // the whole-website import's script sends each image here with the work it's for
     public const string AppendWorkImagePath = "/admin/uploads/work-image-appended";
@@ -80,7 +80,7 @@ public static class ImageUploadEndpoints
 
         endpoints.MapPost(AppendWorkImagePath, UploadAndAppendAsync).AsImageUpload();
 
-        endpoints.MapPost(RichTextImageUploadPath, UploadToLibraryAsync).AsImageUpload();
+        endpoints.MapPost(LibraryImageUploadPath, UploadToLibraryAsync).AsImageUpload();
     }
 
     // what every image upload endpoint needs: admin only, rate limited, with room for one image

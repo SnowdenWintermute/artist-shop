@@ -14,9 +14,9 @@
 
 <PageTitle>@Heading</PageTitle>
 
-@* <work-picker-page>, defined in WorkPickerPage.razor.js, passes Escape on to the editor
+@* <picker-frame-page>, defined in PickerFramePage.razor.js, passes Escape on to the editor
    around the frame, which never hears a key pressed inside it *@
-<work-picker-page class="block">
+<picker-frame-page class="block">
   @if (BackHref is not null && BackLabel is not null)
   {
     @* returns to where that step was scrolled, as the browser's Back would *@
@@ -26,4 +26,4 @@
   <h1 class="mb-4 text-lg">@Heading</h1>
 
   @ChildContent
-</work-picker-page>
+</picker-frame-page>

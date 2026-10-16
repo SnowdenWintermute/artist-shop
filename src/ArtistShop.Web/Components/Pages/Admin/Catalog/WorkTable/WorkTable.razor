@@ -54,18 +54,15 @@
 
   private BulkChange? _bulkCollectionChange;
   private BulkChange? _bulkVocabularyChange;
-  private bool _isConfirmingDelete;
-  private bool _isDeleting;
   // saving each selected row after a bulk change
   private bool _isApplying;
 
-  // the checkboxes, images and title stay in view as the other columns scroll sideways under them
-  private const string SelectColumnClass = "sticky left-0 w-10 min-w-10 bg-panel";
+  // the images and title stay in view after EditableTable's checkboxes, as the other columns scroll
+  // sideways under them
   private const string ImagesColumnClass = "sticky left-10 w-16 min-w-16 bg-panel";
   private const string TitleColumnClass = "sticky left-26 bg-panel";
 
-  private const string CheckboxClass = "size-5 cursor-pointer";
-  private const string PinnedCellClass = "z-10";
+  private const string PinnedCellClass = EditableTable<WorkTableRow>.PinnedCellClass;
 
   private const string InputClass = "artist-shop-field-input";
 
@@ -121,7 +118,6 @@
     {
       List<DataTableHeading> headings =
       [
-        new("", SelectColumnClass, Pinned: true, Content: SelectAllCheckbox),
         new("", ImagesColumnClass, Pinned: true),
         new("Title", TitleColumnClass, Pinned: true),
         "Vocabularies",
@@ -154,48 +150,18 @@
     }
   }
 
-  // A change made while a save is running waits for it, then saves again, so saves of one row never
-  // overlap and the last one sent holds the latest values
   private async Task SaveAsync(WorkTableRow row)
   {
-    if (row.IsSaving)
-    {
-      row.SaveAgain = true;
-      return;
-    }
-
-    row.IsSaving = true;
-
-    try
-    {
-      do
-      {
-        row.SaveAgain = false;
-
-        if (!row.Validate())
-        {
-          continue;
-        }
-
-        row.SaveError = await SaveErrorOfAsync(row, () =>
-WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
-      } while (row.SaveAgain);
-    }
-    finally
-    {
-      row.IsSaving = false;
-    }
-
+    await EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(() => WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id))));
     await OnSaveFinished.InvokeAsync(row);
   }
 
   // null when it saved
-  private static async Task<string?> SaveErrorOfAsync(WorkTableRow row, Func<Task> save)
+  private static async Task<string?> SaveErrorOfAsync(Func<Task> save)
   {
     try
     {
       await save();
-      row.SaveCount++;
       return null;
     }
     catch (WorkDeletedException)
@@ -250,33 +216,23 @@ WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id)));
 
     var mainImageIndex = state.Images.ToList().FindIndex(image => image.StorageKey == state.MainImageKey);
 
-    row.ImagesSaveError = await SaveErrorOfAsync(row, async () =>
+    row.ImagesSaveError = await SaveErrorOfAsync(async () =>
     {
       await WorkRepository.UpdateImagesAsync(row.Id, state.Images, Math.Max(mainImageIndex, 0));
       row.ReplaceSavedImages(state.Images, mainImageIndex < 0 ? null : state.MainImageKey);
     });
+
+    // saved apart from the row's other fields, but marked saved the same way
+    if (row.ImagesSaveError is null)
+    {
+      row.SaveCount++;
+    }
 
     _imagesRow = null;
     await OnSaveFinished.InvokeAsync(row);
   }
 
   private List<WorkTableRow> SelectedRows => [.. Rows.Where(row => row.IsSelected)];
-
-  private bool IsAllSelected => Rows.All(row => row.IsSelected);
-
-  private void SetAllSelected(bool selected)
-  {
-    foreach (var row in Rows)
-    {
-      row.IsSelected = selected;
-    }
-  }
-
-  private RenderFragment SelectAllCheckbox =>
-    @<div class="flex justify-center">
-      <input type="checkbox" class="@CheckboxClass" aria-label="Select all" checked="@IsAllSelected"
-             @onchange="() => SetAllSelected(!IsAllSelected)" />
-    </div>;
 
   // for removing: only the collections one of these rows is in
   private List<Collection> CollectionsOf(IReadOnlyList<WorkTableRow> rows)
@@ -379,23 +335,15 @@ termIds))
     await ChoiceDialogClosedAsync();
   }
 
-  private async Task DeleteSelectedAsync()
+  private async Task DeleteAsync(IReadOnlyList<WorkTableRow> rows)
   {
-    var rows = SelectedRows;
-    _isDeleting = true;
-
-    try
-    {
-      await WorkRepository.DeleteManyAsync([.. rows.Select(row => row.Id)]);
-    }
-    finally
-    {
-      _isDeleting = false;
-    }
-
-    _isConfirmingDelete = false;
+    await WorkRepository.DeleteManyAsync([.. rows.Select(row => row.Id)]);
     await OnRowsDeleted.InvokeAsync(rows);
   }
+
+  // a work deleted mid-upload would leave its upload failing
+  private static string? DeleteBlockedBy(IReadOnlyList<WorkTableRow> rows) =>
+    rows.Any(row => row.HasImagesUploading) ? "Waits for image uploads to finish" : null;
 
   private string CollectionsText(WorkTableRow row) =>
     string.Join(", ", AllCollections.Where(collection =>
@@ -414,42 +362,29 @@ collection.Name.Value));
    scrolls only sideways holds on to the next drag, so the page wouldn't scroll down until it stopped *@
 @{
   var selectedRows = SelectedRows;
-  var canChangeSelected = selectedRows.Count > 0 && !_isApplying;
-  var isUploadingSelected = selectedRows.Any(row => row.HasImagesUploading);
 }
 
-<div class="mb-2">
-  <p class="mb-2">Select multiple @Wording.Work.PluralInSentence to edit them as a group:</p>
-  <div class="flex flex-wrap items-center gap-2">
-    <span class="mr-2 text-sm" role="status">@selectedRows.Count selected</span>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+<EditableTable TRow="WorkTableRow" Rows="Rows" Headings="Headings" RowName="@(row => row.Form.Name ?? string.Empty)"
+               SelectionPrompt="@($"Select multiple {Wording.Work.PluralInSentence} to edit them as a group:")"
+               DeleteTitle="@(rows => $"Delete {Wording.Work.CountOf(rows.Count)}?")" OnDelete="DeleteAsync" IsBusy="_isApplying"
+               DeleteBlockedBy="DeleteBlockedBy" Class="text-sm" FitsContent StickyHeadings
+               BoxClass="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
+  @* a check re-renders only the table, so the buttons go by the rows it hands them *@
+  <BulkActions Context="checkedRows">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count == 0 || _isApplying)"
                  @onclick="() => _bulkCollectionChange = BulkChange.Add">Add to @Wording.Collection.PluralInSentence</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count == 0 || _isApplying)"
                  @onclick="() => _bulkCollectionChange = BulkChange.Remove">Remove from @Wording.Collection.PluralInSentence
     </ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count == 0 || _isApplying)"
                  @onclick="() => _bulkVocabularyChange = BulkChange.Add">Add terms</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(!canChangeSelected)"
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count == 0 || _isApplying)"
                  @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
-    @* a work deleted mid-upload would leave its upload failing *@
-    <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline"
-                 disabled="@(!canChangeSelected || isUploadingSelected)"
-                 title="@(isUploadingSelected ? "Waits for image uploads to finish" : null)"
-                 @onclick="() => _isConfirmingDelete = true">Delete</ButtonBasic>
-  </div>
-</div>
-
-<div class="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
-  <DataTable Items="Rows" Headings="Headings" Class="text-sm" FitsContent StickyHeadings>
-    <Row Context="row">
-      <DataTableCell Class="@($"align-top {SelectColumnClass} {PinnedCellClass}")">
-        @* as tall as the inputs, so the box lines up with the title *@
-        <div class="flex h-10 items-center justify-center">
-          <input type="checkbox" class="@CheckboxClass" aria-label="@($"Select {row.Form.Name}")"
-                 @bind="row.IsSelected" />
-        </div>
-      </DataTableCell>
-
+  </BulkActions>
+  <DeleteWarning Context="rows">
+    <DeleteWorksWarning WorkCount="rows.Count" ImageCount="rows.Sum(row => row.SavedImages.Count)" />
+  </DeleteWarning>
+  <Row Context="row">
       <DataTableCell Class="@($"align-top {ImagesColumnClass} {PinnedCellClass}")">
         <RowImagesCell Row="row" OnEdit="() => _imagesRow = row" />
       </DataTableCell>
@@ -541,9 +476,8 @@ collection.Name.Value));
           @(string.IsNullOrWhiteSpace(row.Form.Description) ? "Edit…" : row.Form.Description)
         </button>
       </DataTableCell>
-    </Row>
-  </DataTable>
-</div>
+  </Row>
+</EditableTable>
 
 @if (_descriptionRow is { } descriptionRow)
 {
@@ -585,7 +519,3 @@ collection.Name.Value));
                         OnOk="BulkVocabularyOkAsync" OnClose="ChoiceDialogClosedAsync" OnVocabulariesChanged="VocabulariesChangedAsync" />
 }
 
-<ConfirmDialog @bind-Open="_isConfirmingDelete" Title="@($"Delete {Wording.Work.CountOf(selectedRows.Count)}?")"
-               ConfirmLabel="Delete" OnConfirm="DeleteSelectedAsync" IsWorking="_isDeleting">
-  <DeleteWorksWarning WorkCount="selectedRows.Count" ImageCount="selectedRows.Sum(row => row.SavedImages.Count)" />
-</ConfirmDialog>

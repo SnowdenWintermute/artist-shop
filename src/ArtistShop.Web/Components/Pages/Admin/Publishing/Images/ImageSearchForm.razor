@@ -1,0 +1,32 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* The image library's search, on the Images page and in the editor's image picker. A GET form, so a
+   search lands in the address; it carries no page number, which is what sends a new search back to
+   the first page *@
+
+@code {
+  public const string SearchKey = "search";
+
+  // null when nothing is searched for
+  [Parameter, EditorRequired]
+  public string? Search { get; set; }
+
+  // the list with no search, wherever this one is
+  [Parameter, EditorRequired]
+  public string ClearHref { get; set; } = default!;
+
+  // a search box, as typed, to what's searched for
+  public static string? Read(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+<form method="get" data-enhance class="mb-4 flex flex-wrap items-end gap-4">
+  <label>
+    <span class="artist-shop-field-label">Search alt text and file names</span>
+    <input type="search" name="@SearchKey" value="@Search" class="artist-shop-field-input" />
+  </label>
+  <ButtonBasic type="submit" Variant="ButtonVariant.Outline">Search</ButtonBasic>
+  @if (Search is not null)
+  {
+    <a href="@ClearHref" class="underline">Clear search</a>
+  }
+</form>

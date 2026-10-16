@@ -1,6 +1,7 @@
 @page "/admin/catalog/works/table"
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
+@using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
@@ -16,12 +17,7 @@
 <main>
   <AdminPanel Wide>
     <AdminUpLink />
-    <p class="mb-4 flex items-center">
-      <span class="text-ink flex items-center justify-center mr-2">
-        <SvgIcon Name="floppy-disc" Class="size-5" />
-      </span>
-      <span>@Wording.Work.PluralHeading are saved after each edit</span>
-    </p>
+    <SavedAfterEachEditNote What="@Wording.Work.PluralHeading" />
 
     @* the images dialog posts each upload to an endpoint that checks the antiforgery token, and there
        is no form on this page to carry one *@

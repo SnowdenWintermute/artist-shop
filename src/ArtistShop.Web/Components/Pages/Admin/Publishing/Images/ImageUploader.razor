@@ -1,0 +1,96 @@
+@rendermode InteractiveServer
+@using ArtistShop.Web.Components.Forms.FileUpload
+@using ArtistShop.Web.Images
+@inject NavigationManager NavigationManager
+
+@* Drop images into the library. Once every file has finished, the list goes back to its first page,
+   where the new ones are; a file that failed stays here, saying why *@
+
+@code {
+  private sealed class UploadingFile(string id, string name)
+  {
+    public string Id { get; } = id;
+    public string Name { get; } = name;
+    public int PercentComplete { get; set; }
+    public string? Error { get; set; }
+    public bool IsDone { get; set; }
+  }
+
+  private readonly List<UploadingFile> _files = [];
+
+  private UploadingFile? FindFile(string id) => _files.FirstOrDefault(file => file.Id == id);
+
+  private void OnSelected((string Id, string Name, long Size) file) => _files.Add(new UploadingFile(file.Id, file.Name));
+
+  private void OnProgress((string Id, int PercentComplete) progress)
+  {
+    if (FindFile(progress.Id) is { } file)
+    {
+      file.PercentComplete = progress.PercentComplete;
+    }
+  }
+
+  private void OnCompleted((string Id, LibraryImageUploadResult Result) completion)
+  {
+    if (FindFile(completion.Id) is { } file)
+    {
+      file.IsDone = true;
+      ShowNewImagesOnceFinished();
+    }
+  }
+
+  private void OnFailed((string Id, string Message) failure)
+  {
+    if (FindFile(failure.Id) is { } file)
+    {
+      file.Error = failure.Message;
+      ShowNewImagesOnceFinished();
+    }
+  }
+
+  private void ShowNewImagesOnceFinished()
+  {
+    if (_files.Any(file => !file.IsDone && file.Error is null) || !_files.Any(file => file.IsDone))
+    {
+      return;
+    }
+
+    _files.RemoveAll(file => file.IsDone);
+    NavigationManager.NavigateTo(PageUrls.Images);
+  }
+
+  private void Dismiss(UploadingFile file) => _files.Remove(file);
+}
+
+<div class="mb-4">
+  <div class="mb-2">
+    <FileDropZone TResult="LibraryImageUploadResult" UploadUrl="@ImageUploadEndpoints.LibraryImageUploadPath" Prompt="Drop images here"
+                  Accept="@ImageUploadValidation.FileInputAccept" Multiple="true" OnSelected="OnSelected" OnProgress="OnProgress"
+                  OnCompleted="OnCompleted" OnFailed="OnFailed" />
+  </div>
+
+  @if (_files.Count > 0)
+  {
+    <ul class="text-sm" aria-live="polite">
+      @foreach (var file in _files)
+      {
+        <li @key="file.Id" class="flex items-center gap-2">
+          <span class="truncate">@file.Name</span>
+          @if (file.Error is not null)
+          {
+            <span class="text-error">@file.Error</span>
+            <button type="button" class="cursor-pointer underline" @onclick="() => Dismiss(file)">Dismiss</button>
+          }
+          else if (file.IsDone)
+          {
+            <span class="text-ink-faded">Uploaded</span>
+          }
+          else
+          {
+            <span class="text-ink-faded">@(file.PercentComplete == 100 ? "Processing…" : $"Uploading… {file.PercentComplete}%")</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

@@ -22,4 +22,5 @@ public enum HintType
     WordingWorks,
     WordingDescription,
     CustomPages,
+    Images,
 }

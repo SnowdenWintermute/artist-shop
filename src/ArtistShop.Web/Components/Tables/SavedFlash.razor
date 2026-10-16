@@ -1,0 +1,18 @@
+@using ArtistShop.Web.Components.Atoms
+
+@* An editable row's saved mark, played over the box it's placed in, which needs relative and
+   overflow-hidden: the mark rises from below the box, out of sight until it enters *@
+
+@code {
+  [Parameter, EditorRequired]
+  public int SaveCount { get; set; }
+}
+
+@* a new element for each save, so the animation plays again *@
+@if (SaveCount > 0)
+{
+  <span @key="SaveCount" class="artist-shop-saved-flash absolute inset-0 flex items-center justify-center text-accent" role="status">
+    <SvgIcon Name="floppy-disc" Class="size-5" />
+    <span class="sr-only">Saved</span>
+  </span>
+}
