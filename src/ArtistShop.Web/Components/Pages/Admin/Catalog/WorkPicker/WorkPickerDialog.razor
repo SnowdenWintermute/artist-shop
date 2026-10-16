@@ -1,5 +1,4 @@
 @using ArtistShop.Web.Components.Dialogs
-@using ArtistShop.Web.Components.Pages.Admin.TextEditor.WorkPicker
 
 @code {
   [CascadingParameter]
@@ -12,13 +11,14 @@
   private static readonly WorkPickerTrail ChangeImageTrail = new(WorkPickerMode.ChangeImage, ListQuery: null);
 }
 
-@* The dialog the toolbar's Work button, and an embed's Change image, open. EditorWorkEmbed.razor.js
-   opens it and hears back from the frame. The frame is only given a page on opening, so editing that
+@* The dialog the toolbar's Work button, an embed's Change image and an image component's Choose open.
+   WorkPickerDialog.razor.js opens it and hears back from the frame. The frame is only given a page on opening, so editing that
    never adds a work never loads the list *@
 <ModalDialog Title="@($"Choose {Wording.Work.SingularInSentence}")" Width="ModalDialogWidth.Wide" StartsClosed data-part="work-picker">
   <iframe title="@($"{Wording.Work.SingularHeading} picker")" class="mb-4 h-[65vh] w-full shrink-0 border border-rule"
           data-add-src="@PageUrls.WorkPickerList(AddTrail)"
           data-change-image-src="@PageUrls.WorkPickerImages(WorkIdPlaceholder, ChangeImageTrail)"
+          data-choose-image-src="@PageUrls.WorkPickerList(ChangeImageTrail)"
           data-work-id-placeholder="@WorkIdPlaceholder"></iframe>
 
   <ModalDialogActions>

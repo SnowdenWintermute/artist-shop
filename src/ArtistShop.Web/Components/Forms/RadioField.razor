@@ -1,0 +1,38 @@
+@* one choice from a few, shown side by side, for a static form like SelectField *@
+@typeparam TValue
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  [Parameter]
+  public TValue? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<TValue?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<TValue?>> ValueExpression { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public IReadOnlyList<TValue> Values { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public Func<TValue, string> LabelOf { get; set; } = default!;
+}
+
+<fieldset class="mb-4">
+  <legend class="artist-shop-field-label">@Label</legend>
+  <InputRadioGroup TValue="TValue" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression">
+    <div class="flex flex-wrap gap-x-4 gap-y-1">
+      @foreach (var value in Values)
+      {
+        <label class="flex cursor-pointer items-center gap-2">
+          <InputRadio TValue="TValue" Value="value" />
+          @LabelOf(value)
+        </label>
+      }
+    </div>
+  </InputRadioGroup>
+  <ValidationMessage class="text-error" For="ValueExpression" />
+</fieldset>

@@ -1,5 +1,6 @@
-// The text editor's pickers show their pages in a frame inside one of the editor's dialogs. The pages
-// tell the editor what was chosen, and pass on Escape, which a frame keeps to itself
+// The pickers show their pages in a frame inside a dialog of the page that opened them, the text editor's
+// or an image component's settings page. The pages tell that page what was chosen, and pass on Escape,
+// which a frame keeps to itself
 
 // marks the pickers' messages, since any page in any frame can post to this window
 const PICKER_MESSAGE = "artshop-picker";

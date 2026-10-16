@@ -12,7 +12,7 @@ using ArtistShop.Web.Utilities;
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // A component's name, and the settings of its type: a text component's text and width, a card grid's source,
-// heading and paging. Form posts create this, so it keeps a single public constructor
+// heading and paging, an image's fit, padding and link. Form posts create this, so it keeps a single public constructor
 public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 {
     [Required]
@@ -41,6 +41,24 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
 
     public CardGridLayout Layout { get; set; }
 
+    // The image an image component shows, set by its pickers: a library image's key, or with ImageWorkId one of
+    // that work's images (null there for its main image). Both null for none chosen
+    public string? ImageStorageKey { get; set; }
+
+    public int? ImageWorkId { get; set; }
+
+    // the hidden field posts an empty value for none
+    private string? ChosenImageKey => string.IsNullOrEmpty(ImageStorageKey) ? null : ImageStorageKey;
+
+    // the work CheckImageAsync found for ImageWorkId, whose main image ToSettings leaves the key out for
+    private Work? _imageWork;
+
+    public ImageFit Fit { get; set; }
+
+    public ImagePadding Padding { get; set; }
+
+    public ImageLink Link { get; set; }
+
     // LibraryImages holds the library images a text component's text shows, which the editor draws its
     // image embeds from
     public static CustomComponentForm From(CustomComponent component, IReadOnlyDictionary<string, UploadedImage> libraryImages) =>
@@ -64,6 +82,20 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
                 CardsPerPage = cardGrid.CardsPerPage,
                 HasPageLinks = cardGrid.HasPageLinks,
                 Layout = cardGrid.Layout,
+            },
+            ImageSettings image => new()
+            {
+                Name = component.Name,
+                ImageStorageKey = image.Source switch
+                {
+                    ImageSource.Library library => library.StorageKey,
+                    ImageSource.Work work => work.StorageKey,
+                    _ => null,
+                },
+                ImageWorkId = image.Source is ImageSource.Work { WorkId: var workId } ? workId.Value : null,
+                Fit = image.Fit,
+                Padding = image.Padding,
+                Link = image.Link,
             },
             _ => new() { Name = component.Name },
         };
@@ -108,22 +140,11 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             return true;
         }
 
-        var isValid = true;
-
-        // a post that left a select out, as a script might, would otherwise save its type's default of 0
-        foreach (var (isDefined, field) in new[]
-        {
+        var isValid = CheckSelects(
             (Enum.IsDefined(Source), nameof(Source)),
             (Enum.IsDefined(HeadingType), nameof(HeadingType)),
-            (Enum.IsDefined(Layout), nameof(Layout)),
-        })
-        {
-            if (!isDefined)
-            {
-                AddServerError(field, "Choose one.");
-                isValid = false;
-            }
-        }
+            (Enum.IsDefined(Layout), nameof(Layout))
+        );
 
         if (CardsPerPage is null)
         {
@@ -146,6 +167,81 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         return isValid;
     }
 
+    // An image's selects, and its image, which may have been deleted, or taken off its work, since the picker
+    // showed it. False when the form says by the field why
+    public async Task<bool> CheckImageAsync(
+        UploadedImageRepository uploadedImageRepository,
+        WorkRepository workRepository,
+        SiteWording wording,
+        CustomComponentSettings saved
+    )
+    {
+        if (saved is not ImageSettings)
+        {
+            return true;
+        }
+
+        var isValid = CheckSelects(
+            (Enum.IsDefined(Fit), nameof(Fit)),
+            (Enum.IsDefined(Padding), nameof(Padding)),
+            (Enum.IsDefined(Link), nameof(Link))
+        );
+
+        if (ImageWorkId is int workId)
+        {
+            _imageWork = await workRepository.GetByIdAsync(new WorkId(workId));
+            var problem =
+                _imageWork is null ? $"That {wording.Work.SingularInSentence} was deleted."
+                : new ImageSource.Work(_imageWork.Id, ChosenImageKey).ImageOf(_imageWork) is null
+                    ? $"That image is no longer on the {wording.Work.SingularInSentence}."
+                : null;
+
+            if (problem is not null)
+            {
+                AddServerError(nameof(ImageStorageKey), problem);
+                isValid = false;
+            }
+        }
+        else if (ChosenImageKey is { } storageKey && (await uploadedImageRepository.GetByStorageKeysAsync([storageKey])).Count == 0)
+        {
+            AddServerError(nameof(ImageStorageKey), "That image is no longer in the image library.");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    // a post that left a select out, as a script might, would otherwise save its type's default of 0
+    private bool CheckSelects(params (bool IsDefined, string Field)[] selects)
+    {
+        var isValid = true;
+
+        foreach (var (isDefined, field) in selects)
+        {
+            if (!isDefined)
+            {
+                AddServerError(field, "Choose one.");
+                isValid = false;
+            }
+        }
+
+        return isValid;
+    }
+
+    // A picked image that is the work's main one is left out, so the component follows the work's main image
+    // when it changes. CheckImageAsync has found the work
+    private ImageSource? ToImageSource()
+    {
+        if (ImageWorkId is not null)
+        {
+            var work = _imageWork ?? throw new InvalidOperationException("The image's work wasn't checked before saving.");
+            var mainImageKey = work.Images.ElementAtOrDefault(work.MainImageIndex)?.StorageKey;
+            return new ImageSource.Work(work.Id, ChosenImageKey == mainImageKey ? null : ChosenImageKey);
+        }
+
+        return ChosenImageKey is { } storageKey ? new ImageSource.Library(storageKey) : null;
+    }
+
     public string ToName() => Unwrap.Value(Name).Trim();
 
     // the saved settings with this form's changes; a type with none comes back as it was
@@ -162,6 +258,10 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
                 ),
                 Unwrap.Value(CardsPerPage), HasPageLinks,
                 Layout),
+            // a library image has no artwork page, so a link to one, left from a work's image, opens the lightbox
+            ImageSettings => ToImageSource() is var source && Link is ImageLink.ArtworkPage && source is not ImageSource.Work
+                ? new ImageSettings(source, Fit, Padding, ImageLink.Lightbox)
+                : new ImageSettings(source, Fit, Padding, Link),
             _ => saved,
         };
 }

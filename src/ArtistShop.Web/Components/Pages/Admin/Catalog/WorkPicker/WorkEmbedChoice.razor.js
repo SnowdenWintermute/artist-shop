@@ -1,4 +1,4 @@
-// The work picker's last step, which sends the choice to the editor around the frame
+// The work picker's last step, which sends the choice to the page around the frame
 import { sendToPickerOwner } from "/js/picker-frame.js";
 
 customElements.define(

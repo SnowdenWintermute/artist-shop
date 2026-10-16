@@ -1,4 +1,4 @@
-namespace ArtistShop.Web.Components.Pages.Admin.TextEditor.WorkPicker;
+namespace ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker;
 
 public enum WorkPickerMode
 {

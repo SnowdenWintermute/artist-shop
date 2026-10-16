@@ -1,4 +1,4 @@
-@page "/admin/text-editor/pick-image"
+@page "/admin/images/pick"
 @layout FrameLayout
 @using System.Globalization
 @using ArtistShop.Web.Components.Catalog
@@ -38,7 +38,7 @@
 }
 
 @* The image picker's library step, shown in its frame. <library-image-choice>, defined in
-   PickLibraryImage.razor.js, sends the clicked image to the editor around the frame *@
+   PickLibraryImage.razor.js, sends the clicked image to the page around the frame *@
 <PickerFramePage Heading="Choose from the image library">
   <ImageSearchForm Search="@_search" ClearHref="@PageUrls.ImagePicker" />
 

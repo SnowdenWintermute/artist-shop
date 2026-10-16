@@ -142,4 +142,48 @@ public sealed class UploadedImageRepositoryTests(TestDatabaseFixture database)
         Assert.Empty(RichTextParser.Parse(text.Body).Blocks.OfType<UploadedImageEmbedBlock>());
         Assert.Empty(await _library.GetUsesAsync([storageKey]));
     }
+
+    // an image component on its own page, showing the image
+    private async Task<CustomComponentId> ShowInAnImageComponentAsync(string word, string storageKey)
+    {
+        var pages = new CustomPageRepository(database.Site);
+        var pageId = await pages.AddAsync($"{word} image", new CustomPageAddress($"{word}-image"));
+        await new PageRowRepository(database.Site).AddAsync(pageId);
+        var slot = Assert.Single(Assert.Single((await pages.GetLayoutAsync(pageId)).Rows).Slots);
+        return await new CustomComponentRepository(database.Site).AddToSlotAsync(
+            slot.Id,
+            $"{word} image",
+            ImageSettings.New with { Source = new ImageSource.Library(storageKey) }
+        );
+    }
+
+    [Fact]
+    public async Task AnImageComponentShowingAnImageIsAUse()
+    {
+        var word = NewWord();
+        var storageKey = await AddAsync("pier.jpg", word);
+        await ShowInAnImageComponentAsync(word, storageKey);
+
+        Assert.Equal(1, Assert.Single((await _library.GetPageAsync(word, pageNumber: 1)).Items).UsedInCount);
+        Assert.Equivalent(
+            new[] { new UploadedImageUse(UploadedImageUseType.Component, $"{word} image", [$"{word} image"]) },
+            await _library.GetUsesAsync([storageKey]),
+            strict: true
+        );
+    }
+
+    // the component stays, with no image chosen, beside a text component losing its embed in the same delete
+    [Fact]
+    public async Task DeletingAnImageEmptiesTheImageComponentsShowingIt()
+    {
+        var word = NewWord();
+        var storageKey = await AddAsync("pier.jpg", word);
+        await ShowInAPostAndAComponentAsync(word, storageKey);
+        var componentId = await ShowInAnImageComponentAsync(word, storageKey);
+
+        await _library.DeleteAsync([storageKey]);
+
+        var component = await new CustomComponentRepository(database.Site).GetAsync(componentId);
+        Assert.Equal(ImageSettings.New, component?.Component.Settings);
+    }
 }

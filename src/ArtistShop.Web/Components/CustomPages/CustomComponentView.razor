@@ -4,6 +4,9 @@
 @code {
   [Parameter, EditorRequired]
   public required CustomComponent Component { get; set; }
+
+  [Parameter, EditorRequired]
+  public required SlotWidth Slot { get; set; }
 }
 
 @switch (Component.Settings)
@@ -16,6 +19,9 @@
     break;
   case TextSettings text:
     <TextView Settings="text" />
+    break;
+  case ImageSettings image:
+    <ImageView Settings="image" Slot="Slot" />
     break;
   default:
     throw new InvalidOperationException($"{Component.Settings.Type} has no view.");

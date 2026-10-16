@@ -226,21 +226,109 @@ Agreed with Mike 2026-10-15:
   is used by `ImageListEditor` and the Images page's uploader, which also got Retry and a Dismiss that forgets
   the file. Not browser-checked (no JS tests).
 
-**C. Image component.**
-- Source: a library image or a work's image.
-- Fit: cover or contain. No focal point for now.
-- Padding: presets.
-- Link: none, lightbox (any image), the artwork's page (work source only), or a page on the site.
+**C. Image component.** Settings agreed with Mike 2026-10-16 (From Claude). Meant as a hero image.
+- Source: a library image (the image picker) or a work (the work picker, as in the embed). A work source is linked
+  to the work, so it follows the work's primary image.
+- Fit: cover or contain. No focal point for now. Does nothing until D gives a row a height; kept so it's there then.
+- Never drawn wider than the image itself; centred in its slot. A Stretch setting maybe one day.
+- Padding: None / Small / Medium / Large, around the image inside its slot.
+- Link: Lightbox (default), the artwork's page (work source only), or None. Links to other pages left out for now.
+- No caption.
 - Alt text: the work's title for a work image; the library image's alt text otherwise.
+- A new component has no image: "No image chosen yet" on the settings page and preview; public pages draw nothing.
+- `sizes` comes from the slot's share of the row, so a third-width image asks for 800, not 1600. The large size is
+  only needed edge to edge (D), so A's step 5 may land with D rather than C.
+- Later: a Video component along the same lines.
+- Build steps, each leaving the app working (From Claude, 2026-10-16):
+  1. The type with no image yet: `CustomComponentType.Image`, `ImageSettings` (source, `ImageFit`, `ImagePadding`,
+     `ImageLink`), its JSON, an Image starter in the Add component dialog, and the settings page with Fit, Padding
+     and Link selects saving on change. The view says "No image chosen yet" in the preview and draws nothing on a
+     public page.
+  2. Library source: "Choose image" on the settings page opens the image picker (`ImagePickerDialog` and
+     `PickLibraryImage` move out of `TextEditor/` and the editor-only parts are split off). The view draws it with
+     ready-only `srcset`, the library alt text, the blur, "Processing…", never wider than the image, padding.
+     `set_custom_component_uploaded_images` also reads the settings' source, so Used in, the delete warning and
+     delete work; deleting the image empties the component's source in `delete_uploaded_images`.
+  3. Work source: "Choose work" opens the work picker, stores the work id and draws its primary image with the
+     title as alt text. The works junction is rebuilt from the source, so the work's "Mentioned in" lists the page
+     (only while the work has a primary image, as the custom list does). A work a visitor can't see, or one with no
+     image, draws nothing publicly; the settings page says why.
+  4. Link: Lightbox (default; opens even when no wider size exists: Mike, 2026-10-16), Artwork page (work source
+     only; choosing a library image while it's set falls back to Lightbox), None.
+  5. `sizes` from the slot's share of the row, which `PageRowView` hands to `CustomComponentView`.
+  Fit is stored and drawn as `object-fit` from step 1, inert until D. The large size job waits for D.
+- Step 1 built 2026-10-16, uncommitted, 1244 tests, not browser-checked: `CustomComponentType.Image` (4),
+  `ImageSettings(Fit, Padding, Link)` + `ImageSettings.New` (Cover, None, Lightbox), `ImageFit`/`ImagePadding`/
+  `ImageLink`, JSON version 1 (`{"fit","padding","link"}` by name), `CustomComponentStarter.Image`, name "Image".
+  Settings page: "No image chosen yet." and three selects saving on change; `CustomComponentForm.CheckImage`
+  (shares `CheckSelects` with `CheckCardGrid`). `CustomComponentView` draws nothing for it yet; the preview shows
+  nothing either (it draws a row as a visitor sees it), so only the settings page says no image is chosen.
+  Tests in `App/ImageComponentTests.cs`.
+- Step 2 built 2026-10-16, uncommitted, 1249 tests, typecheck clean, not browser-checked. Fit hint removed (Mike).
+  - `ImageSource.Library(StorageKey)` (`ImageSourceType`), `ImageSettings.Source` null until chosen; JSON
+    `"source": {"type": "Library", "storageKey": …}`, left out when none.
+  - Picker moved to `Components/Pages/Admin/Publishing/Images/ImagePicker/`, page now `/admin/images/pick`;
+    `attachImagePicker`, `createFilePicker` and the `UploadedImage` typedef moved into its `ImagePickerDialog.razor.js`.
+  - `ImageSourceField` (+ `.razor.js`, `<image-source-field>`) on the settings page: thumbnail and name or "No image
+    chosen yet.", Choose image / Change image, a hidden `Input.ImageStorageKey`; a picked image, or one uploaded
+    with `uploadWithRetries` to the library endpoint, is put in the field and the form posted. `CheckImageAsync`
+    refuses a key no longer in the library.
+  - `ImageView` + `ImageClasses` (padding p-4/p-8/p-16, `object-cover`/`object-contain`): ready-only srcset up to
+    the image's largest size, `max-width` of the image's own width, centred, blur, "Processing…", lazy.
+    `sizes` is `min(<image width>px, 100vw)` until step 5. No link yet (step 4).
+  - SQL: `set_custom_component_uploaded_images` also reads `settings.source.storageKey`, so Used in, the uses list
+    and the delete warning include image components; `delete_uploaded_images` strips bodies only for text
+    components (type 3) and removes `source` from image components (type 4) showing a deleted image.
+- After step 2 (Mike, 2026-10-16): Fit and Padding are radio buttons, via a new `Components/Forms/RadioField`
+  (fieldset + legend, `InputRadioGroup`, `Values` + `LabelOf`).
+- Step 3 built 2026-10-16, uncommitted, 1252 tests, typecheck clean, not browser-checked.
+  - `ImageSource.Work(WorkId, StorageKey?)`: null key = the work's main image (`MainImageIndex`), so it follows
+    changes; picking the main image saves null (`CustomComponentForm.ToImageSource`). `ImageOf(work)`.
+  - `ImageComponentPicture.ReadAsync` (Shown: image, alt, name, work / Missing: `MissingImageReason`) used by
+    `ImageView` and the settings page, which says why nothing shows (library image deleted, work deleted, work
+    has no images, image taken off the work).
+  - Field: "Choose from the image library" and "Choose <work>"; hidden `Input.ImageWorkId` beside the key.
+    `CheckImageAsync` (now takes `WorkRepository` and `SiteWording`) refuses a deleted work or an image no
+    longer on it.
+  - The work picker opens in its existing change-image mode (`chooseImageUrl`, `data-choose-image-src` = the
+    list in that mode), which ends with "Use this image". `attachWorkPicker` and its typedefs moved to
+    `TextEditor/WorkPickerDialog.razor.js`; the work picker pages stay in `TextEditor/WorkPicker/`.
+  - SQL: `set_custom_component_works` also reads a Work source's `workId`; `set_custom_component_uploaded_images`
+    reads the key only for a Library source; `get_custom_pages_mentioning_work` counts an image component only
+    while its image is on the work.
+- Step 4 built 2026-10-16, uncommitted, 1257 tests, typecheck clean, not browser-checked.
+  - Link is radios (Mike): Lightbox / "<Work> page" (only while a work's image is chosen) / None.
+    `ImageLink.ArtworkPage` (ids now Lightbox 1, ArtworkPage 2, None 3). A library image saved with ArtworkPage
+    saves Lightbox (`CustomComponentForm.ToSettings`).
+  - `ImageView`: Lightbox wraps the picture in `LightboxTrigger` with its own `ImageLightbox`, opened by
+    `<image-view>` (`ImageView.razor.js`, loaded in App.razor) with only that picture; opens even with no wider
+    size (Mike). ArtworkPage links `WorkPageQuery.Url(slug, null, imageNumber)`, the number only for a picked
+    image other than the main one.
+  - Work picker moved out of the text editor (Mike): `Components/Pages/Admin/Catalog/WorkPicker/` (pages,
+    `WorkPickerTrail`, `WorkEmbedChoice`, `WorkPickerDialog` + its script), pages now `/admin/catalog/works/pick`;
+    `PickerFramePage` (+ script), shared by both pickers, now at `Components/Pages/Admin/`.
+- Step 5 built 2026-10-16, uncommitted, 1259 tests, not browser-checked. C is built.
+  - `RowClasses.SlotShares` (1/1/2…) is the one record of a split; `SlotGrowth` maps it to `grow` / `grow-2`.
+  - `SlotWidth(Widths, Index).Sizes(imagePixels)`, passed `PageRowView` → `CustomComponentView` → `ImageView`: the
+    slot's share of `min(100vw, 1200px)` less padding and gaps once every slot fits on one line at its 18rem
+    minimum, otherwise the whole page width; always capped at the image's width. Its pixel constants mirror
+    p-4, gap-8 and min-w-[min(100%,18rem)] (Tailwind needs those spelled out). The component's own padding is
+    left out, so it can ask for a little more than it draws. Tests in `Components/SlotWidthTests.cs`.
+  - Card grids still use `TileImage`'s default `sizes`, not the slot's.
 
 **D. Row settings.**
 - Height: Natural, or Fill the screen (the screen height below the nav, at least; `svh` so the iPhone toolbar
   doesn't make it jump). A minimum, so text on a phone isn't cut off; a cover image fills whatever the row is.
-- Width: Page width, or Edge to edge.
+  Mike 2026-10-16: the first row fills the screen below the nav; a later row the whole screen.
+- Width: Page width, or Edge to edge. Full bleed is a row setting, never a component one.
 - So a home page can open with one full-bleed image filling the first screen, and no scroll if there's no other row.
 
-**E. Slot background images (later).** A slot gets an image + fit as its background, and a Text component sits on
-top; uses D's height. Replaces the idea of text overlaid on an Image component.
+**E. Row backgrounds (later).** Mike 2026-10-16: a row gets a background, a solid colour or an image (+ fit), maybe
+a video later, and components sit on top; uses D's height, so a page can be a run of full-screen rows. Replaces the
+idea of text overlaid on an Image component. (Was slot backgrounds on 2026-10-15.) The image choice (source, fit,
+large size on demand) should be shared with C, not copied.
+- A full-bleed option on the card grid's custom list could cover "several edge-to-edge images side by side"; not
+  planned.
 
 ## Custom pages built from custom components, agreed 2026-10-12 (From Claude)
 

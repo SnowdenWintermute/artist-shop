@@ -2,7 +2,6 @@ import {
   WORK_EMBED,
   addWorkEmbed,
   attachWorkEmbedToolbar,
-  attachWorkPicker,
   registerWorkEmbed,
 } from "./EditorWorkEmbed.razor.js";
 import {
@@ -10,13 +9,13 @@ import {
   UPLOAD_PLACEHOLDER,
   acceptedImageTypes,
   addUploadedImageEmbed,
-  attachImagePicker,
   attachUploadedImageEmbedToolbar,
-  createFilePicker,
   createImageUploads,
   isUploadPlaceholder,
   registerUploadedImageEmbed,
 } from "./EditorUploadedImageEmbed.razor.js";
+import { attachWorkPicker } from "../Catalog/WorkPicker/WorkPickerDialog.razor.js";
+import { attachImagePicker, createFilePicker } from "../Publishing/Images/ImagePicker/ImagePickerDialog.razor.js";
 import { VIDEO_EMBED, addVideoEmbed, attachVideoEmbedToolbar, registerVideoEmbed } from "./EditorVideoEmbed.razor.js";
 import { VideoAddressDialog } from "./VideoAddressDialog.razor.js";
 import { attachEmbedLines, quillEmbedArrowBindingsOff } from "/js/embed-lines.js";

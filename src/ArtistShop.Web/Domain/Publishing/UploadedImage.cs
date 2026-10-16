@@ -23,7 +23,7 @@ public record UploadedImage(
     public WorkImage TileImage => new(StorageKey, OriginalFileName, Width, Height, BlurDataUri);
 }
 
-// UsedInCount is how many posts and text components show it
+// UsedInCount is how many posts and text or image components show it
 public record UploadedImageListItem(UploadedImage Image, int UsedInCount);
 
 public record UploadedImageListPage(IReadOnlyList<UploadedImageListItem> Items, int TotalCount, int PageNumber, int PageSize)

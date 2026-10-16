@@ -11,12 +11,12 @@
 }
 
 <div class="@($"flex flex-wrap gap-8 {RowClasses.Alignment(Row.Alignment)}")">
-  @foreach (var (slot, growth) in Row.Slots.Zip(SlotGrowth))
+  @foreach (var (slot, growth, index) in Row.Slots.Zip(SlotGrowth, Enumerable.Range(0, Row.Slots.Count)))
   {
     <div class="@($"flex min-w-[min(100%,18rem)] basis-0 flex-col gap-8 {growth}")">
       @foreach (var component in slot.Stack)
       {
-        <CustomComponentView @key="component.Id" Component="component" />
+        <CustomComponentView @key="component.Id" Component="component" Slot="new SlotWidth(Row.Widths, index)" />
       }
     </div>
   }

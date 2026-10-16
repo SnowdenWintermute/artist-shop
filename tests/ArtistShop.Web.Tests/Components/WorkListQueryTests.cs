@@ -7,13 +7,13 @@ public class WorkListQueryTests
 {
     // what the filter form sends back with nothing chosen but images: every field, empty or not
     private const string SubmittedWithImagesOnly =
-        "/admin/text-editor/pick-work?mode=change-image&q=&collection=&images=yes&sale=&sort=added";
+        "/admin/catalog/works/pick?mode=change-image&q=&collection=&images=yes&sale=&sort=added";
 
     [Theory]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?q=&collection=&images=&sale=&sort=added")]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?sort=title&page=3")]
-    [InlineData("/admin/text-editor/pick-work?images=yes", SubmittedWithImagesOnly)]
-    [InlineData("/admin/text-editor/pick-work?images=yes&mode=change-image", SubmittedWithImagesOnly)]
+    [InlineData("/admin/catalog/works/pick?images=yes", SubmittedWithImagesOnly)]
+    [InlineData("/admin/catalog/works/pick?images=yes&mode=change-image", SubmittedWithImagesOnly)]
     [InlineData("/admin/catalog/works?type=1&type=2", "/admin/catalog/works?type=2&type=1")]
     public void AddressesShowingTheSameWorksHaveTheSameFilters(string cleared, string current)
     {
@@ -23,8 +23,8 @@ public class WorkListQueryTests
     [Theory]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?images=yes")]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?q=rose")]
-    [InlineData("/admin/text-editor/pick-work?images=yes", "/admin/text-editor/pick-work?q=&images=")]
-    [InlineData("/admin/text-editor/pick-work?images=yes", "/admin/text-editor/pick-work?images=yes&collection=4")]
+    [InlineData("/admin/catalog/works/pick?images=yes", "/admin/catalog/works/pick?q=&images=")]
+    [InlineData("/admin/catalog/works/pick?images=yes", "/admin/catalog/works/pick?images=yes&collection=4")]
     [InlineData("/admin/catalog/works?term=1", "/admin/catalog/works?term=1&term=2")]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?collection=none")]
     public void AddressesShowingOtherWorksHaveDifferentFilters(string cleared, string current)

@@ -25,6 +25,7 @@ public static class CustomComponentNames
             CustomComponentStarter.PostList => Of(CustomComponentType.PostList, wording),
             CustomComponentStarter.Text => Of(CustomComponentType.Text, wording),
             CustomComponentStarter.Heading => "Heading",
+            CustomComponentStarter.Image => Of(CustomComponentType.Image, wording),
             _ => throw new InvalidOperationException($"{starter} has no name."),
         };
 
@@ -34,6 +35,7 @@ public static class CustomComponentNames
             CustomComponentType.CardGrid => "Card grid",
             CustomComponentType.PostList => "Post list",
             CustomComponentType.Text => "Text / article",
+            CustomComponentType.Image => "Image",
             _ => throw new InvalidOperationException($"{type} has no name."),
         };
 }

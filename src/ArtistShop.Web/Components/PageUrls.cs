@@ -1,7 +1,7 @@
 using System.Globalization;
 using ArtistShop.Web.Components.Catalog;
 using ArtistShop.Web.Components.Forms;
-using ArtistShop.Web.Components.Pages.Admin.TextEditor.WorkPicker;
+using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Sites;
@@ -282,11 +282,11 @@ public static class PageUrls
     public static string Post(PostSlug slug) => $"/posts/{slug.Value}";
 
     // the image picker's library step, in its frame
-    public const string ImagePicker = "/admin/text-editor/pick-image";
+    public const string ImagePicker = "/admin/images/pick";
 
     // the post editor's work picker, which runs in a frame: the list, then one work's
     // images, then the choice of the image picked. The trail rides along in each address
-    public const string WorkPicker = "/admin/text-editor/pick-work";
+    public const string WorkPicker = "/admin/catalog/works/pick";
 
     public const string WorkPickerImageKey = "image";
 

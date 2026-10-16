@@ -1,5 +1,5 @@
-// The image picker's library step: a click on an image sends it to the editor around the frame, in
-// the shape the upload endpoint answers with, so the editor adds either the same way
+// The image picker's library step: a click on an image sends it to the page around the frame, in
+// the shape the upload endpoint answers with, so the page takes either the same way
 import { sendToPickerOwner } from "/js/picker-frame.js";
 
 customElements.define(

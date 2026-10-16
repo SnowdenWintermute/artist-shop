@@ -1,0 +1,75 @@
+@* An image component's picture: never wider than the image itself, centred in its slot. Nothing is
+   drawn until an image is chosen, or once it's gone. A click opens the lightbox, defined with
+   <image-view> in ImageView.razor.js, or the artwork's page, or does nothing *@
+@using System.Globalization
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Images
+@inject UploadedImageRepository UploadedImageRepository
+@inject WorkRepository WorkRepository
+@inject ImageSizeQueue ImageSizeQueue
+
+@code {
+  [Parameter, EditorRequired]
+  public required ImageSettings Settings { get; set; }
+
+  [Parameter, EditorRequired]
+  public required SlotWidth Slot { get; set; }
+
+  private ImageComponentPicture? _picture;
+
+  protected override async Task OnParametersSetAsync() =>
+    _picture = await ImageComponentPicture.ReadAsync(Settings.Source, UploadedImageRepository, WorkRepository);
+
+  // the work's page, opened at the picked image, or at its first for the main image
+  private string? ArtworkPageHref(ImageComponentPicture.Shown shown) =>
+    Settings.Link is ImageLink.ArtworkPage && shown.Work is { } work && Settings.Source is ImageSource.Work source
+      ? WorkPageQuery.Url(
+          work.Slug.Value,
+          collectionSlug: null,
+          source.StorageKey is null ? null : work.Images.ToList().FindIndex(image => image.StorageKey == source.StorageKey) + 1)
+      : null;
+}
+
+@if (_picture is ImageComponentPicture.Shown { Image: var image } shown)
+{
+  var width = ImageVariants.LargestWidthFor(image.Width);
+  var readyWidths = ImageSizeQueue.ReadyWidths(image.StorageKey, image.Width);
+
+  RenderFragment picture = @<span class="relative block">
+      <img src="@ImageUrls.Variant(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
+           srcset="@ImageUrls.SourceSet(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
+           sizes="@Slot.Sizes(image.Width)" alt="@shown.AltText"
+           width="@image.Width.ToString(CultureInfo.InvariantCulture)" height="@image.Height.ToString(CultureInfo.InvariantCulture)"
+           loading="lazy" data-test="image-component"
+           class="@($"block h-auto w-full bg-cover bg-center {ImageClasses.Fit(Settings.Fit)}")"
+           style="@(image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
+      @if (ImageSizeQueue.IsProcessing(image.StorageKey, width))
+      {
+        <ProcessingLabel />
+      }
+    </span>;
+
+  <image-view class="@($"block {ImageClasses.Padding(Settings.Padding)}")">
+    <div class="mx-auto" style="@($"max-width: {image.Width.ToString(CultureInfo.InvariantCulture)}px;")">
+      @if (ArtworkPageHref(shown) is { } href)
+      {
+        <a href="@href" class="block">@picture</a>
+      }
+      else if (Settings.Link is ImageLink.Lightbox)
+      {
+        <LightboxTrigger>@picture</LightboxTrigger>
+      }
+      else
+      {
+        @picture
+      }
+    </div>
+    @if (Settings.Link is ImageLink.Lightbox)
+    {
+      <ImageLightbox />
+    }
+  </image-view>
+}

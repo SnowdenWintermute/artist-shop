@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Domain.Website;
 
 using System.Text.Json.Serialization;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 
 public record CustomComponentId(int Value);
@@ -11,6 +12,7 @@ public enum CustomComponentType
     CardGrid = 1,
     PostList = 2,
     Text = 3,
+    Image = 4,
 }
 
 // One record per type, holding what the artist chose. Kept in custom_components.settings as JSON
@@ -41,6 +43,73 @@ public sealed record TextSettings(RichText Body, TextWidth Width) : CustomCompon
     public override CustomComponentType Type => CustomComponentType.Text;
 }
 
+// How an image fills the box its row gives it. The ids are only for ordering; settings store the names
+public enum ImageFit
+{
+    // fills the box, cropping what overflows
+    Cover = 1,
+    // the whole image, leaving the rest of the box empty
+    Contain = 2,
+}
+
+// the space around an image inside its slot
+public enum ImagePadding
+{
+    None = 1,
+    Small = 2,
+    Medium = 3,
+    Large = 4,
+}
+
+// what clicking an image does. ArtworkPage is only for a work's image
+public enum ImageLink
+{
+    Lightbox = 1,
+    ArtworkPage = 2,
+    None = 3,
+}
+
+public enum ImageSourceType
+{
+    Library = 1,
+    Work = 2,
+}
+
+// where an image component's picture comes from
+public abstract record ImageSource
+{
+    public abstract ImageSourceType Type { get; }
+
+    // an image in the site's image library, by its file's key, as text embeds keep theirs
+    public sealed record Library(string StorageKey) : ImageSource
+    {
+        public override ImageSourceType Type => ImageSourceType.Library;
+    }
+
+    // One of a work's images, by its file's key, or its main image when null, so a change of the work's
+    // main image shows here too. The alt text is the work's title
+    public sealed record Work(WorkId WorkId, string? StorageKey) : ImageSource
+    {
+        public override ImageSourceType Type => ImageSourceType.Work;
+
+        // the image shown, null when the work has none or no longer has the one picked
+        public WorkImage? ImageOf(Catalog.Work work) =>
+            StorageKey is null
+                ? work.Images.ElementAtOrDefault(work.MainImageIndex)
+                : work.Images.FirstOrDefault(image => image.StorageKey == StorageKey);
+    }
+}
+
+// One image, meant as a hero image rather than a picture in a text. Fit only matters once a row can
+// have a height of its own; until then a box is the image's own shape. Source is null until one is chosen,
+// and again once its image is deleted
+public sealed record ImageSettings(ImageSource? Source, ImageFit Fit, ImagePadding Padding, ImageLink Link) : CustomComponentSettings
+{
+    public override CustomComponentType Type => CustomComponentType.Image;
+
+    public static readonly ImageSettings New = new(null, ImageFit.Cover, ImagePadding.None, ImageLink.Lightbox);
+}
+
 // Name is for finding it again in the library and is unique; a page never shows it
 public record CustomComponent(CustomComponentId Id, string Name, CustomComponentSettings Settings);
 
@@ -57,6 +126,7 @@ public enum CustomComponentStarter
     PostList = 2,
     Text = 3,
     Heading = 4,
+    Image = 5,
 }
 
 // the settings each starter makes a component with
@@ -69,6 +139,7 @@ public static class NewCustomComponentSettings
             CustomComponentStarter.PostList => new PostListSettings(),
             CustomComponentStarter.Text => new TextSettings(RichText.Empty, TextWidth.Narrow),
             CustomComponentStarter.Heading => new TextSettings(HeadingText, TextWidth.Full),
+            CustomComponentStarter.Image => ImageSettings.New,
             _ => throw new InvalidOperationException($"{starter} has no starting settings."),
         };
 

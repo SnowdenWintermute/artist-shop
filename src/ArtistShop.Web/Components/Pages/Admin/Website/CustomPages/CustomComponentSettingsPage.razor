@@ -17,6 +17,7 @@
 @inject CollectionRepository CollectionRepository
 @inject CardGridChosenCardRepository CardGridChosenCardRepository
 @inject UploadedImageRepository UploadedImageRepository
+@inject WorkRepository WorkRepository
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
 
@@ -49,6 +50,8 @@
   private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
   // a card grid's custom list, read only while it shows it
   private List<ChosenCardListItem>? _chosenCards;
+  // what an image component's saved source shows now
+  private ImageComponentPicture? _picture;
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -81,6 +84,11 @@
 collection.Id).ToHashSet();
     }
 
+    if (_component?.Component.Settings is ImageSettings image)
+    {
+      _picture = await ImageComponentPicture.ReadAsync(image.Source, UploadedImageRepository, WorkRepository);
+    }
+
     if (_component?.Component.Settings is CardGridSettings { Source: CardGridSource.ChosenCards })
     {
       // a List built by ToList, not a collection expression's generated type, as an island parameter is rebuilt
@@ -92,7 +100,8 @@ collection.Id).ToHashSet();
   private async Task SaveAsync()
   {
     if (_component is null || Input is null || !await Input.CheckBodyAsync(UploadedImageRepository, _component.Component.Settings)
-        || !Input.CheckCardGrid(_component.Component.Settings, _collections))
+        || !Input.CheckCardGrid(_component.Component.Settings, _collections)
+        || !await Input.CheckImageAsync(UploadedImageRepository, WorkRepository, Wording, _component.Component.Settings))
     {
       return;
     }
@@ -155,6 +164,19 @@ PageUrls.CustomPageList;
       : _collections.All(collection => collection.Id.Value != id) ? $"The {Wording.Collection.SingularInSentence} it showed was deleted."
       : !_visibleCollectionIds.Contains(new CollectionId(id)) ? "None of its works has an image, so the grid is empty."
       : null;
+
+  // the artwork page only for a work's image
+  private static IReadOnlyList<ImageLink> ImageLinks(CustomComponentForm input) =>
+    input.ImageWorkId is null ? [ImageLink.Lightbox, ImageLink.None] : Enum.GetValues<ImageLink>();
+
+  private string ImageLinkLabel(ImageLink link) =>
+    link switch
+    {
+      ImageLink.Lightbox => "Lightbox",
+      ImageLink.ArtworkPage => $"{Wording.Work.SingularHeading} page",
+      ImageLink.None => "None",
+      _ => throw new InvalidOperationException($"{link} has no label."),
+    };
 
   private static string DeleteWarning(CustomComponentInUse component) =>
     component.PageNames.Count == 0
@@ -302,6 +324,23 @@ PageUrls.CustomPageList;
                             Origin="CustomComponentOrigin.Of(FromPageId, FromRowId)" Items="_chosenCards" />
           </div>
         }
+      }
+      else if (component.Component.Settings is ImageSettings)
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
+                            StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture" />
+          <SubmitOnChange>
+            <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Padding" @bind-Value="Input.Padding" Values="Enum.GetValues<ImagePadding>()"
+                        LabelOf="padding => padding.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Link" @bind-Value="Input.Link" Values="ImageLinks(Input)" LabelOf="ImageLinkLabel" />
+          </SubmitOnChange>
+        </ComponentSettingsForm>
       }
       else
       {

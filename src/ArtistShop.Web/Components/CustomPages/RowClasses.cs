@@ -7,17 +7,31 @@ using ArtistShop.Web.Domain.Website;
 // of its own, so a row stacks on a phone
 public static class RowClasses
 {
-    public static IReadOnlyList<string> SlotGrowth(RowWidths widths) =>
+    // each slot's share of the row, left to right
+    public static IReadOnlyList<int> SlotShares(RowWidths widths) =>
         widths switch
         {
-            RowWidths.Whole => ["grow"],
-            RowWidths.Halves => ["grow", "grow"],
-            RowWidths.ThirdThenTwoThirds => ["grow", "grow-2"],
-            RowWidths.TwoThirdsThenThird => ["grow-2", "grow"],
-            RowWidths.Thirds => ["grow", "grow", "grow"],
-            RowWidths.QuarterHalfQuarter => ["grow", "grow-2", "grow"],
-            _ => throw new InvalidOperationException($"{widths} has no slot classes."),
+            RowWidths.Whole => [1],
+            RowWidths.Halves => [1, 1],
+            RowWidths.ThirdThenTwoThirds => [1, 2],
+            RowWidths.TwoThirdsThenThird => [2, 1],
+            RowWidths.Thirds => [1, 1, 1],
+            RowWidths.QuarterHalfQuarter => [1, 2, 1],
+            _ => throw new InvalidOperationException($"{widths} has no slot shares."),
         };
+
+    public static IReadOnlyList<string> SlotGrowth(RowWidths widths) =>
+        [
+            .. SlotShares(widths)
+                .Select(share =>
+                    share switch
+                    {
+                        1 => "grow",
+                        2 => "grow-2",
+                        _ => throw new InvalidOperationException($"A share of {share} has no class."),
+                    }
+                ),
+        ];
 
     public static string Alignment(RowAlignment alignment) =>
         alignment switch

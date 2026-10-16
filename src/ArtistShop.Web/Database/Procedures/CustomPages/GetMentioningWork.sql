@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS get_custom_pages_mentioning_work;
 
--- the pages with a text component on them that embeds the work, or a card grid whose custom list shows it.
--- Every custom page is public
+-- the pages with a text component on them that embeds the work, an image component showing one of its
+-- images, or a card grid whose custom list shows it. Every custom page is public
 CREATE FUNCTION get_custom_pages_mentioning_work (p_work_id int) RETURNS TABLE (
     id int,
     name text,
@@ -21,8 +21,25 @@ FROM
             junction.component_id
         FROM
             custom_component_and_works_junction AS junction
+            JOIN custom_components AS component ON component.id = junction.component_id
         WHERE
             junction.work_id = p_work_id
+            -- an image component only while a visitor sees the image: the one picked, or the work's main image,
+            -- which any work with images has. CustomComponentType.Image
+            AND (
+                component.type <> 4
+                OR EXISTS (
+                    SELECT
+                    FROM
+                        work_images AS image
+                    WHERE
+                        image.work_id = p_work_id
+                        AND (
+                            component.settings #>> '{source,storageKey}' IS NULL
+                            OR image.storage_key = component.settings #>> '{source,storageKey}'
+                        )
+                )
+            )
         UNION
         -- only while the grid shows its custom list, and only a work a visitor sees there: one with the
         -- primary image its card shows

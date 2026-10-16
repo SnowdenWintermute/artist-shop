@@ -16,6 +16,7 @@ public static class CustomComponentSettingsJson
             CardGridSettings cardGrid => (WriteCardGrid(cardGrid), 1),
             PostListSettings postList => (Serialize(postList), 1),
             TextSettings text => (WriteText(text), 1),
+            ImageSettings image => (WriteImage(image), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
         };
 
@@ -25,6 +26,7 @@ public static class CustomComponentSettingsJson
             (CustomComponentType.CardGrid, 1) => ReadCardGrid(json),
             (CustomComponentType.PostList, 1) => Deserialize<PostListSettings>(json),
             (CustomComponentType.Text, 1) => ReadText(json),
+            (CustomComponentType.Image, 1) => ReadImage(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
         };
 
@@ -47,6 +49,61 @@ public static class CustomComponentSettingsJson
             Enum.Parse<TextWidth>(root.GetProperty("width").GetString() ?? throw new InvalidOperationException("A text component's width is null."))
         );
     }
+
+    // {"source": {"type": "Library", "storageKey": "…"}, "fit": "Cover", "padding": "None", "link": "Lightbox"},
+    // with no source until one is chosen, or {"type": "Work", "workId": 4} with a storageKey only for an image
+    // other than the work's main one. The database reads the storage key and work id for the image's uses
+    private static string WriteImage(ImageSettings image)
+    {
+        var json = new JsonObject
+        {
+            ["fit"] = image.Fit.ToString(),
+            ["padding"] = image.Padding.ToString(),
+            ["link"] = image.Link.ToString(),
+        };
+
+        if (image.Source is ImageSource.Library library)
+        {
+            json["source"] = new JsonObject { ["type"] = library.Type.ToString(), ["storageKey"] = library.StorageKey };
+        }
+        else if (image.Source is ImageSource.Work work)
+        {
+            var source = new JsonObject { ["type"] = work.Type.ToString(), ["workId"] = work.WorkId.Value };
+
+            if (work.StorageKey is { } storageKey)
+            {
+                source["storageKey"] = storageKey;
+            }
+
+            json["source"] = source;
+        }
+
+        return json.ToJsonString();
+    }
+
+    private static ImageSettings ReadImage(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        return new ImageSettings(
+            root.TryGetProperty("source", out var source) ? ReadImageSource(source) : null,
+            Enum.Parse<ImageFit>(ReadString(root, "fit")),
+            Enum.Parse<ImagePadding>(ReadString(root, "padding")),
+            Enum.Parse<ImageLink>(ReadString(root, "link"))
+        );
+    }
+
+    private static ImageSource ReadImageSource(JsonElement source) =>
+        ReadEnum<ImageSourceType>(source) switch
+        {
+            ImageSourceType.Library => new ImageSource.Library(ReadString(source, "storageKey")),
+            ImageSourceType.Work => new ImageSource.Work(
+                new WorkId(source.GetProperty("workId").GetInt32()),
+                source.TryGetProperty("storageKey", out var storageKey) ? storageKey.GetString() : null
+            ),
+            var type => throw new InvalidOperationException($"No reader for an image's {type} source."),
+        };
 
     // {"source": {"type": "WorksInCollection", "collectionId": 4}, "heading": {"type": "Custom", "text": "…"},
     //  "cardsPerPage": 24, "hasPageLinks": true, "layout": "EvenGrid"}

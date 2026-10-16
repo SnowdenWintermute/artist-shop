@@ -2,7 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
-using ArtistShop.Web.Components.Pages.Admin.TextEditor.WorkPicker;
+using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
@@ -186,7 +186,7 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/catalog/vocabularies/{Id:int}"] = PageUrls.VocabularyTerms(vocabularyId),
             ["/admin/catalog/vocabularies/{Id:int}/edit"] = PageUrls.EditVocabulary(vocabularyId),
             ["/admin/catalog/works/{Id:int}/edit"] = PageUrls.EditWork(work.Id),
-            ["/admin/text-editor/pick-work/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),
+            ["/admin/catalog/works/pick/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),
             ["/admin/posts/{Id:int}/edit"] = PageUrls.EditPost(postId),
             ["/admin/website/pages/{Id:int}"] = PageUrls.EditCustomPage(home.Id),
             ["/admin/website/pages/{PageId:int}/rows/{RowId:int}"] = PageUrls.EditPageRow(home.Id, homeRow.Id),
