@@ -380,6 +380,37 @@ day, if row backgrounds aren't enough).
      its slot, the preview's screen height.
   5. Text theme per row.
   6. Background colour, then background image + large size on demand.
+- Step 1 built 2026-10-16, uncommitted, 1260 tests, not browser-checked. `RowPadding.Classes(RowPosition)`
+  (pt-14 first / pt-4, pb-24 last / pb-4, sides `calc(1.5rem + safe-area inset)`); each row centres its content
+  at `CustomPageWidths.ContentMaximumClass` (1168px). `CustomPageView`'s `<main data-custom-page>` makes
+  `MainLayout`'s body padding `has-[[data-custom-page]]:p-0`. `CustomPageLayout.PositionOf(row)` →
+  `RowPosition(IsFirst, IsLast)`, passed to `PageRowView` and `RowPreview`. Preview desktop width is now 1216
+  (the narrowest screen with 1168px content), and the row carries its own padding instead of `RowPreview`'s
+  `p-4`; the collection page preview pads `px-6 py-4` to match. `SlotWidth.Sizes` uses
+  `min(calc(100vw - 48px), 1168px)`. A page with no rows now has no space between nav and footer.
+  Browser-checked by Mike 2026-10-17.
+- Scroll restoration fix 2026-10-17 (not D, found while checking it): reload and Forward into the site painted at the
+  top, then jumped. `scroll-restoration.js` now turns the browser's restore off ("manual") only after load (and on
+  a link click or submit), and back on ("auto") on pagehide, so whole page loads restore natively; its own late
+  restore runs only for an entry still "manual". Browser-checked by Mike (Brave, Firefox); Ctrl+Shift+R still
+  loses the spot, accepted.
+- Step 2 built 2026-10-17, uncommitted, 1262 tests. Padding only: height, width and text
+  theme columns come with their own steps (3-5), so no choice is shown before it does anything.
+  - `RowPadding(Top, Bottom, Sides)` on `PageRow`, `RowPadding.New` (Auto, Auto, Medium);
+    `RowVerticalPadding` Auto/None/Small/Medium/Large, `RowSidePadding` None/Small/Medium/Large.
+  - `RowPaddingClasses` (was `RowPadding` in Components): top/bottom 0/16/48/96px, Auto as step 1; sides
+    0/8/24/64px + safe-area inset, `SidePixels` for `SlotWidth(Widths, Sides, Index).Sizes`.
+  - 0009: `page_rows.top_padding`, `bottom_padding`, `side_padding` (site_1 patched by hand with ALTER TABLE);
+    `add_page_row` and the seed write `RowPadding.New`; `get_custom_page_layout` returns them;
+    `set_page_row_padding` (SH024 for a removed row), `PageRowRepository.SetPaddingAsync`.
+  - Row editor: Top padding / Bottom padding / Side padding on every row, saving on click.
+    `RowWidthLabels` → `RowChoiceLabels`.
+  - After Mike's first look: side padding sat outside the 1168px cap, so it only showed on narrow screens. Now
+    each row's content box is `CustomPageWidths.PageMaximumClass` (1216px) with the sides inside it, so Medium
+    still leaves 1168px and every choice shows at any width; `SlotWidth` uses `calc(min(100vw, 1216px) - sides)`.
+    `ChoiceButtons` → `RadioChoices` (radios, legend above, as `RadioField` looks), never disabled: a choice
+    made while saving waits in `RowEditor._waitingChoices` and applies to the row as saved, so nothing flickers.
+  - Browser-checked by Mike 2026-10-17.
 - A full-bleed option on the card grid's custom list could cover "several edge-to-edge images side by side"; not
   planned.
 

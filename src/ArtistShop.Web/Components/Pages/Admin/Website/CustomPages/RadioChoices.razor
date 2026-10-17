@@ -1,0 +1,33 @@
+@* One choice from a few as radios, each saved the moment it's made, for an island; RadioField is
+   the same for a static form. Never disabled: one made while another saves waits its turn *@
+@typeparam TValue
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<TValue> Values { get; set; }
+  [Parameter, EditorRequired]
+  public required TValue Chosen { get; set; }
+  [Parameter, EditorRequired]
+  public required Func<TValue, string> LabelOf { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback<TValue> OnChoose { get; set; }
+
+  private readonly string _name = $"choice-{Guid.NewGuid():n}";
+}
+
+<fieldset>
+  <legend class="artist-shop-field-label">@Label</legend>
+  <div class="flex flex-wrap gap-x-4 gap-y-1">
+    @foreach (var value in Values)
+    {
+      var isChosen = EqualityComparer<TValue>.Default.Equals(value, Chosen);
+      <label class="flex cursor-pointer items-center gap-2">
+        <input type="radio" name="@_name" checked="@isChosen"
+               @onchange="() => OnChoose.InvokeAsync(value)" />
+        @LabelOf(value)
+      </label>
+    }
+  </div>
+</fieldset>

@@ -2,8 +2,8 @@ namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 using ArtistShop.Web.Domain.Website;
 
-// how the row editor shows each split and alignment
-public static class RowWidthLabels
+// how the row editor shows each of a row's choices
+public static class RowChoiceLabels
 {
     public static string Of(RowWidths widths) =>
         widths switch
@@ -24,5 +24,26 @@ public static class RowWidthLabels
             RowAlignment.Center => "Middle",
             RowAlignment.End => "Bottom",
             _ => throw new InvalidOperationException($"{alignment} has no label."),
+        };
+
+    public static string Of(RowVerticalPadding padding) =>
+        padding switch
+        {
+            RowVerticalPadding.Auto => "Auto",
+            RowVerticalPadding.None => "None",
+            RowVerticalPadding.Small => "Small",
+            RowVerticalPadding.Medium => "Medium",
+            RowVerticalPadding.Large => "Large",
+            _ => throw new InvalidOperationException($"{padding} has no label."),
+        };
+
+    public static string Of(RowSidePadding padding) =>
+        padding switch
+        {
+            RowSidePadding.None => "None",
+            RowSidePadding.Small => "Small",
+            RowSidePadding.Medium => "Medium",
+            RowSidePadding.Large => "Large",
+            _ => throw new InvalidOperationException($"{padding} has no label."),
         };
 }

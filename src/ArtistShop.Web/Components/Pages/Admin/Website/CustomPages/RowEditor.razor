@@ -23,6 +23,7 @@
   [Parameter, EditorRequired]
   public bool IsNew { get; set; }
 
+  private CustomPageLayout? _layout;
   private PageRow? _row;
   private RowSlot? _addingTo;
   private RowSlot? _removingSlot;
@@ -40,14 +41,34 @@
     }
   }
 
-  private async Task LoadAsync() =>
-    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Row(RowId);
+  private async Task LoadAsync()
+  {
+    _layout = await CustomPageRepository.GetLayoutAsync(Page.Id);
+    _row = _layout.Row(RowId);
+  }
 
-  private Task SetWidthsAsync(PageRow row, RowWidths widths) =>
-    SaveAsync(() => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, widths, row.Alignment));
+  // A choice made while something else saves waits, then applies to the row as saved, so the radios
+  // needn't be disabled meanwhile and the one last clicked is what's saved
+  private readonly Queue<Func<PageRow, Task>> _waitingChoices = new();
 
-  private Task SetAlignmentAsync(PageRow row, RowAlignment alignment) =>
-    SaveAsync(() => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, row.Widths, alignment));
+  private Task ChooseAsync(Func<PageRow, Task> save)
+  {
+    _waitingChoices.Enqueue(save);
+
+    return _isSaving ? Task.CompletedTask : SaveNextChoiceAsync();
+  }
+
+  private Task SaveNextChoiceAsync() =>
+    _row is { } row && _waitingChoices.TryDequeue(out var save) ? SaveAsync(() => save(row)) : Task.CompletedTask;
+
+  private Task SetWidthsAsync(RowWidths widths) =>
+    ChooseAsync(row => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, widths, row.Alignment));
+
+  private Task SetAlignmentAsync(RowAlignment alignment) =>
+    ChooseAsync(row => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, row.Widths, alignment));
+
+  private Task SetPaddingAsync(Func<RowPadding, RowPadding> change) =>
+    ChooseAsync(row => PageRowRepository.SetPaddingAsync(row.Id, change(row.Padding)));
 
   private Task AddSlotAsync(PageRow row) => SaveAsync(() => RowSlotRepository.AddAsync(row.Id, row.Slots.Count));
 
@@ -127,6 +148,7 @@
     // the guard holds until the row is read again
     await LoadAsync();
     _isSaving = false;
+    await SaveNextChoiceAsync();
   }
 }
 
@@ -149,15 +171,24 @@
   {
     var row = _row;
 
-    @if (row.Slots.Count > 1)
-    {
-      <div class="mb-6 flex flex-col gap-4">
-        <ChoiceButtons TValue="RowWidths" Label="Widths" Values="RowWidthChoices.For(row.Slots.Count)" Chosen="row.Widths"
-                       LabelOf="RowWidthLabels.Of" OnChoose="widths => SetWidthsAsync(row, widths)" Disabled="_isSaving" />
-        <ChoiceButtons TValue="RowAlignment" Label="Line up" Values="Enum.GetValues<RowAlignment>()" Chosen="row.Alignment"
-                       LabelOf="RowWidthLabels.Of" OnChoose="alignment => SetAlignmentAsync(row, alignment)" Disabled="_isSaving" />
-      </div>
-    }
+    <div class="mb-6 flex flex-col gap-4">
+      @if (row.Slots.Count > 1)
+      {
+        <RadioChoices TValue="RowWidths" Label="Widths" Values="RowWidthChoices.For(row.Slots.Count)" Chosen="row.Widths"
+                      LabelOf="RowChoiceLabels.Of" OnChoose="SetWidthsAsync" />
+        <RadioChoices TValue="RowAlignment" Label="Line up" Values="Enum.GetValues<RowAlignment>()" Chosen="row.Alignment"
+                      LabelOf="RowChoiceLabels.Of" OnChoose="SetAlignmentAsync" />
+      }
+      <RadioChoices TValue="RowVerticalPadding" Label="Top padding" Values="Enum.GetValues<RowVerticalPadding>()"
+                    Chosen="row.Padding.Top" LabelOf="RowChoiceLabels.Of"
+                    OnChoose="top => SetPaddingAsync(padding => padding with { Top = top })" />
+      <RadioChoices TValue="RowVerticalPadding" Label="Bottom padding" Values="Enum.GetValues<RowVerticalPadding>()"
+                    Chosen="row.Padding.Bottom" LabelOf="RowChoiceLabels.Of"
+                    OnChoose="bottom => SetPaddingAsync(padding => padding with { Bottom = bottom })" />
+      <RadioChoices TValue="RowSidePadding" Label="Side padding" Values="Enum.GetValues<RowSidePadding>()"
+                    Chosen="row.Padding.Sides" LabelOf="RowChoiceLabels.Of"
+                    OnChoose="sides => SetPaddingAsync(padding => padding with { Sides = sides })" />
+    </div>
 
     <div class="mb-4 flex flex-wrap items-start gap-4">
       @foreach (var (slot, growth) in row.Slots.Zip(RowClasses.SlotGrowth(row.Widths)))
@@ -206,7 +237,7 @@
     }
 
     <h2 class="mb-2 text-lg">Preview</h2>
-    <RowPreview Page="Page" Row="row" />
+    <RowPreview Page="Page" Row="row" Position="Unwrap.Value(_layout).PositionOf(row)" />
   }
 
   @if (_addingTo is { } addingTo)

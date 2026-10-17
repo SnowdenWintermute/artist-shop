@@ -77,4 +77,27 @@ public class PageRowRepository(SiteDatabase database)
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
+
+    public async Task SetPaddingAsync(PageRowId id, RowPadding padding)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "SELECT set_page_row_padding(@Id, @Top, @Bottom, @Sides)",
+                new
+                {
+                    Id = id.Value,
+                    Top = (int)padding.Top,
+                    Bottom = (int)padding.Bottom,
+                    Sides = (int)padding.Sides,
+                }
+            );
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.PageRowChangedSincePageLoad))
+        {
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
+        }
+    }
 }

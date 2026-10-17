@@ -12,13 +12,16 @@ BEGIN
         RAISE EXCEPTION 'The page no longer exists.' USING ERRCODE = 'SH020';
     END IF;
 
-    -- RowWidths.Whole, RowAlignment.Start
-    INSERT INTO page_rows (page_id, sort_order, widths, alignment)
+    -- RowWidths.Whole, RowAlignment.Start, RowPadding.New
+    INSERT INTO page_rows (page_id, sort_order, widths, alignment, top_padding, bottom_padding, side_padding)
     SELECT
         p_page_id,
         COALESCE(MAX(page_rows.sort_order) + 1, 0),
         1,
-        1
+        1,
+        1,
+        1,
+        3
     FROM
         page_rows
     WHERE

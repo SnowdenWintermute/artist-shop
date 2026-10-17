@@ -41,7 +41,22 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
 
         Assert.Equal([first, second], rows.Select(row => row.Id));
         Assert.Equal((RowWidths.Whole, RowAlignment.Start), (rows[1].Widths, rows[1].Alignment));
+        Assert.Equal(RowPadding.New, rows[1].Padding);
         Assert.Empty(Assert.Single(rows[1].Slots).Stack);
+    }
+
+    [Fact]
+    public async Task PaddingIsSavedAndARemovedRowRefusesIt()
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        var padding = new RowPadding(RowVerticalPadding.None, RowVerticalPadding.Large, RowSidePadding.Small);
+
+        await _rows.SetPaddingAsync(rowId, padding);
+
+        Assert.Equal(padding, (await RowAsync(pageId, rowId)).Padding);
+        await _rows.DeleteAsync(rowId);
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _rows.SetPaddingAsync(rowId, padding));
     }
 
     [Fact]

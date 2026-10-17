@@ -5,7 +5,7 @@ using ArtistShop.Web.Domain.Website;
 
 // Where a slot sits in its row: its growth class, and the width an image in it loads a size for, near the
 // slot's rather than the page's
-public sealed record SlotWidth(RowWidths Widths, int Index)
+public sealed record SlotWidth(RowWidths Widths, RowSidePadding Sides, int Index)
 {
     public string GrowthClass => RowClasses.SlotGrowth(Widths)[Index];
 
@@ -16,19 +16,19 @@ public sealed record SlotWidth(RowWidths Widths, int Index)
     {
         var shares = RowClasses.SlotShares(Widths);
         var image = Pixels(imagePixels);
-        var page = $"min(100vw, {Pixels(CustomPageWidths.DesktopPixels)})";
-        var padding = 2 * CustomPageWidths.PaddingPixels;
-        var wholeLine = $"min({image}, calc({page} - {Pixels(padding)}))";
+        var padding = 2 * RowPaddingClasses.SidePixels(Sides);
+        var content = $"calc(min(100vw, {Pixels(CustomPageWidths.PageMaximumPixels)}) - {Pixels(padding)})";
+        var wholeLine = $"min({image}, {content})";
 
         if (shares.Count == 1)
         {
             return wholeLine;
         }
 
-        var gaps = padding + (shares.Count - 1) * RowClasses.GapPixels;
-        var oneLineFrom = gaps + shares.Count * RowClasses.SlotMinimumPixels;
+        var gaps = (shares.Count - 1) * RowClasses.GapPixels;
+        var oneLineFrom = padding + gaps + shares.Count * RowClasses.SlotMinimumPixels;
         var share = $"{shares[Index].ToString(CultureInfo.InvariantCulture)} / {shares.Sum().ToString(CultureInfo.InvariantCulture)}";
-        var slot = $"max({Pixels(RowClasses.SlotMinimumPixels)}, calc(({page} - {Pixels(gaps)}) * {share}))";
+        var slot = $"max({Pixels(RowClasses.SlotMinimumPixels)}, calc(({content} - {Pixels(gaps)}) * {share}))";
 
         return $"(min-width: {Pixels(oneLineFrom)}) min({image}, {slot}), {wholeLine}";
     }

@@ -1,18 +1,17 @@
 namespace ArtistShop.Web.Components.CustomPages;
 
-// how wide a custom page is drawn, which the row editor's preview draws a row at so its container
-// queries switch where a visitor's will
+// how wide a custom page's rows are drawn, and the screens the row editor's preview draws a row on,
+// so its container queries switch where a visitor's will
 public static class CustomPageWidths
 {
-    public const string PaddingClass = "p-4";
+    // a row's box, its side padding inside, so Medium sides leave 1168px of content as pages had
+    // before rows held their padding
+    public const int PageMaximumPixels = 1216;
 
-    // PaddingClass on each side
-    public const int PaddingPixels = 16;
+    public const string PageMaximumClass = "max-w-[1216px]";
 
-    // the page's <main>, which these widths include the padding of
-    public const string MainClass = $"mx-auto flex max-w-[1200px] flex-col gap-8 {PaddingClass}";
-
-    public const int DesktopPixels = 1200;
+    // the narrowest screen that shows a row at its widest
+    public const int DesktopPixels = PageMaximumPixels;
 
     // a common phone's screen
     public const int PhonePixels = 390;

@@ -17,9 +17,11 @@
   </div>
 
   @* the backgrounds run to the edges of the screen, under a phone's notch when it's held sideways,
-     while the padding keeps what's on them clear of it. So do the nav bars' *@
+     while the padding keeps what's on them clear of it. So do the nav bars'. A custom page's rows
+     hold their own padding instead *@
   <div class="w-full bg-page flex flex-1 flex-col">
-    <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+    <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]
+      has-[[data-custom-page]]:p-0">
       @Body
     </div>
     <SectionOutlet SectionName="@SiteFooter.SectionName" />

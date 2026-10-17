@@ -8,13 +8,13 @@
   [Parameter, EditorRequired]
   public required PageRowId RowId { get; set; }
 
-  private PageRow? _row;
+  private CustomPageLayout? _layout;
 
   protected override async Task OnParametersSetAsync() =>
-    _row = (await CustomPageRepository.GetLayoutAsync(Page.Id)).Row(RowId);
+    _layout = await CustomPageRepository.GetLayoutAsync(Page.Id);
 }
 
-@if (_row is { } row)
+@if (_layout is { } layout && layout.Row(RowId) is { } row)
 {
-  <RowPreview Page="Page" Row="row" />
+  <RowPreview Page="Page" Row="row" Position="layout.PositionOf(row)" />
 }

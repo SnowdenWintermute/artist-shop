@@ -21,10 +21,11 @@
 {
   @* a component that names itself after its page, such as the post list, reads it from here *@
   <CascadingValue Value="Page" IsFixed>
-    <main class="@CustomPageWidths.MainClass">
+    @* MainLayout drops its padding around this, since the rows hold their own *@
+    <main data-custom-page>
       @foreach (var row in layout.Rows)
       {
-        <PageRowView Row="row" />
+        <PageRowView @key="row.Id" Row="row" Position="layout.PositionOf(row)" />
       }
     </main>
   </CascadingValue>

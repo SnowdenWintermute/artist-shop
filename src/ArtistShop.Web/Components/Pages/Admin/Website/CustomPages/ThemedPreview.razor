@@ -12,7 +12,7 @@
   // the theme visitors see; null leaves the preview in the platform's
   private NamedTheme? _theme;
 
-  // looks as ChoiceButtons' do: Primary when pressed, else Outline
+  // Primary when pressed, else Outline
   private const string WidthButtonClass = "aria-pressed:bg-accent aria-pressed:text-on-accent";
 
   protected override async Task OnInitializedAsync() => _theme = await ThemeRepository.GetInUseAsync();

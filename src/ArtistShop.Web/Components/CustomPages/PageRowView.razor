@@ -1,22 +1,26 @@
 @code {
   [Parameter, EditorRequired]
   public required PageRow Row { get; set; }
+  [Parameter, EditorRequired]
+  public required RowPosition Position { get; set; }
 
   // the database keeps a row's slots matching its widths, so a mismatch is a bug
   private IEnumerable<(RowSlot Slot, SlotWidth Width)> Slots =>
     RowClasses.SlotShares(Row.Widths).Count == Row.Slots.Count
-      ? Row.Slots.Select((slot, index) => (slot, new SlotWidth(Row.Widths, index)))
+      ? Row.Slots.Select((slot, index) => (slot, new SlotWidth(Row.Widths, Row.Padding.Sides, index)))
       : throw new InvalidOperationException($"A {Row.Widths} row has {Row.Slots.Count} slots.");
 }
 
-<div class="@($"flex flex-wrap {RowClasses.GapClass} {RowClasses.Alignment(Row.Alignment)}")">
-  @foreach (var (slot, width) in Slots)
-  {
-    <div class="@($"flex {RowClasses.SlotMinimumWidthClass} basis-0 flex-col gap-8 {width.GrowthClass}")">
-      @foreach (var component in slot.Stack)
-      {
-        <CustomComponentView @key="component.Id" Component="component" Slot="width" />
-      }
-    </div>
-  }
+<div class="@RowPaddingClasses.Vertical(Row.Padding, Position)">
+  <div class="@($"mx-auto flex flex-wrap {CustomPageWidths.PageMaximumClass} {RowPaddingClasses.Sides(Row.Padding.Sides)} {RowClasses.GapClass} {RowClasses.Alignment(Row.Alignment)}")">
+    @foreach (var (slot, width) in Slots)
+    {
+      <div class="@($"flex {RowClasses.SlotMinimumWidthClass} basis-0 flex-col gap-8 {width.GrowthClass}")">
+        @foreach (var component in slot.Stack)
+        {
+          <CustomComponentView @key="component.Id" Component="component" Slot="width" />
+        }
+      </div>
+    }
+  </div>
 </div>

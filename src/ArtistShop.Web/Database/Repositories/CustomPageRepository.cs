@@ -211,7 +211,8 @@ public class CustomPageRepository(SiteDatabase database)
                     [.. slot.Where(placement => placement.ComponentId is not null).Select(placement => placement.ToComponent())]
                 ));
 
-            rows.Add(new PageRow(new PageRowId(row.Key), first.Widths, first.Alignment, [.. slots]));
+            var padding = new RowPadding(first.TopPadding, first.BottomPadding, first.SidePadding);
+            rows.Add(new PageRow(new PageRowId(row.Key), first.Widths, first.Alignment, padding, [.. slots]));
         }
 
         return new CustomPageLayout(rows);
@@ -234,6 +235,9 @@ public class CustomPageRepository(SiteDatabase database)
         public required int RowId { get; init; }
         public required RowWidths Widths { get; init; }
         public required RowAlignment Alignment { get; init; }
+        public required RowVerticalPadding TopPadding { get; init; }
+        public required RowVerticalPadding BottomPadding { get; init; }
+        public required RowSidePadding SidePadding { get; init; }
         public required int? SlotId { get; init; }
         public required int? ComponentId { get; init; }
         public required CustomComponentType? ComponentType { get; init; }

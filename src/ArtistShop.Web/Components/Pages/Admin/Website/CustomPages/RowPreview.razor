@@ -6,12 +6,12 @@
   public required CustomPage Page { get; set; }
   [Parameter, EditorRequired]
   public required PageRow Row { get; set; }
+  [Parameter, EditorRequired]
+  public required RowPosition Position { get; set; }
 }
 
 <ThemedPreview>
-  <div class="@CustomPageWidths.PaddingClass">
-    <CascadingValue Value="Page" IsFixed>
-      <PageRowView Row="Row" />
-    </CascadingValue>
-  </div>
+  <CascadingValue Value="Page" IsFixed>
+    <PageRowView Row="Row" Position="Position" />
+  </CascadingValue>
 </ThemedPreview>

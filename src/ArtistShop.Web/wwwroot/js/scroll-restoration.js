@@ -10,8 +10,18 @@
 // (PR #60296).
 // The browser restores once, against the page still showing, and clamps it to that page's height:
 // https://bugzilla.mozilla.org/show_bug.cgi?id=1442958. If either is fixed, this can go
+//
+// A whole page load, a reload or Forward back into the site, is left to the browser, which restores
+// before the page is first drawn; this would only manage it after. So the browser's restore is turned
+// off for the page's history entry once the page has loaded, and on again as the page goes
 
-history.scrollRestoration = "manual";
+// the history entries an enhanced navigation adds take this from the page's
+function takeOver() {
+  history.scrollRestoration = "manual";
+}
+
+// after the browser's own restore, which it may still be making during the load event
+window.addEventListener("load", () => setTimeout(takeOver));
 
 // per tab, like the history it follows, so a reload finds it. One key per address rather than one
 // shared object, since the work picker's frame writes here too and would overwrite the page's
@@ -59,11 +69,20 @@ document.addEventListener(
 
     if (link !== null) {
       restoresOnLoad = link.hasAttribute("data-restores-scroll");
+      // a link followed before the page finished loading
+      takeOver();
     }
   },
   { capture: true }
 );
-document.addEventListener("submit", () => (restoresOnLoad = false), { capture: true });
+document.addEventListener(
+  "submit",
+  () => {
+    restoresOnLoad = false;
+    takeOver();
+  },
+  { capture: true }
+);
 
 Blazor.addEventListener("enhancedload", () => {
   shownAddress = currentAddress();
@@ -76,15 +95,28 @@ Blazor.addEventListener("enhancedload", () => {
   }
 });
 
-// a whole page load: leaving for another site, a reload, or a link Blazor doesn't enhance
-window.addEventListener("pagehide", remember);
+// a whole page load: leaving for another site, a reload, or a link Blazor doesn't enhance. Coming
+// back to this entry, the browser restores it
+window.addEventListener("pagehide", () => {
+  remember();
+  history.scrollRestoration = "auto";
+});
 
-// Back to this site from another, or a reload, which the browser would restore itself if this
-// hadn't taken over. The page's markup is all here by now, as this runs once it's parsed
+// the page kept whole in the back/forward cache, which runs nothing else again
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    takeOver();
+  }
+});
+
+// A whole page load into an entry the browser was told to leave alone: one an enhanced navigation
+// reached before a reload, say. Only this can restore it, once the page is drawn. The page's markup
+// is all here by now, as this runs once it's parsed
 const [pageLoad] = performance.getEntriesByType("navigation");
 if (
   pageLoad instanceof PerformanceNavigationTiming &&
-  (pageLoad.type === "reload" || pageLoad.type === "back_forward")
+  (pageLoad.type === "reload" || pageLoad.type === "back_forward") &&
+  history.scrollRestoration === "manual"
 ) {
   restore();
 }

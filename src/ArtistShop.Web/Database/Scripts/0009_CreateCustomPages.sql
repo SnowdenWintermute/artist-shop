@@ -50,7 +50,12 @@ CREATE TABLE page_rows (
     -- RowWidths's id: how the row shares its width between its slots
     widths int NOT NULL,
     -- RowAlignment's id: where slots of different heights line up
-    alignment int NOT NULL
+    alignment int NOT NULL,
+    -- RowVerticalPadding's ids: the space above and below the row's content
+    top_padding int NOT NULL,
+    bottom_padding int NOT NULL,
+    -- RowSidePadding's id: the space beside it
+    side_padding int NOT NULL
 );
 
 CREATE TABLE row_slots (
@@ -167,9 +172,9 @@ BEGIN
         VALUES (v_page.name, v_page.address)
         RETURNING id INTO v_page_id;
 
-        -- RowWidths.Whole, RowAlignment.Start
-        INSERT INTO page_rows (page_id, sort_order, widths, alignment)
-        VALUES (v_page_id, 0, 1, 1)
+        -- RowWidths.Whole, RowAlignment.Start, RowPadding.New
+        INSERT INTO page_rows (page_id, sort_order, widths, alignment, top_padding, bottom_padding, side_padding)
+        VALUES (v_page_id, 0, 1, 1, 1, 1, 3)
         RETURNING id INTO v_row_id;
 
         INSERT INTO row_slots (row_id, sort_order)
