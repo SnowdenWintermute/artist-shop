@@ -6,6 +6,9 @@ public static class CustomPageWidths
 {
     public const string PaddingClass = "p-4";
 
+    // PaddingClass on each side
+    public const int PaddingPixels = 16;
+
     // the page's <main>, which these widths include the padding of
     public const string MainClass = $"mx-auto flex max-w-[1200px] flex-col gap-8 {PaddingClass}";
 

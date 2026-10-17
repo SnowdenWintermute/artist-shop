@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkTable
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain
@@ -9,6 +10,7 @@
 @using ArtistShop.Web.Images
 @using ArtistShop.Web.Utilities
 @inject UploadedImageRepository UploadedImageRepository
+@inject CustomComponentRepository CustomComponentRepository
 @inject NavigationManager NavigationManager
 
 @* One page of the image library. An alt text saves when its field loses focus with a changed value:
@@ -24,6 +26,7 @@
 
   // where the images about to be deleted are shown, read as the confirm opens
   private List<UploadedImageUse> _uses = [];
+  private List<CustomComponentOnPages> _imageComponents = [];
 
   private Task SaveAltTextAsync(ImageTableRow row) => EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(row));
 
@@ -52,8 +55,11 @@
 
   private static List<string> StorageKeysOf(IReadOnlyList<ImageTableRow> rows) => [.. rows.Select(row => row.Image.StorageKey)];
 
-  private async Task ReadUsesAsync(IReadOnlyList<ImageTableRow> rows) =>
+  private async Task ReadUsesAsync(IReadOnlyList<ImageTableRow> rows)
+  {
     _uses = await UploadedImageRepository.GetUsesAsync(StorageKeysOf(rows));
+    _imageComponents = await CustomComponentRepository.GetImageComponentsShowingImagesAsync(StorageKeysOf(rows));
+  }
 
   // the refresh brings the count and the page links up to date
   private async Task DeleteAsync(IReadOnlyList<ImageTableRow> rows)
@@ -90,6 +96,7 @@
         }
       </ul>
     }
+    <DeletedImageComponentsWarning Components="_imageComponents" />
     <p>This action is permanent.</p>
   </DeleteWarning>
   <Row Context="row">

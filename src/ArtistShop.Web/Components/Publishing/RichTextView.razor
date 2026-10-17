@@ -18,10 +18,8 @@
 @* Spacing follows the editor, where every line sits directly below the last and a gap is an
    empty line the artist left. whitespace-pre-wrap keeps runs of spaces, as the editor does.
    flow-root keeps a floated embed inside the text, rather than hanging below its end.
-   break-words is the editor's own word-wrap, so a word too long for the line breaks here too.
-   <rich-text-view>, from RichTextView.razor.js, opens the lightbox on the images that do,
-   stepping through all of them *@
-<rich-text-view class="mb-4 block">
+   break-words is the editor's own word-wrap, so a word too long for the line breaks here too *@
+<LightboxGroup Class="mb-4" HasLightbox="HasLightboxImages">
 <div class="flow-root break-words whitespace-pre-wrap">
   @foreach (var block in Document.Blocks)
   {
@@ -80,9 +78,4 @@
     }
   }
 </div>
-
-@if (HasLightboxImages)
-{
-  <ImageLightbox />
-}
-</rich-text-view>
+</LightboxGroup>

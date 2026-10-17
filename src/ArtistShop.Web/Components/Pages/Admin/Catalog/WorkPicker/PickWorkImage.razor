@@ -59,7 +59,7 @@
 @* Steps two and three of the work picker, shown in its frame *@
 @if (_loaded is { Image: { } image } chosen)
 {
-  <PickerFramePage Heading="@(Trail.Mode is WorkPickerMode.ChangeImage ? $"Use this image of {chosen.Work.Name.Value}?" : $"How {chosen.Work.Name.Value} sits in the post")"
+  <PickerFramePage Heading="@(Trail.Mode is WorkPickerMode.ImageOnly ? $"Use this image of {chosen.Work.Name.Value}?" : $"How {chosen.Work.Name.Value} sits in the post")"
                      BackHref="@(chosen.Work.Images.Count > 1 ? PageUrls.WorkPickerImages(chosen.Work.Id, Trail) : PageUrls.WorkPickerList(Trail))"
                      BackLabel="@(chosen.Work.Images.Count > 1 ? "Images" : Wording.Work.PluralHeading)">
     <WorkEmbedChoice WorkId="chosen.Work.Id" Image="image" Mode="Trail.Mode" />

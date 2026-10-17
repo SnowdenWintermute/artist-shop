@@ -27,16 +27,6 @@
   // the saved source as it is now, null when none is chosen
   [Parameter, EditorRequired]
   public ImageComponentPicture? Picture { get; set; }
-
-  private string MissingText(MissingImageReason reason) =>
-    reason switch
-    {
-      MissingImageReason.LibraryImageDeleted => "Its image was deleted from the image library.",
-      MissingImageReason.WorkDeleted => $"Its {Wording.Work.SingularInSentence} was deleted.",
-      MissingImageReason.WorkHasNoImages => $"Its {Wording.Work.SingularInSentence} has no images.",
-      MissingImageReason.ImageTakenOffWork => $"Its image was taken off the {Wording.Work.SingularInSentence}.",
-      _ => throw new InvalidOperationException($"{reason} has no text."),
-    };
 }
 
 <image-source-field class="mb-4 block" data-upload-url="@ImageUploadEndpoints.LibraryImageUploadPath">
@@ -50,7 +40,7 @@
       </div>
       break;
     case ImageComponentPicture.Missing missing:
-      <p class="mb-2 text-error">@MissingText(missing.Reason)</p>
+      <p class="mb-2 text-error">@MissingImageText.Of(missing.Reason, Wording)</p>
       break;
     default:
       <p class="mb-2">No image chosen yet.</p>

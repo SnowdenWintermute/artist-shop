@@ -1,10 +1,9 @@
 @* An image component's picture: never wider than the image itself, centred in its slot. Nothing is
-   drawn until an image is chosen, or once it's gone. A click opens the lightbox, defined with
-   <image-view> in ImageView.razor.js, or the artwork's page, or does nothing *@
+   drawn until an image is chosen, or once it's gone. A click opens the lightbox, or the artwork's page,
+   or does nothing *@
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
-@using ArtistShop.Web.Components.Pages.Catalog
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Images
 @inject UploadedImageRepository UploadedImageRepository
@@ -22,15 +21,6 @@
 
   protected override async Task OnParametersSetAsync() =>
     _picture = await ImageComponentPicture.ReadAsync(Settings.Source, UploadedImageRepository, WorkRepository);
-
-  // the work's page, opened at the picked image, or at its first for the main image
-  private string? ArtworkPageHref(ImageComponentPicture.Shown shown) =>
-    Settings.Link is ImageLink.ArtworkPage && shown.Work is { } work && Settings.Source is ImageSource.Work source
-      ? WorkPageQuery.Url(
-          work.Slug.Value,
-          collectionSlug: null,
-          source.StorageKey is null ? null : work.Images.ToList().FindIndex(image => image.StorageKey == source.StorageKey) + 1)
-      : null;
 }
 
 @if (_picture is ImageComponentPicture.Shown { Image: var image } shown)
@@ -52,9 +42,9 @@
       }
     </span>;
 
-  <image-view class="@($"block {ImageClasses.Padding(Settings.Padding)}")">
+  <LightboxGroup Class="@ImageClasses.Padding(Settings.Padding)" HasLightbox="Settings.Link is ImageLink.Lightbox">
     <div class="mx-auto" style="@($"max-width: {image.Width.ToString(CultureInfo.InvariantCulture)}px;")">
-      @if (ArtworkPageHref(shown) is { } href)
+      @if (Settings.Link is ImageLink.ArtworkPage && shown.ArtworkPageUrl is { } href)
       {
         <a href="@href" class="block">@picture</a>
       }
@@ -67,9 +57,5 @@
         @picture
       }
     </div>
-    @if (Settings.Link is ImageLink.Lightbox)
-    {
-      <ImageLightbox />
-    }
-  </image-view>
+  </LightboxGroup>
 }

@@ -1,10 +1,11 @@
 namespace ArtistShop.Web.Components.CustomPages;
 
+using ArtistShop.Web.Components.Pages.Catalog;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Website;
 
-// why an image component with a source shows nothing; its settings page says so
+// why an image component's source shows nothing: its settings page says so, and refuses a picked one
 public enum MissingImageReason
 {
     LibraryImageDeleted = 1,
@@ -13,11 +14,26 @@ public enum MissingImageReason
     ImageTakenOffWork = 4,
 }
 
-// What an image component's source comes to now: the picture, or why there's none. Name is what the
-// settings page calls it; Work is the work it's from, for its page
+public static class MissingImageText
+{
+    public static string Of(MissingImageReason reason, SiteWording wording) =>
+        reason switch
+        {
+            MissingImageReason.LibraryImageDeleted => "That image was deleted from the image library.",
+            MissingImageReason.WorkDeleted => $"That {wording.Work.SingularInSentence} was deleted.",
+            MissingImageReason.WorkHasNoImages => $"That {wording.Work.SingularInSentence} has no images.",
+            MissingImageReason.ImageTakenOffWork => $"That image was taken off its {wording.Work.SingularInSentence}.",
+            _ => throw new InvalidOperationException($"{reason} has no text."),
+        };
+}
+
+// What an image component's source comes to now: the picture, or why there's none
 public abstract record ImageComponentPicture
 {
-    public sealed record Shown(WorkImage Image, string AltText, string Name, Work? Work) : ImageComponentPicture;
+    // Name is what the settings page calls it. A work's image has its page, opened at the image, and says
+    // whether it's the work's main image
+    public sealed record Shown(WorkImage Image, string AltText, string Name, string? ArtworkPageUrl, bool IsWorksMainImage)
+        : ImageComponentPicture;
 
     public sealed record Missing(MissingImageReason Reason) : ImageComponentPicture;
 
@@ -35,15 +51,27 @@ public abstract record ImageComponentPicture
             case ImageSource.Library library:
                 var images = await uploadedImageRepository.GetByStorageKeysAsync([library.StorageKey]);
                 return images.GetValueOrDefault(library.StorageKey) is { } image
-                    ? new Shown(image.TileImage, image.AltText, image.Name, null)
+                    ? new Shown(image.TileImage, image.AltText, image.Name, ArtworkPageUrl: null, IsWorksMainImage: false)
                     : new Missing(MissingImageReason.LibraryImageDeleted);
             case ImageSource.Work workSource:
                 var work = await workRepository.GetByIdAsync(workSource.WorkId);
                 return work is null ? new Missing(MissingImageReason.WorkDeleted)
-                    : workSource.ImageOf(work) is { } workImage ? new Shown(workImage, work.Name.Value, work.Name.Value, work)
+                    : workSource.ImageIndexOf(work) is int index ? ShownOf(work, workSource, index)
                     : new Missing(work.Images.Count == 0 ? MissingImageReason.WorkHasNoImages : MissingImageReason.ImageTakenOffWork);
             default:
                 throw new InvalidOperationException($"An image's {source.Type} source can't be read.");
         }
     }
+
+    // following the main image, the page opens where it would anyway: at the main image
+    private static Shown ShownOf(Work work, ImageSource.Work source, int index) =>
+        new(
+            work.Images[index],
+            work.Name.Value,
+            work.Name.Value,
+            source.StorageKey is null
+                ? WorkPageQuery.Url(work.Slug.Value, collectionSlug: null, imageNumber: null)
+                : WorkPageQuery.ImageUrl(work.Slug.Value, collectionSlug: null, index),
+            index == work.MainImageIndex
+        );
 }

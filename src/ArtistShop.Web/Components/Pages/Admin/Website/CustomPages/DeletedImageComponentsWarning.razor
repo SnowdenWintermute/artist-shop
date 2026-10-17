@@ -1,0 +1,20 @@
+@* The image components a delete takes with it, for the confirm dialogs deleting works or library images *@
+
+@code {
+  [Parameter, EditorRequired]
+  public IReadOnlyList<CustomComponentOnPages> Components { get; set; } = default!;
+
+  private static string PagesText(CustomComponentOnPages component) =>
+    component.PageNames.Count == 0 ? "on no page" : $"on {string.Join(", ", component.PageNames)}";
+}
+
+@if (Components.Count > 0)
+{
+  <p class="mb-2">Image components deleted too:</p>
+  <ul class="mb-2 list-disc pl-6" data-test="deleted-image-components">
+    @foreach (var component in Components)
+    {
+      <li>@component.Name (@PagesText(component))</li>
+    }
+  </ul>
+}

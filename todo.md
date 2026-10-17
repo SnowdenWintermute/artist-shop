@@ -2,7 +2,7 @@
 
 ## Image component and what it needs, agreed 2026-10-15 (From Claude)
 
-Five pieces, built in this order: A, then B → C → D, with E later. Custom pages' step 3 (Image) is C.
+Five pieces, built in this order: A, then B → C → D. E (row backgrounds) was folded into D on 2026-10-16. Custom pages' step 3 (Image) is C.
 
 **A. Background image processing (first; designed before it's built).** Testers notice slow uploads, and the large
 size on demand needs the same queue.
@@ -315,18 +315,71 @@ Agreed with Mike 2026-10-15:
     p-4, gap-8 and min-w-[min(100%,18rem)] (Tailwind needs those spelled out). The component's own padding is
     left out, so it can ask for a little more than it draws. Tests in `Components/SlotWidthTests.cs`.
   - Card grids still use `TileImage`'s default `sizes`, not the slot's.
+- **Review of 94eb6ea, 2026-10-16 (From Claude)**, fixes uncommitted, 1260 tests, typecheck clean, not
+  browser-checked. Some of the notes above are now out of date:
+  - Deleting a library image or a work deletes the image components showing it (Mike), rather than emptying
+    them: `delete_image_components_showing`, called by `delete_uploaded_images` and `delete_works` before their
+    junction rows go. `get_image_components_showing` lists them for the confirm dialogs
+    (`DeletedImageComponentsWarning`, in the Images table's and `DeleteWorksWarning`'s); `get_uploaded_image_uses`
+    now lists text components only.
+  - `<lightbox-group>` (`Dialogs/LightboxGroup.razor` + script) replaces both `<rich-text-view>` and `<image-view>`.
+  - `ImageComponentPicture.Shown` carries `ArtworkPageUrl` and `IsWorksMainImage`; `ImageSource.Work.ImageIndexOf`
+    replaced `ImageOf`. `CheckImageAsync` reads through `ImageComponentPicture.ReadAsync`, errors come from
+    `MissingImageText` (shared with `ImageSourceField`), and it clears the key of a work's main image itself, so
+    `_imageWork` and `ToImageSource` are gone.
+  - `SlotWidth.Sizes` holds a slot at its 288px minimum (`max(288px, …)`): quarter slots, and a third below about
+    930px, were asking for too small a file. The pixels sit beside their classes (`CustomPageWidths.PaddingPixels`,
+    `RowClasses.GapClass`/`GapPixels`/`SlotMinimumWidthClass`/`SlotMinimumPixels`); `SlotWidth.GrowthClass`
+    feeds `PageRowView`.
+  - `WorkPickerMode.ChangeImage` → `ImageOnly` (`mode=image-only`). The image field disables its Choose buttons
+    while an upload runs.
 
-**D. Row settings.**
-- Height: Natural, or Fill the screen (the screen height below the nav, at least; `svh` so the iPhone toolbar
-  doesn't make it jump). A minimum, so text on a phone isn't cut off; a cover image fills whatever the row is.
-  Mike 2026-10-16: the first row fills the screen below the nav; a later row the whole screen.
-- Width: Page width, or Edge to edge. Full bleed is a row setting, never a component one.
-- So a home page can open with one full-bleed image filling the first screen, and no scroll if there's no other row.
-
-**E. Row backgrounds (later).** Mike 2026-10-16: a row gets a background, a solid colour or an image (+ fit), maybe
-a video later, and components sit on top; uses D's height, so a page can be a run of full-screen rows. Replaces the
-idea of text overlaid on an Image component. (Was slot backgrounds on 2026-10-15.) The image choice (source, fit,
-large size on demand) should be shared with C, not copied.
+**D. Row settings and backgrounds.** Agreed with Mike 2026-10-16 (From Claude); replaces the earlier D and E. A
+page is a run of rows that touch, each with its own height, width, padding, text theme and background, so a page
+can be a series of full-screen rows to scroll past. A page background was considered and left for now (maybe one
+day, if row backgrounds aren't enough).
+- Height: Natural, or Fill the screen (`svh`, so the iPhone toolbar doesn't make it jump; a minimum, so text on a
+  phone isn't cut off).
+  - A first row that fills the screen fills what's left below the nav, exactly and with nothing measured:
+    `MainLayout` wraps the nav in a `min-h-svh flex flex-col` box with a `SectionOutlet` after it, and the page
+    renders that row there via `SectionContent` (as `SiteFooter` reaches `MainLayout`), `flex-1`. A heading
+    font arriving late grows the nav and shrinks the row by the same amount. A fixed nav height and a
+    measuring script were weighed and turned down.
+  - A later row fills the whole screen.
+  - A last row that fills the screen holds the footer as its last item (the page renders `SiteFooter` there and
+    `PublicLayout` leaves its own out), so the row's background shows behind it and its content never sits under it.
+  - In such a row every slot stretches to the row's height and Line up places the components inside it. An Image
+    component grows to fill what its slot's other components leave, and Fit (cover / contain) takes effect. That
+    covers a hero image beside text in one row, which a row background can't.
+- Width: Page width (1200px) or Edge to edge, for the content. A row's background always runs the screen's full
+  width. Edge to edge widens `SlotWidth.Sizes` to `100vw`.
+- Padding moves out of the page into the rows; rows touch so backgrounds join. `MainLayout`'s body padding and
+  `<main>`'s `p-4`/`gap-8` go for custom pages (other pages keep theirs).
+  - Top and bottom: Auto (the default) or a preset. Auto depends on the row's place, worked out on each draw (more
+    above the first row and below the last, today's spacing between), so reordering needs nothing saved.
+  - Sides: presets, defaulting to today's 24px (the layout's 8px + `<main>`'s 16px).
+  - Safe-area insets on every side (notch on a rotated phone) are always added to a row's padding, whatever its
+    preset. An Image component's own padding never changes its row's.
+- Text theme: each row picks one of the site's themes (light / dark presets etc.) for its components, defaulting
+  to the theme in use, scoped as `ThemeStyle` already does for `[data-row-preview]`.
+- Background: none, a colour, or an image (library or work image, as C's source, + Fit), shared with C, not
+  copied. Video later. Needs the large size on demand (A step 5) for wide screens.
+- Row preview: screen units mean the admin's window under `zoom`, so rows read a CSS variable for the screen
+  height, `100svh` on public pages and a fixed phone/desktop height in the preview.
+- Mike 2026-10-16: Auto reproduces today's spacing exactly (56px above the first row, 32px between rows, 96px
+  below the last); top and bottom are separate settings; a background colour is any colour. The amounts sit
+  beside their Tailwind classes in `Components/CustomPages` (as `CustomPageWidths` and `RowClasses` do), not in
+  `ArtistShopLimits`, which holds limits mirrored in SQL.
+- Build order (From Claude, to confirm), each step leaving the app working:
+  1. Spacing into rows with no visible change: rows touch, Auto top/bottom and 24px sides drawn from code, safe
+     areas, page width on each row instead of `<main>`.
+  2. Columns on `page_rows` (height, width, vertical padding, side padding, text theme), the row editor's
+     choices for every row, padding presets.
+  3. Edge to edge.
+  4. Fill the screen: the nav's section, later rows, the footer inside a last one, stretched slots, Image filling
+     its slot, the preview's screen height.
+  5. Text theme per row.
+  6. Background colour, then background image + large size on demand.
 - A full-bleed option on the card grid's custom list could cover "several edge-to-edge images side by side"; not
   planned.
 

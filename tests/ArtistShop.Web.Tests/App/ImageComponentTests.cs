@@ -217,6 +217,24 @@ public sealed class ImageComponentTests(TestApp app)
         Assert.Empty(await new CustomPageRepository(DatabaseOf(site)).GetMentioningWorkAsync(work.Id));
     }
 
+    // listed for the confirm dialog first, then gone from its page with the work
+    [Fact]
+    public async Task DeletingAWorkDeletesTheImageComponentsShowingIt()
+    {
+        var site = await app.MakeSiteAsync();
+        var imagePage = await AddImagePageAsync(site);
+        var work = await AddPaintingAsync(site);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        await TestApp.PostFormAsync(client, imagePage.SettingsUrl, "custom-component", FormChoosing(work, work.Images[1]));
+        var components = new CustomComponentRepository(DatabaseOf(site));
+
+        Assert.Equal([imagePage.ImageId], (await components.GetImageComponentsShowingWorksAsync([work.Id])).Select(component => component.Id));
+        await new WorkRepository(DatabaseOf(site)).DeleteAsync(work.Id);
+
+        Assert.Null(await components.GetAsync(imagePage.ImageId));
+        Assert.Empty(Assert.Single((await new CustomPageRepository(DatabaseOf(site)).GetLayoutAsync(imagePage.PageId)).Rows).Slots.SelectMany(slot => slot.Stack));
+    }
+
     private async Task<string> PublicPageAfterSavingAsync(TestSite site, ImagePage imagePage, Dictionary<string, string> form)
     {
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);

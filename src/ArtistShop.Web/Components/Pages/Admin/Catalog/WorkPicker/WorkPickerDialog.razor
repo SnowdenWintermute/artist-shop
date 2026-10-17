@@ -8,7 +8,7 @@
   private const string WorkIdPlaceholder = "{workId}";
 
   private static readonly WorkPickerTrail AddTrail = new(WorkPickerMode.Add, ListQuery: null);
-  private static readonly WorkPickerTrail ChangeImageTrail = new(WorkPickerMode.ChangeImage, ListQuery: null);
+  private static readonly WorkPickerTrail ImageOnlyTrail = new(WorkPickerMode.ImageOnly, ListQuery: null);
 }
 
 @* The dialog the toolbar's Work button, an embed's Change image and an image component's Choose open.
@@ -17,8 +17,8 @@
 <ModalDialog Title="@($"Choose {Wording.Work.SingularInSentence}")" Width="ModalDialogWidth.Wide" StartsClosed data-part="work-picker">
   <iframe title="@($"{Wording.Work.SingularHeading} picker")" class="mb-4 h-[65vh] w-full shrink-0 border border-rule"
           data-add-src="@PageUrls.WorkPickerList(AddTrail)"
-          data-change-image-src="@PageUrls.WorkPickerImages(WorkIdPlaceholder, ChangeImageTrail)"
-          data-choose-image-src="@PageUrls.WorkPickerList(ChangeImageTrail)"
+          data-change-image-src="@PageUrls.WorkPickerImages(WorkIdPlaceholder, ImageOnlyTrail)"
+          data-choose-image-src="@PageUrls.WorkPickerList(ImageOnlyTrail)"
           data-work-id-placeholder="@WorkIdPlaceholder"></iframe>
 
   <ModalDialogActions>

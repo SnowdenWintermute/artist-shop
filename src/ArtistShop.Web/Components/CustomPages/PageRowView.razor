@@ -1,22 +1,21 @@
-
 @code {
   [Parameter, EditorRequired]
   public required PageRow Row { get; set; }
 
   // the database keeps a row's slots matching its widths, so a mismatch is a bug
-  private IReadOnlyList<string> SlotGrowth =>
-    RowClasses.SlotGrowth(Row.Widths) is var growth && growth.Count == Row.Slots.Count
-      ? growth
+  private IEnumerable<(RowSlot Slot, SlotWidth Width)> Slots =>
+    RowClasses.SlotShares(Row.Widths).Count == Row.Slots.Count
+      ? Row.Slots.Select((slot, index) => (slot, new SlotWidth(Row.Widths, index)))
       : throw new InvalidOperationException($"A {Row.Widths} row has {Row.Slots.Count} slots.");
 }
 
-<div class="@($"flex flex-wrap gap-8 {RowClasses.Alignment(Row.Alignment)}")">
-  @foreach (var (slot, growth, index) in Row.Slots.Zip(SlotGrowth, Enumerable.Range(0, Row.Slots.Count)))
+<div class="@($"flex flex-wrap {RowClasses.GapClass} {RowClasses.Alignment(Row.Alignment)}")">
+  @foreach (var (slot, width) in Slots)
   {
-    <div class="@($"flex min-w-[min(100%,18rem)] basis-0 flex-col gap-8 {growth}")">
+    <div class="@($"flex {RowClasses.SlotMinimumWidthClass} basis-0 flex-col gap-8 {width.GrowthClass}")">
       @foreach (var component in slot.Stack)
       {
-        <CustomComponentView @key="component.Id" Component="component" Slot="new SlotWidth(Row.Widths, index)" />
+        <CustomComponentView @key="component.Id" Component="component" Slot="width" />
       }
     </div>
   }

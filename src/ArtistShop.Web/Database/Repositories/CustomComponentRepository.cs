@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Database.Repositories;
 
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Website;
 using Dapper;
 using Npgsql;
@@ -112,6 +113,33 @@ public class CustomComponentRepository(SiteDatabase database)
         await using var connection = await database.OpenConnectionAsync();
 
         return await connection.QuerySingleAsync<bool>("SELECT is_blog_pages_only_post_list(@Id)", new { Id = id.Value });
+    }
+
+    // the image components showing any of these works, which deleting them deletes too
+    public Task<List<CustomComponentOnPages>> GetImageComponentsShowingWorksAsync(IReadOnlyCollection<WorkId> ids) =>
+        GetImageComponentsShowingAsync([.. ids.Select(id => id.Value)], []);
+
+    // the image components showing any of these library images, which deleting them deletes too
+    public Task<List<CustomComponentOnPages>> GetImageComponentsShowingImagesAsync(IReadOnlyCollection<string> storageKeys) =>
+        GetImageComponentsShowingAsync([], [.. storageKeys]);
+
+    private async Task<List<CustomComponentOnPages>> GetImageComponentsShowingAsync(int[] workIds, string[] storageKeys)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = await connection.QueryAsync<ShowingRow>(
+            "SELECT * FROM get_image_components_showing(@WorkIds, @StorageKeys)",
+            new { WorkIds = workIds, StorageKeys = storageKeys }
+        );
+
+        return [.. rows.Select(row => new CustomComponentOnPages(new CustomComponentId(row.Id), row.Name, row.PageNames))];
+    }
+
+    private sealed class ShowingRow
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
+        public required string[] PageNames { get; init; }
     }
 
     private sealed class ComponentRow

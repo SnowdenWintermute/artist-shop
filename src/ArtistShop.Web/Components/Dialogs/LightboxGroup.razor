@@ -1,0 +1,22 @@
+@* Pictures that open one lightbox, stepping through all of them from whichever was clicked: those
+   inside a LightboxTrigger. <lightbox-group> is defined in LightboxGroup.razor.js *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // false when no picture inside opens it, so the lightbox is left out
+  [Parameter, EditorRequired]
+  public bool HasLightbox { get; set; }
+
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+<lightbox-group class="@($"block {Class}")">
+  @ChildContent
+  @if (HasLightbox)
+  {
+    <ImageLightbox />
+  }
+</lightbox-group>

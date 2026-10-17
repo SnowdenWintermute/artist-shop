@@ -92,11 +92,15 @@ public abstract record ImageSource
     {
         public override ImageSourceType Type => ImageSourceType.Work;
 
-        // the image shown, null when the work has none or no longer has the one picked
-        public WorkImage? ImageOf(Catalog.Work work) =>
-            StorageKey is null
-                ? work.Images.ElementAtOrDefault(work.MainImageIndex)
-                : work.Images.FirstOrDefault(image => image.StorageKey == StorageKey);
+        // the shown image's place among the work's, null when it has none or no longer has the one picked
+        public int? ImageIndexOf(Catalog.Work work)
+        {
+            var index = StorageKey is null
+                ? work.MainImageIndex
+                : work.Images.Select(image => image.StorageKey).ToList().IndexOf(StorageKey);
+
+            return index >= 0 && index < work.Images.Count ? index : null;
+        }
     }
 }
 
@@ -115,6 +119,9 @@ public record CustomComponent(CustomComponentId Id, string Name, CustomComponent
 
 // A component with the names of the pages it's on, for choosing one already made or editing it.
 // UpdatedAt tells the settings page's backup whether it was saved since the copy was made
+// a component and the pages it's on, for saying what a delete takes with it
+public record CustomComponentOnPages(CustomComponentId Id, string Name, IReadOnlyList<string> PageNames);
+
 public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames, DateTimeOffset UpdatedAt);
 
 // What the Add component dialog's New buttons make: one of each type, and Heading, a text component

@@ -1,7 +1,7 @@
-// The text's images that open the full-screen view. <image-lightbox> is handed every one of them in
-// the text, in order, so the visitor can step through them all from whichever was clicked
+// The pictures inside that open the full-screen view. <image-lightbox> is handed every one of them,
+// in order, so the visitor can step through them all from whichever was clicked
 customElements.define(
-  "rich-text-view",
+  "lightbox-group",
   class extends HTMLElement {
     /** @type {AbortController | null} */
     #listeners = null;

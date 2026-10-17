@@ -1,6 +1,6 @@
 DROP FUNCTION IF EXISTS delete_uploaded_images;
 
--- Deletes the images, taking their embeds out of every post and text component, and emptying every
+-- Deletes the images, taking their embeds out of every post and text component, and deleting every
 -- image component showing one, in the same transaction. The posts' and components' updated_at stay as they were: the artist didn't edit them
 -- (Mike, 2026-10-15). Deleting the rows takes their junction rows with them. The files are left for
 -- the orphan sweep, as a deleted work's are
@@ -36,13 +36,7 @@ BEGIN
         -- CustomComponentType.Text
         AND component.type = 3;
 
-    UPDATE custom_components AS component
-    SET
-        settings = component.settings - 'source'
-    WHERE
-        -- CustomComponentType.Image
-        component.type = 4
-        AND component.settings #>> '{source,storageKey}' = ANY (p_storage_keys);
+    PERFORM delete_image_components_showing('{}', p_storage_keys);
 
     DELETE FROM uploaded_images
     WHERE

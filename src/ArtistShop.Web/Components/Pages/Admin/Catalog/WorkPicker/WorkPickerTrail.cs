@@ -4,8 +4,9 @@ public enum WorkPickerMode
 {
     // a new embed: the last step asks for its size and layout too
     Add,
-    // an existing embed's image: it keeps its size and layout
-    ChangeImage,
+    // only an image, asking nothing more: an existing embed's, which keeps its size and layout, or an
+    // image component's
+    ImageOnly,
 }
 
 // What the picker's steps carry in their addresses: why it was opened, and the list's own query
@@ -15,11 +16,11 @@ public record WorkPickerTrail(WorkPickerMode Mode, string? ListQuery)
     public const string ModeKey = "mode";
     public const string ListKey = "list";
 
-    private const string ChangeImageValue = "change-image";
+    private const string ImageOnlyValue = "image-only";
 
     public static WorkPickerTrail Read(string? mode, string? listQuery) =>
-        new(mode == ChangeImageValue ? WorkPickerMode.ChangeImage : WorkPickerMode.Add, listQuery);
+        new(mode == ImageOnlyValue ? WorkPickerMode.ImageOnly : WorkPickerMode.Add, listQuery);
 
     // the mode as it's written in an address, or null for adding, which is the default
-    public string? ModeValue => Mode is WorkPickerMode.ChangeImage ? ChangeImageValue : null;
+    public string? ModeValue => Mode is WorkPickerMode.ImageOnly ? ImageOnlyValue : null;
 }

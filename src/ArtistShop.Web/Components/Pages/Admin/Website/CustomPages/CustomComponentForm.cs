@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ArtistShop.Web.Components.CustomPages;
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Components.Pages.Admin.TextEditor;
 using ArtistShop.Web.Domain;
@@ -50,8 +51,10 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
     // the hidden field posts an empty value for none
     private string? ChosenImageKey => string.IsNullOrEmpty(ImageStorageKey) ? null : ImageStorageKey;
 
-    // the work CheckImageAsync found for ImageWorkId, whose main image ToSettings leaves the key out for
-    private Work? _imageWork;
+    private ImageSource? ChosenImageSource =>
+        ImageWorkId is int workId ? new ImageSource.Work(new WorkId(workId), ChosenImageKey)
+        : ChosenImageKey is { } storageKey ? new ImageSource.Library(storageKey)
+        : null;
 
     public ImageFit Fit { get; set; }
 
@@ -168,7 +171,8 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
     }
 
     // An image's selects, and its image, which may have been deleted, or taken off its work, since the picker
-    // showed it. False when the form says by the field why
+    // showed it. False when the form says by the field why. A work's main image is kept as no image of it
+    // picked, so the component follows the work's main image when it changes
     public async Task<bool> CheckImageAsync(
         UploadedImageRepository uploadedImageRepository,
         WorkRepository workRepository,
@@ -187,25 +191,14 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             (Enum.IsDefined(Link), nameof(Link))
         );
 
-        if (ImageWorkId is int workId)
+        switch (await ImageComponentPicture.ReadAsync(ChosenImageSource, uploadedImageRepository, workRepository))
         {
-            _imageWork = await workRepository.GetByIdAsync(new WorkId(workId));
-            var problem =
-                _imageWork is null ? $"That {wording.Work.SingularInSentence} was deleted."
-                : new ImageSource.Work(_imageWork.Id, ChosenImageKey).ImageOf(_imageWork) is null
-                    ? $"That image is no longer on the {wording.Work.SingularInSentence}."
-                : null;
-
-            if (problem is not null)
-            {
-                AddServerError(nameof(ImageStorageKey), problem);
-                isValid = false;
-            }
-        }
-        else if (ChosenImageKey is { } storageKey && (await uploadedImageRepository.GetByStorageKeysAsync([storageKey])).Count == 0)
-        {
-            AddServerError(nameof(ImageStorageKey), "That image is no longer in the image library.");
-            isValid = false;
+            case ImageComponentPicture.Missing missing:
+                AddServerError(nameof(ImageStorageKey), MissingImageText.Of(missing.Reason, wording));
+                return false;
+            case ImageComponentPicture.Shown { IsWorksMainImage: true }:
+                ImageStorageKey = null;
+                break;
         }
 
         return isValid;
@@ -228,20 +221,6 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         return isValid;
     }
 
-    // A picked image that is the work's main one is left out, so the component follows the work's main image
-    // when it changes. CheckImageAsync has found the work
-    private ImageSource? ToImageSource()
-    {
-        if (ImageWorkId is not null)
-        {
-            var work = _imageWork ?? throw new InvalidOperationException("The image's work wasn't checked before saving.");
-            var mainImageKey = work.Images.ElementAtOrDefault(work.MainImageIndex)?.StorageKey;
-            return new ImageSource.Work(work.Id, ChosenImageKey == mainImageKey ? null : ChosenImageKey);
-        }
-
-        return ChosenImageKey is { } storageKey ? new ImageSource.Library(storageKey) : null;
-    }
-
     public string ToName() => Unwrap.Value(Name).Trim();
 
     // the saved settings with this form's changes; a type with none comes back as it was
@@ -259,9 +238,12 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
                 Unwrap.Value(CardsPerPage), HasPageLinks,
                 Layout),
             // a library image has no artwork page, so a link to one, left from a work's image, opens the lightbox
-            ImageSettings => ToImageSource() is var source && Link is ImageLink.ArtworkPage && source is not ImageSource.Work
-                ? new ImageSettings(source, Fit, Padding, ImageLink.Lightbox)
-                : new ImageSettings(source, Fit, Padding, Link),
+            ImageSettings => new ImageSettings(
+                ChosenImageSource,
+                Fit,
+                Padding,
+                Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link
+            ),
             _ => saved,
         };
 }

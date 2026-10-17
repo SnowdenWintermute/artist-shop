@@ -7,6 +7,14 @@ using ArtistShop.Web.Domain.Website;
 // of its own, so a row stacks on a phone
 public static class RowClasses
 {
+    public const string GapClass = "gap-8";
+
+    public const int GapPixels = 32;
+
+    public const string SlotMinimumWidthClass = "min-w-[min(100%,18rem)]";
+
+    public const int SlotMinimumPixels = 288;
+
     // each slot's share of the row, left to right
     public static IReadOnlyList<int> SlotShares(RowWidths widths) =>
         widths switch

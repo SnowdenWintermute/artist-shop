@@ -3,32 +3,34 @@ namespace ArtistShop.Web.Components.CustomPages;
 using System.Globalization;
 using ArtistShop.Web.Domain.Website;
 
-// Where a slot sits in its row, so an image in it loads a size near the slot's width rather than the
-// page's. The pixels match the page's p-4 and PageRowView's gap-8 and min-w-[min(100%,18rem)]
+// Where a slot sits in its row: its growth class, and the width an image in it loads a size for, near the
+// slot's rather than the page's
 public sealed record SlotWidth(RowWidths Widths, int Index)
 {
-    private const int PagePaddingPixels = 32;
-    private const int GapPixels = 32;
-    private const int SlotMinimumPixels = 288;
+    public string GrowthClass => RowClasses.SlotGrowth(Widths)[Index];
 
-    // Once the screen fits every slot at its minimum, they share one line; narrower, a slot may take a
-    // line of its own, so the page's width is what it can reach. Never more than the image's own width
+    // Once the screen fits every slot at its minimum, they share one line, where a narrow share is held
+    // at the minimum; narrower, a slot may take a line of its own, so the page's width is what it can
+    // reach. Never more than the image's own width
     public string Sizes(int imagePixels)
     {
         var shares = RowClasses.SlotShares(Widths);
-        var image = $"{imagePixels.ToString(CultureInfo.InvariantCulture)}px";
-        var wholeLine = $"min({image}, calc(min(100vw, {Pixels(CustomPageWidths.DesktopPixels)}) - {Pixels(PagePaddingPixels)}))";
+        var image = Pixels(imagePixels);
+        var page = $"min(100vw, {Pixels(CustomPageWidths.DesktopPixels)})";
+        var padding = 2 * CustomPageWidths.PaddingPixels;
+        var wholeLine = $"min({image}, calc({page} - {Pixels(padding)}))";
 
         if (shares.Count == 1)
         {
             return wholeLine;
         }
 
-        var oneLineFrom = PagePaddingPixels + shares.Count * SlotMinimumPixels + (shares.Count - 1) * GapPixels;
-        var gaps = PagePaddingPixels + (shares.Count - 1) * GapPixels;
+        var gaps = padding + (shares.Count - 1) * RowClasses.GapPixels;
+        var oneLineFrom = gaps + shares.Count * RowClasses.SlotMinimumPixels;
         var share = $"{shares[Index].ToString(CultureInfo.InvariantCulture)} / {shares.Sum().ToString(CultureInfo.InvariantCulture)}";
+        var slot = $"max({Pixels(RowClasses.SlotMinimumPixels)}, calc(({page} - {Pixels(gaps)}) * {share}))";
 
-        return $"(min-width: {Pixels(oneLineFrom)}) min({image}, calc((min(100vw, {Pixels(CustomPageWidths.DesktopPixels)}) - {Pixels(gaps)}) * {share})), {wholeLine}";
+        return $"(min-width: {Pixels(oneLineFrom)}) min({image}, {slot}), {wholeLine}";
     }
 
     private static string Pixels(int pixels) => $"{pixels.ToString(CultureInfo.InvariantCulture)}px";

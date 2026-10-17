@@ -7,13 +7,13 @@ public class WorkListQueryTests
 {
     // what the filter form sends back with nothing chosen but images: every field, empty or not
     private const string SubmittedWithImagesOnly =
-        "/admin/catalog/works/pick?mode=change-image&q=&collection=&images=yes&sale=&sort=added";
+        "/admin/catalog/works/pick?mode=image-only&q=&collection=&images=yes&sale=&sort=added";
 
     [Theory]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?q=&collection=&images=&sale=&sort=added")]
     [InlineData("/admin/catalog/works", "/admin/catalog/works?sort=title&page=3")]
     [InlineData("/admin/catalog/works/pick?images=yes", SubmittedWithImagesOnly)]
-    [InlineData("/admin/catalog/works/pick?images=yes&mode=change-image", SubmittedWithImagesOnly)]
+    [InlineData("/admin/catalog/works/pick?images=yes&mode=image-only", SubmittedWithImagesOnly)]
     [InlineData("/admin/catalog/works?type=1&type=2", "/admin/catalog/works?type=2&type=1")]
     public void AddressesShowingTheSameWorksHaveTheSameFilters(string cleared, string current)
     {

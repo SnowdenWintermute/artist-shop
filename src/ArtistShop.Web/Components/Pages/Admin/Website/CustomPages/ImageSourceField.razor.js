@@ -11,6 +11,8 @@ customElements.define(
     #listeners = null;
     /** @type {Set<() => void>} */
     #aborts = new Set();
+    /** @type {HTMLButtonElement[]} */
+    #chooseButtons = [];
 
     connectedCallback() {
       this.#listeners = new AbortController();
@@ -31,6 +33,7 @@ customElements.define(
         throw new Error("The image field is missing a picker, its file input or a Choose button.");
       }
 
+      this.#chooseButtons = [libraryButton, workButton];
       const imagePicker = attachImagePicker(imageDialog, signal);
       const workPicker = attachWorkPicker(workDialog, signal);
       const filePicker = createFilePicker(fileInput);
@@ -82,6 +85,8 @@ customElements.define(
       }
 
       this.#showStatus("Uploading…");
+      // held until it's done, so a second choice can't race it to the form
+      this.#setChoosing(false);
       const outcome = await uploadWithRetries({
         id: "image",
         url,
@@ -97,12 +102,18 @@ customElements.define(
 
       if ("failure" in outcome) {
         this.#showStatus(outcome.failure);
+        this.#setChoosing(true);
         return;
       }
 
       /** @type {import("../../Publishing/Images/ImagePicker/ImagePickerDialog.razor.js").UploadedImage} */
       const image = JSON.parse(outcome.response.text);
       this.#save(image.storageKey, "");
+    }
+
+    /** @param {boolean} isOn */
+    #setChoosing(isOn) {
+      this.#chooseButtons.forEach((button) => (button.disabled = !isOn));
     }
 
     /** @param {string} text */
