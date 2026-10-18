@@ -1,21 +1,61 @@
+@using System.Globalization
+@using ArtistShop.Web.Components.Layout
 @code {
   [Parameter, EditorRequired]
   public required PageRow Row { get; set; }
   [Parameter, EditorRequired]
   public required RowPosition Position { get; set; }
 
+  // in a box MainLayout makes a screen high with the nav or the footer, a row that fills the screen
+  // grows to fill what they leave rather than being a screen high itself
+  [Parameter]
+  public bool FillsBox { get; set; }
+
+  // in the box with the footer, which draws the row's page colour and background behind the footer too
+  [Parameter]
+  public bool LeavesBackgroundToBox { get; set; }
+
+  private bool FillsScreen => Row.Height is RowHeight.FillScreen;
+
+  private string RowClass =>
+    (FillsScreen
+      ? $"{RowPaddingClasses.Vertical(Row.Padding, Position)} flex flex-col {(FillsBox ? "flex-1" : RowClasses.ScreenHeightClass)}"
+      : RowPaddingClasses.Vertical(Row.Padding, Position))
+    + (Row.Theme is null ? "" : LeavesBackgroundToBox ? " font-text text-ink" : " bg-page font-text text-ink");
+
+  private string? BackgroundStyle => LeavesBackgroundToBox || Row.Background is RowBackground.None ? null : RowBackgroundStyle.Of(Row.Background);
+
+  // what a row's own theme is scoped to; a bare value, since a <style>'s text can't hold quotes
+  public static string ThemeMarkerOf(PageRow row) => $"row-{row.Id.Value.ToString(CultureInfo.InvariantCulture)}";
+
+  private string ThemeMarker => ThemeMarkerOf(Row);
+
+  // slots stretch to the row's height, which in a row that fills the screen is at least the screen's
+  private string ContentClass =>
+    $"mx-auto flex w-full flex-wrap items-stretch {CustomPageWidths.MaximumClass(Row.ContentWidth)} "
+    + $"{RowPaddingClasses.Sides(Row.Padding.Sides)} {RowClasses.GapClass(Row.Gap)}{(FillsScreen ? " flex-1" : "")}";
+
+  private string SlotClass(SlotWidth width) =>
+    $"flex {RowClasses.SlotMinimumWidthClass} basis-0 flex-col {RowClasses.GapClass(Row.Gap)} {width.GrowthClass} "
+    + RowClasses.StackAlignment(Row.Alignment);
+
   // the database keeps a row's slots matching its widths, so a mismatch is a bug
   private IEnumerable<(RowSlot Slot, SlotWidth Width)> Slots =>
     RowClasses.SlotShares(Row.Widths).Count == Row.Slots.Count
-      ? Row.Slots.Select((slot, index) => (slot, new SlotWidth(Row.Widths, Row.Padding.Sides, index)))
+      ? Row.Slots.Select((slot, index) => (slot, new SlotWidth(Row, index)))
       : throw new InvalidOperationException($"A {Row.Widths} row has {Row.Slots.Count} slots.");
 }
 
-<div class="@RowPaddingClasses.Vertical(Row.Padding, Position)">
-  <div class="@($"mx-auto flex flex-wrap {CustomPageWidths.PageMaximumClass} {RowPaddingClasses.Sides(Row.Padding.Sides)} {RowClasses.GapClass} {RowClasses.Alignment(Row.Alignment)}")">
+@* a row on a theme of its own takes its colours and fonts, with its page colour behind it *@
+@if (Row.Theme is { } theme)
+{
+  <ThemeStyle Selector="@($"[data-row-theme={ThemeMarker}]")" Theme="theme.Theme" />
+}
+<div class="@RowClass" style="@BackgroundStyle" data-row-theme="@(Row.Theme is null ? null : ThemeMarker)">
+  <div class="@ContentClass">
     @foreach (var (slot, width) in Slots)
     {
-      <div class="@($"flex {RowClasses.SlotMinimumWidthClass} basis-0 flex-col gap-8 {width.GrowthClass}")">
+      <div class="@SlotClass(width)">
         @foreach (var component in slot.Stack)
         {
           <CustomComponentView @key="component.Id" Component="component" Slot="width" />

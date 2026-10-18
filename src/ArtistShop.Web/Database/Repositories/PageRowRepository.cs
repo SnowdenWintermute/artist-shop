@@ -78,24 +78,36 @@ public class PageRowRepository(SiteDatabase database)
         }
     }
 
-    public async Task SetPaddingAsync(PageRowId id, RowPadding padding)
+    public async Task SetSettingsAsync(PageRowId id, RowSettings settings)
     {
         await using var connection = await database.OpenConnectionAsync();
+        int? themeId = settings.Theme is ThemeKey.Saved saved ? saved.Id.Value : null;
+        ThemePreset? themePreset = settings.Theme is ThemeKey.Preset preset ? preset.Value : null;
+        string? backgroundColor = settings.Background is RowBackground.Color color ? color.Value.Hex : null;
 
         try
         {
             await connection.ExecuteAsync(
-                "SELECT set_page_row_padding(@Id, @Top, @Bottom, @Sides)",
+                "SELECT set_page_row_settings(@Id, @Height, @ContentWidth, @TopPadding, @BottomPadding, @SidePadding, @Gap, "
+                    + "@ThemeId, @ThemePreset, @BackgroundColor)",
                 new
                 {
                     Id = id.Value,
-                    Top = (int)padding.Top,
-                    Bottom = (int)padding.Bottom,
-                    Sides = (int)padding.Sides,
+                    Height = (int)settings.Height,
+                    ContentWidth = (int)settings.ContentWidth,
+                    TopPadding = (int)settings.Padding.Top,
+                    BottomPadding = (int)settings.Padding.Bottom,
+                    SidePadding = (int)settings.Padding.Sides,
+                    Gap = (int)settings.Gap,
+                    ThemeId = themeId,
+                    ThemePreset = themePreset,
+                    BackgroundColor = backgroundColor,
                 }
             );
         }
-        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.PageRowChangedSincePageLoad))
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.PageRowChangedSincePageLoad)
+                || SqlErrors.IsThrown(exception, SqlStates.ThemeNoLongerExists))
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }

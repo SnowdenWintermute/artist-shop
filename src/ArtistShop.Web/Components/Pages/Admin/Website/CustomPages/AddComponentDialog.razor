@@ -41,8 +41,8 @@
 }
 
 <ModalDialog Title="Add a component" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="IsSaving">
-  <h3 class="mb-2 font-bold">New</h3>
-  <div class="mb-6 flex flex-wrap gap-2">
+  <h3 class="mb-2 shrink-0 font-bold">New</h3>
+  <div class="mb-6 flex shrink-0 flex-wrap gap-2">
     @foreach (var starter in Enum.GetValues<CustomComponentStarter>())
     {
       <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@IsSaving" @onclick="() => OnNew.InvokeAsync(starter)">
@@ -53,8 +53,10 @@
 
   @if (_made is { Count: > 0 } made)
   {
-    <h3 class="mb-2 font-bold">One you've made</h3>
-    <ul class="mb-6">
+    <h3 class="mb-2 shrink-0 font-bold">One you've made</h3>
+    @* a long library scrolls, so Cancel stays on screen. The padding keeps a focused button's outline
+       inside the scrolling box, which clips it; the negative margin keeps the list lined up *@
+    <ul class="-mx-1 mb-6 min-h-0 overflow-y-auto px-1">
       @foreach (var component in made)
       {
         <li @key="component.Component.Id" class="mb-2">

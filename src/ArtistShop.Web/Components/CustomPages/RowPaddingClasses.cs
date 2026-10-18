@@ -3,7 +3,7 @@ namespace ArtistShop.Web.Components.CustomPages;
 using ArtistShop.Web.Domain.Website;
 
 // The space inside a row around its content. Rows touch, so this is all the space between them and
-// around the page's content. The sides are inside the row's CustomPageWidths.PageMaximumClass box, so
+// around the page's content. The sides are inside the row's CustomPageWidths.MaximumClass box, so
 // they show however wide the screen is. Auto reproduces what pages had before rows held their padding: 56px
 // above the first row, 96px below the last and 32px between rows; Medium sides, the default, the
 // layout's 8px plus <main>'s 16px. A phone's notch, held sideways, adds to the sides. Tailwind only

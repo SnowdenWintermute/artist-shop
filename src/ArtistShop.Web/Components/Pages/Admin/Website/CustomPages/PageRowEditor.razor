@@ -1,10 +1,16 @@
 @page "/admin/website/pages/{PageId:int}/rows/{RowId:int}"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject CustomPageRepository CustomPageRepository
+@inject PageRowRepository PageRowRepository
+@inject ThemeRepository ThemeRepository
+@inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
 
 @code {
   [Parameter]
@@ -16,9 +22,70 @@
   [SupplyParameterFromQuery(Name = PageUrls.NewRowKey)]
   private bool IsNew { get; set; }
 
-  private CustomPage? _page;
+  [SupplyParameterFromForm(FormName = "row-settings")]
+  private RowSettingsForm? Input { get; set; }
 
-  protected override async Task OnInitializedAsync() => _page = await CustomPageRepository.GetAsync(new CustomPageId(PageId));
+  private CustomPage? _page;
+  private PageRow? _row;
+  // the presets, then the website's saved themes, as the Theme page lists them
+  private IReadOnlyList<NamedTheme> _themes = [];
+  // what the public pages show; null for a preset since retired
+  private NamedTheme? _themeInUse;
+  private bool _changedElsewhere;
+
+  protected override async Task OnInitializedAsync()
+  {
+    _page = await CustomPageRepository.GetAsync(new CustomPageId(PageId));
+
+    if (_page is null)
+    {
+      return;
+    }
+
+    _row = (await CustomPageRepository.GetLayoutAsync(_page.Id)).Row(new PageRowId(RowId));
+    _themes = [.. ThemePresets.All.Select(preset => preset.Named), .. (await ThemeRepository.GetAllAsync()).Select(saved => saved.Named)];
+    _themeInUse = await ThemeRepository.GetInUseAsync();
+
+    if (_row is not null)
+    {
+      Input ??= RowSettingsForm.From(_row.Settings);
+    }
+  }
+
+  private IReadOnlyList<string> ThemeChoices =>
+    [RowSettingsForm.WebsiteTheme, .. _themes.Select(theme => theme.Key.QueryValue)];
+
+  private string ThemeLabel(string? choice) =>
+    _themes.SingleOrDefault(theme => theme.Key.QueryValue == choice)?.Name ?? "Website's theme";
+
+  // the page colour of the theme the row is on, where a background colour starts
+  private RgbColor PageColorOf(ThemeKey? key) =>
+    ((key is null ? null : _themes.SingleOrDefault(theme => theme.Key == key)) ?? _themeInUse)?.Theme.Colors.Resolve(ColorRole.Page)
+    ?? ThemePresets.Paper.Theme.Colors.Resolve(ColorRole.Page);
+
+  private async Task SaveAsync()
+  {
+    if (_row is null || Input is null || !Input.Check())
+    {
+      return;
+    }
+
+    try
+    {
+      await PageRowRepository.SetSettingsAsync(_row.Id, Input.ToSettings(PageColorOf(Input.ThemeKey)));
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+      return;
+    }
+
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    {
+      [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()),
+      [PageUrls.NewRowKey] = null,
+    }));
+  }
 }
 
 <PageTitle>Row</PageTitle>
@@ -35,7 +102,42 @@
       <UpLink Class="mb-4" Href="@PageUrls.EditCustomPage(_page.Id)" Label="@_page.Name" />
       <h1 class="mb-4 text-xl">Row on @_page.Name</h1>
 
-      <RowEditor @rendermode="InteractiveServer" @key="RowId" Page="_page" RowId="new PageRowId(RowId)" IsNew="IsNew" />
+      @if (_row is not null && Input is not null)
+      {
+        @* every choice saves the moment it's made; the row's slots, below, are an island *@
+        <EditForm EditContext="Input.EditContext" FormName="row-settings" OnValidSubmit="SaveAsync" Enhance class="mb-6">
+          @if (_changedElsewhere)
+          {
+            <p class="mb-4 text-error">The row was changed somewhere else. Reload the page to see it.</p>
+          }
+          <SubmitOnChange>
+            <RadioField Label="Height" @bind-Value="Input.Height" Values="Enum.GetValues<RowHeight>()" LabelOf="RowChoiceLabels.Of" />
+            <RadioField Label="Width" @bind-Value="Input.ContentWidth" Values="Enum.GetValues<RowContentWidth>()" LabelOf="RowChoiceLabels.Of" />
+            <RadioField Label="Top padding" @bind-Value="Input.TopPadding" Values="Enum.GetValues<RowVerticalPadding>()"
+                        LabelOf="RowChoiceLabels.Of" />
+            <RadioField Label="Bottom padding" @bind-Value="Input.BottomPadding" Values="Enum.GetValues<RowVerticalPadding>()"
+                        LabelOf="RowChoiceLabels.Of" />
+            <RadioField Label="Side padding" @bind-Value="Input.SidePadding" Values="Enum.GetValues<RowSidePadding>()"
+                        LabelOf="RowChoiceLabels.Of" />
+            <RadioField Label="Gap" @bind-Value="Input.Gap" Values="Enum.GetValues<RowGap>()" LabelOf="RowChoiceLabels.Of" />
+            <RadioField Label="Theme" @bind-Value="Input.Theme" Values="ThemeChoices" LabelOf="ThemeLabel" />
+            <RadioField Label="Background" @bind-Value="Input.BackgroundType" Values="Enum.GetValues<RowBackgroundType>()"
+                        LabelOf="RowChoiceLabels.Of" />
+            @if (Input.BackgroundType is RowBackgroundType.Color)
+            {
+              @* the picker posts the form when it closes, as change fires *@
+              <InputText type="color" aria-label="Background colour" @bind-Value="Input.BackgroundColor"
+                         class="mb-4 block h-10 w-14 cursor-pointer border border-rule bg-panel" />
+            }
+            @* app.css hides this unless the browser runs no scripts *@
+            <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>
+          </SubmitOnChange>
+        </EditForm>
+      }
+
+      @* SettingsStamp tells the island, whose preview draws the settings, to read the row again after a save *@
+      <RowEditor @rendermode="InteractiveServer" @key="RowId" Page="_page" RowId="new PageRowId(RowId)" IsNew="IsNew"
+                 SettingsStamp="@(_row?.Settings.ToString() ?? "")" />
     }
   </AdminPanel>
 </main>

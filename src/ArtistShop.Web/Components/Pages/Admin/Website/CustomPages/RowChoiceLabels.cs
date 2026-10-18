@@ -26,6 +26,40 @@ public static class RowChoiceLabels
             _ => throw new InvalidOperationException($"{alignment} has no label."),
         };
 
+    public static string Of(RowHeight height) =>
+        height switch
+        {
+            RowHeight.Natural => "Natural",
+            RowHeight.FillScreen => "Fill the screen",
+            _ => throw new InvalidOperationException($"{height} has no label."),
+        };
+
+    public static string Of(RowContentWidth width) =>
+        width switch
+        {
+            RowContentWidth.Page => "Page width",
+            RowContentWidth.EdgeToEdge => "Edge to edge",
+            _ => throw new InvalidOperationException($"{width} has no label."),
+        };
+
+    public static string Of(RowBackgroundType type) =>
+        type switch
+        {
+            RowBackgroundType.None => "None",
+            RowBackgroundType.Color => "Colour",
+            _ => throw new InvalidOperationException($"{type} has no label."),
+        };
+
+    public static string Of(RowGap gap) =>
+        gap switch
+        {
+            RowGap.None => "None",
+            RowGap.Small => "Small",
+            RowGap.Medium => "Medium",
+            RowGap.Large => "Large",
+            _ => throw new InvalidOperationException($"{gap} has no label."),
+        };
+
     public static string Of(RowVerticalPadding padding) =>
         padding switch
         {

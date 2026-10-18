@@ -411,6 +411,93 @@ day, if row backgrounds aren't enough).
     `ChoiceButtons` → `RadioChoices` (radios, legend above, as `RadioField` looks), never disabled: a choice
     made while saving waits in `RowEditor._waitingChoices` and applies to the row as saved, so nothing flickers.
   - Browser-checked by Mike 2026-10-17.
+- Step 2 committed by Mike as 7b72e9d. Step 3 built 2026-10-17, uncommitted, 1264 tests, not browser-checked.
+  - `RowContentWidth` Page / EdgeToEdge on `PageRow.ContentWidth` (`page_rows.content_width`, 0009; site_1
+    patched by hand), `set_page_row_content_width`, `PageRowRepository.SetContentWidthAsync`.
+  - `CustomPageWidths.MaximumClass(width)`: `max-w-[1216px]` or none. `SlotWidth(Widths, ContentWidth, Sides,
+    Index)` measures from `100vw` for edge to edge.
+  - Row editor: "Width" (Page width / Edge to edge) first; the split's label is now "Slot widths".
+  - Desktop preview is 1440px (a laptop), so edge to edge differs from page width there; the collection page
+    preview now mirrors its page (`px-2`, then `mx-auto max-w-[1200px] p-4`).
+  - Images stay capped at 1600px until step 6's large size on demand.
+  - After Mike's look (2026-10-17): "Add a component"'s library list scrolls (`min-h-0 overflow-y-auto`) so
+    Cancel stays on screen. The preview's bar at the right was Firefox 140 drawing `zoom` in 1/64 steps (0.9375
+    for ~0.945, reproduced with headless system Firefox); `<row-preview-frame>` now measures the drawn width and
+    widens or narrows `--preview-width` to fill its box.
+  - Row gap (Mike): `RowGap` None/Small/Medium/Large (0/16/32/64px, default Medium = the old gap-8), between slots
+    and between stacked components; `page_rows.gap` (site_1 patched), `set_page_row_gap`, "Gap" radios after
+    Side padding. `SlotWidth(PageRow Row, int Index)` now reads widths, content width, sides and gap from the row.
+    1266 tests.
+- Step 4 built 2026-10-17, uncommitted, 1268 tests, not browser-checked by Mike.
+  - `RowHeight` Natural / FillScreen on `PageRow.Height` (`page_rows.height`, site_1 patched), `set_page_row_height`,
+    "Height" radios first in the row editor.
+  - `MainLayout`: the nav sits in a box with `SectionOutlet` `BelowNavSectionName`, `min-h-svh` only while it holds
+    `[data-below-nav]`; the footer in a box with `AboveFooterSectionName`, `min-h-svh` with `[data-above-footer]`,
+    `flex-1` with `[data-between-nav-and-footer]` (the body then `flex-none`). `CustomPageView` sends a first
+    (of several) full-screen row below the nav, a last one above the footer, and an only one between nav and
+    footer, each with `PageRowView FillsBox` (flex-1) and its own `CascadingValue` of the page; the rest stay in
+    `<main>` with `RowClasses.ScreenHeightClass` (`min-h-[var(--screen-height,100svh)]`).
+  - A full-screen row stretches its slots (`items-stretch`) and Line up becomes `RowClasses.StackAlignment`
+    (justify-*). `ImageView` there: the group is `relative min-h-48 flex-1`, the picture `absolute` with
+    `ImageClasses.Inset(padding)`, img `h-full` with Fit; `LightboxTrigger` takes a `Class`.
+  - Preview: `--screen-height` 900px desktop / 844px phone on the themed preview box (every full-screen row drawn
+    a whole screen high; the nav isn't in the preview).
+  - Checked with pages rendered by a throwaway test and measured in Firefox: only row → nav 0-70, row 70-856,
+    footer 856-900, no scroll; first + last → 900 and 900 again; phone the same at 844. The image filling a slot
+    wasn't in those pages.
+- Image component Height, agreed with Mike 2026-10-17 (built the same day, 1268 tests, not browser-checked):
+  `ImageHeight` Natural (default) / Small / Medium / Large / Fill in `ImageSettings` (JSON `"height"`, site_1's
+  four image components patched by hand: Fill for the one in a full-screen row, Natural for the rest).
+  - Sizes are fixed heights capped by the screen (`ImageClasses.Height`): `min(240px, 40%)`, `min(400px, 60%)`,
+    `min(640px, 80%)` of `--screen-height` (the preview's) or `100svh`. Chosen over screen fractions: same height
+    as the text beside it, same in the preview, no jump on rotation; the cap keeps a sideways phone whole.
+  - Fill (Mike: no special-case label) fills its slot in every row: slots now stretch in all rows
+    (`items-stretch`, Line up is `RowClasses.StackAlignment` everywhere; `RowClasses.Alignment` gone), the picture
+    is `absolute` over the group, and outside a full-screen row an empty box with the image's `aspect-ratio`
+    keeps the group at least the image's own shape, so alone in its row it's Natural. Checked in Firefox: beside
+    600px of text 600px tall, beside short text its own shape.
+- Step 5 built 2026-10-17, uncommitted, 1269 tests, not browser-checked.
+  - `PageRow.Theme` (`NamedTheme?`, null = the website's, as is a retired preset): `page_rows.theme_id` (FK
+    themes, ON DELETE SET NULL, so deleting a saved theme puts its rows back on the website's) and
+    `theme_preset`, at most one (site_1 patched). `get_custom_page_layout` joins the saved theme's name and
+    settings; `set_page_row_theme` (SH019 for a deleted theme, SH024 for a removed row), `SetThemeAsync`.
+  - Row editor: "Theme" radios after Gap: Website's theme, the presets, the saved themes (`RowEditor.ThemeChoice`
+    wraps the nullable key for `RadioChoices`).
+  - A row with its own theme: `ThemeStyle` scoped to `[data-row-theme=row-<id>]` (unquoted, since a <style>'s
+    text can't hold quotes) and `bg-page font-text text-ink`, so it brings its page colour, not just its text.
+- Fix (Mike, 2026-10-17): a full-screen first row taller than the screen had the next row drawn over it. The
+  layout is `h-dvh`, and the nav's box's `min-h-svh` replaced its content minimum, so it shrank to one screen.
+  Both of `MainLayout`'s boxes are now `shrink-0`; measured in Firefox for a tall first, last and only row.
+- Step 6 in three parts (From Claude): (a) background colour, (b) background image + Fit, (c) large size on demand.
+  (a) built 2026-10-17, uncommitted, 1270 tests, not browser-checked by Mike:
+  - `RowBackground` None / Color(`RgbColor`) (`RowBackgroundType`), `page_rows.background_color` (site_1 patched),
+    `set_page_row_background`, `SetBackgroundAsync`. Row editor: "Background" radios after Theme; Colour starts
+    at the row's page colour and shows an `<input type="color">` saved on change. Drawn as an inline style
+    (`RowBackgroundStyle`).
+  - A last full-screen row gives `MainLayout`'s footer box (`data-footer-box`, now `relative isolate bg-page
+    text-ink`) its look: its theme through `ThemeStyle` on `[data-footer-box]:has([data-box-of=row-<id>])` (no
+    `>`: a <style>'s text would encode it), its background on an `absolute inset-0 -z-10` layer behind the row
+    and footer; the row itself then draws neither (`PageRowView LeavesBackgroundToBox`). Checked in Firefox: a
+    Dark, red last row runs behind the footer, whose text takes the Dark ink.
+  - Mike 2026-10-17: the last row, whatever its height, now goes in the footer's box (`data-last-row`: the box takes
+    the screen's leftover room, the body `flex-none`; `data-above-footer` only for a last row of several that
+    fills the screen, making the box `min-h-svh`), so the footer always takes the last row's theme and background,
+    and a short page's leftover space is the last row's. `data-between-nav-and-footer` is gone.
+  - Row settings form (agreed with Mike, built 2026-10-17, 1268 tests, not browser-checked): Height, Width,
+    paddings, Gap, Theme and Background are a static `EditForm` ("row-settings", `RowSettingsForm`) on
+    `PageRowEditor` inside one `SubmitOnChange`, so every change posts and redirects with the saved notice. One
+    `RowSettings` record (`PageRow.Settings`) saved by `set_page_row_settings` / `SetSettingsAsync`; the six
+    single setters and their functions are gone (dropped by hand from site_1). Theme radio values are
+    `ThemeKey.QueryValue` or `RowSettingsForm.WebsiteTheme`. `CheckSelects` moved to `ServerValidatedForm`.
+    The island keeps Slot widths, Line up, the slots and the preview, and re-reads the row when the page's
+    `SettingsStamp` (`Settings.ToString()`) changes.
+  - Fix: a row with a background colour crashed the dev server with a stack overflow: the stamp's record
+    `ToString` printed `RgbColor.ReadableText`, an `RgbColor`, endlessly. `RgbColor.ToString()` is now its hex;
+    the form test opens the editor after saving a colour.
+- **Deferred to an "arrangement" refactor (Mike, 2026-10-17):** dragging a component into another slot's list
+  snaps into place but goes back on drop (BbSortable's lists share a group; `SortableList` only handles
+  `OnUpdate`). Should become a real move (`OnAdd`/`OnRemove`, one SQL function moving the placement).
+  - Fit is `RadioField IsUnavailable` (faded, `inert`, so its value still posts) while Height is Natural.
 - A full-bleed option on the card grid's custom list could cover "several edge-to-edge images side by side"; not
   planned.
 

@@ -331,7 +331,11 @@ PageUrls.CustomPageList;
           <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
                             StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture" />
           <SubmitOnChange>
-            <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+            <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="Enum.GetValues<ImageHeight>()" LabelOf="height => height.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()"
+                        IsUnavailable="!ImageSettings.HasFit(Input.ImageHeight)" />
           </SubmitOnChange>
           <SubmitOnChange>
             <RadioField Label="Padding" @bind-Value="Input.Padding" Values="Enum.GetValues<ImagePadding>()"

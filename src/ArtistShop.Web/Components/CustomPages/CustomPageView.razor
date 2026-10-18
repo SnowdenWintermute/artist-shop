@@ -1,6 +1,8 @@
 @* a custom page's rows, read when its page is known *@
 @using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Components.Layout
 @using ArtistShop.Web.Database.Repositories
+@using Microsoft.AspNetCore.Components.Sections
 @inject CustomPageRepository CustomPageRepository
 
 @code {
@@ -11,6 +13,13 @@
 
   protected override async Task OnParametersSetAsync() =>
     _layout = await CustomPageRepository.GetLayoutAsync(Page.Id);
+
+  // A first row that fills the screen is drawn in MainLayout below the nav, and the last row, whatever
+  // its height, above the footer, which takes its look; the rest in <main>
+  private static PageRow? BelowNav(CustomPageLayout layout) =>
+    layout.Rows is [{ Height: RowHeight.FillScreen } first, _, ..] ? first : null;
+
+  private static PageRow? AboveFooter(CustomPageLayout layout) => layout.Rows is [.., var last] ? last : null;
 }
 
 <PageTitle>@Page.Name</PageTitle>
@@ -19,14 +28,54 @@
 
 @if (_layout is { } layout)
 {
-  @* a component that names itself after its page, such as the post list, reads it from here *@
+  var belowNav = BelowNav(layout);
+  var aboveFooter = AboveFooter(layout);
+
+  @* a component that names itself after its page, such as the post list, reads it from here, so
+     the rows drawn in MainLayout's sections are given it too *@
   <CascadingValue Value="Page" IsFixed>
+    @if (belowNav is { } first)
+    {
+      <SectionContent SectionName="@MainLayout.BelowNavSectionName">
+        <CascadingValue Value="Page" IsFixed>
+          <div data-below-nav class="flex flex-1 flex-col bg-page">
+            <PageRowView Row="first" Position="layout.PositionOf(first)" FillsBox />
+          </div>
+        </CascadingValue>
+      </SectionContent>
+    }
+
     @* MainLayout drops its padding around this, since the rows hold their own *@
     <main data-custom-page>
-      @foreach (var row in layout.Rows)
+      @foreach (var row in layout.Rows.Where(row => row != belowNav && row != aboveFooter))
       {
         <PageRowView @key="row.Id" Row="row" Position="layout.PositionOf(row)" />
       }
     </main>
+
+    @if (aboveFooter is { } last)
+    {
+      var marker = PageRowView.ThemeMarkerOf(last);
+
+      @* MainLayout's box holds the footer too, so the row's theme and background are given to the box:
+         the theme through a style on the box, the background on a layer behind both. The box takes the
+         screen's room left over, and is a screen high itself for a row of several that fills the screen *@
+      <SectionContent SectionName="@MainLayout.AboveFooterSectionName">
+        <CascadingValue Value="Page" IsFixed>
+          @if (last.Theme is { } theme)
+          {
+            <ThemeStyle Selector="@($"[data-footer-box]:has([data-box-of={marker}])")" Theme="theme.Theme" />
+          }
+          <div data-last-row data-above-footer="@(layout.Rows.Count > 1 && last.Height is RowHeight.FillScreen)"
+               data-box-of="@marker" class="flex flex-1 flex-col">
+            @if (last.Background is not RowBackground.None)
+            {
+              <div class="absolute inset-0 -z-10" style="@RowBackgroundStyle.Of(last.Background)"></div>
+            }
+            <PageRowView Row="last" Position="layout.PositionOf(last)" FillsBox="last.Height is RowHeight.FillScreen" LeavesBackgroundToBox />
+          </div>
+        </CascadingValue>
+      </SectionContent>
+    }
   </CascadingValue>
 }

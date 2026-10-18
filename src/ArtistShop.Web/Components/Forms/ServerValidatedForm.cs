@@ -24,4 +24,22 @@ public abstract class ServerValidatedForm
         _serverMessages.Add(new FieldIdentifier(this, propertyName), message);
         EditContext.NotifyValidationStateChanged();
     }
+
+    // a post that left a select or radio group out, as a script might, would otherwise save its type's
+    // default of 0
+    protected bool CheckSelects(params (bool IsDefined, string Field)[] selects)
+    {
+        var isValid = true;
+
+        foreach (var (isDefined, field) in selects)
+        {
+            if (!isDefined)
+            {
+                AddServerError(field, "Choose one.");
+                isValid = false;
+            }
+        }
+
+        return isValid;
+    }
 }

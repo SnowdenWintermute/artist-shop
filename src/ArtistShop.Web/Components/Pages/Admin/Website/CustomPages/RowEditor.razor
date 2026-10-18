@@ -22,9 +22,14 @@
   public required PageRowId RowId { get; set; }
   [Parameter, EditorRequired]
   public bool IsNew { get; set; }
+  // the row's settings as the page saved them, which the static form above changes; a new one means
+  // the preview must be read again
+  [Parameter, EditorRequired]
+  public required string SettingsStamp { get; set; }
 
   private CustomPageLayout? _layout;
   private PageRow? _row;
+  private string? _loadedStamp;
   private RowSlot? _addingTo;
   private RowSlot? _removingSlot;
   private bool _isSaving;
@@ -39,6 +44,16 @@
     {
       _addingTo = slot;
     }
+  }
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (_loadedStamp is not null && _loadedStamp != SettingsStamp)
+    {
+      await LoadAsync();
+    }
+
+    _loadedStamp = SettingsStamp;
   }
 
   private async Task LoadAsync()
@@ -66,9 +81,6 @@
 
   private Task SetAlignmentAsync(RowAlignment alignment) =>
     ChooseAsync(row => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, row.Widths, alignment));
-
-  private Task SetPaddingAsync(Func<RowPadding, RowPadding> change) =>
-    ChooseAsync(row => PageRowRepository.SetPaddingAsync(row.Id, change(row.Padding)));
 
   private Task AddSlotAsync(PageRow row) => SaveAsync(() => RowSlotRepository.AddAsync(row.Id, row.Slots.Count));
 
@@ -171,24 +183,15 @@
   {
     var row = _row;
 
-    <div class="mb-6 flex flex-col gap-4">
-      @if (row.Slots.Count > 1)
-      {
-        <RadioChoices TValue="RowWidths" Label="Widths" Values="RowWidthChoices.For(row.Slots.Count)" Chosen="row.Widths"
+    @if (row.Slots.Count > 1)
+    {
+      <div class="mb-6 flex flex-col gap-4">
+        <RadioChoices TValue="RowWidths" Label="Slot widths" Values="RowWidthChoices.For(row.Slots.Count)" Chosen="row.Widths"
                       LabelOf="RowChoiceLabels.Of" OnChoose="SetWidthsAsync" />
         <RadioChoices TValue="RowAlignment" Label="Line up" Values="Enum.GetValues<RowAlignment>()" Chosen="row.Alignment"
                       LabelOf="RowChoiceLabels.Of" OnChoose="SetAlignmentAsync" />
-      }
-      <RadioChoices TValue="RowVerticalPadding" Label="Top padding" Values="Enum.GetValues<RowVerticalPadding>()"
-                    Chosen="row.Padding.Top" LabelOf="RowChoiceLabels.Of"
-                    OnChoose="top => SetPaddingAsync(padding => padding with { Top = top })" />
-      <RadioChoices TValue="RowVerticalPadding" Label="Bottom padding" Values="Enum.GetValues<RowVerticalPadding>()"
-                    Chosen="row.Padding.Bottom" LabelOf="RowChoiceLabels.Of"
-                    OnChoose="bottom => SetPaddingAsync(padding => padding with { Bottom = bottom })" />
-      <RadioChoices TValue="RowSidePadding" Label="Side padding" Values="Enum.GetValues<RowSidePadding>()"
-                    Chosen="row.Padding.Sides" LabelOf="RowChoiceLabels.Of"
-                    OnChoose="sides => SetPaddingAsync(padding => padding with { Sides = sides })" />
-    </div>
+      </div>
+    }
 
     <div class="mb-4 flex flex-wrap items-start gap-4">
       @foreach (var (slot, growth) in row.Slots.Zip(RowClasses.SlotGrowth(row.Widths)))

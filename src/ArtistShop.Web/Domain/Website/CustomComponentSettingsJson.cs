@@ -50,13 +50,14 @@ public static class CustomComponentSettingsJson
         );
     }
 
-    // {"source": {"type": "Library", "storageKey": "…"}, "fit": "Cover", "padding": "None", "link": "Lightbox"},
+    // {"source": {"type": "Library", "storageKey": "…"}, "height": "Natural", "fit": "Cover", "padding": "None", "link": "Lightbox"},
     // with no source until one is chosen, or {"type": "Work", "workId": 4} with a storageKey only for an image
     // other than the work's main one. The database reads the storage key and work id for the image's uses
     private static string WriteImage(ImageSettings image)
     {
         var json = new JsonObject
         {
+            ["height"] = image.Height.ToString(),
             ["fit"] = image.Fit.ToString(),
             ["padding"] = image.Padding.ToString(),
             ["link"] = image.Link.ToString(),
@@ -88,6 +89,7 @@ public static class CustomComponentSettingsJson
 
         return new ImageSettings(
             root.TryGetProperty("source", out var source) ? ReadImageSource(source) : null,
+            Enum.Parse<ImageHeight>(ReadString(root, "height")),
             Enum.Parse<ImageFit>(ReadString(root, "fit")),
             Enum.Parse<ImagePadding>(ReadString(root, "padding")),
             Enum.Parse<ImageLink>(ReadString(root, "link"))

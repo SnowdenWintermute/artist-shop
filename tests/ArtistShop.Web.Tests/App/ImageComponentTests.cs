@@ -39,7 +39,7 @@ public sealed class ImageComponentTests(TestApp app)
         Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(id)).Component.Settings;
 
     [Fact]
-    public async Task TheSettingsPageSavesFitPaddingAndLink()
+    public async Task TheSettingsPageSavesHeightFitPaddingAndLink()
     {
         var site = await app.MakeSiteAsync();
         var imagePage = await AddImagePageAsync(site);
@@ -52,13 +52,14 @@ public sealed class ImageComponentTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Image 1",
+                ["Input.ImageHeight"] = nameof(ImageHeight.Medium),
                 ["Input.Fit"] = nameof(ImageFit.Contain),
                 ["Input.Padding"] = nameof(ImagePadding.Large),
                 ["Input.Link"] = nameof(ImageLink.None),
             }
         );
 
-        Assert.Equal(new ImageSettings(null, ImageFit.Contain, ImagePadding.Large, ImageLink.None), await SettingsOfAsync(site, imagePage.ImageId));
+        Assert.Equal(new ImageSettings(null, ImageHeight.Medium, ImageFit.Contain, ImagePadding.Large, ImageLink.None), await SettingsOfAsync(site, imagePage.ImageId));
     }
 
     [Fact]
@@ -75,6 +76,7 @@ public sealed class ImageComponentTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Image 1",
+                ["Input.ImageHeight"] = nameof(ImageHeight.Natural),
                 ["Input.Fit"] = nameof(ImageFit.Contain),
                 ["Input.Link"] = nameof(ImageLink.None),
             }
@@ -99,6 +101,7 @@ public sealed class ImageComponentTests(TestApp app)
         {
             ["Input.Name"] = "Image 1",
             ["Input.ImageStorageKey"] = storageKey,
+            ["Input.ImageHeight"] = nameof(ImageHeight.Natural),
             ["Input.Fit"] = nameof(ImageFit.Cover),
             ["Input.Padding"] = nameof(ImagePadding.None),
             ["Input.Link"] = nameof(ImageLink.Lightbox),

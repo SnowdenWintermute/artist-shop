@@ -1,6 +1,8 @@
-@* An image component's picture: never wider than the image itself, centred in its slot. Nothing is
-   drawn until an image is chosen, or once it's gone. A click opens the lightbox, or the artwork's page,
-   or does nothing *@
+@* An image component's picture: never wider than the image itself, centred in its slot, at its own
+   shape or a fixed height. Set to Fill, it instead fills what the slot's other components leave, the
+   slot being as tall as the tallest beside it, or the screen in a row that fills it. Fit fits it to any
+   height but its own. Nothing is drawn until an image is chosen, or once it's gone. A click opens the
+   lightbox, or the artwork's page, or does nothing *@
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
@@ -27,14 +29,19 @@
 {
   var width = ImageVariants.LargestWidthFor(image.Width);
   var readyWidths = ImageSizeQueue.ReadyWidths(image.StorageKey, image.Width);
+  var fills = Settings.Height is ImageHeight.Fill;
+  var fillsScreenRow = fills && Slot.Row.Height is RowHeight.FillScreen;
+  var isFixed = Settings.Height is ImageHeight.Small or ImageHeight.Medium or ImageHeight.Large;
+  var isSized = fills || isFixed;
+  var maximumWidth = $"max-width: {image.Width.ToString(CultureInfo.InvariantCulture)}px;";
 
-  RenderFragment picture = @<span class="relative block">
+  RenderFragment picture = @<span class="@(isSized ? "relative block h-full" : "relative block")">
       <img src="@ImageUrls.Variant(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
            srcset="@ImageUrls.SourceSet(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
            sizes="@Slot.Sizes(image.Width)" alt="@shown.AltText"
            width="@image.Width.ToString(CultureInfo.InvariantCulture)" height="@image.Height.ToString(CultureInfo.InvariantCulture)"
            loading="lazy" data-test="image-component"
-           class="@($"block h-auto w-full bg-cover bg-center {ImageClasses.Fit(Settings.Fit)}")"
+           class="@($"block {(isSized ? "h-full" : "h-auto")} w-full bg-cover bg-center {ImageClasses.Fit(Settings.Fit)}")"
            style="@(image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
       @if (ImageSizeQueue.IsProcessing(image.StorageKey, width))
       {
@@ -42,15 +49,26 @@
       }
     </span>;
 
-  <LightboxGroup Class="@ImageClasses.Padding(Settings.Padding)" HasLightbox="Settings.Link is ImageLink.Lightbox">
-    <div class="mx-auto" style="@($"max-width: {image.Width.ToString(CultureInfo.InvariantCulture)}px;")">
+  @* Filling, the picture is laid over the space the group takes, inset by the padding. Elsewhere than a
+     row that fills the screen, an empty box of the image's shape holds the group at least that tall,
+     so an image alone in its row is its own shape; in such a row, nothing does, so the image never
+     makes the row taller than the screen *@
+  <LightboxGroup Class="@(fillsScreenRow ? "relative min-h-48 flex-1" : fills ? $"relative flex-1 {ImageClasses.Padding(Settings.Padding)}" : ImageClasses.Padding(Settings.Padding))"
+                 HasLightbox="Settings.Link is ImageLink.Lightbox">
+    @if (fills && !fillsScreenRow)
+    {
+      <div class="mx-auto"
+           style="@($"{maximumWidth} aspect-ratio: {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)};")"></div>
+    }
+    <div class="@(fills ? $"absolute {ImageClasses.Inset(Settings.Padding)}" : isFixed ? $"mx-auto {ImageClasses.Height(Settings.Height)}" : "mx-auto")"
+         style="@(fills ? "" : maximumWidth)">
       @if (Settings.Link is ImageLink.ArtworkPage && shown.ArtworkPageUrl is { } href)
       {
-        <a href="@href" class="block">@picture</a>
+        <a href="@href" class="@(isSized ? "block h-full" : "block")">@picture</a>
       }
       else if (Settings.Link is ImageLink.Lightbox)
       {
-        <LightboxTrigger>@picture</LightboxTrigger>
+        <LightboxTrigger Class="@(isSized ? "h-full" : null)">@picture</LightboxTrigger>
       }
       else
       {

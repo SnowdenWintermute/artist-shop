@@ -56,6 +56,8 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         : ChosenImageKey is { } storageKey ? new ImageSource.Library(storageKey)
         : null;
 
+    public ImageHeight ImageHeight { get; set; }
+
     public ImageFit Fit { get; set; }
 
     public ImagePadding Padding { get; set; }
@@ -96,6 +98,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
                     _ => null,
                 },
                 ImageWorkId = image.Source is ImageSource.Work { WorkId: var workId } ? workId.Value : null,
+                ImageHeight = image.Height,
                 Fit = image.Fit,
                 Padding = image.Padding,
                 Link = image.Link,
@@ -186,6 +189,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         }
 
         var isValid = CheckSelects(
+            (Enum.IsDefined(ImageHeight), nameof(ImageHeight)),
             (Enum.IsDefined(Fit), nameof(Fit)),
             (Enum.IsDefined(Padding), nameof(Padding)),
             (Enum.IsDefined(Link), nameof(Link))
@@ -199,23 +203,6 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             case ImageComponentPicture.Shown { IsWorksMainImage: true }:
                 ImageStorageKey = null;
                 break;
-        }
-
-        return isValid;
-    }
-
-    // a post that left a select out, as a script might, would otherwise save its type's default of 0
-    private bool CheckSelects(params (bool IsDefined, string Field)[] selects)
-    {
-        var isValid = true;
-
-        foreach (var (isDefined, field) in selects)
-        {
-            if (!isDefined)
-            {
-                AddServerError(field, "Choose one.");
-                isValid = false;
-            }
         }
 
         return isValid;
@@ -240,6 +227,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             // a library image has no artwork page, so a link to one, left from a work's image, opens the lightbox
             ImageSettings => new ImageSettings(
                 ChosenImageSource,
+                ImageHeight,
                 Fit,
                 Padding,
                 Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link

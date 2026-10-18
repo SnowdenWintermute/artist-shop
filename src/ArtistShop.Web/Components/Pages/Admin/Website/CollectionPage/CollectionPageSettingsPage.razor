@@ -120,9 +120,11 @@
       </form>
 
       <ThemedPreview>
-        @* the layout's 8px and <main>'s p-4 at the sides *@
-        <div class="px-6 py-4">
-          <CollectionPageContent Id="previewed.Id" Name="previewed.Name" Settings="saved" />
+        @* the layout's 8px at the sides, then the page's <main> *@
+        <div class="px-2">
+          <div class="mx-auto max-w-[1200px] p-4">
+            <CollectionPageContent Id="previewed.Id" Name="previewed.Name" Settings="saved" />
+          </div>
         </div>
       </ThemedPreview>
     }

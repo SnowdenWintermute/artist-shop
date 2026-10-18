@@ -49,6 +49,55 @@ public enum RowAlignment
     End = 3,
 }
 
+// the ids are stored in page_rows.height. FillScreen makes the row at least a screen high: the
+// first row, what the nav leaves; the last, with the footer in it
+public enum RowHeight
+{
+    Natural = 1,
+    FillScreen = 2,
+}
+
+// the ids are stored in page_rows.content_width: how wide the row's content may run. Edge to edge
+// runs it across the whole screen
+public enum RowContentWidth
+{
+    Page = 1,
+    EdgeToEdge = 2,
+}
+
+// the ids are stored in page_rows.gap: the space between a row's slots, and between the components
+// stacked in each
+public enum RowGap
+{
+    None = 1,
+    Small = 2,
+    Medium = 3,
+    Large = 4,
+}
+
+public enum RowBackgroundType
+{
+    None = 1,
+    Color = 2,
+}
+
+// what's drawn behind a row's content, across the whole screen whatever its content's width
+public abstract record RowBackground
+{
+    public abstract RowBackgroundType Type { get; }
+
+    public sealed record None : RowBackground
+    {
+        public override RowBackgroundType Type => RowBackgroundType.None;
+    }
+
+    // stored in page_rows.background_color
+    public sealed record Color(RgbColor Value) : RowBackground
+    {
+        public override RowBackgroundType Type => RowBackgroundType.Color;
+    }
+}
+
 // the ids are stored in page_rows.top_padding and bottom_padding. Auto leaves more above a page's
 // first row and below its last than between rows
 public enum RowVerticalPadding
@@ -83,7 +132,33 @@ public record RowSlotId(int Value);
 // a slot's components, top to bottom
 public record RowSlot(RowSlotId Id, IReadOnlyList<CustomComponent> Stack);
 
-public record PageRow(PageRowId Id, RowWidths Widths, RowAlignment Alignment, RowPadding Padding, IReadOnlyList<RowSlot> Slots);
+// What the row editor's settings form saves in one go. Theme is null for the website's
+public record RowSettings(
+    RowHeight Height,
+    RowContentWidth ContentWidth,
+    RowPadding Padding,
+    RowGap Gap,
+    ThemeKey? Theme,
+    RowBackground Background
+);
+
+// Theme is the row's own, a preset or a saved theme, drawn with its page colour behind it; null follows
+// the website's theme, as does a preset since retired
+public record PageRow(
+    PageRowId Id,
+    RowWidths Widths,
+    RowAlignment Alignment,
+    RowHeight Height,
+    RowContentWidth ContentWidth,
+    RowPadding Padding,
+    RowGap Gap,
+    NamedTheme? Theme,
+    RowBackground Background,
+    IReadOnlyList<RowSlot> Slots
+)
+{
+    public RowSettings Settings => new(Height, ContentWidth, Padding, Gap, Theme?.Key, Background);
+}
 
 // a page's rows, top to bottom
 public record CustomPageLayout(IReadOnlyList<PageRow> Rows)

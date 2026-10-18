@@ -8,9 +8,12 @@
   // what a screen reader announces in place of the picture's own alt
   [Parameter]
   public string Label { get; set; } = "View full screen";
+
+  [Parameter]
+  public string? Class { get; set; }
 }
 
 <button type="button" data-lightbox-open aria-label="@Label"
-        class="relative block w-full focus-visible:outline-2 focus-visible:outline-offset-2">
+        class="@($"relative block w-full focus-visible:outline-2 focus-visible:outline-offset-2 {Class}")">
   @ChildContent
 </button>

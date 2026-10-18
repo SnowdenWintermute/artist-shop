@@ -4,8 +4,18 @@
 @inherits LayoutComponentBase
 @inject CurrentHost CurrentHost
 
+@code {
+  // where a custom page puts a first or last row that fills the screen, so it shares the screen with
+  // the nav or the footer without either being measured
+  public const string BelowNavSectionName = "custom-page-below-nav";
+  public const string AboveFooterSectionName = "custom-page-above-footer";
+}
+
 <div class="h-dvh flex flex-col">
-  <div>
+  @* the nav, and with a first row that fills the screen, that row: at least one screen high together.
+     shrink-0: this layout is a screen high, and a min-height would otherwise let the box shrink to it,
+     drawing a taller row over the rows after it *@
+  <div class="flex shrink-0 flex-col has-[[data-below-nav]]:min-h-svh">
     @if (CurrentHost is CurrentHost.Platform)
     {
       <PlatformNavMenu />
@@ -14,6 +24,7 @@
     {
       <NavMenu />
     }
+    <SectionOutlet SectionName="@BelowNavSectionName" />
   </div>
 
   @* the backgrounds run to the edges of the screen, under a phone's notch when it's held sideways,
@@ -21,10 +32,17 @@
      hold their own padding instead *@
   <div class="w-full bg-page flex flex-1 flex-col">
     <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]
-      has-[[data-custom-page]]:p-0">
+      has-[[data-custom-page]]:p-0 [:root:has([data-last-row])_&]:flex-none">
       @Body
     </div>
-    <SectionOutlet SectionName="@SiteFooter.SectionName" />
+    @* the footer, and a custom page's last row, which gives the box its theme and draws its background
+       on a layer behind both, kept above the page by isolate. The box takes the screen's room left over,
+       and with a last row of several that fills the screen, is one screen high itself *@
+    <div data-footer-box class="relative isolate flex shrink-0 flex-col bg-page text-ink has-[[data-last-row]]:flex-1
+      has-[[data-above-footer]]:min-h-svh">
+      <SectionOutlet SectionName="@AboveFooterSectionName" />
+      <SectionOutlet SectionName="@SiteFooter.SectionName" />
+    </div>
   </div>
 
   <div id="blazor-error-ui" class="fixed top-1/2 left-1/2 z-50 hidden -translate-x-1/2 -translate-y-1/2 border-2

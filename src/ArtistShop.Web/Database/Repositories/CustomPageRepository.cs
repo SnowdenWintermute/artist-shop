@@ -212,7 +212,7 @@ public class CustomPageRepository(SiteDatabase database)
                 ));
 
             var padding = new RowPadding(first.TopPadding, first.BottomPadding, first.SidePadding);
-            rows.Add(new PageRow(new PageRowId(row.Key), first.Widths, first.Alignment, padding, [.. slots]));
+            rows.Add(new PageRow(new PageRowId(row.Key), first.Widths, first.Alignment, first.Height, first.ContentWidth, padding, first.Gap, first.ToTheme(), first.ToBackground(), [.. slots]));
         }
 
         return new CustomPageLayout(rows);
@@ -235,15 +235,40 @@ public class CustomPageRepository(SiteDatabase database)
         public required int RowId { get; init; }
         public required RowWidths Widths { get; init; }
         public required RowAlignment Alignment { get; init; }
+        public required RowHeight Height { get; init; }
+        public required RowContentWidth ContentWidth { get; init; }
         public required RowVerticalPadding TopPadding { get; init; }
         public required RowVerticalPadding BottomPadding { get; init; }
         public required RowSidePadding SidePadding { get; init; }
+        public required RowGap Gap { get; init; }
+        public required ThemePreset? ThemePreset { get; init; }
+        public required int? ThemeId { get; init; }
+        public required string? ThemeName { get; init; }
+        public required string? ThemeSettings { get; init; }
+        public required string? BackgroundColor { get; init; }
         public required int? SlotId { get; init; }
         public required int? ComponentId { get; init; }
         public required CustomComponentType? ComponentType { get; init; }
         public required string? ComponentName { get; init; }
         public required string? Settings { get; init; }
         public required int? SettingsVersion { get; init; }
+
+        public RowBackground ToBackground() =>
+            BackgroundColor is { } color ? new RowBackground.Color(RgbColor.Parse(color)) : new RowBackground.None();
+
+        public NamedTheme? ToTheme() =>
+            this switch
+            {
+                { ThemeId: { } id, ThemeName: { } name, ThemeSettings: { } settings } => new NamedTheme(
+                    new ThemeKey.Saved(new ThemeId(id)),
+                    name,
+                    ThemeSettingsJson.TryRead(settings, out var theme)
+                        ? theme
+                        : throw new InvalidOperationException("A theme's settings aren't readable.")
+                ),
+                { ThemePreset: { } preset } => ThemePresets.Find(preset)?.Named,
+                _ => null,
+            };
 
         public CustomComponent ToComponent() =>
             new(

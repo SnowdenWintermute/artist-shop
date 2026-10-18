@@ -27,13 +27,15 @@
                  data-preview-width="@CustomPageWidths.PhonePixels" data-phone>Phone</ButtonBasic>
   </div>
   @* ThemeStyle sets the theme on this box alone, as on the Theme page's preview. inert: a link in the
-     preview would leave the editor. w-fit for the phone, so the box is the phone's width rather than the editor's *@
+     preview would leave the editor. w-fit for the phone, so the box is the phone's width rather than the editor's.
+     --screen-height is the screen a row that fills it is drawn on: a 1440×900 laptop, a 390×844 phone *@
   @if (_theme is { } theme)
   {
     <ThemeStyle Selector="[data-themed-preview]" Theme="theme.Theme" />
   }
   <div data-themed-preview
-       class="mb-4 max-w-full border border-rule bg-page font-text text-ink group-data-shows-phone/preview:w-fit" inert>
+       class="mb-4 max-w-full border border-rule bg-page font-text text-ink [--screen-height:900px]
+         group-data-shows-phone/preview:w-fit group-data-shows-phone/preview:[--screen-height:844px]" inert>
     <RowPreviewFrame Pixels="CustomPageWidths.DesktopPixels">
       @ChildContent
     </RowPreviewFrame>

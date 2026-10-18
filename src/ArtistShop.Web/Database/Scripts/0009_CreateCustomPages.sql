@@ -51,11 +51,25 @@ CREATE TABLE page_rows (
     widths int NOT NULL,
     -- RowAlignment's id: where slots of different heights line up
     alignment int NOT NULL,
+    -- RowHeight's id: whether the row fills the screen
+    height int NOT NULL,
+    -- RowContentWidth's id: whether the row's content stops at the page's width
+    content_width int NOT NULL,
     -- RowVerticalPadding's ids: the space above and below the row's content
     top_padding int NOT NULL,
     bottom_padding int NOT NULL,
     -- RowSidePadding's id: the space beside it
-    side_padding int NOT NULL
+    side_padding int NOT NULL,
+    -- RowGap's id: the space between its slots and between the components stacked in each
+    gap int NOT NULL,
+    -- the row's own theme, a saved one or a ThemePreset's id, or neither for the website's. A saved
+    -- theme's deletion leaves the row on the website's
+    theme_id int,
+    CONSTRAINT foreign_key_page_rows_themes FOREIGN KEY (theme_id) REFERENCES themes (id) ON DELETE SET NULL,
+    theme_preset int,
+    CONSTRAINT check_page_rows_one_theme CHECK (num_nonnulls(theme_id, theme_preset) <= 1),
+    -- RowBackground.Color's hex, or null for none
+    background_color varchar(9)
 );
 
 CREATE TABLE row_slots (
@@ -172,9 +186,9 @@ BEGIN
         VALUES (v_page.name, v_page.address)
         RETURNING id INTO v_page_id;
 
-        -- RowWidths.Whole, RowAlignment.Start, RowPadding.New
-        INSERT INTO page_rows (page_id, sort_order, widths, alignment, top_padding, bottom_padding, side_padding)
-        VALUES (v_page_id, 0, 1, 1, 1, 1, 3)
+        -- RowWidths.Whole, RowAlignment.Start, RowHeight.Natural, RowContentWidth.Page, RowPadding.New, RowGap.Medium
+        INSERT INTO page_rows (page_id, sort_order, widths, alignment, height, content_width, top_padding, bottom_padding, side_padding, gap)
+        VALUES (v_page_id, 0, 1, 1, 1, 1, 1, 1, 3, 3)
         RETURNING id INTO v_row_id;
 
         INSERT INTO row_slots (row_id, sort_order)

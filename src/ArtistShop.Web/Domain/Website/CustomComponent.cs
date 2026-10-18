@@ -43,7 +43,21 @@ public sealed record TextSettings(RichText Body, TextWidth Width) : CustomCompon
     public override CustomComponentType Type => CustomComponentType.Text;
 }
 
-// How an image fills the box its row gives it. The ids are only for ordering; settings store the names
+// How tall an image is drawn. Natural is its own shape; the sizes are fixed heights, each held to a
+// share of a short screen; Fill takes what's left of its slot, which is as tall as its row, and is
+// never shorter than Natural except in a row that fills the screen. The ids are only for ordering;
+// settings store the names
+public enum ImageHeight
+{
+    Natural = 1,
+    Small = 2,
+    Medium = 3,
+    Large = 4,
+    Fill = 5,
+}
+
+// How an image fills the box its height gives it, which Natural's never needs. The ids are only for
+// ordering; settings store the names
 public enum ImageFit
 {
     // fills the box, cropping what overflows
@@ -104,14 +118,17 @@ public abstract record ImageSource
     }
 }
 
-// One image, meant as a hero image rather than a picture in a text. Fit only matters once a row can
-// have a height of its own; until then a box is the image's own shape. Source is null until one is chosen,
-// and again once its image is deleted
-public sealed record ImageSettings(ImageSource? Source, ImageFit Fit, ImagePadding Padding, ImageLink Link) : CustomComponentSettings
+// One image, meant as a hero image rather than a picture in a text. Source is null until one is
+// chosen, and again once its image is deleted
+public sealed record ImageSettings(ImageSource? Source, ImageHeight Height, ImageFit Fit, ImagePadding Padding, ImageLink Link)
+    : CustomComponentSettings
 {
     public override CustomComponentType Type => CustomComponentType.Image;
 
-    public static readonly ImageSettings New = new(null, ImageFit.Cover, ImagePadding.None, ImageLink.Lightbox);
+    public static readonly ImageSettings New = new(null, ImageHeight.Natural, ImageFit.Cover, ImagePadding.None, ImageLink.Lightbox);
+
+    // whether Fit changes anything, wherever the image is placed
+    public static bool HasFit(ImageHeight height) => height is not ImageHeight.Natural;
 }
 
 // Name is for finding it again in the library and is unique; a page never shows it

@@ -20,17 +20,30 @@ customElements.define(
       this.#observer?.disconnect();
     }
 
-    // the Desktop and Phone buttons change the width. Set here rather than on the child, which Blazor owns
+    // the Desktop and Phone buttons change the width
     attributeChangedCallback() {
-      this.style.setProperty("--preview-width", `${Number(this.dataset.width)}px`);
       this.#fit();
     }
 
+    // Firefox draws a zoom in steps of 1/64 (140 ESR, 2026-10-17), so the child can come out a few
+    // pixels narrower or wider than this box. Measured rather than assumed, it's drawn that much wider
+    // or narrower to fill the box exactly
     #fit() {
       const width = Number(this.dataset.width);
+      const child = this.firstElementChild;
 
-      if (width > 0 && this.clientWidth > 0) {
-        this.style.setProperty("--preview-zoom", String(Math.min(1, this.clientWidth / width)));
+      if (!(width > 0 && this.clientWidth > 0 && child instanceof HTMLElement)) {
+        return;
+      }
+
+      const zoom = Math.min(1, this.clientWidth / width);
+      this.style.setProperty("--preview-zoom", String(zoom));
+      this.style.setProperty("--preview-width", `${width}px`);
+
+      const drawn = child.getBoundingClientRect().width;
+
+      if (zoom < 1 && drawn > 0) {
+        this.style.setProperty("--preview-width", `${(width * this.clientWidth) / drawn}px`);
       }
     }
   }

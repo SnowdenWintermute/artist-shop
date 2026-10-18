@@ -15,7 +15,29 @@ public static class ImageClasses
             _ => throw new InvalidOperationException($"{padding} has no class."),
         };
 
-    // only takes effect once the row gives the image a height of its own
+    // Padding for a picture laid over its space, as in a row that fills the screen
+    public static string Inset(ImagePadding padding) =>
+        padding switch
+        {
+            ImagePadding.None => "inset-0",
+            ImagePadding.Small => "inset-4",
+            ImagePadding.Medium => "inset-8",
+            ImagePadding.Large => "inset-16",
+            _ => throw new InvalidOperationException($"{padding} has no class."),
+        };
+
+    // Fixed heights, each held to a share of a short screen, as a phone held sideways. --screen-height is
+    // the row editor preview's screen; elsewhere the screen's own
+    public static string Height(ImageHeight height) =>
+        height switch
+        {
+            ImageHeight.Small => "h-[min(240px,calc(var(--screen-height,100svh)*0.4))]",
+            ImageHeight.Medium => "h-[min(400px,calc(var(--screen-height,100svh)*0.6))]",
+            ImageHeight.Large => "h-[min(640px,calc(var(--screen-height,100svh)*0.8))]",
+            _ => throw new InvalidOperationException($"{height} has no fixed height."),
+        };
+
+    // only takes effect when the image has a height other than its own
     public static string Fit(ImageFit fit) =>
         fit switch
         {

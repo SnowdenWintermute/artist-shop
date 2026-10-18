@@ -17,6 +17,9 @@ public sealed partial class CustomPageTests(TestApp app)
     private CustomPageRepository PagesOf(TestSite site) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
 
+    private PageRowRepository RowsOf(TestSite site) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+
     private NavEntryRepository NavOf(TestSite site) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
 
@@ -36,6 +39,36 @@ public sealed partial class CustomPageTests(TestApp app)
 
         Assert.Contains("<title>Home</title>", page);
         Assert.Contains($"<h1 class=\"mb-4\">{SiteWording.Default.Collection.PluralHeading}</h1>", page);
+    }
+
+    // the home page's one row holds the collections, under their heading
+    [Fact]
+    public async Task APagesOnlyRowSitsAboveTheFooter()
+    {
+        var site = await app.MakeSiteAsync();
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains("<main data-custom-page></main>", page);
+        Assert.True(page.IndexOf("data-last-row") < page.IndexOf(SiteWording.Default.Collection.PluralHeading));
+    }
+
+    // the first row joins the nav and the last the footer, leaving <main> empty
+    [Fact]
+    public async Task AFirstAndLastRowFillingTheScreenSitBesideTheNavAndTheFooter()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = Assert.IsType<CustomPage>(await PagesOf(site).GetHomeAsync());
+        var first = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var last = await RowsOf(site).AddAsync(home.Id);
+        await RowsOf(site).SetSettingsAsync(first.Id, first.Settings with { Height = RowHeight.FillScreen });
+        await RowsOf(site).SetSettingsAsync(last, first.Settings with { Height = RowHeight.FillScreen });
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains("<main data-custom-page></main>", page);
+        Assert.True(page.IndexOf("data-below-nav") < page.IndexOf(SiteWording.Default.Collection.PluralHeading));
+        Assert.True(page.IndexOf(SiteWording.Default.Collection.PluralHeading) < page.IndexOf("data-above-footer"));
     }
 
     [Fact]
@@ -244,6 +277,47 @@ public sealed partial class CustomPageTests(TestApp app)
     }
 
     // the preview takes the theme visitors see, not the admin's
+    // a background colour chosen just now has none posted, so it starts as the row's page colour, Dark's here
+    [Fact]
+    public async Task TheRowSettingsFormSavesEveryChoice()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditPageRow(home.Id, row.Id),
+            "row-settings",
+            new()
+            {
+                ["Input.Height"] = nameof(RowHeight.FillScreen),
+                ["Input.ContentWidth"] = nameof(RowContentWidth.EdgeToEdge),
+                ["Input.TopPadding"] = nameof(RowVerticalPadding.None),
+                ["Input.BottomPadding"] = nameof(RowVerticalPadding.Large),
+                ["Input.SidePadding"] = nameof(RowSidePadding.Small),
+                ["Input.Gap"] = nameof(RowGap.None),
+                ["Input.Theme"] = new ThemeKey.Preset(ThemePreset.Dark).QueryValue,
+                ["Input.BackgroundType"] = nameof(RowBackgroundType.Color),
+            }
+        );
+
+        Assert.Equal(
+            new RowSettings(
+                RowHeight.FillScreen,
+                RowContentWidth.EdgeToEdge,
+                new RowPadding(RowVerticalPadding.None, RowVerticalPadding.Large, RowSidePadding.Small),
+                RowGap.None,
+                new ThemeKey.Preset(ThemePreset.Dark),
+                new RowBackground.Color(ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Page))
+            ),
+            Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows).Settings
+        );
+        // the editor stamps its island with the settings, colour and all
+        await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken);
+    }
+
     [Fact]
     public async Task TheRowPreviewIsInTheWebsitesTheme()
     {

@@ -10,6 +10,9 @@ public readonly record struct RgbColor(byte Red, byte Green, byte Blue, byte Alp
 
     public bool IsOpaque => Alpha == 255;
 
+    // the hex, rather than the record's printout of its properties, which recurses through ReadableText
+    public override string ToString() => Hex;
+
     public string Hex =>
         IsOpaque ? $"#{Red:x2}{Green:x2}{Blue:x2}" : $"#{Red:x2}{Green:x2}{Blue:x2}{Alpha:x2}";
 
