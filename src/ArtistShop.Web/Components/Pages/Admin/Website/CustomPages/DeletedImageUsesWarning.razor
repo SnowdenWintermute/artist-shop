@@ -1,0 +1,25 @@
+@* What a delete takes with it on custom pages, for the confirm dialogs deleting works or library images *@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public DeletedImageUses Uses { get; set; } = default!;
+
+  private static string PagesText(CustomComponentOnPages component) =>
+    component.PageNames.Count == 0 ? "on no page" : $"on {PageNamesText.Of(component.PageNames)}";
+}
+
+@if (Uses.ImageComponents.Count > 0)
+{
+  <p class="mb-2">Image components deleted too:</p>
+  <ul class="mb-2 list-disc pl-6" data-test="deleted-image-components">
+    @foreach (var component in Uses.ImageComponents)
+    {
+      <li>@component.Name (@PagesText(component))</li>
+    }
+  </ul>
+}
+@if (Uses.RowBackgroundPages.Count > 0)
+{
+  <p class="mb-2" data-test="cleared-row-backgrounds">Row backgrounds removed on @PageNamesText.Of(Uses.RowBackgroundPages).</p>
+}

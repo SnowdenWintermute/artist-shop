@@ -133,6 +133,7 @@ builder.Services.AddScoped<CircuitHandler, HostCircuitStart>();
 builder.Services.AddScoped(services =>
     ImageStorage.ForSite(imageStorageSettings, services.GetRequiredService<CurrentSite>().Id)
 );
+builder.Services.AddScoped<FullBleedImageSizes>();
 
 LibvipsSettings.Apply();
 

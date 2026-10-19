@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS get_uploaded_image_page;
 
--- One page of the Images page's list, newest first, each image with how many posts and text components
--- show it. A search matches alt text or file name, ignoring case and accents, its LIKE wildcards
+-- One page of the Images page's list, newest first, each image with how many posts, components and row
+-- backgrounds show it. A search matches alt text or file name, ignoring case and accents, its LIKE wildcards
 -- escaped as find_work_ids_by_name escapes them. total_count is every match's, repeated on each row
 CREATE FUNCTION get_uploaded_image_page (p_search text, p_offset int, p_page_size int) RETURNS TABLE (
     id int,
@@ -43,6 +43,13 @@ BEGIN
                     custom_component_and_uploaded_images_junction AS component_image
                 WHERE
                     component_image.uploaded_image_id = image.id
+            ) + (
+                SELECT
+                    count(*)
+                FROM
+                    page_rows
+                WHERE
+                    page_rows.background_uploaded_image_key = image.storage_key
             )
         )::int,
         (COUNT(*) OVER ())::int

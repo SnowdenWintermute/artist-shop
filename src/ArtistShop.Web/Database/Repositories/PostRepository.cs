@@ -169,7 +169,7 @@ public class PostRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.PostNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 

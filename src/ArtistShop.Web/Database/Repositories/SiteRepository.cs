@@ -168,7 +168,7 @@ public class SiteRepository(NpgsqlDataSource platformDataSource)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.ExampleSitesChangedSincePageLoad))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 

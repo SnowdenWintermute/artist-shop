@@ -5,12 +5,13 @@ DROP FUNCTION IF EXISTS delete_works;
 
 -- Every table that references a work cascades, so deleting them also removes their images, their
 -- collection and vocabulary term rows and their products. The image components showing them are
--- deleted first. The image files stay until OrphanedImageSweeper finds no row pointing at them, which
+-- deleted first, and the row backgrounds showing them cleared, as page_rows doesn't cascade. The image files stay until OrphanedImageSweeper finds no row pointing at them, which
 -- is the same path an abandoned upload takes. An id already deleted is passed over. plpgsql, so
--- delete_image_components_showing is looked up when it runs and the files can run in any order
+-- the functions it calls are looked up when it runs and the files can run in any order
 CREATE FUNCTION delete_works (p_ids int[]) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     PERFORM delete_image_components_showing(p_ids, '{}');
+    PERFORM clear_row_backgrounds_showing(p_ids, '{}');
 
     DELETE FROM works
     WHERE

@@ -10,7 +10,8 @@
   public ThemeKey Open { get; set; } = default!;
 
   [Parameter, EditorRequired]
-  public IReadOnlyList<SavedTheme> Themes { get; set; } = default!;
+  // NamedTheme.ListOf
+  public IReadOnlyList<NamedTheme> Themes { get; set; } = default!;
 }
 
 @* <theme-picker> is defined in ThemePicker.razor.js: choosing while the theme form holds changes
@@ -22,19 +23,17 @@
       <label class="artist-shop-field-label" for="open-theme">Theme to edit</label>
       <select id="open-theme" name="theme" class="artist-shop-field-input mb-2">
         <optgroup label="Presets">
-          @foreach (var preset in ThemePresets.All)
+          @foreach (var theme in Themes.Where(theme => !theme.IsSaved))
           {
-            var key = new ThemeKey.Preset(preset.Preset);
-            <option value="@key.QueryValue" selected="@(key == Open)">@preset.Name</option>
+            <option value="@theme.Key.QueryValue" selected="@(theme.Key == Open)">@theme.Name</option>
           }
         </optgroup>
-        @if (Themes.Count > 0)
+        @if (Themes.Any(theme => theme.IsSaved))
         {
           <optgroup label="Your themes">
-            @foreach (var theme in Themes)
+            @foreach (var theme in Themes.Where(theme => theme.IsSaved))
             {
-              var key = new ThemeKey.Saved(theme.Id);
-              <option value="@key.QueryValue" selected="@(key == Open)">@theme.Name</option>
+              <option value="@theme.Key.QueryValue" selected="@(theme.Key == Open)">@theme.Name</option>
             }
           </optgroup>
         }

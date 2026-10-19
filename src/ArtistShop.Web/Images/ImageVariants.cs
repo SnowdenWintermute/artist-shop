@@ -39,6 +39,16 @@ public static partial class ImageVariants
     // last item of the array
     public static readonly int MainImageWidth = Widths[^1];
 
+    // A 1080p screen's width, which a full-bleed picture may load: a row background, or an image
+    // component in an edge-to-edge row. Made only for those, the first time a page draws one, so the
+    // rest of the site never shows an artwork wider than MainImageWidth (Mike, 2026-10-18)
+    public const int FullBleedWidth = 1920;
+
+    // null for an image no wider than MainImageWidth, which has nothing larger to give; an image
+    // narrower than FullBleedWidth gets a copy at its own width
+    public static int? FullBleedWidthFor(int imageWidth) =>
+        imageWidth > MainImageWidth ? Math.Min(FullBleedWidth, imageWidth) : null;
+
     // an image embedded in a post. Every image has both, since none narrower than
     // MinimumSourceWidth is kept
     public static int EmbedWidth(EmbedImageSize size) =>

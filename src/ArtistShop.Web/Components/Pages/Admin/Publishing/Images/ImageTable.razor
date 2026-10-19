@@ -11,6 +11,7 @@
 @using ArtistShop.Web.Utilities
 @inject UploadedImageRepository UploadedImageRepository
 @inject CustomComponentRepository CustomComponentRepository
+@inject PageRowRepository PageRowRepository
 @inject NavigationManager NavigationManager
 
 @* One page of the image library. An alt text saves when its field loses focus with a changed value:
@@ -26,7 +27,7 @@
 
   // where the images about to be deleted are shown, read as the confirm opens
   private List<UploadedImageUse> _uses = [];
-  private List<CustomComponentOnPages> _imageComponents = [];
+  private DeletedImageUses _imageUses = DeletedImageUses.None;
 
   private Task SaveAltTextAsync(ImageTableRow row) => EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(row));
 
@@ -58,7 +59,7 @@
   private async Task ReadUsesAsync(IReadOnlyList<ImageTableRow> rows)
   {
     _uses = await UploadedImageRepository.GetUsesAsync(StorageKeysOf(rows));
-    _imageComponents = await CustomComponentRepository.GetImageComponentsShowingImagesAsync(StorageKeysOf(rows));
+    _imageUses = await DeletedImageUses.OfImagesAsync(CustomComponentRepository, PageRowRepository, StorageKeysOf(rows));
   }
 
   // the refresh brings the count and the page links up to date
@@ -74,7 +75,7 @@
     {
       UploadedImageUseType.Post => $"{use.Name} (post)",
       UploadedImageUseType.Component when use.PageNames.Count == 0 => $"{use.Name} (component, on no page)",
-      UploadedImageUseType.Component => $"{use.Name} (component on {string.Join(", ", use.PageNames)})",
+      UploadedImageUseType.Component => $"{use.Name} (component on {PageNamesText.Of(use.PageNames)})",
     };
 
   private static string UsedInText(int count) => count == 0 ? "Nowhere" : CountText.Of(count, "place");
@@ -96,7 +97,7 @@
         }
       </ul>
     }
-    <DeletedImageComponentsWarning Components="_imageComponents" />
+    <DeletedImageUsesWarning Uses="_imageUses" />
     <p>This action is permanent.</p>
   </DeleteWarning>
   <Row Context="row">

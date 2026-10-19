@@ -14,14 +14,7 @@ public sealed class UploadedImageRepositoryTests(TestDatabaseFixture database)
 
     private static string NewWord() => $"w{Guid.NewGuid():n}";
 
-    private async Task<string> AddAsync(string originalFileName, string altText)
-    {
-        var storageKey = ImageStorage.NewStorageKey();
-        await _library.AddAsync(
-            new UploadedImageAddition(storageKey, originalFileName, new string('0', 64), 800, 600, "data:image/webp;base64,AAAA", Unwrap.Value(AltText.Read(altText)))
-        );
-        return storageKey;
-    }
+    private Task<string> AddAsync(string originalFileName, string altText) => UploadedImageTestData.AddAsync(_library, originalFileName, altText);
 
     private static RichText BodyShowing(string storageKey) =>
         new("""{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY"}}},{"insert":{"artshop-image":{"storageKey":"KEY"}}},{"insert":"\n"}]}""".Replace("KEY", storageKey));

@@ -25,7 +25,7 @@
   // a save redirects, so a page rendered from a post is a preview, or a save that didn't go through
   private bool _formWasPosted;
 
-  private List<SavedTheme> _themes = [];
+  private IReadOnlyList<NamedTheme> _themes = [];
   // null when it's a preset that no longer exists, so the public pages show Paper
   private NamedTheme? _inUse;
   private NamedTheme? _open;
@@ -36,8 +36,7 @@
 
   protected override async Task OnInitializedAsync()
   {
-    _themes = [.. (await ThemeRepository.GetAllAsync()).OrderBy(theme => theme.Name,
-StringComparer.CurrentCultureIgnoreCase)];
+    _themes = NamedTheme.ListOf(await ThemeRepository.GetAllAsync());
     _inUse = await ThemeRepository.GetInUseAsync();
     _fontOrder = Fonts.InOrder(await FontRepository.GetOrderAsync());
 
@@ -69,13 +68,7 @@ StringComparer.CurrentCultureIgnoreCase)];
     }
   }
 
-  private NamedTheme? Open(ThemeKey key) =>
-    key switch
-    {
-      ThemeKey.Preset preset => ThemePresets.Find(preset.Value)?.Named,
-      ThemeKey.Saved saved => _themes.FirstOrDefault(theme => theme.Id == saved.Id)?.Named,
-      _ => throw new InvalidOperationException($"{key.GetType().Name} isn't a theme key."),
-    };
+  private NamedTheme? Open(ThemeKey key) => _themes.FirstOrDefault(theme => theme.Key == key);
 
   private async Task SubmitAsync()
   {

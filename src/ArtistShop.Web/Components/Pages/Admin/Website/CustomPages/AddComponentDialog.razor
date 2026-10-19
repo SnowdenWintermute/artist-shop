@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Utilities
 @inject CustomComponentRepository CustomComponentRepository
 
 @code {
@@ -33,11 +34,8 @@
         .ThenBy(made => made.Component.Name, StringComparer.CurrentCultureIgnoreCase),
     ];
 
-  private static string PageList(CustomComponentInUse made) =>
-    string.Join(", ", made.PageNames.Order(StringComparer.CurrentCultureIgnoreCase));
-
   private static string WhereItIs(CustomComponentInUse made) =>
-    made.PageNames.Count == 0 ? "Not on any page." : $"On {PageList(made)}.";
+    made.PageNames.Count == 0 ? "Not on any page." : $"On {PageNamesText.Of(made.PageNames)}.";
 }
 
 <ModalDialog Title="Add a component" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="IsSaving">

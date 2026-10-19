@@ -1,5 +1,6 @@
 namespace ArtistShop.Web.Database.Repositories;
 
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Website;
 using Dapper;
 using Npgsql;
@@ -83,13 +84,23 @@ public class PageRowRepository(SiteDatabase database)
         await using var connection = await database.OpenConnectionAsync();
         int? themeId = settings.Theme is ThemeKey.Saved saved ? saved.Id.Value : null;
         ThemePreset? themePreset = settings.Theme is ThemeKey.Preset preset ? preset.Value : null;
-        string? backgroundColor = settings.Background is RowBackground.Color color ? color.Value.Hex : null;
+        var background = settings.Background;
+        var backgroundColor = background switch
+        {
+            RowBackground.Color color => color.Value.Hex,
+            RowBackground.Image { Behind: { } behind } => behind.Hex,
+            _ => null,
+        };
+        var backgroundSource = background is RowBackground.Image image ? image.Source : null;
+        int? backgroundWorkId = backgroundSource is ImageSource.Work work ? work.WorkId.Value : null;
+        int? backgroundFit = background is RowBackground.Image { Fit: var fit } ? (int)fit : null;
 
         try
         {
             await connection.ExecuteAsync(
                 "SELECT set_page_row_settings(@Id, @Height, @ContentWidth, @TopPadding, @BottomPadding, @SidePadding, @Gap, "
-                    + "@ThemeId, @ThemePreset, @BackgroundColor)",
+                    + "@ThemeId, @ThemePreset, @BackgroundType, @BackgroundColor, @BackgroundUploadedImageKey, @BackgroundWorkId, "
+                    + "@BackgroundWorkImageKey, @BackgroundFit)",
                 new
                 {
                     Id = id.Value,
@@ -101,15 +112,42 @@ public class PageRowRepository(SiteDatabase database)
                     Gap = (int)settings.Gap,
                     ThemeId = themeId,
                     ThemePreset = themePreset,
+                    BackgroundType = (int)background.Type,
                     BackgroundColor = backgroundColor,
+                    BackgroundUploadedImageKey = backgroundSource is ImageSource.Library library ? library.StorageKey : null,
+                    BackgroundWorkId = backgroundWorkId,
+                    BackgroundWorkImageKey = backgroundSource is ImageSource.Work { StorageKey: var workImageKey } ? workImageKey : null,
+                    BackgroundFit = backgroundFit,
                 }
             );
         }
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.PageRowChangedSincePageLoad)
-                || SqlErrors.IsThrown(exception, SqlStates.ThemeNoLongerExists))
+                || SqlErrors.IsThrown(exception, SqlStates.ThemeNoLongerExists)
+                || SqlErrors.IsThrown(exception, SqlStates.UploadedImageNoLongerExists)
+                || SqlErrors.IsThrown(exception, SqlStates.WorkNoLongerExists))
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
+    }
+
+    // the pages with a row background showing any of these works, which deleting them clears
+    public Task<List<string>> GetPagesWithBackgroundsShowingWorksAsync(IReadOnlyCollection<WorkId> ids) =>
+        GetPagesWithBackgroundsShowingAsync([.. ids.Select(id => id.Value)], []);
+
+    // the pages with a row background showing any of these library images, which deleting them clears
+    public Task<List<string>> GetPagesWithBackgroundsShowingImagesAsync(IReadOnlyCollection<string> storageKeys) =>
+        GetPagesWithBackgroundsShowingAsync([], [.. storageKeys]);
+
+    private async Task<List<string>> GetPagesWithBackgroundsShowingAsync(int[] workIds, string[] storageKeys)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        return [
+            .. await connection.QueryAsync<string>(
+                "SELECT * FROM get_pages_with_row_backgrounds_showing(@WorkIds, @StorageKeys)",
+                new { WorkIds = workIds, StorageKeys = storageKeys }
+            ),
+        ];
     }
 }

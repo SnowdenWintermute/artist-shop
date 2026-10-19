@@ -17,6 +17,13 @@ public record SavedTheme(ThemeId Id, string Name, Theme Theme)
 public record NamedTheme(ThemeKey Key, string Name, Theme Theme)
 {
     public bool IsSaved => Key is ThemeKey.Saved;
+
+    // every theme the website can choose, as theme lists show them: the presets, then the saved themes by name
+    public static IReadOnlyList<NamedTheme> ListOf(IEnumerable<SavedTheme> saved) =>
+        [
+            .. ThemePresets.All.Select(preset => preset.Named),
+            .. saved.OrderBy(theme => theme.Name, StringComparer.CurrentCultureIgnoreCase).Select(theme => theme.Named),
+        ];
 }
 
 // the ids are stored in theme_in_use.preset

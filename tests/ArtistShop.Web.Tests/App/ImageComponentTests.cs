@@ -3,6 +3,7 @@ using ArtistShop.Web.Components.Pages.Catalog;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Platform;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Images;
@@ -88,11 +89,8 @@ public sealed class ImageComponentTests(TestApp app)
 
     private async Task<UploadedImage> AddLibraryImageAsync(TestSite site)
     {
-        var storageKey = ImageStorage.NewStorageKey();
         var library = new UploadedImageRepository(DatabaseOf(site));
-        await library.AddAsync(
-            new UploadedImageAddition(storageKey, "pier.jpg", new string('0', 64), 1200, 800, "data:image/webp;base64,AAAA", Unwrap.Value(AltText.Read("A pier at dusk")))
-        );
+        var storageKey = await UploadedImageTestData.AddAsync(library, "pier.jpg", "A pier at dusk");
         return (await library.GetByStorageKeysAsync([storageKey]))[storageKey];
     }
 
@@ -150,6 +148,39 @@ public sealed class ImageComponentTests(TestApp app)
     }
 
     // a painting with two images, the first its main one
+    // In a page-width row the image never asks for the full-bleed size. In an edge-to-edge row the first
+    // visit queues it, which the tests' queue makes at once, and the next loads it; the settings page
+    // then says a work's image is shown wider
+    [Fact]
+    public async Task AnImageInAnEdgeToEdgeRowLoadsTheFullBleedSizeAndSaysSo()
+    {
+        var workImage = await app.MakeSiteWithAWorkImageAsync(imageWidth: 2400);
+        var site = workImage.Site;
+        var work = Assert.IsType<Work>(await new WorkRepository(DatabaseOf(site)).GetBySlugAsync(workImage.WorkSlug.Value));
+        var imagePage = await AddImagePageAsync(site);
+        await new CustomComponentRepository(DatabaseOf(site)).UpdateAsync(
+            imagePage.ImageId,
+            "Image 1",
+            ImageSettings.New with { Source = new ImageSource.Work(work.Id, StorageKey: null) }
+        );
+        var fullBleedSize = $"/{ImageVariants.FileName(ImageVariants.FullBleedWidth, ImageVariantFormat.Avif)} {ImageVariants.FullBleedWidth}w";
+        var hint = $"data-hint=\"{HintType.FullBleedWorkImages}\"";
+        var visitor = app.ClientFor(site.Host);
+        var admin = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await visitor.GetStringAsync("/image", cancellationToken);
+        Assert.DoesNotContain(fullBleedSize, await visitor.GetStringAsync("/image", cancellationToken));
+        Assert.DoesNotContain(hint, await admin.GetStringAsync(imagePage.SettingsUrl, cancellationToken));
+
+        var row = Assert.Single((await new CustomPageRepository(DatabaseOf(site)).GetLayoutAsync(imagePage.PageId)).Rows);
+        await new PageRowRepository(DatabaseOf(site)).SetSettingsAsync(row.Id, row.Settings with { ContentWidth = RowContentWidth.EdgeToEdge });
+
+        await visitor.GetStringAsync("/image", cancellationToken);
+        Assert.Contains(fullBleedSize, await visitor.GetStringAsync("/image", cancellationToken));
+        Assert.Contains(hint, await admin.GetStringAsync(imagePage.SettingsUrl, cancellationToken));
+    }
+
     private async Task<Work> AddPaintingAsync(TestSite site)
     {
         var identifiers = await new CatalogTestData(DatabaseOf(site)).AddPaintingAsync(

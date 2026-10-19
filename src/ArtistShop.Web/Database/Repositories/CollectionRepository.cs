@@ -183,7 +183,7 @@ public class CollectionRepository(SiteDatabase database)
         }
         catch (PostgresException exception) when (IsNameTaken(exception))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -229,7 +229,7 @@ public class CollectionRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.CollectionNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -247,7 +247,7 @@ public class CollectionRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.CollectionChangedSincePageLoad))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -276,7 +276,7 @@ public class CollectionRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.WorksChangedSincePageLoad))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -296,7 +296,7 @@ public class CollectionRepository(SiteDatabase database)
                 || SqlErrors.IsThrown(exception, SqlStates.WorkHasNoImage)
             )
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -329,7 +329,7 @@ public class CollectionRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.CollectionNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 

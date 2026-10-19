@@ -215,7 +215,7 @@ public class VocabularyRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.VocabularyNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 

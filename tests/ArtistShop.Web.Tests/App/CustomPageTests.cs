@@ -2,11 +2,13 @@ using System.Net;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.CustomPages;
+using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Sites;
+using ArtistShop.Web.Tests.Database;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArtistShop.Web.Tests.App;
@@ -18,6 +20,9 @@ public sealed partial class CustomPageTests(TestApp app)
         new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
 
     private PageRowRepository RowsOf(TestSite site) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+
+    private UploadedImageRepository LibraryOf(TestSite site) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
 
     private NavEntryRepository NavOf(TestSite site) =>
@@ -276,7 +281,6 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Contains("Post list", editor);
     }
 
-    // the preview takes the theme visitors see, not the admin's
     // a background colour chosen just now has none posted, so it starts as the row's page colour, Dark's here
     [Fact]
     public async Task TheRowSettingsFormSavesEveryChoice()
@@ -318,6 +322,78 @@ public sealed partial class CustomPageTests(TestApp app)
         await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken);
     }
 
+    // the row settings form as a new row posts it, with these fields added or changed
+    private static Dictionary<string, string> RowFormWith(Dictionary<string, string> changes) =>
+        new Dictionary<string, string>
+        {
+            ["Input.Height"] = nameof(RowHeight.Natural),
+            ["Input.ContentWidth"] = nameof(RowContentWidth.Page),
+            ["Input.TopPadding"] = nameof(RowVerticalPadding.Auto),
+            ["Input.BottomPadding"] = nameof(RowVerticalPadding.Auto),
+            ["Input.SidePadding"] = nameof(RowSidePadding.Medium),
+            ["Input.Gap"] = nameof(RowGap.Medium),
+            ["Input.Theme"] = RowSettingsForm.WebsiteTheme,
+            ["Input.BackgroundType"] = nameof(RowBackgroundType.None),
+        }
+            .Concat(changes)
+            .GroupBy(field => field.Key)
+            .ToDictionary(fields => fields.Key, fields => fields.Last().Value);
+
+    [Fact]
+    public async Task AnImageBackgroundIsSavedFromTheRowFormAndDrawnBehindTheRow()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var storageKey = await UploadedImageTestData.AddAsync(LibraryOf(site), "pier.jpg", "A pier at dusk");
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditPageRow(home.Id, row.Id),
+            "row-settings",
+            RowFormWith(new()
+            {
+                ["Input.BackgroundType"] = nameof(RowBackgroundType.Image),
+                ["Input.ImageStorageKey"] = storageKey,
+                ["Input.ImageWorkId"] = "",
+                ["Input.BackgroundFit"] = nameof(ImageFit.Contain),
+                ["Input.HasColorBehindImage"] = "False",
+            })
+        );
+
+        Assert.Equal(
+            new RowBackground.Image(new ImageSource.Library(storageKey), ImageFit.Contain, Behind: null),
+            Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows).Background
+        );
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+        Assert.Contains("data-test=\"row-background-image\"", page);
+        Assert.Contains(storageKey, await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken));
+    }
+
+    // the colour input posts the colour the row had, which stays behind the image
+    [Fact]
+    public async Task AColourBackgroundSwitchedToAnImageKeepsItsColourBehindIt()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditPageRow(home.Id, row.Id),
+            "row-settings",
+            RowFormWith(new() { ["Input.BackgroundType"] = nameof(RowBackgroundType.Image), ["Input.BackgroundColor"] = "#123456" })
+        );
+
+        Assert.Equal(
+            new RowBackground.Image(Source: null, ImageFit.Cover, RgbColor.Parse("#123456")),
+            Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows).Background
+        );
+    }
+
+    // the preview takes the theme visitors see, not the admin's
     [Fact]
     public async Task TheRowPreviewIsInTheWebsitesTheme()
     {

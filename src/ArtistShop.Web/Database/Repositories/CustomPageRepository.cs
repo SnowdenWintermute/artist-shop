@@ -245,7 +245,12 @@ public class CustomPageRepository(SiteDatabase database)
         public required int? ThemeId { get; init; }
         public required string? ThemeName { get; init; }
         public required string? ThemeSettings { get; init; }
+        public required RowBackgroundType BackgroundType { get; init; }
         public required string? BackgroundColor { get; init; }
+        public required string? BackgroundUploadedImageKey { get; init; }
+        public required int? BackgroundWorkId { get; init; }
+        public required string? BackgroundWorkImageKey { get; init; }
+        public required ImageFit? BackgroundFit { get; init; }
         public required int? SlotId { get; init; }
         public required int? ComponentId { get; init; }
         public required CustomComponentType? ComponentType { get; init; }
@@ -254,21 +259,21 @@ public class CustomPageRepository(SiteDatabase database)
         public required int? SettingsVersion { get; init; }
 
         public RowBackground ToBackground() =>
-            BackgroundColor is { } color ? new RowBackground.Color(RgbColor.Parse(color)) : new RowBackground.None();
-
-        public NamedTheme? ToTheme() =>
-            this switch
+            BackgroundType switch
             {
-                { ThemeId: { } id, ThemeName: { } name, ThemeSettings: { } settings } => new NamedTheme(
-                    new ThemeKey.Saved(new ThemeId(id)),
-                    name,
-                    ThemeSettingsJson.TryRead(settings, out var theme)
-                        ? theme
-                        : throw new InvalidOperationException("A theme's settings aren't readable.")
+                RowBackgroundType.None => new RowBackground.None(),
+                RowBackgroundType.Color => new RowBackground.Color(RgbColor.Parse(Unwrap.Value(BackgroundColor))),
+                RowBackgroundType.Image => new RowBackground.Image(
+                    BackgroundWorkId is int workId ? new ImageSource.Work(new WorkId(workId), BackgroundWorkImageKey)
+                    : BackgroundUploadedImageKey is { } storageKey ? new ImageSource.Library(storageKey)
+                    : null,
+                    Unwrap.Value(BackgroundFit),
+                    BackgroundColor is { } behind ? RgbColor.Parse(behind) : null
                 ),
-                { ThemePreset: { } preset } => ThemePresets.Find(preset)?.Named,
-                _ => null,
+                _ => throw new InvalidOperationException($"{BackgroundType} isn't a background."),
             };
+
+        public NamedTheme? ToTheme() => ThemeRepository.NamedThemeOf(ThemeId, ThemeName, ThemeSettings, ThemePreset);
 
         public CustomComponent ToComponent() =>
             new(

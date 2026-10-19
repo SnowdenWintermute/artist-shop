@@ -1,11 +1,12 @@
 using ArtistShop.Web.Components.Forms;
+using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // The row editor's settings: everything about a row but its slots, saved whole on every change. Form
 // posts create this, so it keeps a single public constructor
-public class RowSettingsForm : ServerValidatedForm
+public class RowSettingsForm : ImagePickerForm
 {
     // the Theme radio for the website's own, which no ThemeKey.QueryValue can be
     public const string WebsiteTheme = "website";
@@ -27,13 +28,23 @@ public class RowSettingsForm : ServerValidatedForm
 
     public RowBackgroundType BackgroundType { get; set; }
 
-    // a hex colour, posted only while the background is a colour
+    // a hex colour, posted only while the background is a colour, or an image with a colour behind it
     public string? BackgroundColor { get; set; }
+
+    // posted only while the background is an image
+    public ImageFit BackgroundFit { get; set; }
+
+    // whether an image has a colour behind it rather than the row's page colour; posted only while the
+    // background is an image
+    public bool? HasColorBehindImage { get; set; }
 
     public ThemeKey? ThemeKey => Domain.Website.ThemeKey.FromQueryValue(Theme);
 
-    public static RowSettingsForm From(RowSettings settings) =>
-        new()
+    public static RowSettingsForm From(RowSettings settings)
+    {
+        var image = settings.Background is RowBackground.Image imageBackground ? imageBackground : null;
+
+        return new()
         {
             Height = settings.Height,
             ContentWidth = settings.ContentWidth,
@@ -43,11 +54,22 @@ public class RowSettingsForm : ServerValidatedForm
             Gap = settings.Gap,
             Theme = settings.Theme?.QueryValue ?? WebsiteTheme,
             BackgroundType = settings.Background.Type,
-            BackgroundColor = settings.Background is RowBackground.Color color ? color.Value.Hex : null,
+            BackgroundColor = settings.Background switch
+            {
+                RowBackground.Color color => color.Value.Hex,
+                RowBackground.Image { Behind: { } behind } => behind.Hex,
+                _ => null,
+            },
+            BackgroundFit = image?.Fit ?? ImageFit.Cover,
+            HasColorBehindImage = image?.Behind is not null,
+            ImageStorageKey = ImageStorageKeyOf(image?.Source),
+            ImageWorkId = ImageWorkIdOf(image?.Source),
         };
+    }
 
-    public bool Check() =>
-        CheckSelects(
+    public async Task<bool> CheckAsync(UploadedImageRepository uploadedImageRepository, WorkRepository workRepository, SiteWording wording)
+    {
+        var isValid = CheckSelects(
             (Enum.IsDefined(Height), nameof(Height)),
             (Enum.IsDefined(ContentWidth), nameof(ContentWidth)),
             (Enum.IsDefined(TopPadding), nameof(TopPadding)),
@@ -57,10 +79,19 @@ public class RowSettingsForm : ServerValidatedForm
             (Enum.IsDefined(BackgroundType), nameof(BackgroundType))
         );
 
-    // a colour chosen just now has none posted, and starts as the row's page colour, so nothing changes
-    // until one is picked
-    public RowSettings ToSettings(RgbColor pageColor) =>
-        new(
+        return BackgroundType is RowBackgroundType.Image
+            ? await CheckChosenImageAsync(uploadedImageRepository, workRepository, wording) && isValid
+            : isValid;
+    }
+
+    // A choice made just now has nothing of its own posted, so nothing changes until one is: a colour
+    // starts as the row's page colour; an image's fit as Cover, and the colour behind it as the colour
+    // background it replaces, if it was one
+    public RowSettings ToSettings(RgbColor pageColor)
+    {
+        RgbColor? postedColor = RgbColor.TryParse(BackgroundColor, out var color) ? color : null;
+
+        return new(
             Height,
             ContentWidth,
             new RowPadding(TopPadding, BottomPadding, SidePadding),
@@ -69,8 +100,19 @@ public class RowSettingsForm : ServerValidatedForm
             BackgroundType switch
             {
                 RowBackgroundType.None => new RowBackground.None(),
-                RowBackgroundType.Color => new RowBackground.Color(RgbColor.TryParse(BackgroundColor, out var color) ? color : pageColor),
+                RowBackgroundType.Color => new RowBackground.Color(postedColor ?? pageColor),
+                RowBackgroundType.Image => new RowBackground.Image(
+                    ChosenImageSource,
+                    Enum.IsDefined(BackgroundFit) ? BackgroundFit : ImageFit.Cover,
+                    HasColorBehindImage switch
+                    {
+                        false => null,
+                        true => postedColor ?? pageColor,
+                        null => postedColor,
+                    }
+                ),
                 _ => throw new InvalidOperationException($"{BackgroundType} isn't a background."),
             }
         );
+    }
 }

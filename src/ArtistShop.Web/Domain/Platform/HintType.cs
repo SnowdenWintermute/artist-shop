@@ -23,4 +23,5 @@ public enum HintType
     WordingDescription,
     CustomPages,
     Images,
+    FullBleedWorkImages,
 }

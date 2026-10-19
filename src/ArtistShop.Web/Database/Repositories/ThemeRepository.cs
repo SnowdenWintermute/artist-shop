@@ -60,7 +60,7 @@ public class ThemeRepository(SiteDatabase database)
         }
         catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ThemeNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -79,17 +79,20 @@ public class ThemeRepository(SiteDatabase database)
 
         var row = await connection.QuerySingleAsync<InUseRow>("SELECT * FROM get_theme_in_use()");
 
-        return row switch
-        {
-            { ThemeId: { } id, Name: { } name, Settings: { } settings } => new NamedTheme(
-                new ThemeKey.Saved(new ThemeId(id)),
-                name,
-                ReadSettings(settings)
-            ),
-            { Preset: { } preset } => ThemePresets.Find(preset)?.Named,
-            _ => throw new InvalidOperationException("theme_in_use holds neither a theme nor a preset."),
-        };
+        return row is { ThemeId: null, Preset: null }
+            ? throw new InvalidOperationException("theme_in_use holds neither a theme nor a preset.")
+            : NamedThemeOf(row.ThemeId, row.Name, row.Settings, row.Preset);
     }
+
+    // a saved theme's columns, or a ThemePreset's id, as a query that joins themes reads them. Null for
+    // neither, or a preset since retired
+    public static NamedTheme? NamedThemeOf(int? themeId, string? name, string? settings, ThemePreset? preset) =>
+        (themeId, name, settings, preset) switch
+        {
+            ({ } id, { } savedName, { } json, _) => new NamedTheme(new ThemeKey.Saved(new ThemeId(id)), savedName, ReadSettings(json)),
+            (_, _, _, { } chosen) => ThemePresets.Find(chosen)?.Named,
+            _ => null,
+        };
 
     public async Task UseAsync(ThemeKey key)
     {
@@ -103,7 +106,7 @@ public class ThemeRepository(SiteDatabase database)
         }
         catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.ThemeNoLongerExists))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 

@@ -17,13 +17,13 @@
 
   private bool FillsScreen => Row.Height is RowHeight.FillScreen;
 
-  private string RowClass =>
-    (FillsScreen
-      ? $"{RowPaddingClasses.Vertical(Row.Padding, Position)} flex flex-col {(FillsBox ? "flex-1" : RowClasses.ScreenHeightClass)}"
-      : RowPaddingClasses.Vertical(Row.Padding, Position))
-    + (Row.Theme is null ? "" : LeavesBackgroundToBox ? " font-text text-ink" : " bg-page font-text text-ink");
+  private bool DrawsBackground => !LeavesBackgroundToBox && Row.Background is not RowBackground.None;
 
-  private string? BackgroundStyle => LeavesBackgroundToBox || Row.Background is RowBackground.None ? null : RowBackgroundStyle.Of(Row.Background);
+  private string RowClass =>
+    RowPaddingClasses.Vertical(Row.Padding, Position)
+    + (DrawsBackground ? " relative isolate" : "")
+    + (FillsScreen ? $" flex flex-col {(FillsBox ? "flex-1" : RowClasses.ScreenHeightClass)}" : "")
+    + (Row.Theme is null ? "" : LeavesBackgroundToBox ? " font-text text-ink" : " bg-page font-text text-ink");
 
   // what a row's own theme is scoped to; a bare value, since a <style>'s text can't hold quotes
   public static string ThemeMarkerOf(PageRow row) => $"row-{row.Id.Value.ToString(CultureInfo.InvariantCulture)}";
@@ -51,7 +51,11 @@
 {
   <ThemeStyle Selector="@($"[data-row-theme={ThemeMarker}]")" Theme="theme.Theme" />
 }
-<div class="@RowClass" style="@BackgroundStyle" data-row-theme="@(Row.Theme is null ? null : ThemeMarker)">
+<div class="@RowClass" data-row-theme="@(Row.Theme is null ? null : ThemeMarker)">
+  @if (DrawsBackground)
+  {
+    <RowBackgroundLayer Background="Row.Background" IsFirstRow="Position.IsFirst" />
+  }
   <div class="@ContentClass">
     @foreach (var (slot, width) in Slots)
     {

@@ -7,6 +7,8 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Hints
+@using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Components.Pages.Admin.Publishing.Images.ImagePicker
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker
 @using ArtistShop.Web.Images
@@ -27,6 +29,15 @@
   // the saved source as it is now, null when none is chosen
   [Parameter, EditorRequired]
   public ImageComponentPicture? Picture { get; set; }
+
+  // whether the picture is shown edge to edge, where it loads a larger size than a work's page shows
+  [Parameter, EditorRequired]
+  public bool IsFullBleed { get; set; }
+
+  // only a work's image has a page
+  private bool IsWorkImageShownWider =>
+    IsFullBleed && Picture is ImageComponentPicture.Shown { ArtworkPageUrl: not null, Image: var image }
+    && ImageVariants.FullBleedWidthFor(image.Width) is not null;
 }
 
 <image-source-field class="mb-4 block" data-upload-url="@ImageUploadEndpoints.LibraryImageUploadPath">
@@ -38,6 +49,13 @@
         <TileImage Image="shown.Image" BoxClass="size-20" MaximumWidth="ImageVariants.AdminThumbnailWidth" Sizes="5rem" />
         <span class="truncate">@shown.Name</span>
       </div>
+      @if (IsWorkImageShownWider)
+      {
+        <Hint Type="HintType.FullBleedWorkImages" Class="mb-2">
+          <p>Shown up to @ImageVariants.FullBleedWidth.ToString(CultureInfo.InvariantCulture) pixels wide here, larger than its
+            @Wording.Work.SingularInSentence page shows it.</p>
+        </Hint>
+      }
       break;
     case ImageComponentPicture.Missing missing:
       <p class="mb-2 text-error">@MissingImageText.Of(missing.Reason, Wording)</p>

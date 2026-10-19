@@ -14,7 +14,7 @@ namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // A component's name, and the settings of its type: a text component's text and width, a card grid's source,
 // heading and paging, an image's fit, padding and link. Form posts create this, so it keeps a single public constructor
-public class CustomComponentForm : ServerValidatedForm, IValidatableObject
+public class CustomComponentForm : ImagePickerForm, IValidatableObject
 {
     [Required]
     [StringLength(ArtistShopLimits.CustomComponentNameMaximumLength)]
@@ -41,20 +41,6 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
     public bool HasPageLinks { get; set; }
 
     public CardGridLayout Layout { get; set; }
-
-    // The image an image component shows, set by its pickers: a library image's key, or with ImageWorkId one of
-    // that work's images (null there for its main image). Both null for none chosen
-    public string? ImageStorageKey { get; set; }
-
-    public int? ImageWorkId { get; set; }
-
-    // the hidden field posts an empty value for none
-    private string? ChosenImageKey => string.IsNullOrEmpty(ImageStorageKey) ? null : ImageStorageKey;
-
-    private ImageSource? ChosenImageSource =>
-        ImageWorkId is int workId ? new ImageSource.Work(new WorkId(workId), ChosenImageKey)
-        : ChosenImageKey is { } storageKey ? new ImageSource.Library(storageKey)
-        : null;
 
     public ImageHeight ImageHeight { get; set; }
 
@@ -91,13 +77,8 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             ImageSettings image => new()
             {
                 Name = component.Name,
-                ImageStorageKey = image.Source switch
-                {
-                    ImageSource.Library library => library.StorageKey,
-                    ImageSource.Work work => work.StorageKey,
-                    _ => null,
-                },
-                ImageWorkId = image.Source is ImageSource.Work { WorkId: var workId } ? workId.Value : null,
+                ImageStorageKey = ImageStorageKeyOf(image.Source),
+                ImageWorkId = ImageWorkIdOf(image.Source),
                 ImageHeight = image.Height,
                 Fit = image.Fit,
                 Padding = image.Padding,
@@ -173,9 +154,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
         return isValid;
     }
 
-    // An image's selects, and its image, which may have been deleted, or taken off its work, since the picker
-    // showed it. False when the form says by the field why. A work's main image is kept as no image of it
-    // picked, so the component follows the work's main image when it changes
+    // an image's selects, and its image
     public async Task<bool> CheckImageAsync(
         UploadedImageRepository uploadedImageRepository,
         WorkRepository workRepository,
@@ -195,17 +174,7 @@ public class CustomComponentForm : ServerValidatedForm, IValidatableObject
             (Enum.IsDefined(Link), nameof(Link))
         );
 
-        switch (await ImageComponentPicture.ReadAsync(ChosenImageSource, uploadedImageRepository, workRepository))
-        {
-            case ImageComponentPicture.Missing missing:
-                AddServerError(nameof(ImageStorageKey), MissingImageText.Of(missing.Reason, wording));
-                return false;
-            case ImageComponentPicture.Shown { IsWorksMainImage: true }:
-                ImageStorageKey = null;
-                break;
-        }
-
-        return isValid;
+        return await CheckChosenImageAsync(uploadedImageRepository, workRepository, wording) && isValid;
     }
 
     public string ToName() => Unwrap.Value(Name).Trim();

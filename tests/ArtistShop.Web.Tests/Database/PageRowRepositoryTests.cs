@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 
@@ -14,6 +15,8 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
     private readonly PageRowRepository _rows = new(database.Site);
     private readonly RowSlotRepository _slots = new(database.Site);
     private readonly CustomComponentRepository _components = new(database.Site);
+    private readonly UploadedImageRepository _library = new(database.Site);
+    private readonly CatalogTestData _catalog = new(database.Site);
 
     // the fixture's database is shared, so each test's components have names of their own
     private static string UniqueName() => $"Component {Guid.NewGuid():n}";
@@ -29,6 +32,17 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
 
     private async Task<PageRow> RowAsync(CustomPageId pageId, PageRowId rowId) =>
         Assert.Single(await RowsAsync(pageId), row => row.Id == rowId);
+
+    private Task<string> AddLibraryImageAsync(string altText) => UploadedImageTestData.AddAsync(_library, "pier.jpg", altText);
+
+    // a new row with this background, on a page of its own
+    private async Task<(CustomPageId PageId, PageRowId RowId)> AddRowShowingAsync(RowBackground background)
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        await _rows.SetSettingsAsync(rowId, (await RowAsync(pageId, rowId)).Settings with { Background = background });
+        return (pageId, rowId);
+    }
 
     [Fact]
     public async Task ANewRowIsOneEmptySlotAtTheBottom()
@@ -64,6 +78,49 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(settings, (await RowAsync(pageId, rowId)).Settings);
         await _rows.DeleteAsync(rowId);
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _rows.SetSettingsAsync(rowId, settings));
+    }
+
+    [Fact]
+    public async Task AnImageBackgroundIsSavedWithItsSourceFitAndColour()
+    {
+        var storageKey = await AddLibraryImageAsync("Pier");
+        var work = await _catalog.AddWorkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName());
+        RowBackground[] backgrounds =
+        [
+            new RowBackground.Image(new ImageSource.Library(storageKey), ImageFit.Contain, RgbColor.Parse("#123456")),
+            new RowBackground.Image(new ImageSource.Work(work.Id, StorageKey: null), ImageFit.Cover, Behind: null),
+            new RowBackground.Image(Source: null, ImageFit.Cover, Behind: null),
+        ];
+
+        foreach (var background in backgrounds)
+        {
+            var (pageId, rowId) = await AddRowShowingAsync(background);
+
+            Assert.Equal(background, (await RowAsync(pageId, rowId)).Background);
+        }
+    }
+
+    // counted where the Images page says it's used, and listed in the confirm dialogs. Deleted, the
+    // colour behind the image stays as the row's colour; with none, the row has no background
+    [Fact]
+    public async Task DeletingABackgroundsImageOrWorkLeavesItsColour()
+    {
+        var altText = UniqueName();
+        var storageKey = await AddLibraryImageAsync(altText);
+        var work = await _catalog.AddWorkAsync(await _catalog.GetPaintingTypeIdAsync(), UniqueName());
+        var colour = RgbColor.Parse("#123456");
+        var onImage = await AddRowShowingAsync(new RowBackground.Image(new ImageSource.Library(storageKey), ImageFit.Cover, colour));
+        var onWork = await AddRowShowingAsync(new RowBackground.Image(new ImageSource.Work(work.Id, StorageKey: null), ImageFit.Cover, Behind: null));
+        var pageNames = (await _pages.GetAllAsync()).ToDictionary(page => page.Id, page => page.Name);
+
+        Assert.Equal(1, Assert.Single((await _library.GetPageAsync(altText, pageNumber: 1)).Items).UsedInCount);
+        Assert.Equal([pageNames[onImage.PageId]], await _rows.GetPagesWithBackgroundsShowingImagesAsync([storageKey]));
+        Assert.Equal([pageNames[onWork.PageId]], await _rows.GetPagesWithBackgroundsShowingWorksAsync([work.Id]));
+        await _library.DeleteAsync([storageKey]);
+        await new WorkRepository(database.Site).DeleteAsync(work.Id);
+
+        Assert.Equal(new RowBackground.Color(colour), (await RowAsync(onImage.PageId, onImage.RowId)).Background);
+        Assert.Equal(new RowBackground.None(), (await RowAsync(onWork.PageId, onWork.RowId)).Background);
     }
 
     [Fact]

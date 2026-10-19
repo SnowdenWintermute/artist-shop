@@ -115,6 +115,14 @@ public class CustomComponentRepository(SiteDatabase database)
         return await connection.QuerySingleAsync<bool>("SELECT is_blog_pages_only_post_list(@Id)", new { Id = id.Value });
     }
 
+    // whether it sits in an edge-to-edge row, where an image component loads a full-bleed size
+    public async Task<bool> IsInEdgeToEdgeRowAsync(CustomComponentId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        return await connection.QuerySingleAsync<bool>("SELECT is_custom_component_in_edge_to_edge_row(@Id)", new { Id = id.Value });
+    }
+
     // the image components showing any of these works, which deleting them deletes too
     public Task<List<CustomComponentOnPages>> GetImageComponentsShowingWorksAsync(IReadOnlyCollection<WorkId> ids) =>
         GetImageComponentsShowingAsync([.. ids.Select(id => id.Value)], []);

@@ -1,9 +1,11 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject WorkRepository WorkRepository
 @inject CustomComponentRepository CustomComponentRepository
+@inject PageRowRepository PageRowRepository
 @inject NavigationManager NavigationManager
 
 @code {
@@ -19,11 +21,11 @@
 
   private bool _dialogOpen;
   private bool _isDeleting;
-  private List<CustomComponentOnPages> _imageComponents = [];
+  private DeletedImageUses _imageUses = DeletedImageUses.None;
 
   private async Task OpenDialogAsync()
   {
-    _imageComponents = await CustomComponentRepository.GetImageComponentsShowingWorksAsync([WorkId]);
+    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, [WorkId]);
     _dialogOpen = true;
   }
 
@@ -50,6 +52,6 @@
 
   <ConfirmDialog @bind-Open="_dialogOpen" Title="@($"Delete {WorkName.Value}?")" ConfirmLabel="Delete"
                  OnConfirm="DeleteAsync" IsWorking="_isDeleting">
-    <DeleteWorksWarning WorkCount="1" ImageCount="ImageCount" ImageComponents="_imageComponents" />
+    <DeleteWorksWarning WorkCount="1" ImageCount="ImageCount" ImageUses="_imageUses" />
   </ConfirmDialog>
 </DisabledUntilInteractive>

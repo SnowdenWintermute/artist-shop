@@ -1,5 +1,6 @@
 @page "/admin/website/pages/{PageId:int}/rows/{RowId:int}"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
@@ -9,10 +10,15 @@
 @inject CustomPageRepository CustomPageRepository
 @inject PageRowRepository PageRowRepository
 @inject ThemeRepository ThemeRepository
+@inject UploadedImageRepository UploadedImageRepository
+@inject WorkRepository WorkRepository
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter]
   public int PageId { get; set; }
   [Parameter]
@@ -27,11 +33,13 @@
 
   private CustomPage? _page;
   private PageRow? _row;
-  // the presets, then the website's saved themes, as the Theme page lists them
   private IReadOnlyList<NamedTheme> _themes = [];
   // what the public pages show; null for a preset since retired
   private NamedTheme? _themeInUse;
-  private bool _changedElsewhere;
+  // why a save didn't go through: the row removed, or its theme or background image deleted, elsewhere
+  private string? _saveError;
+  // a saved background image as it is now, null when there's none
+  private ImageComponentPicture? _picture;
 
   protected override async Task OnInitializedAsync()
   {
@@ -43,12 +51,17 @@
     }
 
     _row = (await CustomPageRepository.GetLayoutAsync(_page.Id)).Row(new PageRowId(RowId));
-    _themes = [.. ThemePresets.All.Select(preset => preset.Named), .. (await ThemeRepository.GetAllAsync()).Select(saved => saved.Named)];
+    _themes = NamedTheme.ListOf(await ThemeRepository.GetAllAsync());
     _themeInUse = await ThemeRepository.GetInUseAsync();
 
     if (_row is not null)
     {
       Input ??= RowSettingsForm.From(_row.Settings);
+    }
+
+    if (_row?.Background is RowBackground.Image image)
+    {
+      _picture = await ImageComponentPicture.ReadAsync(image.Source, UploadedImageRepository, WorkRepository);
     }
   }
 
@@ -63,9 +76,14 @@
     ((key is null ? null : _themes.SingleOrDefault(theme => theme.Key == key)) ?? _themeInUse)?.Theme.Colors.Resolve(ColorRole.Page)
     ?? ThemePresets.Paper.Theme.Colors.Resolve(ColorRole.Page);
 
+  // the picker posts the form when it closes, as change fires
+  private RenderFragment BackgroundColorInput(RowSettingsForm input) =>
+    @<InputText type="color" aria-label="Background colour" @bind-Value="input.BackgroundColor"
+                class="mb-4 block h-10 w-14 cursor-pointer border border-rule bg-panel" />;
+
   private async Task SaveAsync()
   {
-    if (_row is null || Input is null || !Input.Check())
+    if (_row is null || Input is null || !await Input.CheckAsync(UploadedImageRepository, WorkRepository, Wording))
     {
       return;
     }
@@ -74,9 +92,9 @@
     {
       await PageRowRepository.SetSettingsAsync(_row.Id, Input.ToSettings(PageColorOf(Input.ThemeKey)));
     }
-    catch (ChangedSincePageLoadException)
+    catch (ChangedSincePageLoadException exception)
     {
-      _changedElsewhere = true;
+      _saveError = exception.Message;
       return;
     }
 
@@ -106,9 +124,9 @@
       {
         @* every choice saves the moment it's made; the row's slots, below, are an island *@
         <EditForm EditContext="Input.EditContext" FormName="row-settings" OnValidSubmit="SaveAsync" Enhance class="mb-6">
-          @if (_changedElsewhere)
+          @if (_saveError is { } saveError)
           {
-            <p class="mb-4 text-error">The row was changed somewhere else. Reload the page to see it.</p>
+            <p class="mb-4 text-error">@saveError Reload the page.</p>
           }
           <SubmitOnChange>
             <RadioField Label="Height" @bind-Value="Input.Height" Values="Enum.GetValues<RowHeight>()" LabelOf="RowChoiceLabels.Of" />
@@ -125,9 +143,26 @@
                         LabelOf="RowChoiceLabels.Of" />
             @if (Input.BackgroundType is RowBackgroundType.Color)
             {
-              @* the picker posts the form when it closes, as change fires *@
-              <InputText type="color" aria-label="Background colour" @bind-Value="Input.BackgroundColor"
-                         class="mb-4 block h-10 w-14 cursor-pointer border border-rule bg-panel" />
+              @BackgroundColorInput(Input)
+            }
+          </SubmitOnChange>
+          @* outside SubmitOnChange: its file input's change starts an upload, which posts the form itself *@
+          @if (Input.BackgroundType is RowBackgroundType.Image)
+          {
+            <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
+                              StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
+                              IsFullBleed />
+          }
+          <SubmitOnChange>
+            @if (Input.BackgroundType is RowBackgroundType.Image)
+            {
+              <RadioField Label="Fit" @bind-Value="Input.BackgroundFit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+              <RadioField TValue="bool?" Label="Behind the image" @bind-Value="Input.HasColorBehindImage" Values="[false, true]"
+                          LabelOf="@(hasColor => hasColor is true ? "A colour" : "Page colour")" />
+              @if (Input.HasColorBehindImage is true)
+              {
+                @BackgroundColorInput(Input)
+              }
             }
             @* app.css hides this unless the browser runs no scripts *@
             <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>

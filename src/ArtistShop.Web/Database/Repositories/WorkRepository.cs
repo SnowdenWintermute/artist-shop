@@ -101,7 +101,7 @@ public class WorkRepository(SiteDatabase database)
         }
         catch (PostgresException exception) when (IsCatalogChanged(exception))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -398,11 +398,11 @@ public class WorkRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.WorkNoLongerExists))
         {
-            throw new WorkDeletedException(exception.Message, exception);
+            throw new WorkDeletedException(exception.MessageText, exception);
         }
         catch (PostgresException exception) when (IsCatalogChanged(exception))
         {
-            throw new ChangedSincePageLoadException(exception.Message, exception);
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
     }
 
@@ -421,7 +421,7 @@ public class WorkRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.WorkNoLongerExists))
         {
-            throw new WorkDeletedException(exception.Message, exception);
+            throw new WorkDeletedException(exception.MessageText, exception);
         }
     }
 

@@ -18,6 +18,16 @@ public sealed class ImageVariantsTests
         Assert.Equal(expected, ImageVariants.LargestWidthUpTo(ImageVariants.WidthsFor(imageWidth), wantedWidth));
     }
 
+    // nothing for an image the usual sizes already cover; its own width for one narrower than 1080p
+    [Theory]
+    [InlineData(1600, null)]
+    [InlineData(1700, 1700)]
+    [InlineData(4000, 1920)]
+    public void AFullBleedSizeIsMadeOnlyForAnImageWiderThanTheUsualSizes(int imageWidth, int? expected)
+    {
+        Assert.Equal(expected, ImageVariants.FullBleedWidthFor(imageWidth));
+    }
+
     // only a post takes an image this narrow
     [Theory]
     [InlineData(120, new[] { 120 })]

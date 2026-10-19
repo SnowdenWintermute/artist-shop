@@ -134,11 +134,11 @@ public sealed record ImageSettings(ImageSource? Source, ImageHeight Height, Imag
 // Name is for finding it again in the library and is unique; a page never shows it
 public record CustomComponent(CustomComponentId Id, string Name, CustomComponentSettings Settings);
 
-// A component with the names of the pages it's on, for choosing one already made or editing it.
-// UpdatedAt tells the settings page's backup whether it was saved since the copy was made
 // a component and the pages it's on, for saying what a delete takes with it
 public record CustomComponentOnPages(CustomComponentId Id, string Name, IReadOnlyList<string> PageNames);
 
+// A component with the names of the pages it's on, for choosing one already made or editing it.
+// UpdatedAt tells the settings page's backup whether it was saved since the copy was made
 public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames, DateTimeOffset UpdatedAt);
 
 // What the Add component dialog's New buttons make: one of each type, and Heading, a text component

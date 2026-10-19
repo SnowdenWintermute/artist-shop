@@ -11,6 +11,7 @@
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
 @inject ImageSizeQueue ImageSizeQueue
+@inject FullBleedImageSizes FullBleedImageSizes
 
 @code {
   [Parameter, EditorRequired]
@@ -27,8 +28,7 @@
 
 @if (_picture is ImageComponentPicture.Shown { Image: var image } shown)
 {
-  var width = ImageVariants.LargestWidthFor(image.Width);
-  var readyWidths = ImageSizeQueue.ReadyWidths(image.StorageKey, image.Width);
+  var (readyWidths, width) = FullBleedImageSizes.For(image.StorageKey, image.Width, isFullBleed: Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge);
   var fills = Settings.Height is ImageHeight.Fill;
   var fillsScreenRow = fills && Slot.Row.Height is RowHeight.FillScreen;
   var isFixed = Settings.Height is ImageHeight.Small or ImageHeight.Medium or ImageHeight.Large;
@@ -41,7 +41,7 @@
            sizes="@Slot.Sizes(image.Width)" alt="@shown.AltText"
            width="@image.Width.ToString(CultureInfo.InvariantCulture)" height="@image.Height.ToString(CultureInfo.InvariantCulture)"
            loading="lazy" data-test="image-component"
-           class="@($"block {(isSized ? "h-full" : "h-auto")} w-full bg-cover bg-center {ImageClasses.Fit(Settings.Fit)}")"
+           class="@($"block {(isSized ? "h-full" : "h-auto")} w-full {ImageClasses.PlaceholderFit(Settings.Fit)} {ImageClasses.Fit(Settings.Fit)}")"
            style="@(image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
       @if (ImageSizeQueue.IsProcessing(image.StorageKey, width))
       {

@@ -6,6 +6,7 @@
 @using ArtistShop.Web.Components.Pages.Admin.TextEditor
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Utilities
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Publishing
@@ -52,6 +53,8 @@
   private List<ChosenCardListItem>? _chosenCards;
   // what an image component's saved source shows now
   private ImageComponentPicture? _picture;
+  // whether it sits in an edge-to-edge row, where its image loads a larger size
+  private bool _isFullBleed;
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -87,6 +90,7 @@ collection.Id).ToHashSet();
     if (_component?.Component.Settings is ImageSettings image)
     {
       _picture = await ImageComponentPicture.ReadAsync(image.Source, UploadedImageRepository, WorkRepository);
+      _isFullBleed = await CustomComponentRepository.IsInEdgeToEdgeRowAsync(ComponentId);
     }
 
     if (_component?.Component.Settings is CardGridSettings { Source: CardGridSource.ChosenCards })
@@ -181,7 +185,7 @@ PageUrls.CustomPageList;
   private static string DeleteWarning(CustomComponentInUse component) =>
     component.PageNames.Count == 0
       ? "It isn't on any page."
-      : $"It will be taken off {string.Join(", ", component.PageNames.Order(StringComparer.CurrentCultureIgnoreCase))}.";
+      : $"It will be taken off {PageNamesText.Of(component.PageNames)}.";
 
   // the pages besides the one this was opened from, which share every change
   private IReadOnlyList<string> AlsoOn(CustomComponentInUse component) =>
@@ -329,7 +333,8 @@ PageUrls.CustomPageList;
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
           <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
-                            StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture" />
+                            StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
+                            IsFullBleed="_isFullBleed" />
           <SubmitOnChange>
             <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="Enum.GetValues<ImageHeight>()" LabelOf="height => height.ToString()" />
           </SubmitOnChange>

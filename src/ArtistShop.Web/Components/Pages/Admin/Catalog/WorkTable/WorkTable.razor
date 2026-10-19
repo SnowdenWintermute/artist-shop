@@ -1,6 +1,7 @@
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms.FileUpload.Images
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Works
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
 @using ArtistShop.Web.Components.Pages.Admin.Catalog.Collections
 @using ArtistShop.Web.Components.Tables
 @using ArtistShop.Web.Database
@@ -10,6 +11,7 @@
 @using ArtistShop.Web.Components.Dialogs
 @inject WorkRepository WorkRepository
 @inject CustomComponentRepository CustomComponentRepository
+@inject PageRowRepository PageRowRepository
 @inject VocabularyRepository VocabularyRepository
 
 @* Works of one type, each saved on its own as its fields change. Each input saves its row when it
@@ -336,11 +338,11 @@ termIds))
     await ChoiceDialogClosedAsync();
   }
 
-  // the image components the delete takes with it, read as the confirm opens
-  private List<CustomComponentOnPages> _imageComponents = [];
+  // what the delete takes with it on custom pages, read as the confirm opens
+  private DeletedImageUses _imageUses = DeletedImageUses.None;
 
-  private async Task ReadImageComponentsAsync(IReadOnlyList<WorkTableRow> rows) =>
-    _imageComponents = await CustomComponentRepository.GetImageComponentsShowingWorksAsync([.. rows.Select(row => row.Id)]);
+  private async Task ReadImageUsesAsync(IReadOnlyList<WorkTableRow> rows) =>
+    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, [.. rows.Select(row => row.Id)]);
 
   private async Task DeleteAsync(IReadOnlyList<WorkTableRow> rows)
   {
@@ -373,7 +375,7 @@ collection.Name.Value));
 
 <EditableTable TRow="WorkTableRow" Rows="Rows" Headings="Headings" RowName="@(row => row.Form.Name ?? string.Empty)"
                SelectionPrompt="@($"Select multiple {Wording.Work.PluralInSentence} to edit them as a group:")"
-               DeleteTitle="@(rows => $"Delete {Wording.Work.CountOf(rows.Count)}?")" OnDeleteAsked="ReadImageComponentsAsync" OnDelete="DeleteAsync" IsBusy="_isApplying"
+               DeleteTitle="@(rows => $"Delete {Wording.Work.CountOf(rows.Count)}?")" OnDeleteAsked="ReadImageUsesAsync" OnDelete="DeleteAsync" IsBusy="_isApplying"
                DeleteBlockedBy="DeleteBlockedBy" Class="text-sm" FitsContent StickyHeadings
                BoxClass="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
   @* a check re-renders only the table, so the buttons go by the rows it hands them *@
@@ -389,7 +391,7 @@ collection.Name.Value));
                  @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
   </BulkActions>
   <DeleteWarning Context="rows">
-    <DeleteWorksWarning WorkCount="rows.Count" ImageCount="rows.Sum(row => row.SavedImages.Count)" ImageComponents="_imageComponents" />
+    <DeleteWorksWarning WorkCount="rows.Count" ImageCount="rows.Sum(row => row.SavedImages.Count)" ImageUses="_imageUses" />
   </DeleteWarning>
   <Row Context="row">
       <DataTableCell Class="@($"align-top {ImagesColumnClass} {PinnedCellClass}")">

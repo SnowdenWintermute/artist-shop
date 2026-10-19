@@ -16,7 +16,7 @@ public static class SqlStates
     // UpdateVocabulary
     public const string VocabularyNoLongerExists = "SH002";
 
-    // UpdateWork
+    // UpdateWork, SetPageRowSettings (a row background's work)
     public const string WorkNoLongerExists = "SH003";
 
     // RenameCollection, CheckWorkChoicesAreCurrent, AddWorksToCollection
@@ -63,7 +63,7 @@ public static class SqlStates
     // CheckWorkChoicesAreCurrent
     public const string VocabularyBecameMutuallyExclusive = "SH018";
 
-    // UpdateTheme, UseTheme
+    // UpdateTheme, UseTheme, SetPageRowSettings
     public const string ThemeNoLongerExists = "SH019";
 
     // UpdateCustomPage, MakeCustomPageHome, MakeCustomPageBlog
@@ -93,4 +93,7 @@ public static class SqlStates
 
     // ReorderCardGridChosenCards
     public const string CardGridChosenCardsChangedSincePageLoad = "SH028";
+
+    // SetPageRowSettings (a row background's library image)
+    public const string UploadedImageNoLongerExists = "SH029";
 }

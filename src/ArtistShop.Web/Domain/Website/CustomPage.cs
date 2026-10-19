@@ -75,10 +75,12 @@ public enum RowGap
     Large = 4,
 }
 
+// the ids are stored in page_rows.background_type
 public enum RowBackgroundType
 {
     None = 1,
     Color = 2,
+    Image = 3,
 }
 
 // what's drawn behind a row's content, across the whole screen whatever its content's width
@@ -95,6 +97,14 @@ public abstract record RowBackground
     public sealed record Color(RgbColor Value) : RowBackground
     {
         public override RowBackgroundType Type => RowBackgroundType.Color;
+    }
+
+    // An image across the row, centred. Source is null until one is chosen. Behind is the colour around
+    // an image that doesn't cover the row, null for the row's page colour, and what's left when the
+    // image is deleted
+    public sealed record Image(ImageSource? Source, ImageFit Fit, RgbColor? Behind) : RowBackground
+    {
+        public override RowBackgroundType Type => RowBackgroundType.Image;
     }
 }
 

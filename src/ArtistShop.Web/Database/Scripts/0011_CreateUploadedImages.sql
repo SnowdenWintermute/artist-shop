@@ -41,6 +41,13 @@ CREATE TABLE custom_component_and_uploaded_images_junction (
 
 CREATE INDEX index_custom_component_and_uploaded_images_junction_image ON custom_component_and_uploaded_images_junction (uploaded_image_id);
 
+-- a row background's library image; page_rows comes first, in 0009
+ALTER TABLE page_rows
+ADD CONSTRAINT foreign_key_page_rows_uploaded_images FOREIGN KEY (background_uploaded_image_key) REFERENCES uploaded_images (storage_key);
+
+-- deleting an image clears the backgrounds showing it
+CREATE INDEX index_page_rows_background_uploaded_image_key ON page_rows (background_uploaded_image_key);
+
 -- the sweep kept post and text component images by reading their bodies; the rows keep them now
 DROP FUNCTION IF EXISTS get_all_post_image_storage_keys;
 

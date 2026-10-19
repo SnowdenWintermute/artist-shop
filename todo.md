@@ -494,6 +494,39 @@ day, if row backgrounds aren't enough).
   - Fix: a row with a background colour crashed the dev server with a stack overflow: the stamp's record
     `ToString` printed `RgbColor.ReadableText`, an `RgbColor`, endlessly. `RgbColor.ToString()` is now its hex;
     the form test opens the editor after saving a colour.
+- Review of 24a3f82 and 6d8f14c + 7b72e9d, 2026-10-18 (From Claude), uncommitted: `NamedTheme.ListOf` (presets, then
+  saved themes by name) for the Theme page, its picker and the row editor; `ThemeRepository.NamedThemeOf` shared
+  with the layout read; the row editor shows the save error's own text; every repository catch passes
+  `MessageText`; `Utilities/PageNamesText.Of` for the four page-name lists.
+- Step 6b built 2026-10-18 (From Claude), uncommitted, 1272 tests, not browser-checked. Agreed with Mike the same
+  day: an image can have a colour behind it or the page colour; deleting the image clears it and keeps that
+  colour; a processing image shows the label.
+  - `RowBackground.Image(ImageSource? Source, ImageFit Fit, RgbColor? Behind)`. `page_rows`: `background_type`,
+    `background_color` (the colour, or the one behind an image), `background_uploaded_image_key` (FK added in
+    0011), `background_work_id` + `background_work_image_key`, `background_fit`, with checks (site_1 patched).
+  - Row editor: Background None / Colour / Image; Image shows `ImageSourceField` (outside `SubmitOnChange`), Fit,
+    and "Behind the image" Page colour / A colour. A colour background switched to an image keeps its colour.
+    `ImagePickerForm` (base of `CustomComponentForm` and `RowSettingsForm`) holds the picker's fields and the
+    vanished-image check.
+  - `RowBackgroundLayer` draws colour + `<img>` (`sizes="100vw"`, eager on the first row, alt "") + label, in
+    `PageRowView` and the footer box. `ImageClasses.PlaceholderFit`: the blur placeholder is fitted like the
+    picture, so under Contain it no longer fills the letterbox (also fixes the Image component).
+  - Deletes: `clear_row_backgrounds_showing` from `delete_works` and `delete_uploaded_images`; the confirm dialogs
+    say "Row backgrounds removed on …" (`DeletedImageUses` + `DeletedImageUsesWarning`, was
+    `DeletedImageComponentsWarning`). The Images page's Used in counts row backgrounds.
+  - A work's "Mentioned in" leaves out row backgrounds (Mike, 2026-10-18: it's mainly for blog posts).
+- Step 6c built 2026-10-18 (From Claude), uncommitted, 1276 tests, not browser-checked. Agreed with Mike the same
+  day: one large size at 1080p (`ImageVariants.FullBleedWidth` 1920; `FullBleedWidthFor` = min(1920, original),
+  only for originals wider than 1600; super-high resolutions maybe later). Shown only full-bleed, so the rest of
+  the site never serves an artwork wider than 1600 (Mike: artists' prints): row backgrounds always, Image
+  components only in an edge-to-edge row.
+  - `FullBleedImageSizes.For(storageKey, imageWidth, isFullBleed)` → `PictureWidths(Ready, Largest)`: the large
+    size once both files exist; otherwise queues it (one job, after normal sizes) unless pending. Made on demand
+    only: the row editor's and component page's previews draw it right after a save. Restarts: the next page
+    drawing it queues it again (`MissingImageSizes` ignores it).
+  - Hint `HintType.FullBleedWorkImages` in `ImageSourceField` (`IsFullBleed`): a work's image with a larger size,
+    in the row editor, or on a component page when the component is in an edge-to-edge row
+    (`is_custom_component_in_edge_to_edge_row`). Library images get none.
 - **Deferred to an "arrangement" refactor (Mike, 2026-10-17):** dragging a component into another slot's list
   snaps into place but goes back on drop (BbSortable's lists share a group; `SortableList` only handles
   `OnUpdate`). Should become a real move (`OnAdd`/`OnRemove`, one SQL function moving the placement).

@@ -47,6 +47,7 @@ public static class RowChoiceLabels
         {
             RowBackgroundType.None => "None",
             RowBackgroundType.Color => "Colour",
+            RowBackgroundType.Image => "Image",
             _ => throw new InvalidOperationException($"{type} has no label."),
         };
 

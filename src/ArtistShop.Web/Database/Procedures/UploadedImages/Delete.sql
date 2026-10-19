@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS delete_uploaded_images;
 
--- Deletes the images, taking their embeds out of every post and text component, and deleting every
--- image component showing one, in the same transaction. The posts' and components' updated_at stay as they were: the artist didn't edit them
+-- Deletes the images, taking their embeds out of every post and text component, deleting every
+-- image component showing one and clearing every row background showing one, in the same transaction. The posts' and components' updated_at stay as they were: the artist didn't edit them
 -- (Mike, 2026-10-15). Deleting the rows takes their junction rows with them. The files are left for
 -- the orphan sweep, as a deleted work's are
 CREATE FUNCTION delete_uploaded_images (p_storage_keys text[]) RETURNS void LANGUAGE plpgsql AS $$
@@ -37,6 +37,7 @@ BEGIN
         AND component.type = 3;
 
     PERFORM delete_image_components_showing('{}', p_storage_keys);
+    PERFORM clear_row_backgrounds_showing('{}', p_storage_keys);
 
     DELETE FROM uploaded_images
     WHERE

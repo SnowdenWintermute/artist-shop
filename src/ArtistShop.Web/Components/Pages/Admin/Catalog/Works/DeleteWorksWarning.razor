@@ -12,15 +12,14 @@
   // across all of them
   [Parameter, EditorRequired]
   public int ImageCount { get; set; }
-  // the image components showing them
   [Parameter, EditorRequired]
-  public IReadOnlyList<CustomComponentOnPages> ImageComponents { get; set; } = default!;
+  public DeletedImageUses ImageUses { get; set; } = default!;
 
   private bool IsOne => WorkCount is 1;
 }
 
-<p class="@(ImageComponents.Count > 0 ? "mb-2" : null)">
+<p class="@(ImageUses.IsEmpty ? null : "mb-2")">
 This removes @(IsOne ? "it" : "them") from the catalog for good, along with @CountText.Of(ImageCount, "image"),
 @(IsOne ? "its place" : "their places") in any @Wording.Collection.SingularInSentence and anything listed for sale from @(IsOne ? "it" : "them").
 </p>
-<DeletedImageComponentsWarning Components="ImageComponents" />
+<DeletedImageUsesWarning Uses="ImageUses" />

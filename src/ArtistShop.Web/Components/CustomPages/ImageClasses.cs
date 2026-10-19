@@ -15,7 +15,7 @@ public static class ImageClasses
             _ => throw new InvalidOperationException($"{padding} has no class."),
         };
 
-    // Padding for a picture laid over its space, as in a row that fills the screen
+    // Padding for a picture laid over its space, as an image set to Fill is
     public static string Inset(ImagePadding padding) =>
         padding switch
         {
@@ -43,6 +43,16 @@ public static class ImageClasses
         {
             ImageFit.Cover => "object-cover",
             ImageFit.Contain => "object-contain",
+            _ => throw new InvalidOperationException($"{fit} has no class."),
+        };
+
+    // the blurred placeholder, set as the <img>'s own background, fitted as the picture will be, so
+    // under Contain it doesn't fill the space around the picture for good
+    public static string PlaceholderFit(ImageFit fit) =>
+        fit switch
+        {
+            ImageFit.Cover => "bg-cover bg-center",
+            ImageFit.Contain => "bg-contain bg-center bg-no-repeat",
             _ => throw new InvalidOperationException($"{fit} has no class."),
         };
 }

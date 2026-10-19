@@ -31,6 +31,7 @@ public static class HintListing
             HintType.LookAndWordingImport => "Importing look and wording",
             HintType.CustomPages => "How pages are built",
             HintType.Images => "What the Images page is for",
+            HintType.FullBleedWorkImages => $"{wording.Work.SingularHeading} images shown wider on pages",
         };
 
     // the page it shows on
@@ -58,5 +59,7 @@ public static class HintListing
             HintType.LookAndWordingImport => PageUrls.LookImport,
             HintType.CustomPages => PageUrls.CustomPageList,
             HintType.Images => PageUrls.Images,
+            // on a row's editor or an image component's settings, reached from there
+            HintType.FullBleedWorkImages => PageUrls.CustomPageList,
         };
 }

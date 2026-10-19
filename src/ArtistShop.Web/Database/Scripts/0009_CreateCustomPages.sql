@@ -68,9 +68,30 @@ CREATE TABLE page_rows (
     CONSTRAINT foreign_key_page_rows_themes FOREIGN KEY (theme_id) REFERENCES themes (id) ON DELETE SET NULL,
     theme_preset int,
     CONSTRAINT check_page_rows_one_theme CHECK (num_nonnulls(theme_id, theme_preset) <= 1),
-    -- RowBackground.Color's hex, or null for none
-    background_color varchar(9)
+    -- RowBackgroundType's id
+    background_type int NOT NULL,
+    -- RowBackground.Color's hex, or the colour behind an image, null there for the row's page colour
+    background_color varchar(9),
+    CONSTRAINT check_page_rows_background_color CHECK (background_type <> 2 OR background_color IS NOT NULL),
+    -- an image background's source: a library image (its foreign key is added with uploaded_images in
+    -- 0011), or a work and its picked image, null for its main one. Neither until one is chosen. Deleting
+    -- the work or image clears these first, leaving the colour
+    background_uploaded_image_key char(32),
+    background_work_id int,
+    CONSTRAINT foreign_key_page_rows_works FOREIGN KEY (background_work_id) REFERENCES works (id),
+    background_work_image_key char(32),
+    -- ImageFit's id, for an image background
+    background_fit int,
+    CONSTRAINT check_page_rows_background_image CHECK (
+        num_nonnulls(background_uploaded_image_key, background_work_id) <= 1
+        AND (background_work_image_key IS NULL OR background_work_id IS NOT NULL)
+        AND (background_type = 3 OR num_nonnulls(background_uploaded_image_key, background_work_id) = 0)
+        AND (background_type = 3) = (background_fit IS NOT NULL)
+    )
 );
+
+-- deleting a work clears the backgrounds showing it
+CREATE INDEX index_page_rows_background_work_id ON page_rows (background_work_id);
 
 CREATE TABLE row_slots (
     id int GENERATED ALWAYS AS IDENTITY,
@@ -186,9 +207,9 @@ BEGIN
         VALUES (v_page.name, v_page.address)
         RETURNING id INTO v_page_id;
 
-        -- RowWidths.Whole, RowAlignment.Start, RowHeight.Natural, RowContentWidth.Page, RowPadding.New, RowGap.Medium
-        INSERT INTO page_rows (page_id, sort_order, widths, alignment, height, content_width, top_padding, bottom_padding, side_padding, gap)
-        VALUES (v_page_id, 0, 1, 1, 1, 1, 1, 1, 3, 3)
+        -- RowWidths.Whole, RowAlignment.Start, RowHeight.Natural, RowContentWidth.Page, RowPadding.New, RowGap.Medium, RowBackgroundType.None
+        INSERT INTO page_rows (page_id, sort_order, widths, alignment, height, content_width, top_padding, bottom_padding, side_padding, gap, background_type)
+        VALUES (v_page_id, 0, 1, 1, 1, 1, 1, 1, 3, 3, 1)
         RETURNING id INTO v_row_id;
 
         INSERT INTO row_slots (row_id, sort_order)
