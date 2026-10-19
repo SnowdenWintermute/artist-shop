@@ -21,7 +21,7 @@ public record SiteLook(
     ) =>
         new(
             await wordingRepository.GetAsync(),
-            await themeRepository.GetInUseAsync() ?? ThemePresets.Paper.Named,
+            await themeRepository.GetShownAsync(),
             await themeRepository.GetAllAsync(),
             await brandImageStore.GetAllOriginalsAsync()
         );

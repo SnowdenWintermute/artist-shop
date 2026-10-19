@@ -94,6 +94,13 @@ public abstract record ImageSource
 {
     public abstract ImageSourceType Type { get; }
 
+    // as forms and columns hold one: with a work's id, the key of the work's image picked (null for its
+    // main one); without, a library image's key. Null for neither
+    public static ImageSource? Of(int? workId, string? storageKey) =>
+        workId is int id ? new Work(new WorkId(id), storageKey)
+        : storageKey is { } key ? new Library(key)
+        : null;
+
     // an image in the site's image library, by its file's key, as text embeds keep theirs
     public sealed record Library(string StorageKey) : ImageSource
     {

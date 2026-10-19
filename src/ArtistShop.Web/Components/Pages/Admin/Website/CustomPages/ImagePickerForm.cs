@@ -1,7 +1,6 @@
 using ArtistShop.Web.Components.CustomPages;
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Database.Repositories;
-using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
@@ -28,10 +27,7 @@ public abstract class ImagePickerForm : ServerValidatedForm
     // the hidden field posts an empty value for none
     private string? ChosenImageKey => string.IsNullOrEmpty(ImageStorageKey) ? null : ImageStorageKey;
 
-    protected ImageSource? ChosenImageSource =>
-        ImageWorkId is int workId ? new ImageSource.Work(new WorkId(workId), ChosenImageKey)
-        : ChosenImageKey is { } storageKey ? new ImageSource.Library(storageKey)
-        : null;
+    protected ImageSource? ChosenImageSource => ImageSource.Of(ImageWorkId, ChosenImageKey);
 
     // The chosen image, which may have been deleted, or taken off its work, since the picker showed it.
     // False when the form says by the field why. A work's main image is kept as no image of it picked, so

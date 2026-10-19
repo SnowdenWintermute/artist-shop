@@ -54,12 +54,7 @@ public class RowSettingsForm : ImagePickerForm
             Gap = settings.Gap,
             Theme = settings.Theme?.QueryValue ?? WebsiteTheme,
             BackgroundType = settings.Background.Type,
-            BackgroundColor = settings.Background switch
-            {
-                RowBackground.Color color => color.Value.Hex,
-                RowBackground.Image { Behind: { } behind } => behind.Hex,
-                _ => null,
-            },
+            BackgroundColor = settings.Background.DrawnColor?.Hex,
             BackgroundFit = image?.Fit ?? ImageFit.Cover,
             HasColorBehindImage = image?.Behind is not null,
             ImageStorageKey = ImageStorageKeyOf(image?.Source),
@@ -79,6 +74,13 @@ public class RowSettingsForm : ImagePickerForm
             (Enum.IsDefined(BackgroundType), nameof(BackgroundType))
         );
 
+        // posted only while its picker shows, and empty for none, as ToSettings reads it
+        if (!string.IsNullOrEmpty(BackgroundColor) && RgbColor.FromPicker(BackgroundColor) is null)
+        {
+            AddServerError(nameof(BackgroundColor), "The colour sent isn't one this page could have picked. Reload it and try again.");
+            isValid = false;
+        }
+
         return BackgroundType is RowBackgroundType.Image
             ? await CheckChosenImageAsync(uploadedImageRepository, workRepository, wording) && isValid
             : isValid;
@@ -89,7 +91,7 @@ public class RowSettingsForm : ImagePickerForm
     // background it replaces, if it was one
     public RowSettings ToSettings(RgbColor pageColor)
     {
-        RgbColor? postedColor = RgbColor.TryParse(BackgroundColor, out var color) ? color : null;
+        var postedColor = RgbColor.FromPicker(BackgroundColor);
 
         return new(
             Height,

@@ -2,13 +2,10 @@
    for no background, or for an image not chosen or gone, past its colour. The caller's box must be
    relative and isolate, so this sits behind the content and above the page *@
 @using System.Globalization
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Images
+@using ArtistShop.Web.Domain.Catalog
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
-@inject ImageSizeQueue ImageSizeQueue
-@inject FullBleedImageSizes FullBleedImageSizes
 
 @code {
   [Parameter, EditorRequired]
@@ -21,13 +18,14 @@
   private ImageComponentPicture? _picture;
 
   // an inline style, since a colour is anything the artist picks; none where the page colour shows
-  private string? ColorStyle =>
-    Background switch
-    {
-      RowBackground.Color color => $"background-color: {color.Value.Hex};",
-      RowBackground.Image { Behind: { } behind } => $"background-color: {behind.Hex};",
-      _ => null,
-    };
+  private string? ColorStyle => Background.DrawnColor is { } color ? $"background-color: {color.Hex};" : null;
+
+  // Covering a row taller than the screen is wide for the picture's shape, the picture is drawn wider
+  // than the screen, its sides cropped. A screen-high row bounds that, which most rows are no taller than
+  private static string SizesFor(WorkImage image, ImageFit fit) =>
+    fit is ImageFit.Cover
+      ? $"max(100vw, calc(100vh * {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)}))"
+      : "100vw";
 
   protected override async Task OnParametersSetAsync() =>
     _picture = Background is RowBackground.Image image
@@ -40,20 +38,9 @@
   <div class="absolute inset-0 -z-10 overflow-hidden" style="@ColorStyle" data-row-background>
     @if (Background is RowBackground.Image { Fit: var fit } && _picture is ImageComponentPicture.Shown { Image: var image })
     {
-      var (readyWidths, width) = FullBleedImageSizes.For(image.StorageKey, image.Width, isFullBleed: true);
-
       @* decoration, so no alt text for a screen reader *@
-      <img src="@ImageUrls.Variant(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
-           srcset="@ImageUrls.SourceSet(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
-           sizes="100vw" alt=""
-           width="@image.Width.ToString(CultureInfo.InvariantCulture)" height="@image.Height.ToString(CultureInfo.InvariantCulture)"
-           loading="@(IsFirstRow ? "eager" : "lazy")" data-test="row-background-image"
-           class="@($"absolute inset-0 size-full {ImageClasses.PlaceholderFit(fit)} {ImageClasses.Fit(fit)}")"
-           style="@(image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
-      @if (ImageSizeQueue.IsProcessing(image.StorageKey, width))
-      {
-        <ProcessingLabel />
-      }
+      <FittedPicture Image="image" Fit="fit" IsFullBleed Sizes="@SizesFor(image, fit)" Alt="" IsEager="IsFirstRow"
+                     Class="absolute inset-0 size-full" data-test="row-background-image" />
     }
   </div>
 }

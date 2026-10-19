@@ -88,6 +88,15 @@ public abstract record RowBackground
 {
     public abstract RowBackgroundType Type { get; }
 
+    // a colour's, or the one behind an image; null where the row's page colour shows
+    public RgbColor? DrawnColor =>
+        this switch
+        {
+            Color color => color.Value,
+            Image image => image.Behind,
+            _ => null,
+        };
+
     public sealed record None : RowBackground
     {
         public override RowBackgroundType Type => RowBackgroundType.None;

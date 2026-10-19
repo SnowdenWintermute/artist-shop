@@ -183,7 +183,7 @@ public class ColorChoiceInput
 
     // null when the picker sent something that isn't an opaque colour
     public RgbColor? ChosenColor() =>
-        RgbColor.TryParse(Color, out var color) && color.IsOpaque
+        RgbColor.FromPicker(Color) is { } color
             ? ColorRoles.For(Role).AllowsOpacity ? color.WithOpacityPercent(OpacityPercent) : color
             : null;
 }

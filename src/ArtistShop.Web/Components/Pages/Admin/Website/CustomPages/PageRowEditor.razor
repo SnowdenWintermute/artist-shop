@@ -5,6 +5,7 @@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Sites
+@using ArtistShop.Web.Utilities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject CustomPageRepository CustomPageRepository
@@ -34,8 +35,8 @@
   private CustomPage? _page;
   private PageRow? _row;
   private IReadOnlyList<NamedTheme> _themes = [];
-  // what the public pages show; null for a preset since retired
-  private NamedTheme? _themeInUse;
+  // what the public pages show
+  private NamedTheme? _themeShown;
   // why a save didn't go through: the row removed, or its theme or background image deleted, elsewhere
   private string? _saveError;
   // a saved background image as it is now, null when there's none
@@ -52,7 +53,7 @@
 
     _row = (await CustomPageRepository.GetLayoutAsync(_page.Id)).Row(new PageRowId(RowId));
     _themes = NamedTheme.ListOf(await ThemeRepository.GetAllAsync());
-    _themeInUse = await ThemeRepository.GetInUseAsync();
+    _themeShown = await ThemeRepository.GetShownAsync();
 
     if (_row is not null)
     {
@@ -73,13 +74,15 @@
 
   // the page colour of the theme the row is on, where a background colour starts
   private RgbColor PageColorOf(ThemeKey? key) =>
-    ((key is null ? null : _themes.SingleOrDefault(theme => theme.Key == key)) ?? _themeInUse)?.Theme.Colors.Resolve(ColorRole.Page)
-    ?? ThemePresets.Paper.Theme.Colors.Resolve(ColorRole.Page);
+    ((key is null ? null : _themes.SingleOrDefault(theme => theme.Key == key)) ?? Unwrap.Value(_themeShown)).Theme.Colors.Resolve(ColorRole.Page);
 
   // the picker posts the form when it closes, as change fires
   private RenderFragment BackgroundColorInput(RowSettingsForm input) =>
-    @<InputText type="color" aria-label="Background colour" @bind-Value="input.BackgroundColor"
-                class="mb-4 block h-10 w-14 cursor-pointer border border-rule bg-panel" />;
+    @<div class="mb-4">
+      <InputText type="color" aria-label="Background colour" @bind-Value="input.BackgroundColor"
+                 class="block h-10 w-14 cursor-pointer border border-rule bg-panel" />
+      <ValidationMessage class="text-error" For="() => input.BackgroundColor" />
+    </div>;
 
   private async Task SaveAsync()
   {

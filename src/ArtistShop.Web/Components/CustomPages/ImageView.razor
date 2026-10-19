@@ -4,14 +4,10 @@
    height but its own. Nothing is drawn until an image is chosen, or once it's gone. A click opens the
    lightbox, or the artwork's page, or does nothing *@
 @using System.Globalization
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Images
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
-@inject ImageSizeQueue ImageSizeQueue
-@inject FullBleedImageSizes FullBleedImageSizes
 
 @code {
   [Parameter, EditorRequired]
@@ -28,7 +24,6 @@
 
 @if (_picture is ImageComponentPicture.Shown { Image: var image } shown)
 {
-  var (readyWidths, width) = FullBleedImageSizes.For(image.StorageKey, image.Width, isFullBleed: Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge);
   var fills = Settings.Height is ImageHeight.Fill;
   var fillsScreenRow = fills && Slot.Row.Height is RowHeight.FillScreen;
   var isFixed = Settings.Height is ImageHeight.Small or ImageHeight.Medium or ImageHeight.Large;
@@ -36,17 +31,9 @@
   var maximumWidth = $"max-width: {image.Width.ToString(CultureInfo.InvariantCulture)}px;";
 
   RenderFragment picture = @<span class="@(isSized ? "relative block h-full" : "relative block")">
-      <img src="@ImageUrls.Variant(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
-           srcset="@ImageUrls.SourceSet(image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
-           sizes="@Slot.Sizes(image.Width)" alt="@shown.AltText"
-           width="@image.Width.ToString(CultureInfo.InvariantCulture)" height="@image.Height.ToString(CultureInfo.InvariantCulture)"
-           loading="lazy" data-test="image-component"
-           class="@($"block {(isSized ? "h-full" : "h-auto")} w-full {ImageClasses.PlaceholderFit(Settings.Fit)} {ImageClasses.Fit(Settings.Fit)}")"
-           style="@(image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
-      @if (ImageSizeQueue.IsProcessing(image.StorageKey, width))
-      {
-        <ProcessingLabel />
-      }
+      <FittedPicture Image="image" Fit="Settings.Fit" IsFullBleed="Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge"
+                     Sizes="@Slot.Sizes(image.Width)" Alt="@shown.AltText"
+                     Class="@($"block {(isSized ? "h-full" : "h-auto")} w-full")" data-test="image-component" />
     </span>;
 
   @* Filling, the picture is laid over the space the group takes, inset by the padding. Elsewhere than a

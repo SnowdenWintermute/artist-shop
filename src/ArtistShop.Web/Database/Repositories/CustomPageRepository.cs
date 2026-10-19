@@ -263,10 +263,9 @@ public class CustomPageRepository(SiteDatabase database)
             {
                 RowBackgroundType.None => new RowBackground.None(),
                 RowBackgroundType.Color => new RowBackground.Color(RgbColor.Parse(Unwrap.Value(BackgroundColor))),
+                // the table's check keeps at most one of the keys
                 RowBackgroundType.Image => new RowBackground.Image(
-                    BackgroundWorkId is int workId ? new ImageSource.Work(new WorkId(workId), BackgroundWorkImageKey)
-                    : BackgroundUploadedImageKey is { } storageKey ? new ImageSource.Library(storageKey)
-                    : null,
+                    ImageSource.Of(BackgroundWorkId, BackgroundWorkImageKey ?? BackgroundUploadedImageKey),
                     Unwrap.Value(BackgroundFit),
                     BackgroundColor is { } behind ? RgbColor.Parse(behind) : null
                 ),

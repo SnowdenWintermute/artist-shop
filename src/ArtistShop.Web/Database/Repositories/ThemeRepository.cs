@@ -72,7 +72,10 @@ public class ThemeRepository(SiteDatabase database)
         await connection.ExecuteAsync("SELECT delete_theme(@Id, @Preset)", new { Id = id.Value, Preset = ThemePresets.Paper.Preset });
     }
 
-    // what the public pages show. Null when it's a preset ThemePresets no longer has
+    // what the public pages show: the theme in use, or Paper for a preset ThemePresets no longer has
+    public async Task<NamedTheme> GetShownAsync() => await GetInUseAsync() ?? ThemePresets.Paper.Named;
+
+    // the theme in use. Null when it's a preset ThemePresets no longer has
     public async Task<NamedTheme?> GetInUseAsync()
     {
         await using var connection = await database.OpenConnectionAsync();

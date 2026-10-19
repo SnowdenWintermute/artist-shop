@@ -1,0 +1,45 @@
+@* A custom page's picture at an ImageFit: the sizes ready now, its blur behind it, fitted as the picture
+   is, until the sharp one loads. Full bleed adds the large size made for pictures across the screen.
+   The caller's box must be positioned, for the label shown while sizes are made *@
+@using System.Globalization
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Images
+@inject ImageSizeQueue ImageSizeQueue
+@inject FullBleedImageSizes FullBleedImageSizes
+
+@code {
+  [Parameter, EditorRequired]
+  public required WorkImage Image { get; set; }
+  [Parameter, EditorRequired]
+  public required ImageFit Fit { get; set; }
+  [Parameter, EditorRequired]
+  public required bool IsFullBleed { get; set; }
+  [Parameter, EditorRequired]
+  public required string Sizes { get; set; }
+  [Parameter, EditorRequired]
+  public required string Alt { get; set; }
+  [Parameter]
+  public bool IsEager { get; set; }
+  // its size and place in the caller's box
+  [Parameter, EditorRequired]
+  public required string Class { get; set; }
+  // data-test
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}
+
+@{
+  var (readyWidths, width) = FullBleedImageSizes.For(Image.StorageKey, Image.Width, IsFullBleed);
+}
+<img src="@ImageUrls.Variant(Image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
+     srcset="@ImageUrls.SourceSet(Image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
+     sizes="@Sizes" alt="@Alt"
+     width="@Image.Width.ToString(CultureInfo.InvariantCulture)" height="@Image.Height.ToString(CultureInfo.InvariantCulture)"
+     loading="@(IsEager ? "eager" : "lazy")" @attributes="AdditionalAttributes"
+     class="@($"{Class} {ImageClasses.PlaceholderFit(Fit)} {ImageClasses.Fit(Fit)}")"
+     style="@(Image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
+@if (ImageSizeQueue.IsProcessing(Image.StorageKey, width))
+{
+  <ProcessingLabel />
+}

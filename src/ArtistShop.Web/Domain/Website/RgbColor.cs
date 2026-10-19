@@ -19,6 +19,9 @@ public readonly record struct RgbColor(byte Red, byte Green, byte Blue, byte Alp
     // how much of the colour shows, as the slider on the Theme page says it
     public int OpacityPercent => (int)Math.Round(Alpha / 2.55);
 
+    // what a colour picker posts, "#rrggbb"; null for anything else, which only a hand-written post sends
+    public static RgbColor? FromPicker(string? hex) => TryParse(hex, out var color) && color.IsOpaque ? color : null;
+
     public static RgbColor Parse(string hex) =>
         TryParse(hex, out var color) ? color : throw new FormatException($"\"{hex}\" isn't a hex colour.");
 

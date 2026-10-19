@@ -85,12 +85,6 @@ public class PageRowRepository(SiteDatabase database)
         int? themeId = settings.Theme is ThemeKey.Saved saved ? saved.Id.Value : null;
         ThemePreset? themePreset = settings.Theme is ThemeKey.Preset preset ? preset.Value : null;
         var background = settings.Background;
-        var backgroundColor = background switch
-        {
-            RowBackground.Color color => color.Value.Hex,
-            RowBackground.Image { Behind: { } behind } => behind.Hex,
-            _ => null,
-        };
         var backgroundSource = background is RowBackground.Image image ? image.Source : null;
         int? backgroundWorkId = backgroundSource is ImageSource.Work work ? work.WorkId.Value : null;
         int? backgroundFit = background is RowBackground.Image { Fit: var fit } ? (int)fit : null;
@@ -113,7 +107,7 @@ public class PageRowRepository(SiteDatabase database)
                     ThemeId = themeId,
                     ThemePreset = themePreset,
                     BackgroundType = (int)background.Type,
-                    BackgroundColor = backgroundColor,
+                    BackgroundColor = background.DrawnColor?.Hex,
                     BackgroundUploadedImageKey = backgroundSource is ImageSource.Library library ? library.StorageKey : null,
                     BackgroundWorkId = backgroundWorkId,
                     BackgroundWorkImageKey = backgroundSource is ImageSource.Work { StorageKey: var workImageKey } ? workImageKey : null,
