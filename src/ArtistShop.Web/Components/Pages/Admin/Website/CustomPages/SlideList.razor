@@ -1,11 +1,9 @@
 @* A chosen list of slides: drag to reorder, ✕ to take one off. Both save at once *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
-@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Utilities
 @inject SlideRepository SlideRepository
-@inject NavigationManager NavigationManager
 
 @code {
   // the owner, one of the two, as an island's parameters can't be SlideOwner's abstract type
@@ -17,83 +15,21 @@
   [Parameter, EditorRequired]
   public required IReadOnlyList<SlideListItem> Items { get; set; }
 
-  private List<SlideListItem> _items = [];
-  private bool _isSaving;
-  private bool _changedElsewhere;
-
   private SlideOwner Owner =>
     ComponentId is { } componentId ? new SlideOwner.Component(componentId) : new SlideOwner.Row(Unwrap.Value(RowId));
 
-  // after a save, Refresh re-renders the page, which passes the saved list back in here
-  protected override void OnParametersSet() => _items = [.. Items];
+  private Task ReorderAsync(IReadOnlyList<SlideListItem> items) => SlideRepository.ReorderAsync(Owner, [.. items.Select(item => item.Id)]);
 
-  private Task MoveAsync((int OldIndex, int NewIndex) move) =>
-    SaveAsync(async () =>
-    {
-      var reordered = _items.Moved(move);
-
-      await SlideRepository.ReorderAsync(Owner, [.. reordered.Select(item => item.Id)]);
-      // shown only once saved, so a failed save can't leave an order on screen that isn't in the database
-      _items = reordered;
-    });
-
-  private Task RemoveAsync(SlideListItem item) =>
-    SaveAsync(async () =>
-    {
-      await SlideRepository.RemoveAsync(Owner, item.Id);
-      // at once, as a drag before the refresh lands would otherwise send an order holding this slide
-      _items = [.. _items.Where(other => other.Id != item.Id)];
-    });
-
-  private async Task SaveAsync(Func<Task> save)
-  {
-    // a second drag while the first is saving would send an order built from the old list
-    if (_isSaving)
-    {
-      return;
-    }
-
-    _isSaving = true;
-    _changedElsewhere = false;
-
-    try
-    {
-      await save();
-    }
-    catch (ChangedSincePageLoadException)
-    {
-      _changedElsewhere = true;
-    }
-    finally
-    {
-      _isSaving = false;
-    }
-
-    NavigationManager.Refresh();
-  }
+  private Task RemoveAsync(SlideListItem item) => SlideRepository.RemoveAsync(Owner, item.Id);
 }
 
-<DisabledUntilInteractive>
-  @if (_changedElsewhere)
-  {
-    <p class="mb-2 text-error">The slides were changed somewhere else, so they have been reloaded.</p>
-  }
-
-  <p class="mb-2 text-sm">@(_items.Count == 0 ? "No slides yet." : CountText.Of(_items.Count, "slide"))</p>
-
-  @if (_items.Count > 0)
-  {
-    <SortableList TItem="SlideListItem" Items="_items" AriaLabel="Slide order" OnMove="MoveAsync">
-      <RowContent Context="item">
-        <WorkThumbnail Image="item.Image" />
-        <div class="@(item.IsMissing ? "grow text-sm text-error" : "grow")">@item.Name</div>
-      </RowContent>
-      <RowActions Context="item">
-        <button type="button" class="cursor-pointer px-1" title="Take off the list" aria-label="@($"Take {item.Name} off the list")"
-                disabled="@_isSaving" @onclick="() => RemoveAsync(item)">
-          ✕
-        </button>
-      </RowActions>
-    </SortableList>
-  }
-</DisabledUntilInteractive>
+<SavingSortableList TItem="SlideListItem" Items="Items" AriaLabel="Slide order" Reorder="ReorderAsync" Remove="RemoveAsync"
+                    NameOf="item => item.Name">
+  <Header Context="count">
+    <p class="mb-2 text-sm">@(count == 0 ? "No slides yet." : CountText.Of(count, "slide"))</p>
+  </Header>
+  <RowContent Context="item">
+    <WorkThumbnail Image="item.Image" />
+    <div class="@(item.IsMissing ? "grow text-sm text-error" : "grow")">@item.Name</div>
+  </RowContent>
+</SavingSortableList>

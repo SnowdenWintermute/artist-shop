@@ -1,11 +1,9 @@
 @* a card grid's custom list on its settings page: drag to reorder, ✕ to take a card off. Both save at once *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
-@using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Utilities
 @inject CardGridChosenCardRepository CardGridChosenCardRepository
-@inject NavigationManager NavigationManager
 
 @code {
   [CascadingParameter]
@@ -21,106 +19,45 @@
   [Parameter, EditorRequired]
   public required IReadOnlyList<ChosenCardListItem> Items { get; set; }
 
-  private List<ChosenCardListItem> _items = [];
-  private bool _isSaving;
-  private bool _changedElsewhere;
+  private Task ReorderAsync(IReadOnlyList<ChosenCardListItem> items) =>
+    CardGridChosenCardRepository.ReorderAsync(ComponentId, [.. items.Select(item => item.Id)]);
 
-  // after a save, Refresh re-renders the page, which passes the saved list back in here
-  protected override void OnParametersSet() => _items = [.. Items];
-
-  private Task MoveAsync((int OldIndex, int NewIndex) move) =>
-    SaveAsync(async () =>
-    {
-      var reordered = _items.Moved(move);
-
-      await CardGridChosenCardRepository.ReorderAsync(ComponentId, [.. reordered.Select(item => item.Id)]);
-      // shown only once saved, so a failed save can't leave an order on screen that isn't in the database
-      _items = reordered;
-    });
-
-  private Task RemoveAsync(ChosenCardListItem item) =>
-    SaveAsync(async () =>
-    {
-      await CardGridChosenCardRepository.RemoveAsync(ComponentId, item.Id);
-      // at once, as a drag before the refresh lands would otherwise send an order holding this card
-      _items = [.. _items.Where(other => other.Id != item.Id)];
-    });
-
-  private async Task SaveAsync(Func<Task> save)
-  {
-    // a second drag while the first is saving would send an order built from the old list
-    if (_isSaving)
-    {
-      return;
-    }
-
-    _isSaving = true;
-    _changedElsewhere = false;
-
-    try
-    {
-      await save();
-    }
-    catch (ChangedSincePageLoadException)
-    {
-      _changedElsewhere = true;
-    }
-    finally
-    {
-      _isSaving = false;
-    }
-
-    NavigationManager.Refresh();
-  }
+  private Task RemoveAsync(ChosenCardListItem item) => CardGridChosenCardRepository.RemoveAsync(ComponentId, item.Id);
 
   private string NotShownReason(ChosenCardListItem item) =>
     item.IsCollection ? $"Not shown: none of its {Wording.Work.PluralInSentence} has an image." : "Not shown: no image.";
 }
 
-<DisabledUntilInteractive>
-  @if (_changedElsewhere)
-  {
-    <p class="mb-2 text-error">The list was changed somewhere else, so it has been reloaded.</p>
-  }
+<SavingSortableList TItem="ChosenCardListItem" Items="Items" AriaLabel="Card order" Reorder="ReorderAsync" Remove="RemoveAsync"
+                    NameOf="item => item.Name">
+  <Header Context="count">
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span>@(count == 0 ? "Nothing on the list yet." : CountText.Of(count, "card"))</span>
 
-  <div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-    <span>@(_items.Count == 0 ? "Nothing on the list yet." : CountText.Of(_items.Count, "card"))</span>
-
-    <div class="flex gap-2">
-      <LinkButton href="@PageUrls.AddCardGridWorks(ComponentId, Origin, [])" Variant="ButtonVariant.Outline">
-        Add @Wording.Work.PluralInSentence
-      </LinkButton>
-      <LinkButton href="@PageUrls.AddCardGridCollections(ComponentId, Origin, [])" Variant="ButtonVariant.Outline">
-        Add @Wording.Collection.PluralInSentence
-      </LinkButton>
+      <div class="flex gap-2">
+        <LinkButton href="@PageUrls.AddCardGridWorks(ComponentId, Origin, [])" Variant="ButtonVariant.Outline">
+          Add @Wording.Work.PluralInSentence
+        </LinkButton>
+        <LinkButton href="@PageUrls.AddCardGridCollections(ComponentId, Origin, [])" Variant="ButtonVariant.Outline">
+          Add @Wording.Collection.PluralInSentence
+        </LinkButton>
+      </div>
     </div>
-  </div>
+  </Header>
+  <RowContent Context="item">
+    <WorkThumbnail Image="item.Image" />
 
-  @if (_items.Count > 0)
-  {
-    <SortableList TItem="ChosenCardListItem" Items="_items" AriaLabel="Card order" OnMove="MoveAsync">
-      <RowContent Context="item">
-        <WorkThumbnail Image="item.Image" />
-
-        <div class="grow">
-          <div>
-            <a href="@item.EditHref" class="underline">@item.Name</a>
-          </div>
-          <div class="text-xs text-ink-faded">
-            @(item.IsCollection ? Wording.Collection.SingularHeading : Wording.Work.SingularHeading)
-          </div>
-          @if (!item.IsVisible)
-          {
-            <div class="text-xs text-error">@NotShownReason(item)</div>
-          }
-        </div>
-      </RowContent>
-      <RowActions Context="item">
-        <button type="button" class="cursor-pointer px-1" title="Take off the list" aria-label="@($"Take {item.Name} off the list")"
-                disabled="@_isSaving" @onclick="() => RemoveAsync(item)">
-          ✕
-        </button>
-      </RowActions>
-    </SortableList>
-  }
-</DisabledUntilInteractive>
+    <div class="grow">
+      <div>
+        <a href="@item.EditHref" class="underline">@item.Name</a>
+      </div>
+      <div class="text-xs text-ink-faded">
+        @(item.IsCollection ? Wording.Collection.SingularHeading : Wording.Work.SingularHeading)
+      </div>
+      @if (!item.IsVisible)
+      {
+        <div class="text-xs text-error">@NotShownReason(item)</div>
+      }
+    </div>
+  </RowContent>
+</SavingSortableList>

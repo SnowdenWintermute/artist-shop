@@ -108,6 +108,7 @@ class ImageCarousel extends HTMLElement {
     const embla = EmblaCarousel(viewport, { loop: true, breakpoints: { [reducedMotion]: { duration: 0 } } }, plugins);
     this.#embla = embla;
     this.#connectControls(embla, this.#listeners.signal);
+    this.#loadNeighboursAhead(embla, this.#listeners.signal);
     this.dataset.ready = "";
     this.#fitDots();
 
@@ -169,6 +170,33 @@ class ImageCarousel extends HTMLElement {
       },
       { signal }
     );
+  }
+
+  // A lazy image loads once it's near the screen, which reaches the slides to the right of the shown one but not
+  // the one before it, where looping puts the last, so going back would show one still loading. The shown
+  // slide's neighbours load ahead instead. The first time, only once the first slide's own lazy image has
+  // loaded, so a carousel further down the page loads nothing more until it's near
+  /**
+   * @param {EmblaCarouselApi} embla
+   * @param {AbortSignal} signal
+   */
+  #loadNeighboursAhead(embla, signal) {
+    const slides = this.querySelectorAll('[data-part="slide"]');
+    const load = () => {
+      const shown = embla.selectedSnap();
+      [shown + 1, shown - 1 + slides.length].forEach((index) =>
+        slides[index % slides.length]?.querySelector("img")?.setAttribute("loading", "eager")
+      );
+    };
+
+    embla.on("select", load);
+    const firstImage = slides[0]?.querySelector("img");
+
+    if (firstImage instanceof HTMLImageElement && !firstImage.complete) {
+      firstImage.addEventListener("load", load, { once: true, signal });
+    } else {
+      load();
+    }
   }
 
   // The counter stands in for the dots wherever they'd be wider than the controls' room. Measured with the dots

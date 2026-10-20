@@ -15,7 +15,7 @@ namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 // A component's name, and the settings of its type: a text component's text and width, a card grid's source,
 // heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
 // create this, so it keeps a single public constructor
-public class CustomComponentForm : ImagePickerForm, IValidatableObject
+public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 {
     [Required]
     [StringLength(ArtistShopLimits.CustomComponentNameMaximumLength)]
@@ -27,9 +27,6 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
     public TextWidth Width { get; set; }
 
     public CardGridSourceType Source { get; set; }
-
-    // the collection whose works a card grid or carousel shows
-    public int? CollectionId { get; set; }
 
     public CardGridHeadingType HeadingType { get; set; }
 
@@ -78,9 +75,7 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
             {
                 Name = component.Name,
                 Source = cardGrid.Source.Type,
-                CollectionId = cardGrid.Source is CardGridSource.WorksInCollection inCollection
-                    ? inCollection.CollectionId.Value
-                    : null,
+                CollectionId = CollectionIdOf(cardGrid.Source),
                 HeadingType = cardGrid.Heading.Type,
                 HeadingText = cardGrid.Heading is CardGridHeading.Custom custom ? custom.Text : null,
                 CardsPerPage = cardGrid.CardsPerPage,
@@ -101,7 +96,7 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
             {
                 Name = component.Name,
                 SlideSource = carousel.Source.Type,
-                CollectionId = carousel.Source is Domain.Website.SlideSource.WorksInCollection inCollection ? inCollection.CollectionId.Value : null,
+                CollectionId = CollectionIdOf(carousel.Source),
                 Transition = carousel.Transition,
                 Autoplay = carousel.Autoplay,
                 ImageHeight = carousel.Height,
@@ -165,9 +160,8 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
             isValid = false;
         }
 
-        if (Source is CardGridSourceType.WorksInCollection && !collections.Any(collection => collection.Id.Value == CollectionId))
+        if (Source is CardGridSourceType.WorksInCollection && !CheckCollectionChosen(collections))
         {
-            AddServerError(nameof(CollectionId), "Choose one.");
             isValid = false;
         }
 
@@ -222,9 +216,8 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
             (Enum.IsDefined(Caption), nameof(Caption))
         );
 
-        if (SlideSource is SlideSourceType.WorksInCollection && !collections.Any(collection => collection.Id.Value == CollectionId))
+        if (SlideSource is SlideSourceType.WorksInCollection && !CheckCollectionChosen(collections))
         {
-            AddServerError(nameof(CollectionId), "Choose one.");
             isValid = false;
         }
 
@@ -239,7 +232,7 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
         {
             TextSettings => new TextSettings(LibraryImageFields.Strip(new RichText(Unwrap.Value(Body))), Width),
             CardGridSettings => new CardGridSettings(
-                CardGridSource.Of(Source, CollectionId is int collectionId ? new CollectionId(collectionId) : null),
+                CardGridSource.Of(Source, ChosenCollectionId),
                 // a custom list has nothing to name it by, so Automatic, which a grid had before switching to one, is None
                 CardGridHeading.Of(
                     Source is CardGridSourceType.ChosenCards && HeadingType is CardGridHeadingType.Automatic ? CardGridHeadingType.None : HeadingType,
@@ -256,7 +249,7 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
                 Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link
             ),
             CarouselSettings => new CarouselSettings(
-                Domain.Website.SlideSource.Of(SlideSource, CollectionId is int collectionId ? new CollectionId(collectionId) : null),
+                Domain.Website.SlideSource.Of(SlideSource, ChosenCollectionId),
                 Transition,
                 Autoplay,
                 ImageHeight,

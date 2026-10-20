@@ -98,7 +98,8 @@
             @* across the whole width and centred within it: a box placed from the middle would only get the half to its
                right, and wrap its dots well before it ran out of room *@
             <div class="absolute inset-x-2 bottom-2 hidden justify-center group-data-ready/carousel:flex" data-part="controls">
-              <div class="pointer-events-auto flex items-center gap-1 rounded-full bg-page/80 px-1 py-0.5 text-ink">
+              @* with pause the only control, nothing's left in it under reduced motion *@
+              <div class="@($"pointer-events-auto flex items-center gap-1 rounded-full bg-page/80 px-1 py-0.5 text-ink{(HasArrows || HasDots ? "" : " motion-reduce:hidden")}")">
                 @if (HasArrows)
                 {
                   <button type="button" class="@SlideControlClasses.Button" aria-label="Previous slide" data-action="previous">

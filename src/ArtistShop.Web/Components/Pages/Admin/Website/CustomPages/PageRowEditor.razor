@@ -44,7 +44,7 @@
   private string? _saveError;
   // a saved background image as it is now, null when there's none
   private ImageComponentPicture? _picture;
-  // what a slideshow can show the works of, and the ones a visitor would see anything in
+  // what a slideshow can show the works of, and the ones a visitor would see anything in, read only while it shows one
   private IReadOnlyList<Collection> _collections = [];
   private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
   // a slideshow's chosen slides, read only while it shows them
@@ -73,8 +73,12 @@
       _picture = await ImageComponentPicture.ReadAsync(image.Source, UploadedImageRepository, WorkRepository);
     }
 
-    _collections = await CollectionRepository.GetAllAsync();
-    _visibleCollectionIds = (await CollectionRepository.GetVisibleWithCoversAsync()).Select(collection => collection.Id).ToHashSet();
+    // for the collection's field and its check, both only while the form's slideshow shows one
+    if (Input is { BackgroundType: RowBackgroundType.Slideshow, SlideSource: SlideSourceType.WorksInCollection })
+    {
+      _collections = await CollectionRepository.GetAllAsync();
+      _visibleCollectionIds = (await CollectionRepository.GetVisibleWithCoversAsync()).Select(collection => collection.Id).ToHashSet();
+    }
 
     if (_row?.Background is RowBackground.Slideshow { Source: SlideSource.ChosenSlides })
     {
@@ -177,7 +181,7 @@
           {
             <SubmitOnChange>
               <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()"
-                          LabelOf="source => SlideSourceLabels.Of(source, Wording)" />
+                          LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
             </SubmitOnChange>
             @if (Input.SlideSource is SlideSourceType.WorksInCollection)
             {
@@ -189,7 +193,7 @@
             @if (Input.BackgroundType is RowBackgroundType.Slideshow)
             {
               <RadioField Label="Each image shows" @bind-Value="Input.SlideInterval" Values="Enum.GetValues<SlideshowInterval>()"
-                          LabelOf="RowChoiceLabels.Of" />
+                          LabelOf="SlideChoiceLabels.Of" />
             }
             @if (Input.BackgroundType is RowBackgroundType.Image or RowBackgroundType.Slideshow)
             {

@@ -7,7 +7,7 @@ namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // The row editor's settings: everything about a row but its slots, saved whole on every change. Form
 // posts create this, so it keeps a single public constructor
-public class RowSettingsForm : ImagePickerForm
+public class RowSettingsForm : CollectionChoiceForm
 {
     // the Theme radio for the website's own, which no ThemeKey.QueryValue can be
     public const string WebsiteTheme = "website";
@@ -39,10 +39,8 @@ public class RowSettingsForm : ImagePickerForm
     // the background is one
     public bool? HasColorBehindImage { get; set; }
 
-    // posted only while the background is a slideshow; the collection only while it shows one
+    // posted only while the background is a slideshow, and CollectionId only while it shows a collection
     public SlideSourceType SlideSource { get; set; }
-
-    public int? CollectionId { get; set; }
 
     public SlideshowInterval SlideInterval { get; set; }
 
@@ -67,7 +65,7 @@ public class RowSettingsForm : ImagePickerForm
             BackgroundFit = settings.Background.PictureFit ?? ImageFit.Cover,
             HasColorBehindImage = (image?.Behind ?? slideshow?.Behind) is not null,
             SlideSource = slideshow?.Source.Type ?? SlideSourceType.ChosenSlides,
-            CollectionId = slideshow?.Source is Domain.Website.SlideSource.WorksInCollection inCollection ? inCollection.CollectionId.Value : null,
+            CollectionId = CollectionIdOf(slideshow?.Source),
             SlideInterval = slideshow?.Interval ?? SlideshowInterval.TenSeconds,
             ImageStorageKey = ImageStorageKeyOf(image?.Source),
             ImageWorkId = ImageWorkIdOf(image?.Source),
@@ -100,9 +98,8 @@ public class RowSettingsForm : ImagePickerForm
         }
 
         if (BackgroundType is RowBackgroundType.Slideshow && SlideSource is SlideSourceType.WorksInCollection
-            && !collections.Any(collection => collection.Id.Value == CollectionId))
+            && !CheckCollectionChosen(collections))
         {
-            AddServerError(nameof(CollectionId), "Choose one.");
             isValid = false;
         }
 
@@ -131,7 +128,7 @@ public class RowSettingsForm : ImagePickerForm
                 RowBackgroundType.Image => new RowBackground.Image(ChosenImageSource, PostedFit, BehindPictures(postedColor, pageColor)),
                 RowBackgroundType.Slideshow => new RowBackground.Slideshow(
                     Enum.IsDefined(SlideSource)
-                        ? Domain.Website.SlideSource.Of(SlideSource, CollectionId is int collectionId ? new CollectionId(collectionId) : null)
+                        ? Domain.Website.SlideSource.Of(SlideSource, ChosenCollectionId)
                         : new Domain.Website.SlideSource.ChosenSlides(),
                     Enum.IsDefined(SlideInterval) ? SlideInterval : SlideshowInterval.TenSeconds,
                     PostedFit,

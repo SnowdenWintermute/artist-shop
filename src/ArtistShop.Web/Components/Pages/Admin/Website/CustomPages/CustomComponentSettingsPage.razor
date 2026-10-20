@@ -185,9 +185,6 @@ PageUrls.CustomPageList;
       _ => throw new InvalidOperationException($"{link} has no label."),
     };
 
-  private static string AutoplayLabel(CarouselAutoplay autoplay) =>
-    CarouselSettings.IntervalOf(autoplay) is { } interval ? $"Every {interval.TotalSeconds:0} seconds" : "Off";
-
   private string CarouselLinkLabel(CarouselLink link) =>
     link switch
     {
@@ -358,7 +355,7 @@ PageUrls.CustomPageList;
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
           <SubmitOnChange>
-            <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()" LabelOf="source => SlideSourceLabels.Of(source, Wording)" />
+            <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()" LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
           </SubmitOnChange>
           @if (Input.SlideSource is SlideSourceType.WorksInCollection)
           {
@@ -370,7 +367,7 @@ PageUrls.CustomPageList;
                         LabelOf="transition => transition.ToString()" />
           </SubmitOnChange>
           <SubmitOnChange>
-            <RadioField Label="Autoplay" @bind-Value="Input.Autoplay" Values="Enum.GetValues<CarouselAutoplay>()" LabelOf="AutoplayLabel" />
+            <RadioField Label="Autoplay" @bind-Value="Input.Autoplay" Values="Enum.GetValues<CarouselAutoplay>()" LabelOf="SlideChoiceLabels.Of" />
           </SubmitOnChange>
           <SubmitOnChange>
             <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="CarouselSettings.Heights" LabelOf="height => height.ToString()" />

@@ -20,9 +20,9 @@
 
   // what the fields hold now
   [Parameter, EditorRequired]
-  public string? StorageKey { get; set; }
+  public required string? StorageKey { get; set; }
   [Parameter, EditorRequired]
-  public int? WorkId { get; set; }
+  public required int? WorkId { get; set; }
 }
 
 <image-picker-buttons class="block" data-upload-url="@ImageUploadEndpoints.LibraryImageUploadPath">

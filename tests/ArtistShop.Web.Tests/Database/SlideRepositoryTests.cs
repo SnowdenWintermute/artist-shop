@@ -27,6 +27,16 @@ public sealed class SlideRepositoryTests(TestDatabaseFixture database)
         return (pageId, name, new SlideOwner.Row(await _rows.AddAsync(pageId)));
     }
 
+    // the row's background a slideshow showing the source
+    private async Task ShowSlideshowAsync(CustomPageId pageId, SlideOwner.Row owner, SlideSource source)
+    {
+        var row = Unwrap.Value((await _pages.GetLayoutAsync(pageId)).Row(owner.Id));
+        await _rows.SetSettingsAsync(owner.Id, row.Settings with
+        {
+            Background = new RowBackground.Slideshow(source, SlideshowInterval.TenSeconds, ImageFit.Cover, Behind: null),
+        });
+    }
+
     private Task<string> AddLibraryImageAsync(string altText) => UploadedImageTestData.AddAsync(_library, "pier.jpg", altText);
 
     // a work with two images, the first its main one
@@ -128,7 +138,8 @@ public sealed class SlideRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task DeletingAnImageOrWorkTakesItsSlidesAndTheWarningsSaySo()
     {
-        var (_, pageName, owner) = await AddRowAsync();
+        var (pageId, pageName, owner) = await AddRowAsync();
+        await ShowSlideshowAsync(pageId, owner, new SlideSource.ChosenSlides());
         var altText = UniqueName();
         var storageKey = await AddLibraryImageAsync(altText);
         var (work, _, _) = await AddWorkAsync(UniqueName());
@@ -149,5 +160,33 @@ public sealed class SlideRepositoryTests(TestDatabaseFixture database)
         await new WorkRepository(database.Site).DeleteAsync(work.Id);
 
         Assert.Equal([new ImageSource.Library(kept)], (await _slides.GetAsync(owner)).Select(slide => slide.Source));
+    }
+
+    [Fact]
+    public async Task SlidesKeptWhileTheirOwnerShowsSomethingElseAreNotUses()
+    {
+        var (pageId, _, row) = await AddRowAsync();
+        var altText = UniqueName();
+        var storageKey = await AddLibraryImageAsync(altText);
+        var slot = Assert.Single(Unwrap.Value((await _pages.GetLayoutAsync(pageId)).Row(row.Id)).Slots);
+        var carouselName = UniqueName();
+        var carousel = await _components.AddToSlotAsync(slot.Id, carouselName, CarouselSettings.New);
+        await _slides.AddAsync(row, new ImageSource.Library(storageKey));
+        await _slides.AddAsync(new SlideOwner.Component(carousel), new ImageSource.Library(storageKey));
+
+        // the row has no background yet, while the new carousel shows its chosen slides
+        Assert.Equal(1, Assert.Single((await _library.GetPageAsync(altText, pageNumber: 1)).Items).UsedInCount);
+        var owners = await _slides.GetOwnersShowingImagesAsync([storageKey]);
+        Assert.Equal([carouselName], owners.Carousels.Select(owner => owner.Name));
+        Assert.Empty(owners.SlideshowPages);
+
+        var collection = new SlideSource.WorksInCollection(await _catalog.AddCollectionAsync());
+        await ShowSlideshowAsync(pageId, row, collection);
+        await _components.UpdateAsync(carousel, carouselName, CarouselSettings.New with { Source = collection });
+
+        Assert.Equal(0, Assert.Single((await _library.GetPageAsync(altText, pageNumber: 1)).Items).UsedInCount);
+        owners = await _slides.GetOwnersShowingImagesAsync([storageKey]);
+        Assert.Empty(owners.Carousels);
+        Assert.Empty(owners.SlideshowPages);
     }
 }

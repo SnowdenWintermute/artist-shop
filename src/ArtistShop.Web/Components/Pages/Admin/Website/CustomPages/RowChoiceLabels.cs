@@ -82,7 +82,4 @@ public static class RowChoiceLabels
             RowSidePadding.Large => "Large",
             _ => throw new InvalidOperationException($"{padding} has no label."),
         };
-
-    public static string Of(SlideshowInterval interval) =>
-        $"Every {RowBackground.Slideshow.IntervalOf(interval).TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)} seconds";
 }

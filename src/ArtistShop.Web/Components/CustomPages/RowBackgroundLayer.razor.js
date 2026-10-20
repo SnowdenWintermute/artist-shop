@@ -69,7 +69,7 @@ class BackgroundSlideshow extends HTMLElement {
   build() {
     this.#teardown();
 
-    if (this.closest("[inert]") !== null || reducedMotion.matches || this.#slides().length + this.#waiting().length < 2) {
+    if (this.#staysStill()) {
       return;
     }
 
@@ -94,9 +94,12 @@ class BackgroundSlideshow extends HTMLElement {
 
   // whether it runs with its button wired up, or doesn't run at all, as in the inert preview or under reduced motion
   isBuiltWithButton() {
-    return this.dataset.ready === undefined
-      ? this.closest("[inert]") !== null || reducedMotion.matches || this.#slides().length + this.#waiting().length < 2
-      : this.#button()?.hasAttribute("data-ready") ?? true;
+    return this.dataset.ready === undefined ? this.#staysStill() : (this.#button()?.hasAttribute("data-ready") ?? true);
+  }
+
+  // in the inert preview, under reduced motion, or with one image
+  #staysStill() {
+    return this.closest("[inert]") !== null || reducedMotion.matches || this.#slides().length + this.#waiting().length < 2;
   }
 
   // the button shows the visitor's choice; the images change only while it's playing and can be seen

@@ -1,8 +1,9 @@
 DROP FUNCTION IF EXISTS get_uploaded_image_page;
 
 -- One page of the Images page's list, newest first, each image with how many posts, components, row
--- backgrounds, carousels and slideshows show it. A search matches alt text or file name, ignoring case and accents, its LIKE wildcards
--- escaped as find_work_ids_by_name escapes them. total_count is every match's, repeated on each row
+-- backgrounds, carousels and slideshows show it, a carousel or slideshow only while it shows its chosen slides.
+-- A search matches alt text or file name, ignoring case and accents, its LIKE wildcards escaped as
+-- find_work_ids_by_name escapes them. total_count is every match's, repeated on each row
 CREATE FUNCTION get_uploaded_image_page (p_search text, p_offset int, p_page_size int) RETURNS TABLE (
     id int,
     storage_key text,
@@ -56,8 +57,18 @@ BEGIN
                     count(DISTINCT (slides.component_id, slides.row_id))
                 FROM
                     slides
+                    LEFT JOIN custom_components AS component ON component.id = slides.component_id
+                    LEFT JOIN page_rows AS slide_row ON slide_row.id = slides.row_id
                 WHERE
                     slides.uploaded_image_key = image.storage_key
+                    AND (
+                        component.settings #>> '{source,type}' = 'ChosenSlides'
+                        -- RowBackgroundType.Slideshow, SlideSourceType.ChosenSlides
+                        OR (
+                            slide_row.background_type = 4
+                            AND slide_row.background_slide_source = 2
+                        )
+                    )
             )
         )::int,
         (COUNT(*) OVER ())::int
