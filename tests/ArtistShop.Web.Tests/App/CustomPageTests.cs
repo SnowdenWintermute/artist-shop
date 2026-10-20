@@ -25,6 +25,9 @@ public sealed partial class CustomPageTests(TestApp app)
     private UploadedImageRepository LibraryOf(TestSite site) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
 
+    private SlideRepository SlidesOf(TestSite site) =>
+        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+
     private NavEntryRepository NavOf(TestSite site) =>
         new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
 
@@ -369,6 +372,42 @@ public sealed partial class CustomPageTests(TestApp app)
         var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
         Assert.Contains("data-test=\"row-background-image\"", page);
         Assert.Contains(storageKey, await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ASlideshowBackgroundShowsItsFirstSlideAndHoldsTheRestBackWithAPauseButton()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var editorUrl = PageUrls.EditPageRow(home.Id, row.Id);
+
+        await TestApp.PostFormAsync(client, editorUrl, "row-settings", RowFormWith(new()
+        {
+            ["Input.BackgroundType"] = nameof(RowBackgroundType.Slideshow),
+            ["Input.SlideSource"] = nameof(SlideSourceType.ChosenSlides),
+            ["Input.SlideInterval"] = nameof(SlideshowInterval.FifteenSeconds),
+            ["Input.BackgroundFit"] = nameof(ImageFit.Contain),
+            ["Input.HasColorBehindImage"] = "False",
+        }));
+
+        Assert.Equal(
+            new RowBackground.Slideshow(new SlideSource.ChosenSlides(), SlideshowInterval.FifteenSeconds, ImageFit.Contain, Behind: null),
+            Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows).Background
+        );
+
+        foreach (var name in new[] { "pier.jpg", "dune.jpg", "cliff.jpg" })
+        {
+            var storageKey = await UploadedImageTestData.AddAsync(LibraryOf(site), name, name);
+            await TestApp.PostFormAsync(client, editorUrl, "add-slide", new() { ["Slide.ImageStorageKey"] = storageKey });
+        }
+
+        Assert.Equal(3, (await SlidesOf(site).GetAsync(new SlideOwner.Row(row.Id))).Count);
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+        var waiting = page.Split("<template data-part=\"later\">").Length - 1;
+        Assert.Equal((3, 2), (page.Split("data-test=\"row-background-slide\"").Length - 1, waiting));
+        Assert.Contains($"data-pauses=\"{RowBackgroundLayer.SlideshowIdOf(row.Id)}\"", page);
     }
 
     // the colour input posts the colour the row had, which stays behind the image

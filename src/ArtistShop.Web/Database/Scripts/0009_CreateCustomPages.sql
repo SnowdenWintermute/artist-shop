@@ -70,7 +70,7 @@ CREATE TABLE page_rows (
     CONSTRAINT check_page_rows_one_theme CHECK (num_nonnulls(theme_id, theme_preset) <= 1),
     -- RowBackgroundType's id
     background_type int NOT NULL,
-    -- RowBackground.Color's hex, or the colour behind an image, null there for the row's page colour
+    -- RowBackground.Color's hex, or the colour behind an image or slideshow, null there for the row's page colour
     background_color varchar(9),
     CONSTRAINT check_page_rows_background_color CHECK (background_type <> 2 OR background_color IS NOT NULL),
     -- an image background's source: a library image (its foreign key is added with uploaded_images in
@@ -80,13 +80,25 @@ CREATE TABLE page_rows (
     background_work_id int,
     CONSTRAINT foreign_key_page_rows_works FOREIGN KEY (background_work_id) REFERENCES works (id),
     background_work_image_key char(32),
-    -- ImageFit's id, for an image background
+    -- ImageFit's id, for an image or slideshow background
     background_fit int,
     CONSTRAINT check_page_rows_background_image CHECK (
         num_nonnulls(background_uploaded_image_key, background_work_id) <= 1
         AND (background_work_image_key IS NULL OR background_work_id IS NOT NULL)
         AND (background_type = 3 OR num_nonnulls(background_uploaded_image_key, background_work_id) = 0)
-        AND (background_type = 3) = (background_fit IS NOT NULL)
+        AND (background_type IN (3, 4)) = (background_fit IS NOT NULL)
+    ),
+    -- A slideshow background's SlideSourceType id, and for WorksInCollection its collection: not a foreign key, so
+    -- a collection deleted since leaves the row naming it and showing nothing, as a card grid's settings do. Its
+    -- chosen slides are in slides
+    background_slide_source int,
+    background_slide_collection_id int,
+    -- SlideshowInterval's id
+    background_slide_interval int,
+    CONSTRAINT check_page_rows_background_slideshow CHECK (
+        (background_type = 4) = (background_slide_source IS NOT NULL)
+        AND (background_type = 4) = (background_slide_interval IS NOT NULL)
+        AND (background_slide_source = 1) = (background_slide_collection_id IS NOT NULL)
     )
 );
 
@@ -159,6 +171,39 @@ CREATE TABLE card_grid_chosen_cards (
 CREATE INDEX index_card_grid_chosen_cards_collection ON card_grid_chosen_cards (collection_id);
 
 CREATE INDEX index_card_grid_chosen_cards_work ON card_grid_chosen_cards (work_id);
+
+-- The chosen slides of a carousel or a row's slideshow background, in the artist's order: one owner, a
+-- component or a row. Each is one image: a library image (its foreign key is added with uploaded_images in
+-- 0011), or a work and its picked image, null for its main one. The same image may be on a list twice. Kept
+-- while the owner shows a collection instead, so switching back brings them back. Deleting the image, the work
+-- or the owner deletes the slide
+CREATE TABLE slides (
+    id int GENERATED ALWAYS AS IDENTITY,
+    CONSTRAINT primary_key_slides PRIMARY KEY (id),
+    component_id int,
+    CONSTRAINT foreign_key_slides_custom_components FOREIGN KEY (component_id) REFERENCES custom_components (id) ON DELETE CASCADE,
+    row_id int,
+    CONSTRAINT foreign_key_slides_page_rows FOREIGN KEY (row_id) REFERENCES page_rows (id) ON DELETE CASCADE,
+    CONSTRAINT check_slides_one_owner CHECK (num_nonnulls(component_id, row_id) = 1),
+    uploaded_image_key char(32),
+    work_id int,
+    CONSTRAINT foreign_key_slides_works FOREIGN KEY (work_id) REFERENCES works (id) ON DELETE CASCADE,
+    work_image_key char(32),
+    CONSTRAINT check_slides_one_image CHECK (
+        num_nonnulls(uploaded_image_key, work_id) = 1
+        AND (work_image_key IS NULL OR work_id IS NOT NULL)
+    ),
+    sort_order int NOT NULL,
+    -- DEFERRABLE so a reorder can swap two slides in one statement. NULLs are distinct, so a row's slides
+    -- don't collide with a component's
+    CONSTRAINT unique_slides_component_sort_order UNIQUE (component_id, sort_order)
+    DEFERRABLE,
+    CONSTRAINT unique_slides_row_sort_order UNIQUE (row_id, sort_order)
+    DEFERRABLE
+);
+
+-- the cascade from a deleted work, and the delete warnings
+CREATE INDEX index_slides_work ON slides (work_id);
 
 -- the page posts link up to: one row per website, as home_page. It's chosen from the pages holding a
 -- post list, and can't be deleted while it's the blog page

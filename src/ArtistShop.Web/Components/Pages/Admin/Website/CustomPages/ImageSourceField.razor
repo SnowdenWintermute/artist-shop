@@ -1,16 +1,11 @@
-@* An image component's picture on its settings page: the chosen one, or why it shows nothing, and the
-   buttons opening the image library's picker and the work picker. <image-source-field>, defined in
-   ImageSourceField.razor.js, puts the picked or uploaded image in the hidden fields and posts the form,
-   as a select there saves on change *@
+@* An image component's picture on its settings page, or a row background's: the chosen one, or why it shows
+   nothing, and the buttons choosing another, which post the form at once, as a select there saves on change *@
 @using System.Globalization
 @using System.Linq.Expressions
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Domain.Platform
-@using ArtistShop.Web.Components.Pages.Admin.Publishing.Images.ImagePicker
-@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker
 @using ArtistShop.Web.Images
 
 @code {
@@ -40,7 +35,7 @@
     && ImageVariants.FullBleedWidthFor(image.Width) is not null;
 }
 
-<image-source-field class="mb-4 block" data-upload-url="@ImageUploadEndpoints.LibraryImageUploadPath">
+<div class="mb-4">
   <span class="artist-shop-field-label">Image</span>
   @switch (Picture)
   {
@@ -64,19 +59,7 @@
       <p class="mb-2">No image chosen yet.</p>
       break;
   }
-  <input type="hidden" name="Input.ImageStorageKey" value="@StorageKey" data-part="storage-key" />
-  <input type="hidden" name="Input.ImageWorkId" value="@WorkId?.ToString(CultureInfo.InvariantCulture)" data-part="work-id" />
-  <input type="file" accept="@ImageUploadValidation.FileInputAccept" hidden data-part="image-file" />
-  <div class="flex flex-wrap gap-2">
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="choose-library-image">
-      Choose from the image library
-    </ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="choose-work-image">
-      Choose @Wording.Work.SingularInSentence
-    </ButtonBasic>
-  </div>
-  <p class="text-sm" role="status" data-part="upload-status"></p>
+  <ImagePickerButtons StorageKeyName="Input.ImageStorageKey" WorkIdName="Input.ImageWorkId" StorageKey="@StorageKey"
+                      WorkId="WorkId" />
   <ValidationMessage class="text-error" For="StorageKeyExpression" />
-  <ImagePickerDialog />
-  <WorkPickerDialog />
-</image-source-field>
+</div>

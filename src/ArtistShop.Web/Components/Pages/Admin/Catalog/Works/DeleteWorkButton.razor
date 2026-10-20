@@ -6,6 +6,7 @@
 @inject WorkRepository WorkRepository
 @inject CustomComponentRepository CustomComponentRepository
 @inject PageRowRepository PageRowRepository
+@inject SlideRepository SlideRepository
 @inject NavigationManager NavigationManager
 
 @code {
@@ -25,7 +26,7 @@
 
   private async Task OpenDialogAsync()
   {
-    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, [WorkId]);
+    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, SlideRepository, [WorkId]);
     _dialogOpen = true;
   }
 

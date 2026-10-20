@@ -87,14 +87,15 @@ public class PageRowRepository(SiteDatabase database)
         var background = settings.Background;
         var backgroundSource = background is RowBackground.Image image ? image.Source : null;
         int? backgroundWorkId = backgroundSource is ImageSource.Work work ? work.WorkId.Value : null;
-        int? backgroundFit = background is RowBackground.Image { Fit: var fit } ? (int)fit : null;
+        var slideshow = background is RowBackground.Slideshow shown ? shown : null;
 
         try
         {
             await connection.ExecuteAsync(
                 "SELECT set_page_row_settings(@Id, @Height, @ContentWidth, @TopPadding, @BottomPadding, @SidePadding, @Gap, "
                     + "@ThemeId, @ThemePreset, @BackgroundType, @BackgroundColor, @BackgroundUploadedImageKey, @BackgroundWorkId, "
-                    + "@BackgroundWorkImageKey, @BackgroundFit)",
+                    + "@BackgroundWorkImageKey, @BackgroundFit, @BackgroundSlideSource, @BackgroundSlideCollectionId, "
+                    + "@BackgroundSlideInterval)",
                 new
                 {
                     Id = id.Value,
@@ -111,7 +112,10 @@ public class PageRowRepository(SiteDatabase database)
                     BackgroundUploadedImageKey = backgroundSource is ImageSource.Library library ? library.StorageKey : null,
                     BackgroundWorkId = backgroundWorkId,
                     BackgroundWorkImageKey = backgroundSource is ImageSource.Work { StorageKey: var workImageKey } ? workImageKey : null,
-                    BackgroundFit = backgroundFit,
+                    BackgroundFit = (int?)background.PictureFit,
+                    BackgroundSlideSource = (int?)slideshow?.Source.Type,
+                    BackgroundSlideCollectionId = slideshow?.Source is SlideSource.WorksInCollection inCollection ? inCollection.CollectionId.Value : (int?)null,
+                    BackgroundSlideInterval = (int?)slideshow?.Interval,
                 }
             );
         }

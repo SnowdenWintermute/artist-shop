@@ -251,6 +251,9 @@ public class CustomPageRepository(SiteDatabase database)
         public required int? BackgroundWorkId { get; init; }
         public required string? BackgroundWorkImageKey { get; init; }
         public required ImageFit? BackgroundFit { get; init; }
+        public required SlideSourceType? BackgroundSlideSource { get; init; }
+        public required int? BackgroundSlideCollectionId { get; init; }
+        public required SlideshowInterval? BackgroundSlideInterval { get; init; }
         public required int? SlotId { get; init; }
         public required int? ComponentId { get; init; }
         public required CustomComponentType? ComponentType { get; init; }
@@ -268,6 +271,15 @@ public class CustomPageRepository(SiteDatabase database)
                     ImageSource.Of(BackgroundWorkId, BackgroundWorkImageKey ?? BackgroundUploadedImageKey),
                     Unwrap.Value(BackgroundFit),
                     BackgroundColor is { } behind ? RgbColor.Parse(behind) : null
+                ),
+                RowBackgroundType.Slideshow => new RowBackground.Slideshow(
+                    SlideSource.Of(
+                        Unwrap.Value(BackgroundSlideSource),
+                        BackgroundSlideCollectionId is int collectionId ? new CollectionId(collectionId) : null
+                    ),
+                    Unwrap.Value(BackgroundSlideInterval),
+                    Unwrap.Value(BackgroundFit),
+                    BackgroundColor is { } slideshowBehind ? RgbColor.Parse(slideshowBehind) : null
                 ),
                 _ => throw new InvalidOperationException($"{BackgroundType} isn't a background."),
             };

@@ -1,0 +1,154 @@
+@* A carousel's slides, each fitted to its height, in the markup Embla works on: the viewport, the container and
+   its slides, with a row of controls over the bottom of the pictures: previous, dots, pause, next. <image-carousel>, defined in
+   CarouselView.razor.js, sets data-ready once Embla runs, which shows the controls; without it the first slide
+   shows alone. Fill takes what the slot's other components leave, and outside a row that fills the screen an
+   empty box of the first picture's shape holds it at least that tall, as an Image set to Fill is. Nothing is
+   drawn while there are no slides *@
+@using System.Globalization
+@using ArtistShop.Web.Components.Icons
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@inject SlideRepository SlideRepository
+@inject CollectionRepository CollectionRepository
+@inject WorkRepository WorkRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public required CarouselSettings Settings { get; set; }
+
+  [Parameter, EditorRequired]
+  public required CustomComponentId ComponentId { get; set; }
+
+  [Parameter, EditorRequired]
+  public required SlotWidth Slot { get; set; }
+
+  private IReadOnlyList<ShownSlide> _slides = [];
+
+  protected override async Task OnParametersSetAsync() =>
+    _slides = await ShownSlide.ReadAsync(Settings.Source, new SlideOwner.Component(ComponentId), SlideRepository,
+      CollectionRepository, WorkRepository);
+
+  private bool Fills => Settings.Height is ImageHeight.Fill;
+
+  private bool FillsScreenRow => Fills && Slot.Row.Height is RowHeight.FillScreen;
+
+  private string ViewportClass =>
+    FillsScreenRow ? "relative mx-auto min-h-48 w-full flex-1 overflow-hidden"
+    : Fills ? "relative mx-auto w-full flex-1 overflow-hidden"
+    : $"relative mx-auto w-full overflow-hidden {ImageClasses.Height(Settings.Height)}";
+
+  private bool HasArrows => Settings.Controls is CarouselControls.Arrows or CarouselControls.Both;
+
+  private bool HasDots => Settings.Controls is CarouselControls.Dots or CarouselControls.Both;
+
+  private bool HasCaptions => Settings.Caption is CarouselCaption.Title;
+
+  private string? IntervalMilliseconds =>
+    CarouselSettings.IntervalOf(Settings.Autoplay) is { } interval ? interval.TotalMilliseconds.ToString(CultureInfo.InvariantCulture) : null;
+
+  private static string AspectRatioStyle(WorkImage image) =>
+    $"aspect-ratio: {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)};";
+}
+
+@if (_slides is [var first, ..])
+{
+  <image-carousel class="@(Fills ? "group/carousel flex flex-1 flex-col" : "group/carousel block")" data-test="carousel"
+                  data-transition="@Settings.Transition" data-interval-milliseconds="@IntervalMilliseconds"
+                  data-embla-src="@Assets["lib/embla-carousel/embla-carousel.esm.js"]"
+                  data-fade-src="@Assets["lib/embla-carousel/embla-carousel-fade.esm.js"]"
+                  data-autoplay-src="@Assets["lib/embla-carousel/embla-carousel-autoplay.esm.js"]"
+                  data-accessibility-src="@Assets["lib/embla-carousel/embla-carousel-accessibility.esm.js"]">
+    <div class="@ViewportClass" data-part="viewport">
+      <div class="absolute inset-0 flex" data-part="container">
+        @foreach (var slide in _slides)
+        {
+          RenderFragment picture = @<FittedPicture Image="slide.Image" Fit="Settings.Fit"
+                                                   IsFullBleed="Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge"
+                                                   Sizes="@Slot.Sizes(slide.Image.Width)" Alt="@slide.AltText"
+                                                   Class="absolute inset-0 size-full" data-test="carousel-slide" />;
+
+          <div class="flex h-full min-w-0 shrink-0 grow-0 basis-full flex-col" data-part="slide">
+            <div class="relative min-h-0 flex-1">
+              @if (Settings.Link is CarouselLink.ArtworkPage && slide.WorkPageUrl is { } href)
+              {
+                <a href="@href" class="absolute inset-0 block">@picture</a>
+              }
+              else
+              {
+                @picture
+              }
+            </div>
+            @if (HasCaptions)
+            {
+              @* every slide keeps the line, so the pictures and the controls over them stay put *@
+              <p class="pt-2 text-center text-sm" data-test="@(slide.WorkTitle is null ? null : "carousel-caption")">@(slide.WorkTitle ?? "\u00a0")</p>
+            }
+          </div>
+        }
+      </div>
+      @if (Fills && !FillsScreenRow)
+      {
+        <div style="@AspectRatioStyle(first.Image)"></div>
+      }
+      @if (_slides.Count > 1 && (HasArrows || HasDots || IntervalMilliseconds is not null))
+      {
+        @* over the bottom of the pictures, so a carousel as tall as its row keeps them in it *@
+        <div class="pointer-events-none absolute inset-0 flex flex-col">
+          <div class="relative flex-1">
+            @* across the whole width and centred within it: a box placed from the middle would only get the half to its
+               right, and wrap its dots well before it ran out of room *@
+            <div class="absolute inset-x-2 bottom-2 hidden justify-center group-data-ready/carousel:flex" data-part="controls">
+              <div class="pointer-events-auto flex items-center gap-1 rounded-full bg-page/80 px-1 py-0.5 text-ink">
+                @if (HasArrows)
+                {
+                  <button type="button" class="@SlideControlClasses.Button" aria-label="Previous slide" data-action="previous">
+                    <SvgIcon Name="arrow-left" Class="size-5" />
+                  </button>
+                }
+                @if (HasDots)
+                {
+                  @* one line of dots, or where they wouldn't fit beside the other controls, which the script checks as the
+                     carousel resizes, which slide of how many *@
+                  <div class="flex group-data-compact/carousel:hidden" data-part="dots">
+                    @for (var index = 0; index < _slides.Count; index++)
+                    {
+                      @* the plugin labels each and marks the current one *@
+                      <button type="button" class="group/dot cursor-pointer p-1.5">
+                        <span class="block size-2.5 rounded-full border border-ink group-aria-[current=true]/dot:bg-ink"></span>
+                      </button>
+                    }
+                  </div>
+                  <span class="hidden px-2 text-sm whitespace-nowrap tabular-nums group-data-compact/carousel:inline" data-part="counter">
+                    1 / @_slides.Count.ToString(CultureInfo.InvariantCulture)
+                  </span>
+                }
+                @if (IntervalMilliseconds is not null)
+                {
+                  @* the script labels it and swaps the icon as autoplay starts and stops; nothing plays under reduced motion *@
+                  <button type="button" class="@($"{SlideControlClasses.Button} motion-reduce:hidden")" aria-label="Play slides" data-action="pause">
+                    <SvgIcon Name="pause" Class="hidden size-5 group-data-playing/carousel:block" />
+                    <SvgIcon Name="play" Class="size-5 group-data-playing/carousel:hidden" />
+                  </button>
+                }
+                @if (HasArrows)
+                {
+                  <button type="button" class="@SlideControlClasses.Button" aria-label="Next slide" data-action="next">
+                    <SvgIcon Name="arrow-right" Class="size-5" />
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+          @if (HasCaptions)
+          {
+            <p class="invisible pt-2 text-sm" aria-hidden="true">&nbsp;</p>
+          }
+        </div>
+      }
+    </div>
+    @if (_slides.Count > 1)
+    {
+      <p class="sr-only" data-part="live-region"></p>
+    }
+  </image-carousel>
+}

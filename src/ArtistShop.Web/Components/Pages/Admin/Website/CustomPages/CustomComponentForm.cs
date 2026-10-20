@@ -13,7 +13,8 @@ using ArtistShop.Web.Utilities;
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // A component's name, and the settings of its type: a text component's text and width, a card grid's source,
-// heading and paging, an image's fit, padding and link. Form posts create this, so it keeps a single public constructor
+// heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
+// create this, so it keeps a single public constructor
 public class CustomComponentForm : ImagePickerForm, IValidatableObject
 {
     [Required]
@@ -27,7 +28,7 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
 
     public CardGridSourceType Source { get; set; }
 
-    // the collection whose works a card grid shows
+    // the collection whose works a card grid or carousel shows
     public int? CollectionId { get; set; }
 
     public CardGridHeadingType HeadingType { get; set; }
@@ -49,6 +50,18 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
     public ImagePadding Padding { get; set; }
 
     public ImageLink Link { get; set; }
+
+    public SlideSourceType SlideSource { get; set; }
+
+    public CarouselTransition Transition { get; set; }
+
+    public CarouselAutoplay Autoplay { get; set; }
+
+    public CarouselControls Controls { get; set; }
+
+    public CarouselLink CarouselLink { get; set; }
+
+    public CarouselCaption Caption { get; set; }
 
     // LibraryImages holds the library images a text component's text shows, which the editor draws its
     // image embeds from
@@ -83,6 +96,19 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
                 Fit = image.Fit,
                 Padding = image.Padding,
                 Link = image.Link,
+            },
+            CarouselSettings carousel => new()
+            {
+                Name = component.Name,
+                SlideSource = carousel.Source.Type,
+                CollectionId = carousel.Source is Domain.Website.SlideSource.WorksInCollection inCollection ? inCollection.CollectionId.Value : null,
+                Transition = carousel.Transition,
+                Autoplay = carousel.Autoplay,
+                ImageHeight = carousel.Height,
+                Fit = carousel.Fit,
+                Controls = carousel.Controls,
+                CarouselLink = carousel.Link,
+                Caption = carousel.Caption,
             },
             _ => new() { Name = component.Name },
         };
@@ -177,6 +203,34 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
         return await CheckChosenImageAsync(uploadedImageRepository, workRepository, wording) && isValid;
     }
 
+    // A carousel's selects, and its collection. False when the form says by the field why
+    public bool CheckCarousel(CustomComponentSettings saved, IReadOnlyList<Collection> collections)
+    {
+        if (saved is not CarouselSettings)
+        {
+            return true;
+        }
+
+        var isValid = CheckSelects(
+            (Enum.IsDefined(SlideSource), nameof(SlideSource)),
+            (Enum.IsDefined(Transition), nameof(Transition)),
+            (Enum.IsDefined(Autoplay), nameof(Autoplay)),
+            (CarouselSettings.Heights.Contains(ImageHeight), nameof(ImageHeight)),
+            (Enum.IsDefined(Fit), nameof(Fit)),
+            (Enum.IsDefined(Controls), nameof(Controls)),
+            (Enum.IsDefined(CarouselLink), nameof(CarouselLink)),
+            (Enum.IsDefined(Caption), nameof(Caption))
+        );
+
+        if (SlideSource is SlideSourceType.WorksInCollection && !collections.Any(collection => collection.Id.Value == CollectionId))
+        {
+            AddServerError(nameof(CollectionId), "Choose one.");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
     public string ToName() => Unwrap.Value(Name).Trim();
 
     // the saved settings with this form's changes; a type with none comes back as it was
@@ -200,6 +254,16 @@ public class CustomComponentForm : ImagePickerForm, IValidatableObject
                 Fit,
                 Padding,
                 Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link
+            ),
+            CarouselSettings => new CarouselSettings(
+                Domain.Website.SlideSource.Of(SlideSource, CollectionId is int collectionId ? new CollectionId(collectionId) : null),
+                Transition,
+                Autoplay,
+                ImageHeight,
+                Fit,
+                Controls,
+                CarouselLink,
+                Caption
             ),
             _ => saved,
         };

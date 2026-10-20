@@ -13,6 +13,7 @@ public enum CustomComponentType
     PostList = 2,
     Text = 3,
     Image = 4,
+    Carousel = 5,
 }
 
 // One record per type, holding what the artist chose. Kept in custom_components.settings as JSON
@@ -158,6 +159,7 @@ public enum CustomComponentStarter
     Text = 3,
     Heading = 4,
     Image = 5,
+    Carousel = 6,
 }
 
 // the settings each starter makes a component with
@@ -171,6 +173,7 @@ public static class NewCustomComponentSettings
             CustomComponentStarter.Text => new TextSettings(RichText.Empty, TextWidth.Narrow),
             CustomComponentStarter.Heading => new TextSettings(HeadingText, TextWidth.Full),
             CustomComponentStarter.Image => ImageSettings.New,
+            CustomComponentStarter.Carousel => CarouselSettings.New,
             _ => throw new InvalidOperationException($"{starter} has no starting settings."),
         };
 

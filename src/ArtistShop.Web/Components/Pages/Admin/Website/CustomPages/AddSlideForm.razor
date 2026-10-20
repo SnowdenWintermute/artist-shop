@@ -1,0 +1,60 @@
+@* Adds a slide to the end of a chosen list: the pickers post the image they chose at once, and the page comes
+   back with it on the list *@
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@inject SlideRepository SlideRepository
+@inject UploadedImageRepository UploadedImageRepository
+@inject WorkRepository WorkRepository
+@inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required SlideOwner Owner { get; set; }
+
+  [SupplyParameterFromForm(FormName = "add-slide")]
+  private AddSlideInput? Slide { get; set; }
+
+  // the carousel or row removed, or the image deleted, elsewhere
+  private string? _error;
+
+  protected override void OnInitialized() => Slide ??= new AddSlideInput();
+
+  private async Task AddAsync()
+  {
+    if (Slide is null || !await Slide.CheckAsync(UploadedImageRepository, WorkRepository, Wording))
+    {
+      return;
+    }
+
+    try
+    {
+      await SlideRepository.AddAsync(Owner, Slide.ToSource());
+    }
+    catch (ChangedSincePageLoadException exception)
+    {
+      _error = exception.Message;
+      return;
+    }
+
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
+  }
+}
+
+@if (Slide is not null)
+{
+  <EditForm EditContext="Slide.EditContext" FormName="add-slide" OnValidSubmit="AddAsync" Enhance>
+    @if (_error is { } error)
+    {
+      <p class="mb-2 text-error">@error Reload the page.</p>
+    }
+    <span class="artist-shop-field-label">Add a slide</span>
+    <ImagePickerButtons StorageKeyName="Slide.ImageStorageKey" WorkIdName="Slide.ImageWorkId" StorageKey="@null" WorkId="null" />
+    <ValidationMessage class="text-error" For="() => Slide.ImageStorageKey" />
+  </EditForm>
+}

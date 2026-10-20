@@ -1,0 +1,24 @@
+@* A carousel's or slideshow's chosen list on its settings page: the slides, reordered and removed in an island,
+   and the pickers adding one, which post a form of their own *@
+
+@code {
+  [Parameter, EditorRequired]
+  public required SlideOwner Owner { get; set; }
+
+  // a List built by ToList, not a collection expression's generated type, as an island parameter is rebuilt from
+  // its runtime type
+  [Parameter, EditorRequired]
+  public required List<SlideListItem> Items { get; set; }
+
+  private CustomComponentId? ComponentId => Owner is SlideOwner.Component component ? component.Id : null;
+
+  private PageRowId? RowId => Owner is SlideOwner.Row row ? row.Id : null;
+}
+
+<h2 class="mb-2 text-lg">Slides</h2>
+<div class="mb-8">
+  <div class="mb-4">
+    <SlideList @rendermode="InteractiveServer" @key="Owner" ComponentId="ComponentId" RowId="RowId" Items="Items" />
+  </div>
+  <AddSlideForm Owner="Owner" />
+</div>

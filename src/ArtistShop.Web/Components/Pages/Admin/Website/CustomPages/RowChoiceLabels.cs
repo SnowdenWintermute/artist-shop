@@ -48,6 +48,7 @@ public static class RowChoiceLabels
             RowBackgroundType.None => "None",
             RowBackgroundType.Color => "Colour",
             RowBackgroundType.Image => "Image",
+            RowBackgroundType.Slideshow => "Slideshow",
             _ => throw new InvalidOperationException($"{type} has no label."),
         };
 
@@ -81,4 +82,7 @@ public static class RowChoiceLabels
             RowSidePadding.Large => "Large",
             _ => throw new InvalidOperationException($"{padding} has no label."),
         };
+
+    public static string Of(SlideshowInterval interval) =>
+        $"Every {RowBackground.Slideshow.IntervalOf(interval).TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)} seconds";
 }

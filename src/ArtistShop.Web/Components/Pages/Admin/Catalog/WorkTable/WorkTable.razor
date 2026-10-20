@@ -12,6 +12,7 @@
 @inject WorkRepository WorkRepository
 @inject CustomComponentRepository CustomComponentRepository
 @inject PageRowRepository PageRowRepository
+@inject SlideRepository SlideRepository
 @inject VocabularyRepository VocabularyRepository
 
 @* Works of one type, each saved on its own as its fields change. Each input saves its row when it
@@ -342,7 +343,7 @@ termIds))
   private DeletedImageUses _imageUses = DeletedImageUses.None;
 
   private async Task ReadImageUsesAsync(IReadOnlyList<WorkTableRow> rows) =>
-    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, [.. rows.Select(row => row.Id)]);
+    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, SlideRepository, [.. rows.Select(row => row.Id)]);
 
   private async Task DeleteAsync(IReadOnlyList<WorkTableRow> rows)
   {

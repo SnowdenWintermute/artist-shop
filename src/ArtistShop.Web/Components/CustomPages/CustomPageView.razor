@@ -68,7 +68,7 @@
           }
           <div data-last-row data-above-footer="@(layout.Rows.Count > 1 && last.Height is RowHeight.FillScreen)"
                data-box-of="@marker" class="flex flex-1 flex-col">
-            <RowBackgroundLayer Background="last.Background" IsFirstRow="layout.PositionOf(last).IsFirst" />
+            <RowBackgroundLayer Background="last.Background" RowId="last.Id" IsFirstRow="layout.PositionOf(last).IsFirst" />
             <PageRowView Row="last" Position="layout.PositionOf(last)" FillsBox="last.Height is RowHeight.FillScreen" LeavesBackgroundToBox />
           </div>
         </CascadingValue>

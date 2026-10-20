@@ -1,5 +1,116 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
+
+Built together, sharing the slides' source and its editor.
+
+**Library.** Embla Carousel 9.0.0-rc04 (MIT), vendored like PhotoSwipe in `wwwroot/lib/embla-carousel` with a
+`SOURCE.md`: core, fade, autoplay and accessibility. v9 because the accessibility plugin only exists there; it's a
+release candidate whose core API the maintainer calls stable. The plugins only set attributes and inline styles on
+markup we render, so slides are drawn on the server. Enhanced navigation resets those when it patches a page, so the
+custom element rebuilds Embla on `enhancedload`, as `LocalDate`, `TileImage` and `WorkGallery` do. The editor's
+preview is inert and never starts Embla: it shows the first slide.
+
+**Slides' source (shared).**
+- A collection's works, in the artist's order, each work's main image; or a chosen list.
+- A chosen list is slides in order, each one image: a library image, or one image of a work (Mike: each slide picks
+  an image, so a work can give several slides, and the same image may appear twice). Added one at a time with the
+  pickers `ImageSourceField` already opens, reordered by drag, ✕ to remove, as the card grid's custom list.
+- One `slides` table for both owners: a component or a row (exactly one), sort order, and the image as
+  `ImageSource` columns (library key, or work id + image key, null for its main one). Deleting the work or image
+  removes its slides; the delete warnings and the Images page's Used in count them.
+
+**Carousel component.** Transition Fade / Slide; Autoplay Off / 3 / 5 / 8 seconds; Height (`ImageHeight`) and Fit
+(`ImageFit`); Controls Arrows / Dots / Both / None; Click Artwork page / None (no lightbox, Mike); Caption None /
+Title. A pause button whenever it autoplays (WCAG 2.2.2). No autoplay under reduced motion. The accessibility
+plugin's labels come from the server; its live region is silent while autoplay runs and on once the visitor takes
+over. The first slide loads eagerly in a first row, the rest lazily.
+
+**Slideshow background.** A fourth `RowBackgroundType`. Same source, an interval, Fit and the colour behind, as
+the image background. No Embla: stacked images crossfading with CSS, in a small custom element. Crossfade only,
+slow intervals. A small labelled pause/play button in a corner of the row, the visitor's pause remembered across
+the site (local storage, a per-visitor preference). Under reduced motion only the first image. Stops while the tab
+is hidden or the row is off screen. Decorative: `alt=""`, hidden from screen readers.
+
+**Build steps, each leaving the app working.**
+1. Embla vendored. The `slides` table, `SlideRepository` (get with each image resolved, add, remove, reorder) for
+   both owners; deletes, warnings and Used in.
+2. Carousel type: settings record and JSON, settings page with its fields and the source (collection select, or the
+   chosen list with Add slide), view drawing the slides with no script (the first one shows).
+3. `<image-carousel>`: Embla with fade or slide, autoplay and pause button, controls, accessibility, reduced motion,
+   rebuilding on `enhancedload`, lazy slides.
+4. Slideshow background: the row's columns and editor fields, `RowBackgroundLayer` drawing the stack, and its
+   custom element.
+
+- Step 1 built 2026-10-19, uncommitted, 1281 tests. `wwwroot/lib/embla-carousel` (four ESM files, unchanged).
+  `slides` in 0009 (owner `component_id` or `row_id`, `uploaded_image_key` with its foreign key in 0011, or
+  `work_id` + `work_image_key`; every foreign key cascades) and `Procedures/Slides/` (`lock_slides`, `add_slide`,
+  `remove_slide`, `reorder_slides` SH030, `get_slides`, `get_slide_owners_showing`). `CustomComponentType.Carousel`
+  (5) exists so `lock_slides` can check it; nothing makes one yet. `SlideOwner`, `ChosenSlide`, `SlideImage`
+  (`OfLibrary` / `OfWork` with the image's place and whether it's the main one), `SlideOwnersShowing` in
+  `Domain/Website/Slide.cs`; `SlideRepository`. `DeletedImageUses.Slides` and its two warning lines; the Images
+  page's Used in counts each carousel or slideshow once. `UploadedImage.NameOf` shared with the slide read.
+- Step 2 built 2026-10-19, uncommitted, 1286 tests, JS typecheck clean, not browser-checked. Mike: no Natural
+  height for a carousel (`CarouselSettings.Heights`: Small / Medium / Large / Fill, Medium by default).
+  - `SlideSource` (WorksInCollection / ChosenSlides) in `Slide.cs`; `CarouselSettings` and its enums in
+    `CarouselSettings.cs`, JSON version 1; `CustomComponentStarter.Carousel` (6). New: chosen slides, Fade, autoplay
+    Off, Medium, Cover, Both, Artwork page, no caption.
+  - Settings page: Shows, the collection (`CollectionChoiceField`, now the card grid's too), Transition, Autoplay,
+    Height, Fit, Controls, Link, Caption; `ChosenSlidesField` while it shows chosen slides: `SlideList` (island,
+    as `ChosenCardList`, `SlideListItem.From` via `ImageComponentPicture.Of(ChosenSlide)`) and `AddSlideForm` (a
+    static "add-slide" form, `AddSlideInput : ImagePickerForm`). The pickers' buttons are `ImagePickerButtons`
+    (`<image-picker-buttons>`, was `<image-source-field>`'s script), which `ImageSourceField` now wraps.
+  - `Components/CustomPages/Slides`: `ShownSlide.ReadAsync` (either source; a collection's visible works by their
+    main image, linked within the collection, at most `MaximumFromCollection` 100, through
+    `WorkListFilter.VisibleWorksIn`, moved from the card grid) and `CarouselView`: Embla's viewport, container and
+    slides, each `FittedPicture` in a box of the carousel's height, the caption under it; Fill as the Image
+    component's. No script yet, so the first slide shows; arrows, dots and the pause button come with step 3.
+  - A carousel's works aren't in a work's "Mentioned in", as row backgrounds aren't.
+- Step 3 built 2026-10-19, uncommitted, 1287 tests, JS typecheck clean. Mike: every control in one row under the
+  carousel (previous, dots, pause, next), shown once the script runs (`group-data-ready/carousel:flex`); none for a
+  single slide; pause whenever it autoplays, even with Controls None, hidden under reduced motion.
+  - `CarouselView.razor.js` (`<image-carousel>`, in App.razor): imports Embla's four files from `data-*-src` the
+    first time a carousel connects; `loop: true`; Fade when chosen; Autoplay with `defaultInteraction: false`: a
+    hover pauses (the button still shows playing), a swipe, focus or any control stops it for good; the button plays
+    again. Accessibility plugin: region, slide labels, dots' `aria-current`, prev/next labels; the live region is
+    off until the visitor uses a control and off again when they press play. Reduced motion: `duration: 0`, autoplay
+    inactive. Not built inside `[inert]`. Rebuilt on `enhancedload` when `data-ready` is gone.
+  - Icons `pause.svg`, `play.svg` (drawn, rows in SOURCES.md). Embla's types in `globals.d.ts`.
+  - Checked in Chromium and Firefox through Playwright on a page with the same markup and the real files (28
+    checks: controls, dots, loop, autoplay, hover pause, pause/play, live region, reduced motion, inert, rebuild after
+    enhanced load). Not seen in the app itself, nor on a phone.
+- Fixes after Mike's first look, 2026-10-19:
+  - The previous slide's edge stayed in view under Contain: Embla measures with `offsetWidth`/`offsetLeft`, whole
+    pixels, so at a fractional width each slide stopped up to half a pixel short (measured 0.5px for good at
+    400.5px). The script now holds the viewport to the carousel's width rounded down (`mx-auto`, a
+    `ResizeObserver` on the element); measured 0 once settled. Hiding slides on Embla's `settle` was tried and
+    dropped: it fires 1-2s after the motion looks done.
+  - Controls over the bottom of the pictures (Mike: a full-height carousel pushed them into the footer), in a
+    `bg-page/80` pill of round icon buttons. With Caption Title every slide keeps a caption line (a non-breaking
+    space without a title), and an invisible copy under the controls keeps them above it.
+  - The controls sit in a full-width box (`inset-x-2`) centring the pill: placed from the middle, they only had the
+    half to its right and wrapped the dots early.
+  - Dots never wrap: where one line of them is wider than the controls' room, a "3 / 40" counter takes their place
+    (Mike: by the width they'd wrap at, not the slide count). The script measures on build and on every resize,
+    sets `data-compact`, and updates the counter on `select`.
+- Step 4 built 2026-10-20, uncommitted, affected test classes pass (69), JS typecheck clean. Mike: intervals 6 / 10
+  / 15 seconds (10 by default); the pause button at the bottom left of the row's own box (like a video player's,
+  and never under the footer, where a last row's background runs on); one pause for the whole website.
+  - `RowBackgroundType.Slideshow` (4), `RowBackground.Slideshow(SlideSource, SlideshowInterval, ImageFit, Behind)`,
+    `RowBackground.PictureFit` beside `DrawnColor`. `page_rows.background_slide_source`, `_collection_id` (not a
+    foreign key, so a deleted collection leaves the row naming it and showing nothing, as card grids do),
+    `_interval`, with a check; `background_fit` now for types 3 and 4. site_1 patched by hand (2026-10-20).
+  - Row editor: Background Slideshow brings Shows, the collection (`CollectionChoiceField`), "Each image shows",
+    Fit and "Behind the images"; `ChosenSlidesField` for the row after the form while it shows chosen slides.
+    `SlideSourceLabels` shared with the carousel's page.
+  - `RowBackgroundLayer` takes the row's id and draws the first slide, the rest in `<template data-part="later">`;
+    `RowBackgroundLayer.razor.js` (`<background-slideshow>`) adds each a step before it shows, crossfades over
+    1.5s, plays only while not paused, visible and on screen (`IntersectionObserver`), never under reduced motion
+    or in `[inert]`. Pause in local storage (`background-slideshows-paused`), followed by every slideshow on the
+    page and in other tabs. `PageRowView` draws the button (`data-pauses` = `RowBackgroundLayer.SlideshowIdOf`),
+    first in the row for the keyboard; `SlideControlClasses` shared with the carousel.
+  - Checked in Chromium and Firefox through Playwright (18 checks). Not seen in the app yet.
+
 ## Image component and what it needs, agreed 2026-10-15 (From Claude)
 
 Five pieces, built in this order: A, then B → C → D. E (row backgrounds) was folded into D on 2026-10-16. Custom pages' step 3 (Image) is C.

@@ -63,15 +63,27 @@ public abstract record ImageComponentPicture
         }
     }
 
-    // following the main image, the page opens where it would anyway: at the main image
     private static Shown ShownOf(Work work, ImageSource.Work source, int index) =>
-        new(
-            work.Images[index],
-            work.Name.Value,
-            work.Name.Value,
-            source.StorageKey is null
-                ? WorkPageQuery.Url(work.Slug.Value, collectionSlug: null, imageNumber: null)
-                : WorkPageQuery.ImageUrl(work.Slug.Value, collectionSlug: null, index),
-            index == work.MainImageIndex
-        );
+        new(work.Images[index], work.Name.Value, work.Name.Value, WorkPageUrl(work.Slug, source.StorageKey is null, index),
+            index == work.MainImageIndex);
+
+    // A chosen slide's image, read with it. Deleting its image or work deletes the slide, so only a work's image
+    // can be missing
+    public static ImageComponentPicture Of(ChosenSlide slide) =>
+        slide.Image switch
+        {
+            SlideImage.OfLibrary library => new Shown(library.Image, library.AltText, library.Name, ArtworkPageUrl: null,
+                IsWorksMainImage: false),
+            SlideImage.OfWork work => new Shown(work.Image, work.WorkName.Value, work.WorkName.Value,
+                WorkPageUrl(work.WorkSlug, slide.Source is ImageSource.Work { StorageKey: null }, work.Place), work.IsMain),
+            _ => new Missing(slide.Source is ImageSource.Work { StorageKey: not null }
+                ? MissingImageReason.ImageTakenOffWork
+                : MissingImageReason.WorkHasNoImages),
+        };
+
+    // following the main image, the page opens where it would anyway: at the main image
+    public static string WorkPageUrl(WorkSlug slug, bool followsMainImage, int index) =>
+        followsMainImage
+            ? WorkPageQuery.Url(slug.Value, collectionSlug: null, imageNumber: null)
+            : WorkPageQuery.ImageUrl(slug.Value, collectionSlug: null, index);
 }

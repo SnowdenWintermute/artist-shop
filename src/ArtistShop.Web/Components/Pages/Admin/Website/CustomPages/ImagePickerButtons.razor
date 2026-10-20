@@ -1,0 +1,43 @@
+@* The buttons choosing an image: from the image library, where one can be uploaded too, or one of a work's.
+   <image-picker-buttons>, defined in ImagePickerButtons.razor.js, puts the chosen image in the hidden fields and
+   posts the form they're in *@
+@using System.Globalization
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Pages.Admin.Publishing.Images.ImagePicker
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker
+@using ArtistShop.Web.Images
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // the hidden fields' names, which the form's ImagePickerForm reads: a library image's key, or with the work's
+  // id the work's picked image
+  [Parameter, EditorRequired]
+  public required string StorageKeyName { get; set; }
+  [Parameter, EditorRequired]
+  public required string WorkIdName { get; set; }
+
+  // what the fields hold now
+  [Parameter, EditorRequired]
+  public string? StorageKey { get; set; }
+  [Parameter, EditorRequired]
+  public int? WorkId { get; set; }
+}
+
+<image-picker-buttons class="block" data-upload-url="@ImageUploadEndpoints.LibraryImageUploadPath">
+  <input type="hidden" name="@StorageKeyName" value="@StorageKey" data-part="storage-key" />
+  <input type="hidden" name="@WorkIdName" value="@WorkId?.ToString(CultureInfo.InvariantCulture)" data-part="work-id" />
+  <input type="file" accept="@ImageUploadValidation.FileInputAccept" hidden data-part="image-file" />
+  <div class="flex flex-wrap gap-2">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="choose-library-image">
+      Choose from the image library
+    </ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="choose-work-image">
+      Choose @Wording.Work.SingularInSentence
+    </ButtonBasic>
+  </div>
+  <p class="text-sm" role="status" data-part="upload-status"></p>
+  <ImagePickerDialog />
+  <WorkPickerDialog />
+</image-picker-buttons>

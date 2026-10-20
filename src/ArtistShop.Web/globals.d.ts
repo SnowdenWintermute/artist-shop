@@ -204,3 +204,62 @@ interface HTMLElementTagNameMap {
 interface HTMLElementEventMap {
   "components-reconnect-state-changed": CustomEvent<{ state: string }>;
 }
+
+// wwwroot/lib/embla-carousel, which CarouselView.razor.js imports the first time a carousel connects. Only what
+// the carousel uses
+type EmblaPlugin = { name: string };
+
+type EmblaAutoplay = EmblaPlugin & {
+  play(): void;
+  stop(): void;
+  // stops until play, which carries on with the time that was left
+  pause(): void;
+  isPlaying(): boolean;
+};
+
+type EmblaAccessibility = EmblaPlugin & {
+  setupPrevAndNextButtons(previous: HTMLElement, next: HTMLElement): void;
+  // labels the wrapper's children, one per slide
+  setupDotButtons(wrapper: HTMLElement): void;
+  setupLiveRegion(region: HTMLElement): void;
+  setUpdateLiveRegion(enable: boolean): void;
+};
+
+type EmblaEvent<TDetail> = { type: string; detail: TDetail };
+
+type EmblaCarouselApi = {
+  goToPrev(): void;
+  goToNext(): void;
+  goTo(index: number): void;
+  selectedSnap(): number;
+  plugins(): { autoplay?: EmblaAutoplay; accessibility?: EmblaAccessibility };
+  on(
+    type: "autoplay:play" | "autoplay:stop" | "select",
+    handler: (api: EmblaCarouselApi) => void
+  ): EmblaCarouselApi;
+  on(
+    type: "autoplay:interaction",
+    handler: (api: EmblaCarouselApi, event: EmblaEvent<{ interaction: string }>) => void
+  ): EmblaCarouselApi;
+  destroy(): void;
+};
+
+// breakpoints hold options by media query, applied while it matches
+type EmblaOptions = { loop?: boolean; duration?: number; breakpoints?: Record<string, { duration?: number }> };
+
+type EmblaModules = {
+  EmblaCarousel: (viewport: HTMLElement, options: EmblaOptions, plugins: EmblaPlugin[]) => EmblaCarouselApi;
+  Fade: () => EmblaPlugin;
+  Autoplay: (options: {
+    delay: number;
+    // false: interactions only raise autoplay:interaction, for the caller to act on
+    defaultInteraction: boolean;
+    breakpoints: Record<string, { active: boolean }>;
+  }) => EmblaAutoplay;
+  Accessibility: (options: {
+    carouselAriaLabel: string;
+    previousButtonAriaLabel: string;
+    nextButtonAriaLabel: string;
+    announceChanges: boolean;
+  }) => EmblaAccessibility;
+};

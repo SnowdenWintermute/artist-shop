@@ -12,6 +12,7 @@
 @inject UploadedImageRepository UploadedImageRepository
 @inject CustomComponentRepository CustomComponentRepository
 @inject PageRowRepository PageRowRepository
+@inject SlideRepository SlideRepository
 @inject NavigationManager NavigationManager
 
 @* One page of the image library. An alt text saves when its field loses focus with a changed value:
@@ -59,7 +60,7 @@
   private async Task ReadUsesAsync(IReadOnlyList<ImageTableRow> rows)
   {
     _uses = await UploadedImageRepository.GetUsesAsync(StorageKeysOf(rows));
-    _imageUses = await DeletedImageUses.OfImagesAsync(CustomComponentRepository, PageRowRepository, StorageKeysOf(rows));
+    _imageUses = await DeletedImageUses.OfImagesAsync(CustomComponentRepository, PageRowRepository, SlideRepository, StorageKeysOf(rows));
   }
 
   // the refresh brings the count and the page links up to date

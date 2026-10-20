@@ -23,3 +23,17 @@
 {
   <p class="mb-2" data-test="cleared-row-backgrounds">Row backgrounds removed on @PageNamesText.Of(Uses.RowBackgroundPages).</p>
 }
+@if (Uses.Slides.Carousels.Count > 0)
+{
+  <p class="mb-2">Slides removed from carousels:</p>
+  <ul class="mb-2 list-disc pl-6" data-test="slide-carousels">
+    @foreach (var carousel in Uses.Slides.Carousels)
+    {
+      <li>@carousel.Name (@PagesText(carousel))</li>
+    }
+  </ul>
+}
+@if (Uses.Slides.SlideshowPages.Count > 0)
+{
+  <p class="mb-2" data-test="slideshow-pages">Slides removed from background slideshows on @PageNamesText.Of(Uses.Slides.SlideshowPages).</p>
+}

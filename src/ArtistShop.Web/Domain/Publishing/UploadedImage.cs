@@ -16,8 +16,10 @@ public record UploadedImage(
     DateTimeOffset UploadedAt
 )
 {
-    // what it's called in lists: its alt text, or its file name when it has none
-    public string Name => AltText is "" ? OriginalFileName : AltText;
+    public string Name => NameOf(AltText, OriginalFileName);
+
+    // what an image is called in lists: its alt text, or its file name when it has none
+    public static string NameOf(string altText, string originalFileName) => altText is "" ? originalFileName : altText;
 
     // what TileImage draws a thumbnail from, a work's image or not
     public WorkImage TileImage => new(StorageKey, OriginalFileName, Width, Height, BlurDataUri);

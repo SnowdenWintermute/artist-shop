@@ -48,6 +48,13 @@ ADD CONSTRAINT foreign_key_page_rows_uploaded_images FOREIGN KEY (background_upl
 -- deleting an image clears the backgrounds showing it
 CREATE INDEX index_page_rows_background_uploaded_image_key ON page_rows (background_uploaded_image_key);
 
+-- a slide's library image; slides comes first, in 0009. Deleting the image deletes its slides
+ALTER TABLE slides
+ADD CONSTRAINT foreign_key_slides_uploaded_images FOREIGN KEY (uploaded_image_key) REFERENCES uploaded_images (storage_key) ON DELETE CASCADE;
+
+-- the cascade from a deleted image, the delete warnings and the Images page's "Used in"
+CREATE INDEX index_slides_uploaded_image_key ON slides (uploaded_image_key);
+
 -- the sweep kept post and text component images by reading their bodies; the rows keep them now
 DROP FUNCTION IF EXISTS get_all_post_image_storage_keys;
 

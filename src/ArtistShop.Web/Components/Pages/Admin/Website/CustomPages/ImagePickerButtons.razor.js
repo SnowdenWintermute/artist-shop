@@ -1,11 +1,11 @@
-// An image component's choice of picture: the image library's picker, whose chosen or newly uploaded image
-// is put in the form's hidden fields and saved at once, and the work picker, whose image is too
+// The buttons choosing an image: the image library's picker, whose chosen or newly uploaded image is put in
+// the form's hidden fields and posted at once, and the work picker, whose image is too
 import { attachImagePicker, createFilePicker } from "../../Publishing/Images/ImagePicker/ImagePickerDialog.razor.js";
 import { attachWorkPicker } from "../../Catalog/WorkPicker/WorkPickerDialog.razor.js";
 import { uploadWithRetries } from "/js/upload-request.js";
 
 customElements.define(
-  "image-source-field",
+  "image-picker-buttons",
   class extends HTMLElement {
     /** @type {AbortController | null} */
     #listeners = null;
@@ -30,7 +30,7 @@ customElements.define(
         !(libraryButton instanceof HTMLButtonElement) ||
         !(workButton instanceof HTMLButtonElement)
       ) {
-        throw new Error("The image field is missing a picker, its file input or a Choose button.");
+        throw new Error("The image picker buttons are missing a picker, their file input or a Choose button.");
       }
 
       this.#chooseButtons = [libraryButton, workButton];
@@ -81,7 +81,7 @@ customElements.define(
       const url = this.dataset.uploadUrl;
 
       if (url === undefined) {
-        throw new Error("The image field is missing its upload address.");
+        throw new Error("The image picker buttons are missing their upload address.");
       }
 
       this.#showStatus("Uploading…");

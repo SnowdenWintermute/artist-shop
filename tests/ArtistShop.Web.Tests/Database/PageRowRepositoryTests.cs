@@ -124,6 +124,22 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task ASlideshowBackgroundKeepsItsCollectionIntervalFitAndColour()
+    {
+        var collectionId = await _catalog.AddCollectionAsync();
+        var background = new RowBackground.Slideshow(
+            new SlideSource.WorksInCollection(collectionId),
+            SlideshowInterval.SixSeconds,
+            ImageFit.Cover,
+            RgbColor.Parse("#123456")
+        );
+
+        var (pageId, rowId) = await AddRowShowingAsync(background);
+
+        Assert.Equal(background, (await RowAsync(pageId, rowId)).Background);
+    }
+
+    [Fact]
     public async Task ARowOnASavedThemeGoesBackToTheWebsitesWhenTheThemeIsDeleted()
     {
         var pageId = await AddPageAsync();

@@ -81,6 +81,16 @@ public enum RowBackgroundType
     None = 1,
     Color = 2,
     Image = 3,
+    Slideshow = 4,
+}
+
+// the ids are stored in page_rows.background_slide_interval: how long each of a slideshow's images shows, slower
+// than a carousel's, as it's behind the content
+public enum SlideshowInterval
+{
+    SixSeconds = 1,
+    TenSeconds = 2,
+    FifteenSeconds = 3,
 }
 
 // what's drawn behind a row's content, across the whole screen whatever its content's width
@@ -94,6 +104,16 @@ public abstract record RowBackground
         {
             Color color => color.Value,
             Image image => image.Behind,
+            Slideshow slideshow => slideshow.Behind,
+            _ => null,
+        };
+
+    // an image's or slideshow's; null for a background with no pictures
+    public ImageFit? PictureFit =>
+        this switch
+        {
+            Image image => image.Fit,
+            Slideshow slideshow => slideshow.Fit,
             _ => null,
         };
 
@@ -114,6 +134,22 @@ public abstract record RowBackground
     public sealed record Image(ImageSource? Source, ImageFit Fit, RgbColor? Behind) : RowBackground
     {
         public override RowBackgroundType Type => RowBackgroundType.Image;
+    }
+
+    // Images crossfading across the row, each centred and fitted, the visitor able to pause them. Behind is as an
+    // Image's
+    public sealed record Slideshow(SlideSource Source, SlideshowInterval Interval, ImageFit Fit, RgbColor? Behind) : RowBackground
+    {
+        public override RowBackgroundType Type => RowBackgroundType.Slideshow;
+
+        public static TimeSpan IntervalOf(SlideshowInterval interval) =>
+            interval switch
+            {
+                SlideshowInterval.SixSeconds => TimeSpan.FromSeconds(6),
+                SlideshowInterval.TenSeconds => TimeSpan.FromSeconds(10),
+                SlideshowInterval.FifteenSeconds => TimeSpan.FromSeconds(15),
+                _ => throw new InvalidOperationException($"{interval} has no length."),
+            };
     }
 }
 

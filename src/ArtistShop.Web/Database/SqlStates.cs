@@ -16,7 +16,7 @@ public static class SqlStates
     // UpdateVocabulary
     public const string VocabularyNoLongerExists = "SH002";
 
-    // UpdateWork, SetPageRowSettings (a row background's work)
+    // UpdateWork, SetPageRowSettings (a row background's work), AddSlide
     public const string WorkNoLongerExists = "SH003";
 
     // RenameCollection, CheckWorkChoicesAreCurrent, AddWorksToCollection
@@ -78,13 +78,13 @@ public static class SqlStates
     // ReorderPageRows
     public const string PageRowsChangedSincePageLoad = "SH023";
 
-    // SetPageRowLayout, AddRowSlot, DeleteRowSlot: the row is gone or has other slots
+    // SetPageRowLayout, AddRowSlot, DeleteRowSlot: the row is gone or has other slots. LockSlides: the row is gone
     public const string PageRowChangedSincePageLoad = "SH024";
 
     // PlaceCustomComponent, ReorderSlotPlacements: the slot is gone or holds other components
     public const string RowSlotChangedSincePageLoad = "SH025";
 
-    // UpdateCustomComponent, LockCardGridChosenCards (adding to or reordering a custom list)
+    // UpdateCustomComponent, LockCardGridChosenCards (adding to or reordering a custom list), LockSlides
     public const string CustomComponentNoLongerExists = "SH026";
 
     // CheckBlogPageHasPostList, from DeleteCustomComponent, RemoveSlotPlacement, DeleteRowSlot,
@@ -94,6 +94,9 @@ public static class SqlStates
     // ReorderCardGridChosenCards
     public const string CardGridChosenCardsChangedSincePageLoad = "SH028";
 
-    // SetPageRowSettings (a row background's library image)
+    // SetPageRowSettings (a row background's library image), AddSlide
     public const string UploadedImageNoLongerExists = "SH029";
+
+    // ReorderSlides
+    public const string SlidesChangedSincePageLoad = "SH030";
 }

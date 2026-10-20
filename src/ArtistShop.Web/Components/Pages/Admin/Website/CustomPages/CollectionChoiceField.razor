@@ -1,0 +1,50 @@
+@* The collection a card grid or carousel shows the works of, saved as soon as it's chosen, and why it would show
+   nothing: deleted, or none of its works has an image *@
+@using System.Linq.Expressions
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Domain.Catalog
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter]
+  public int? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<int?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<int?>> ValueExpression { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<Collection> Collections { get; set; }
+
+  // the ones a visitor would see anything in
+  [Parameter, EditorRequired]
+  public required IReadOnlySet<CollectionId> VisibleCollectionIds { get; set; }
+
+  // what shows it, as "the grid"
+  [Parameter, EditorRequired]
+  public required string ShownIn { get; set; }
+
+  private string? Problem =>
+    Value is not int id ? null
+    : Collections.All(collection => collection.Id.Value != id) ? $"The {Wording.Collection.SingularInSentence} it showed was deleted."
+    : !VisibleCollectionIds.Contains(new CollectionId(id)) ? $"None of its works has an image, so {ShownIn} is empty."
+    : null;
+}
+
+@if (Problem is { } problem)
+{
+  <p class="mb-2 text-sm text-error">@problem</p>
+}
+<SubmitOnChange>
+  <SelectField Label="@Wording.Collection.SingularHeading" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression">
+    <option value="">Choose…</option>
+    @foreach (var collection in Collections)
+    {
+      <option @key="collection.Id" value="@collection.Id.Value">@collection.Name.Value</option>
+    }
+  </SelectField>
+</SubmitOnChange>

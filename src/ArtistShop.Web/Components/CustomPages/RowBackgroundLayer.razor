@@ -1,21 +1,36 @@
-@* What's drawn behind a row's content, across the screen: its colour, and its image, centred. Nothing
-   for no background, or for an image not chosen or gone, past its colour. The caller's box must be
-   relative and isolate, so this sits behind the content and above the page *@
+@* What's drawn behind a row's content, across the screen: its colour, and its image or slideshow, centred.
+   Nothing for no background, or for pictures not chosen or gone, past its colour. The caller's box must be
+   relative and isolate, so this sits behind the content and above the page.
+
+   A slideshow draws its first image; the rest wait in <template>s, which <background-slideshow>, defined in
+   RowBackgroundLayer.razor.js, adds one step ahead of showing each, so a long one doesn't load every image at
+   once. Its pause button is the row's own (PageRowView), since a last row's background runs on under the footer *@
 @using System.Globalization
+@using ArtistShop.Web.Components.CustomPages.Slides
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
+@inject SlideRepository SlideRepository
+@inject CollectionRepository CollectionRepository
 
 @code {
   [Parameter, EditorRequired]
   public required RowBackground Background { get; set; }
+
+  // the row whose chosen slides a slideshow shows
+  [Parameter, EditorRequired]
+  public required PageRowId RowId { get; set; }
 
   // the first row's image is in view as the page opens, so it isn't left to load lazily
   [Parameter, EditorRequired]
   public required bool IsFirstRow { get; set; }
 
   private ImageComponentPicture? _picture;
+  private IReadOnlyList<ShownSlide> _slides = [];
+
+  // what the row's pause button names as the slideshow it controls
+  public static string SlideshowIdOf(PageRowId rowId) => $"slideshow-row-{rowId.Value.ToString(CultureInfo.InvariantCulture)}";
 
   // an inline style, since a colour is anything the artist picks; none where the page colour shows
   private string? ColorStyle => Background.DrawnColor is { } color ? $"background-color: {color.Hex};" : null;
@@ -27,10 +42,24 @@
       ? $"max(100vw, calc(100vh * {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)}))"
       : "100vw";
 
-  protected override async Task OnParametersSetAsync() =>
+  protected override async Task OnParametersSetAsync()
+  {
     _picture = Background is RowBackground.Image image
       ? await ImageComponentPicture.ReadAsync(image.Source, UploadedImageRepository, WorkRepository)
       : null;
+    _slides = Background is RowBackground.Slideshow slideshow
+      ? await ShownSlide.ReadAsync(slideshow.Source, new SlideOwner.Row(RowId), SlideRepository, CollectionRepository, WorkRepository)
+      : [];
+  }
+
+  // each image in a box of its own, faded in and out with its processing label
+  private RenderFragment SlideOf(ShownSlide slide, ImageFit fit, bool isShown) =>
+    @<div class="absolute inset-0 opacity-0 transition-opacity duration-[1500ms] data-shown:opacity-100" data-part="slide"
+          data-shown="@isShown">
+      @* decoration, so no alt text for a screen reader *@
+      <FittedPicture Image="slide.Image" Fit="fit" IsFullBleed Sizes="@SizesFor(slide.Image, fit)" Alt=""
+                     IsEager="IsFirstRow && isShown" Class="absolute inset-0 size-full" data-test="row-background-slide" />
+    </div>;
 }
 
 @if (Background is not RowBackground.None)
@@ -41,6 +70,17 @@
       @* decoration, so no alt text for a screen reader *@
       <FittedPicture Image="image" Fit="fit" IsFullBleed Sizes="@SizesFor(image, fit)" Alt="" IsEager="IsFirstRow"
                      Class="absolute inset-0 size-full" data-test="row-background-image" />
+    }
+    else if (Background is RowBackground.Slideshow { Fit: var slideFit, Interval: var interval } && _slides is [var first, ..])
+    {
+      <background-slideshow id="@SlideshowIdOf(RowId)" class="absolute inset-0 block"
+                            data-interval-milliseconds="@RowBackground.Slideshow.IntervalOf(interval).TotalMilliseconds.ToString(CultureInfo.InvariantCulture)">
+        @SlideOf(first, slideFit, isShown: true)
+        @foreach (var slide in _slides.Skip(1))
+        {
+          <template data-part="later">@SlideOf(slide, slideFit, isShown: false)</template>
+        }
+      </background-slideshow>
     }
   </div>
 }

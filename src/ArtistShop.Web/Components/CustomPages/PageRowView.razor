@@ -1,4 +1,6 @@
 @using System.Globalization
+@using ArtistShop.Web.Components.CustomPages.Slides
+@using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Components.Layout
 @code {
   [Parameter, EditorRequired]
@@ -19,9 +21,11 @@
 
   private bool DrawsBackground => !LeavesBackgroundToBox && Row.Background is not RowBackground.None;
 
+  private bool HasSlideshow => Row.Background is RowBackground.Slideshow;
+
   private string RowClass =>
     RowPaddingClasses.Vertical(Row.Padding, Position)
-    + (DrawsBackground ? " relative isolate" : "")
+    + (DrawsBackground ? " relative isolate" : HasSlideshow ? " relative" : "")
     + (FillsScreen ? $" flex flex-col {(FillsBox ? "flex-1" : RowClasses.ScreenHeightClass)}" : "")
     + (Row.Theme is null ? "" : LeavesBackgroundToBox ? " font-text text-ink" : " bg-page font-text text-ink");
 
@@ -54,7 +58,18 @@
 <div class="@RowClass" data-row-theme="@(Row.Theme is null ? null : ThemeMarker)">
   @if (DrawsBackground)
   {
-    <RowBackgroundLayer Background="Row.Background" IsFirstRow="Position.IsFirst" />
+    <RowBackgroundLayer Background="Row.Background" RowId="Row.Id" IsFirstRow="Position.IsFirst" />
+  }
+  @if (HasSlideshow)
+  {
+    @* The slideshow's pause, in the row's own box: a last row's background runs on under the footer. First, so the
+       keyboard reaches it before the row's content. RowBackgroundLayer.razor.js shows it once the slideshow plays,
+       which it never does under reduced motion, labels it and swaps the icon *@
+    <button type="button" aria-label="Pause background slideshow" data-pauses="@RowBackgroundLayer.SlideshowIdOf(Row.Id)"
+            class="@($"{SlideControlClasses.ButtonShape} group/pause absolute bottom-2 left-[max(0.5rem,env(safe-area-inset-left))] z-10 hidden bg-page/80 text-ink data-ready:inline-flex")">
+      <SvgIcon Name="pause" Class="hidden size-5 group-data-playing/pause:block" />
+      <SvgIcon Name="play" Class="size-5 group-data-playing/pause:hidden" />
+    </button>
   }
   <div class="@ContentClass">
     @foreach (var (slot, width) in Slots)

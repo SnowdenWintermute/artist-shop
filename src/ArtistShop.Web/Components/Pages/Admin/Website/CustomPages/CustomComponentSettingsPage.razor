@@ -17,6 +17,7 @@
 @inject CustomPageRepository CustomPageRepository
 @inject CollectionRepository CollectionRepository
 @inject CardGridChosenCardRepository CardGridChosenCardRepository
+@inject SlideRepository SlideRepository
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
 @inject NavigationManager NavigationManager
@@ -46,7 +47,7 @@
   private bool _formWasPosted;
   private bool _deletedElsewhere;
   private bool _isBlogPagesOnlyPostList;
-  // a card grid's to choose from, and the ones a visitor would see anything in
+  // a card grid's or carousel's to choose from, and the ones a visitor would see anything in
   private IReadOnlyList<Collection> _collections = [];
   private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
   // a card grid's custom list, read only while it shows it
@@ -55,6 +56,8 @@
   private ImageComponentPicture? _picture;
   // whether it sits in an edge-to-edge row, where its image loads a larger size
   private bool _isFullBleed;
+  // a carousel's chosen list, read only while it shows it
+  private List<SlideListItem>? _slides;
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -80,7 +83,7 @@
       _isBlogPagesOnlyPostList = await CustomComponentRepository.IsBlogPagesOnlyPostListAsync(ComponentId);
     }
 
-    if (_component?.Component.Settings is CardGridSettings)
+    if (_component?.Component.Settings is CardGridSettings or CarouselSettings)
     {
       _collections = await CollectionRepository.GetAllAsync();
       _visibleCollectionIds = (await CollectionRepository.GetVisibleWithCoversAsync()).Select(collection =>
@@ -91,6 +94,12 @@ collection.Id).ToHashSet();
     {
       _picture = await ImageComponentPicture.ReadAsync(image.Source, UploadedImageRepository, WorkRepository);
       _isFullBleed = await CustomComponentRepository.IsInEdgeToEdgeRowAsync(ComponentId);
+    }
+
+    if (_component?.Component.Settings is CarouselSettings { Source: SlideSource.ChosenSlides })
+    {
+      _slides = (await SlideRepository.GetAsync(new SlideOwner.Component(ComponentId))).Select(slide => SlideListItem.From(slide, Wording))
+        .ToList();
     }
 
     if (_component?.Component.Settings is CardGridSettings { Source: CardGridSource.ChosenCards })
@@ -105,7 +114,8 @@ collection.Id).ToHashSet();
   {
     if (_component is null || Input is null || !await Input.CheckBodyAsync(UploadedImageRepository, _component.Component.Settings)
         || !Input.CheckCardGrid(_component.Component.Settings, _collections)
-        || !await Input.CheckImageAsync(UploadedImageRepository, WorkRepository, Wording, _component.Component.Settings))
+        || !await Input.CheckImageAsync(UploadedImageRepository, WorkRepository, Wording, _component.Component.Settings)
+        || !Input.CheckCarousel(_component.Component.Settings, _collections))
     {
       return;
     }
@@ -162,13 +172,6 @@ PageUrls.CustomPageList;
       _ => "Automatic",
     };
 
-  // a chosen collection that's gone, or that a visitor would find empty
-  private string? ChosenCollectionProblem(CustomComponentForm input) =>
-    input.Source is not CardGridSourceType.WorksInCollection || input.CollectionId is not int id ? null
-      : _collections.All(collection => collection.Id.Value != id) ? $"The {Wording.Collection.SingularInSentence} it showed was deleted."
-      : !_visibleCollectionIds.Contains(new CollectionId(id)) ? "None of its works has an image, so the grid is empty."
-      : null;
-
   // the artwork page only for a work's image
   private static IReadOnlyList<ImageLink> ImageLinks(CustomComponentForm input) =>
     input.ImageWorkId is null ? [ImageLink.Lightbox, ImageLink.None] : Enum.GetValues<ImageLink>();
@@ -179,6 +182,17 @@ PageUrls.CustomPageList;
       ImageLink.Lightbox => "Lightbox",
       ImageLink.ArtworkPage => $"{Wording.Work.SingularHeading} page",
       ImageLink.None => "None",
+      _ => throw new InvalidOperationException($"{link} has no label."),
+    };
+
+  private static string AutoplayLabel(CarouselAutoplay autoplay) =>
+    CarouselSettings.IntervalOf(autoplay) is { } interval ? $"Every {interval.TotalSeconds:0} seconds" : "Off";
+
+  private string CarouselLinkLabel(CarouselLink link) =>
+    link switch
+    {
+      CarouselLink.ArtworkPage => $"{Wording.Work.SingularHeading} page",
+      CarouselLink.None => "None",
       _ => throw new InvalidOperationException($"{link} has no label."),
     };
 
@@ -279,19 +293,8 @@ PageUrls.CustomPageList;
 
           @if (Input.Source is CardGridSourceType.WorksInCollection)
           {
-            @if (ChosenCollectionProblem(Input) is { } problem)
-            {
-              <p class="mb-2 text-sm text-error">@problem</p>
-            }
-            <SubmitOnChange>
-              <SelectField Label="@Wording.Collection.SingularHeading" @bind-Value="Input.CollectionId">
-                <option value="">Choose…</option>
-                @foreach (var collection in _collections)
-                {
-                  <option @key="collection.Id" value="@collection.Id.Value">@collection.Name.Value</option>
-                }
-              </SelectField>
-            </SubmitOnChange>
+            <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
+                                   VisibleCollectionIds="_visibleCollectionIds" ShownIn="the grid" />
           }
 
           <SubmitOnChange>
@@ -350,6 +353,48 @@ PageUrls.CustomPageList;
             <RadioField Label="Link" @bind-Value="Input.Link" Values="ImageLinks(Input)" LabelOf="ImageLinkLabel" />
           </SubmitOnChange>
         </ComponentSettingsForm>
+      }
+      else if (component.Component.Settings is CarouselSettings)
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          <SubmitOnChange>
+            <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()" LabelOf="source => SlideSourceLabels.Of(source, Wording)" />
+          </SubmitOnChange>
+          @if (Input.SlideSource is SlideSourceType.WorksInCollection)
+          {
+            <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
+                                   VisibleCollectionIds="_visibleCollectionIds" ShownIn="the carousel" />
+          }
+          <SubmitOnChange>
+            <RadioField Label="Transition" @bind-Value="Input.Transition" Values="Enum.GetValues<CarouselTransition>()"
+                        LabelOf="transition => transition.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Autoplay" @bind-Value="Input.Autoplay" Values="Enum.GetValues<CarouselAutoplay>()" LabelOf="AutoplayLabel" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="CarouselSettings.Heights" LabelOf="height => height.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Controls" @bind-Value="Input.Controls" Values="Enum.GetValues<CarouselControls>()"
+                        LabelOf="controls => controls.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Link" @bind-Value="Input.CarouselLink" Values="Enum.GetValues<CarouselLink>()" LabelOf="CarouselLinkLabel" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Caption" @bind-Value="Input.Caption" Values="Enum.GetValues<CarouselCaption>()"
+                        LabelOf="caption => caption.ToString()" />
+          </SubmitOnChange>
+        </ComponentSettingsForm>
+
+        @if (_slides is not null)
+        {
+          <ChosenSlidesField Owner="new SlideOwner.Component(ComponentId)" Items="_slides" />
+        }
       }
       else
       {

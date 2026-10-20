@@ -63,7 +63,7 @@
             WorksCollection: null);
         }
 
-        var works = await WorkRepository.GetListAsync(VisibleWorksIn(collection.Id, pageNumber), searchMatches: null,
+        var works = await WorkRepository.GetListAsync(WorkListFilter.VisibleWorksIn(collection.Id, pageNumber), searchMatches: null,
           exclusion: null, pageSize);
 
         return new LoadedCardGrid(HeadingText(collection.Name.Value),
@@ -129,20 +129,6 @@
       IsForSale: null,
       Sort: WorkListSort.RecentlyAdded,
       PageNumber: 1
-    );
-
-  // a work with no photograph has nothing to show, while one with nothing for sale is still the artist's work.
-  // The artist's own order inside the collection
-  private static WorkListFilter VisibleWorksIn(CollectionId collectionId, int pageNumber) =>
-    new(
-      WorkTypeIds: [],
-      VocabularyTermIds: [],
-      Collection: new WorkCollectionFilter.InCollection(collectionId),
-      SearchText: null,
-      HasImages: true,
-      IsForSale: null,
-      Sort: WorkListSort.CollectionOrder,
-      PageNumber: pageNumber
     );
 }
 

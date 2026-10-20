@@ -212,6 +212,7 @@ AddSiteRepository(database => new PageRowRepository(database));
 AddSiteRepository(database => new RowSlotRepository(database));
 AddSiteRepository(database => new CustomComponentRepository(database));
 AddSiteRepository(database => new CardGridChosenCardRepository(database));
+AddSiteRepository(database => new SlideRepository(database));
 builder.Services.AddSingleton<OwnAddresses>();
 AddSiteRepository<WorkSearch>(database => new SqlWorkTitleSearch(database));
 

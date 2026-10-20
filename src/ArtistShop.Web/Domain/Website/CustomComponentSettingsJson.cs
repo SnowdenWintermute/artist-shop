@@ -17,6 +17,7 @@ public static class CustomComponentSettingsJson
             PostListSettings postList => (Serialize(postList), 1),
             TextSettings text => (WriteText(text), 1),
             ImageSettings image => (WriteImage(image), 1),
+            CarouselSettings carousel => (WriteCarousel(carousel), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
         };
 
@@ -27,6 +28,7 @@ public static class CustomComponentSettingsJson
             (CustomComponentType.PostList, 1) => Deserialize<PostListSettings>(json),
             (CustomComponentType.Text, 1) => ReadText(json),
             (CustomComponentType.Image, 1) => ReadImage(json),
+            (CustomComponentType.Carousel, 1) => ReadCarousel(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
         };
 
@@ -106,6 +108,52 @@ public static class CustomComponentSettingsJson
             ),
             var type => throw new InvalidOperationException($"No reader for an image's {type} source."),
         };
+
+    // {"source": {"type": "WorksInCollection", "collectionId": 4}, "transition": "Fade", "autoplay": "Off",
+    //  "height": "Medium", "fit": "Cover", "controls": "Both", "link": "ArtworkPage", "caption": "None"}, the source
+    // {"type": "ChosenSlides"} for the slides table's list
+    private static string WriteCarousel(CarouselSettings carousel)
+    {
+        var source = new JsonObject { ["type"] = carousel.Source.Type.ToString() };
+
+        if (carousel.Source is SlideSource.WorksInCollection inCollection)
+        {
+            source["collectionId"] = inCollection.CollectionId.Value;
+        }
+
+        return new JsonObject
+        {
+            ["source"] = source,
+            ["transition"] = carousel.Transition.ToString(),
+            ["autoplay"] = carousel.Autoplay.ToString(),
+            ["height"] = carousel.Height.ToString(),
+            ["fit"] = carousel.Fit.ToString(),
+            ["controls"] = carousel.Controls.ToString(),
+            ["link"] = carousel.Link.ToString(),
+            ["caption"] = carousel.Caption.ToString(),
+        }.ToJsonString();
+    }
+
+    private static CarouselSettings ReadCarousel(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var source = root.GetProperty("source");
+
+        return new CarouselSettings(
+            SlideSource.Of(
+                ReadEnum<SlideSourceType>(source),
+                source.TryGetProperty("collectionId", out var collectionId) ? new CollectionId(collectionId.GetInt32()) : null
+            ),
+            Enum.Parse<CarouselTransition>(ReadString(root, "transition")),
+            Enum.Parse<CarouselAutoplay>(ReadString(root, "autoplay")),
+            Enum.Parse<ImageHeight>(ReadString(root, "height")),
+            Enum.Parse<ImageFit>(ReadString(root, "fit")),
+            Enum.Parse<CarouselControls>(ReadString(root, "controls")),
+            Enum.Parse<CarouselLink>(ReadString(root, "link")),
+            Enum.Parse<CarouselCaption>(ReadString(root, "caption"))
+        );
+    }
 
     // {"source": {"type": "WorksInCollection", "collectionId": 4}, "heading": {"type": "Custom", "text": "…"},
     //  "cardsPerPage": 24, "hasPageLinks": true, "layout": "EvenGrid"}

@@ -1,5 +1,6 @@
 using ArtistShop.Web.Components.Forms;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
@@ -28,21 +29,29 @@ public class RowSettingsForm : ImagePickerForm
 
     public RowBackgroundType BackgroundType { get; set; }
 
-    // a hex colour, posted only while the background is a colour, or an image with a colour behind it
+    // a hex colour, posted only while the background is a colour, or pictures with a colour behind them
     public string? BackgroundColor { get; set; }
 
-    // posted only while the background is an image
+    // posted only while the background is an image or a slideshow
     public ImageFit BackgroundFit { get; set; }
 
-    // whether an image has a colour behind it rather than the row's page colour; posted only while the
-    // background is an image
+    // whether an image or slideshow has a colour behind it rather than the row's page colour; posted only while
+    // the background is one
     public bool? HasColorBehindImage { get; set; }
+
+    // posted only while the background is a slideshow; the collection only while it shows one
+    public SlideSourceType SlideSource { get; set; }
+
+    public int? CollectionId { get; set; }
+
+    public SlideshowInterval SlideInterval { get; set; }
 
     public ThemeKey? ThemeKey => Domain.Website.ThemeKey.FromQueryValue(Theme);
 
     public static RowSettingsForm From(RowSettings settings)
     {
         var image = settings.Background is RowBackground.Image imageBackground ? imageBackground : null;
+        var slideshow = settings.Background is RowBackground.Slideshow slideshowBackground ? slideshowBackground : null;
 
         return new()
         {
@@ -55,14 +64,23 @@ public class RowSettingsForm : ImagePickerForm
             Theme = settings.Theme?.QueryValue ?? WebsiteTheme,
             BackgroundType = settings.Background.Type,
             BackgroundColor = settings.Background.DrawnColor?.Hex,
-            BackgroundFit = image?.Fit ?? ImageFit.Cover,
-            HasColorBehindImage = image?.Behind is not null,
+            BackgroundFit = settings.Background.PictureFit ?? ImageFit.Cover,
+            HasColorBehindImage = (image?.Behind ?? slideshow?.Behind) is not null,
+            SlideSource = slideshow?.Source.Type ?? SlideSourceType.ChosenSlides,
+            CollectionId = slideshow?.Source is Domain.Website.SlideSource.WorksInCollection inCollection ? inCollection.CollectionId.Value : null,
+            SlideInterval = slideshow?.Interval ?? SlideshowInterval.TenSeconds,
             ImageStorageKey = ImageStorageKeyOf(image?.Source),
             ImageWorkId = ImageWorkIdOf(image?.Source),
         };
     }
 
-    public async Task<bool> CheckAsync(UploadedImageRepository uploadedImageRepository, WorkRepository workRepository, SiteWording wording)
+    // collections is what a slideshow can show the works of
+    public async Task<bool> CheckAsync(
+        UploadedImageRepository uploadedImageRepository,
+        WorkRepository workRepository,
+        SiteWording wording,
+        IReadOnlyList<Collection> collections
+    )
     {
         var isValid = CheckSelects(
             (Enum.IsDefined(Height), nameof(Height)),
@@ -81,14 +99,21 @@ public class RowSettingsForm : ImagePickerForm
             isValid = false;
         }
 
+        if (BackgroundType is RowBackgroundType.Slideshow && SlideSource is SlideSourceType.WorksInCollection
+            && !collections.Any(collection => collection.Id.Value == CollectionId))
+        {
+            AddServerError(nameof(CollectionId), "Choose one.");
+            isValid = false;
+        }
+
         return BackgroundType is RowBackgroundType.Image
             ? await CheckChosenImageAsync(uploadedImageRepository, workRepository, wording) && isValid
             : isValid;
     }
 
     // A choice made just now has nothing of its own posted, so nothing changes until one is: a colour
-    // starts as the row's page colour; an image's fit as Cover, and the colour behind it as the colour
-    // background it replaces, if it was one
+    // starts as the row's page colour; an image's or slideshow's fit as Cover, and the colour behind it as the
+    // colour background it replaces, if it was one; a slideshow's slides as chosen ones, every ten seconds
     public RowSettings ToSettings(RgbColor pageColor)
     {
         var postedColor = RgbColor.FromPicker(BackgroundColor);
@@ -103,18 +128,27 @@ public class RowSettingsForm : ImagePickerForm
             {
                 RowBackgroundType.None => new RowBackground.None(),
                 RowBackgroundType.Color => new RowBackground.Color(postedColor ?? pageColor),
-                RowBackgroundType.Image => new RowBackground.Image(
-                    ChosenImageSource,
-                    Enum.IsDefined(BackgroundFit) ? BackgroundFit : ImageFit.Cover,
-                    HasColorBehindImage switch
-                    {
-                        false => null,
-                        true => postedColor ?? pageColor,
-                        null => postedColor,
-                    }
+                RowBackgroundType.Image => new RowBackground.Image(ChosenImageSource, PostedFit, BehindPictures(postedColor, pageColor)),
+                RowBackgroundType.Slideshow => new RowBackground.Slideshow(
+                    Enum.IsDefined(SlideSource)
+                        ? Domain.Website.SlideSource.Of(SlideSource, CollectionId is int collectionId ? new CollectionId(collectionId) : null)
+                        : new Domain.Website.SlideSource.ChosenSlides(),
+                    Enum.IsDefined(SlideInterval) ? SlideInterval : SlideshowInterval.TenSeconds,
+                    PostedFit,
+                    BehindPictures(postedColor, pageColor)
                 ),
                 _ => throw new InvalidOperationException($"{BackgroundType} isn't a background."),
             }
         );
     }
+
+    private ImageFit PostedFit => Enum.IsDefined(BackgroundFit) ? BackgroundFit : ImageFit.Cover;
+
+    private RgbColor? BehindPictures(RgbColor? postedColor, RgbColor pageColor) =>
+        HasColorBehindImage switch
+        {
+            false => null,
+            true => postedColor ?? pageColor,
+            null => postedColor,
+        };
 }

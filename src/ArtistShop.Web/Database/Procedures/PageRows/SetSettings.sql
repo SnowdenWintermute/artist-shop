@@ -1,7 +1,8 @@
 DROP FUNCTION IF EXISTS set_page_row_settings;
 
 -- all of RowSettings at once: a saved theme or a ThemePreset's id or neither; the background's
--- RowBackgroundType, hex colour, and for an image its source, if chosen, and ImageFit
+-- RowBackgroundType, hex colour, for an image its source, if chosen, and ImageFit, and for a slideshow its
+-- SlideSourceType, collection and SlideshowInterval, with ImageFit
 CREATE FUNCTION set_page_row_settings (
     p_row_id int,
     p_height int,
@@ -17,7 +18,10 @@ CREATE FUNCTION set_page_row_settings (
     p_background_uploaded_image_key text,
     p_background_work_id int,
     p_background_work_image_key text,
-    p_background_fit int
+    p_background_fit int,
+    p_background_slide_source int,
+    p_background_slide_collection_id int,
+    p_background_slide_interval int
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     -- a theme deleted since the page loaded, named rather than left to the foreign key's error
@@ -61,7 +65,10 @@ BEGIN
         background_uploaded_image_key = p_background_uploaded_image_key,
         background_work_id = p_background_work_id,
         background_work_image_key = p_background_work_image_key,
-        background_fit = p_background_fit
+        background_fit = p_background_fit,
+        background_slide_source = p_background_slide_source,
+        background_slide_collection_id = p_background_slide_collection_id,
+        background_slide_interval = p_background_slide_interval
     WHERE
         id = p_row_id;
 

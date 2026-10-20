@@ -49,6 +49,20 @@ public record WorkListFilter(
     int PageNumber
 )
 {
+    // A collection's works a visitor sees: a work with no photograph has nothing to show, while one with nothing
+    // for sale is still the artist's work. The artist's own order inside the collection
+    public static WorkListFilter VisibleWorksIn(CollectionId collectionId, int pageNumber) =>
+        new(
+            WorkTypeIds: [],
+            VocabularyTermIds: [],
+            Collection: new WorkCollectionFilter.InCollection(collectionId),
+            SearchText: null,
+            HasImages: true,
+            IsForSale: null,
+            Sort: WorkListSort.CollectionOrder,
+            PageNumber: pageNumber
+        );
+
     // the sort and the page number are not filters: neither of them hides a work
     public bool HasSameFiltersAs(WorkListFilter other) =>
         WorkTypeIds.ToHashSet().SetEquals(other.WorkTypeIds)
