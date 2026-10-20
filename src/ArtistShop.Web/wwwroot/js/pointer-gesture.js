@@ -20,6 +20,9 @@ import {
  * @property {(point: GesturePoint) => void} onMove
  * @property {(point: GesturePoint) => void} onEnd
  * @property {() => void} onCancel the browser took the press over, such as for a second finger
+ * @property {number} [holdMilliseconds] how long a finger holds still first, gestureHoldMilliseconds
+ *   unless given; none for a handle that only drags, whose touch-none already keeps the page from
+ *   scrolling
  */
 
 /**
@@ -111,7 +114,7 @@ export function listenForGesture(element, gesture, signal) {
         start: pointOf(event),
         isTouch,
         isActive: false,
-        holdTimer: isTouch ? setTimeout(begin, gestureHoldMilliseconds) : undefined,
+        holdTimer: isTouch ? setTimeout(begin, gesture.holdMilliseconds ?? gestureHoldMilliseconds) : undefined,
       };
     },
     { signal }

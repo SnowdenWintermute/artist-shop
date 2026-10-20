@@ -464,8 +464,9 @@ public sealed partial class CustomPageTests(TestApp app)
 
         var editor = await client.GetStringAsync(componentHref, TestContext.Current.CancellationToken);
 
-        Assert.Contains($"href=\"{PageUrls.EditPageRow(home.Id, row.Id)}\"", editor);
-        Assert.Contains($"href=\"{HtmlEncoder.Default.Encode(componentHref)}\"", editor);
+        // the outline's own Edit links, as the up link goes to the row editor too
+        Assert.Matches($"<a href=\"{Regex.Escape(PageUrls.EditPageRow(home.Id, row.Id))}\"[^>]* data-test=\"outline-edit\"", editor);
+        Assert.Matches($"<a href=\"{Regex.Escape(HtmlEncoder.Default.Encode(componentHref))}\"[^>]* data-test=\"outline-edit\"", editor);
     }
 
     [Fact]

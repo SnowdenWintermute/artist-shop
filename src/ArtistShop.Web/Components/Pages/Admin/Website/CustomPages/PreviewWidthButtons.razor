@@ -1,0 +1,14 @@
+@* A preview's Desktop and Phone buttons, Desktop pressed until the preview's script presses the width remembered
+   (preview-width.js). data-phone: ThemedPreview narrows its box to the phone *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
+
+@code {
+  // Primary when pressed, else Outline
+  private const string WidthButtonClass = "aria-pressed:bg-accent aria-pressed:text-on-accent";
+}
+
+<ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="true"
+             data-preview-width="@CustomPageWidths.DesktopPixels">Desktop</ButtonBasic>
+<ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="false"
+             data-preview-width="@CustomPageWidths.PhonePixels" data-phone>Phone</ButtonBasic>

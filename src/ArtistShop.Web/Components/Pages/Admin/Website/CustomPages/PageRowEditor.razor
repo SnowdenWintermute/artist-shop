@@ -144,9 +144,13 @@
     <UpLink Class="mb-4" Href="@PageUrls.EditCustomPage(_page.Id)" Label="@_page.Name" />
     <h1 class="mb-4 text-xl">Row on @_page.Name</h1>
 
-    @if (_row is not null && Input is not null)
+    @if (_row is null)
     {
-      @* every choice saves the moment it's made; the row's slots, below, are an island *@
+      <p>This row doesn't exist. It may have been removed.</p>
+    }
+    else if (Input is not null)
+    {
+      @* every choice saves the moment it's made *@
       <EditForm EditContext="Input.EditContext" FormName="row-settings" OnValidSubmit="SaveAsync" Enhance class="mb-6">
         @if (_saveError is { } saveError)
         {

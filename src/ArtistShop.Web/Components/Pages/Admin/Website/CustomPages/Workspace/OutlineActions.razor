@@ -23,7 +23,7 @@
 </button>
 @if (EditHref is not null)
 {
-  <a href="@EditHref" class="shrink-0 p-0.75" title="Edit" aria-label="@($"Edit {Label}")">
+  <a href="@EditHref" class="shrink-0 p-0.75" title="Edit" aria-label="@($"Edit {Label}")" data-test="outline-edit">
     <SvgIcon Name="pencil" Class="size-5" />
   </a>
 }

@@ -12,19 +12,13 @@
   // the theme visitors see; null leaves the preview in the platform's
   private NamedTheme? _theme;
 
-  // Primary when pressed, else Outline
-  private const string WidthButtonClass = "aria-pressed:bg-accent aria-pressed:text-on-accent";
-
   protected override async Task OnInitializedAsync() => _theme = await ThemeRepository.GetInUseAsync();
 }
 
 <themed-preview class="group/preview block">
   <div role="group" aria-label="Width" class="mb-2 flex flex-wrap items-center gap-2">
     <span class="mr-2">Width</span>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="true"
-                 data-preview-width="@CustomPageWidths.DesktopPixels">Desktop</ButtonBasic>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="false"
-                 data-preview-width="@CustomPageWidths.PhonePixels" data-phone>Phone</ButtonBasic>
+    <PreviewWidthButtons />
   </div>
   @* ThemeStyle sets the theme on this box alone, as on the Theme page's preview. inert: a link in the
      preview would leave the editor. w-fit for the phone, so the box is the phone's width rather than the editor's.

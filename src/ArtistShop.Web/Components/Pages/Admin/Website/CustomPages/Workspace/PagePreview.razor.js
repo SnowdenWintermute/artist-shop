@@ -6,25 +6,7 @@
 // (Mike: scrolling to it was jarring). What's being edited (data-row-id, data-component-id) is outlined. Links and forms in the frame do nothing, so the editor stays.
 // An enhanced load patches this element's attributes and the frame's back to the server's, so they're set again: the
 // width chosen on enhancedload, and the frame's size whenever its style changes, whatever the order things run in
-const storageKey = "page-preview-width";
-
-/** @returns {string | null} */
-function rememberedWidth() {
-  try {
-    return sessionStorage.getItem(storageKey);
-  } catch {
-    return null;
-  }
-}
-
-/** @param {string} width */
-function rememberWidth(width) {
-  try {
-    sessionStorage.setItem(storageKey, width);
-  } catch {
-    // a blocked storage only means the next load starts at Desktop
-  }
-}
+import { pressWidthButton, rememberedWidthButton, rememberPreviewWidth } from "/js/preview-width.js";
 
 // the frame's elements aren't instances of this window's Element, so they're told by name
 /** @param {Event} event */
@@ -128,13 +110,10 @@ class PagePreview extends HTMLElement {
 
   // after an enhanced load: the width chosen, and the frame's size, which the patch took away
   restore() {
-    const width = rememberedWidth();
-    const button = [...this.querySelectorAll("[data-preview-width]")].find(
-      (candidate) => candidate.getAttribute("data-preview-width") === width
-    );
+    const button = rememberedWidthButton(this);
 
     if (button) {
-      this.#press(button);
+      pressWidthButton(this, button);
     }
 
     this.#fit();
@@ -175,16 +154,9 @@ class PagePreview extends HTMLElement {
       return;
     }
 
-    rememberWidth(width);
-    this.#press(chosen);
+    rememberPreviewWidth(width);
+    pressWidthButton(this, chosen);
     this.#fit();
-  }
-
-  /** @param {Element} chosen */
-  #press(chosen) {
-    for (const button of this.querySelectorAll("[data-preview-width]")) {
-      button.setAttribute("aria-pressed", String(button === chosen));
-    }
   }
 
   // on phones, the workspace's Preview button opens it over the editor

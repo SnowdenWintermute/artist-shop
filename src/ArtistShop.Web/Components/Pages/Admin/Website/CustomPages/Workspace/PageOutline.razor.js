@@ -5,21 +5,15 @@
 // the one under the pointer fills (data-drop-active). Over a part rather than a gap, the gap on that half of it is
 // the one meant. Not lit: where it already is, a full row for a slot from another row, a slot already holding the
 // component. Dropping calls the island, which saves and reads the layout again; the part stays greyed until then.
+// Nothing drags while the island saves (data-saving on the root), as the layout is about to be read again.
+import { dragScrollEdgePixels, dragScrollMaxPixelsPerFrame } from "/js/app-consts.js";
+import { listenForGesture } from "/js/pointer-gesture.js";
 
 /** @typedef {{ invokeMethodAsync: (method: string, ...args: unknown[]) => Promise<unknown> }} DotNetReference */
 /** @typedef {"row" | "slot" | "component"} Kind */
 
 /** @type {Record<Kind, string>} */
 const dropMethods = { row: "DropRowAsync", slot: "DropSlotAsync", component: "DropComponentAsync" };
-
-// how far the pointer moves before a press on a handle becomes a drag
-const startDistance = 4;
-
-// how near the scrolling box's edge the pointer scrolls it, and how far each frame
-const edgeSize = 48;
-const edgeStep = 12;
-
-const maximumSlotCount = 3;
 
 /** @param {string | undefined} value @returns {value is Kind} */
 function isKind(value) {
@@ -50,9 +44,19 @@ const parentOf = (element) => element.dataset.parentId ?? "";
 export function startOutlineDrag(dotNetReference, root) {
   const listeners = new AbortController();
 
-  /** @type {{ kind: Kind, item: HTMLElement, startX: number, startY: number, offsetX: number, offsetY: number, pointerId: number } | null} */
-  let pressed = null;
-  /** @type {{ kind: Kind, item: HTMLElement, copy: HTMLElement, x: number, y: number, place: HTMLElement | null, scrollFrame: number } | null} */
+  /**
+   * @type {{
+   *   kind: Kind,
+   *   item: HTMLElement,
+   *   copy: HTMLElement,
+   *   offsetX: number,
+   *   offsetY: number,
+   *   x: number,
+   *   y: number,
+   *   place: HTMLElement | null,
+   *   scrollFrame: number,
+   * } | null}
+   */
   let dragging = null;
 
   /** @param {string} selector */
@@ -84,7 +88,7 @@ export function startOutlineDrag(dotNetReference, root) {
 
     if (kind === "slot") {
       const row = elementsIn(`[data-drag="row"][data-id="${parentId}"]`)[0];
-      return Number(row?.dataset.slotCount ?? maximumSlotCount) < maximumSlotCount;
+      return row !== undefined && !row.hasAttribute("data-full");
     }
 
     return true;
@@ -126,11 +130,11 @@ export function startOutlineDrag(dotNetReference, root) {
   }
 
   function show() {
-    if (!dragging || !pressed) {
+    if (!dragging) {
       return;
     }
 
-    dragging.copy.style.transform = `translate(${dragging.x - pressed.offsetX}px, ${dragging.y - pressed.offsetY}px)`;
+    dragging.copy.style.transform = `translate(${dragging.x - dragging.offsetX}px, ${dragging.y - dragging.offsetY}px)`;
 
     const place = placeUnder(dragging.kind, dragging.x, dragging.y);
     dragging.place = place?.hasAttribute("data-drop-ok") ? place : null;
@@ -144,7 +148,8 @@ export function startOutlineDrag(dotNetReference, root) {
     dragging.place?.setAttribute("data-drop-active", "");
   }
 
-  // near the scrolling box's top or bottom, it scrolls, and what's under the pointer changes with it
+  // near the scrolling box's top or bottom, it scrolls, faster the nearer the edge as embed-drag.js does, and
+  // what's under the pointer changes with it
   function scrollAtEdges() {
     if (!dragging) {
       return;
@@ -154,10 +159,12 @@ export function startOutlineDrag(dotNetReference, root) {
 
     if (box) {
       const rect = box === document.scrollingElement ? { top: 0, bottom: window.innerHeight } : box.getBoundingClientRect();
-      const step = dragging.y < rect.top + edgeSize ? -edgeStep : dragging.y > rect.bottom - edgeSize ? edgeStep : 0;
+      const intoTop = rect.top + dragScrollEdgePixels - dragging.y;
+      const intoBottom = dragging.y - (rect.bottom - dragScrollEdgePixels);
+      const into = intoTop > 0 ? -intoTop : intoBottom > 0 ? intoBottom : 0;
 
-      if (step !== 0) {
-        box.scrollBy(0, step);
+      if (into !== 0) {
+        box.scrollBy(0, Math.max(-1, Math.min(1, into / dragScrollEdgePixels)) * dragScrollMaxPixelsPerFrame);
         show();
       }
     }
@@ -165,12 +172,14 @@ export function startOutlineDrag(dotNetReference, root) {
     dragging.scrollFrame = requestAnimationFrame(scrollAtEdges);
   }
 
-  function start() {
-    if (!pressed) {
+  /** @param {HTMLElement} item @param {{ x: number, y: number }} point */
+  function start(item, { x, y }) {
+    const kind = item.dataset.drag;
+
+    if (!isKind(kind)) {
       return;
     }
 
-    const { kind, item, startX, startY } = pressed;
     const rect = item.getBoundingClientRect();
     const copy = /** @type {HTMLElement} */ (item.cloneNode(true));
     copy.removeAttribute("data-drag");
@@ -183,7 +192,7 @@ export function startOutlineDrag(dotNetReference, root) {
     }
 
     item.setAttribute("data-drag-source", "");
-    dragging = { kind, item, copy, x: startX, y: startY, place: null, scrollFrame: 0 };
+    dragging = { kind, item, copy, offsetX: x - rect.left, offsetY: y - rect.top, x, y, place: null, scrollFrame: 0 };
     dragging.scrollFrame = requestAnimationFrame(scrollAtEdges);
     show();
   }
@@ -204,7 +213,6 @@ export function startOutlineDrag(dotNetReference, root) {
       place.removeAttribute("data-drop-active");
     }
 
-    pressed = null;
     dragging = null;
   }
 
@@ -226,55 +234,35 @@ export function startOutlineDrag(dotNetReference, root) {
       .finally(() => item.removeAttribute("data-drag-source"));
   }
 
-  root.addEventListener(
-    "pointerdown",
-    (event) => {
-      const handle = event.target instanceof Element ? event.target.closest("[data-drag-handle]") : null;
-      const item = handle?.closest("[data-drag]");
+  listenForGesture(
+    root,
+    {
+      // a handle's part, unless the layout is about to be read again
+      pick(event) {
+        const handle = event.target instanceof Element ? event.target.closest("[data-drag-handle]") : null;
+        const item = handle?.closest("[data-drag]");
+        return item instanceof HTMLElement && isKind(item.dataset.drag) && !root.hasAttribute("data-saving") ? item : null;
+      },
 
-      if (event.button !== 0 || !(item instanceof HTMLElement) || !isKind(item.dataset.drag) || dragging) {
-        return;
-      }
+      onStart: start,
 
-      // no text selection while the pointer moves
-      event.preventDefault();
-      const rect = item.getBoundingClientRect();
-      pressed = {
-        kind: item.dataset.drag,
-        item,
-        startX: event.clientX,
-        startY: event.clientY,
-        offsetX: event.clientX - rect.left,
-        offsetY: event.clientY - rect.top,
-        pointerId: event.pointerId,
-      };
+      onMove({ x, y }) {
+        if (dragging) {
+          dragging.x = x;
+          dragging.y = y;
+          show();
+        }
+      },
+
+      onEnd: drop,
+
+      onCancel: () => finish(),
+
+      // the handles are touch-none, so a finger on one drags at once rather than scrolling
+      holdMilliseconds: 0,
     },
-    { signal: listeners.signal }
+    listeners.signal
   );
-
-  document.addEventListener(
-    "pointermove",
-    (event) => {
-      if (!pressed || event.pointerId !== pressed.pointerId) {
-        return;
-      }
-
-      if (!dragging && Math.hypot(event.clientX - pressed.startX, event.clientY - pressed.startY) >= startDistance) {
-        start();
-      }
-
-      if (dragging) {
-        dragging.x = event.clientX;
-        dragging.y = event.clientY;
-        show();
-      }
-    },
-    { signal: listeners.signal }
-  );
-
-  document.addEventListener("pointerup", (event) => pressed?.pointerId === event.pointerId && drop(), { signal: listeners.signal });
-  document.addEventListener("pointercancel", () => finish(), { signal: listeners.signal });
-  document.addEventListener("keydown", (event) => event.key === "Escape" && dragging && finish(), { signal: listeners.signal });
 
   return {
     dispose() {

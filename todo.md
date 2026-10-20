@@ -111,6 +111,14 @@ dragged out gets a fresh empty slot.
   MutationObserver and re-fits on the next frame, writing only values that differ (rounded so they read back
   equal, so it settles). Harness: style removed → re-fitted in Chromium and Firefox, five writes then quiet.
 
+- 2026-10-20 review of 8897114 (uncommitted, 1294 tests, typecheck clean, not browser-checked): the outline moves
+  the editor along when what's edited leaves its row (component → its new row's editor, else the page editor);
+  the row editor says again when its row is gone; the outline's drag is on `listenForGesture` (new optional
+  `holdMilliseconds`, 0 here) with app-consts' edge scrolling; `data-full` replaces the JS slot maximum; no drag
+  starts while saving (`data-saving`) and keyboard moves queue with the widths; `OutlineClasses` (was
+  `OutlineDropClasses`) with `BorderOf`; `PreviewWidthButtons` + `/js/preview-width.js` shared by both previews,
+  one width for every preview.
+
 ## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
 
 Built together, sharing the slides' source and its editor.

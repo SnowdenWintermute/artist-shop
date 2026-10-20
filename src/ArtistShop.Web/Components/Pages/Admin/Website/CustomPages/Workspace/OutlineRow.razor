@@ -15,21 +15,18 @@
   public int Index { get; set; }
   [Parameter, EditorRequired]
   public bool IsLast { get; set; }
-  // up or down one place, for the keyboard
-  [Parameter, EditorRequired]
-  public EventCallback<int> OnMove { get; set; }
 
   private string ColumnsStyle => $"grid-template-columns: {string.Join(" ", RowClasses.SlotShares(Row.Widths).Select(share => $"minmax(0, {share}fr)"))}";
 }
 
 <div role="listitem">
-  <div data-drop="row" data-index="@Index" class="@OutlineDropClasses.RowGap" aria-hidden="true"></div>
+  <div data-drop="row" data-index="@Index" class="@OutlineClasses.RowGap" aria-hidden="true"></div>
 
-  @* data-slot-count: the drag script offers no place in a full row *@
-  <div data-drag="row" data-id="@Row.Id.Value" data-slot-count="@Row.Slots.Count" class="flex items-start gap-1.25 data-drag-source:opacity-40">
-    <OutlineHandle Class="pt-1.25" Label="row" IsFirst="Index == 0" IsLast="IsLast" OnMove="OnMove" />
+  @* data-full: the drag script offers no place in it to a slot from another row *@
+  <div data-drag="row" data-id="@Row.Id.Value" data-full="@(Row.Slots.Count >= RowWidthChoices.MaximumSlotCount)" class="flex items-start gap-1.25 data-drag-source:opacity-40">
+    <OutlineHandle Class="pt-1.25" Label="row" IsFirst="Index == 0" IsLast="IsLast" OnMove="offset => Outline.MoveRowByAsync(Row, offset)" />
 
-    <div class="@($"min-w-0 flex-1 border p-1.25 {(Outline.IsEdited(Row) ? "border-accent outline-2 -outline-offset-2 outline-accent" : "border-rule")}")">
+    <div class="@($"min-w-0 flex-1 border p-1.25 {OutlineClasses.BorderOf(Outline.IsEdited(Row))}")">
       <div class="mb-1.25 flex items-center gap-2.5">
         @if (Row.Slots.Count > 1)
         {
@@ -63,14 +60,14 @@
         @if (Row.Slots.Count < RowWidthChoices.MaximumSlotCount)
         {
           <button type="button" data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count"
-                  class="@($"shrink-0 cursor-pointer self-start {LinkStyles.InSentence} {OutlineDropClasses.End}")"
+                  class="@($"shrink-0 cursor-pointer self-start {LinkStyles.InSentence} {OutlineClasses.End}")"
                   disabled="@Outline.IsSaving" @onclick="() => Outline.AddSlotAsync(Row)">
             Add slot…
           </button>
         }
         else
         {
-          <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count" class="@OutlineDropClasses.SlotGap"
+          <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count" class="@OutlineClasses.SlotGap"
                aria-hidden="true"></div>
         }
       </div>

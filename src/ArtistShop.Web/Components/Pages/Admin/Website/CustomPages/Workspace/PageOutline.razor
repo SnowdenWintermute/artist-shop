@@ -159,7 +159,7 @@
     return SaveAsync(() => RowSlotRepository.MovePlacementAsync(from.Id, from.Components[oldIndex].Id, to.Id, index));
   }
 
-  public Task MoveRowAsync((int OldIndex, int NewIndex) move) =>
+  private Task MoveRowAsync((int OldIndex, int NewIndex) move) =>
     SaveAsync(() => PageRowRepository.ReorderAsync(Page.Id, [.. Unwrap.Value(Rows).Moved(move).Select(row => row.Id)]));
 
   public void AskToRemove(RowSketch row)
@@ -175,25 +175,56 @@
     _removingRow = null;
   }
 
-  // A choice made while something else saves waits, then applies to the row as saved, so the width buttons
-  // needn't be disabled meanwhile and the one last clicked is what's saved
-  private readonly Queue<(PageRowId RowId, RowWidths Widths)> _waitingWidths = new();
+  // A width chosen or a move made from the keyboard while something else saves waits, then applies to the layout
+  // as saved, found again by id, so the buttons needn't be disabled meanwhile and each press counts
+  private readonly Queue<Func<Task>> _waiting = new();
 
-  public Task ChooseWidthsAsync(RowSketch row, RowWidths widths)
+  private Task WhenSavedAsync(Func<Task> change)
   {
-    _waitingWidths.Enqueue((row.Id, widths));
+    _waiting.Enqueue(change);
 
-    return IsSaving ? Task.CompletedTask : SaveNextWidthsAsync();
+    return IsSaving ? Task.CompletedTask : SaveNextWaitingAsync();
   }
 
-  private Task SaveNextWidthsAsync() =>
-    _waitingWidths.TryDequeue(out var choice) && Rows?.SingleOrDefault(row => row.Id == choice.RowId) is { } row
-      ? SaveAsync(() => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, choice.Widths))
-      : Task.CompletedTask;
+  private Task SaveNextWaitingAsync() => _waiting.TryDequeue(out var change) ? change() : Task.CompletedTask;
+
+  private RowSketch? RowOf(PageRowId id) => Rows?.SingleOrDefault(row => row.Id == id);
+
+  private (RowSketch Row, SlotSketch Slot)? SlotOf(RowSlotId id) =>
+    Rows?.SelectMany(row => row.Slots.Select(slot => (row, slot))).SingleOrDefault(found => found.slot.Id == id) is ({ } row, { } slot)
+      ? (row, slot)
+      : null;
+
+  // one place on, within the list, or nothing when that's past its end
+  private static (int OldIndex, int NewIndex)? MoveBy(int oldIndex, int offset, int count) =>
+    oldIndex >= 0 && oldIndex + offset >= 0 && oldIndex + offset < count ? (oldIndex, oldIndex + offset) : null;
+
+  public Task ChooseWidthsAsync(RowSketch row, RowWidths widths) =>
+    WhenSavedAsync(() =>
+      RowOf(row.Id) is { } saved ? SaveAsync(() => PageRowRepository.SetLayoutAsync(saved.Id, saved.Slots.Count, widths)) : Task.CompletedTask);
+
+  public Task MoveRowByAsync(RowSketch row, int offset) =>
+    WhenSavedAsync(() =>
+      Rows is { } rows && MoveBy(rows.FindIndex(saved => saved.Id == row.Id), offset, rows.Count) is { } move
+        ? MoveRowAsync(move)
+        : Task.CompletedTask);
+
+  public Task MoveSlotByAsync(SlotSketch slot, int offset) =>
+    WhenSavedAsync(() =>
+      SlotOf(slot.Id) is (var row, var saved) && MoveBy(row.Slots.IndexOf(saved), offset, row.Slots.Count) is { } move
+        ? MoveSlotAsync(row, move)
+        : Task.CompletedTask);
+
+  public Task MoveComponentByAsync(SlotSketch slot, ComponentSketch component, int offset) =>
+    WhenSavedAsync(() =>
+      SlotOf(slot.Id) is (_, var saved)
+      && MoveBy(saved.Components.FindIndex(placed => placed.Id == component.Id), offset, saved.Components.Count) is { } move
+        ? MoveComponentAsync(saved, move)
+        : Task.CompletedTask);
 
   public Task AddSlotAsync(RowSketch row) => SaveAsync(() => RowSlotRepository.AddAsync(row.Id, row.Slots.Count));
 
-  public Task MoveSlotAsync(RowSketch row, (int OldIndex, int NewIndex) move) =>
+  private Task MoveSlotAsync(RowSketch row, (int OldIndex, int NewIndex) move) =>
     SaveAsync(() => RowSlotRepository.ReorderAsync(row.Id, [.. row.Slots.Moved(move).Select(slot => slot.Id)]));
 
   public void AskToRemove(RowSketch row, SlotSketch slot)
@@ -209,7 +240,7 @@
     _removingSlot = null;
   }
 
-  public Task MoveComponentAsync(SlotSketch slot, (int OldIndex, int NewIndex) move) =>
+  private Task MoveComponentAsync(SlotSketch slot, (int OldIndex, int NewIndex) move) =>
     SaveAsync(() => RowSlotRepository.ReorderPlacementsAsync(slot.Id, [.. slot.Components.Moved(move).Select(component => component.Id)]));
 
   public Task TakeOutAsync(SlotSketch slot, ComponentSketch component) =>
@@ -310,7 +341,42 @@
     _saveCount++;
     IsSaving = false;
     StateHasChanged();
-    await SaveNextWidthsAsync();
+
+    if (EditorAfterLeaving() is { } editorHref)
+    {
+      _waiting.Clear();
+      NavigationManager.NavigateTo(editorHref);
+      return;
+    }
+
+    await SaveNextWaitingAsync();
+  }
+
+  // When what's being edited has left its row, taken out, removed or moved, its editor would be left showing
+  // something no longer there: the component follows it into the row it's in now, otherwise the page editor opens.
+  // Null while it's still where it was
+  private string? EditorAfterLeaving()
+  {
+    if (EditedRowId is not { } rowId || Rows is not { } rows)
+    {
+      return null;
+    }
+
+    if (EditedComponentId is { } componentId)
+    {
+      bool Holds(RowSketch row) => row.Slots.Any(slot => slot.Components.Any(component => component.Id == componentId));
+
+      if (RowOf(rowId) is { } row && Holds(row))
+      {
+        return null;
+      }
+
+      return rows.FirstOrDefault(Holds) is { } holding
+        ? PageUrls.EditCustomComponent(componentId, Page.Id, holding.Id)
+        : PageUrls.EditCustomPage(Page.Id);
+    }
+
+    return RowOf(rowId) is null ? PageUrls.EditCustomPage(Page.Id) : null;
   }
 }
 
@@ -327,8 +393,9 @@
     <p class="mb-2 text-error">The blog page needs its post list. Make another page the blog page first.</p>
   }
 
-  @* what the drag script works within, Add row included, which is where a row lands at the end *@
-  <div @ref="_root">
+  @* what the drag script works within, Add row included, which is where a row lands at the end; data-saving: no
+     drag starts until the layout is read again *@
+  <div @ref="_root" data-saving="@IsSaving">
     <CascadingValue Value="this" IsFixed>
       @if (Rows is { Count: 0 })
       {
@@ -340,8 +407,7 @@
           @for (var index = 0; index < rows.Count; index++)
           {
             var place = index;
-            <OutlineRow @key="rows[place].Id" Row="rows[place]" Index="place" IsLast="place == rows.Count - 1"
-                        OnMove="offset => MoveRowAsync((place, place + offset))" />
+            <OutlineRow @key="rows[place].Id" Row="rows[place]" Index="place" IsLast="place == rows.Count - 1" />
           }
         </div>
         @* the gap above it, the same as between rows *@
@@ -349,7 +415,7 @@
       }
     </CascadingValue>
 
-    <button type="button" data-drop="row" data-index="@(Rows?.Count ?? 0)" class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineDropClasses.End}")"
+    <button type="button" data-drop="row" data-index="@(Rows?.Count ?? 0)" class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineClasses.End}")"
             disabled="@IsSaving" @onclick="AddRowAsync">
       Add row…
     </button>

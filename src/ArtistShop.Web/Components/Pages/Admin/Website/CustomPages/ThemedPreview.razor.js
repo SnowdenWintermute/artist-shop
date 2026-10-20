@@ -1,27 +1,9 @@
 // <themed-preview>: its Desktop and Phone buttons, marked data-preview-width, set the width of the
 // <row-preview-frame> inside, which fits itself to it. data-shows-phone on itself narrows the box to the phone.
 // Inside an island, Blazor leaves these attributes alone, since what it renders for them never changes.
-// The choice is kept for the tab, since choosing a layout or a collection loads the page again, and an
-// enhanced load patches the attributes back to Desktop rather than making a new element
-const storageKey = "themed-preview-width";
-
-/** @returns {string | null} */
-function rememberedWidth() {
-  try {
-    return sessionStorage.getItem(storageKey);
-  } catch {
-    return null;
-  }
-}
-
-/** @param {string} width */
-function rememberWidth(width) {
-  try {
-    sessionStorage.setItem(storageKey, width);
-  } catch {
-    // a blocked storage only means the next load starts at Desktop
-  }
-}
+// An enhanced load patches the attributes back to Desktop rather than making a new element, so the width
+// remembered is pressed again
+import { pressWidthButton, rememberedWidthButton, rememberPreviewWidth } from "/js/preview-width.js";
 
 class ThemedPreview extends HTMLElement {
   /** @type {AbortController | null} */
@@ -38,10 +20,7 @@ class ThemedPreview extends HTMLElement {
   }
 
   showRememberedWidth() {
-    const width = rememberedWidth();
-    const button = [...this.querySelectorAll("[data-preview-width]")].find(
-      (candidate) => candidate instanceof HTMLElement && candidate.dataset.previewWidth === width
-    );
+    const button = rememberedWidthButton(this);
 
     if (button instanceof HTMLElement) {
       this.#show(button);
@@ -56,7 +35,7 @@ class ThemedPreview extends HTMLElement {
       return;
     }
 
-    rememberWidth(chosen.dataset.previewWidth);
+    rememberPreviewWidth(chosen.dataset.previewWidth);
     this.#show(chosen);
   }
 
@@ -68,10 +47,7 @@ class ThemedPreview extends HTMLElement {
       return;
     }
 
-    for (const button of this.querySelectorAll("[data-preview-width]")) {
-      button.setAttribute("aria-pressed", String(button === chosen));
-    }
-
+    pressWidthButton(this, chosen);
     this.toggleAttribute("data-shows-phone", chosen.hasAttribute("data-phone"));
     this.querySelector("row-preview-frame")?.setAttribute("data-width", width);
   }

@@ -1,8 +1,7 @@
 @* The public page being edited, as a visitor sees it with its nav and footer, in a frame drawn at a desktop's or a
    phone's width and shrunk to fit. <page-preview>, defined in PagePreview.razor.js, reloads the frame after a save,
-   keeping its scroll, and scrolls to and outlines the row or component being edited *@
+   keeping its scroll, and outlines the row or component being edited *@
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Database
 
 @code {
@@ -14,9 +13,6 @@
   public PageRowId? RowId { get; set; }
   [Parameter]
   public CustomComponentId? ComponentId { get; set; }
-
-  // Primary when pressed, else Outline
-  private const string WidthButtonClass = "aria-pressed:bg-accent aria-pressed:text-on-accent";
 }
 
 @* on phones it covers the screen once the workspace's Preview button opens it *@
@@ -25,10 +21,7 @@
               data-row-id="@RowId?.Value" data-component-id="@ComponentId?.Value">
   <div class="mb-2 flex flex-wrap items-center gap-2">
     <div role="group" aria-label="Width" class="flex flex-wrap items-center gap-2">
-      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="true"
-                   data-preview-width="@CustomPageWidths.DesktopPixels">Desktop</ButtonBasic>
-      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="false"
-                   data-preview-width="@CustomPageWidths.PhonePixels">Phone</ButtonBasic>
+      <PreviewWidthButtons />
     </div>
     <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="ml-auto lg:hidden" data-closes-preview>
       Close preview
