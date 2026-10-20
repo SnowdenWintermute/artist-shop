@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.CustomPages;
@@ -305,6 +306,7 @@ public sealed partial class CustomPageTests(TestApp app)
                 ["Input.BottomPadding"] = nameof(RowVerticalPadding.Large),
                 ["Input.SidePadding"] = nameof(RowSidePadding.Small),
                 ["Input.Gap"] = nameof(RowGap.None),
+                ["Input.Alignment"] = nameof(RowAlignment.Center),
                 ["Input.Theme"] = new ThemeKey.Preset(ThemePreset.Dark).QueryValue,
                 ["Input.BackgroundType"] = nameof(RowBackgroundType.Color),
             }
@@ -316,12 +318,13 @@ public sealed partial class CustomPageTests(TestApp app)
                 RowContentWidth.EdgeToEdge,
                 new RowPadding(RowVerticalPadding.None, RowVerticalPadding.Large, RowSidePadding.Small),
                 RowGap.None,
+                RowAlignment.Center,
                 new ThemeKey.Preset(ThemePreset.Dark),
                 new RowBackground.Color(ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Page))
             ),
             Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows).Settings
         );
-        // the editor stamps its island with the settings, colour and all
+        // and the editor draws them, colour and all
         await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken);
     }
 
@@ -335,6 +338,7 @@ public sealed partial class CustomPageTests(TestApp app)
             ["Input.BottomPadding"] = nameof(RowVerticalPadding.Auto),
             ["Input.SidePadding"] = nameof(RowSidePadding.Medium),
             ["Input.Gap"] = nameof(RowGap.Medium),
+            ["Input.Alignment"] = nameof(RowAlignment.Start),
             ["Input.Theme"] = RowSettingsForm.WebsiteTheme,
             ["Input.BackgroundType"] = nameof(RowBackgroundType.None),
         }
@@ -432,21 +436,36 @@ public sealed partial class CustomPageTests(TestApp app)
         );
     }
 
-    // the preview takes the theme visitors see, not the admin's
+    // the preview is the public page itself, so in the theme visitors see, with the row being edited outlined
     [Fact]
-    public async Task TheRowPreviewIsInTheWebsitesTheme()
+    public async Task TheRowEditorPreviewsItsPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-        await new ThemeRepository(database).UseAsync(new ThemeKey.Preset(ThemePreset.Dark));
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var editor = await client.GetStringAsync(PageUrls.EditPageRow(home.Id, row.Id), TestContext.Current.CancellationToken);
 
-        var page = ThemePresets.For(ThemePreset.Dark).Theme.Colors.Resolve(ColorRole.Page).Hex;
-        Assert.Matches($"<style>\\[data-themed-preview\\] \\{{[^}}]*--theme-page: {page};", editor);
+        Assert.Matches($"<page-preview[^>]* data-row-id=\"{row.Id.Value}\"", editor);
+        Assert.Matches($"<iframe[^>]* src=\"{Regex.Escape(PageUrls.CustomPage(home))}\"[^>]* data-test=\"page-preview\"", editor);
+    }
+
+    // the outline is on every editor of the page, with each row's and component's way into its editor
+    [Fact]
+    public async Task TheComponentEditorOutlinesItsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var component = Assert.Single(Assert.Single(row.Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var componentHref = PageUrls.EditCustomComponent(component.Id, home.Id, row.Id);
+
+        var editor = await client.GetStringAsync(componentHref, TestContext.Current.CancellationToken);
+
+        Assert.Contains($"href=\"{PageUrls.EditPageRow(home.Id, row.Id)}\"", editor);
+        Assert.Contains($"href=\"{HtmlEncoder.Default.Encode(componentHref)}\"", editor);
     }
 
     [Fact]

@@ -55,7 +55,8 @@
 {
   <ThemeStyle Selector="@($"[data-row-theme={ThemeMarker}]")" Theme="theme.Theme" />
 }
-<div class="@RowClass" data-row-theme="@(Row.Theme is null ? null : ThemeMarker)">
+@* data-row-id: what the editors' preview finds a row by *@
+<div class="@RowClass" data-row-theme="@(Row.Theme is null ? null : ThemeMarker)" data-row-id="@Row.Id.Value">
   @if (DrawsBackground)
   {
     <RowBackgroundLayer Background="Row.Background" RowId="Row.Id" IsFirstRow="Position.IsFirst" />

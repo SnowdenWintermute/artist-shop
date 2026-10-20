@@ -1,5 +1,116 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Page editor workspace: outline, controls, whole-page preview, agreed 2026-10-20 (From Claude)
+
+Mike's mock: `~/Pictures/Page editor mock.png`. The editing is deeply nested and the people using it aren't
+necessarily technical, so the page's layout stays in view as an anchor while one thing is edited.
+
+**Screens.** Page editor, row editor and component editor share one layout below the admin nav, using the whole
+width (no AdminPanel): a left column (about a third) with the outline on top and the controls of what's edited
+below it (Up link first), and the preview on the right. Each side scrolls on its own (try it and see). Phones:
+outline, then controls, with a Preview toggle.
+- **Outline** (one island for the whole page): rows with a drag handle, the row's width icons, ✕ and Edit; slots
+  side by side with their own handles; components with handle, ✕, Edit; Add component / Add slot / Add row links.
+  What's being edited is highlighted. Slot alignment (Line up) moves into the row's settings form for now; it's
+  "layout", so it may join the outline later as small icons, like the text editor's toolbar.
+- **Row editor** keeps only the row's own settings; widths move to the outline.
+- **Component opened from the library** (no page): no outline, the controls and the component previewed alone.
+
+**Preview** is an iframe of the real public page (Mike chose it over drawing the page in the admin page, where
+`CustomPageView`'s sections would land in the admin page's own `MainLayout`). Drawn 1440 or 390 wide and scaled
+to fit; nav and footer included. It shows what's saved, reloading after a save or an outline change and keeping
+its scroll; it scrolls to and outlines the row or component being edited. Links in it do nothing. A standalone
+component gets an admin preview route drawing it alone in the public layout.
+
+**Saving.** Save buttons stay for now (address mid-typing, keystrokes lost to a post, the rich-text backup).
+Name, heading text and cards per page could autosave later, as a separate step.
+
+**Dragging between lists** (step 3): components across slots and rows, slots within and across rows. A full row
+(3 slots) refuses a slot; a slot refuses a component it already holds. Both rows reset to the default widths for
+their new slot count, as Add slot does. Mike (2026-10-20): a row whose only slot is
+dragged out gets a fresh empty slot.
+
+**Build steps, each leaving the app working.**
+1. The shared layout and the iframe preview on all three screens, plus the standalone component preview; contents
+   otherwise unchanged. The row editor's in-island preview goes (ThemedPreview stays for the collection page).
+2. The outline island replacing `PageRowList` and `RowEditor`'s slots, drags within one list; Line up moves to the
+   row's settings form.
+3. Dragging between lists, one SQL function per move (the "arrangement" refactor deferred 2026-10-17).
+4. Later: autosave for the safe text fields.
+
+- Step 1 built 2026-10-20, uncommitted, 1290 tests, JS typecheck clean, not browser-checked in the app (the
+  preview script checked in Chromium and Firefox on a static harness: fit, scroll to and outline a component,
+  links cancelled, reload keeping scroll, phone width centred). No page opens a component without its row (there's
+  no component library page), so the standalone component preview waits for one; without a row the component
+  editor shows the controls only.
+  - `CustomPages/Workspace/`: `EditorWorkspace` (grid below the nav; MainLayout drops its padding and, from `lg`,
+    fits its body to the screen around `[data-editor-workspace]`), `PagePreview` + `PagePreview.razor.js`
+    (`<page-preview>`, `<preview-reload>`), `PreviewReload` (a stamp the islands bump after each save:
+    `PageRowList`, `RowEditor`, `ChosenCardList`, `SlideList`).
+  - Public markup: `data-row-id` on `PageRowView`'s row, `CustomComponentView` in a `contents` box with
+    `data-component-id`, `EditPageLink`'s links in `[data-admin-footer-links]` (hidden in the preview).
+  - Gone: `RowPreview`, `SavedRowPreview`, the row editor island's preview and `SettingsStamp`.
+- Step 2 built 2026-10-20, uncommitted, 1292 tests, not browser-checked. Mike: slot widths stay by position when
+  slots are reordered; a slot's ✕ sits by its handle while the row has others.
+  - `Workspace/PageOutline` (island in `EditorWorkspace`, above the controls, same place on every editor so enhanced
+    loads keep it; reads the layout again on every parameter update, so a rename shows) with `OutlineRow`,
+    `OutlineSlot`, `OutlineHandle` (grip + ↑↓ / ←→ buttons shown on focus), `OutlineActions` (✕ and Edit, new
+    `pencil.svg`). Each list its own BbSortable group and handle class, so nothing crosses lists yet. Slots are a
+    grid with `grid-template-columns` from `RowClasses.SlotShares`, as BbSortable wraps each item in a plain div.
+  - `reorder_row_slots` (SH024) + `RowSlotRepository.ReorderAsync`. Line up moved into the row settings form, shown
+    always since it also places a single slot's stack in a row that fills the screen: `RowSettings.Alignment`,
+    `set_page_row_settings` takes it, `set_page_row_layout` sets widths only. `AddComponentDialog` takes `InSlot`.
+  - Gone: `PageRowList`, `RowEditor`, `RowSchematic`; `RowSketch` moved to Workspace with `SlotSketch` /
+    `ComponentSketch`.
+- Step 3 built 2026-10-20 with a rework of step 2's dragging, uncommitted, 1294 tests, JS typecheck clean, not
+  browser-checked in the app. Mike, after trying step 2: BbSortable let a component wander into other rows (its
+  `Put` defaults to true, which in SortableJS accepts from any group) and reordered live, so the layout shifted
+  under the pointer and could loop between two slots. Now nothing moves until the drop: the source stays greyed,
+  a copy follows the pointer, and where it would land shows as an insertion line (top/bottom half of a row or
+  component, left/right half of a slot) or a lit end zone (the Add component / Add slot links; a slot's or row's
+  empty room counts as its end). Places it can't go don't light: a full row for a slot, a slot already holding
+  the component.
+  - `Workspace/PageOutline.razor.js` (`startOutlineDrag`, via `InteropObject`; pointer events, so touch works with
+    `touch-none` handles; Escape cancels; the scrolling box scrolls near its edges) calls `DropRowAsync`,
+    `DropSlotAsync`, `DropComponentAsync`. Markup: `data-drag`, `data-id`, `data-parent-id`, `data-slot-count`,
+    `data-drag-handle`, `data-drop-end`; `OutlineDropClasses` for the end zones. Checked in Chromium and Firefox on
+    a static harness (seven drops, refusals, no leftovers).
+  - `move_slot_placement` (SH025) and `move_row_slot` (SH024; both rows take the first split for their new count,
+    a row left empty gets an empty slot) + `RowSlotRepository.MovePlacementAsync` / `MoveAsync`, with tests.
+  - Preview: a reload is now `Blazor.navigateTo(href, { replaceHistoryEntry: true })` inside the frame, so it
+    patches in place without a blank flash; its `enhancedload` re-applies scroll, outline and hidden footer links.
+- Same day, after Mike tried it (uncommitted, 1294 tests, typecheck clean, harness re-checked in both browsers):
+  - Mike: one line per gap, not one on each neighbour's edge. The places to land are now permanent gaps in the
+    layout (`data-drop` + `data-parent-id` + `data-index`): before each row, slot and component, plus the Add
+    links as each list's end (a full row has a trailing slot gap instead). They light while a part that can land
+    there is dragged (`data-drop-ok`) and fill under the pointer (`data-drop-active`); over a part, the gap on its
+    nearer half is the one meant. `OutlineDropClasses.RowGap` / `ComponentGap` / `SlotGap` / `End`.
+  - A row's only slot has a handle too, so it can move to another row (✕ still only with others).
+  - Everything in the outline about 50% larger (Mike): handles text-xl, icons size-6, width buttons h-6 w-12.
+  - Preview scroll jumped after rearranging: patched-in images take no height until loaded, so the page was
+    briefly shorter and the scroll clamped; scroll anchoring could also follow a moved node. The frame now has
+    `overflow-anchor: none`, and a reload holds its scroll on each body resize for 3 s or until the person scrolls.
+- Same day, second round (uncommitted, 1294 tests, typecheck clean):
+  - The real cause of the preview starting at the top: `Blazor.navigateTo(url, { replaceHistoryEntry: true })`
+    called from the editor's window on the frame's Blazor. Blazor tells an options object by `instanceof Object`,
+    which an object from another window fails, so it took it for `forceLoad` and loaded the page whole. Now
+    `navigateTo(url, false, true)`; measured on the dev site in a frame: scroll 700 before and after, same document.
+  - The gap under the pointer didn't fill: `data-drop-ok:` came after `data-drop-active:` in app.css. The active
+    classes are now stacked (`data-drop-active:data-drop-ok:`), which outranks.
+  - Outline sizes down to about +25% on step 2's (Mike): handles text-lg, icons size-5, width buttons h-5 w-10.
+  - Draggable divider between controls and preview (Mike): `Workspace/EditorWorkspace.razor.js`
+    (`<editor-workspace>`, `--controls-width`, pointer capture so the frame doesn't swallow the drag, arrow keys,
+    neither side under 320px, kept per viewer in local storage, set again after an enhanced load).
+- Same day, third round (uncommitted): the edited part's highlight drawn inward (`-outline-offset-2`), so it keeps
+  its size; the Add links light like the gaps (light while droppable, accent with `text-on-accent` under the
+  pointer); the preview no longer scrolls to what's edited (Mike: jarring), every reload keeps the frame's scroll.
+  Mike saw the preview's nav links clipped at the right instead of folded into the drawer, once, after the preview
+  had scrolled to an edited component. Cause (Mike: "as soon as I click any edit button it zooms the preview
+  in"): the editor's enhanced load patches the frame's inline size and scale away, and the `enhancedload` re-fit
+  didn't reliably win. `<page-preview>` now watches its subtree (style, aria-pressed, new frame) with a
+  MutationObserver and re-fits on the next frame, writing only values that differ (rounded so they read back
+  equal, so it settles). Harness: style removed → re-fitted in Chromium and Firefox, five writes then quiet.
+
 ## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
 
 Built together, sharing the slides' source and its editor.

@@ -1,0 +1,57 @@
+@* The page, row and component editors: on the left the page's outline, then the controls of what's edited, and the
+   page's preview taking the rest of the screen below the nav, each side scrolling on its own. On phones the left
+   column fills the page and the preview opens over it. MainLayout drops its padding and fits its body to the screen
+   around this. The outline is an island in the same place on every editor, so an enhanced load from one editor to
+   another keeps it *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // the page outlined and previewed, null when there's none to show; and what's being edited on it, which both
+  // highlight
+  [Parameter, EditorRequired]
+  public required CustomPage? Page { get; set; }
+  [Parameter]
+  public PageRowId? RowId { get; set; }
+  [Parameter]
+  public CustomComponentId? ComponentId { get; set; }
+
+  // a new row's editor opens the outline's add-component dialog on its slot
+  [Parameter]
+  public bool IsNewRow { get; set; }
+}
+
+@* The grid even with no preview, so the controls stay where they are on the other editors. <editor-workspace>,
+   defined in EditorWorkspace.razor.js, sets --controls-width as the divider between the sides is dragged *@
+<editor-workspace data-editor-workspace
+                  class="block lg:grid lg:h-full lg:grid-cols-[var(--controls-width,minmax(24rem,1fr))_auto_minmax(0,2fr)]">
+  <main class="bg-panel p-4 lg:h-full lg:overflow-y-auto">
+    @if (Page is not null)
+    {
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 lg:hidden" data-opens-preview>Preview</ButtonBasic>
+      <section aria-label="Page layout" class="mb-4 border-b border-rule pb-4">
+        <PageOutline @rendermode="InteractiveServer" @key="Page.Id" Page="Page" EditedRowId="RowId" EditedComponentId="ComponentId"
+                     IsNewRow="IsNewRow" />
+      </section>
+    }
+    @ChildContent
+  </main>
+  @if (Page is { } page)
+  {
+    @* the line between the sides, wider than it looks so it's easy to take hold of; arrow keys move it too *@
+    <div role="separator" aria-orientation="vertical" aria-label="Resize the controls and the preview" tabindex="0"
+         data-part="divider" class="group/divider hidden w-2 cursor-col-resize touch-none justify-center lg:flex">
+      <div class="w-px bg-rule group-hover/divider:w-1 group-hover/divider:bg-accent group-focus-visible/divider:w-1
+                  group-focus-visible/divider:bg-accent"></div>
+    </div>
+    <div class="lg:min-h-0 lg:p-4">
+      <PagePreview Page="page" RowId="RowId" ComponentId="ComponentId" />
+    </div>
+  }
+  else
+  {
+    <div class="hidden border-l border-rule lg:block"></div>
+  }
+</editor-workspace>

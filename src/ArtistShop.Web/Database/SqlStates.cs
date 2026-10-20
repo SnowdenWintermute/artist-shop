@@ -78,17 +78,18 @@ public static class SqlStates
     // ReorderPageRows
     public const string PageRowsChangedSincePageLoad = "SH023";
 
-    // SetPageRowLayout, AddRowSlot, DeleteRowSlot: the row is gone or has other slots. LockSlides: the row is gone
+    // SetPageRowLayout, AddRowSlot, DeleteRowSlot, ReorderRowSlots, MoveRowSlot: the row is gone or has other slots. LockSlides: the
+    // row is gone
     public const string PageRowChangedSincePageLoad = "SH024";
 
-    // PlaceCustomComponent, ReorderSlotPlacements: the slot is gone or holds other components
+    // PlaceCustomComponent, ReorderSlotPlacements, MoveSlotPlacement: the slot is gone or holds other components
     public const string RowSlotChangedSincePageLoad = "SH025";
 
     // UpdateCustomComponent, LockCardGridChosenCards (adding to or reordering a custom list), LockSlides
     public const string CustomComponentNoLongerExists = "SH026";
 
     // CheckBlogPageHasPostList, from DeleteCustomComponent, RemoveSlotPlacement, DeleteRowSlot,
-    // DeletePageRow, MakeCustomPageBlog
+    // DeletePageRow, MakeCustomPageBlog, MoveSlotPlacement, MoveRowSlot
     public const string BlogPageNeedsPostList = "SH027";
 
     // ReorderCardGridChosenCards

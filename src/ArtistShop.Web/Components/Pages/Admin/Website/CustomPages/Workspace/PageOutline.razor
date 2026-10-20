@@ -1,0 +1,373 @@
+@* The page's layout at the top of every editor: its rows, their slots and the components in them, each dragged
+   to another place (PageOutline.razor.js; slots and components into other rows and slots too), taken out, or opened
+   in its editor; what's being edited is highlighted. Every change saves at once, the layout is read again so it's
+   always as saved, and the page preview reloads. OutlineRow and OutlineSlot draw the parts and call back here
+   through the cascade *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Interop
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Utilities
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject CustomPageRepository CustomPageRepository
+@inject PageRowRepository PageRowRepository
+@inject RowSlotRepository RowSlotRepository
+@inject CustomComponentRepository CustomComponentRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required CustomPage Page { get; set; }
+
+  // what's being edited: nothing on the page editor, a row, or a component in a row
+  [Parameter]
+  public PageRowId? EditedRowId { get; set; }
+  [Parameter]
+  public CustomComponentId? EditedComponentId { get; set; }
+
+  // a new row's editor opens on adding a component to its slot
+  [Parameter]
+  public bool IsNewRow { get; set; }
+
+  // read while prerendering and handed to the interactive render, which would otherwise start empty
+  [PersistentState]
+  public List<RowSketch>? Rows { get; set; }
+
+  public bool IsSaving { get; private set; }
+
+  private bool _hasLoaded;
+  private bool _changedElsewhere;
+  private bool _blogPageNeedsPostList;
+  // each save reloads the page preview
+  private int _saveCount;
+  private RowSketch? _removingRow;
+  private (RowSketch Row, SlotSketch Slot)? _removingSlot;
+  private SlotSketch? _addingTo;
+  // the new row the add dialog has opened for, so the editor's later loads, still marked new, don't open it again
+  private PageRowId? _openedForNewRow;
+  private ElementReference _root;
+  private InteropObject<PageOutline>? _drag;
+
+  // An enhanced load into another editor of the page, or after a save in its form, gives this its parameters
+  // again, and a component may have been renamed meanwhile, so the layout is read again
+  protected override async Task OnParametersSetAsync()
+  {
+    // the first time in the interactive render, the prerender's rows have come across already
+    if (_hasLoaded || Rows is null)
+    {
+      await LoadAsync();
+    }
+
+    _hasLoaded = true;
+
+    if (IsNewRow && EditedRowId != _openedForNewRow
+        && Rows?.SingleOrDefault(row => row.Id == EditedRowId) is { Slots: [{ Components.Count: 0 } slot] })
+    {
+      _addingTo = slot;
+      _openedForNewRow = EditedRowId;
+    }
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (firstRender)
+    {
+      // null when the page closed first, so there is nothing to drag
+      _drag = await InteropObject<PageOutline>.CreateAsync(
+        JS, "./Components/Pages/Admin/Website/CustomPages/Workspace/PageOutline.razor.js", "startOutlineDrag", this, self => [self, _root]);
+    }
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    if (_drag is not null)
+    {
+      await _drag.DisposeAsync();
+    }
+  }
+
+  private async Task LoadAsync() =>
+    Rows = [.. (await CustomPageRepository.GetLayoutAsync(Page.Id)).Rows.Select(RowSketch.Of)];
+
+  public string RowEditHref(RowSketch row) => PageUrls.EditPageRow(Page.Id, row.Id);
+
+  public string ComponentEditHref(RowSketch row, ComponentSketch component) =>
+    PageUrls.EditCustomComponent(component.Id, Page.Id, row.Id);
+
+  public bool IsEdited(RowSketch row) => EditedComponentId is null && row.Id == EditedRowId;
+
+  public bool IsEdited(RowSketch row, ComponentSketch component) => row.Id == EditedRowId && component.Id == EditedComponentId;
+
+  // A drop's index counts the dragged part where it still is when dropped back into its own list, so one after
+  // it is one place further on; null when it lands where it was
+  private static (int OldIndex, int NewIndex)? MoveWithin(int oldIndex, int index)
+  {
+    var newIndex = index > oldIndex ? index - 1 : index;
+    return newIndex == oldIndex ? null : (oldIndex, newIndex);
+  }
+
+  [JSInvokable]
+  public Task DropRowAsync(int rowId, int index) =>
+    Rows?.FindIndex(row => row.Id.Value == rowId) is int oldIndex and >= 0 && MoveWithin(oldIndex, index) is { } move
+      ? MoveRowAsync(move)
+      : Task.CompletedTask;
+
+  [JSInvokable]
+  public Task DropSlotAsync(int slotId, int fromRowId, int toRowId, int index)
+  {
+    var from = Rows?.SingleOrDefault(row => row.Id.Value == fromRowId);
+    var to = Rows?.SingleOrDefault(row => row.Id.Value == toRowId);
+    var oldIndex = from?.Slots.FindIndex(slot => slot.Id.Value == slotId) ?? -1;
+
+    if (from is null || to is null || oldIndex < 0)
+    {
+      return Task.CompletedTask;
+    }
+
+    if (from == to)
+    {
+      return MoveWithin(oldIndex, index) is { } move ? MoveSlotAsync(from, move) : Task.CompletedTask;
+    }
+
+    return SaveAsync(() => RowSlotRepository.MoveAsync(from.Slots[oldIndex].Id, from.Id, from.Slots.Count, to.Id, to.Slots.Count, index));
+  }
+
+  [JSInvokable]
+  public Task DropComponentAsync(int componentId, int fromSlotId, int toSlotId, int index)
+  {
+    var slots = Rows?.SelectMany(row => row.Slots).ToList() ?? [];
+    var from = slots.SingleOrDefault(slot => slot.Id.Value == fromSlotId);
+    var to = slots.SingleOrDefault(slot => slot.Id.Value == toSlotId);
+    var oldIndex = from?.Components.FindIndex(component => component.Id.Value == componentId) ?? -1;
+
+    if (from is null || to is null || oldIndex < 0)
+    {
+      return Task.CompletedTask;
+    }
+
+    if (from == to)
+    {
+      return MoveWithin(oldIndex, index) is { } move ? MoveComponentAsync(from, move) : Task.CompletedTask;
+    }
+
+    return SaveAsync(() => RowSlotRepository.MovePlacementAsync(from.Id, from.Components[oldIndex].Id, to.Id, index));
+  }
+
+  public Task MoveRowAsync((int OldIndex, int NewIndex) move) =>
+    SaveAsync(() => PageRowRepository.ReorderAsync(Page.Id, [.. Unwrap.Value(Rows).Moved(move).Select(row => row.Id)]));
+
+  public void AskToRemove(RowSketch row)
+  {
+    _removingRow = row;
+    StateHasChanged();
+  }
+
+  private async Task RemoveRowAsync()
+  {
+    var row = Unwrap.Value(_removingRow);
+    await SaveAsync(() => PageRowRepository.DeleteAsync(row.Id));
+    _removingRow = null;
+  }
+
+  // A choice made while something else saves waits, then applies to the row as saved, so the width buttons
+  // needn't be disabled meanwhile and the one last clicked is what's saved
+  private readonly Queue<(PageRowId RowId, RowWidths Widths)> _waitingWidths = new();
+
+  public Task ChooseWidthsAsync(RowSketch row, RowWidths widths)
+  {
+    _waitingWidths.Enqueue((row.Id, widths));
+
+    return IsSaving ? Task.CompletedTask : SaveNextWidthsAsync();
+  }
+
+  private Task SaveNextWidthsAsync() =>
+    _waitingWidths.TryDequeue(out var choice) && Rows?.SingleOrDefault(row => row.Id == choice.RowId) is { } row
+      ? SaveAsync(() => PageRowRepository.SetLayoutAsync(row.Id, row.Slots.Count, choice.Widths))
+      : Task.CompletedTask;
+
+  public Task AddSlotAsync(RowSketch row) => SaveAsync(() => RowSlotRepository.AddAsync(row.Id, row.Slots.Count));
+
+  public Task MoveSlotAsync(RowSketch row, (int OldIndex, int NewIndex) move) =>
+    SaveAsync(() => RowSlotRepository.ReorderAsync(row.Id, [.. row.Slots.Moved(move).Select(slot => slot.Id)]));
+
+  public void AskToRemove(RowSketch row, SlotSketch slot)
+  {
+    _removingSlot = (row, slot);
+    StateHasChanged();
+  }
+
+  private async Task RemoveSlotAsync()
+  {
+    var (row, slot) = Unwrap.Value(_removingSlot);
+    await SaveAsync(() => RowSlotRepository.DeleteAsync(row.Id, slot.Id, row.Slots.Count));
+    _removingSlot = null;
+  }
+
+  public Task MoveComponentAsync(SlotSketch slot, (int OldIndex, int NewIndex) move) =>
+    SaveAsync(() => RowSlotRepository.ReorderPlacementsAsync(slot.Id, [.. slot.Components.Moved(move).Select(component => component.Id)]));
+
+  public Task TakeOutAsync(SlotSketch slot, ComponentSketch component) =>
+    SaveAsync(() => RowSlotRepository.RemovePlacementAsync(slot.Id, component.Id));
+
+  public void AddTo(SlotSketch slot)
+  {
+    _addingTo = slot;
+    StateHasChanged();
+  }
+
+  private async Task AddNewAsync(CustomComponentStarter starter)
+  {
+    var slot = Unwrap.Value(_addingTo);
+    await SaveAsync(() => AddNamedAsync(slot.Id, starter));
+    _addingTo = null;
+  }
+
+  // the first free name; one taken meanwhile by another tab is skipped for the next
+  private async Task AddNamedAsync(RowSlotId slotId, CustomComponentStarter starter)
+  {
+    var taken = (await CustomComponentRepository.GetAllAsync())
+      .Select(made => made.Component.Name)
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var name in CustomComponentNames.NewNames(starter, Wording, taken))
+    {
+      try
+      {
+        await CustomComponentRepository.AddToSlotAsync(slotId, name, NewCustomComponentSettings.For(starter));
+        return;
+      }
+      catch (NameAlreadyInUseException)
+      {
+      }
+    }
+  }
+
+  private async Task AddExistingAsync(CustomComponent component)
+  {
+    var slot = Unwrap.Value(_addingTo);
+    await SaveAsync(() => RowSlotRepository.PlaceAsync(slot.Id, component.Id));
+    _addingTo = null;
+  }
+
+  private async Task AddRowAsync()
+  {
+    if (IsSaving)
+    {
+      return;
+    }
+
+    IsSaving = true;
+
+    try
+    {
+      NavigationManager.NavigateTo(PageUrls.EditNewPageRow(Page.Id, await PageRowRepository.AddAsync(Page.Id)));
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      // the page was deleted, which the server's render of the page says
+      NavigationManager.Refresh();
+    }
+    finally
+    {
+      IsSaving = false;
+    }
+  }
+
+  private async Task SaveAsync(Func<Task> save)
+  {
+    // a second change while the first is saving would be built from the old layout
+    if (IsSaving)
+    {
+      return;
+    }
+
+    IsSaving = true;
+    _changedElsewhere = false;
+    _blogPageNeedsPostList = false;
+    StateHasChanged();
+
+    try
+    {
+      await save();
+    }
+    catch (ChangedSincePageLoadException)
+    {
+      _changedElsewhere = true;
+    }
+    catch (BlogPageNeedsPostListException)
+    {
+      _blogPageNeedsPostList = true;
+    }
+
+    // the guard holds until the layout is read again
+    await LoadAsync();
+    _saveCount++;
+    IsSaving = false;
+    StateHasChanged();
+    await SaveNextWidthsAsync();
+  }
+}
+
+<DisabledUntilInteractive>
+  <PreviewReload Stamp="_saveCount" />
+
+  @if (_changedElsewhere)
+  {
+    <p class="mb-2 text-error">The page was changed somewhere else, so it has been reloaded.</p>
+  }
+
+  @if (_blogPageNeedsPostList)
+  {
+    <p class="mb-2 text-error">The blog page needs its post list. Make another page the blog page first.</p>
+  }
+
+  @* what the drag script works within, Add row included, which is where a row lands at the end *@
+  <div @ref="_root">
+    <CascadingValue Value="this" IsFixed>
+      @if (Rows is { Count: 0 })
+      {
+        <p class="mb-2">No rows yet.</p>
+      }
+      else if (Rows is { } rows)
+      {
+        <div role="list" aria-label="Rows">
+          @for (var index = 0; index < rows.Count; index++)
+          {
+            var place = index;
+            <OutlineRow @key="rows[place].Id" Row="rows[place]" Index="place" IsLast="place == rows.Count - 1"
+                        OnMove="offset => MoveRowAsync((place, place + offset))" />
+          }
+        </div>
+        @* the gap above it, the same as between rows *@
+        <div class="h-3"></div>
+      }
+    </CascadingValue>
+
+    <button type="button" data-drop="row" data-index="@(Rows?.Count ?? 0)" class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineDropClasses.End}")"
+            disabled="@IsSaving" @onclick="AddRowAsync">
+      Add row…
+    </button>
+  </div>
+
+  @if (_addingTo is { } addingTo)
+  {
+    <AddComponentDialog InSlot="[.. addingTo.Components.Select(component => component.Id)]" IsSaving="IsSaving"
+                        OnNew="AddNewAsync" OnExisting="AddExistingAsync" OnClose="() => _addingTo = null" />
+  }
+
+  <ConfirmDialog Open="_removingRow is not null" OpenChanged="open => _removingRow = open ? _removingRow : null"
+                 Title="Remove this row?" ConfirmLabel="Remove" OnConfirm="RemoveRowAsync" IsWorking="IsSaving">
+    Its components can still be added to other rows.
+  </ConfirmDialog>
+
+  <ConfirmDialog Open="_removingSlot is not null" OpenChanged="open => _removingSlot = open ? _removingSlot : null"
+                 Title="Remove this slot?" ConfirmLabel="Remove" OnConfirm="RemoveSlotAsync" IsWorking="IsSaving">
+    Its components can still be added to other slots.
+  </ConfirmDialog>
+</DisabledUntilInteractive>

@@ -2,6 +2,7 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages.Workspace
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
@@ -132,94 +133,89 @@
 
 <PageTitle>Row</PageTitle>
 
-<main>
-  <AdminPanel>
-    @if (_page is null)
-    {
-      <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
-      <p>This page doesn't exist. It may have been deleted.</p>
-    }
-    else
-    {
-      <UpLink Class="mb-4" Href="@PageUrls.EditCustomPage(_page.Id)" Label="@_page.Name" />
-      <h1 class="mb-4 text-xl">Row on @_page.Name</h1>
+<EditorWorkspace Page="_page" RowId="new PageRowId(RowId)" IsNewRow="IsNew">
+  @if (_page is null)
+  {
+    <UpLink Class="mb-4" Href="@PageUrls.CustomPageList" Label="Pages" />
+    <p>This page doesn't exist. It may have been deleted.</p>
+  }
+  else
+  {
+    <UpLink Class="mb-4" Href="@PageUrls.EditCustomPage(_page.Id)" Label="@_page.Name" />
+    <h1 class="mb-4 text-xl">Row on @_page.Name</h1>
 
-      @if (_row is not null && Input is not null)
-      {
-        @* every choice saves the moment it's made; the row's slots, below, are an island *@
-        <EditForm EditContext="Input.EditContext" FormName="row-settings" OnValidSubmit="SaveAsync" Enhance class="mb-6">
-          @if (_saveError is { } saveError)
+    @if (_row is not null && Input is not null)
+    {
+      @* every choice saves the moment it's made; the row's slots, below, are an island *@
+      <EditForm EditContext="Input.EditContext" FormName="row-settings" OnValidSubmit="SaveAsync" Enhance class="mb-6">
+        @if (_saveError is { } saveError)
+        {
+          <p class="mb-4 text-error">@saveError Reload the page.</p>
+        }
+        <SubmitOnChange>
+          <RadioField Label="Height" @bind-Value="Input.Height" Values="Enum.GetValues<RowHeight>()" LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Width" @bind-Value="Input.ContentWidth" Values="Enum.GetValues<RowContentWidth>()" LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Top padding" @bind-Value="Input.TopPadding" Values="Enum.GetValues<RowVerticalPadding>()"
+                      LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Bottom padding" @bind-Value="Input.BottomPadding" Values="Enum.GetValues<RowVerticalPadding>()"
+                      LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Side padding" @bind-Value="Input.SidePadding" Values="Enum.GetValues<RowSidePadding>()"
+                      LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Gap" @bind-Value="Input.Gap" Values="Enum.GetValues<RowGap>()" LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Line up" @bind-Value="Input.Alignment" Values="Enum.GetValues<RowAlignment>()" LabelOf="RowChoiceLabels.Of" />
+          <RadioField Label="Theme" @bind-Value="Input.Theme" Values="ThemeChoices" LabelOf="ThemeLabel" />
+          <RadioField Label="Background" @bind-Value="Input.BackgroundType" Values="Enum.GetValues<RowBackgroundType>()"
+                      LabelOf="RowChoiceLabels.Of" />
+          @if (Input.BackgroundType is RowBackgroundType.Color)
           {
-            <p class="mb-4 text-error">@saveError Reload the page.</p>
+            @BackgroundColorInput(Input)
           }
+        </SubmitOnChange>
+        @* outside SubmitOnChange: its file input's change starts an upload, which posts the form itself *@
+        @if (Input.BackgroundType is RowBackgroundType.Image)
+        {
+          <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
+                            StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
+                            IsFullBleed />
+        }
+        @if (Input.BackgroundType is RowBackgroundType.Slideshow)
+        {
           <SubmitOnChange>
-            <RadioField Label="Height" @bind-Value="Input.Height" Values="Enum.GetValues<RowHeight>()" LabelOf="RowChoiceLabels.Of" />
-            <RadioField Label="Width" @bind-Value="Input.ContentWidth" Values="Enum.GetValues<RowContentWidth>()" LabelOf="RowChoiceLabels.Of" />
-            <RadioField Label="Top padding" @bind-Value="Input.TopPadding" Values="Enum.GetValues<RowVerticalPadding>()"
-                        LabelOf="RowChoiceLabels.Of" />
-            <RadioField Label="Bottom padding" @bind-Value="Input.BottomPadding" Values="Enum.GetValues<RowVerticalPadding>()"
-                        LabelOf="RowChoiceLabels.Of" />
-            <RadioField Label="Side padding" @bind-Value="Input.SidePadding" Values="Enum.GetValues<RowSidePadding>()"
-                        LabelOf="RowChoiceLabels.Of" />
-            <RadioField Label="Gap" @bind-Value="Input.Gap" Values="Enum.GetValues<RowGap>()" LabelOf="RowChoiceLabels.Of" />
-            <RadioField Label="Theme" @bind-Value="Input.Theme" Values="ThemeChoices" LabelOf="ThemeLabel" />
-            <RadioField Label="Background" @bind-Value="Input.BackgroundType" Values="Enum.GetValues<RowBackgroundType>()"
-                        LabelOf="RowChoiceLabels.Of" />
-            @if (Input.BackgroundType is RowBackgroundType.Color)
+            <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()"
+                        LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
+          </SubmitOnChange>
+          @if (Input.SlideSource is SlideSourceType.WorksInCollection)
+          {
+            <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
+                                   VisibleCollectionIds="_visibleCollectionIds" ShownIn="the slideshow" />
+          }
+        }
+        <SubmitOnChange>
+          @if (Input.BackgroundType is RowBackgroundType.Slideshow)
+          {
+            <RadioField Label="Each image shows" @bind-Value="Input.SlideInterval" Values="Enum.GetValues<SlideshowInterval>()"
+                        LabelOf="SlideChoiceLabels.Of" />
+          }
+          @if (Input.BackgroundType is RowBackgroundType.Image or RowBackgroundType.Slideshow)
+          {
+            <RadioField Label="Fit" @bind-Value="Input.BackgroundFit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+            <RadioField TValue="bool?" Label="@(Input.BackgroundType is RowBackgroundType.Slideshow ? "Behind the images" : "Behind the image")"
+                        @bind-Value="Input.HasColorBehindImage" Values="[false, true]"
+                        LabelOf="@(hasColor => hasColor is true ? "A colour" : "Page colour")" />
+            @if (Input.HasColorBehindImage is true)
             {
               @BackgroundColorInput(Input)
             }
-          </SubmitOnChange>
-          @* outside SubmitOnChange: its file input's change starts an upload, which posts the form itself *@
-          @if (Input.BackgroundType is RowBackgroundType.Image)
-          {
-            <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
-                              StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
-                              IsFullBleed />
           }
-          @if (Input.BackgroundType is RowBackgroundType.Slideshow)
-          {
-            <SubmitOnChange>
-              <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()"
-                          LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
-            </SubmitOnChange>
-            @if (Input.SlideSource is SlideSourceType.WorksInCollection)
-            {
-              <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
-                                     VisibleCollectionIds="_visibleCollectionIds" ShownIn="the slideshow" />
-            }
-          }
-          <SubmitOnChange>
-            @if (Input.BackgroundType is RowBackgroundType.Slideshow)
-            {
-              <RadioField Label="Each image shows" @bind-Value="Input.SlideInterval" Values="Enum.GetValues<SlideshowInterval>()"
-                          LabelOf="SlideChoiceLabels.Of" />
-            }
-            @if (Input.BackgroundType is RowBackgroundType.Image or RowBackgroundType.Slideshow)
-            {
-              <RadioField Label="Fit" @bind-Value="Input.BackgroundFit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
-              <RadioField TValue="bool?" Label="@(Input.BackgroundType is RowBackgroundType.Slideshow ? "Behind the images" : "Behind the image")"
-                          @bind-Value="Input.HasColorBehindImage" Values="[false, true]"
-                          LabelOf="@(hasColor => hasColor is true ? "A colour" : "Page colour")" />
-              @if (Input.HasColorBehindImage is true)
-              {
-                @BackgroundColorInput(Input)
-              }
-            }
-            @* app.css hides this unless the browser runs no scripts *@
-            <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>
-          </SubmitOnChange>
-        </EditForm>
+          @* app.css hides this unless the browser runs no scripts *@
+          <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>
+        </SubmitOnChange>
+      </EditForm>
 
-        @if (_slides is not null)
-        {
-          <ChosenSlidesField Owner="new SlideOwner.Row(_row.Id)" Items="_slides" />
-        }
+      @if (_slides is not null)
+      {
+        <ChosenSlidesField Owner="new SlideOwner.Row(_row.Id)" Items="_slides" />
       }
-
-      @* SettingsStamp tells the island, whose preview draws the settings, to read the row again after a save *@
-      <RowEditor @rendermode="InteractiveServer" @key="RowId" Page="_page" RowId="new PageRowId(RowId)" IsNew="IsNew"
-                 SettingsStamp="@(_row?.Settings.ToString() ?? "")" />
     }
-  </AdminPanel>
-</main>
+  }
+</EditorWorkspace>

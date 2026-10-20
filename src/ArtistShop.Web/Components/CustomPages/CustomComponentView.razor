@@ -10,23 +10,26 @@
   public required SlotWidth Slot { get; set; }
 }
 
-@switch (Component.Settings)
-{
-  case CardGridSettings cardGrid:
-    <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)" />
-    break;
-  case PostListSettings:
-    <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" />
-    break;
-  case TextSettings text:
-    <TextView Settings="text" />
-    break;
-  case ImageSettings image:
-    <ImageView Settings="image" Slot="Slot" />
-    break;
-  case CarouselSettings carousel:
-    <CarouselView Settings="carousel" ComponentId="Component.Id" Slot="Slot" />
-    break;
-  default:
-    throw new InvalidOperationException($"{Component.Settings.Type} has no view.");
-}
+@* what the editors' preview finds a component by. contents: it lays nothing out itself *@
+<div class="contents" data-component-id="@Component.Id.Value">
+  @switch (Component.Settings)
+  {
+    case CardGridSettings cardGrid:
+      <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)" />
+      break;
+    case PostListSettings:
+      <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" />
+      break;
+    case TextSettings text:
+      <TextView Settings="text" />
+      break;
+    case ImageSettings image:
+      <ImageView Settings="image" Slot="Slot" />
+      break;
+    case CarouselSettings carousel:
+      <CarouselView Settings="carousel" ComponentId="Component.Id" Slot="Slot" />
+      break;
+    default:
+      throw new InvalidOperationException($"{Component.Settings.Type} has no view.");
+  }
+</div>

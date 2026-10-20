@@ -1,6 +1,7 @@
 @* a card grid's custom list on its settings page: drag to reorder, ✕ to take a card off. Both save at once *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages.Workspace
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Utilities
 @inject CardGridChosenCardRepository CardGridChosenCardRepository
@@ -19,15 +20,26 @@
   [Parameter, EditorRequired]
   public required IReadOnlyList<ChosenCardListItem> Items { get; set; }
 
-  private Task ReorderAsync(IReadOnlyList<ChosenCardListItem> items) =>
-    CardGridChosenCardRepository.ReorderAsync(ComponentId, [.. items.Select(item => item.Id)]);
+  // each save reloads the page preview
+  private int _saveCount;
 
-  private Task RemoveAsync(ChosenCardListItem item) => CardGridChosenCardRepository.RemoveAsync(ComponentId, item.Id);
+  private Task ReorderAsync(IReadOnlyList<ChosenCardListItem> items) =>
+    SavedAsync(CardGridChosenCardRepository.ReorderAsync(ComponentId, [.. items.Select(item => item.Id)]));
+
+  private Task RemoveAsync(ChosenCardListItem item) => SavedAsync(CardGridChosenCardRepository.RemoveAsync(ComponentId, item.Id));
+
+  private async Task SavedAsync(Task save)
+  {
+    await save;
+    _saveCount++;
+    StateHasChanged();
+  }
 
   private string NotShownReason(ChosenCardListItem item) =>
     item.IsCollection ? $"Not shown: none of its {Wording.Work.PluralInSentence} has an image." : "Not shown: no image.";
 }
 
+<PreviewReload Stamp="_saveCount" />
 <SavingSortableList TItem="ChosenCardListItem" Items="Items" AriaLabel="Card order" Reorder="ReorderAsync" Remove="RemoveAsync"
                     NameOf="item => item.Name">
   <Header Context="count">

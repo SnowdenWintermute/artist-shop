@@ -7,8 +7,9 @@ declare const Blazor: {
     name: "enhancedload" | "enhancednavigationstart" | "enhancednavigationend",
     callback: () => void
   ): void;
-  // an enhanced navigation on a static page, as following a link would be
-  navigateTo(url: string): void;
+  // an enhanced navigation on a static page, as following a link would be; replaceHistoryEntry leaves no entry
+  // for Back
+  navigateTo(url: string, forceLoad?: boolean, replaceHistoryEntry?: boolean): void;
   reconnect(): Promise<boolean>;
   resumeCircuit(): Promise<boolean>;
 };

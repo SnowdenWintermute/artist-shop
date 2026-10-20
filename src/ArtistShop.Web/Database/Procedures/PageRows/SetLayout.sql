@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS set_page_row_layout;
 
 -- p_slot_count is how many slots the page saw, which p_widths was chosen for
-CREATE FUNCTION set_page_row_layout (p_row_id int, p_slot_count int, p_widths int, p_alignment int) RETURNS void LANGUAGE plpgsql AS $$
+CREATE FUNCTION set_page_row_layout (p_row_id int, p_slot_count int, p_widths int) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     PERFORM 1 FROM page_rows WHERE id = p_row_id FOR NO KEY UPDATE;
 
@@ -11,8 +11,7 @@ BEGIN
 
     UPDATE page_rows
     SET
-        widths = p_widths,
-        alignment = p_alignment
+        widths = p_widths
     WHERE
         id = p_row_id;
 END;

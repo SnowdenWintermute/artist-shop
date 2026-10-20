@@ -1,6 +1,7 @@
 @* A chosen list of slides: drag to reorder, ✕ to take one off. Both save at once *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Lists
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages.Workspace
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Utilities
 @inject SlideRepository SlideRepository
@@ -18,11 +19,22 @@
   private SlideOwner Owner =>
     ComponentId is { } componentId ? new SlideOwner.Component(componentId) : new SlideOwner.Row(Unwrap.Value(RowId));
 
-  private Task ReorderAsync(IReadOnlyList<SlideListItem> items) => SlideRepository.ReorderAsync(Owner, [.. items.Select(item => item.Id)]);
+  // each save reloads the page preview
+  private int _saveCount;
 
-  private Task RemoveAsync(SlideListItem item) => SlideRepository.RemoveAsync(Owner, item.Id);
+  private Task ReorderAsync(IReadOnlyList<SlideListItem> items) => SavedAsync(SlideRepository.ReorderAsync(Owner, [.. items.Select(item => item.Id)]));
+
+  private Task RemoveAsync(SlideListItem item) => SavedAsync(SlideRepository.RemoveAsync(Owner, item.Id));
+
+  private async Task SavedAsync(Task save)
+  {
+    await save;
+    _saveCount++;
+    StateHasChanged();
+  }
 }
 
+<PreviewReload Stamp="_saveCount" />
 <SavingSortableList TItem="SlideListItem" Items="Items" AriaLabel="Slide order" Reorder="ReorderAsync" Remove="RemoveAsync"
                     NameOf="item => item.Name">
   <Header Context="count">

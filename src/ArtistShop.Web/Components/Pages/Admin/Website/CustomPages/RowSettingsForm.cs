@@ -24,6 +24,8 @@ public class RowSettingsForm : CollectionChoiceForm
 
     public RowGap Gap { get; set; }
 
+    public RowAlignment Alignment { get; set; }
+
     // a ThemeKey.QueryValue, or WebsiteTheme
     public string? Theme { get; set; }
 
@@ -59,6 +61,7 @@ public class RowSettingsForm : CollectionChoiceForm
             BottomPadding = settings.Padding.Bottom,
             SidePadding = settings.Padding.Sides,
             Gap = settings.Gap,
+            Alignment = settings.Alignment,
             Theme = settings.Theme?.QueryValue ?? WebsiteTheme,
             BackgroundType = settings.Background.Type,
             BackgroundColor = settings.Background.DrawnColor?.Hex,
@@ -87,6 +90,7 @@ public class RowSettingsForm : CollectionChoiceForm
             (Enum.IsDefined(BottomPadding), nameof(BottomPadding)),
             (Enum.IsDefined(SidePadding), nameof(SidePadding)),
             (Enum.IsDefined(Gap), nameof(Gap)),
+            (Enum.IsDefined(Alignment), nameof(Alignment)),
             (Enum.IsDefined(BackgroundType), nameof(BackgroundType))
         );
 
@@ -120,6 +124,7 @@ public class RowSettingsForm : CollectionChoiceForm
             ContentWidth,
             new RowPadding(TopPadding, BottomPadding, SidePadding),
             Gap,
+            Alignment,
             ThemeKey,
             BackgroundType switch
             {

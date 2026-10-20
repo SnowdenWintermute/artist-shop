@@ -56,20 +56,19 @@ public class PageRowRepository(SiteDatabase database)
     }
 
     // slotCount is how many slots the page saw, which widths was chosen for
-    public async Task SetLayoutAsync(PageRowId id, int slotCount, RowWidths widths, RowAlignment alignment)
+    public async Task SetLayoutAsync(PageRowId id, int slotCount, RowWidths widths)
     {
         await using var connection = await database.OpenConnectionAsync();
 
         try
         {
             await connection.ExecuteAsync(
-                "SELECT set_page_row_layout(@Id, @SlotCount, @Widths, @Alignment)",
+                "SELECT set_page_row_layout(@Id, @SlotCount, @Widths)",
                 new
                 {
                     Id = id.Value,
                     SlotCount = slotCount,
                     Widths = (int)widths,
-                    Alignment = (int)alignment,
                 }
             );
         }
@@ -92,7 +91,7 @@ public class PageRowRepository(SiteDatabase database)
         try
         {
             await connection.ExecuteAsync(
-                "SELECT set_page_row_settings(@Id, @Height, @ContentWidth, @TopPadding, @BottomPadding, @SidePadding, @Gap, "
+                "SELECT set_page_row_settings(@Id, @Height, @ContentWidth, @TopPadding, @BottomPadding, @SidePadding, @Gap, @Alignment, "
                     + "@ThemeId, @ThemePreset, @BackgroundType, @BackgroundColor, @BackgroundUploadedImageKey, @BackgroundWorkId, "
                     + "@BackgroundWorkImageKey, @BackgroundFit, @BackgroundSlideSource, @BackgroundSlideCollectionId, "
                     + "@BackgroundSlideInterval)",
@@ -105,6 +104,7 @@ public class PageRowRepository(SiteDatabase database)
                     BottomPadding = (int)settings.Padding.Bottom,
                     SidePadding = (int)settings.Padding.Sides,
                     Gap = (int)settings.Gap,
+                    Alignment = (int)settings.Alignment,
                     ThemeId = themeId,
                     ThemePreset = themePreset,
                     BackgroundType = (int)background.Type,

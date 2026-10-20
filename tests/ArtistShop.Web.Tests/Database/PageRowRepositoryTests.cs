@@ -69,6 +69,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
             RowContentWidth.EdgeToEdge,
             new RowPadding(RowVerticalPadding.None, RowVerticalPadding.Large, RowSidePadding.Small),
             RowGap.None,
+            RowAlignment.End,
             new ThemeKey.Preset(ThemePreset.Dark),
             new RowBackground.Color(RgbColor.Parse("#123456"))
         );
@@ -197,12 +198,78 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
 
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _slots.AddAsync(rowId, slotCount: 1));
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
-            _rows.SetLayoutAsync(rowId, slotCount: 1, RowWidths.Whole, RowAlignment.Center)
+            _rows.SetLayoutAsync(rowId, slotCount: 1, RowWidths.Whole)
         );
 
-        await _rows.SetLayoutAsync(rowId, slotCount: 2, RowWidths.TwoThirdsThenThird, RowAlignment.End);
+        await _rows.SetLayoutAsync(rowId, slotCount: 2, RowWidths.TwoThirdsThenThird);
+        Assert.Equal(RowWidths.TwoThirdsThenThird, (await RowAsync(pageId, rowId)).Widths);
+    }
+
+    // the widths belong to the row's places, not its slots; a list that isn't the row's slots is refused
+    [Fact]
+    public async Task SlotsSwapPlacesUnderTheRowsWidths()
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        await _slots.AddAsync(rowId, slotCount: 1);
+        await _rows.SetLayoutAsync(rowId, slotCount: 2, RowWidths.ThirdThenTwoThirds);
+        var slotIds = (await RowAsync(pageId, rowId)).Slots.Select(slot => slot.Id).ToList();
+
+        await _slots.ReorderAsync(rowId, [slotIds[1], slotIds[0]]);
+
         var row = await RowAsync(pageId, rowId);
-        Assert.Equal((RowWidths.TwoThirdsThenThird, RowAlignment.End), (row.Widths, row.Alignment));
+        Assert.Equal([slotIds[1], slotIds[0]], row.Slots.Select(slot => slot.Id));
+        Assert.Equal(RowWidths.ThirdThenTwoThirds, row.Widths);
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _slots.ReorderAsync(rowId, [slotIds[0]]));
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _slots.ReorderAsync(rowId, [slotIds[0], slotIds[0]]));
+    }
+
+    // a component lands at its place in the other slot's stack, both stacks closing and opening around it
+    [Fact]
+    public async Task AComponentMovesIntoAnotherSlotsStack()
+    {
+        var pageId = await AddPageAsync();
+        var rowId = await _rows.AddAsync(pageId);
+        await _slots.AddAsync(rowId, slotCount: 1);
+        var slots = (await RowAsync(pageId, rowId)).Slots.Select(slot => slot.Id).ToList();
+        var first = await _components.AddToSlotAsync(slots[0], UniqueName(), new PostListSettings());
+        var moved = await _components.AddToSlotAsync(slots[0], UniqueName(), CardGridSettings.AllCollections);
+        var last = await _components.AddToSlotAsync(slots[0], UniqueName(), CardGridSettings.AllCollections);
+        var top = await _components.AddToSlotAsync(slots[1], UniqueName(), CardGridSettings.AllCollections);
+        var bottom = await _components.AddToSlotAsync(slots[1], UniqueName(), CardGridSettings.AllCollections);
+
+        await _slots.MovePlacementAsync(slots[0], moved, slots[1], toIndex: 1);
+
+        var stacks = (await RowAsync(pageId, rowId)).Slots.Select(slot => slot.Stack.Select(component => component.Id));
+        Assert.Equal([[first, last], [top, moved, bottom]], stacks);
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _slots.MovePlacementAsync(slots[0], moved, slots[1], toIndex: 0));
+        await _slots.PlaceAsync(slots[0], top);
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => _slots.MovePlacementAsync(slots[0], top, slots[1], toIndex: 0));
+    }
+
+    // the rows take the first split for their new counts, and the row it left, now empty, an empty slot
+    [Fact]
+    public async Task ASlotMovesIntoAnotherRow()
+    {
+        var pageId = await AddPageAsync();
+        var fromRowId = await _rows.AddAsync(pageId);
+        var toRowId = await _rows.AddAsync(pageId);
+        var movedSlot = Assert.Single((await RowAsync(pageId, fromRowId)).Slots).Id;
+        var component = await _components.AddToSlotAsync(movedSlot, UniqueName(), CardGridSettings.AllCollections);
+        var stayingSlot = Assert.Single((await RowAsync(pageId, toRowId)).Slots).Id;
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
+            _slots.MoveAsync(movedSlot, fromRowId, fromSlotCount: 2, toRowId, toSlotCount: 1, toIndex: 0)
+        );
+        await _slots.MoveAsync(movedSlot, fromRowId, fromSlotCount: 1, toRowId, toSlotCount: 1, toIndex: 0);
+
+        var to = await RowAsync(pageId, toRowId);
+        Assert.Equal([movedSlot, stayingSlot], to.Slots.Select(slot => slot.Id));
+        Assert.Equal([component], to.Slots[0].Stack.Select(placed => placed.Id));
+        Assert.Equal(RowWidthChoices.For(2)[0], to.Widths);
+        var from = await RowAsync(pageId, fromRowId);
+        Assert.Empty(Assert.Single(from.Slots).Stack);
+        Assert.Equal(RowWidths.Whole, from.Widths);
     }
 
     [Fact]

@@ -193,6 +193,7 @@ public record RowSettings(
     RowContentWidth ContentWidth,
     RowPadding Padding,
     RowGap Gap,
+    RowAlignment Alignment,
     ThemeKey? Theme,
     RowBackground Background
 );
@@ -212,7 +213,7 @@ public record PageRow(
     IReadOnlyList<RowSlot> Slots
 )
 {
-    public RowSettings Settings => new(Height, ContentWidth, Padding, Gap, Theme?.Key, Background);
+    public RowSettings Settings => new(Height, ContentWidth, Padding, Gap, Alignment, Theme?.Key, Background);
 }
 
 // a page's rows, top to bottom

@@ -2,8 +2,8 @@ namespace ArtistShop.Web.Components.CustomPages;
 
 using ArtistShop.Web.Domain.Website;
 
-// how wide a custom page's rows are drawn, and the screens the row editor's preview draws a row on,
-// so its container queries switch where a visitor's will
+// how wide a custom page's rows are drawn, and the screens the editors' previews draw on, so media and
+// container queries switch where a visitor's will
 public static class CustomPageWidths
 {
     // a page-width row's box, its side padding inside, so Medium sides leave 1168px of content as

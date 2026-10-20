@@ -16,13 +16,16 @@
 <SectionContent SectionName="@SiteFooter.EditLinkSectionName">
   <AuthorizeView Policy="@SitePolicies.Admin">
     <Authorized>
-      <span class="mx-1">|</span>
-      <a href="@Href" class="@LinkStyles.InSentence">Edit page</a>
-      @foreach (var link in MoreLinks)
-      {
+      @* the editors' preview hides these, as a visitor doesn't see them *@
+      <span data-admin-footer-links>
         <span class="mx-1">|</span>
-        <a href="@link.Href" class="@LinkStyles.InSentence">@link.Label</a>
-      }
+        <a href="@Href" class="@LinkStyles.InSentence">Edit page</a>
+        @foreach (var link in MoreLinks)
+        {
+          <span class="mx-1">|</span>
+          <a href="@link.Href" class="@LinkStyles.InSentence">@link.Label</a>
+        }
+      </span>
     </Authorized>
   </AuthorizeView>
 </SectionContent>

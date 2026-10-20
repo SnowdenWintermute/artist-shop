@@ -1,0 +1,63 @@
+@* One slot in an OutlineRow, after the gap a slot can be dragged into: a handle, ✕ while the row has others, its
+   components in order, each after a gap a component can land in, with a handle, ✕ to take it out of the slot and
+   Edit, and Add component, which is also where a component lands at the end of the stack *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  [CascadingParameter]
+  public PageOutline Outline { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required RowSketch Row { get; set; }
+  [Parameter, EditorRequired]
+  public required SlotSketch Slot { get; set; }
+
+  private int Index => Row.Slots.IndexOf(Slot);
+}
+
+<div role="listitem" class="flex min-w-0">
+  <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Index" class="@OutlineDropClasses.SlotGap" aria-hidden="true"></div>
+
+  <div data-drag="slot" data-id="@Slot.Id.Value" data-parent-id="@Row.Id.Value"
+       class="min-w-0 flex-1 border border-dashed border-rule p-1.25 data-drag-source:opacity-40">
+    @* a row's only slot drags too, into another row, leaving an empty one behind *@
+    <div class="flex items-center gap-1.25">
+      <OutlineHandle Label="slot" IsFirst="Index == 0" IsLast="Index == Row.Slots.Count - 1" IsSideways
+                     OnMove="offset => Outline.MoveSlotAsync(Row, (Index, Index + offset))" />
+      <span class="grow"></span>
+      @if (Row.Slots.Count > 1)
+      {
+        <OutlineActions Label="slot" OnRemove="() => Outline.AskToRemove(Row, Slot)" />
+      }
+    </div>
+
+    <div role="list" aria-label="Components">
+      @for (var index = 0; index < Slot.Components.Count; index++)
+      {
+        var component = Slot.Components[index];
+        var place = index;
+
+        <div @key="component.Id" role="listitem">
+          <div data-drop="component" data-parent-id="@Slot.Id.Value" data-index="@place" class="@OutlineDropClasses.ComponentGap"
+               aria-hidden="true"></div>
+          <div data-drag="component" data-id="@component.Id.Value" data-parent-id="@Slot.Id.Value"
+               class="@($"flex items-center gap-1.25 border bg-page px-1.25 py-0.5 data-drag-source:opacity-40 {(Outline.IsEdited(Row, component) ? "border-accent outline-2 -outline-offset-2 outline-accent" : "border-rule")}")">
+            <OutlineHandle Label="@component.Name" IsFirst="place == 0" IsLast="place == Slot.Components.Count - 1"
+                           OnMove="offset => Outline.MoveComponentAsync(Slot, (place, place + offset))" />
+            <span class="min-w-0 grow truncate" title="@component.Name">@component.Name</span>
+            <OutlineActions Label="@component.Name" EditHref="@Outline.ComponentEditHref(Row, component)"
+                            OnRemove="() => Outline.TakeOutAsync(Slot, component)" RemoveTitle="Take out of this slot" />
+          </div>
+        </div>
+      }
+    </div>
+
+    @* the gap above it, the same as between components *@
+    <div class="h-2"></div>
+    <button type="button" data-drop="component" data-parent-id="@Slot.Id.Value" data-index="@Slot.Components.Count"
+            class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineDropClasses.End}")"
+            disabled="@Outline.IsSaving" @onclick="() => Outline.AddTo(Slot)">
+      Add component…
+    </button>
+  </div>
+</div>

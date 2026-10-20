@@ -1,0 +1,29 @@
+@* A part of the outline's ✕, and Edit when it has an editor of its own *@
+@using ArtistShop.Web.Components.Icons
+
+@code {
+  [CascadingParameter]
+  public PageOutline Outline { get; set; } = default!;
+
+  // what's removed or edited, for the labels
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnRemove { get; set; }
+  [Parameter]
+  public string? RemoveTitle { get; set; }
+  [Parameter]
+  public string? EditHref { get; set; }
+}
+
+<button type="button" class="shrink-0 cursor-pointer p-0.75" title="@(RemoveTitle ?? $"Remove {Label}")"
+        aria-label="@(RemoveTitle is null ? $"Remove {Label}" : $"{RemoveTitle}: {Label}")" disabled="@Outline.IsSaving"
+        @onclick="OnRemove">
+  <SvgIcon Name="close" Class="size-5" />
+</button>
+@if (EditHref is not null)
+{
+  <a href="@EditHref" class="shrink-0 p-0.75" title="Edit" aria-label="@($"Edit {Label}")">
+    <SvgIcon Name="pencil" Class="size-5" />
+  </a>
+}

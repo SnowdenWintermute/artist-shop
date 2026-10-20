@@ -1,0 +1,79 @@
+@* One row in PageOutline, after the gap a row can be dragged into: a handle to drag it, its split as small width
+   buttons, ✕ and Edit; its slots drawn at their widths, which stay by position when slots move, each after a gap
+   a slot can land in; and at the end Add slot while there's room, which is also where a slot lands at the end, or in
+   a full row a gap for that *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
+
+@code {
+  [CascadingParameter]
+  public PageOutline Outline { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required RowSketch Row { get; set; }
+  [Parameter, EditorRequired]
+  public int Index { get; set; }
+  [Parameter, EditorRequired]
+  public bool IsLast { get; set; }
+  // up or down one place, for the keyboard
+  [Parameter, EditorRequired]
+  public EventCallback<int> OnMove { get; set; }
+
+  private string ColumnsStyle => $"grid-template-columns: {string.Join(" ", RowClasses.SlotShares(Row.Widths).Select(share => $"minmax(0, {share}fr)"))}";
+}
+
+<div role="listitem">
+  <div data-drop="row" data-index="@Index" class="@OutlineDropClasses.RowGap" aria-hidden="true"></div>
+
+  @* data-slot-count: the drag script offers no place in a full row *@
+  <div data-drag="row" data-id="@Row.Id.Value" data-slot-count="@Row.Slots.Count" class="flex items-start gap-1.25 data-drag-source:opacity-40">
+    <OutlineHandle Class="pt-1.25" Label="row" IsFirst="Index == 0" IsLast="IsLast" OnMove="OnMove" />
+
+    <div class="@($"min-w-0 flex-1 border p-1.25 {(Outline.IsEdited(Row) ? "border-accent outline-2 -outline-offset-2 outline-accent" : "border-rule")}")">
+      <div class="mb-1.25 flex items-center gap-2.5">
+        @if (Row.Slots.Count > 1)
+        {
+          <div role="group" aria-label="Slot widths" class="flex gap-1.25">
+            @foreach (var widths in RowWidthChoices.For(Row.Slots.Count))
+            {
+              var isChosen = widths == Row.Widths;
+              <button type="button" class="flex h-5 w-10 cursor-pointer gap-0.5" title="@RowChoiceLabels.Of(widths)"
+                      aria-label="@RowChoiceLabels.Of(widths)" aria-pressed="@(isChosen ? "true" : "false")"
+                      @onclick="() => Outline.ChooseWidthsAsync(Row, widths)">
+                @foreach (var growth in RowClasses.SlotGrowth(widths))
+                {
+                  <span class="@($"basis-0 border border-ink {growth} {(isChosen ? "bg-ink" : "")}")"></span>
+                }
+              </button>
+            }
+          </div>
+        }
+        <span class="grow"></span>
+        <OutlineActions Label="row" EditHref="@Outline.RowEditHref(Row)" OnRemove="() => Outline.AskToRemove(Row)" />
+      </div>
+
+      <div class="flex items-stretch gap-1.25">
+        <div role="list" aria-label="Slots" class="grid min-w-0 flex-1" style="@ColumnsStyle">
+          @foreach (var slot in Row.Slots)
+          {
+            <OutlineSlot @key="slot.Id" Row="Row" Slot="slot" />
+          }
+        </div>
+
+        @if (Row.Slots.Count < RowWidthChoices.MaximumSlotCount)
+        {
+          <button type="button" data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count"
+                  class="@($"shrink-0 cursor-pointer self-start {LinkStyles.InSentence} {OutlineDropClasses.End}")"
+                  disabled="@Outline.IsSaving" @onclick="() => Outline.AddSlotAsync(Row)">
+            Add slot…
+          </button>
+        }
+        else
+        {
+          <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count" class="@OutlineDropClasses.SlotGap"
+               aria-hidden="true"></div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

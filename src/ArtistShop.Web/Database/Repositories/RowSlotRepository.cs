@@ -35,6 +35,44 @@ public class RowSlotRepository(SiteDatabase database)
             }
         );
 
+    // slotIds is every slot in the row, left to right in the new order; the widths stay by position
+    public Task ReorderAsync(PageRowId rowId, IReadOnlyList<RowSlotId> slotIds) =>
+        ExecuteAsync(
+            "SELECT reorder_row_slots(@RowId, @SlotIds)",
+            new { RowId = rowId.Value, SlotIds = slotIds.Select(id => id.Value).ToArray() }
+        );
+
+    // Into another row at that place, with its stack. The slot counts are how many slots the page saw in each row;
+    // both rows take the first split for their new count, and a row left with none gets an empty slot
+    public Task MoveAsync(RowSlotId id, PageRowId fromRowId, int fromSlotCount, PageRowId toRowId, int toSlotCount, int toIndex) =>
+        ExecuteAsync(
+            "SELECT move_row_slot(@Id, @FromRowId, @FromSlotCount, @FromWidths, @ToRowId, @ToSlotCount, @ToWidths, @ToIndex)",
+            new
+            {
+                Id = id.Value,
+                FromRowId = fromRowId.Value,
+                FromSlotCount = fromSlotCount,
+                FromWidths = (int)RowWidthChoices.For(Math.Max(fromSlotCount - 1, 1))[0],
+                ToRowId = toRowId.Value,
+                ToSlotCount = toSlotCount,
+                ToWidths = (int)RowWidthChoices.For(toSlotCount + 1)[0],
+                ToIndex = toIndex,
+            }
+        );
+
+    // from one slot's stack into another's at that place
+    public Task MovePlacementAsync(RowSlotId fromId, CustomComponentId componentId, RowSlotId toId, int toIndex) =>
+        ExecuteAsync(
+            "SELECT move_slot_placement(@FromId, @ComponentId, @ToId, @ToIndex)",
+            new
+            {
+                FromId = fromId.Value,
+                ComponentId = componentId.Value,
+                ToId = toId.Value,
+                ToIndex = toIndex,
+            }
+        );
+
     // at the bottom of the slot's stack
     public Task PlaceAsync(RowSlotId id, CustomComponentId componentId) =>
         ExecuteAsync("SELECT place_custom_component(@Id, @ComponentId)", new { Id = id.Value, ComponentId = componentId.Value });

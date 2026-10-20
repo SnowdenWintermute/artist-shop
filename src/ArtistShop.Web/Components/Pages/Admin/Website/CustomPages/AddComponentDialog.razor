@@ -11,8 +11,9 @@
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
 
+  // what the slot holds already
   [Parameter, EditorRequired]
-  public required RowSlot Slot { get; set; }
+  public required IReadOnlyList<CustomComponentId> InSlot { get; set; }
   [Parameter, EditorRequired]
   public bool IsSaving { get; set; }
   [Parameter, EditorRequired]
@@ -29,7 +30,7 @@
     _made =
     [
       .. (await CustomComponentRepository.GetAllAsync())
-        .Where(made => !Slot.Stack.Any(inSlot => inSlot.Id == made.Component.Id))
+        .Where(made => !InSlot.Contains(made.Component.Id))
         .OrderBy(made => CustomComponentNames.Of(made.Component.Settings.Type, Wording), StringComparer.CurrentCultureIgnoreCase)
         .ThenBy(made => made.Component.Name, StringComparer.CurrentCultureIgnoreCase),
     ];

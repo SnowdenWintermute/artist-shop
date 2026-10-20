@@ -1,0 +1,9 @@
+@* Inside an island that saves what the page preview shows: a new Stamp reloads the preview, through
+   <preview-reload> in PagePreview.razor.js *@
+
+@code {
+  [Parameter, EditorRequired]
+  public required int Stamp { get; set; }
+}
+
+<preview-reload hidden data-stamp="@Stamp"></preview-reload>
