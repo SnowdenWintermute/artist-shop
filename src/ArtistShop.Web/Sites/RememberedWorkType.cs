@@ -28,6 +28,9 @@ public class RememberedWorkType(
     // as a RememberedSelect's option submits it
     public static string ValueOf(WorkTypeId id) => id.Value.ToString(CultureInfo.InvariantCulture);
 
+    // asked afresh on every call and never kept, so it can't go stale, which is what BL0013 guards against
+#pragma warning disable BL0013
     private async Task<string> UserIdAsync() =>
         (await authenticationStateProvider.GetAuthenticationStateAsync()).User.RequiredUserId();
+#pragma warning restore BL0013
 }
