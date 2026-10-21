@@ -16,18 +16,21 @@
   [Parameter, EditorRequired]
   public bool IsLast { get; set; }
 
-  private string ColumnsStyle => $"grid-template-columns: {string.Join(" ", RowClasses.SlotShares(Row.Widths).Select(share => $"minmax(0, {share}fr)"))}";
+  private string ColumnsStyle => $"grid-template-columns: {string.Join(" ", RowClasses.SlotShares(Row.Widths).Select(share
+=> $"minmax(0, {share}fr)"))}";
 }
 
 <div role="listitem">
   <div data-drop="row" data-index="@Index" class="@OutlineClasses.RowGap" aria-hidden="true"></div>
 
   @* data-full: the drag script offers no place in it to a slot from another row *@
-  <div data-drag="row" data-id="@Row.Id.Value" data-full="@(Row.Slots.Count >= RowWidthChoices.MaximumSlotCount)" class="flex items-start gap-1.25 data-drag-source:opacity-40">
-    <OutlineHandle Class="pt-1.25" Label="row" IsFirst="Index == 0" IsLast="IsLast" OnMove="offset => Outline.MoveRowByAsync(Row, offset)" />
+  <div data-drag="row" data-id="@Row.Id.Value" data-full="@(Row.Slots.Count >= RowWidthChoices.MaximumSlotCount)"
+       class="flex items-start gap-1.25 data-drag-source:opacity-40">
 
-    <div class="@($"min-w-0 flex-1 border p-1.25 {OutlineClasses.BorderOf(Outline.IsEdited(Row))}")">
-      <div class="mb-1.25 flex items-center gap-2.5">
+    <div class="min-w-0 flex-1 border border-rule bg-panel p-2 pl-1">
+      <div class="mb-2 flex items-center gap-2.5">
+        <OutlineHandle Class="pt-1.25" Label="row" IsFirst="Index == 0" IsLast="IsLast"
+                       OnMove="offset => Outline.MoveRowByAsync(Row, offset)" />
         @if (Row.Slots.Count > 1)
         {
           <div role="group" aria-label="Slot widths" class="flex gap-1.25">
@@ -39,7 +42,8 @@
                       @onclick="() => Outline.ChooseWidthsAsync(Row, widths)">
                 @foreach (var growth in RowClasses.SlotGrowth(widths))
                 {
-                  <span class="@($"basis-0 border border-ink {growth} {(isChosen ? "bg-ink" : "")}")"></span>
+                  @* light blue when chosen, as a chosen font is, else light grey *@
+                  <span class="@($"basis-0 border {growth} {(isChosen ? "bg-selected" : "bg-placeholder")}")"></span>
                 }
               </button>
             }
@@ -62,13 +66,13 @@
           <button type="button" data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count"
                   class="@($"shrink-0 cursor-pointer self-start {LinkStyles.InSentence} {OutlineClasses.End}")"
                   disabled="@Outline.IsSaving" @onclick="() => Outline.AddSlotAsync(Row)">
-            Add slot…
+            Add slot
           </button>
         }
         else
         {
-          <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count" class="@OutlineClasses.SlotGap"
-               aria-hidden="true"></div>
+          <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Row.Slots.Count"
+               class="@OutlineClasses.SlotGap" aria-hidden="true"></div>
         }
       </div>
     </div>

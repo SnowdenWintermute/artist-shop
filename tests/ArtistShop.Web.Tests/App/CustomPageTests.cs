@@ -270,21 +270,6 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Contains("No posts yet.", page);
     }
 
-    [Fact]
-    public async Task ANewRowOpensOnAddingAComponent()
-    {
-        var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-        var home = await PagesOf(site).GetHomeAsync();
-        var rowId = await new PageRowRepository(database).AddAsync(home.Id);
-        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
-
-        var editor = await client.GetStringAsync(PageUrls.EditNewPageRow(home.Id, rowId), TestContext.Current.CancellationToken);
-
-        Assert.Contains("Add a component", editor);
-        Assert.Contains("Post list", editor);
-    }
-
     // a background colour chosen just now has none posted, so it starts as the row's page colour, Dark's here
     [Fact]
     public async Task TheRowSettingsFormSavesEveryChoice()
@@ -465,9 +450,9 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Contains($"\"formattedComponentKey\":\"{home.Id.Value}\"", editor);
     }
 
-    // the outline is on every editor of the page, with each row's and component's way into its editor
+    // the outline is on the page editor only, with each row's and component's way into its editor
     [Fact]
-    public async Task TheComponentEditorOutlinesItsPage()
+    public async Task ThePageEditorOutlinesThePage()
     {
         var site = await app.MakeSiteAsync();
         var home = await PagesOf(site).GetHomeAsync();
@@ -476,11 +461,27 @@ public sealed partial class CustomPageTests(TestApp app)
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var componentHref = PageUrls.EditCustomComponent(component.Id, home.Id, row.Id);
 
-        var editor = await client.GetStringAsync(componentHref, TestContext.Current.CancellationToken);
+        var editor = await client.GetStringAsync(PageUrls.EditCustomPage(home.Id), TestContext.Current.CancellationToken);
+        var componentEditor = await client.GetStringAsync(componentHref, TestContext.Current.CancellationToken);
 
-        // the outline's own Edit links, as the up link goes to the row editor too
         Assert.Matches($"<a href=\"{Regex.Escape(PageUrls.EditPageRow(home.Id, row.Id))}\"[^>]* data-test=\"outline-edit\"", editor);
         Assert.Matches($"<a href=\"{Regex.Escape(HtmlEncoder.Default.Encode(componentHref))}\"[^>]* data-test=\"outline-edit\"", editor);
+        Assert.DoesNotContain("data-test=\"outline-edit\"", componentEditor);
+    }
+
+    // a component's Up goes straight to the page editor, past the row it's in
+    [Fact]
+    public async Task AComponentsUpLinkGoesToItsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var component = Assert.Single(Assert.Single(row.Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var editor = await client.GetStringAsync(PageUrls.EditCustomComponent(component.Id, home.Id, row.Id), TestContext.Current.CancellationToken);
+
+        Assert.Matches($"<a href=\"{Regex.Escape(PageUrls.EditCustomPage(home.Id))}\"[^>]* data-test=\"up-link\"", editor);
     }
 
     [Fact]
@@ -552,7 +553,6 @@ public sealed partial class CustomPageTests(TestApp app)
 
         Assert.Contains("<rich-text-editor", settings);
         Assert.Contains("data-backup-key=\"component-", settings);
-        Assert.Contains("Row on Home", settings);
     }
 
     // the preview's post list reads the address too, and once took the blog page's id for a page of posts
@@ -568,7 +568,7 @@ public sealed partial class CustomPageTests(TestApp app)
 
         var settings = await client.GetStringAsync(PageUrls.EditCustomComponent(component.Id, blog.Id, row.Id), TestContext.Current.CancellationToken);
 
-        Assert.Contains("Row on Blog", settings);
+        Assert.Matches($"<page-preview[^>]* data-row-id=\"{row.Id.Value}\"", settings);
     }
 
     // so a post's Up link always leads to its posts
@@ -655,7 +655,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var response = await TestApp.PostFormAsync(client, path, "delete-custom-component", []);
 
         Assert.Contains("It will be taken off Home.", settings);
-        Assert.Equal(PageUrls.EditPageRow(home.Id, row.Id), response.Headers.Location?.AbsolutePath);
+        Assert.Equal(PageUrls.EditCustomPage(home.Id), response.Headers.Location?.AbsolutePath);
         Assert.Null(await new CustomComponentRepository(database).GetAsync(component.Id));
     }
 

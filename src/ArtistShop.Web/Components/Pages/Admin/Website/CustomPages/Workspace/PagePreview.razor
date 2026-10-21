@@ -1,5 +1,5 @@
 @* The public page being edited, as a visitor sees it with its nav and footer, in a frame drawn at a desktop's or a
-   phone's width and shrunk to fit. <page-preview>, defined in PagePreview.razor.js, reloads the frame after a save,
+   phone's width (the workspace's width buttons) and shrunk to fit. <page-preview>, defined in PagePreview.razor.js, reloads the frame after a save,
    keeping its scroll, and outlines the row or component being edited *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Database
@@ -19,13 +19,8 @@
 <page-preview class="hidden h-full min-h-0 flex-col data-open:fixed data-open:inset-0 data-open:z-40 data-open:flex
                      data-open:bg-panel data-open:p-2 lg:flex lg:data-open:static lg:data-open:p-0"
               data-row-id="@RowId?.Value" data-component-id="@ComponentId?.Value">
-  <div class="mb-2 flex flex-wrap items-center gap-2">
-    <div role="group" aria-label="Width" class="flex flex-wrap items-center gap-2">
-      <PreviewWidthButtons />
-    </div>
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="ml-auto lg:hidden" data-closes-preview>
-      Close preview
-    </ButtonBasic>
+  <div class="mb-2 flex justify-end lg:hidden">
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-closes-preview>Close preview</ButtonBasic>
   </div>
   @* tabindex: its links do nothing, so the keyboard passes it by *@
   <div data-part="viewport" class="relative min-h-0 flex-1 overflow-hidden border border-rule bg-page">

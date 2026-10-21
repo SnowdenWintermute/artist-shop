@@ -118,6 +118,12 @@ dragged out gets a fresh empty slot.
   starts while saving (`data-saving`) and keyboard moves queue with the widths; `OutlineClasses` (was
   `OutlineDropClasses`) with `BorderOf`; `PreviewWidthButtons` + `/js/preview-width.js` shared by both previews,
   one width for every preview.
+- 2026-10-21 (Mike; uncommitted, 1295 tests, not browser-checked): the outline is on the page editor only. The row
+  and component editors show their form in its place, and the preview stays. Each editor's Up link sits at the top,
+  above the outline, with the preview's Desktop/Phone buttons beside it (`EditorWorkspace`'s `Up` and `Outline`).
+  A component's Up, and where you land after deleting it, is now its page editor, not its row. Add row adds an
+  empty row with no dialog (`EditNewPageRow` is gone). The outline lost the edit highlight and
+  `EditorAfterLeaving`.
 
 ## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
 

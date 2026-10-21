@@ -21,3 +21,5 @@ file.
 | `play.svg` | Drawn for this project | This project's |
 | `undo.svg` | [SVG Repo](https://www.svgrepo.com/svg/489197/undo). Redo is the same icon flipped in CSS | Public domain |
 | `pencil.svg` | Drawn for this project | This project's |
+| `desktop.svg` | Drawn for this project | This project's |
+| `phone.svg` | Drawn for this project | This project's |

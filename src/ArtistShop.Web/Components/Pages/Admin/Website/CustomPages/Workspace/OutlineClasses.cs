@@ -3,9 +3,6 @@ namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages.Workspace;
 // Written out whole for Tailwind
 public static class OutlineClasses
 {
-    // a row's or component's border, drawn inward when it's the part being edited, so it keeps its size
-    public static string BorderOf(bool isEdited) => isEdited ? "border-accent outline-2 -outline-offset-2 outline-accent" : "border-rule";
-
     // The places a dragged part can land (PageOutline.razor.js): the gaps before each part, there all along so
     // nothing changes size, and the Add links at each list's end. They show only while a part that can land there is
     // dragged (data-drop-ok), and fill under the pointer (data-drop-active), stacked on data-drop-ok so it outranks it

@@ -1,14 +1,19 @@
 @* A preview's Desktop and Phone buttons, Desktop pressed until the preview's script presses the width remembered
    (preview-width.js). data-phone: ThemedPreview narrows its box to the phone *@
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Icons
 
 @code {
-  // Primary when pressed, else Outline
-  private const string WidthButtonClass = "aria-pressed:bg-accent aria-pressed:text-on-accent";
+  // light blue when pressed, as a chosen font is, else light grey
+  private const string WidthButtonClass =
+    "flex size-8 cursor-pointer items-center justify-center rounded-sm bg-placeholder aria-pressed:bg-selected";
 }
 
-<ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="true"
-             data-preview-width="@CustomPageWidths.DesktopPixels">Desktop</ButtonBasic>
-<ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="@WidthButtonClass" aria-pressed="false"
-             data-preview-width="@CustomPageWidths.PhonePixels" data-phone>Phone</ButtonBasic>
+<button type="button" class="@WidthButtonClass" title="Desktop" aria-label="Desktop" aria-pressed="true"
+        data-preview-width="@CustomPageWidths.DesktopPixels">
+  <SvgIcon Name="desktop" Class="size-5" />
+</button>
+<button type="button" class="@WidthButtonClass" title="Phone" aria-label="Phone" aria-pressed="false"
+        data-preview-width="@CustomPageWidths.PhonePixels" data-phone>
+  <SvgIcon Name="phone" Class="size-5" />
+</button>

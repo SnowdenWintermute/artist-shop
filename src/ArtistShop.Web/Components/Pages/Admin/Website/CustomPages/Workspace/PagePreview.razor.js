@@ -1,9 +1,9 @@
-// <page-preview>: a frame showing the public page, drawn data-preview-width wide (its Desktop and Phone buttons) and
-// shrunk to fit, as tall as fits at that zoom so a row that fills the screen fills the preview. It reloads after a
+// <page-preview>: a frame showing the public page, drawn data-preview-width wide (the workspace's Desktop and Phone
+// buttons, in [data-part=preview-widths]) and shrunk to fit, as tall as fits at that zoom so a row that fills the screen fills the preview. It reloads after a
 // save: on an enhanced load of the editor, and when an island's <preview-reload> changes its stamp. A reload is an
 // enhanced navigation inside the frame, which patches the page in place rather than blanking it, and replaces its
 // history entry so Back still leaves the editor. It keeps the frame's scroll, even when what's being edited changes
-// (Mike: scrolling to it was jarring). What's being edited (data-row-id, data-component-id) is outlined. Links and forms in the frame do nothing, so the editor stays.
+// (Mike: scrolling to it was jarring); a [data-scrolls-preview] button scrolls to it when asked. What's being edited (data-row-id, data-component-id) is outlined. Links and forms in the frame do nothing, so the editor stays.
 // An enhanced load patches this element's attributes and the frame's back to the server's, so they're set again: the
 // width chosen on enhancedload, and the frame's size whenever its style changes, whatever the order things run in
 import { pressWidthButton, rememberedWidthButton, rememberPreviewWidth } from "/js/preview-width.js";
@@ -16,6 +16,9 @@ function isInLink(event) {
 
 // how long a reload holds the frame's scroll while its images load in, unless the person scrolls first
 const scrollHoldMilliseconds = 3000;
+
+// the page above what's scrolled to when it's taller than the frame, in the page's own pixels
+const scrollMarginPixels = 24;
 
 class PagePreview extends HTMLElement {
   /** @type {AbortController | null} */
@@ -46,8 +49,9 @@ class PagePreview extends HTMLElement {
     this.#listeners = new AbortController();
     const signal = this.#listeners.signal;
 
-    this.addEventListener("click", (event) => this.#choose(event), { signal });
+    document.addEventListener("click", (event) => this.#choose(event), { signal });
     document.addEventListener("click", (event) => this.#toggle(event), { signal });
+    document.addEventListener("click", (event) => this.#scrollOnClick(event), { signal });
     document.addEventListener("page-preview-stale", () => this.reload(), { signal });
 
     this.#viewportObserver = new ResizeObserver(() => this.#fitSoon());
@@ -62,7 +66,11 @@ class PagePreview extends HTMLElement {
       this.#listenToFrame();
       this.#fitSoon();
     });
-    this.#patchObserver.observe(this, { subtree: true, childList: true, attributes: true, attributeFilter: ["style", "aria-pressed"] });
+    this.#patchObserver.observe(this, { subtree: true, childList: true, attributes: true, attributeFilter: ["style"] });
+
+    if (this.#widths) {
+      this.#patchObserver.observe(this.#widths, { subtree: true, attributes: true, attributeFilter: ["aria-pressed"] });
+    }
     this.#listenToFrame();
 
     this.restore();
@@ -104,16 +112,22 @@ class PagePreview extends HTMLElement {
     return frame instanceof HTMLIFrameElement ? frame : null;
   }
 
+  // the width buttons, beside the workspace's Up link
+  get #widths() {
+    return this.closest("[data-editor-workspace]")?.querySelector("[data-part=preview-widths]") ?? null;
+  }
+
   get #width() {
-    return Number(this.querySelector("[data-preview-width][aria-pressed=true]")?.getAttribute("data-preview-width"));
+    return Number(this.#widths?.querySelector("[data-preview-width][aria-pressed=true]")?.getAttribute("data-preview-width"));
   }
 
   // after an enhanced load: the width chosen, and the frame's size, which the patch took away
   restore() {
-    const button = rememberedWidthButton(this);
+    const widths = this.#widths;
+    const button = widths ? rememberedWidthButton(widths) : null;
 
-    if (button) {
-      pressWidthButton(this, button);
+    if (widths && button) {
+      pressWidthButton(widths, button);
     }
 
     this.#fit();
@@ -147,15 +161,16 @@ class PagePreview extends HTMLElement {
 
   /** @param {MouseEvent} event */
   #choose(event) {
+    const widths = this.#widths;
     const chosen = event.target instanceof Element ? event.target.closest("[data-preview-width]") : null;
     const width = chosen?.getAttribute("data-preview-width");
 
-    if (!chosen || !width) {
+    if (!widths || !chosen || !widths.contains(chosen) || !width) {
       return;
     }
 
     rememberPreviewWidth(width);
-    pressWidthButton(this, chosen);
+    pressWidthButton(widths, chosen);
     this.#fit();
   }
 
@@ -171,6 +186,42 @@ class PagePreview extends HTMLElement {
     } else if (event.target.closest("[data-closes-preview]")) {
       this.removeAttribute("data-open");
     }
+  }
+
+  /** @param {MouseEvent} event */
+  #scrollOnClick(event) {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-scrolls-preview]")) {
+      return;
+    }
+
+    // on phones it's hidden until opened, and only then has a size to scroll in
+    if (getComputedStyle(this).display === "none") {
+      this.toggleAttribute("data-open", true);
+      this.#fit();
+    }
+
+    this.#scrollToEdited();
+  }
+
+  // what's being edited, centred when it fits, else its top a little below the frame's
+  #scrollToEdited() {
+    const page = this.frame?.contentWindow;
+    const document = this.frame?.contentDocument;
+
+    if (!page || !document) {
+      return;
+    }
+
+    const targets = this.#targets(document);
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    const bounds = this.#bounds(targets, page);
+    const room = page.innerHeight - (bounds.bottom - bounds.top);
+    this.#heldScroll = null;
+    page.scrollTo({ top: Math.max(0, bounds.top - Math.max(scrollMarginPixels, room / 2)), behavior: "smooth" });
   }
 
   // drawn at the chosen width and shrunk to the viewport's, never enlarged; a narrower page is centred

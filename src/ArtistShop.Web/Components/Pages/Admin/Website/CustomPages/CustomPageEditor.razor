@@ -75,56 +75,66 @@
 <PageTitle>@(_page?.Name ?? "Page")</PageTitle>
 
 <EditorWorkspace Page="_page">
-  <FormTopBar>
-    <UpLink Href="@PageUrls.CustomPageList" Label="Pages" />
-  </FormTopBar>
-  <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
+  <Up>
+    <UpLink Href="@PageUrls.CustomPageList" Label="Pages" data-test="up-link" />
+  </Up>
+  <Outline>
+    @if (_page is not null)
+    {
+      @* The key is the id's int: Blazor keeps an island across an enhanced load only when its key formats to text,
+         and otherwise starts a new one whenever a parameter changes, which drew it empty until its rows were read *@
+      <PageOutline @rendermode="InteractiveServer" @key="_page.Id.Value" Page="_page" />
+    }
+  </Outline>
+  <ChildContent>
+    <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
 
-  @if (_page is null || Input is null)
-  {
-    <p>This page doesn't exist. It may have been deleted.</p>
-  }
-  else
-  {
-    <div class="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-      <h1 class="text-xl">@_page.Name</h1>
-      <div class="flex gap-2">
-        <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.CustomPage(_page)">View page</LinkButton>
-        @if (!_page.IsHome && !_page.IsBlog)
-        {
-          <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@DeleteDialogId">
-            Delete page
-          </ButtonBasic>
-        }
+    @if (_page is null || Input is null)
+    {
+      <p>This page doesn't exist. It may have been deleted.</p>
+    }
+    else
+    {
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-4">
+        <h1 class="text-xl">@_page.Name</h1>
+        <div class="flex gap-2">
+          <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.CustomPage(_page)">View page</LinkButton>
+          @if (!_page.IsHome && !_page.IsBlog)
+          {
+            <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@DeleteDialogId">
+              Delete page
+            </ButtonBasic>
+          }
+        </div>
       </div>
-    </div>
 
-    @if (_changedElsewhere)
-    {
-      <p class="mb-4 text-error">This page became the home or blog page somewhere else, so it can't be deleted.</p>
+      @if (_changedElsewhere)
+      {
+        <p class="mb-4 text-error">This page became the home or blog page somewhere else, so it can't be deleted.</p>
+      }
+
+      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+        <EditForm EditContext="Input.EditContext" FormName="custom-page-details" OnValidSubmit="SaveAsync" Enhance
+                  data-waits-for-pending class="mb-8">
+          <DataAnnotationsValidator />
+
+          <TextField Label="Name" @bind-Value="Input.Name" />
+          @if (_page.IsHome)
+          {
+            <p class="mb-2 text-sm text-ink-faded">As the home page, it's shown at /.</p>
+          }
+          <TextField Label="Address" @bind-Value="Input.Address" />
+          <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Save</ButtonBasic>
+        </EditForm>
+      </EnableSaveOnChange>
+
+      @if (!_page.IsHome && !_page.IsBlog)
+      {
+        <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {_page.Name}?")" ConfirmLabel="Delete"
+                           OnConfirm="DeleteAsync">
+          Its components can still be added to other pages.
+        </ConfirmFormDialog>
+      }
     }
-
-    <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
-      <EditForm EditContext="Input.EditContext" FormName="custom-page-details" OnValidSubmit="SaveAsync" Enhance
-                data-waits-for-pending class="mb-8">
-        <DataAnnotationsValidator />
-
-        <TextField Label="Name" @bind-Value="Input.Name" />
-        @if (_page.IsHome)
-        {
-          <p class="mb-2 text-sm text-ink-faded">As the home page, it's shown at /.</p>
-        }
-        <TextField Label="Address" @bind-Value="Input.Address" />
-        <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Save</ButtonBasic>
-      </EditForm>
-    </EnableSaveOnChange>
-
-    @if (!_page.IsHome && !_page.IsBlog)
-    {
-      <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {_page.Name}?")" ConfirmLabel="Delete"
-                         OnConfirm="DeleteAsync">
-        Its components can still be added to other pages.
-      </ConfirmFormDialog>
-    }
-  }
+  </ChildContent>
 </EditorWorkspace>

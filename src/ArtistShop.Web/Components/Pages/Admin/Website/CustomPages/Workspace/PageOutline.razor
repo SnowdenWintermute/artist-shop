@@ -1,6 +1,6 @@
-@* The page's layout at the top of every editor: its rows, their slots and the components in them, each dragged
-   to another place (PageOutline.razor.js; slots and components into other rows and slots too), taken out, or opened
-   in its editor; what's being edited is highlighted. Every change saves at once, the layout is read again so it's
+@* The page's layout on the page editor: its rows, their slots and the components in them, each dragged to another
+   place (PageOutline.razor.js; slots and components into other rows and slots too), taken out, or opened in its
+   editor. Every change saves at once, the layout is read again so it's
    always as saved, and the page preview reloads. OutlineRow and OutlineSlot draw the parts and call back here
    through the cascade *@
 @using ArtistShop.Web.Components.Atoms
@@ -16,7 +16,6 @@
 @inject PageRowRepository PageRowRepository
 @inject RowSlotRepository RowSlotRepository
 @inject CustomComponentRepository CustomComponentRepository
-@inject NavigationManager NavigationManager
 
 @code {
   [CascadingParameter]
@@ -24,16 +23,6 @@
 
   [Parameter, EditorRequired]
   public required CustomPage Page { get; set; }
-
-  // what's being edited: nothing on the page editor, a row, or a component in a row
-  [Parameter]
-  public PageRowId? EditedRowId { get; set; }
-  [Parameter]
-  public CustomComponentId? EditedComponentId { get; set; }
-
-  // a new row's editor opens on adding a component to its slot
-  [Parameter]
-  public bool IsNewRow { get; set; }
 
   // read while prerendering and handed to the interactive render, which would otherwise start empty
   [PersistentState]
@@ -49,13 +38,11 @@
   private RowSketch? _removingRow;
   private (RowSketch Row, SlotSketch Slot)? _removingSlot;
   private SlotSketch? _addingTo;
-  // the new row the add dialog has opened for, so the editor's later loads, still marked new, don't open it again
-  private PageRowId? _openedForNewRow;
   private ElementReference _root;
   private InteropObject<PageOutline>? _drag;
 
-  // An enhanced load into another editor of the page, or after a save in its form, gives this its parameters
-  // again, and a component may have been renamed meanwhile, so the layout is read again
+  // An enhanced load after a save in the page's form gives this its parameters again, and the layout is read again
+  // with them
   protected override async Task OnParametersSetAsync()
   {
     // the first time in the interactive render, the prerender's rows have come across already
@@ -65,13 +52,6 @@
     }
 
     _hasLoaded = true;
-
-    if (IsNewRow && EditedRowId != _openedForNewRow
-        && Rows?.SingleOrDefault(row => row.Id == EditedRowId) is { Slots: [{ Components.Count: 0 } slot] })
-    {
-      _addingTo = slot;
-      _openedForNewRow = EditedRowId;
-    }
   }
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -80,7 +60,8 @@
     {
       // null when the page closed first, so there is nothing to drag
       _drag = await InteropObject<PageOutline>.CreateAsync(
-        JS, "./Components/Pages/Admin/Website/CustomPages/Workspace/PageOutline.razor.js", "startOutlineDrag", this, self => [self, _root]);
+        JS, "./Components/Pages/Admin/Website/CustomPages/Workspace/PageOutline.razor.js", "startOutlineDrag", this, self =>
+[self, _root]);
     }
   }
 
@@ -99,10 +80,6 @@
 
   public string ComponentEditHref(RowSketch row, ComponentSketch component) =>
     PageUrls.EditCustomComponent(component.Id, Page.Id, row.Id);
-
-  public bool IsEdited(RowSketch row) => EditedComponentId is null && row.Id == EditedRowId;
-
-  public bool IsEdited(RowSketch row, ComponentSketch component) => row.Id == EditedRowId && component.Id == EditedComponentId;
 
   // A drop's index counts the dragged part where it still is when dropped back into its own list, so one after
   // it is one place further on; null when it lands where it was
@@ -135,7 +112,8 @@
       return MoveWithin(oldIndex, index) is { } move ? MoveSlotAsync(from, move) : Task.CompletedTask;
     }
 
-    return SaveAsync(() => RowSlotRepository.MoveAsync(from.Slots[oldIndex].Id, from.Id, from.Slots.Count, to.Id, to.Slots.Count, index));
+    return SaveAsync(() => RowSlotRepository.MoveAsync(from.Slots[oldIndex].Id, from.Id, from.Slots.Count, to.Id,
+to.Slots.Count, index));
   }
 
   [JSInvokable]
@@ -191,7 +169,8 @@
   private RowSketch? RowOf(PageRowId id) => Rows?.SingleOrDefault(row => row.Id == id);
 
   private (RowSketch Row, SlotSketch Slot)? SlotOf(RowSlotId id) =>
-    Rows?.SelectMany(row => row.Slots.Select(slot => (row, slot))).SingleOrDefault(found => found.slot.Id == id) is ({ } row, { } slot)
+    Rows?.SelectMany(row => row.Slots.Select(slot => (row, slot))).SingleOrDefault(found => found.slot.Id == id) is ({ }
+row, { } slot)
       ? (row, slot)
       : null;
 
@@ -201,7 +180,8 @@
 
   public Task ChooseWidthsAsync(RowSketch row, RowWidths widths) =>
     WhenSavedAsync(() =>
-      RowOf(row.Id) is { } saved ? SaveAsync(() => PageRowRepository.SetLayoutAsync(saved.Id, saved.Slots.Count, widths)) : Task.CompletedTask);
+      RowOf(row.Id) is { } saved ? SaveAsync(() => PageRowRepository.SetLayoutAsync(saved.Id, saved.Slots.Count, widths)) :
+Task.CompletedTask);
 
   public Task MoveRowByAsync(RowSketch row, int offset) =>
     WhenSavedAsync(() =>
@@ -241,7 +221,8 @@
   }
 
   private Task MoveComponentAsync(SlotSketch slot, (int OldIndex, int NewIndex) move) =>
-    SaveAsync(() => RowSlotRepository.ReorderPlacementsAsync(slot.Id, [.. slot.Components.Moved(move).Select(component => component.Id)]));
+    SaveAsync(() => RowSlotRepository.ReorderPlacementsAsync(slot.Id, [.. slot.Components.Moved(move).Select(component =>
+component.Id)]));
 
   public Task TakeOutAsync(SlotSketch slot, ComponentSketch component) =>
     SaveAsync(() => RowSlotRepository.RemovePlacementAsync(slot.Id, component.Id));
@@ -286,29 +267,7 @@
     _addingTo = null;
   }
 
-  private async Task AddRowAsync()
-  {
-    if (IsSaving)
-    {
-      return;
-    }
-
-    IsSaving = true;
-
-    try
-    {
-      NavigationManager.NavigateTo(PageUrls.EditNewPageRow(Page.Id, await PageRowRepository.AddAsync(Page.Id)));
-    }
-    catch (ChangedSincePageLoadException)
-    {
-      // the page was deleted, which the server's render of the page says
-      NavigationManager.Refresh();
-    }
-    finally
-    {
-      IsSaving = false;
-    }
-  }
+  private Task AddRowAsync() => SaveAsync(() => PageRowRepository.AddAsync(Page.Id));
 
   private async Task SaveAsync(Func<Task> save)
   {
@@ -342,41 +301,7 @@
     IsSaving = false;
     StateHasChanged();
 
-    if (EditorAfterLeaving() is { } editorHref)
-    {
-      _waiting.Clear();
-      NavigationManager.NavigateTo(editorHref);
-      return;
-    }
-
     await SaveNextWaitingAsync();
-  }
-
-  // When what's being edited has left its row, taken out, removed or moved, its editor would be left showing
-  // something no longer there: the component follows it into the row it's in now, otherwise the page editor opens.
-  // Null while it's still where it was
-  private string? EditorAfterLeaving()
-  {
-    if (EditedRowId is not { } rowId || Rows is not { } rows)
-    {
-      return null;
-    }
-
-    if (EditedComponentId is { } componentId)
-    {
-      bool Holds(RowSketch row) => row.Slots.Any(slot => slot.Components.Any(component => component.Id == componentId));
-
-      if (RowOf(rowId) is { } row && Holds(row))
-      {
-        return null;
-      }
-
-      return rows.FirstOrDefault(Holds) is { } holding
-        ? PageUrls.EditCustomComponent(componentId, Page.Id, holding.Id)
-        : PageUrls.EditCustomPage(Page.Id);
-    }
-
-    return RowOf(rowId) is null ? PageUrls.EditCustomPage(Page.Id) : null;
   }
 }
 
@@ -415,9 +340,10 @@
       }
     </CascadingValue>
 
-    <button type="button" data-drop="row" data-index="@(Rows?.Count ?? 0)" class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineClasses.End}")"
-            disabled="@IsSaving" @onclick="AddRowAsync">
-      Add row…
+    <button type="button" data-drop="row" data-index="@(Rows?.Count ?? 0)"
+            class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineClasses.End}")" disabled="@IsSaving"
+            @onclick="AddRowAsync">
+      Add row
     </button>
   </div>
 

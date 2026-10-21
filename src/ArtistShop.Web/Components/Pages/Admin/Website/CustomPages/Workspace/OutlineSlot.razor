@@ -16,7 +16,8 @@
 }
 
 <div role="listitem" class="flex min-w-0">
-  <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Index" class="@OutlineClasses.SlotGap" aria-hidden="true"></div>
+  <div data-drop="slot" data-parent-id="@Row.Id.Value" data-index="@Index" class="@OutlineClasses.SlotGap"
+       aria-hidden="true"></div>
 
   <div data-drag="slot" data-id="@Slot.Id.Value" data-parent-id="@Row.Id.Value"
        class="min-w-0 flex-1 border border-dashed border-rule p-1.25 data-drag-source:opacity-40">
@@ -38,10 +39,10 @@
         var place = index;
 
         <div @key="component.Id" role="listitem">
-          <div data-drop="component" data-parent-id="@Slot.Id.Value" data-index="@place" class="@OutlineClasses.ComponentGap"
-               aria-hidden="true"></div>
+          <div data-drop="component" data-parent-id="@Slot.Id.Value" data-index="@place"
+               class="@OutlineClasses.ComponentGap" aria-hidden="true"></div>
           <div data-drag="component" data-id="@component.Id.Value" data-parent-id="@Slot.Id.Value"
-               class="@($"flex items-center gap-1.25 border bg-page px-1.25 py-0.5 data-drag-source:opacity-40 {OutlineClasses.BorderOf(Outline.IsEdited(Row, component))}")">
+               class="flex items-center gap-1.25 border border-rule bg-page px-1.25 py-0.5 data-drag-source:opacity-40">
             <OutlineHandle Label="@component.Name" IsFirst="place == 0" IsLast="place == Slot.Components.Count - 1"
                            OnMove="offset => Outline.MoveComponentByAsync(Slot, component, offset)" />
             <span class="min-w-0 grow truncate" title="@component.Name">@component.Name</span>
@@ -55,9 +56,9 @@
     @* the gap above it, the same as between components *@
     <div class="h-2"></div>
     <button type="button" data-drop="component" data-parent-id="@Slot.Id.Value" data-index="@Slot.Components.Count"
-            class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineClasses.End}")"
-            disabled="@Outline.IsSaving" @onclick="() => Outline.AddTo(Slot)">
-      Add component…
+            class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineClasses.End}")" disabled="@Outline.IsSaving"
+            @onclick="() => Outline.AddTo(Slot)">
+      Add component
     </button>
   </div>
 </div>

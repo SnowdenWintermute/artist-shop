@@ -1,44 +1,61 @@
-@* The page, row and component editors: on the left the page's outline, then the controls of what's edited, and the
-   page's preview taking the rest of the screen below the nav, each side scrolling on its own. On phones the left
-   column fills the page and the preview opens over it. MainLayout drops its padding and fits its body to the screen
-   around this. The outline is an island in the same place on every editor, so an enhanced load from one editor to
-   another keeps it *@
+@* The page, row and component editors: on the left the Up link with the preview's widths, then the controls of
+   what's edited, and the page's preview taking the rest of the screen below the nav, each side scrolling on its own.
+   On phones the left column fills the page and the preview opens over it. MainLayout drops its padding and fits its
+   body to the screen around this *@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
 
 @code {
+  // the editor's UpLink
+  [Parameter, EditorRequired]
+  public RenderFragment Up { get; set; } = default!;
+
+  // the page editor's outline, between the Up link and the controls
+  [Parameter]
+  public RenderFragment? Outline { get; set; }
+
   [Parameter, EditorRequired]
   public RenderFragment ChildContent { get; set; } = default!;
 
-  // the page outlined and previewed, null when there's none to show; and what's being edited on it, which both
-  // highlight
+  // the page previewed, null when there's none to show; and what's being edited on it, which the preview outlines
   [Parameter, EditorRequired]
   public required CustomPage? Page { get; set; }
   [Parameter]
   public PageRowId? RowId { get; set; }
   [Parameter]
   public CustomComponentId? ComponentId { get; set; }
-
-  // a new row's editor opens the outline's add-component dialog on its slot
-  [Parameter]
-  public bool IsNewRow { get; set; }
 }
 
 @* The grid even with no preview, so the controls stay where they are on the other editors. <editor-workspace>,
    defined in EditorWorkspace.razor.js, sets --controls-width as the divider between the sides is dragged *@
 <editor-workspace data-editor-workspace
                   class="block lg:grid lg:h-full lg:grid-cols-[var(--controls-width,minmax(24rem,1fr))_auto_minmax(0,2fr)]">
-  <main class="bg-panel p-4 lg:h-full lg:overflow-y-auto">
-    @if (Page is not null)
+  <main class="bg-page p-4 lg:h-full lg:overflow-y-auto">
+    <FormTopBar>
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 w-full">
+        @Up
+        @if (Page is not null)
+        {
+          <div class="flex items-center gap-2">
+            @* the preview's (PagePreview.razor.js) *@
+            <div role="group" aria-label="Preview width" data-part="preview-widths" class="flex items-center gap-2">
+              <PreviewWidthButtons />
+            </div>
+            <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="lg:hidden" data-opens-preview>Preview
+            </ButtonBasic>
+          </div>
+        }
+      </div>
+    </FormTopBar>
+    @if (Outline is not null && Page is not null)
     {
-      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 lg:hidden" data-opens-preview>Preview</ButtonBasic>
-      @* The key is the id's int: Blazor keeps an island across an enhanced load only when its key formats to text,
-         and otherwise starts a new one whenever a parameter changes, which drew it empty until its rows were read *@
       <section aria-label="Page layout" class="mb-4 border-b border-rule pb-4">
-        <PageOutline @rendermode="InteractiveServer" @key="Page.Id.Value" Page="Page" EditedRowId="RowId" EditedComponentId="ComponentId"
-                     IsNewRow="IsNewRow" />
+        @Outline
       </section>
     }
-    @ChildContent
+    <div class="bg-panel p-4 border">
+      @ChildContent
+    </div>
   </main>
   @if (Page is { } page)
   {
@@ -46,7 +63,7 @@
     <div role="separator" aria-orientation="vertical" aria-label="Resize the controls and the preview" tabindex="0"
          data-part="divider" class="group/divider hidden w-2 cursor-col-resize touch-none justify-center lg:flex">
       <div class="w-px bg-rule group-hover/divider:w-1 group-hover/divider:bg-accent group-focus-visible/divider:w-1
-                  group-focus-visible/divider:bg-accent"></div>
+      group-focus-visible/divider:bg-accent"></div>
     </div>
     <div class="lg:min-h-0 lg:p-4">
       <PagePreview Page="page" RowId="RowId" ComponentId="ComponentId" />

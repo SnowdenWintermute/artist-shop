@@ -33,7 +33,7 @@
   [Parameter]
   public int Id { get; set; }
 
-  // the row editor this was opened from, which Up goes back to and the preview shows
+  // the page editor's row this was opened from: Up goes back to the page, and the preview shows it
   [SupplyParameterFromQuery(Name = PageUrls.ComponentPageKey)]
   private int? FromPageId { get; set; }
   [SupplyParameterFromQuery(Name = PageUrls.ComponentRowKey)]
@@ -157,10 +157,8 @@ Input.ToSettings(_component.Component.Settings));
     NavigationManager.NavigateTo(UpHref);
   }
 
-  // the row editor this was opened from, or the Pages list
-  private string UpHref =>
-    _fromPage is not null && FromRowId is int rowId ? PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId)) :
-PageUrls.CustomPageList;
+  // the page editor this was opened from, or the Pages list
+  private string UpHref => _fromPage is not null ? PageUrls.EditCustomPage(_fromPage.Id) : PageUrls.CustomPageList;
 
   // what Automatic would say, so the choice shows it
   private string AutomaticLabel(CardGridSourceType source) =>
@@ -206,206 +204,208 @@ PageUrls.CustomPageList;
 
 <PageTitle>@(_component?.Component.Name ?? "Component")</PageTitle>
 
-@* the row it was opened from, with the component outlined in it *@
+@* the page it was opened from, previewed with the component outlined in its row *@
 <EditorWorkspace Page="FromRowId is null ? null : _fromPage" RowId="FromRowId is int fromRowId ? new PageRowId(fromRowId) : null"
                  ComponentId="ComponentId">
-  <FormTopBar>
-    @if (_fromPage is not null && FromRowId is int rowId)
+  <Up>
+    <UpLink Href="@UpHref" Label="@(_fromPage?.Name ?? "Pages")" data-test="up-link" />
+  </Up>
+  <ChildContent>
+    <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
+
+    @if (_component is null || Input is null)
     {
-      <UpLink Href="@PageUrls.EditPageRow(_fromPage.Id, new PageRowId(rowId))" Label="@($"Row on {_fromPage.Name}")" />
+      <p>This component doesn't exist. It may have been deleted.</p>
     }
     else
     {
-      <UpLink Href="@PageUrls.CustomPageList" Label="Pages" />
-    }
-  </FormTopBar>
-  <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
+      var component = _component;
 
-  @if (_component is null || Input is null)
-  {
-    <p>This component doesn't exist. It may have been deleted.</p>
-  }
-  else
-  {
-    var component = _component;
+      <div class="mb-1 flex flex-wrap items-baseline justify-between gap-4">
+        <h1 class="text-xl">@component.Component.Name</h1>
+        <div class="flex gap-2">
+          @* the preview's (PagePreview.razor.js), only when it shows the page *@
+          @if (_fromPage is not null && FromRowId is not null)
+          {
+            <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-scrolls-preview>Show in preview</ButtonBasic>
+          }
+          @if (!_isBlogPagesOnlyPostList)
+          {
+            <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">
+              Delete component
+            </ButtonBasic>
+          }
+        </div>
+      </div>
+      <p class="mb-4 text-sm text-ink-faded">@CustomComponentNames.Of(component.Component.Settings.Type, Wording)</p>
 
-    <div class="mb-1 flex flex-wrap items-baseline justify-between gap-4">
-      <h1 class="text-xl">@component.Component.Name</h1>
-      @if (!_isBlogPagesOnlyPostList)
+      @if (_isBlogPagesOnlyPostList)
       {
-        <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">
-          Delete component
-        </ButtonBasic>
+        <p class="mb-4">This is the blog page's post list, so it can't be deleted. Make another page the blog page first.
+        </p>
       }
-    </div>
-    <p class="mb-4 text-sm text-ink-faded">@CustomComponentNames.Of(component.Component.Settings.Type, Wording)</p>
 
-    @if (_isBlogPagesOnlyPostList)
-    {
-      <p class="mb-4">This is the blog page's post list, so it can't be deleted. Make another page the blog page first.
-      </p>
-    }
+      @if (AlsoOn(component) is { Count: > 0 } alsoOn)
+      {
+        <p class="mb-4">Also used in: @string.Join(", ", alsoOn)</p>
+      }
 
-    @if (AlsoOn(component) is { Count: > 0 } alsoOn)
-    {
-      <p class="mb-4">Also used in: @string.Join(", ", alsoOn)</p>
-    }
+      @if (_deletedElsewhere)
+      {
+        <p class="mb-4 text-error">This component was deleted somewhere else, so nothing was saved.</p>
+      }
 
-    @if (_deletedElsewhere)
-    {
-      <p class="mb-4 text-error">This component was deleted somewhere else, so nothing was saved.</p>
-    }
-
-    @if (component.Component.Settings is TextSettings)
-    {
-      <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name"
-                      BodyField="Input.Body" HoldsUnsavedChanges="_formWasPosted">
+      @if (component.Component.Settings is TextSettings)
+      {
+        <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name"
+                        BodyField="Input.Body" HoldsUnsavedChanges="_formWasPosted">
+          <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+            @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
+            <RichTextEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
+            @* saves as soon as it changes, with the rest of the form *@
+            <SubmitOnChange>
+              <SelectField Label="Width" @bind-Value="Input.Width">
+                <option value="@TextWidth.Narrow">Narrow</option>
+                <option value="@TextWidth.Full">Full width</option>
+              </SelectField>
+            </SubmitOnChange>
+          </ComponentSettingsForm>
+        </RichTextBackup>
+      }
+      else if (component.Component.Settings is CardGridSettings)
+      {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
-          @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
-          <RichTextEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
-          @* saves as soon as it changes, with the rest of the form *@
+          @* each select saves as soon as it changes, so the fields it brings in appear *@
           <SubmitOnChange>
-            <SelectField Label="Width" @bind-Value="Input.Width">
-              <option value="@TextWidth.Narrow">Narrow</option>
-              <option value="@TextWidth.Full">Full width</option>
+            <SelectField Label="Shows" @bind-Value="Input.Source">
+              <option value="@CardGridSourceType.AllCollections">All @Wording.Collection.PluralInSentence</option>
+              <option value="@CardGridSourceType.WorksInCollection">
+                @Wording.Work.PluralHeading in one @Wording.Collection.SingularInSentence
+              </option>
+              <option value="@CardGridSourceType.CollectionsAndLooseWorks">
+                All @Wording.Collection.PluralInSentence, then @Wording.Work.PluralInSentence in none
+              </option>
+              <option value="@CardGridSourceType.ChosenCards">Custom list</option>
             </SelectField>
           </SubmitOnChange>
+
+          @if (Input.Source is CardGridSourceType.WorksInCollection)
+          {
+            <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
+                                   VisibleCollectionIds="_visibleCollectionIds" ShownIn="the grid" />
+          }
+
+          <SubmitOnChange>
+            <SelectField Label="Heading" @bind-Value="Input.HeadingType">
+              <option value="@CardGridHeadingType.None">None</option>
+              @if (Input.Source is not CardGridSourceType.ChosenCards)
+              {
+                <option value="@CardGridHeadingType.Automatic">@AutomaticLabel(Input.Source)</option>
+              }
+              <option value="@CardGridHeadingType.Custom">Custom</option>
+            </SelectField>
+          </SubmitOnChange>
+
+          @if (Input.HeadingType is CardGridHeadingType.Custom)
+          {
+            <TextField Label="Heading text" @bind-Value="Input.HeadingText" />
+          }
+
+          <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
+          <SubmitOnChange>
+            <CheckboxField Label="Page links" Hint="Show buttons for next/previous page in the grid."
+                           @bind-Value="Input.HasPageLinks" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <CardGridLayoutField @bind-Value="Input.Layout" />
+          </SubmitOnChange>
         </ComponentSettingsForm>
-      </RichTextBackup>
-    }
-    else if (component.Component.Settings is CardGridSettings)
-    {
-      <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
-        @* each select saves as soon as it changes, so the fields it brings in appear *@
-        <SubmitOnChange>
-          <SelectField Label="Shows" @bind-Value="Input.Source">
-            <option value="@CardGridSourceType.AllCollections">All @Wording.Collection.PluralInSentence</option>
-            <option value="@CardGridSourceType.WorksInCollection">
-              @Wording.Work.PluralHeading in one @Wording.Collection.SingularInSentence
-            </option>
-            <option value="@CardGridSourceType.CollectionsAndLooseWorks">
-              All @Wording.Collection.PluralInSentence, then @Wording.Work.PluralInSentence in none
-            </option>
-            <option value="@CardGridSourceType.ChosenCards">Custom list</option>
-          </SelectField>
-        </SubmitOnChange>
 
-        @if (Input.Source is CardGridSourceType.WorksInCollection)
+        @if (_chosenCards is not null)
         {
-          <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
-                                 VisibleCollectionIds="_visibleCollectionIds" ShownIn="the grid" />
+          <h2 class="mb-2 text-lg">Custom list</h2>
+          <div class="mb-8">
+            <ChosenCardList @rendermode="InteractiveServer" @key="Id" ComponentId="ComponentId"
+                            Origin="CustomComponentOrigin.Of(FromPageId, FromRowId)" Items="_chosenCards" />
+          </div>
         }
-
-        <SubmitOnChange>
-          <SelectField Label="Heading" @bind-Value="Input.HeadingType">
-            <option value="@CardGridHeadingType.None">None</option>
-            @if (Input.Source is not CardGridSourceType.ChosenCards)
-            {
-              <option value="@CardGridHeadingType.Automatic">@AutomaticLabel(Input.Source)</option>
-            }
-            <option value="@CardGridHeadingType.Custom">Custom</option>
-          </SelectField>
-        </SubmitOnChange>
-
-        @if (Input.HeadingType is CardGridHeadingType.Custom)
-        {
-          <TextField Label="Heading text" @bind-Value="Input.HeadingText" />
-        }
-
-        <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
-        <SubmitOnChange>
-          <CheckboxField Label="Page links" Hint="Show buttons for next/previous page in the grid."
-                         @bind-Value="Input.HasPageLinks" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <CardGridLayoutField @bind-Value="Input.Layout" />
-        </SubmitOnChange>
-      </ComponentSettingsForm>
-
-      @if (_chosenCards is not null)
+      }
+      else if (component.Component.Settings is ImageSettings)
       {
-        <h2 class="mb-2 text-lg">Custom list</h2>
-        <div class="mb-8">
-          <ChosenCardList @rendermode="InteractiveServer" @key="Id" ComponentId="ComponentId"
-                          Origin="CustomComponentOrigin.Of(FromPageId, FromRowId)" Items="_chosenCards" />
-        </div>
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
+                            StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
+                            IsFullBleed="_isFullBleed" />
+          <SubmitOnChange>
+            <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="Enum.GetValues<ImageHeight>()" LabelOf="height => height.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()"
+                        IsUnavailable="!ImageSettings.HasFit(Input.ImageHeight)" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Padding" @bind-Value="Input.Padding" Values="Enum.GetValues<ImagePadding>()"
+                        LabelOf="padding => padding.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Link" @bind-Value="Input.Link" Values="ImageLinks(Input)" LabelOf="ImageLinkLabel" />
+          </SubmitOnChange>
+        </ComponentSettingsForm>
+      }
+      else if (component.Component.Settings is CarouselSettings)
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          <SubmitOnChange>
+            <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()" LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
+          </SubmitOnChange>
+          @if (Input.SlideSource is SlideSourceType.WorksInCollection)
+          {
+            <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
+                                   VisibleCollectionIds="_visibleCollectionIds" ShownIn="the carousel" />
+          }
+          <SubmitOnChange>
+            <RadioField Label="Transition" @bind-Value="Input.Transition" Values="Enum.GetValues<CarouselTransition>()"
+                        LabelOf="transition => transition.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Autoplay" @bind-Value="Input.Autoplay" Values="Enum.GetValues<CarouselAutoplay>()" LabelOf="SlideChoiceLabels.Of" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="CarouselSettings.Heights" LabelOf="height => height.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Controls" @bind-Value="Input.Controls" Values="Enum.GetValues<CarouselControls>()"
+                        LabelOf="controls => controls.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Link" @bind-Value="Input.CarouselLink" Values="Enum.GetValues<CarouselLink>()" LabelOf="CarouselLinkLabel" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Caption" @bind-Value="Input.Caption" Values="Enum.GetValues<CarouselCaption>()"
+                        LabelOf="caption => caption.ToString()" />
+          </SubmitOnChange>
+        </ComponentSettingsForm>
+
+        @if (_slides is not null)
+        {
+          <ChosenSlidesField Owner="new SlideOwner.Component(ComponentId)" Items="_slides" />
+        }
+      }
+      else
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" />
+      }
+
+      @if (!_isBlogPagesOnlyPostList)
+      {
+        <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
+                           OnConfirm="DeleteAsync">
+          @DeleteWarning(component)
+        </ConfirmFormDialog>
       }
     }
-    else if (component.Component.Settings is ImageSettings)
-    {
-      <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
-        <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
-                          StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
-                          IsFullBleed="_isFullBleed" />
-        <SubmitOnChange>
-          <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="Enum.GetValues<ImageHeight>()" LabelOf="height => height.ToString()" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()"
-                      IsUnavailable="!ImageSettings.HasFit(Input.ImageHeight)" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Padding" @bind-Value="Input.Padding" Values="Enum.GetValues<ImagePadding>()"
-                      LabelOf="padding => padding.ToString()" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Link" @bind-Value="Input.Link" Values="ImageLinks(Input)" LabelOf="ImageLinkLabel" />
-        </SubmitOnChange>
-      </ComponentSettingsForm>
-    }
-    else if (component.Component.Settings is CarouselSettings)
-    {
-      <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
-        <SubmitOnChange>
-          <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()" LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
-        </SubmitOnChange>
-        @if (Input.SlideSource is SlideSourceType.WorksInCollection)
-        {
-          <CollectionChoiceField @bind-Value="Input.CollectionId" Collections="_collections"
-                                 VisibleCollectionIds="_visibleCollectionIds" ShownIn="the carousel" />
-        }
-        <SubmitOnChange>
-          <RadioField Label="Transition" @bind-Value="Input.Transition" Values="Enum.GetValues<CarouselTransition>()"
-                      LabelOf="transition => transition.ToString()" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Autoplay" @bind-Value="Input.Autoplay" Values="Enum.GetValues<CarouselAutoplay>()" LabelOf="SlideChoiceLabels.Of" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Height" @bind-Value="Input.ImageHeight" Values="CarouselSettings.Heights" LabelOf="height => height.ToString()" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Controls" @bind-Value="Input.Controls" Values="Enum.GetValues<CarouselControls>()"
-                      LabelOf="controls => controls.ToString()" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Link" @bind-Value="Input.CarouselLink" Values="Enum.GetValues<CarouselLink>()" LabelOf="CarouselLinkLabel" />
-        </SubmitOnChange>
-        <SubmitOnChange>
-          <RadioField Label="Caption" @bind-Value="Input.Caption" Values="Enum.GetValues<CarouselCaption>()"
-                      LabelOf="caption => caption.ToString()" />
-        </SubmitOnChange>
-      </ComponentSettingsForm>
-
-      @if (_slides is not null)
-      {
-        <ChosenSlidesField Owner="new SlideOwner.Component(ComponentId)" Items="_slides" />
-      }
-    }
-    else
-    {
-      <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" />
-    }
-
-    @if (!_isBlogPagesOnlyPostList)
-    {
-      <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
-                         OnConfirm="DeleteAsync">
-        @DeleteWarning(component)
-      </ConfirmFormDialog>
-    }
-  }
+  </ChildContent>
 </EditorWorkspace>

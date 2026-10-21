@@ -140,12 +140,6 @@ public static class PageUrls
 
     public static string EditPageRow(CustomPageId pageId, PageRowId rowId) => $"{EditCustomPage(pageId)}/rows/{rowId.Value}";
 
-    // a new row's editor, opening on the dialog for adding a component to its slot
-    public static string EditNewPageRow(CustomPageId pageId, PageRowId rowId) =>
-        WithQuery(EditPageRow(pageId, rowId), (NewRowKey, "true"));
-
-    public const string NewRowKey = "new";
-
     // not "page" and "row": the components in the page's preview read its address too, and a post list
     // takes "page" as its page of posts
     public const string ComponentPageKey = "fromPage";
