@@ -30,10 +30,12 @@
   @* the backgrounds run to the edges of the screen, under a phone's notch when it's held sideways,
      while the padding keeps what's on them clear of it. So do the nav bars'. A custom page's rows
      hold their own padding instead, and the page editors' workspace too, which on wide screens is fitted to the
-     screen below the nav, each side scrolling on its own *@
-  <div class="w-full bg-page flex flex-1 flex-col lg:has-[[data-editor-workspace]]:min-h-0">
+     screen below the nav, each side scrolling on its own, and on phones too while its preview is open *@
+  <div class="w-full bg-page flex flex-1 flex-col lg:has-[[data-editor-workspace]]:min-h-0
+    has-[page-preview[data-open]]:min-h-0">
     <div class="flex-1 pt-10 pb-20 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]
       has-[[data-custom-page]]:p-0 has-[[data-editor-workspace]]:p-0 lg:has-[[data-editor-workspace]]:min-h-0
+      has-[page-preview[data-open]]:min-h-0
       [:root:has([data-last-row])_&]:flex-none">
       @Body
     </div>

@@ -22,6 +22,10 @@ function linkOf(event) {
 // how long a reload holds the frame's scroll while its images load in, unless the person scrolls first
 const scrollHoldMilliseconds = 3000;
 
+// how long the frame's size holds still before its images choose their sizes again, so dragging the divider
+// doesn't make them choose at every step
+const imageSizesSettleMilliseconds = 300;
+
 // the page above what's scrolled to when it's taller than the frame, in the page's own pixels
 const scrollMarginPixels = 24;
 
@@ -45,10 +49,17 @@ class PagePreview extends HTMLElement {
   /** @type {number | null} */
   #heldScroll = null;
   #holdTimer = 0;
+  // The frame's drawn size its images last chose their srcset sizes for, empty when it had none. Safari chooses only
+  // when an image loads, never again as the frame grows, so a frame loaded hidden on a phone, or at the phone's width,
+  // keeps its smallest sizes. Once the size settles after a change, each image is made to choose again
+  #chosenForSize = "";
+  #chooseTimer = 0;
   // a frame still on its first load needs no reload, as when an enhanced load brought this element
   #hasLoaded = false;
   /** @type {HTMLElement | null} */
   #outlineBox = null;
+  // the window's scroll when the preview opened on a phone
+  #controlsScroll = 0;
 
   connectedCallback() {
     this.#listeners = new AbortController();
@@ -92,6 +103,7 @@ class PagePreview extends HTMLElement {
     this.#pageObserver?.disconnect();
     this.#patchObserver?.disconnect();
     cancelAnimationFrame(this.#fitFrame);
+    clearTimeout(this.#chooseTimer);
   }
 
   #listenToFrame() {
@@ -179,18 +191,30 @@ class PagePreview extends HTMLElement {
     this.#fit();
   }
 
-  // on phones, the workspace's Preview button opens it over the editor
+  // on phones, the workspace's Preview button opens it in place of the editor's controls, and closes it again
   /** @param {MouseEvent} event */
   #toggle(event) {
-    if (!(event.target instanceof Element)) {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-toggles-preview]")) {
       return;
     }
 
-    if (event.target.closest("[data-opens-preview]")) {
-      this.toggleAttribute("data-open", true);
-    } else if (event.target.closest("[data-closes-preview]")) {
-      this.removeAttribute("data-open");
+    if (this.hasAttribute("data-open")) {
+      this.#close();
+    } else {
+      this.#open();
     }
+  }
+
+  // The workspace fits the screen while it's open, which scrolls the window to the top, so closing scrolls back to
+  // where the controls were
+  #open() {
+    this.#controlsScroll = window.scrollY;
+    this.toggleAttribute("data-open", true);
+  }
+
+  #close() {
+    this.removeAttribute("data-open");
+    window.scrollTo(0, this.#controlsScroll);
   }
 
   /** @param {MouseEvent} event */
@@ -201,7 +225,7 @@ class PagePreview extends HTMLElement {
 
     // on phones it's hidden until opened, and only then has a size to scroll in
     if (getComputedStyle(this).display === "none") {
-      this.toggleAttribute("data-open", true);
+      this.#open();
       this.#fit();
     }
 
@@ -254,6 +278,34 @@ class PagePreview extends HTMLElement {
         frame.style.setProperty(property, value);
       }
     }
+
+    clearTimeout(this.#chooseTimer);
+    this.#chooseTimer = window.setTimeout(() => this.#chooseImageSizes(), imageSizesSettleMilliseconds);
+  }
+
+  // what the frame is drawn at; empty before its first fit, and while it's hidden, when its page has no size at all
+  get #drawnSize() {
+    const frame = this.frame;
+    return frame?.style.width && frame.parentElement?.clientWidth ? `${frame.style.width} ${frame.style.height}` : "";
+  }
+
+  // Each image chooses its srcset size again, for the frame's size now. Setting srcset to what it was does nothing in
+  // Safari, so it's cleared first
+  #chooseImageSizes() {
+    const document = this.frame?.contentDocument;
+    const size = this.#drawnSize;
+
+    if (!document || !size || size === this.#chosenForSize) {
+      return;
+    }
+
+    this.#chosenForSize = size;
+
+    for (const image of document.querySelectorAll("img[srcset]")) {
+      const srcset = image.getAttribute("srcset") ?? "";
+      image.setAttribute("srcset", "");
+      image.setAttribute("srcset", srcset);
+    }
   }
 
   // each time the frame loads a document: links off, and what an enhanced load inside it patches away shown again
@@ -263,6 +315,10 @@ class PagePreview extends HTMLElement {
     if (!page) {
       return;
     }
+
+    // a page loaded at the size it's drawn at chose well; one loaded hidden, or before the first fit, didn't, and
+    // chooses again at the next fit
+    this.#chosenForSize = this.#drawnSize;
 
     // before Blazor's own listeners on the document, so an enhanced navigation never starts
     for (const type of ["click", "submit"]) {
@@ -295,15 +351,21 @@ class PagePreview extends HTMLElement {
   }
 
   // Another page of this site, fetched for the admin Edit page link it draws, which the editor follows. Nothing for a
-  // link elsewhere, one to the page shown (a card grid's page links), or a page with nothing to edit
+  // link elsewhere, one to the page shown (a card grid's page links), a stored file (data-file-paths), which has no
+  // editor and could be large to fetch, or a page with nothing to edit
   /**
    * @param {HTMLAnchorElement} link
    * @param {Window} page
    */
   async #openEditorOf(link, page) {
     const target = new URL(link.href, page.location.href);
+    const filePaths = (this.getAttribute("data-file-paths") ?? "").split(" ").filter(Boolean);
 
-    if (target.origin !== window.location.origin || target.pathname === page.location.pathname) {
+    if (
+      target.origin !== window.location.origin ||
+      target.pathname === page.location.pathname ||
+      filePaths.some((path) => target.pathname.startsWith(`${path}/`))
+    ) {
       return;
     }
 

@@ -1,7 +1,8 @@
 @* The page, row and component editors: on the left the Up link with the preview's widths, then the controls of
    what's edited, and the page's preview taking the rest of the screen below the nav, each side scrolling on its own.
-   On phones the left column fills the page and the preview opens over it. MainLayout drops its padding and fits its
-   body to the screen around this *@
+   On phones the left column fills the page, and the preview opens in place of the controls, below the top bar so
+   Close preview is where Preview was. MainLayout drops its padding and fits its body to the screen around this, on
+   phones while the preview is open *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 
@@ -27,33 +28,40 @@
 }
 
 @* The grid even with no preview, so the controls stay where they are on the other editors. <editor-workspace>,
-   defined in EditorWorkspace.razor.js, sets --controls-width as the divider between the sides is dragged *@
+   defined in EditorWorkspace.razor.js, sets --controls-width as the divider between the sides is dragged. On phones
+   with the preview open, a column a screen high: the top bar, then the preview *@
 <editor-workspace data-editor-workspace
-                  class="block lg:grid lg:h-full lg:grid-cols-[var(--controls-width,minmax(24rem,1fr))_auto_minmax(0,2fr)]">
-  <main class="bg-page p-4 lg:h-full lg:overflow-y-auto">
-    <FormTopBar>
-      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 w-full">
-        @Up
-        @if (Page is not null)
-        {
-          <div class="flex items-center gap-2">
-            @* the preview's (PagePreview.razor.js) *@
-            <div role="group" aria-label="Preview width" data-part="preview-widths" class="flex items-center gap-2">
-              <PreviewWidthButtons />
-            </div>
-            <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="lg:hidden" data-opens-preview>Preview
-            </ButtonBasic>
-          </div>
-        }
+                  class="group/workspace block lg:grid lg:h-full lg:grid-cols-[var(--controls-width,minmax(24rem,1fr))_auto_minmax(0,2fr)]
+                         max-lg:has-[page-preview[data-open]]:flex max-lg:has-[page-preview[data-open]]:h-full
+                         max-lg:has-[page-preview[data-open]]:flex-col">
+  <main class="bg-page p-4 lg:h-full lg:overflow-y-auto max-lg:group-has-[page-preview[data-open]]/workspace:pb-0">
+    @* the preview's buttons beside the top bar rather than in it, so the saved notice stays opposite the Up link *@
+    <div class="flex items-start gap-x-4">
+      <div class="min-w-0 flex-1">
+        <FormTopBar>@Up</FormTopBar>
       </div>
-    </FormTopBar>
+      @if (Page is not null)
+      {
+        <div class="mb-4 flex items-center gap-2">
+          @* the preview's (PagePreview.razor.js); on phones too, as the top bar stays above the open preview, and a
+             phone held sideways shows Desktop well enough to check *@
+          <div role="group" aria-label="Preview width" data-part="preview-widths" class="flex items-center gap-2">
+            <PreviewWidthButtons />
+          </div>
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="lg:hidden" data-toggles-preview>
+            <span class="group-has-[page-preview[data-open]]/workspace:hidden">Preview</span>
+            <span class="hidden group-has-[page-preview[data-open]]/workspace:inline">Close preview</span>
+          </ButtonBasic>
+        </div>
+      }
+    </div>
     @if (Outline is not null && Page is not null)
     {
-      <section aria-label="Page layout" class="mb-4 border-b border-rule pb-4">
+      <section aria-label="Page layout" class="mb-4 border-b border-rule pb-4 max-lg:group-has-[page-preview[data-open]]/workspace:hidden">
         @Outline
       </section>
     }
-    <div class="bg-panel p-4 border">
+    <div class="bg-panel p-4 border max-lg:group-has-[page-preview[data-open]]/workspace:hidden">
       @ChildContent
     </div>
   </main>
@@ -65,7 +73,9 @@
       <div class="w-px bg-rule group-hover/divider:w-1 group-hover/divider:bg-accent group-focus-visible/divider:w-1
       group-focus-visible/divider:bg-accent"></div>
     </div>
-    <div class="lg:min-h-0 lg:p-4">
+    @* on phones, edge to edge below the top bar *@
+    <div class="lg:min-h-0 lg:p-4 max-lg:group-has-[page-preview[data-open]]/workspace:min-h-0
+                max-lg:group-has-[page-preview[data-open]]/workspace:flex-1">
       <PagePreview Page="page" RowId="RowId" ComponentId="ComponentId" />
     </div>
   }

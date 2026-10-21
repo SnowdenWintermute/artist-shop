@@ -130,14 +130,8 @@
 
 <EditorWorkspace Page="_page" RowId="new PageRowId(RowId)">
   <Up>
-    @if (_page is null)
-    {
-      <UpLink Href="@PageUrls.CustomPageList" Label="Pages" data-test="up-link" />
-    }
-    else
-    {
-      <UpLink Href="@PageUrls.EditCustomPage(_page.Id)" Label="@_page.Name" data-test="up-link" />
-    }
+    <UpLink Href="@(_page is null ? PageUrls.CustomPageList : PageUrls.EditCustomPage(_page.Id))" Label="@(_page?.Name ?? "Pages")"
+            data-test="up-link" />
   </Up>
   <ChildContent>
     @if (_page is null)
@@ -146,7 +140,14 @@
     }
     else
     {
-      <h1 class="mb-4 text-xl">Row on @_page.Name</h1>
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-4">
+        <h1 class="text-xl">Row on @_page.Name</h1>
+        @if (_row is not null)
+        {
+          @* the preview's (PagePreview.razor.js) *@
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-scrolls-preview>Show in preview</ButtonBasic>
+        }
+      </div>
 
       @if (_row is null)
       {

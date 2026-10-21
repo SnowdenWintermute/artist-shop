@@ -37,13 +37,12 @@
             @foreach (var widths in RowWidthChoices.For(Row.Slots.Count))
             {
               var isChosen = widths == Row.Widths;
-              <button type="button" class="flex h-5 w-10 cursor-pointer gap-0.5" title="@RowChoiceLabels.Of(widths)"
+              <button type="button" class="group flex h-5 w-10 cursor-pointer gap-0.5" title="@RowChoiceLabels.Of(widths)"
                       aria-label="@RowChoiceLabels.Of(widths)" aria-pressed="@(isChosen ? "true" : "false")"
                       @onclick="() => Outline.ChooseWidthsAsync(Row, widths)">
                 @foreach (var growth in RowClasses.SlotGrowth(widths))
                 {
-                  @* light blue when chosen, as a chosen font is, else light grey *@
-                  <span class="@($"basis-0 border {growth} {(isChosen ? "bg-selected" : "bg-placeholder")}")"></span>
+                  <span class="@($"basis-0 border {growth} {ChoiceClasses.InPressable}")"></span>
                 }
               </button>
             }

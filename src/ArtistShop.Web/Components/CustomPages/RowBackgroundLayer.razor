@@ -36,11 +36,20 @@
   private string? ColorStyle => Background.DrawnColor is { } color ? $"background-color: {color.Hex};" : null;
 
   // Covering a row taller than the screen is wide for the picture's shape, the picture is drawn wider
-  // than the screen, its sides cropped. A screen-high row bounds that, which most rows are no taller than
-  private static string SizesFor(WorkImage image, ImageFit fit) =>
-    fit is ImageFit.Cover
-      ? $"max(100vw, calc(100vh * {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)}))"
-      : "100vw";
+  // than the screen, its sides cropped. A screen-high row bounds that, which most rows are no taller than.
+  // The larger of the two by an aspect-ratio condition rather than max(), which Safari doesn't read in sizes and
+  // swaps for 100vw
+  private static string SizesFor(WorkImage image, ImageFit fit)
+  {
+    if (fit is not ImageFit.Cover)
+    {
+      return "100vw";
+    }
+
+    var width = image.Width.ToString(CultureInfo.InvariantCulture);
+    var height = image.Height.ToString(CultureInfo.InvariantCulture);
+    return $"(min-aspect-ratio: {width}/{height}) 100vw, calc(100vh * {width} / {height})";
+  }
 
   protected override async Task OnParametersSetAsync()
   {

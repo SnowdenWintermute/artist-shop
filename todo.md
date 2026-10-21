@@ -132,6 +132,23 @@ dragged out gets a fresh empty slot.
 - Links in the preview open the editor of the page they lead to: the script fetches the linked page and follows
   its admin footer link, now marked `data-edit-page` in `EditPageLink`. Links off the site, to the page shown, or
   to a page with no Edit page link do nothing. Not browser-checked.
+- Review of 8464c12, 710fd2f and e788c57, 2026-10-21 (From Claude; uncommitted, 1298 tests, JS typecheck clean, not
+  browser-checked): the preview's buttons sit beside `FormTopBar` instead of inside it, so the saved notice is
+  back opposite the Up link rather than wrapping onto a line of its own; preview links to stored files
+  (`data-file-paths`: `/media`, `/brand`) aren't fetched; Show in preview on the row editor too; the row editor's
+  Up link written as the component editor's; `ChoiceClasses` shared by the width buttons and slot width buttons
+  (`group-aria-pressed` on the slot parts). Phones keep the Desktop/Phone buttons in the top bar (briefly hidden,
+  then brought back by Mike once the top bar stayed above the open preview: a phone held sideways can check Desktop).
+  On phones the open preview no longer covers the screen: it takes the controls' place below the nav and the
+  top bar, whose Preview button becomes Close preview in the same spot (`data-toggles-preview`; the overlay's own
+  Close preview is gone). MainLayout fits the workspace to the screen while it's open, as on wide screens, and
+  closing scrolls back to where the controls were. The open preview is edge to edge on phones, with only a top border under the top bar.
+  Safari (all iPhone browsers) chooses an image's srcset size only when it loads, never as the frame grows, so a
+  preview loaded hidden on a phone, or switched Phone → Desktop, kept its smallest sizes, stretched. `<page-preview>`
+  now makes the frame's images choose again (srcset cleared and set back) once the drawn size settles after a change.
+  Safari also doesn't read min()/max() in sizes (falls back to 100vw): cover row backgrounds now use
+  `(min-aspect-ratio: W/H) 100vw, calc(100vh * W / H)`. Image components' `SlotWidth.Sizes` uses min()/max() too, so
+  iPhones load larger sizes than needed there; left for now. Checked in Playwright's WebKit with a stand-in page.
 
 ## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
 
