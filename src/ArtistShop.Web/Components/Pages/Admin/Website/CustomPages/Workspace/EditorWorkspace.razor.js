@@ -1,7 +1,11 @@
 // <editor-workspace>: its divider (data-part="divider") is dragged, or moved with the arrow keys, to share the width
 // between the controls and the preview. The controls' width is kept for this viewer, so every editor opens with it.
-// An enhanced load patches the style attribute away, so it's set again
+// It's set in a sheet of the document's own rather than the element's style attribute, which an enhanced load
+// patches away; set again only on enhancedload, the controls sometimes flashed at the starting width
 const storageKey = "editor-workspace-controls-width";
+
+const widthSheet = new CSSStyleSheet();
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, widthSheet];
 
 // neither side narrower than this
 const minimumPixels = 320;
@@ -37,14 +41,14 @@ class EditorWorkspace extends HTMLElement {
     const signal = this.#listeners.signal;
     this.addEventListener("pointerdown", (event) => this.#grab(event), { signal });
     this.addEventListener("keydown", (event) => this.#nudge(event), { signal });
-    this.restore();
+    this.#restore();
   }
 
   disconnectedCallback() {
     this.#listeners?.abort();
   }
 
-  restore() {
+  #restore() {
     const width = rememberedWidth();
 
     if (width !== null) {
@@ -60,7 +64,7 @@ class EditorWorkspace extends HTMLElement {
   /** @param {number} width */
   #set(width) {
     const fitted = Math.max(minimumPixels, Math.min(width, this.getBoundingClientRect().width - minimumPixels));
-    this.style.setProperty("--controls-width", `${fitted}px`);
+    widthSheet.replaceSync(`editor-workspace { --controls-width: ${fitted}px; }`);
     return fitted;
   }
 
@@ -103,11 +107,3 @@ class EditorWorkspace extends HTMLElement {
 }
 
 customElements.define("editor-workspace", EditorWorkspace);
-
-Blazor.addEventListener("enhancedload", () =>
-  document.querySelectorAll("editor-workspace").forEach((element) => {
-    if (element instanceof EditorWorkspace) {
-      element.restore();
-    }
-  })
-);

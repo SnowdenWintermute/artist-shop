@@ -451,6 +451,20 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Matches($"<iframe[^>]* src=\"{Regex.Escape(PageUrls.CustomPage(home))}\"[^>]* data-test=\"page-preview\"", editor);
     }
 
+    // Blazor keeps an island across an enhanced load only when its key formats to text; with none it starts the
+    // outline again on every move between editors, drawn empty until its rows are read
+    [Fact]
+    public async Task TheOutlineIsKeyedByItsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var home = await PagesOf(site).GetHomeAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var editor = await client.GetStringAsync(PageUrls.EditCustomPage(home.Id), TestContext.Current.CancellationToken);
+
+        Assert.Contains($"\"formattedComponentKey\":\"{home.Id.Value}\"", editor);
+    }
+
     // the outline is on every editor of the page, with each row's and component's way into its editor
     [Fact]
     public async Task TheComponentEditorOutlinesItsPage()

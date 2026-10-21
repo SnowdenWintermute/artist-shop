@@ -31,8 +31,10 @@
     @if (Page is not null)
     {
       <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4 lg:hidden" data-opens-preview>Preview</ButtonBasic>
+      @* The key is the id's int: Blazor keeps an island across an enhanced load only when its key formats to text,
+         and otherwise starts a new one whenever a parameter changes, which drew it empty until its rows were read *@
       <section aria-label="Page layout" class="mb-4 border-b border-rule pb-4">
-        <PageOutline @rendermode="InteractiveServer" @key="Page.Id" Page="Page" EditedRowId="RowId" EditedComponentId="ComponentId"
+        <PageOutline @rendermode="InteractiveServer" @key="Page.Id.Value" Page="Page" EditedRowId="RowId" EditedComponentId="ComponentId"
                      IsNewRow="IsNewRow" />
       </section>
     }
