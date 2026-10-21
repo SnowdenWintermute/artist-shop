@@ -14,7 +14,8 @@ public sealed class EditPageLinkTests(TestApp app)
 {
     private SiteDatabase DatabaseOf(TestSite site) => app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
 
-    private static string EditLink(string href) => $"<a href=\"{href}\" class=\"text-link underline\">Edit page</a>";
+    // data-edit-page: what the editors' preview follows from a page linked to in it
+    private static string EditLink(string href) => $"<a href=\"{href}\" data-edit-page class=\"text-link underline\">Edit page</a>";
 
     // the page's settings are Edit page; which works it shows are edited on the collection
     [Fact]

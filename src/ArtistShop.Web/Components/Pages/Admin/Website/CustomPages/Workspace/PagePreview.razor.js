@@ -3,15 +3,20 @@
 // save: on an enhanced load of the editor, and when an island's <preview-reload> changes its stamp. A reload is an
 // enhanced navigation inside the frame, which patches the page in place rather than blanking it, and replaces its
 // history entry so Back still leaves the editor. It keeps the frame's scroll, even when what's being edited changes
-// (Mike: scrolling to it was jarring); a [data-scrolls-preview] button scrolls to it when asked. What's being edited (data-row-id, data-component-id) is outlined. Links and forms in the frame do nothing, so the editor stays.
+// (Mike: scrolling to it was jarring); a [data-scrolls-preview] button scrolls to it when asked. What's being edited (data-row-id, data-component-id) is outlined. Forms in the frame do nothing, and a link opens the
+// editor of the page it leads to, found by that page's own admin Edit page link (EditPageLink), or does nothing.
 // An enhanced load patches this element's attributes and the frame's back to the server's, so they're set again: the
 // width chosen on enhancedload, and the frame's size whenever its style changes, whatever the order things run in
 import { pressWidthButton, rememberedWidthButton, rememberPreviewWidth } from "/js/preview-width.js";
 
-// the frame's elements aren't instances of this window's Element, so they're told by name
-/** @param {Event} event */
-function isInLink(event) {
-  return event.composedPath().some((node) => "nodeName" in node && node.nodeName === "A");
+// the link clicked, null when none; the frame's elements aren't instances of this window's Element, so it's told by name
+/**
+ * @param {Event} event
+ * @returns {HTMLAnchorElement | null}
+ */
+function linkOf(event) {
+  const link = event.composedPath().find((node) => "nodeName" in node && node.nodeName === "A");
+  return link ? /** @type {HTMLAnchorElement} */ (link) : null;
 }
 
 // how long a reload holds the frame's scroll while its images load in, unless the person scrolls first
@@ -264,9 +269,15 @@ class PagePreview extends HTMLElement {
       page.addEventListener(
         type,
         (event) => {
-          if (type === "submit" || isInLink(event)) {
+          const link = type === "click" ? linkOf(event) : null;
+
+          if (type === "submit" || link) {
             event.preventDefault();
             event.stopImmediatePropagation();
+          }
+
+          if (link) {
+            this.#openEditorOf(link, page);
           }
         },
         { capture: true }
@@ -281,6 +292,33 @@ class PagePreview extends HTMLElement {
     const pageBlazor = /** @type {{ Blazor?: typeof Blazor }} */ (/** @type {unknown} */ (page)).Blazor;
     pageBlazor?.addEventListener("enhancedload", () => this.#show());
     this.#show();
+  }
+
+  // Another page of this site, fetched for the admin Edit page link it draws, which the editor follows. Nothing for a
+  // link elsewhere, one to the page shown (a card grid's page links), or a page with nothing to edit
+  /**
+   * @param {HTMLAnchorElement} link
+   * @param {Window} page
+   */
+  async #openEditorOf(link, page) {
+    const target = new URL(link.href, page.location.href);
+
+    if (target.origin !== window.location.origin || target.pathname === page.location.pathname) {
+      return;
+    }
+
+    const response = await fetch(target);
+
+    if (!response.ok || !response.headers.get("content-type")?.startsWith("text/html")) {
+      return;
+    }
+
+    const linked = new DOMParser().parseFromString(await response.text(), "text/html");
+    const editHref = linked.querySelector("a[data-edit-page]")?.getAttribute("href");
+
+    if (editHref) {
+      Blazor.navigateTo(editHref);
+    }
   }
 
   // the admin's footer links hidden, the scroll, and the outline

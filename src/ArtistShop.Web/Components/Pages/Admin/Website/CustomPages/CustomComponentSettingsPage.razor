@@ -116,7 +116,8 @@ collection.Id).ToHashSet();
     if (_component is null || Input is null || !await Input.CheckBodyAsync(UploadedImageRepository, _component.Component.Settings)
         || !Input.CheckCardGrid(_component.Component.Settings, _collections)
         || !await Input.CheckImageAsync(UploadedImageRepository, WorkRepository, Wording, _component.Component.Settings)
-        || !Input.CheckCarousel(_component.Component.Settings, _collections))
+        || !Input.CheckCarousel(_component.Component.Settings, _collections)
+        || !Input.CheckHeading(_component.Component.Settings))
     {
       return;
     }
@@ -182,6 +183,18 @@ Input.ToSettings(_component.Component.Settings));
       ImageLink.ArtworkPage => $"{Wording.Work.SingularHeading} page",
       ImageLink.None => "None",
       _ => throw new InvalidOperationException($"{link} has no label."),
+    };
+
+  // Heading 1 to 3, as the text editor names its levels
+  private static string LevelLabel(HeadingLevel level) => $"Heading {(int)level}";
+
+  private static string AlignmentLabel(HeadingAlignment alignment) =>
+    alignment switch
+    {
+      HeadingAlignment.Left => "Left",
+      HeadingAlignment.Center => "Centre",
+      HeadingAlignment.Right => "Right",
+      _ => throw new InvalidOperationException($"{alignment} has no label."),
     };
 
   private string CarouselLinkLabel(CarouselLink link) =>
@@ -271,6 +284,20 @@ Input.ToSettings(_component.Component.Settings));
             </SubmitOnChange>
           </ComponentSettingsForm>
         </RichTextBackup>
+      }
+      else if (component.Component.Settings is HeadingSettings)
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          <TextField Label="Text" @bind-Value="Input.HeadingText" />
+          <SubmitOnChange>
+            <RadioField Label="Size" @bind-Value="Input.Level" Values="Enum.GetValues<HeadingLevel>()"
+                        LabelOf="LevelLabel" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Alignment" @bind-Value="Input.Alignment" Values="Enum.GetValues<HeadingAlignment>()"
+                        LabelOf="AlignmentLabel" />
+          </SubmitOnChange>
+        </ComponentSettingsForm>
       }
       else if (component.Component.Settings is CardGridSettings)
       {

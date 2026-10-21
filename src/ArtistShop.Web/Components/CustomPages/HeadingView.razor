@@ -1,0 +1,18 @@
+@* a heading component's line of text at its level, on its side of the slot, spaced below as a text is *@
+@using ArtistShop.Web.Components.Publishing
+
+@code {
+  [Parameter, EditorRequired]
+  public required HeadingSettings Settings { get; set; }
+
+  private string AlignmentClass =>
+    Settings.Alignment switch
+    {
+      HeadingAlignment.Left => "text-left",
+      HeadingAlignment.Center => "text-center",
+      HeadingAlignment.Right => "text-right",
+      _ => throw new InvalidOperationException($"{Settings.Alignment} has no class."),
+    };
+}
+
+<LeveledHeading Level="Settings.Level" Class="@($"mb-4 break-words {AlignmentClass}")">@Settings.Text</LeveledHeading>

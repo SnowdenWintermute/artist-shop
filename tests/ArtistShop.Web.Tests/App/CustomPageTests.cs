@@ -671,14 +671,83 @@ public sealed partial class CustomPageTests(TestApp app)
     }
 
     [Fact]
-    public void AHeadingIsATextComponentStartingWithOneLargeHeading()
+    public void TheHeadingStarterMakesAHeadingComponent()
     {
-        var text = Assert.IsType<TextSettings>(NewCustomComponentSettings.For(CustomComponentStarter.Heading));
-        var heading = Assert.IsType<HeadingBlock>(Assert.Single(RichTextParser.Parse(text.Body).Blocks));
-
-        Assert.Equal(HeadingLevel.One, heading.Level);
-        Assert.Equal("Heading", Assert.Single(heading.Text).Text);
+        Assert.Equal(HeadingSettings.New, NewCustomComponentSettings.For(CustomComponentStarter.Heading));
         Assert.Equal("Heading 1", CustomComponentNames.NewNames(CustomComponentStarter.Heading, SiteWording.Default, new HashSet<string>()).First());
+    }
+
+    // the home page's one row with a heading added to its slot
+    private async Task<(CustomPage Home, PageRowId RowId, CustomComponentId HeadingId)> AddHeadingAsync(TestSite site, HeadingSettings settings)
+    {
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var home = await PagesOf(site).GetHomeAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
+        var id = await new CustomComponentRepository(database).AddToSlotAsync(Assert.Single(row.Slots).Id, "Heading 1", settings);
+
+        return (home, row.Id, id);
+    }
+
+    private async Task<CustomComponentSettings> SettingsOfAsync(TestSite site, CustomComponentId id) =>
+        Assert.IsType<CustomComponentInUse>(
+            await new CustomComponentRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetAsync(id)
+        ).Component.Settings;
+
+    [Fact]
+    public async Task AHeadingsSettingsPageSavesEveryChoice()
+    {
+        var site = await app.MakeSiteAsync();
+        var (home, rowId, id) = await AddHeadingAsync(site, HeadingSettings.New);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditCustomComponent(id, home.Id, rowId),
+            "custom-component",
+            new()
+            {
+                ["Input.Name"] = "Heading 1",
+                ["Input.HeadingText"] = " About me ",
+                ["Input.Level"] = nameof(HeadingLevel.Two),
+                ["Input.Alignment"] = nameof(HeadingAlignment.Center),
+            }
+        );
+
+        Assert.Equal(new HeadingSettings("About me", HeadingLevel.Two, HeadingAlignment.Center), await SettingsOfAsync(site, id));
+    }
+
+    [Fact]
+    public async Task AHeadingNeedsItsText()
+    {
+        var site = await app.MakeSiteAsync();
+        var (home, rowId, id) = await AddHeadingAsync(site, HeadingSettings.New);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditCustomComponent(id, home.Id, rowId),
+            "custom-component",
+            new()
+            {
+                ["Input.Name"] = "Heading 1",
+                ["Input.HeadingText"] = " ",
+                ["Input.Level"] = nameof(HeadingLevel.Two),
+                ["Input.Alignment"] = nameof(HeadingAlignment.Center),
+            }
+        );
+
+        Assert.Equal(HeadingSettings.New, await SettingsOfAsync(site, id));
+    }
+
+    [Fact]
+    public async Task AHeadingIsDrawnAtItsLevelOnItsSide()
+    {
+        var site = await app.MakeSiteAsync();
+        await AddHeadingAsync(site, new HeadingSettings("About me", HeadingLevel.Two, HeadingAlignment.Right));
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Matches("<h2 class=\"[^\"]*text-right[^\"]*\">About me</h2>", page);
     }
 
     [GeneratedRegex("""<a (?=[^>]*class="font-heading)[^>]*href="(?<href>[^"]*)"[^>]*>(?<text>[^<]*)</a>""")]

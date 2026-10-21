@@ -14,6 +14,7 @@ public enum CustomComponentType
     Text = 3,
     Image = 4,
     Carousel = 5,
+    Heading = 6,
 }
 
 // One record per type, holding what the artist chose. Kept in custom_components.settings as JSON
@@ -42,6 +43,22 @@ public enum TextWidth
 public sealed record TextSettings(RichText Body, TextWidth Width) : CustomComponentSettings
 {
     public override CustomComponentType Type => CustomComponentType.Text;
+}
+
+// which side of its slot a heading's text sits on. The ids are only for ordering; settings store the names
+public enum HeadingAlignment
+{
+    Left = 1,
+    Center = 2,
+    Right = 3,
+}
+
+// one line of heading text, drawn as the text editor draws a heading of its level
+public sealed record HeadingSettings(string Text, HeadingLevel Level, HeadingAlignment Alignment) : CustomComponentSettings
+{
+    public override CustomComponentType Type => CustomComponentType.Heading;
+
+    public static readonly HeadingSettings New = new("Heading", HeadingLevel.One, HeadingAlignment.Left);
 }
 
 // How tall an image is drawn. Natural is its own shape; the sizes are fixed heights, each held to a
@@ -149,9 +166,8 @@ public record CustomComponentOnPages(CustomComponentId Id, string Name, IReadOnl
 // UpdatedAt tells the settings page's backup whether it was saved since the copy was made
 public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames, DateTimeOffset UpdatedAt);
 
-// What the Add component dialog's New buttons make: one of each type, and Heading, a text component
-// that starts as one large heading line, for an artist who wants only that. A card grid starts as
-// the collection viewer
+// What the Add component dialog's New buttons make: one of each type. A card grid starts as the
+// collection viewer
 public enum CustomComponentStarter
 {
     CollectionViewer = 1,
@@ -171,13 +187,9 @@ public static class NewCustomComponentSettings
             CustomComponentStarter.CollectionViewer => CardGridSettings.AllCollections,
             CustomComponentStarter.PostList => new PostListSettings(),
             CustomComponentStarter.Text => new TextSettings(RichText.Empty, TextWidth.Narrow),
-            CustomComponentStarter.Heading => new TextSettings(HeadingText, TextWidth.Full),
+            CustomComponentStarter.Heading => HeadingSettings.New,
             CustomComponentStarter.Image => ImageSettings.New,
             CustomComponentStarter.Carousel => CarouselSettings.New,
             _ => throw new InvalidOperationException($"{starter} has no starting settings."),
         };
-
-    private static readonly RichText HeadingText = RichTextDeltaWriter.Write(
-        new RichTextDocument([new HeadingBlock(HeadingLevel.One, [new RichTextRun("Heading", false, false, false, null)])])
-    );
 }

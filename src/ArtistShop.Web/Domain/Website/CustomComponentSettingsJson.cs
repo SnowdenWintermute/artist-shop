@@ -18,6 +18,7 @@ public static class CustomComponentSettingsJson
             TextSettings text => (WriteText(text), 1),
             ImageSettings image => (WriteImage(image), 1),
             CarouselSettings carousel => (WriteCarousel(carousel), 1),
+            HeadingSettings heading => (WriteHeading(heading), 1),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
         };
 
@@ -29,6 +30,7 @@ public static class CustomComponentSettingsJson
             (CustomComponentType.Text, 1) => ReadText(json),
             (CustomComponentType.Image, 1) => ReadImage(json),
             (CustomComponentType.Carousel, 1) => ReadCarousel(json),
+            (CustomComponentType.Heading, 1) => ReadHeading(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
         };
 
@@ -49,6 +51,27 @@ public static class CustomComponentSettingsJson
         return new TextSettings(
             new RichText(root.GetProperty("body").GetRawText()),
             Enum.Parse<TextWidth>(root.GetProperty("width").GetString() ?? throw new InvalidOperationException("A text component's width is null."))
+        );
+    }
+
+    // {"text": "…", "level": "One", "alignment": "Left"}
+    private static string WriteHeading(HeadingSettings heading) =>
+        new JsonObject
+        {
+            ["text"] = heading.Text,
+            ["level"] = heading.Level.ToString(),
+            ["alignment"] = heading.Alignment.ToString(),
+        }.ToJsonString();
+
+    private static HeadingSettings ReadHeading(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        return new HeadingSettings(
+            ReadString(root, "text"),
+            Enum.Parse<HeadingLevel>(ReadString(root, "level")),
+            Enum.Parse<HeadingAlignment>(ReadString(root, "alignment"))
         );
     }
 

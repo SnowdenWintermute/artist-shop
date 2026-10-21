@@ -6,7 +6,7 @@ public static class OutlineClasses
     // The places a dragged part can land (PageOutline.razor.js): the gaps before each part, there all along so
     // nothing changes size, and the Add links at each list's end. They show only while a part that can land there is
     // dragged (data-drop-ok), and fill under the pointer (data-drop-active), stacked on data-drop-ok so it outranks it
-    private const string Lit = "rounded-sm data-drop-ok:bg-accent/25 data-drop-active:data-drop-ok:bg-accent";
+    private const string Lit = "data-drop-ok:bg-selected data-drop-active:data-drop-ok:bg-accent";
 
     public const string RowGap = "h-3 " + Lit;
 

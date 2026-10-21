@@ -124,6 +124,14 @@ dragged out gets a fresh empty slot.
   A component's Up, and where you land after deleting it, is now its page editor, not its row. Add row adds an
   empty row with no dialog (`EditNewPageRow` is gone). The outline lost the edit highlight and
   `EditorAfterLeaving`.
+- 2026-10-21, same session: Desktop/Phone as icon buttons (`desktop.svg`, `phone.svg`), and the slot width buttons
+  and drop zones in `bg-selected` (chosen) / `bg-placeholder`, no rounded corners; Show in preview button on the
+  component editor (`data-scrolls-preview`). Heading is now its own type (`HeadingSettings`: text, `HeadingLevel`
+  labelled Heading 1-3, `HeadingAlignment` Left/Centre/Right), drawn through `LeveledHeading`, which the rich text
+  view shares. Headings made before stay Text components. 1298 tests.
+- Links in the preview open the editor of the page they lead to: the script fetches the linked page and follows
+  its admin footer link, now marked `data-edit-page` in `EditPageLink`. Links off the site, to the page shown, or
+  to a page with no Edit page link do nothing. Not browser-checked.
 
 ## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
 

@@ -24,7 +24,7 @@ public static class CustomComponentNames
                 $"{wording.Collection.SingularHeading} viewer",
             CustomComponentStarter.PostList => Of(CustomComponentType.PostList, wording),
             CustomComponentStarter.Text => Of(CustomComponentType.Text, wording),
-            CustomComponentStarter.Heading => "Heading",
+            CustomComponentStarter.Heading => Of(CustomComponentType.Heading, wording),
             CustomComponentStarter.Image => Of(CustomComponentType.Image, wording),
             CustomComponentStarter.Carousel => Of(CustomComponentType.Carousel, wording),
             _ => throw new InvalidOperationException($"{starter} has no name."),
@@ -38,6 +38,7 @@ public static class CustomComponentNames
             CustomComponentType.Text => "Text / article",
             CustomComponentType.Image => "Image",
             CustomComponentType.Carousel => "Carousel",
+            CustomComponentType.Heading => "Heading",
             _ => throw new InvalidOperationException($"{type} has no name."),
         };
 }

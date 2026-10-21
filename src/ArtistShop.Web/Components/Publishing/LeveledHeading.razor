@@ -1,0 +1,32 @@
+@* A heading at one of the text editor's levels, drawn the same in a text and in a heading component; the
+   two larger in the theme's heading font *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public required HeadingLevel Level { get; set; }
+
+  // spacing and alignment, which only a heading component has
+  [Parameter]
+  public string? Class { get; set; }
+
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+}
+
+@switch (Level)
+{
+  case HeadingLevel.One:
+    <PageHeading Class="@ClassNames.Join("text-4xl font-bold", Class)">@ChildContent</PageHeading>
+    break;
+
+  case HeadingLevel.Two:
+    <SectionHeading Class="@ClassNames.Join("text-2xl font-bold", Class)">@ChildContent</SectionHeading>
+    break;
+
+  default:
+    <h3 class="@ClassNames.Join("text-lg font-bold", Class)">@ChildContent</h3>
+    break;
+}

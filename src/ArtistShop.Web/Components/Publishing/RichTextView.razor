@@ -29,16 +29,8 @@
         <p><RichTextRuns Text="paragraph.Text" /></p>
         break;
 
-      case HeadingBlock { Level: HeadingLevel.One } heading:
-        <PageHeading Class="text-4xl font-bold"><RichTextRuns Text="heading.Text" /></PageHeading>
-        break;
-
-      case HeadingBlock { Level: HeadingLevel.Two } heading:
-        <SectionHeading Class="text-2xl font-bold"><RichTextRuns Text="heading.Text" /></SectionHeading>
-        break;
-
       case HeadingBlock heading:
-        <h3 class="text-lg font-bold"><RichTextRuns Text="heading.Text" /></h3>
+        <LeveledHeading Level="heading.Level"><RichTextRuns Text="heading.Text" /></LeveledHeading>
         break;
 
       case BlockquoteBlock quote:

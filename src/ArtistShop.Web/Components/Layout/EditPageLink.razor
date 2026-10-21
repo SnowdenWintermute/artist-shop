@@ -16,10 +16,11 @@
 <SectionContent SectionName="@SiteFooter.EditLinkSectionName">
   <AuthorizeView Policy="@SitePolicies.Admin">
     <Authorized>
-      @* the editors' preview hides these, as a visitor doesn't see them *@
+      @* the editors' preview hides these, as a visitor doesn't see them, and reads data-edit-page to open the
+         editor of a page linked to in it *@
       <span data-admin-footer-links>
         <span class="mx-1">|</span>
-        <a href="@Href" class="@LinkStyles.InSentence">Edit page</a>
+        <a href="@Href" data-edit-page class="@LinkStyles.InSentence">Edit page</a>
         @foreach (var link in MoreLinks)
         {
           <span class="mx-1">|</span>

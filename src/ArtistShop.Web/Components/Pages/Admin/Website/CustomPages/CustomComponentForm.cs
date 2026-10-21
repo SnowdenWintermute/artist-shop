@@ -12,8 +12,8 @@ using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
-// A component's name, and the settings of its type: a text component's text and width, a card grid's source,
-// heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
+// A component's name, and the settings of its type: a text component's text and width, a heading's text, level
+// and alignment, a card grid's source, heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
 // create this, so it keeps a single public constructor
 public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 {
@@ -30,8 +30,13 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 
     public CardGridHeadingType HeadingType { get; set; }
 
-    [StringLength(ArtistShopLimits.CardGridHeadingMaximumLength)]
+    // a card grid's custom heading, or a heading component's text
+    [StringLength(ArtistShopLimits.HeadingTextMaximumLength)]
     public string? HeadingText { get; set; }
+
+    public HeadingLevel Level { get; set; }
+
+    public HeadingAlignment Alignment { get; set; }
 
     [Range(1, ArtistShopLimits.CardGridMaximumCardsPerPage)]
     public int? CardsPerPage { get; set; }
@@ -70,6 +75,13 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 Name = component.Name,
                 Body = LibraryImageFields.Fill(text.Body, libraryImages).Json,
                 Width = text.Width,
+            },
+            HeadingSettings heading => new()
+            {
+                Name = component.Name,
+                HeadingText = heading.Text,
+                Level = heading.Level,
+                Alignment = heading.Alignment,
             },
             CardGridSettings cardGrid => new()
             {
@@ -137,6 +149,25 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         }
 
         return problems.Count == 0;
+    }
+
+    // A heading's text and selects. False when the form says by the field why
+    public bool CheckHeading(CustomComponentSettings saved)
+    {
+        if (saved is not HeadingSettings)
+        {
+            return true;
+        }
+
+        var isValid = CheckSelects((Enum.IsDefined(Level), nameof(Level)), (Enum.IsDefined(Alignment), nameof(Alignment)));
+
+        if (string.IsNullOrWhiteSpace(HeadingText))
+        {
+            AddServerError(nameof(HeadingText), "Write the heading.");
+            isValid = false;
+        }
+
+        return isValid;
     }
 
     // A card grid's choices that depend on each other or on the catalog. False when the form says by the
@@ -231,6 +262,7 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         saved switch
         {
             TextSettings => new TextSettings(LibraryImageFields.Strip(new RichText(Unwrap.Value(Body))), Width),
+            HeadingSettings => new HeadingSettings(Unwrap.Value(HeadingText).Trim(), Level, Alignment),
             CardGridSettings => new CardGridSettings(
                 CardGridSource.Of(Source, ChosenCollectionId),
                 // a custom list has nothing to name it by, so Automatic, which a grid had before switching to one, is None
