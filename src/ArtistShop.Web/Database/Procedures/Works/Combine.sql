@@ -55,44 +55,14 @@ BEGIN
     UPDATE slides AS slide
     SET
         work_id = p_kept_id,
-        work_image_key = COALESCE(
-            slide.work_image_key,
-            (
-                SELECT
-                    image.storage_key
-                FROM
-                    work_images AS image
-                WHERE
-                    image.work_id = slide.work_id
-                ORDER BY
-                    image.is_primary DESC,
-                    image.sort_order
-                LIMIT
-                    1
-            )
-        )
+        work_image_key = COALESCE(slide.work_image_key, work_main_image_key(slide.work_id))
     WHERE
         slide.work_id = ANY (p_other_ids);
 
     UPDATE page_rows AS page_row
     SET
         background_work_id = p_kept_id,
-        background_work_image_key = COALESCE(
-            page_row.background_work_image_key,
-            (
-                SELECT
-                    image.storage_key
-                FROM
-                    work_images AS image
-                WHERE
-                    image.work_id = page_row.background_work_id
-                ORDER BY
-                    image.is_primary DESC,
-                    image.sort_order
-                LIMIT
-                    1
-            )
-        )
+        background_work_image_key = COALESCE(page_row.background_work_image_key, work_main_image_key(page_row.background_work_id))
     WHERE
         page_row.background_work_id = ANY (p_other_ids);
 

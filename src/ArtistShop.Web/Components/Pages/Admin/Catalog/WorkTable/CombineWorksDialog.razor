@@ -32,7 +32,8 @@
   private async Task KeepAsync(WorkTableRow row)
   {
     _kept = row;
-    var components = await CustomComponentRepository.GetImageComponentsShowingWorksAsync([.. Rows.Where(other => other != row).Select(other => other.Id)]);
+    var components = await CustomComponentRepository.GetImageComponentsShowingWorksAsync([.. Rows.Where(other => other !=
+row).Select(other => other.Id)]);
 
     // another was chosen while this one read
     if (_kept == row)
@@ -61,14 +62,16 @@
   }
 }
 
-<ModalDialog Title="@($"Combine {Wording.Work.CountOf(Rows.Count)}")" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="_isCombining">
+<ModalDialog Title="@($"Combine {Wording.Work.CountOf(Rows.Count)}")" Width="ModalDialogWidth.Narrow" OnClose="OnClose"
+             KeepOpen="_isCombining">
   <fieldset class="mb-4">
     <legend class="artist-shop-field-label">Keep</legend>
     <div class="max-h-[40dvh] overflow-y-auto">
       @foreach (var row in Rows)
       {
         <label class="mb-1 flex cursor-pointer items-center gap-2" data-test="combine-keep-choice">
-          <input type="radio" name="combine-keep" checked="@(row == _kept)" disabled="@_isCombining" @onchange="() => KeepAsync(row)" />
+          <input type="radio" name="combine-keep" checked="@(row == _kept)" disabled="@_isCombining"
+                 @onchange="() => KeepAsync(row)" />
           <WorkThumbnail Image="row.Thumbnail" />
           <span class="min-w-0 truncate">@row.Form.Name</span>
           <span class="ml-auto shrink-0 text-sm text-ink-faded">@CountText.Of(row.SavedImages.Count, "image")</span>
@@ -77,12 +80,13 @@
     </div>
   </fieldset>
 
-  <p class="mb-2">The others' images, @Wording.Collection.PluralInSentence and terms move to it, and the others are deleted.</p>
+  <p class="mb-2">Select which one to keep. All @Wording.Collection.PluralInSentence and terms will combine, and anything listed for sale from the others is removed.</p>
   <DeletedImageUsesWarning Uses="_imageUses" />
 
   <ModalDialogActions>
     <ModalCloseButton Label="Cancel" Disabled="_isCombining" />
-    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isCombining" Busy="_isCombining" @onclick="CombineAsync">
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isCombining" Busy="_isCombining"
+                 @onclick="CombineAsync">
       Combine
     </ButtonBasic>
   </ModalDialogActions>

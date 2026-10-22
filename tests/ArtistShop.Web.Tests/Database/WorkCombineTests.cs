@@ -129,6 +129,25 @@ public sealed class WorkCombineTests(TestDatabaseFixture database)
     }
 
     [Fact]
+    public async Task WhereSeveralOthersShareACollectionTheKeptWorkTakesTheFirstPlaceAndTheRestGo()
+    {
+        var collectionId = await _catalog.AddCollectionAsync();
+        var kept = await AddPaintingAsync([CatalogTestData.CreateTestImage()]);
+        var neighbour = await _catalog.AddPaintingInCollectionAsync(collectionId, [CatalogTestData.CreateTestImage()]);
+        var earlier = await _catalog.AddPaintingInCollectionAsync(collectionId, [CatalogTestData.CreateTestImage()]);
+        var last = await _catalog.AddPaintingInCollectionAsync(collectionId, [CatalogTestData.CreateTestImage()]);
+        var later = await _catalog.AddPaintingInCollectionAsync(collectionId, [CatalogTestData.CreateTestImage()]);
+
+        // the place taken is the collection's first, not the first given
+        await _works.CombineAsync(kept.Id, [later.Id, earlier.Id]);
+
+        Assert.Equal(
+            [neighbour.Id, kept.Id, last.Id],
+            Unwrap.Value(await _collections.GetAsync(collectionId)).Works.Select(work => work.Id)
+        );
+    }
+
+    [Fact]
     public async Task SlidesAndRowBackgroundsShowingTheOthersShowTheSamePictureFromTheKeptWork()
     {
         var kept = await AddPaintingAsync([CatalogTestData.CreateTestImage()]);
