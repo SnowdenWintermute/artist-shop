@@ -58,20 +58,19 @@ public sealed partial class WordingTests(TestApp app)
     [Fact]
     public async Task ANewWebsiteSaysCollectionsAndWorks()
     {
-        var (site, collectionPath, workPath) = await SiteWithAWorkAsync();
+        var (site, _, workPath) = await SiteWithAWorkAsync();
         var visitor = app.ClientFor(site.Host);
 
         var home = await PageAsync(visitor, "/");
         Assert.Contains(">Collections</h1>", home);
         Assert.Contains("1 work", home);
-        Assert.Contains("All collections", await PageAsync(visitor, collectionPath));
         Assert.Contains(">Collection</dt>", await PageAsync(visitor, workPath));
     }
 
     [Fact]
     public async Task SavedWordsReplaceThemOnThePublicPages()
     {
-        var (site, collectionPath, workPath) = await SiteWithAWorkAsync();
+        var (site, _, workPath) = await SiteWithAWorkAsync();
 
         await SaveAsync(
             site,
@@ -88,14 +87,13 @@ public sealed partial class WordingTests(TestApp app)
         var home = await PageAsync(visitor, "/");
         Assert.Contains(">Projects</h1>", home);
         Assert.Contains("1 piece", home);
-        Assert.Contains("All projects", await PageAsync(visitor, collectionPath));
         Assert.Contains(">Project</dt>", await PageAsync(visitor, workPath));
     }
 
     [Fact]
     public async Task KeptCapitalsStayInsideASentence()
     {
-        var (site, collectionPath, _) = await SiteWithAWorkAsync();
+        var site = await app.MakeSiteAsync();
 
         await SaveAsync(
             site,
@@ -107,7 +105,8 @@ public sealed partial class WordingTests(TestApp app)
             }
         );
 
-        Assert.Contains("All NFT drops", await PageAsync(app.ClientFor(site.Host), collectionPath));
+        var pages = await PageAsync(await app.SignedInClientAsync(site.Host, site.OwnerEmail), PageUrls.CustomPageList);
+        Assert.Contains("NFT drop links back to it", pages);
     }
 
     // a plural is never guessed from a singular

@@ -33,6 +33,7 @@
   private bool _hasLoaded;
   private bool _changedElsewhere;
   private bool _blogPageNeedsPostList;
+  private bool _collectionsPageNeedsGrid;
   // each save reloads the page preview
   private int _saveCount;
   private RowSketch? _removingRow;
@@ -280,6 +281,7 @@ component.Id)]));
     IsSaving = true;
     _changedElsewhere = false;
     _blogPageNeedsPostList = false;
+    _collectionsPageNeedsGrid = false;
     StateHasChanged();
 
     try
@@ -293,6 +295,10 @@ component.Id)]));
     catch (BlogPageNeedsPostListException)
     {
       _blogPageNeedsPostList = true;
+    }
+    catch (CollectionsPageNeedsGridException)
+    {
+      _collectionsPageNeedsGrid = true;
     }
 
     // the guard holds until the layout is read again
@@ -316,6 +322,12 @@ component.Id)]));
   @if (_blogPageNeedsPostList)
   {
     <p class="mb-2 text-error">The blog page needs its post list. Make another page the blog page first.</p>
+  }
+
+  @if (_collectionsPageNeedsGrid)
+  {
+    <p class="mb-2 text-error">The @Wording.Collection.PluralInSentence page needs its grid of all
+      @Wording.Collection.PluralInSentence. Make another page the @Wording.Collection.PluralInSentence page first.</p>
   }
 
   @* what the drag script works within, Add row included, which is where a row lands at the end; data-saving: no

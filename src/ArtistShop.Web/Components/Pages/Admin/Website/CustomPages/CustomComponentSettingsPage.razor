@@ -48,6 +48,8 @@
   private bool _formWasPosted;
   private bool _deletedElsewhere;
   private bool _isBlogPagesOnlyPostList;
+  // which also keeps it showing all collections
+  private bool _isCollectionsPagesOnlyGrid;
   // a card grid's or carousel's to choose from, and the ones a visitor would see anything in
   private IReadOnlyList<Collection> _collections = [];
   private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
@@ -82,6 +84,7 @@
           ? await UploadedImageRepository.GetByStorageKeysAsync(RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(text.Body)]))
           : new Dictionary<string, UploadedImage>());
       _isBlogPagesOnlyPostList = await CustomComponentRepository.IsBlogPagesOnlyPostListAsync(ComponentId);
+      _isCollectionsPagesOnlyGrid = await CustomComponentRepository.IsCollectionsPagesOnlyGridAsync(ComponentId);
     }
 
     if (_component?.Component.Settings is CardGridSettings or CarouselSettings)
@@ -137,6 +140,12 @@ Input.ToSettings(_component.Component.Settings));
       _deletedElsewhere = true;
       return;
     }
+    catch (CollectionsPageNeedsGridException)
+    {
+      // the other card grid of all collections was taken off the collections page meanwhile
+      _isCollectionsPagesOnlyGrid = true;
+      return;
+    }
 
     NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
     { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
@@ -154,9 +163,16 @@ Input.ToSettings(_component.Component.Settings));
       _isBlogPagesOnlyPostList = true;
       return;
     }
+    catch (CollectionsPageNeedsGridException)
+    {
+      _isCollectionsPagesOnlyGrid = true;
+      return;
+    }
 
     NavigationManager.NavigateTo(UpHref);
   }
+
+  private bool CanBeDeleted => !_isBlogPagesOnlyPostList && !_isCollectionsPagesOnlyGrid;
 
   // the page editor this was opened from, or the Pages list
   private string UpHref => _fromPage is not null ? PageUrls.EditCustomPage(_fromPage.Id) : PageUrls.CustomPageList;
@@ -242,7 +258,7 @@ Input.ToSettings(_component.Component.Settings));
           {
             <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-scrolls-preview>Show in preview</ButtonBasic>
           }
-          @if (!_isBlogPagesOnlyPostList)
+          @if (CanBeDeleted)
           {
             <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">
               Delete component
@@ -256,6 +272,13 @@ Input.ToSettings(_component.Component.Settings));
       {
         <p class="mb-4">This is the blog page's post list, so it can't be deleted. Make another page the blog page first.
         </p>
+      }
+
+      @if (_isCollectionsPagesOnlyGrid)
+      {
+        <p class="mb-4">This is the @Wording.Collection.PluralInSentence page's grid of all
+          @Wording.Collection.PluralInSentence, so it can't be deleted or stop showing them all.
+          Make another page the @Wording.Collection.PluralInSentence page first.</p>
       }
 
       @if (AlsoOn(component) is { Count: > 0 } alsoOn)
@@ -306,13 +329,19 @@ Input.ToSettings(_component.Component.Settings));
           <SubmitOnChange>
             <SelectField Label="Shows" @bind-Value="Input.Source">
               <option value="@CardGridSourceType.AllCollections">All @Wording.Collection.PluralInSentence</option>
-              <option value="@CardGridSourceType.WorksInCollection">
-                @Wording.Work.PluralHeading in one @Wording.Collection.SingularInSentence
-              </option>
+              @if (!_isCollectionsPagesOnlyGrid)
+              {
+                <option value="@CardGridSourceType.WorksInCollection">
+                  @Wording.Work.PluralHeading in one @Wording.Collection.SingularInSentence
+                </option>
+              }
               <option value="@CardGridSourceType.CollectionsAndLooseWorks">
                 All @Wording.Collection.PluralInSentence, then @Wording.Work.PluralInSentence in none
               </option>
-              <option value="@CardGridSourceType.ChosenCards">Custom list</option>
+              @if (!_isCollectionsPagesOnlyGrid)
+              {
+                <option value="@CardGridSourceType.ChosenCards">Custom list</option>
+              }
             </SelectField>
           </SubmitOnChange>
 
@@ -426,7 +455,7 @@ Input.ToSettings(_component.Component.Settings));
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" />
       }
 
-      @if (!_isBlogPagesOnlyPostList)
+      @if (CanBeDeleted)
       {
         <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
                            OnConfirm="DeleteAsync">

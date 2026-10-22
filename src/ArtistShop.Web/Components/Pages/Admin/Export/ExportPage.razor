@@ -23,6 +23,9 @@
     Back up your website or move it to another PictureCord site.
     Only one image or post download can run at a time.
   </p>
+  <p class="mb-4 font-bold" data-test="custom-pages-not-exported">
+    Custom pages are currently experimental and are not exported.
+  </p>
 
   <div class="mb-6">
     @* no download attribute, as for the images below *@
@@ -107,7 +110,7 @@
         <div>
           <div>All images</div>
           <div class="text-sm">@CountText.Of(_parts.Sum(part => part.Size.Count), "image"), @Size(_parts.Sum(part =>
-                                                                                                                                                                                                                        part.Size.Bytes))
+                                                                                                                                                                                                                                    part.Size.Bytes))
           </div>
         </div>
         @* no download attribute, as below *@
@@ -118,26 +121,27 @@
 
       <Divider Class="my-2" />
       <h3>Download images by type and @Wording.Collection.SingularInSentence</h3>
-      <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download each @Wording.Collection.SingularInSentence's images</p>
+      <p class="mb-4 text-sm">If the "Download All" is too large, you can individually download each
+        @Wording.Collection.SingularInSentence's images</p>
 
-      <ul>
-        @foreach (var part in _parts)
-        {
-          <li class="mb-2 flex flex-wrap items-center justify-between gap-4" @key="ExportEndpoints.ImagesUrl(part.Part)">
-            <div>
-              <div>@part.Part.Type.Name.Value — @(part.Part.Collection?.Name.Value ?? $"no {Wording.Collection.SingularInSentence}")</div>
-              <div class="text-sm">@CountText.Of(part.Size.Count, "image"), @Size(part.Size.Bytes)</div>
-            </div>
-            @* no download attribute, so a refusal ("another download is running") shows as a page
+        <ul>
+          @foreach (var part in _parts)
+          {
+            <li class="mb-2 flex flex-wrap items-center justify-between gap-4" @key="ExportEndpoints.ImagesUrl(part.Part)">
+              <div>
+                <div>@part.Part.Type.Name.Value — @(part.Part.Collection?.Name.Value ?? $"no {Wording.Collection.SingularInSentence}")</div>
+                <div class="text-sm">@CountText.Of(part.Size.Count, "image"), @Size(part.Size.Bytes)</div>
+              </div>
+              @* no download attribute, so a refusal ("another download is running") shows as a page
              rather than a failed download; the zip still downloads *@
-            <LinkButton Variant="ButtonVariant.Outline" href="@ExportEndpoints.ImagesUrl(part.Part)" data-enhance-nav="false">
-              Download
-            </LinkButton>
-          </li>
-        }
-      </ul>
-    }
-  </AdminPanel>
+              <LinkButton Variant="ButtonVariant.Outline" href="@ExportEndpoints.ImagesUrl(part.Part)" data-enhance-nav="false">
+                Download
+              </LinkButton>
+            </li>
+          }
+        </ul>
+      }
+    </AdminPanel>
 
 @code {
   [CascadingParameter]
@@ -155,7 +159,8 @@
         .Parts(await WorkRepository.GetAllAsync())
         .Select(part => (part, ImageExportArchive.Measure(part.Entries, ImageStorage))),
     ];
-    var (posts, postImages) = await PostExportArchive.LoadPostsAsync(PostRepository, WorkRepository, UploadedImageRepository);
+    var (posts, postImages) = await PostExportArchive.LoadPostsAsync(PostRepository, WorkRepository,
+UploadedImageRepository);
     _postCount = posts.Count;
     _postsWithSmallerCopiesCount = PostExportArchive.PostsWithSmallerCopies(posts, postImages, ImageSizeQueue).Count;
   }

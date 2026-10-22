@@ -6,6 +6,7 @@ using ArtistShop.Web.Components.CustomPages;
 using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Sites;
@@ -640,6 +641,131 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.DoesNotContain("Delete component", settings);
     }
 
+    // a page of its own holding a card grid of all collections, made the collections page
+    private async Task<CustomPageId> AddCollectionsPageAsync(TestSite site)
+    {
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var pageId = await PagesOf(site).AddAsync("Browse", new CustomPageAddress("browse"));
+        await new PageRowRepository(database).AddAsync(pageId);
+        var slot = Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots);
+        await new CustomComponentRepository(database).AddToSlotAsync(slot.Id, "Browse grid", CardGridSettings.AllCollections);
+        await PagesOf(site).MakeCollectionsAsync(pageId);
+
+        return pageId;
+    }
+
+    // the up link goes wherever the collections page is, by its name
+    [Fact]
+    public async Task ACollectionLinksUpToTheCollectionsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var slug = CollectionSlug.FromName("Gardens");
+        await new CollectionRepository(database).AddAsync(new CollectionName("Gardens"), slug);
+        await AddCollectionsPageAsync(site);
+
+        var collection = await app.ClientFor(site.Host).GetStringAsync(PageUrls.Collection(slug), TestContext.Current.CancellationToken);
+
+        Assert.Matches("""<a [^>]*href="/browse"[^>]*>[^<]*Browse""", collection);
+    }
+
+    [Fact]
+    public async Task AWorkInNoCollectionLinksUpToTheCollectionsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var work = await new CatalogTestData(database).AddPaintingAsync("Dawn", termIds: [], collectionIds: [],
+            images: [CatalogTestData.CreateTestImage()]);
+        await AddCollectionsPageAsync(site);
+
+        var page = await app.ClientFor(site.Host).GetStringAsync($"/works/{work.Slug.Value}", TestContext.Current.CancellationToken);
+
+        Assert.Matches("""<a [^>]*href="/browse"[^>]*>[^<]*Browse""", page);
+    }
+
+    // so a collection's Up link always leads to the collections
+    [Fact]
+    public async Task TheCollectionsPagesOnlyGridCantBeTakenOffOrChanged()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var pages = PagesOf(site);
+        var collectionsPage = await pages.GetCollectionsAsync();
+        var row = Assert.Single((await pages.GetLayoutAsync(collectionsPage.Id)).Rows);
+        var slot = Assert.Single(row.Slots);
+        var grid = Assert.Single(slot.Stack);
+        var components = new CustomComponentRepository(database);
+        var slots = new RowSlotRepository(database);
+        await slots.AddAsync(row.Id, slotCount: 1);
+
+        Assert.True(await components.IsCollectionsPagesOnlyGridAsync(grid.Id));
+        await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => components.DeleteAsync(grid.Id));
+        await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => slots.RemovePlacementAsync(slot.Id, grid.Id));
+        await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => slots.DeleteAsync(row.Id, slot.Id, slotCount: 2));
+        await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => new PageRowRepository(database).DeleteAsync(row.Id));
+        await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() =>
+            components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.ChosenCards() }));
+        var kept = Assert.Single((await pages.GetLayoutAsync(collectionsPage.Id)).Rows).Slots;
+        Assert.Equal([[grid.Id], []], kept.Select(keptSlot => keptSlot.Stack.Select(component => component.Id)));
+        Assert.Equal(grid.Settings, kept[0].Stack[0].Settings);
+    }
+
+    // it shows every collection before the works in none
+    [Fact]
+    public async Task TheCollectionsPagesGridCanAddWorksInNoCollection()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var collectionsPage = await PagesOf(site).GetCollectionsAsync();
+        var grid = Assert.Single(Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(collectionsPage.Id)).Rows).Slots).Stack);
+        var components = new CustomComponentRepository(database);
+
+        await components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.CollectionsAndLooseWorks() });
+
+        Assert.True(await components.IsCollectionsPagesOnlyGridAsync(grid.Id));
+    }
+
+    [Fact]
+    public async Task APageWithoutAGridOfAllCollectionsCantBeMadeTheCollectionsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var blog = await pages.GetBlogAsync();
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => pages.MakeCollectionsAsync(blog.Id));
+
+        Assert.Equal((await pages.GetHomeAsync()).Id, (await pages.GetCollectionsAsync()).Id);
+    }
+
+    [Fact]
+    public async Task TheCollectionsPageCantBeDeleted()
+    {
+        var site = await app.MakeSiteAsync();
+        var pageId = await AddCollectionsPageAsync(site);
+
+        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => PagesOf(site).DeleteAsync(pageId));
+
+        Assert.NotNull(await PagesOf(site).GetAsync(pageId));
+    }
+
+    [Fact]
+    public async Task TheCollectionsPagesGridSaysWhyItCantBeDeleted()
+    {
+        var site = await app.MakeSiteAsync();
+        var collectionsPage = await PagesOf(site).GetCollectionsAsync();
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync(collectionsPage.Id)).Rows);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var settings = await client.GetStringAsync(
+            PageUrls.EditCustomComponent(Assert.Single(Assert.Single(row.Slots).Stack).Id, collectionsPage.Id, row.Id),
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Contains($"Make another page the {SiteWording.Default.Collection.PluralInSentence} page first.", settings);
+        Assert.DoesNotContain("Delete component", settings);
+        Assert.DoesNotContain(nameof(CardGridSourceType.ChosenCards), settings);
+    }
+
     [Fact]
     public async Task AComponentIsDeletedFromItsSettingsPage()
     {
@@ -647,16 +773,17 @@ public sealed partial class CustomPageTests(TestApp app)
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
-        var component = Assert.Single(Assert.Single(row.Slots).Stack);
+        // not the grid Home starts with, which the collections page keeps
+        var componentId = await new CustomComponentRepository(database).AddToSlotAsync(Assert.Single(row.Slots).Id, "Viewer", CardGridSettings.AllCollections);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
-        var path = PageUrls.EditCustomComponent(component.Id, home.Id, row.Id);
+        var path = PageUrls.EditCustomComponent(componentId, home.Id, row.Id);
 
         var settings = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
         var response = await TestApp.PostFormAsync(client, path, "delete-custom-component", []);
 
         Assert.Contains("It will be taken off Home.", settings);
         Assert.Equal(PageUrls.EditCustomPage(home.Id), response.Headers.Location?.AbsolutePath);
-        Assert.Null(await new CustomComponentRepository(database).GetAsync(component.Id));
+        Assert.Null(await new CustomComponentRepository(database).GetAsync(componentId));
     }
 
     [Fact]

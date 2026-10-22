@@ -44,7 +44,7 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
     {
         var (id, name, address) = await AddUniqueAsync();
 
-        Assert.Equal(new CustomPage(id, name, address, IsHome: false, IsBlog: false), await _pages.GetAsync(id));
+        Assert.Equal(new CustomPage(id, name, address, IsHome: false, IsBlog: false, IsCollections: false), await _pages.GetAsync(id));
         Assert.Empty((await _pages.GetLayoutAsync(id)).Rows);
     }
 
@@ -89,6 +89,15 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
         Assert.Equal(new CustomPageAddress("posts"), blog.Address);
         Assert.Contains(blog.Id, await _pages.GetIdsHoldingAsync(CustomComponentType.PostList));
         Assert.DoesNotContain((await _pages.GetHomeAsync()).Id, await _pages.GetIdsHoldingAsync(CustomComponentType.PostList));
+    }
+
+    [Fact]
+    public async Task AWebsiteStartsWithItsHomeAsTheCollectionsPage()
+    {
+        var home = await _pages.GetHomeAsync();
+
+        Assert.Equal(home, await _pages.GetCollectionsAsync());
+        Assert.Equal([home.Id], await _pages.GetIdsHoldingAllCollectionsGridAsync());
     }
 
     [Fact]

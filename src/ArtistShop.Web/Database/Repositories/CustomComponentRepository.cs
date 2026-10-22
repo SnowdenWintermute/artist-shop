@@ -90,9 +90,14 @@ public class CustomComponentRepository(SiteDatabase database)
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.CollectionsPageNeedsGrid))
+        {
+            throw new CollectionsPageNeedsGridException(exception.MessageText, exception);
+        }
     }
 
-    // Off every page it's on as well. Leaving the blog page without a post list is refused
+    // Off every page it's on as well. Leaving the blog page without a post list, or the collections page
+    // without a card grid of all collections, is refused
     public async Task DeleteAsync(CustomComponentId id)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -105,6 +110,10 @@ public class CustomComponentRepository(SiteDatabase database)
         {
             throw new BlogPageNeedsPostListException(exception.MessageText, exception);
         }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.CollectionsPageNeedsGrid))
+        {
+            throw new CollectionsPageNeedsGridException(exception.MessageText, exception);
+        }
     }
 
     // whether deleting it would leave the blog page without a post list
@@ -113,6 +122,15 @@ public class CustomComponentRepository(SiteDatabase database)
         await using var connection = await database.OpenConnectionAsync();
 
         return await connection.QuerySingleAsync<bool>("SELECT is_blog_pages_only_post_list(@Id)", new { Id = id.Value });
+    }
+
+    // whether deleting it, or changing what it shows, would leave the collections page without a card grid
+    // of all collections
+    public async Task<bool> IsCollectionsPagesOnlyGridAsync(CustomComponentId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        return await connection.QuerySingleAsync<bool>("SELECT is_collections_pages_only_grid(@Id)", new { Id = id.Value });
     }
 
     // whether it sits in an edge-to-edge row, where an image component loads a full-bleed size

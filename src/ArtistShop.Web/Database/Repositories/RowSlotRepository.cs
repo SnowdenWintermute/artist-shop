@@ -89,7 +89,7 @@ public class RowSlotRepository(SiteDatabase database)
         );
 
     // every way these find the row or slot no longer as the page showed it, or would leave the blog
-    // page without its post list
+    // page without its post list or the collections page without its card grid of all collections
     private async Task ExecuteAsync(string sql, object parameters)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -109,6 +109,10 @@ public class RowSlotRepository(SiteDatabase database)
         catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
         {
             throw new BlogPageNeedsPostListException(exception.MessageText, exception);
+        }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.CollectionsPageNeedsGrid))
+        {
+            throw new CollectionsPageNeedsGridException(exception.MessageText, exception);
         }
     }
 }

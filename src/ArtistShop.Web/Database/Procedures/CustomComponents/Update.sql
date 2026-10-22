@@ -18,5 +18,7 @@ BEGIN
 
     PERFORM set_custom_component_works(p_id);
     PERFORM set_custom_component_uploaded_images(p_id);
+    -- a card grid of all collections may now show something else
+    PERFORM check_collections_page_has_grid();
 END;
 $$;

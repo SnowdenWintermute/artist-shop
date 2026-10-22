@@ -1,15 +1,21 @@
 import { FormChanges } from "/js/form-changes.js";
+import { guardLeaving } from "/js/leave-guard.js";
+
+const LEAVE_QUESTION = "You have unsaved changes. Leave anyway?";
 
 // Keeps an edit form's Save disabled while the form still holds what was loaded (FormChanges).
 // Typing raises input, and a hidden input changed by code raises nothing, but its value is an
 // attribute, so the observer sees it: the image list's inputs, rendered by an island, and whatever
-// an editor writes back
+// an editor writes back. Marked data-guards-leaving, it also asks before leaving with changes
 class EnableSaveOnChange extends HTMLElement {
   /** @type {AbortController | null} */
   #listeners = null;
   /** @type {MutationObserver | null} */
   #observer = null;
   #changes = new FormChanges(() => this.querySelector("form"));
+  // while it's asking before leaving
+  /** @type {(() => void) | null} */
+  #stopGuarding = null;
 
   connectedCallback() {
     this.#listeners = new AbortController();
@@ -28,6 +34,8 @@ class EnableSaveOnChange extends HTMLElement {
   disconnectedCallback() {
     this.#listeners?.abort();
     this.#observer?.disconnect();
+    this.#stopGuarding?.();
+    this.#stopGuarding = null;
   }
 
   reset() {
@@ -41,6 +49,13 @@ class EnableSaveOnChange extends HTMLElement {
     this.querySelectorAll("[data-waits-for-change]").forEach((button) => {
       button.toggleAttribute("disabled", isUnchanged);
     });
+
+    if (isUnchanged || !this.hasAttribute("data-guards-leaving")) {
+      this.#stopGuarding?.();
+      this.#stopGuarding = null;
+    } else if (this.#stopGuarding === null) {
+      this.#stopGuarding = guardLeaving(LEAVE_QUESTION);
+    }
   }
 }
 

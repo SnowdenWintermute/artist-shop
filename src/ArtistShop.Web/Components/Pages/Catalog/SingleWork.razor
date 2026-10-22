@@ -11,9 +11,6 @@
 @inject ImageSizeQueue ImageSizeQueue
 
 @code {
-  [CascadingParameter]
-  public SiteWording Wording { get; set; } = default!;
-
   [Parameter]
   public string Slug { get; set; } = default!;
 
@@ -71,7 +68,9 @@
     var mentions = await PostRepository.GetPublishedMentioningWorkAsync(work.Id);
     var pageMentions = await CustomPageRepository.GetMentioningWorkAsync(work.Id);
 
-    _loaded = new LoadedWork(work, walk, mentions, pageMentions);
+    var collectionsPage = walk.Collection is null ? await CustomPageRepository.GetCollectionsAsync() : null;
+
+    _loaded = new LoadedWork(work, walk, mentions, pageMentions, collectionsPage);
   }
 }
 
@@ -89,9 +88,9 @@
                         PreviousUrl="@PreviousLinkUrl(loaded, CurrentImageIndex(loaded.Work))"
                         NextUrl="@NextLinkUrl(loaded, CurrentImageIndex(loaded.Work))" />
     }
-    else
+    else if (loaded.CollectionsPage is { } collectionsPage)
     {
-      <UpLink Class="mb-4" Href="@PageUrls.Home" Label="@($"All {Wording.Collection.PluralInSentence}")" />
+      <UpLink Class="mb-4" Href="@PageUrls.CustomPage(collectionsPage)" Label="@collectionsPage.Name" />
     }
 
     @* one column on a phone, the panel beside the work once there is room. minmax(0,…) rather

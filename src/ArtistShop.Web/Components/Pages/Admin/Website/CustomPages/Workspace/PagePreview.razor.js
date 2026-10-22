@@ -49,10 +49,11 @@ class PagePreview extends HTMLElement {
   /** @type {number | null} */
   #heldScroll = null;
   #holdTimer = 0;
-  // The frame's drawn size its images last chose their srcset sizes for, empty when it had none. Safari chooses only
+  // The frame's drawn size its images last chose their srcset sizes for, 0 by 0 when it had none. Safari chooses only
   // when an image loads, never again as the frame grows, so a frame loaded hidden on a phone, or at the phone's width,
-  // keeps its smallest sizes. Once the size settles after a change, each image is made to choose again
-  #chosenForSize = "";
+  // keeps its smallest sizes. Once the size settles after growing past this, each image is made to choose again; a
+  // smaller frame keeps the larger copies, as other browsers do
+  #chosenFor = { width: 0, height: 0 };
   #chooseTimer = 0;
   // a frame still on its first load needs no reload, as when an enhanced load brought this element
   #hasLoaded = false;
@@ -210,11 +211,21 @@ class PagePreview extends HTMLElement {
   #open() {
     this.#controlsScroll = window.scrollY;
     this.toggleAttribute("data-open", true);
+    this.#setExpanded(true);
   }
 
   #close() {
     this.removeAttribute("data-open");
+    this.#setExpanded(false);
     window.scrollTo(0, this.#controlsScroll);
+  }
+
+  // the workspace's Preview button; an enhanced load patches it back to closed, as it does this element
+  /** @param {boolean} isOpen */
+  #setExpanded(isOpen) {
+    for (const button of this.closest("[data-editor-workspace]")?.querySelectorAll("[data-toggles-preview]") ?? []) {
+      button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    }
   }
 
   /** @param {MouseEvent} event */
@@ -283,23 +294,29 @@ class PagePreview extends HTMLElement {
     this.#chooseTimer = window.setTimeout(() => this.#chooseImageSizes(), imageSizesSettleMilliseconds);
   }
 
-  // what the frame is drawn at; empty before its first fit, and while it's hidden, when its page has no size at all
+  // what the frame is drawn at, in its page's own pixels; 0 by 0 before its first fit, and while it's hidden, when its
+  // page has no size at all
   get #drawnSize() {
     const frame = this.frame;
-    return frame?.style.width && frame.parentElement?.clientWidth ? `${frame.style.width} ${frame.style.height}` : "";
+
+    if (!frame?.style.width || !frame.parentElement?.clientWidth) {
+      return { width: 0, height: 0 };
+    }
+
+    return { width: parseFloat(frame.style.width), height: parseFloat(frame.style.height) };
   }
 
-  // Each image chooses its srcset size again, for the frame's size now. Setting srcset to what it was does nothing in
-  // Safari, so it's cleared first
+  // Each image chooses its srcset size again, for the frame's size now, once it's wider or taller than they last chose
+  // for. Setting srcset to what it was does nothing in Safari, so it's cleared first
   #chooseImageSizes() {
     const document = this.frame?.contentDocument;
     const size = this.#drawnSize;
 
-    if (!document || !size || size === this.#chosenForSize) {
+    if (!document || (size.width <= this.#chosenFor.width && size.height <= this.#chosenFor.height)) {
       return;
     }
 
-    this.#chosenForSize = size;
+    this.#chosenFor = size;
 
     for (const image of document.querySelectorAll("img[srcset]")) {
       const srcset = image.getAttribute("srcset") ?? "";
@@ -318,7 +335,7 @@ class PagePreview extends HTMLElement {
 
     // a page loaded at the size it's drawn at chose well; one loaded hidden, or before the first fit, didn't, and
     // chooses again at the next fit
-    this.#chosenForSize = this.#drawnSize;
+    this.#chosenFor = this.#drawnSize;
 
     // before Blazor's own listeners on the document, so an enhanced navigation never starts
     for (const type of ["click", "submit"]) {

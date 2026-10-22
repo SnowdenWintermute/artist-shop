@@ -1,7 +1,10 @@
-@* a page's name, linking to its editor, its address, and whether it's the home or blog page *@
+@* a page's name, linking to its editor, its address, and whether it's the home, blog or collections page *@
 @using ArtistShop.Web.Components.Atoms
 
 @code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter, EditorRequired]
   public required CustomPage Page { get; set; }
 }
@@ -16,5 +19,9 @@
   @if (Page.IsBlog)
   {
     <span class="font-bold">Blog home</span>
+  }
+  @if (Page.IsCollections)
+  {
+    <span class="font-bold">@Wording.Collection.PluralHeading home</span>
   }
 </span>

@@ -7,14 +7,16 @@ CREATE FUNCTION get_custom_pages_mentioning_work (p_work_id int) RETURNS TABLE (
     name text,
     address text,
     is_home boolean,
-    is_blog boolean
+    is_blog boolean,
+    is_collections boolean
 ) LANGUAGE sql STABLE AS $$
 SELECT DISTINCT
     custom_pages.id,
     custom_pages.name,
     custom_pages.address,
     home_page.page_id IS NOT NULL,
-    blog_page.page_id IS NOT NULL
+    blog_page.page_id IS NOT NULL,
+    collections_page.page_id IS NOT NULL
 FROM
     (
         SELECT
@@ -65,5 +67,6 @@ FROM
     JOIN page_rows ON page_rows.id = row_slots.row_id
     JOIN custom_pages ON custom_pages.id = page_rows.page_id
     LEFT JOIN home_page ON home_page.page_id = custom_pages.id
-    LEFT JOIN blog_page ON blog_page.page_id = custom_pages.id;
+    LEFT JOIN blog_page ON blog_page.page_id = custom_pages.id
+    LEFT JOIN collections_page ON collections_page.page_id = custom_pages.id;
 $$;

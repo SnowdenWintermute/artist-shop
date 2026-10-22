@@ -149,6 +149,9 @@ dragged out gets a fresh empty slot.
   Safari also doesn't read min()/max() in sizes (falls back to 100vw): cover row backgrounds now use
   `(min-aspect-ratio: W/H) 100vw, calc(100vh * W / H)`. Image components' `SlotWidth.Sizes` uses min()/max() too, so
   iPhones load larger sizes than needed there; left for now. Checked in Playwright's WebKit with a stand-in page.
+- Review of e736e8e, 2026-10-21 (From Claude; uncommitted, 1298 tests, typecheck clean, not browser-checked): the
+  images choose again only once the frame grows past what they last chose for, so shrinking it fetches nothing.
+  The Preview button carries `aria-expanded`.
 
 ## Carousel component and slideshow background, agreed 2026-10-19 (From Claude)
 

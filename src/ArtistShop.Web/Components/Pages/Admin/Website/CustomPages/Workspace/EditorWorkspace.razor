@@ -34,7 +34,9 @@
                   class="group/workspace block lg:grid lg:h-full lg:grid-cols-[var(--controls-width,minmax(24rem,1fr))_auto_minmax(0,2fr)]
                          max-lg:has-[page-preview[data-open]]:flex max-lg:has-[page-preview[data-open]]:h-full
                          max-lg:has-[page-preview[data-open]]:flex-col">
-  <main class="bg-page p-4 lg:h-full lg:overflow-y-auto max-lg:group-has-[page-preview[data-open]]/workspace:pb-0">
+  @* relative: what's absolute inside, like BbSortable's sr-only announcer, scrolls with the controls rather than
+     stretching the window *@
+  <main class="relative bg-page p-4 lg:h-full lg:overflow-y-auto max-lg:group-has-[page-preview[data-open]]/workspace:pb-0">
     @* the preview's buttons beside the top bar rather than in it, so the saved notice stays opposite the Up link *@
     <div class="flex items-start gap-x-4">
       <div class="min-w-0 flex-1">
@@ -48,7 +50,8 @@
           <div role="group" aria-label="Preview width" data-part="preview-widths" class="flex items-center gap-2">
             <PreviewWidthButtons />
           </div>
-          <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="lg:hidden" data-toggles-preview>
+          <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="lg:hidden" data-toggles-preview
+                       aria-expanded="false">
             <span class="group-has-[page-preview[data-open]]/workspace:hidden">Preview</span>
             <span class="hidden group-has-[page-preview[data-open]]/workspace:inline">Close preview</span>
           </ButtonBasic>

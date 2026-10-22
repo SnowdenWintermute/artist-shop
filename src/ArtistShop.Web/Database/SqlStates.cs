@@ -66,7 +66,7 @@ public static class SqlStates
     // UpdateTheme, UseTheme, SetPageRowSettings
     public const string ThemeNoLongerExists = "SH019";
 
-    // UpdateCustomPage, MakeCustomPageHome, MakeCustomPageBlog
+    // UpdateCustomPage, MakeCustomPageHome, MakeCustomPageBlog, MakeCustomPageCollections
     public const string CustomPageNoLongerExists = "SH020";
 
     // DeleteCustomPage
@@ -100,4 +100,11 @@ public static class SqlStates
 
     // ReorderSlides
     public const string SlidesChangedSincePageLoad = "SH030";
+
+    // DeleteCustomPage
+    public const string CustomPageIsCollections = "SH031";
+
+    // CheckCollectionsPageHasGrid, from the same functions as CheckBlogPageHasPostList, and
+    // UpdateCustomComponent and MakeCustomPageCollections
+    public const string CollectionsPageNeedsGrid = "SH032";
 }

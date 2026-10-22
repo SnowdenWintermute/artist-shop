@@ -17,6 +17,9 @@
 @code {
   private const string DeleteDialogId = "delete-custom-page";
 
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
   [Parameter]
   public int Id { get; set; }
 
@@ -99,7 +102,7 @@
         <h1 class="text-xl">@_page.Name</h1>
         <div class="flex gap-2">
           <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.CustomPage(_page)">View page</LinkButton>
-          @if (!_page.IsHome && !_page.IsBlog)
+          @if (!_page.IsHome && !_page.IsBlog && !_page.IsCollections)
           {
             <ButtonBasic type="button" Variant="ButtonVariant.DangerText" data-opens-dialog="@DeleteDialogId">
               Delete page
@@ -110,7 +113,8 @@
 
       @if (_changedElsewhere)
       {
-        <p class="mb-4 text-error">This page became the home or blog page somewhere else, so it can't be deleted.</p>
+        <p class="mb-4 text-error">This page became the home, blog or @Wording.Collection.PluralInSentence page somewhere
+          else, so it can't be deleted.</p>
       }
 
       <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
@@ -128,7 +132,7 @@
         </EditForm>
       </EnableSaveOnChange>
 
-      @if (!_page.IsHome && !_page.IsBlog)
+      @if (!_page.IsHome && !_page.IsBlog && !_page.IsCollections)
       {
         <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {_page.Name}?")" ConfirmLabel="Delete"
                            OnConfirm="DeleteAsync">

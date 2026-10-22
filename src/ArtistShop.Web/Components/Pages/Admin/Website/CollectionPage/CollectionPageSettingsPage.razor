@@ -10,6 +10,7 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject CollectionPageRepository CollectionPageRepository
 @inject CollectionRepository CollectionRepository
+@inject CustomPageRepository CustomPageRepository
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
 
@@ -28,6 +29,8 @@
   private bool _formWasPosted;
   // what the preview shows, rather than a post that didn't go through
   private CollectionPageSettings? _saved;
+  // where the preview's Up link goes
+  private CustomPage? _collectionsPage;
   // every one, since an empty collection still has a page, which an Edit page link can open this from
   private IReadOnlyList<CollectionWithCover> _collections = [];
   // the one asked for, else the first
@@ -41,6 +44,7 @@
     _saved = await CollectionPageRepository.GetAsync();
     Input ??= CollectionPageForm.From(_saved);
     _collections = await CollectionRepository.GetAllWithCoversAsync();
+    _collectionsPage = await CustomPageRepository.GetCollectionsAsync();
 
     if (PreviewCollectionId is null)
     {
@@ -102,7 +106,7 @@
     }
 
     <h2 class="mb-2 text-lg">Preview</h2>
-    @if (_saved is { } saved && _previewed is { } previewed)
+    @if (_saved is { } saved && _previewed is { } previewed && _collectionsPage is { } collectionsPage)
     {
       @* a form of its own, since forms can't be nested: choosing loads the page again with the collection *@
       <form method="get" action="@PageUrls.CollectionPageSettings" data-enhance class="mb-4">
@@ -123,7 +127,7 @@
         @* the layout's 8px at the sides, then the page's <main> *@
         <div class="px-2">
           <div class="mx-auto max-w-[1200px] p-4">
-            <CollectionPageContent Id="previewed.Id" Name="previewed.Name" Settings="saved" />
+            <CollectionPageContent Id="previewed.Id" Name="previewed.Name" Settings="saved" CollectionsPage="collectionsPage" />
           </div>
         </div>
       </ThemedPreview>

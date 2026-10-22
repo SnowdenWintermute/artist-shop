@@ -35,6 +35,10 @@ public class PageRowRepository(SiteDatabase database)
         {
             throw new BlogPageNeedsPostListException(exception.MessageText, exception);
         }
+        catch (PostgresException exception) when (SqlErrors.IsThrown(exception, SqlStates.CollectionsPageNeedsGrid))
+        {
+            throw new CollectionsPageNeedsGridException(exception.MessageText, exception);
+        }
     }
 
     // rowIds is every row on the page, in the new order

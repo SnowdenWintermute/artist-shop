@@ -32,7 +32,8 @@
           .Where(page => !nav.Any(inNav => inNav.Id == page.Id))
           .OrderBy(page => page.Name, NameOrder.ByName),
       ],
-      [.. await CustomPageRepository.GetIdsHoldingAsync(CustomComponentType.PostList)]
+      [.. await CustomPageRepository.GetIdsHoldingAsync(CustomComponentType.PostList)],
+      [.. await CustomPageRepository.GetIdsHoldingAllCollectionsGridAsync()]
     );
   }
 
@@ -49,6 +50,8 @@
   private Task MakeHomeAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeHomeAsync(page.Id));
 
   private Task MakeBlogAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeBlogAsync(page.Id));
+
+  private Task MakeCollectionsAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeCollectionsAsync(page.Id));
 
   // the lists are read again after each save, so they're always as saved, and as another tab left them
   private async Task SaveAsync(Func<Task> save)
@@ -105,7 +108,8 @@
         <RowActions Context="customPage">
           <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
           <PageRoleActions Page="customPage" CanBeBlog="lists.HoldingPostLists.Contains(customPage.Id)"
-                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
+                           CanBeCollections="lists.HoldingAllCollectionsGrids.Contains(customPage.Id)"
+                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" OnMakeCollections="MakeCollectionsAsync" />
           <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => HideAsync(customPage)">Hide</ButtonBasic>
         </RowActions>
       </SortableList>
@@ -124,7 +128,8 @@
           <PageSummary Page="customPage" />
           <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
           <PageRoleActions Page="customPage" CanBeBlog="lists.HoldingPostLists.Contains(customPage.Id)"
-                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" />
+                           CanBeCollections="lists.HoldingAllCollectionsGrids.Contains(customPage.Id)"
+                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" OnMakeCollections="MakeCollectionsAsync" />
           <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => ShowAsync(customPage)">Show in nav</ButtonBasic>
         </li>
       }

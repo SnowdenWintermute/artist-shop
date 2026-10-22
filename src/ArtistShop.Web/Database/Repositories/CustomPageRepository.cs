@@ -86,7 +86,8 @@ public class CustomPageRepository(SiteDatabase database)
         }
     }
 
-    // the home and blog pages are refused, since / always shows one and posts always link up to the other
+    // the home, blog and collections pages are refused, since / always shows the first and posts and
+    // collections always link up to the others
     public async Task DeleteAsync(CustomPageId id)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -96,7 +97,9 @@ public class CustomPageRepository(SiteDatabase database)
             await connection.ExecuteAsync("SELECT delete_custom_page(@Id)", new { Id = id.Value });
         }
         catch (PostgresException exception)
-            when (SqlErrors.IsThrown(exception, SqlStates.CustomPageIsHome) || SqlErrors.IsThrown(exception, SqlStates.CustomPageIsBlog))
+            when (SqlErrors.IsThrown(exception, SqlStates.CustomPageIsHome)
+                || SqlErrors.IsThrown(exception, SqlStates.CustomPageIsBlog)
+                || SqlErrors.IsThrown(exception, SqlStates.CustomPageIsCollections))
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
@@ -114,6 +117,23 @@ public class CustomPageRepository(SiteDatabase database)
         catch (PostgresException exception)
             when (SqlErrors.IsThrown(exception, SqlStates.CustomPageNoLongerExists)
                 || SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
+        {
+            throw new ChangedSincePageLoadException(exception.MessageText, exception);
+        }
+    }
+
+    public async Task MakeCollectionsAsync(CustomPageId id)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync("SELECT make_custom_page_collections(@Id)", new { Id = id.Value });
+        }
+        // the page lost its card grid of all collections meanwhile, as the admin only offers this on pages holding one
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.CustomPageNoLongerExists)
+                || SqlErrors.IsThrown(exception, SqlStates.CollectionsPageNeedsGrid))
         {
             throw new ChangedSincePageLoadException(exception.MessageText, exception);
         }
@@ -151,6 +171,26 @@ public class CustomPageRepository(SiteDatabase database)
         var row = await connection.QuerySingleAsync<CustomPageRow>("SELECT * FROM get_blog_custom_page()");
 
         return row.ToPage();
+    }
+
+    // a website always has one: the first migration makes it, and it can't be deleted while it's the collections page
+    public async Task<CustomPage> GetCollectionsAsync()
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var row = await connection.QuerySingleAsync<CustomPageRow>("SELECT * FROM get_collections_custom_page()");
+
+        return row.ToPage();
+    }
+
+    // the pages that can be the collections page
+    public async Task<HashSet<CustomPageId>> GetIdsHoldingAllCollectionsGridAsync()
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var ids = await connection.QueryAsync<int>("SELECT * FROM get_custom_page_ids_holding_all_collections_grid()");
+
+        return [.. ids.Select(id => new CustomPageId(id))];
     }
 
     public async Task<HashSet<CustomPageId>> GetIdsHoldingAsync(CustomComponentType type)
@@ -226,8 +266,9 @@ public class CustomPageRepository(SiteDatabase database)
         public required string Address { get; init; }
         public required bool IsHome { get; init; }
         public required bool IsBlog { get; init; }
+        public required bool IsCollections { get; init; }
 
-        public CustomPage ToPage() => new(new CustomPageId(Id), Name, new CustomPageAddress(Address), IsHome, IsBlog);
+        public CustomPage ToPage() => new(new CustomPageId(Id), Name, new CustomPageAddress(Address), IsHome, IsBlog, IsCollections);
     }
 
     private sealed class PlacementRow

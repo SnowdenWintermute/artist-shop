@@ -11,8 +11,15 @@ public record CustomPageAddress(string Value)
 }
 
 // A page the artist built. The home page is shown at / rather than at its own address; the blog page
-// is where a post's up link goes
-public record CustomPage(CustomPageId Id, string Name, CustomPageAddress Address, bool IsHome, bool IsBlog);
+// is where a post's up link goes, and the collections page where a collection's does
+public record CustomPage(
+    CustomPageId Id,
+    string Name,
+    CustomPageAddress Address,
+    bool IsHome,
+    bool IsBlog,
+    bool IsCollections
+);
 
 // the ids are stored in page_rows.widths. Each is a fixed split of the row between its slots, left
 // to right, so the number of slots follows from it
@@ -37,7 +44,11 @@ public static class RowWidthChoices
             1 => [RowWidths.Whole],
             2 => [RowWidths.Halves, RowWidths.ThirdThenTwoThirds, RowWidths.TwoThirdsThenThird],
             3 => [RowWidths.Thirds, RowWidths.QuarterHalfQuarter],
-            _ => throw new ArgumentOutOfRangeException(nameof(slotCount), slotCount, "A row has one to three slots."),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(slotCount),
+                slotCount,
+                "A row has one to three slots."
+            ),
         };
 }
 
@@ -138,7 +149,12 @@ public abstract record RowBackground
 
     // Images crossfading across the row, each centred and fitted, the visitor able to pause them. Behind is as an
     // Image's
-    public sealed record Slideshow(SlideSource Source, SlideshowInterval Interval, ImageFit Fit, RgbColor? Behind) : RowBackground
+    public sealed record Slideshow(
+        SlideSource Source,
+        SlideshowInterval Interval,
+        ImageFit Fit,
+        RgbColor? Behind
+    ) : RowBackground
     {
         public override RowBackgroundType Type => RowBackgroundType.Slideshow;
 
@@ -157,8 +173,8 @@ public abstract record RowBackground
 // first row and below its last than between rows
 public enum RowVerticalPadding
 {
-    Auto = 1,
-    None = 2,
+    None = 1,
+    Auto = 2,
     Small = 3,
     Medium = 4,
     Large = 5,
@@ -177,7 +193,11 @@ public enum RowSidePadding
 public record RowPadding(RowVerticalPadding Top, RowVerticalPadding Bottom, RowSidePadding Sides)
 {
     // what a new row gets, which matches pages from before rows had padding
-    public static readonly RowPadding New = new(RowVerticalPadding.Auto, RowVerticalPadding.Auto, RowSidePadding.Medium);
+    public static readonly RowPadding New = new(
+        RowVerticalPadding.Auto,
+        RowVerticalPadding.Auto,
+        RowSidePadding.Medium
+    );
 }
 
 public record PageRowId(int Value);
@@ -213,7 +233,8 @@ public record PageRow(
     IReadOnlyList<RowSlot> Slots
 )
 {
-    public RowSettings Settings => new(Height, ContentWidth, Padding, Gap, Alignment, Theme?.Key, Background);
+    public RowSettings Settings =>
+        new(Height, ContentWidth, Padding, Gap, Alignment, Theme?.Key, Background);
 }
 
 // a page's rows, top to bottom

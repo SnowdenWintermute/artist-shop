@@ -6,6 +6,11 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+}
+
 <PageTitle>Pages</PageTitle>
 
 <main>
@@ -20,7 +25,9 @@
         <p>Setting a page as <span class="font-bold">site home</span> means the site's brand text/logo links to it.
           Setting
           a page as
-          <span class="font-bold">blog home</span> means the blog posts link back to it.
+          <span class="font-bold">blog home</span> means the blog posts link back to it, and
+          <span class="font-bold">@Wording.Collection.PluralInSentence home</span> means each
+          @Wording.Collection.SingularInSentence links back to it.
         </p>
       </Hint>
 

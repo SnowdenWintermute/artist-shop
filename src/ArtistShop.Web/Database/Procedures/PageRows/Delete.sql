@@ -9,5 +9,6 @@ BEGIN
         id = p_row_id;
 
     PERFORM check_blog_page_has_post_list();
+    PERFORM check_collections_page_has_grid();
 END;
 $$;

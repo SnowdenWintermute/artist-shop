@@ -216,7 +216,7 @@ open.Theme.Fonts.For(role);
       <ThemePicker Open="open.Key" Themes="_themes" />
       <ThemeActions Open="open" IsInUse="isInUse" CanUse="!_formWasPosted" OnUse="UseAsync" OnDelete="DeleteAsync" />
 
-      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted">
+      <EnableSaveOnChange HoldsUnsavedChanges="_formWasPosted" GuardsLeaving>
         <EditForm id="@FormId" EditContext="Input.EditContext" FormName="theme" OnValidSubmit="SubmitAsync" Enhance
                   data-waits-for-pending>
           <DataAnnotationsValidator />
@@ -303,7 +303,7 @@ open.Theme.Fonts.For(role);
                          Variant="@(open.IsSaved ? ButtonVariant.Outline : ButtonVariant.Primary)">Save as new theme</ButtonBasic>
             @if (_formWasPosted)
             {
-              <LinkButton href="@PageUrls.ThemeEditing(open.Key)" Variant="ButtonVariant.Outline">Discard changes
+              <LinkButton href="@PageUrls.ThemeEditing(open.Key)" Variant="ButtonVariant.Outline" data-discards-changes>Discard changes
               </LinkButton>
             }
           </div>

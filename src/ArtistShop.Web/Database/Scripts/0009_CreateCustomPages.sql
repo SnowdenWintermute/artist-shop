@@ -215,6 +215,16 @@ CREATE TABLE blog_page (
     CONSTRAINT foreign_key_blog_page_custom_pages FOREIGN KEY (page_id) REFERENCES custom_pages (id)
 );
 
+-- the page collections link up to, as blog_page. It's chosen from the pages holding a card grid of all
+-- collections, and can't be deleted while it's the collections page
+CREATE TABLE collections_page (
+    id boolean NOT NULL DEFAULT true,
+    CONSTRAINT primary_key_collections_page PRIMARY KEY (id),
+    CONSTRAINT check_collections_page_one_row CHECK (id),
+    page_id int NOT NULL,
+    CONSTRAINT foreign_key_collections_page_custom_pages FOREIGN KEY (page_id) REFERENCES custom_pages (id)
+);
+
 -- the nav bar's links, in the artist's order. A page with no row here is reached by its address only
 CREATE TABLE nav_entries (
     page_id int NOT NULL,
@@ -269,5 +279,6 @@ BEGIN
 
     INSERT INTO home_page (page_id) SELECT id FROM custom_pages WHERE address = 'home';
     INSERT INTO blog_page (page_id) SELECT id FROM custom_pages WHERE address = 'posts';
+    INSERT INTO collections_page (page_id) SELECT id FROM custom_pages WHERE address = 'home';
 END;
 $$;
