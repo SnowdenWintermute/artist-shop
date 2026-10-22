@@ -34,8 +34,8 @@ public static class HintListing
             HintType.FullBleedWorkImages => $"{wording.Work.SingularHeading} images shown wider on pages",
         };
 
-    // the page it shows on
-    public static string PageUrl(HintType type) =>
+    // the page it shows on; homePageId for a hint every page's editor shows, which opens the home page's
+    public static string PageUrl(HintType type, CustomPageId homePageId) =>
         type switch
         {
             HintType.AdminDashboard => PageUrls.AdminDashboard,
@@ -57,7 +57,7 @@ public static class HintListing
             HintType.WordingWorks => PageUrls.Wording,
             HintType.WordingDescription => PageUrls.Wording,
             HintType.LookAndWordingImport => PageUrls.LookImport,
-            HintType.CustomPages => PageUrls.CustomPageList,
+            HintType.CustomPages => PageUrls.EditCustomPage(homePageId),
             HintType.Images => PageUrls.Images,
             // on a row's editor or an image component's settings, reached from there
             HintType.FullBleedWorkImages => PageUrls.CustomPageList,

@@ -87,8 +87,8 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
         var blog = await _pages.GetBlogAsync();
 
         Assert.Equal(new CustomPageAddress("posts"), blog.Address);
-        Assert.Contains(blog.Id, await _pages.GetIdsHoldingAsync(CustomComponentType.PostList));
-        Assert.DoesNotContain((await _pages.GetHomeAsync()).Id, await _pages.GetIdsHoldingAsync(CustomComponentType.PostList));
+        var row = Assert.Single((await _pages.GetLayoutAsync(blog.Id)).Rows);
+        Assert.IsType<PostListSettings>(Assert.Single(Assert.Single(row.Slots).Stack).Settings);
     }
 
     [Fact]
@@ -97,7 +97,6 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
         var home = await _pages.GetHomeAsync();
 
         Assert.Equal(home, await _pages.GetCollectionsAsync());
-        Assert.Equal([home.Id], await _pages.GetIdsHoldingAllCollectionsGridAsync());
     }
 
     [Fact]

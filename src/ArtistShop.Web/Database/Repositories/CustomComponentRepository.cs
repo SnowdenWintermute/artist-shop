@@ -116,23 +116,6 @@ public class CustomComponentRepository(SiteDatabase database)
         }
     }
 
-    // whether deleting it would leave the blog page without a post list
-    public async Task<bool> IsBlogPagesOnlyPostListAsync(CustomComponentId id)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        return await connection.QuerySingleAsync<bool>("SELECT is_blog_pages_only_post_list(@Id)", new { Id = id.Value });
-    }
-
-    // whether deleting it, or changing what it shows, would leave the collections page without a card grid
-    // of all collections
-    public async Task<bool> IsCollectionsPagesOnlyGridAsync(CustomComponentId id)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        return await connection.QuerySingleAsync<bool>("SELECT is_collections_pages_only_grid(@Id)", new { Id = id.Value });
-    }
-
     // whether it sits in an edge-to-edge row, where an image component loads a full-bleed size
     public async Task<bool> IsInEdgeToEdgeRowAsync(CustomComponentId id)
     {
@@ -177,12 +160,16 @@ public class CustomComponentRepository(SiteDatabase database)
         public required int SettingsVersion { get; init; }
         public required DateTimeOffset UpdatedAt { get; init; }
         public required string[] PageNames { get; init; }
+        public required bool IsBlogPagesOnlyPostList { get; init; }
+        public required bool IsCollectionsPagesOnlyGrid { get; init; }
 
         public CustomComponentInUse ToComponentInUse() =>
             new(
                 new CustomComponent(new CustomComponentId(Id), Name, CustomComponentSettingsJson.Read(Type, SettingsVersion, Settings)),
                 PageNames,
-                UpdatedAt
+                UpdatedAt,
+                IsBlogPagesOnlyPostList,
+                IsCollectionsPagesOnlyGrid
             );
     }
 }

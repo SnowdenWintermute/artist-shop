@@ -105,8 +105,15 @@ public sealed partial class WordingTests(TestApp app)
             }
         );
 
-        var pages = await PageAsync(await app.SignedInClientAsync(site.Host, site.OwnerEmail), PageUrls.CustomPageList);
-        Assert.Contains("NFT drop links back to it", pages);
+        var pages = new CustomPageRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        var collectionsPage = await pages.GetCollectionsAsync();
+        var row = Assert.Single((await pages.GetLayoutAsync(collectionsPage.Id)).Rows);
+        var grid = Assert.Single(Assert.Single(row.Slots).Stack);
+        var settings = await PageAsync(
+            await app.SignedInClientAsync(site.Host, site.OwnerEmail),
+            PageUrls.EditCustomComponent(grid.Id, collectionsPage.Id, row.Id)
+        );
+        Assert.Matches(@"grid of all\s+NFT drops,", settings);
     }
 
     // a plural is never guessed from a singular
@@ -192,6 +199,7 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/website/components/{Id:int}"] = PageUrls.EditCustomComponent(homeComponent.Id, home.Id, homeRow.Id),
             ["/admin/website/components/{Id:int}/add-works"] = PageUrls.AddCardGridWorks(homeComponent.Id, origin: null, []),
             ["/admin/website/components/{Id:int}/add-collections"] = PageUrls.AddCardGridCollections(homeComponent.Id, origin: null, []),
+            ["/admin/website/components/{Id:int}/preview"] = PageUrls.CustomComponentPreview(homeComponent.Id),
         };
         var routes = typeof(PageUrls).Assembly.GetTypes()
             .SelectMany(type => type.GetCustomAttributes<RouteAttribute>())

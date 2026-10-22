@@ -23,3 +23,6 @@ file.
 | `pencil.svg` | Drawn for this project | This project's |
 | `desktop.svg` | Drawn for this project | This project's |
 | `phone.svg` | Drawn for this project | This project's |
+| `eye.svg` | Drawn for this project | This project's |
+| `eye-off.svg` | Drawn for this project | This project's |
+| `trash.svg` | Drawn for this project | This project's |

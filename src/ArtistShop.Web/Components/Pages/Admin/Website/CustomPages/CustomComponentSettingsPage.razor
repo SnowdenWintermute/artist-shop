@@ -7,7 +7,6 @@
 @using ArtistShop.Web.Components.Pages.Admin.TextEditor
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Utilities
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Publishing
@@ -83,8 +82,8 @@
         _component.Component.Settings is TextSettings text
           ? await UploadedImageRepository.GetByStorageKeysAsync(RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(text.Body)]))
           : new Dictionary<string, UploadedImage>());
-      _isBlogPagesOnlyPostList = await CustomComponentRepository.IsBlogPagesOnlyPostListAsync(ComponentId);
-      _isCollectionsPagesOnlyGrid = await CustomComponentRepository.IsCollectionsPagesOnlyGridAsync(ComponentId);
+      _isBlogPagesOnlyPostList = _component.IsBlogPagesOnlyPostList;
+      _isCollectionsPagesOnlyGrid = _component.IsCollectionsPagesOnlyGrid;
     }
 
     if (_component?.Component.Settings is CardGridSettings or CarouselSettings)
@@ -174,8 +173,8 @@ Input.ToSettings(_component.Component.Settings));
 
   private bool CanBeDeleted => !_isBlogPagesOnlyPostList && !_isCollectionsPagesOnlyGrid;
 
-  // the page editor this was opened from, or the Pages list
-  private string UpHref => _fromPage is not null ? PageUrls.EditCustomPage(_fromPage.Id) : PageUrls.CustomPageList;
+  // the page editor this was opened from, or the components list
+  private string UpHref => _fromPage is not null ? PageUrls.EditCustomPage(_fromPage.Id) : PageUrls.CustomComponentList;
 
   // what Automatic would say, so the choice shows it
   private string AutomaticLabel(CardGridSourceType source) =>
@@ -221,11 +220,6 @@ Input.ToSettings(_component.Component.Settings));
       _ => throw new InvalidOperationException($"{link} has no label."),
     };
 
-  private static string DeleteWarning(CustomComponentInUse component) =>
-    component.PageNames.Count == 0
-      ? "It isn't on any page."
-      : $"It will be taken off {PageNamesText.Of(component.PageNames)}.";
-
   // the pages besides the one this was opened from, which share every change
   private IReadOnlyList<string> AlsoOn(CustomComponentInUse component) =>
     [.. component.PageNames.Where(name => name != _fromPage?.Name).Order(StringComparer.CurrentCultureIgnoreCase)];
@@ -233,11 +227,12 @@ Input.ToSettings(_component.Component.Settings));
 
 <PageTitle>@(_component?.Component.Name ?? "Component")</PageTitle>
 
-@* the page it was opened from, previewed with the component outlined in its row *@
+@* the page it was opened from, previewed with the component outlined in its row; from the components list, the
+   component on its own *@
 <EditorWorkspace Page="FromRowId is null ? null : _fromPage" RowId="FromRowId is int fromRowId ? new PageRowId(fromRowId) : null"
-                 ComponentId="ComponentId">
+                 ComponentId="ComponentId" Alone="FromRowId is null ? _component?.Component : null">
   <Up>
-    <UpLink Href="@UpHref" Label="@(_fromPage?.Name ?? "Pages")" data-test="up-link" />
+    <UpLink Href="@UpHref" Label="@(_fromPage?.Name ?? "Components")" data-test="up-link" />
   </Up>
   <ChildContent>
     <SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
@@ -270,15 +265,13 @@ Input.ToSettings(_component.Component.Settings));
 
       @if (_isBlogPagesOnlyPostList)
       {
-        <p class="mb-4">This is the blog page's post list, so it can't be deleted. Make another page the blog page first.
-        </p>
+        <p class="mb-4">This is the blog page's post list, so it can't be deleted.</p>
       }
 
       @if (_isCollectionsPagesOnlyGrid)
       {
         <p class="mb-4">This is the @Wording.Collection.PluralInSentence page's grid of all
-          @Wording.Collection.PluralInSentence, so it can't be deleted or stop showing them all.
-          Make another page the @Wording.Collection.PluralInSentence page first.</p>
+          @Wording.Collection.PluralInSentence, so it can't be deleted or stop showing them all.</p>
       }
 
       @if (AlsoOn(component) is { Count: > 0 } alsoOn)
@@ -459,7 +452,7 @@ Input.ToSettings(_component.Component.Settings));
       {
         <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
                            OnConfirm="DeleteAsync">
-          @DeleteWarning(component)
+          @CustomComponentPagesText.DeleteWarning(component)
         </ConfirmFormDialog>
       }
     }

@@ -128,6 +128,25 @@ public sealed partial class CustomPageTests(TestApp app)
     }
 
     [Fact]
+    public async Task ThePagesListOffersEveryPageAsSiteHome()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = PagesOf(site);
+        var about = await pages.AddAsync("About", new CustomPageAddress("about"));
+        await pages.MakeHomeAsync(about);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        var list = await client.GetStringAsync(PageUrls.CustomPageList, TestContext.Current.CancellationToken);
+
+        var choice = Regex.Match(list, """<select [^>]*data-test="site-home"[^>]*>(.*?)</select>""", RegexOptions.Singleline).Groups[1].Value;
+        var options = Regex.Matches(choice, """<option value="(\d+)"( selected)?""").Select(option => (option.Groups[1].Value, option.Groups[2].Success));
+        Assert.Equal(
+            (await pages.GetAllAsync()).Select(page => (page.Id.Value.ToString(), page.Id == about)).Order(),
+            options.Order()
+        );
+    }
+
+    [Fact]
     public async Task TheNavIsInItsSavedOrder()
     {
         var site = await app.MakeSiteAsync();
@@ -587,7 +606,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var slots = new RowSlotRepository(database);
         await slots.AddAsync(row.Id, slotCount: 1);
 
-        Assert.True(await components.IsBlogPagesOnlyPostListAsync(postList.Id));
+        Assert.True(Assert.IsType<CustomComponentInUse>(await components.GetAsync(postList.Id)).IsBlogPagesOnlyPostList);
         await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => components.DeleteAsync(postList.Id));
         await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => slots.RemovePlacementAsync(slot.Id, postList.Id));
         await Assert.ThrowsAsync<BlogPageNeedsPostListException>(() => slots.DeleteAsync(row.Id, slot.Id, slotCount: 2));
@@ -605,23 +624,10 @@ public sealed partial class CustomPageTests(TestApp app)
         var components = new CustomComponentRepository(database);
         var other = await components.AddToSlotAsync(slot.Id, "Recent", new PostListSettings());
 
-        Assert.False(await components.IsBlogPagesOnlyPostListAsync(Assert.Single(slot.Stack).Id));
+        Assert.False(Assert.IsType<CustomComponentInUse>(await components.GetAsync(Assert.Single(slot.Stack).Id)).IsBlogPagesOnlyPostList);
         await components.DeleteAsync(Assert.Single(slot.Stack).Id);
 
-        Assert.True(await components.IsBlogPagesOnlyPostListAsync(other));
-    }
-
-    [Fact]
-    public async Task APageWithoutAPostListCantBeMadeTheBlogPage()
-    {
-        var site = await app.MakeSiteAsync();
-        var pages = PagesOf(site);
-        var blog = await pages.GetBlogAsync();
-        var home = await pages.GetHomeAsync();
-
-        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => pages.MakeBlogAsync(home.Id));
-
-        Assert.Equal(blog.Id, (await pages.GetBlogAsync()).Id);
+        Assert.True(Assert.IsType<CustomComponentInUse>(await components.GetAsync(other)).IsBlogPagesOnlyPostList);
     }
 
     [Fact]
@@ -637,21 +643,19 @@ public sealed partial class CustomPageTests(TestApp app)
             TestContext.Current.CancellationToken
         );
 
-        Assert.Contains("Make another page the blog page first.", settings);
+        Assert.Contains("This is the blog page's post list, so it can't be deleted.", settings);
         Assert.DoesNotContain("Delete component", settings);
     }
 
-    // a page of its own holding a card grid of all collections, made the collections page
-    private async Task<CustomPageId> AddCollectionsPageAsync(TestSite site)
+    // the collections page off / and renamed, as an artist does when another page becomes home
+    private async Task<CustomPageId> MoveCollectionsPageAsync(TestSite site)
     {
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-        var pageId = await PagesOf(site).AddAsync("Browse", new CustomPageAddress("browse"));
-        await new PageRowRepository(database).AddAsync(pageId);
-        var slot = Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots);
-        await new CustomComponentRepository(database).AddToSlotAsync(slot.Id, "Browse grid", CardGridSettings.AllCollections);
-        await PagesOf(site).MakeCollectionsAsync(pageId);
+        var pages = PagesOf(site);
+        var collectionsPage = await pages.GetCollectionsAsync();
+        await pages.MakeHomeAsync((await pages.GetBlogAsync()).Id);
+        await pages.UpdateAsync(collectionsPage.Id, "Browse", new CustomPageAddress("browse"));
 
-        return pageId;
+        return collectionsPage.Id;
     }
 
     // the up link goes wherever the collections page is, by its name
@@ -662,7 +666,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
         var slug = CollectionSlug.FromName("Gardens");
         await new CollectionRepository(database).AddAsync(new CollectionName("Gardens"), slug);
-        await AddCollectionsPageAsync(site);
+        await MoveCollectionsPageAsync(site);
 
         var collection = await app.ClientFor(site.Host).GetStringAsync(PageUrls.Collection(slug), TestContext.Current.CancellationToken);
 
@@ -676,7 +680,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
         var work = await new CatalogTestData(database).AddPaintingAsync("Dawn", termIds: [], collectionIds: [],
             images: [CatalogTestData.CreateTestImage()]);
-        await AddCollectionsPageAsync(site);
+        await MoveCollectionsPageAsync(site);
 
         var page = await app.ClientFor(site.Host).GetStringAsync($"/works/{work.Slug.Value}", TestContext.Current.CancellationToken);
 
@@ -698,7 +702,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var slots = new RowSlotRepository(database);
         await slots.AddAsync(row.Id, slotCount: 1);
 
-        Assert.True(await components.IsCollectionsPagesOnlyGridAsync(grid.Id));
+        Assert.True(Assert.IsType<CustomComponentInUse>(await components.GetAsync(grid.Id)).IsCollectionsPagesOnlyGrid);
         await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => components.DeleteAsync(grid.Id));
         await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => slots.RemovePlacementAsync(slot.Id, grid.Id));
         await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => slots.DeleteAsync(row.Id, slot.Id, slotCount: 2));
@@ -722,26 +726,14 @@ public sealed partial class CustomPageTests(TestApp app)
 
         await components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.CollectionsAndLooseWorks() });
 
-        Assert.True(await components.IsCollectionsPagesOnlyGridAsync(grid.Id));
-    }
-
-    [Fact]
-    public async Task APageWithoutAGridOfAllCollectionsCantBeMadeTheCollectionsPage()
-    {
-        var site = await app.MakeSiteAsync();
-        var pages = PagesOf(site);
-        var blog = await pages.GetBlogAsync();
-
-        await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => pages.MakeCollectionsAsync(blog.Id));
-
-        Assert.Equal((await pages.GetHomeAsync()).Id, (await pages.GetCollectionsAsync()).Id);
+        Assert.True(Assert.IsType<CustomComponentInUse>(await components.GetAsync(grid.Id)).IsCollectionsPagesOnlyGrid);
     }
 
     [Fact]
     public async Task TheCollectionsPageCantBeDeleted()
     {
         var site = await app.MakeSiteAsync();
-        var pageId = await AddCollectionsPageAsync(site);
+        var pageId = await MoveCollectionsPageAsync(site);
 
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() => PagesOf(site).DeleteAsync(pageId));
 
@@ -761,7 +753,7 @@ public sealed partial class CustomPageTests(TestApp app)
             TestContext.Current.CancellationToken
         );
 
-        Assert.Contains($"Make another page the {SiteWording.Default.Collection.PluralInSentence} page first.", settings);
+        Assert.Contains("or stop showing them all.", settings);
         Assert.DoesNotContain("Delete component", settings);
         Assert.DoesNotContain(nameof(CardGridSourceType.ChosenCards), settings);
     }

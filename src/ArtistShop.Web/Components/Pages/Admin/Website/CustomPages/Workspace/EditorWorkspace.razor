@@ -25,6 +25,16 @@
   public PageRowId? RowId { get; set; }
   [Parameter]
   public CustomComponentId? ComponentId { get; set; }
+
+  // with no Page, a component previewed on its own, as when it's opened from the components list
+  [Parameter]
+  public CustomComponent? Alone { get; set; }
+
+  // the frame's address and what it shows, null when there's nothing to preview
+  private (string Address, string Name)? Previewed =>
+    Page is { } page ? (PageUrls.CustomPage(page), page.Name)
+    : Alone is { } component ? (PageUrls.CustomComponentPreview(component.Id), component.Name)
+    : null;
 }
 
 @* The grid even with no preview, so the controls stay where they are on the other editors. <editor-workspace>,
@@ -42,7 +52,7 @@
       <div class="min-w-0 flex-1">
         <FormTopBar>@Up</FormTopBar>
       </div>
-      @if (Page is not null)
+      @if (Previewed is not null)
       {
         <div class="mb-4 flex items-center gap-2">
           @* the preview's (PagePreview.razor.js); on phones too, as the top bar stays above the open preview, and a
@@ -68,7 +78,7 @@
       @ChildContent
     </div>
   </main>
-  @if (Page is { } page)
+  @if (Previewed is { } previewed)
   {
     @* the line between the sides, wider than it looks so it's easy to take hold of; arrow keys move it too *@
     <div role="separator" aria-orientation="vertical" aria-label="Resize the controls and the preview" tabindex="0"
@@ -79,7 +89,9 @@
     @* on phones, edge to edge below the top bar *@
     <div class="lg:min-h-0 lg:p-4 max-lg:group-has-[page-preview[data-open]]/workspace:min-h-0
                 max-lg:group-has-[page-preview[data-open]]/workspace:flex-1">
-      <PagePreview Page="page" RowId="RowId" ComponentId="ComponentId" />
+      @* alone, there's nothing around the component to outline it in *@
+      <PagePreview Address="@previewed.Address" Name="@previewed.Name" RowId="Page is null ? null : RowId"
+                   ComponentId="Page is null ? null : ComponentId" />
     </div>
   }
   else

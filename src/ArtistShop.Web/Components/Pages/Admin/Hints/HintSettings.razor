@@ -4,6 +4,7 @@
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Identity
 @inject DismissedHintRepository DismissedHints
+@inject CustomPageRepository CustomPageRepository
 
 @* every hint, checked while it shows, each saved as it's changed *@
 
@@ -16,11 +17,13 @@
 
   private string _userId = "";
   private readonly HashSet<HintType> _dismissed = [];
+  private CustomPageId? _homePageId;
 
   protected override async Task OnInitializedAsync()
   {
     _userId = (await AuthenticationState).User.RequiredUserId();
     _dismissed.UnionWith(await DismissedHints.GetAsync(_userId));
+    _homePageId = (await CustomPageRepository.GetHomeAsync()).Id;
   }
 
   // Nothing is disabled while saving, so the boxes stay as they are. Each change saves the box's new
@@ -43,6 +46,9 @@
   }
 }
 
+@* drawn once read, as a link needs the home page *@
+@if (_homePageId is { } homePageId)
+{
 <DisabledUntilInteractive>
   <fieldset class="mb-4">
     <legend class="sr-only">Hints to show</legend>
@@ -55,7 +61,7 @@
                    @onchange="change => SetShownAsync(type, change)" />
             @HintListing.Title(type, Wording)
           </label>
-          <a href="@HintListing.PageUrl(type)" class="text-sm text-ink-faded underline">Where it shows</a>
+          <a href="@HintListing.PageUrl(type, homePageId)" class="text-sm text-ink-faded underline">Where it shows</a>
         </li>
       }
     </ul>
@@ -73,3 +79,4 @@
     </ButtonBasic>
   </div>
 </DisabledUntilInteractive>
+}

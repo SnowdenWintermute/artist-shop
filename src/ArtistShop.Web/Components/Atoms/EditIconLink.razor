@@ -1,0 +1,16 @@
+@* the pencil that opens something's editor. data-test comes through AdditionalAttributes *@
+@using ArtistShop.Web.Components.Icons
+
+@code {
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+  [Parameter, EditorRequired]
+  public required string Href { get; set; }
+  // what's edited, for the label
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+}
+
+<a href="@Href" class="shrink-0 p-0.75" title="Edit" aria-label="@($"Edit {Label}")" @attributes="AdditionalAttributes">
+  <SvgIcon Name="pencil" Class="size-5" />
+</a>

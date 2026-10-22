@@ -89,7 +89,7 @@ public static class SqlStates
     public const string CustomComponentNoLongerExists = "SH026";
 
     // CheckBlogPageHasPostList, from DeleteCustomComponent, RemoveSlotPlacement, DeleteRowSlot,
-    // DeletePageRow, MakeCustomPageBlog, MoveSlotPlacement, MoveRowSlot
+    // DeletePageRow, MoveSlotPlacement, MoveRowSlot
     public const string BlogPageNeedsPostList = "SH027";
 
     // ReorderCardGridChosenCards
@@ -105,6 +105,6 @@ public static class SqlStates
     public const string CustomPageIsCollections = "SH031";
 
     // CheckCollectionsPageHasGrid, from the same functions as CheckBlogPageHasPostList, and
-    // UpdateCustomComponent and MakeCustomPageCollections
+    // UpdateCustomComponent
     public const string CollectionsPageNeedsGrid = "SH032";
 }

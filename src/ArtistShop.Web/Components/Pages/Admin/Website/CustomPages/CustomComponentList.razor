@@ -1,0 +1,32 @@
+@page "/admin/website/components"
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Catalog
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject CustomComponentRepository CustomComponentRepository
+
+@code {
+  private List<CustomComponentInUse> _components = [];
+
+  protected override async Task OnInitializedAsync() =>
+    _components = [.. (await CustomComponentRepository.GetAllAsync()).OrderBy(item => item.Component.Name, NameOrder.ByName)];
+}
+
+<PageTitle>Components</PageTitle>
+
+<main>
+  <AdminPanel>
+    <AdminUpLink />
+    <h1 class="mb-4 text-xl">Components</h1>
+    <p class="mb-4 text-sm text-ink-faded">A component taken off a page stays here until it's deleted.</p>
+
+    <ul>
+      @foreach (var item in _components)
+      {
+        <CustomComponentListItem @key="item.Component.Id" Item="item" />
+      }
+    </ul>
+  </AdminPanel>
+</main>

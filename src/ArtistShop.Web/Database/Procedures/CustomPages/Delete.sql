@@ -4,8 +4,7 @@ DROP FUNCTION IF EXISTS delete_custom_page;
 -- that's gone already does nothing
 CREATE FUNCTION delete_custom_page (p_id int) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    -- FOR SHARE holds off make_custom_page_home, make_custom_page_blog and make_custom_page_collections
-    -- until this commits, so the checks stay true
+    -- FOR SHARE holds off make_custom_page_home until this commits, so the check stays true
     PERFORM 1 FROM home_page WHERE page_id = p_id FOR SHARE;
 
     IF FOUND THEN

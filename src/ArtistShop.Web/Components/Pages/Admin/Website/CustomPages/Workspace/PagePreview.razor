@@ -1,12 +1,15 @@
-@* The public page being edited, as a visitor sees it with its nav and footer, in a frame drawn at a desktop's or a
+@* The public page being edited, or a component alone, as a visitor sees it with its nav and footer, in a frame drawn at a desktop's or a
    phone's width (the workspace's width buttons) and shrunk to fit. <page-preview>, defined in PagePreview.razor.js, reloads the frame after a save,
    keeping its scroll, and outlines the row or component being edited *@
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Images
 
 @code {
+  // the public page's, or the component preview's
   [Parameter, EditorRequired]
-  public required CustomPage Page { get; set; }
+  public required string Address { get; set; }
+  [Parameter, EditorRequired]
+  public required string Name { get; set; }
 
   // what's being edited, outlined in the preview: a row, or a component in a row
   [Parameter]
@@ -22,7 +25,7 @@
               data-file-paths="@($"{ImageUrls.VariantsRequestPath} {BrandImageUrls.RequestPath}")">
   @* tabindex: its links do nothing, so the keyboard passes it by *@
   <div data-part="viewport" class="relative min-h-0 flex-1 overflow-hidden border border-rule bg-page max-lg:border-x-0 max-lg:border-b-0">
-    <iframe title="Preview of @Page.Name" src="@PageUrls.CustomPage(Page)" tabindex="-1" data-test="page-preview"
+    <iframe title="Preview of @Name" src="@Address" tabindex="-1" data-test="page-preview"
             class="absolute top-0 left-0 origin-top-left border-0"></iframe>
   </div>
 </page-preview>

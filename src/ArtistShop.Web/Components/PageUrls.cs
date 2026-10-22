@@ -127,6 +127,9 @@ public static class PageUrls
     // on a site's host: the artist's pages and the nav
     public const string CustomPageList = "/admin/website/pages";
 
+    // on a site's host: every component, on a page or not
+    public const string CustomComponentList = "/admin/website/components";
+
     // on a site's host: the settings of the fixed page each collection has
     public const string CollectionPageSettings = "/admin/website/collection-page";
 
@@ -163,7 +166,10 @@ public static class PageUrls
         WithQuery($"{CustomComponent(id)}/add-collections",
             [.. OriginFields(origin), .. CheckedFields(checkedIds.Select(checkedId => checkedId.Value))]);
 
-    private static string CustomComponent(CustomComponentId id) => $"/admin/website/components/{id.Value}";
+    // the component alone in the public layout, for the settings page's preview when it has no page to show
+    public static string CustomComponentPreview(CustomComponentId id) => $"{CustomComponent(id)}/preview";
+
+    private static string CustomComponent(CustomComponentId id) => $"{CustomComponentList}/{id.Value}";
 
     // for a GET form on those pages to keep, as it sends only its own fields
     public static (string Key, string Value)[] OriginFields(CustomComponentOrigin? origin) =>

@@ -1,4 +1,4 @@
-@* The nav in order, which dragging and Hide save at once, then the pages that aren't in it *@
+@* The home page, the nav in order and then the pages that aren't in it; choosing, dragging and hiding save at once *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Lists
@@ -31,13 +31,15 @@
         .. (await CustomPageRepository.GetAllAsync())
           .Where(page => !nav.Any(inNav => inNav.Id == page.Id))
           .OrderBy(page => page.Name, NameOrder.ByName),
-      ],
-      [.. await CustomPageRepository.GetIdsHoldingAsync(CustomComponentType.PostList)],
-      [.. await CustomPageRepository.GetIdsHoldingAllCollectionsGridAsync()]
+      ]
     );
   }
 
   private List<CustomPage> Nav => Unwrap.Value(Lists).Nav;
+
+  private IEnumerable<CustomPage> AllByName => Nav.Concat(Unwrap.Value(Lists).Others).OrderBy(page => page.Name, NameOrder.ByName);
+
+  private int HomeId => AllByName.Single(page => page.IsHome).Id.Value;
 
   private Task MoveAsync((int OldIndex, int NewIndex) move) => SaveNavAsync(Nav.Moved(move));
 
@@ -47,11 +49,7 @@
 
   private Task SaveNavAsync(IReadOnlyList<CustomPage> nav) => SaveAsync(() => NavEntryRepository.SetAsync([.. nav.Select(page => page.Id)]));
 
-  private Task MakeHomeAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeHomeAsync(page.Id));
-
-  private Task MakeBlogAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeBlogAsync(page.Id));
-
-  private Task MakeCollectionsAsync(CustomPage page) => SaveAsync(() => CustomPageRepository.MakeCollectionsAsync(page.Id));
+  private Task MakeHomeAsync(int id) => SaveAsync(() => CustomPageRepository.MakeHomeAsync(new CustomPageId(id)));
 
   // the lists are read again after each save, so they're always as saved, and as another tab left them
   private async Task SaveAsync(Func<Task> save)
@@ -91,6 +89,14 @@
     <p class="mb-2 text-error">Pages were changed somewhere else, so the list has been reloaded.</p>
   }
 
+  <label class="artist-shop-field-label" for="home-page">Site home</label>
+  <select id="home-page" class="artist-shop-field-input mb-6" data-test="site-home" @bind:get="HomeId" @bind:set="MakeHomeAsync">
+    @foreach (var customPage in AllByName)
+    {
+      <option value="@customPage.Id.Value">@customPage.Name</option>
+    }
+  </select>
+
   <h2 class="mb-2 text-lg">In the nav</h2>
   @if (lists.Nav.Count == 0)
   {
@@ -106,11 +112,11 @@
           <PageSummary Page="customPage" />
         </RowContent>
         <RowActions Context="customPage">
-          <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
-          <PageRoleActions Page="customPage" CanBeBlog="lists.HoldingPostLists.Contains(customPage.Id)"
-                           CanBeCollections="lists.HoldingAllCollectionsGrids.Contains(customPage.Id)"
-                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" OnMakeCollections="MakeCollectionsAsync" />
-          <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => HideAsync(customPage)">Hide</ButtonBasic>
+          <button type="button" class="shrink-0 cursor-pointer p-0.75" title="Hide" aria-label="@($"Hide {customPage.Name}")"
+                  @onclick="() => HideAsync(customPage)">
+            <SvgIcon Name="eye-off" Class="size-5" />
+          </button>
+          <EditIconLink Href="@PageUrls.EditCustomPage(customPage.Id)" Label="@customPage.Name" />
         </RowActions>
       </SortableList>
     </div>
@@ -126,11 +132,11 @@
       {
         <li @key="customPage.Id" class="mb-2 flex items-center gap-2 border p-2 text-sm">
           <PageSummary Page="customPage" />
-          <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.EditCustomPage(customPage.Id)">Edit</LinkButton>
-          <PageRoleActions Page="customPage" CanBeBlog="lists.HoldingPostLists.Contains(customPage.Id)"
-                           CanBeCollections="lists.HoldingAllCollectionsGrids.Contains(customPage.Id)"
-                           OnMakeHome="MakeHomeAsync" OnMakeBlog="MakeBlogAsync" OnMakeCollections="MakeCollectionsAsync" />
-          <ButtonBasic type="button" Variant="ButtonVariant.Outline" @onclick="() => ShowAsync(customPage)">Show in nav</ButtonBasic>
+          <button type="button" class="shrink-0 cursor-pointer p-0.75" title="Show in nav"
+                  aria-label="@($"Show {customPage.Name} in nav")" @onclick="() => ShowAsync(customPage)">
+            <SvgIcon Name="eye" Class="size-5" />
+          </button>
+          <EditIconLink Href="@PageUrls.EditCustomPage(customPage.Id)" Label="@customPage.Name" />
         </li>
       }
     </ul>

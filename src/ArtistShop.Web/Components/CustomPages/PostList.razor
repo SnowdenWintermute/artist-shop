@@ -10,8 +10,9 @@
 @inject NavigationManager NavigationManager
 
 @code {
+  // none in a component's preview on its own, which leaves out the heading
   [CascadingParameter]
-  public CustomPage Page { get; set; } = default!;
+  public CustomPage? Page { get; set; }
 
   // the query parameter its page number is kept in
   [Parameter, EditorRequired]
@@ -35,7 +36,10 @@
 }
 
 <section class="@RichTextColumn.CenteredClass">
-  <PageHeading Class="mb-4">@Page.Name</PageHeading>
+  @if (Page is not null)
+  {
+    <PageHeading Class="mb-4">@Page.Name</PageHeading>
+  }
 
   @if (_posts is { } posts)
   {

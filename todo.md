@@ -1,5 +1,17 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Components list, agreed and built 2026-10-22 (From Claude)
+
+`/admin/website/components` (Dashboard → Publishing → Components, and "All components" on the Pages list): one list
+by name with type, pages and a bold "Not on any page." marker, trash (confirm dialog) and pencil. No trash for the
+blog page's only post list or the collections page's only all-collections grid: `get_all_custom_components` and
+`get_custom_component` now return both flags (plpgsql, so they're made before the `is_*` functions), on
+`CustomComponentInUse` with `CanBeDeleted`; the two `Is*Async` repository methods are gone. Settings page opened
+with no origin: Up and Delete go to Components, and the preview is the component alone at
+`/admin/website/components/{id}/preview` (a new-row-settings row in the public layout; `PostList` drops its
+heading there). `CustomComponentPagesText` shares the where-it-is and delete-warning text. Uncommitted, 1311 tests,
+not browser-checked.
+
 ## Page editor workspace: outline, controls, whole-page preview, agreed 2026-10-20 (From Claude)
 
 Mike's mock: `~/Pictures/Page editor mock.png`. The editing is deeply nested and the people using it aren't

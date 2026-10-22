@@ -163,8 +163,18 @@ public record CustomComponent(CustomComponentId Id, string Name, CustomComponent
 public record CustomComponentOnPages(CustomComponentId Id, string Name, IReadOnlyList<string> PageNames);
 
 // A component with the names of the pages it's on, for choosing one already made or editing it.
-// UpdatedAt tells the settings page's backup whether it was saved since the copy was made
-public record CustomComponentInUse(CustomComponent Component, IReadOnlyList<string> PageNames, DateTimeOffset UpdatedAt);
+// UpdatedAt tells the settings page's backup whether it was saved since the copy was made. The blog page always
+// holds a post list and the collections page a card grid of all collections, so the last of either stays
+public record CustomComponentInUse(
+    CustomComponent Component,
+    IReadOnlyList<string> PageNames,
+    DateTimeOffset UpdatedAt,
+    bool IsBlogPagesOnlyPostList,
+    bool IsCollectionsPagesOnlyGrid
+)
+{
+    public bool CanBeDeleted => !IsBlogPagesOnlyPostList && !IsCollectionsPagesOnlyGrid;
+}
 
 // What the Add component dialog's New buttons make: one of each type. A card grid starts as the
 // collection viewer

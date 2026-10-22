@@ -11,6 +11,6 @@
   <li class="mb-2 flex items-center gap-2 border p-2 text-sm">
     @* no address: its /collections/ would say the default word on a website that renamed it *@
     <a href="@PageUrls.CollectionPageSettings" class="@LinkStyles.Standalone grow">@Wording.Collection.SingularHeading page</a>
-    <LinkButton Variant="ButtonVariant.Outline" href="@PageUrls.CollectionPageSettings">Edit</LinkButton>
+    <EditIconLink Href="@PageUrls.CollectionPageSettings" Label="@($"{Wording.Collection.SingularInSentence} page")" />
   </li>
 </ul>

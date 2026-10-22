@@ -4,7 +4,6 @@
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Database.Repositories
-@using ArtistShop.Web.Utilities
 @inject CustomComponentRepository CustomComponentRepository
 
 @code {
@@ -34,9 +33,6 @@
         .OrderBy(made => CustomComponentNames.Of(made.Component.Settings.Type, Wording), StringComparer.CurrentCultureIgnoreCase)
         .ThenBy(made => made.Component.Name, StringComparer.CurrentCultureIgnoreCase),
     ];
-
-  private static string WhereItIs(CustomComponentInUse made) =>
-    made.PageNames.Count == 0 ? "Not on any page." : $"On {PageNamesText.Of(made.PageNames)}.";
 }
 
 <ModalDialog Title="Add a component" Width="ModalDialogWidth.Narrow" OnClose="OnClose" KeepOpen="IsSaving">
@@ -63,7 +59,7 @@
                   @onclick="() => OnExisting.InvokeAsync(component.Component)">
             <span class="block">@component.Component.Name</span>
             <span class="block text-sm text-ink-faded">
-              @CustomComponentNames.Of(component.Component.Settings.Type, Wording). @WhereItIs(component)
+              @CustomComponentNames.Of(component.Component.Settings.Type, Wording). @CustomComponentPagesText.WhereItIs(component)
             </span>
           </button>
         </li>

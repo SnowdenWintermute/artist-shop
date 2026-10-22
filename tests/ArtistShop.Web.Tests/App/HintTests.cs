@@ -182,6 +182,17 @@ public sealed partial class HintTests(TestApp app)
         Assert.Contains(HintListing.Title(HintType.Collections, SiteWording.Default), page);
     }
 
+    // every page's editor shows it, so the link opens the home page's, which a website always has
+    [Fact]
+    public async Task ThePagesHintLinksToTheHomePagesEditor()
+    {
+        var (site, client) = await SiteWithOwnerAsync();
+        var home = await new CustomPageRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetHomeAsync();
+
+        Assert.Contains($"href=\"{PageUrls.EditCustomPage(home.Id)}\"", await PageAsync(client, PageUrls.Hints));
+        Assert.Contains(nameof(HintType.CustomPages), Hints(await PageAsync(client, PageUrls.EditCustomPage(home.Id))));
+    }
+
     [Fact]
     public async Task ShowingAgainBringsTheHintBack()
     {

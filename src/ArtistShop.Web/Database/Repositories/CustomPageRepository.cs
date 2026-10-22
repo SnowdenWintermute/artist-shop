@@ -105,40 +105,6 @@ public class CustomPageRepository(SiteDatabase database)
         }
     }
 
-    public async Task MakeBlogAsync(CustomPageId id)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        try
-        {
-            await connection.ExecuteAsync("SELECT make_custom_page_blog(@Id)", new { Id = id.Value });
-        }
-        // the page lost its post list meanwhile, as the admin only offers this on pages holding one
-        catch (PostgresException exception)
-            when (SqlErrors.IsThrown(exception, SqlStates.CustomPageNoLongerExists)
-                || SqlErrors.IsThrown(exception, SqlStates.BlogPageNeedsPostList))
-        {
-            throw new ChangedSincePageLoadException(exception.MessageText, exception);
-        }
-    }
-
-    public async Task MakeCollectionsAsync(CustomPageId id)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        try
-        {
-            await connection.ExecuteAsync("SELECT make_custom_page_collections(@Id)", new { Id = id.Value });
-        }
-        // the page lost its card grid of all collections meanwhile, as the admin only offers this on pages holding one
-        catch (PostgresException exception)
-            when (SqlErrors.IsThrown(exception, SqlStates.CustomPageNoLongerExists)
-                || SqlErrors.IsThrown(exception, SqlStates.CollectionsPageNeedsGrid))
-        {
-            throw new ChangedSincePageLoadException(exception.MessageText, exception);
-        }
-    }
-
     public async Task MakeHomeAsync(CustomPageId id)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -163,7 +129,7 @@ public class CustomPageRepository(SiteDatabase database)
         return row.ToPage();
     }
 
-    // a website always has one: the first migration makes it, and it can't be deleted while it's the blog page
+    // always the page the first migration made, which can't be deleted
     public async Task<CustomPage> GetBlogAsync()
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -173,7 +139,7 @@ public class CustomPageRepository(SiteDatabase database)
         return row.ToPage();
     }
 
-    // a website always has one: the first migration makes it, and it can't be deleted while it's the collections page
+    // always the page the first migration made, which can't be deleted
     public async Task<CustomPage> GetCollectionsAsync()
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -181,25 +147,6 @@ public class CustomPageRepository(SiteDatabase database)
         var row = await connection.QuerySingleAsync<CustomPageRow>("SELECT * FROM get_collections_custom_page()");
 
         return row.ToPage();
-    }
-
-    // the pages that can be the collections page
-    public async Task<HashSet<CustomPageId>> GetIdsHoldingAllCollectionsGridAsync()
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        var ids = await connection.QueryAsync<int>("SELECT * FROM get_custom_page_ids_holding_all_collections_grid()");
-
-        return [.. ids.Select(id => new CustomPageId(id))];
-    }
-
-    public async Task<HashSet<CustomPageId>> GetIdsHoldingAsync(CustomComponentType type)
-    {
-        await using var connection = await database.OpenConnectionAsync();
-
-        var ids = await connection.QueryAsync<int>("SELECT * FROM get_custom_page_ids_holding(@Type)", new { Type = (int)type });
-
-        return [.. ids.Select(id => new CustomPageId(id))];
     }
 
     public async Task<CustomPage?> GetByAddressAsync(CustomPageAddress address)

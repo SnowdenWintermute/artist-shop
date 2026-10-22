@@ -1,0 +1,43 @@
+@page "/admin/website/components/{Id:int}/preview"
+@* A component on its own in the public layout, for the settings page's preview when it was opened from the
+   components list, in a row as a new one is set *@
+@using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@layout PublicLayout
+@inject CustomComponentRepository CustomComponentRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [Parameter]
+  public int Id { get; set; }
+
+  private CustomComponent? _component;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    _component = (await CustomComponentRepository.GetAsync(new CustomComponentId(Id)))?.Component;
+
+    if (_component is null)
+    {
+      NavigationManager.NotFound();
+    }
+  }
+
+  // not saved, so its ids are never looked up
+  private static PageRow RowHolding(CustomComponent component) =>
+    new(new PageRowId(0), RowWidths.Whole, RowAlignment.Start, RowHeight.Natural, RowContentWidth.Page, RowPadding.New,
+      RowGap.Medium, null, new RowBackground.None(), [new RowSlot(new RowSlotId(0), [component])]);
+}
+
+@if (_component is { } component)
+{
+  <PageTitle>@component.Name</PageTitle>
+
+  @* MainLayout drops its padding around this, since the row holds its own *@
+  <main data-custom-page>
+    <PageRowView Row="RowHolding(component)" Position="new RowPosition(IsFirst: true, IsLast: true)" />
+  </main>
+}

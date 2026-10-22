@@ -1,0 +1,67 @@
+@* one component on the components list: its name, linking to its settings, its type and pages, then delete and edit *@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Database
+@using ArtistShop.Web.Database.Repositories
+@inject CustomComponentRepository CustomComponentRepository
+@inject NavigationManager NavigationManager
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required CustomComponentInUse Item { get; set; }
+
+  private CustomComponent Component => Item.Component;
+
+  private string DeleteDialogId => $"delete-component-{Component.Id.Value}";
+
+  private string EditHref => PageUrls.EditCustomComponent(Component.Id, origin: null);
+
+  // Refused when the blog or collections page came to need it since the list was read. The list read again
+  // leaves out its delete button, as it does for the settings page's
+  private async Task DeleteAsync()
+  {
+    try
+    {
+      await CustomComponentRepository.DeleteAsync(Component.Id);
+    }
+    catch (Exception exception) when (exception is BlogPageNeedsPostListException or CollectionsPageNeedsGridException)
+    {
+    }
+
+    NavigationManager.NavigateTo(PageUrls.CustomComponentList);
+  }
+}
+
+<li class="mb-2 flex items-center gap-2 border p-2 text-sm" data-test="component-@Component.Id.Value">
+  <span class="flex grow flex-wrap items-baseline gap-x-4">
+    <a href="@EditHref" class="@LinkStyles.Standalone">@Component.Name</a>
+    <span class="text-ink-faded">@CustomComponentNames.Of(Component.Settings.Type, Wording)</span>
+    @if (Item.PageNames.Count == 0)
+    {
+      <span class="font-bold" data-test="not-on-any-page">@CustomComponentPagesText.WhereItIs(Item)</span>
+    }
+    else
+    {
+      <span>@CustomComponentPagesText.WhereItIs(Item)</span>
+    }
+  </span>
+  @if (Item.CanBeDeleted)
+  {
+    <button type="button" class="shrink-0 cursor-pointer p-0.75" title="Delete" aria-label="@($"Delete {Component.Name}")"
+            data-opens-dialog="@DeleteDialogId">
+      <SvgIcon Name="trash" Class="size-5" />
+    </button>
+  }
+  <EditIconLink Href="@EditHref" Label="@Component.Name" />
+
+  @if (Item.CanBeDeleted)
+  {
+    <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {Component.Name}?")" ConfirmLabel="Delete" OnConfirm="DeleteAsync">
+      @CustomComponentPagesText.DeleteWarning(Item)
+    </ConfirmFormDialog>
+  }
+</li>
