@@ -1,0 +1,21 @@
+@* a button showing only an icon, as EditIconLink is for links. @onclick, disabled and data-opens-dialog come
+   through AdditionalAttributes *@
+@using ArtistShop.Web.Components.Icons
+
+@code {
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+  // the path inside wwwroot/icons without ".svg"
+  [Parameter, EditorRequired]
+  public required string Icon { get; set; }
+  // shown on hover
+  [Parameter, EditorRequired]
+  public required string Title { get; set; }
+  // what a screen reader says, naming what it acts on
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+}
+
+<button type="button" class="shrink-0 cursor-pointer p-0.75" title="@Title" aria-label="@Label" @attributes="AdditionalAttributes">
+  <SvgIcon Name="@Icon" Class="size-5" />
+</button>

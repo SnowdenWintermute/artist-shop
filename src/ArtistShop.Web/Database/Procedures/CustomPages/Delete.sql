@@ -11,13 +11,14 @@ BEGIN
         RAISE EXCEPTION 'The page is the home page.' USING ERRCODE = 'SH021';
     END IF;
 
-    PERFORM 1 FROM blog_page WHERE page_id = p_id FOR SHARE;
+    -- the blog and collections pages are fixed since the first migration, so nothing needs holding off
+    PERFORM 1 FROM blog_page WHERE page_id = p_id;
 
     IF FOUND THEN
         RAISE EXCEPTION 'The page is the blog page.' USING ERRCODE = 'SH022';
     END IF;
 
-    PERFORM 1 FROM collections_page WHERE page_id = p_id FOR SHARE;
+    PERFORM 1 FROM collections_page WHERE page_id = p_id;
 
     IF FOUND THEN
         RAISE EXCEPTION 'The page is the collections page.' USING ERRCODE = 'SH031';

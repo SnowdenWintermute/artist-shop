@@ -20,48 +20,60 @@
 
   private string EditHref => PageUrls.EditCustomComponent(Component.Id, origin: null);
 
-  // Refused when the blog or collections page came to need it since the list was read. The list read again
-  // leaves out its delete button, as it does for the settings page's
+  // why a delete was refused, shown in place of the redirect
+  private string? _refusal;
+
+  // Refused when the blog or collections page came to need it since the list was read. The dialog is drawn even
+  // then, as the post needs its form on the page
   private async Task DeleteAsync()
   {
     try
     {
       await CustomComponentRepository.DeleteAsync(Component.Id);
     }
-    catch (Exception exception) when (exception is BlogPageNeedsPostListException or CollectionsPageNeedsGridException)
+    catch (BlogPageNeedsPostListException)
     {
+      _refusal = "It's now the blog page's post list, so it can't be deleted.";
+      return;
+    }
+    catch (CollectionsPageNeedsGridException)
+    {
+      _refusal = $"It's now the {Wording.Collection.PluralInSentence} page's grid of all "
+        + $"{Wording.Collection.PluralInSentence}, so it can't be deleted.";
+      return;
     }
 
     NavigationManager.NavigateTo(PageUrls.CustomComponentList);
   }
 }
 
-<li class="mb-2 flex items-center gap-2 border p-2 text-sm" data-test="component-@Component.Id.Value">
-  <span class="flex grow flex-wrap items-baseline gap-x-4">
-    <a href="@EditHref" class="@LinkStyles.Standalone">@Component.Name</a>
-    <span class="text-ink-faded">@CustomComponentNames.Of(Component.Settings.Type, Wording)</span>
-    @if (Item.PageNames.Count == 0)
+<li class="mb-2 flex flex-col gap-1 border p-2 text-sm" data-test="component-@Component.Id.Value">
+  <div class="flex items-center gap-2">
+    <span class="flex grow flex-wrap items-baseline gap-x-4">
+      <a href="@EditHref" class="@LinkStyles.Standalone">@Component.Name</a>
+      <span class="text-ink-faded">@CustomComponentNames.Of(Component.Settings.Type, Wording)</span>
+      @if (Item.PageNames.Count == 0)
+      {
+        <Bold data-test="not-on-any-page">@CustomComponentPagesText.WhereItIs(Item)</Bold>
+      }
+      else
+      {
+        <span>@CustomComponentPagesText.WhereItIs(Item)</span>
+      }
+    </span>
+    @if (Item.CanBeDeleted && _refusal is null)
     {
-      <span class="font-bold" data-test="not-on-any-page">@CustomComponentPagesText.WhereItIs(Item)</span>
+      <IconButton Icon="trash" Title="Delete" Label="@($"Delete {Component.Name}")" data-opens-dialog="@DeleteDialogId" />
     }
-    else
-    {
-      <span>@CustomComponentPagesText.WhereItIs(Item)</span>
-    }
-  </span>
-  @if (Item.CanBeDeleted)
-  {
-    <button type="button" class="shrink-0 cursor-pointer p-0.75" title="Delete" aria-label="@($"Delete {Component.Name}")"
-            data-opens-dialog="@DeleteDialogId">
-      <SvgIcon Name="trash" Class="size-5" />
-    </button>
-  }
-  <EditIconLink Href="@EditHref" Label="@Component.Name" />
+    <EditIconLink Href="@EditHref" Label="@Component.Name" />
+  </div>
 
-  @if (Item.CanBeDeleted)
+  @if (_refusal is not null)
   {
-    <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {Component.Name}?")" ConfirmLabel="Delete" OnConfirm="DeleteAsync">
-      @CustomComponentPagesText.DeleteWarning(Item)
-    </ConfirmFormDialog>
+    <p class="text-error" data-test="delete-refused">@_refusal</p>
   }
+
+  <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {Component.Name}?")" ConfirmLabel="Delete" OnConfirm="DeleteAsync">
+    @CustomComponentPagesText.DeleteWarning(Item)
+  </ConfirmFormDialog>
 </li>

@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Domain.Commerce;
+using ArtistShop.Web.Utilities;
 
 public static class ProductTypeOrder
 {

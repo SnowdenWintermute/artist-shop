@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Database;
@@ -76,6 +77,24 @@ public sealed class CustomComponentListTests(TestApp app)
 
         Assert.Equal(PageUrls.CustomComponentList, response.Headers.Location?.AbsolutePath);
         Assert.Null(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(headingId));
+    }
+
+    // as when the list was read before the blog page came to need it: the post still finds its form
+    [Fact]
+    public async Task ARefusedDeleteSaysWhy()
+    {
+        var site = await app.MakeSiteAsync();
+        var pages = new CustomPageRepository(DatabaseOf(site));
+        var postList = Assert.Single(Assert.Single(Assert.Single((await pages.GetLayoutAsync((await pages.GetBlogAsync()).Id)).Rows).Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await client.GetStringAsync(PageUrls.CustomComponentList, TestContext.Current.CancellationToken);
+        var response = await TestApp.PostFormAsync(client, PageUrls.CustomComponentList, $"delete-component-{postList.Id.Value}", []);
+        var list = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-test=\"delete-refused\"", ListItemOf(list, postList.Id));
+        Assert.NotNull(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(postList.Id));
     }
 
     [Fact]

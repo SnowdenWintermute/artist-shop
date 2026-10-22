@@ -1,4 +1,4 @@
-namespace ArtistShop.Web.Components.Catalog;
+namespace ArtistShop.Web.Utilities;
 
 // How the artist reads a list of names, whatever they name: every ...Order class sorts by this one
 public static class NameOrder

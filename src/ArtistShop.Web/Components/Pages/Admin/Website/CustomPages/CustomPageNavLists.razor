@@ -1,6 +1,5 @@
 @* The home page, the nav in order and then the pages that aren't in it; choosing, dragging and hiding save at once *@
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Lists
 @using ArtistShop.Web.Database
 @using ArtistShop.Web.Database.Repositories
@@ -112,10 +111,7 @@
           <PageSummary Page="customPage" />
         </RowContent>
         <RowActions Context="customPage">
-          <button type="button" class="shrink-0 cursor-pointer p-0.75" title="Hide" aria-label="@($"Hide {customPage.Name}")"
-                  @onclick="() => HideAsync(customPage)">
-            <SvgIcon Name="eye-off" Class="size-5" />
-          </button>
+          <IconButton Icon="eye-off" Title="Hide" Label="@($"Hide {customPage.Name}")" @onclick="() => HideAsync(customPage)" />
           <EditIconLink Href="@PageUrls.EditCustomPage(customPage.Id)" Label="@customPage.Name" />
         </RowActions>
       </SortableList>
@@ -132,10 +128,8 @@
       {
         <li @key="customPage.Id" class="mb-2 flex items-center gap-2 border p-2 text-sm">
           <PageSummary Page="customPage" />
-          <button type="button" class="shrink-0 cursor-pointer p-0.75" title="Show in nav"
-                  aria-label="@($"Show {customPage.Name} in nav")" @onclick="() => ShowAsync(customPage)">
-            <SvgIcon Name="eye" Class="size-5" />
-          </button>
+          <IconButton Icon="eye" Title="Show in nav" Label="@($"Show {customPage.Name} in nav")"
+                      @onclick="() => ShowAsync(customPage)" />
           <EditIconLink Href="@PageUrls.EditCustomPage(customPage.Id)" Label="@customPage.Name" />
         </li>
       }

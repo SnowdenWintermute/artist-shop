@@ -1,5 +1,6 @@
 @page "/admin/website/components/{Id:int}"
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Utilities
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Components.Forms
@@ -46,9 +47,6 @@
   // a successful save redirects, so a page rendered from a post is one that didn't go through
   private bool _formWasPosted;
   private bool _deletedElsewhere;
-  private bool _isBlogPagesOnlyPostList;
-  // which also keeps it showing all collections
-  private bool _isCollectionsPagesOnlyGrid;
   // a card grid's or carousel's to choose from, and the ones a visitor would see anything in
   private IReadOnlyList<Collection> _collections = [];
   private IReadOnlySet<CollectionId> _visibleCollectionIds = new HashSet<CollectionId>();
@@ -82,8 +80,6 @@
         _component.Component.Settings is TextSettings text
           ? await UploadedImageRepository.GetByStorageKeysAsync(RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(text.Body)]))
           : new Dictionary<string, UploadedImage>());
-      _isBlogPagesOnlyPostList = _component.IsBlogPagesOnlyPostList;
-      _isCollectionsPagesOnlyGrid = _component.IsCollectionsPagesOnlyGrid;
     }
 
     if (_component?.Component.Settings is CardGridSettings or CarouselSettings)
@@ -141,8 +137,8 @@ Input.ToSettings(_component.Component.Settings));
     }
     catch (CollectionsPageNeedsGridException)
     {
-      // the other card grid of all collections was taken off the collections page meanwhile
-      _isCollectionsPagesOnlyGrid = true;
+      // the other card grid of all collections was taken off the collections page meanwhile; read again, it says so
+      _component = await CustomComponentRepository.GetAsync(ComponentId);
       return;
     }
 
@@ -156,22 +152,15 @@ Input.ToSettings(_component.Component.Settings));
     {
       await CustomComponentRepository.DeleteAsync(ComponentId);
     }
-    catch (BlogPageNeedsPostListException)
+    // the other post list or card grid of all collections was taken off its page meanwhile; read again, it says so
+    catch (Exception exception) when (exception is BlogPageNeedsPostListException or CollectionsPageNeedsGridException)
     {
-      // the other post list was taken off the blog page meanwhile
-      _isBlogPagesOnlyPostList = true;
-      return;
-    }
-    catch (CollectionsPageNeedsGridException)
-    {
-      _isCollectionsPagesOnlyGrid = true;
+      _component = await CustomComponentRepository.GetAsync(ComponentId);
       return;
     }
 
     NavigationManager.NavigateTo(UpHref);
   }
-
-  private bool CanBeDeleted => !_isBlogPagesOnlyPostList && !_isCollectionsPagesOnlyGrid;
 
   // the page editor this was opened from, or the components list
   private string UpHref => _fromPage is not null ? PageUrls.EditCustomPage(_fromPage.Id) : PageUrls.CustomComponentList;
@@ -222,7 +211,7 @@ Input.ToSettings(_component.Component.Settings));
 
   // the pages besides the one this was opened from, which share every change
   private IReadOnlyList<string> AlsoOn(CustomComponentInUse component) =>
-    [.. component.PageNames.Where(name => name != _fromPage?.Name).Order(StringComparer.CurrentCultureIgnoreCase)];
+    [.. component.PageNames.Where(name => name != _fromPage?.Name).Order(NameOrder.ByName)];
 }
 
 <PageTitle>@(_component?.Component.Name ?? "Component")</PageTitle>
@@ -253,7 +242,7 @@ Input.ToSettings(_component.Component.Settings));
           {
             <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-scrolls-preview>Show in preview</ButtonBasic>
           }
-          @if (CanBeDeleted)
+          @if (component.CanBeDeleted)
           {
             <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" data-opens-dialog="@DeleteDialogId">
               Delete component
@@ -263,12 +252,12 @@ Input.ToSettings(_component.Component.Settings));
       </div>
       <p class="mb-4 text-sm text-ink-faded">@CustomComponentNames.Of(component.Component.Settings.Type, Wording)</p>
 
-      @if (_isBlogPagesOnlyPostList)
+      @if (component.IsBlogPagesOnlyPostList)
       {
         <p class="mb-4">This is the blog page's post list, so it can't be deleted.</p>
       }
 
-      @if (_isCollectionsPagesOnlyGrid)
+      @if (component.IsCollectionsPagesOnlyGrid)
       {
         <p class="mb-4">This is the @Wording.Collection.PluralInSentence page's grid of all
           @Wording.Collection.PluralInSentence, so it can't be deleted or stop showing them all.</p>
@@ -322,7 +311,7 @@ Input.ToSettings(_component.Component.Settings));
           <SubmitOnChange>
             <SelectField Label="Shows" @bind-Value="Input.Source">
               <option value="@CardGridSourceType.AllCollections">All @Wording.Collection.PluralInSentence</option>
-              @if (!_isCollectionsPagesOnlyGrid)
+              @if (!component.IsCollectionsPagesOnlyGrid)
               {
                 <option value="@CardGridSourceType.WorksInCollection">
                   @Wording.Work.PluralHeading in one @Wording.Collection.SingularInSentence
@@ -331,7 +320,7 @@ Input.ToSettings(_component.Component.Settings));
               <option value="@CardGridSourceType.CollectionsAndLooseWorks">
                 All @Wording.Collection.PluralInSentence, then @Wording.Work.PluralInSentence in none
               </option>
-              @if (!_isCollectionsPagesOnlyGrid)
+              @if (!component.IsCollectionsPagesOnlyGrid)
               {
                 <option value="@CardGridSourceType.ChosenCards">Custom list</option>
               }
@@ -448,13 +437,11 @@ Input.ToSettings(_component.Component.Settings));
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" />
       }
 
-      @if (CanBeDeleted)
-      {
-        <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
-                           OnConfirm="DeleteAsync">
-          @CustomComponentPagesText.DeleteWarning(component)
-        </ConfirmFormDialog>
-      }
+      @* drawn even when it can't be deleted, as a post made before that changed needs its form on the page *@
+      <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {component.Component.Name}?")" ConfirmLabel="Delete"
+                         OnConfirm="DeleteAsync">
+        @CustomComponentPagesText.DeleteWarning(component)
+      </ConfirmFormDialog>
     }
   </ChildContent>
 </EditorWorkspace>

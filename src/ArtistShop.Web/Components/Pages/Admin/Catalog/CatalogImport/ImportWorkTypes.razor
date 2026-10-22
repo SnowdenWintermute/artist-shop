@@ -1,5 +1,6 @@
 @page "/admin/catalog/types/import"
 @layout ImportLayout
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Hints
 @using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Components.Pages.Admin.Import
@@ -60,11 +61,10 @@
 
             <ImportColumn Header="@WorkTypeImportHeaders.Fields">
               Which fields the type has, separated by the list separator. Options are
-              <span class="font-bold"> @string.Join(", ", _fields.Select(field => field.Name))</span>.
+              <Bold> @string.Join(", ", _fields.Select(field => field.Name))</Bold>.
               @foreach (var field in _fields.Where(field => field.HasRequirement))
               {
-                <text> <span class="font-bold">@field.Name</span> requires <span
-                  class="font-bold">@FieldName(field.RequiredField)</span>.</text>
+                <text> <Bold>@field.Name</Bold> requires <Bold>@FieldName(field.RequiredField)</Bold>.</text>
               }
             </ImportColumn>
           </Columns>

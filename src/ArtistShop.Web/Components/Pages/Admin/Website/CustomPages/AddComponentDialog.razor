@@ -1,6 +1,7 @@
 @* Adding a component to a slot: a new one from a starter, or one already made. Rendered only while open,
    so each opening reads the library afresh *@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Utilities
 @using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Database.Repositories
@@ -30,8 +31,8 @@
     [
       .. (await CustomComponentRepository.GetAllAsync())
         .Where(made => !InSlot.Contains(made.Component.Id))
-        .OrderBy(made => CustomComponentNames.Of(made.Component.Settings.Type, Wording), StringComparer.CurrentCultureIgnoreCase)
-        .ThenBy(made => made.Component.Name, StringComparer.CurrentCultureIgnoreCase),
+        .OrderBy(made => CustomComponentNames.Of(made.Component.Settings.Type, Wording), NameOrder.ByName)
+        .ThenBy(made => made.Component.Name, NameOrder.ByName),
     ];
 }
 

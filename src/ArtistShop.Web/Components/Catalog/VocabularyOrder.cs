@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Components.Catalog;
 
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Utilities;
 
 // The repositories return vocabularies and terms unsorted, so every page that lists them puts
 // them in the artist's reading order here

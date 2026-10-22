@@ -778,6 +778,23 @@ public sealed partial class CustomPageTests(TestApp app)
         Assert.Null(await new CustomComponentRepository(database).GetAsync(componentId));
     }
 
+    // as when the page was read before the blog page came to need it: the post still finds its form
+    [Fact]
+    public async Task ARefusedDeleteStaysOnTheSettingsPage()
+    {
+        var site = await app.MakeSiteAsync();
+        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var postList = Assert.Single(Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync((await PagesOf(site).GetBlogAsync()).Id)).Rows).Slots).Stack);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+        var path = PageUrls.EditCustomComponent(postList.Id, origin: null);
+
+        await client.GetStringAsync(path, TestContext.Current.CancellationToken);
+        var response = await TestApp.PostFormAsync(client, path, "delete-custom-component", []);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(await new CustomComponentRepository(database).GetAsync(postList.Id));
+    }
+
     [Fact]
     public void ANewComponentsNameSkipsTakenNumbers()
     {

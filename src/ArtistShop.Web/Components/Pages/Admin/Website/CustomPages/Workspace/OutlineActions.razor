@@ -1,6 +1,5 @@
 @* A part of the outline's ✕, and Edit when it has an editor of its own *@
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.Icons
 
 @code {
   [CascadingParameter]
@@ -17,11 +16,9 @@
   public string? EditHref { get; set; }
 }
 
-<button type="button" class="shrink-0 cursor-pointer p-0.75" title="@(RemoveTitle ?? $"Remove {Label}")"
-        aria-label="@(RemoveTitle is null ? $"Remove {Label}" : $"{RemoveTitle}: {Label}")" disabled="@Outline.IsSaving"
-        @onclick="OnRemove">
-  <SvgIcon Name="close" Class="size-5" />
-</button>
+<IconButton Icon="close" Title="@(RemoveTitle ?? $"Remove {Label}")"
+            Label="@(RemoveTitle is null ? $"Remove {Label}" : $"{RemoveTitle}: {Label}")" disabled="@Outline.IsSaving"
+            @onclick="OnRemove" />
 @if (EditHref is not null)
 {
   <EditIconLink Href="@EditHref" Label="@Label" data-test="outline-edit" />

@@ -4,5 +4,5 @@ namespace ArtistShop.Web.Utilities;
 public static class PageNamesText
 {
     public static string Of(IEnumerable<string> pageNames) =>
-        string.Join(", ", pageNames.Order(StringComparer.CurrentCultureIgnoreCase));
+        string.Join(", ", pageNames.Order(NameOrder.ByName));
 }

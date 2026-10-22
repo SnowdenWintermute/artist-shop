@@ -1,15 +1,8 @@
 @page "/admin/website/pages"
 @using ArtistShop.Web.Components.Atoms
-@using ArtistShop.Web.Components.Hints
-@using ArtistShop.Web.Domain.Platform
 @using ArtistShop.Web.Sites
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
-
-@code {
-  [CascadingParameter]
-  public SiteWording Wording { get; set; } = default!;
-}
 
 <PageTitle>Pages</PageTitle>
 

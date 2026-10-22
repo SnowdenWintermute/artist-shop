@@ -66,7 +66,7 @@ public static class SqlStates
     // UpdateTheme, UseTheme, SetPageRowSettings
     public const string ThemeNoLongerExists = "SH019";
 
-    // UpdateCustomPage, MakeCustomPageHome, MakeCustomPageBlog, MakeCustomPageCollections
+    // UpdateCustomPage, MakeCustomPageHome
     public const string CustomPageNoLongerExists = "SH020";
 
     // DeleteCustomPage

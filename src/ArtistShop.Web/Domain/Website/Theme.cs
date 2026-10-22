@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Domain.Website;
 
 using System.Globalization;
+using ArtistShop.Web.Utilities;
 
 // How a website's public pages look
 public sealed record Theme(ThemeColors Colors, ThemeFonts Fonts);
@@ -22,7 +23,7 @@ public record NamedTheme(ThemeKey Key, string Name, Theme Theme)
     public static IReadOnlyList<NamedTheme> ListOf(IEnumerable<SavedTheme> saved) =>
         [
             .. ThemePresets.All.Select(preset => preset.Named),
-            .. saved.OrderBy(theme => theme.Name, StringComparer.CurrentCultureIgnoreCase).Select(theme => theme.Named),
+            .. saved.OrderBy(theme => theme.Name, NameOrder.ByName).Select(theme => theme.Named),
         ];
 }
 
