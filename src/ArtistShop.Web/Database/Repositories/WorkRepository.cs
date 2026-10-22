@@ -439,6 +439,26 @@ public class WorkRepository(SiteDatabase database)
         );
     }
 
+    // the others' images, collections and terms move to the kept work, and then they're deleted as
+    // DeleteManyAsync deletes. In the order given, which decides the moved images' order
+    public async Task CombineAsync(WorkId keptId, IReadOnlyList<WorkId> otherIds)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                "SELECT combine_works(@KeptId, @OtherIds)",
+                new { KeptId = keptId.Value, OtherIds = (int[])[.. otherIds.Select(id => id.Value)] }
+            );
+        }
+        catch (PostgresException exception)
+            when (SqlErrors.IsThrown(exception, SqlStates.WorkNoLongerExists))
+        {
+            throw new WorkDeletedException(exception.MessageText, exception);
+        }
+    }
+
     private async Task<Work?> GetAsync(int id)
     {
         await using var connection = await database.OpenConnectionAsync();

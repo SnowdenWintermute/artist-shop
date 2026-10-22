@@ -70,10 +70,10 @@ public class WorkTableRow : EditableTableRow
         );
 
     public static WorkTableRow FromWork(Work work) =>
-        new(work.Id, WorkForm.FromWork(work), [.. work.Images.Select(RowImage.Saved)])
-        {
-            MainImageKey = work.Images.Count > 0 ? work.Images[work.MainImageIndex].StorageKey : null,
-        };
+        new(work.Id, WorkForm.FromWork(work), [.. work.Images.Select(RowImage.Saved)]) { MainImageKey = MainImageKeyOf(work) };
+
+    private static string? MainImageKeyOf(Work work) =>
+        work.Images.Count > 0 ? work.Images[work.MainImageIndex].StorageKey : null;
 
     // as the database keeps it, without the trailing zeros it reads back: 30 rather than 30.0000
     private static string? CentimetresText(decimal? centimetres) =>
@@ -98,6 +98,14 @@ public class WorkTableRow : EditableTableRow
     {
         Images = [.. images.Select(RowImage.Saved)];
         MainImageKey = mainImageKey;
+    }
+
+    // as saved after other works were combined into this one, taking their images, collections and terms
+    public void TakeCombined(Work work)
+    {
+        ReplaceSavedImages(work.Images, MainImageKeyOf(work));
+        Form.CollectionIds = [.. work.Collections.Select(collection => collection.Id.Value)];
+        Form.VocabularyTermIds = [.. work.VocabularyTerms.Select(term => term.Id.Value)];
     }
 
     // The number fields' text: a number as it will be saved, or what was typed when it isn't one. Text

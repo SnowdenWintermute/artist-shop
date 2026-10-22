@@ -56,6 +56,9 @@
   private WorkTableRow? _vocabularyRow;
   private WorkTableRow? _imagesRow;
 
+  // the checked rows as Combine was pressed, while its dialog is open
+  private IReadOnlyList<WorkTableRow>? _combineRows;
+
   private BulkChange? _bulkCollectionChange;
   private BulkChange? _bulkVocabularyChange;
   // saving each selected row after a bulk change
@@ -355,6 +358,44 @@ termIds))
   private static string? DeleteBlockedBy(IReadOnlyList<WorkTableRow> rows) =>
     rows.Any(row => row.HasImagesUploading) ? "Waits for image uploads to finish" : null;
 
+  // a row saving could write back the collections and terms the combine gives it
+  private static string? CombineBlockedBy(IReadOnlyList<WorkTableRow> rows) =>
+    DeleteBlockedBy(rows) ?? (rows.Any(row => row.IsSaving) ? "Waits for changes to save" : null);
+
+  private async Task CombineAsync(WorkTableRow kept)
+  {
+    if (_combineRows is not { } rows)
+    {
+      return;
+    }
+
+    List<WorkTableRow> others = [.. rows.Where(row => row != kept)];
+
+    kept.SaveError = await SaveErrorOfAsync(async () =>
+    {
+      await WorkRepository.CombineAsync(kept.Id, [.. others.Select(row => row.Id)]);
+
+      if (await WorkRepository.GetByIdAsync(kept.Id) is { } work)
+      {
+        kept.TakeCombined(work);
+      }
+    });
+
+    if (kept.SaveError is null)
+    {
+      kept.SaveCount++;
+    }
+
+    _combineRows = null;
+    await OnSaveFinished.InvokeAsync(kept);
+
+    // deleted unless the kept one was, which stops the combine before anything changes
+    if (kept.SaveError is null)
+    {
+      await OnRowsDeleted.InvokeAsync(others);
+    }
+  }
+
   private string CollectionsText(WorkTableRow row) =>
     string.Join(", ", AllCollections.Where(collection =>
 row.Form.CollectionIds.Contains(collection.Id.Value)).Select(collection =>
@@ -390,6 +431,11 @@ collection.Name.Value));
                  @onclick="() => _bulkVocabularyChange = BulkChange.Add">Add terms</ButtonBasic>
     <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count == 0 || _isApplying)"
                  @onclick="() => _bulkVocabularyChange = BulkChange.Remove">Remove terms</ButtonBasic>
+    @{
+      var combineBlockedBy = checkedRows.Count < 2 ? null : CombineBlockedBy(checkedRows);
+    }
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count < 2 || _isApplying || combineBlockedBy is not null)"
+                 title="@combineBlockedBy" @onclick="() => _combineRows = checkedRows">Combine</ButtonBasic>
   </BulkActions>
   <DeleteWarning Context="rows">
     <DeleteWorksWarning WorkCount="rows.Count" ImageCount="rows.Sum(row => row.SavedImages.Count)" ImageUses="_imageUses" />
@@ -513,6 +559,11 @@ collection.Name.Value));
 {
   <WorkImagesDialog WorkId="imagesRow.Id" WorkName="@imagesRow.Form.Name" Images="imagesRow.SavedImages"
                     MainImageKey="@imagesRow.MainImageKey" OnOk="ImagesOkAsync" OnClose="() => _imagesRow = null" />
+}
+
+@if (_combineRows is { } combineRows)
+{
+  <CombineWorksDialog Rows="combineRows" OnCombine="CombineAsync" OnClose="() => _combineRows = null" />
 }
 
 @if (_bulkCollectionChange is { } collectionChange)

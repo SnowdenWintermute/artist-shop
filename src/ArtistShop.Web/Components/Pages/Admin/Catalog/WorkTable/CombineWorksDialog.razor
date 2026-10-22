@@ -1,0 +1,93 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Utilities
+@inject CustomComponentRepository CustomComponentRepository
+
+@* Makes the selected rows one work: the one kept takes the others' images, collections and terms, and
+   the others are deleted. Starts with the first row kept *@
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  // two or more, in the table's order, which the others' images keep
+  [Parameter, EditorRequired]
+  public IReadOnlyList<WorkTableRow> Rows { get; set; } = default!;
+  [Parameter, EditorRequired]
+  public EventCallback<WorkTableRow> OnCombine { get; set; }
+  [Parameter, EditorRequired]
+  public EventCallback OnClose { get; set; }
+
+  private WorkTableRow? _kept;
+  private bool _isCombining;
+
+  // the image components showing the others, which their deletion deletes; slides and row backgrounds
+  // move to the kept work instead
+  private DeletedImageUses _imageUses = DeletedImageUses.None;
+
+  protected override async Task OnInitializedAsync() => await KeepAsync(Rows[0]);
+
+  private async Task KeepAsync(WorkTableRow row)
+  {
+    _kept = row;
+    var components = await CustomComponentRepository.GetImageComponentsShowingWorksAsync([.. Rows.Where(other => other !=
+row).Select(other => other.Id)]);
+
+    // another was chosen while this one read
+    if (_kept == row)
+    {
+      _imageUses = DeletedImageUses.None with { ImageComponents = components };
+    }
+  }
+
+  private async Task CombineAsync()
+  {
+    if (_kept is not { } kept)
+    {
+      return;
+    }
+
+    _isCombining = true;
+
+    try
+    {
+      await OnCombine.InvokeAsync(kept);
+    }
+    finally
+    {
+      _isCombining = false;
+    }
+  }
+}
+
+<ModalDialog Title="@($"Combine {Wording.Work.CountOf(Rows.Count)}")" Width="ModalDialogWidth.Narrow" OnClose="OnClose"
+             KeepOpen="_isCombining">
+  <fieldset class="mb-4">
+    <legend class="artist-shop-field-label">Keep</legend>
+    <div class="max-h-[40dvh] overflow-y-auto">
+      @foreach (var row in Rows)
+      {
+        <label class="mb-1 flex cursor-pointer items-center gap-2" data-test="combine-keep-choice">
+          <input type="radio" name="combine-keep" checked="@(row == _kept)" disabled="@_isCombining"
+                 @onchange="() => KeepAsync(row)" />
+          <WorkThumbnail Image="row.Thumbnail" />
+          <span class="min-w-0 truncate">@row.Form.Name</span>
+          <span class="ml-auto shrink-0 text-sm text-ink-faded">@CountText.Of(row.SavedImages.Count, "image")</span>
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <p class="mb-2">Select which one to keep. All @Wording.Collection.PluralInSentence and terms will combine, and anything listed for sale from the others is removed.</p>
+  <DeletedImageUsesWarning Uses="_imageUses" />
+
+  <ModalDialogActions>
+    <ModalCloseButton Label="Cancel" Disabled="_isCombining" />
+    <ButtonBasic type="button" Variant="ButtonVariant.Primary" disabled="@_isCombining" Busy="_isCombining"
+                 @onclick="CombineAsync">
+      Combine
+    </ButtonBasic>
+  </ModalDialogActions>
+</ModalDialog>
