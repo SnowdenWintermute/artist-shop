@@ -264,7 +264,7 @@ BEGIN
 
         -- RowWidths.Whole, RowAlignment.Start, RowHeight.Natural, RowContentWidth.Page, RowPadding.New, RowGap.Medium, RowBackgroundType.None
         INSERT INTO page_rows (page_id, sort_order, widths, alignment, height, content_width, top_padding, bottom_padding, side_padding, gap, background_type)
-        VALUES (v_page_id, 0, 1, 1, 1, 1, 1, 1, 3, 3, 1)
+        VALUES (v_page_id, 0, 1, 1, 1, 1, 2, 2, 3, 3, 1)
         RETURNING id INTO v_row_id;
 
         INSERT INTO row_slots (row_id, sort_order)
