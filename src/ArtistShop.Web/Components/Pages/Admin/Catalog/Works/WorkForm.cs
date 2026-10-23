@@ -27,14 +27,9 @@ public class WorkForm : IValidatableObject
         new()
         {
             Name = work.Name.Value,
-            // the precision says which parts were given: the rest are the first of their period
             YearCreated = work.DateCreated?.Date.Year,
-            MonthCreated = work.DateCreated is { Precision: >= DatePrecision.Month } toMonth
-                ? toMonth.Date.Month
-                : null,
-            DayCreated = work.DateCreated is { Precision: DatePrecision.Day } toDay
-                ? toDay.Date.Day
-                : null,
+            MonthCreated = work.DateCreated?.KnownMonth,
+            DayCreated = work.DateCreated?.KnownDay,
             Description = work.Description,
             HeightCm = work.Dimensions?.Height,
             WidthCm = work.Dimensions?.Width,

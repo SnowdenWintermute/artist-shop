@@ -75,8 +75,8 @@ public class WorkTableRow : EditableTableRow
                 Name = planned.Name.Value,
                 CollectionIds = [.. collectionIds.Select(collectionId => collectionId.Value)],
                 YearCreated = dateCreated?.Date.Year,
-                MonthCreated = dateCreated?.Date.Month,
-                DayCreated = dateCreated?.Date.Day,
+                MonthCreated = dateCreated?.KnownMonth,
+                DayCreated = dateCreated?.KnownDay,
             },
             [.. planned.Images.Select(image => new RowImage(image))]
         );

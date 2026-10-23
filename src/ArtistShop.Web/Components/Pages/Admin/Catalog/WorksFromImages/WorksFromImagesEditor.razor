@@ -221,10 +221,10 @@ IReadOnlyList<BulkImageCandidate> candidates, DropCollectionChoice choice)
     var datesTaken = choice.UsesDatesTaken ? await ReadDatesTakenAsync(candidates) : new Dictionary<string, PartialDate>();
     // a work's date is its first image's, the one titling it
     var dates = plan.Works.Select(work => datesTaken.GetValueOrDefault(work.Images[0].Id)).ToList();
-    _undatedCount = choice.UsesDatesTaken ? dates.Count(date => date is null) : 0;
 
     var identifiers = await WorkRepository.AddManyAsync([.. plan.Works.Zip(dates, (work, date) => ToAddition(typeId,
 work, date))]);
+    _undatedCount = choice.UsesDatesTaken ? dates.Count(date => date is null) : 0;
 
     if (plan.Works.Any(work => work.NewCollectionName is not null))
     {
@@ -269,7 +269,8 @@ work, date))]);
 
     List<ImageDateTaken> read;
 
-    // the page closed while the dates were being read, so there is no one left to add the works for
+    // the page closed, the script failed or the read passed interop's one-minute limit: the works are
+    // still added, without dates
     try
     {
       await using var reference = await _uploader.Reference.InvokeAsync<IJSStreamReference>(
@@ -277,7 +278,7 @@ work, date))]);
       await using var stream = await reference.OpenReadStreamAsync(BulkImageDrop.MaximumDatesTakenBytes);
       read = await JsonSerializer.DeserializeAsync<List<ImageDateTaken>>(stream, JsonSerializerOptions.Web) ?? [];
     }
-    catch (JSDisconnectedException)
+    catch (Exception exception) when (exception is JSDisconnectedException or JSException or TaskCanceledException)
     {
       return [];
     }

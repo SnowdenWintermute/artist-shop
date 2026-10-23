@@ -68,6 +68,11 @@ public record PartialDate
         Precision = precision;
     }
 
+    // the parts FromParts takes back, null where the precision doesn't reach
+    public int? KnownMonth => Precision >= DatePrecision.Month ? Date.Month : null;
+
+    public int? KnownDay => Precision is DatePrecision.Day ? Date.Day : null;
+
     // the same spelling Parse accepts, so a date on screen is one the form would take back
     public string Text =>
         Date.ToString(
