@@ -1,4 +1,5 @@
-// The work picker's dialog, opened by the text editor and by an image component's settings page
+// The work picker's dialog, opened by the text editor, by an image component's settings page and by a link's
+// work choice
 import { listenToPickerFrame } from "/js/picker-frame.js";
 
 /**
@@ -18,6 +19,7 @@ import { listenToPickerFrame } from "/js/picker-frame.js";
  *   changing an embed's image
  * @property {string} chooseImageUrl its first page for picking one image of any work, which asks
  *   nothing more, for an image component
+ * @property {string} chooseWorkUrl its first page for picking a work, for a link to its page
  * @property {(url: string, onChosen: (choice: WorkPickerChoice) => void) => void} open
  */
 
@@ -30,13 +32,14 @@ import { listenToPickerFrame } from "/js/picker-frame.js";
  */
 export function attachWorkPicker(dialog, signal) {
   const frame = dialog.querySelector("iframe");
-  const { addSrc, changeImageSrc, chooseImageSrc, workIdPlaceholder } = frame?.dataset ?? {};
+  const { addSrc, changeImageSrc, chooseImageSrc, chooseWorkSrc, workIdPlaceholder } = frame?.dataset ?? {};
 
   if (
     frame === null ||
     addSrc === undefined ||
     changeImageSrc === undefined ||
     chooseImageSrc === undefined ||
+    chooseWorkSrc === undefined ||
     workIdPlaceholder === undefined
   ) {
     throw new Error("The work picker is missing its frame or the frame's addresses.");
@@ -75,6 +78,7 @@ export function attachWorkPicker(dialog, signal) {
     addUrl: addSrc,
     changeImageUrl: (workId) => changeImageSrc.replace(workIdPlaceholder, String(workId)),
     chooseImageUrl: chooseImageSrc,
+    chooseWorkUrl: chooseWorkSrc,
     open(url, handleChoice) {
       onChosen = handleChoice;
       frame.src = url;

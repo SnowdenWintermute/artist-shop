@@ -12,7 +12,11 @@
 
   [Parameter, EditorRequired]
   public required bool IsSameSize { get; set; }
+
+  // the picture's corners rounded as the theme's frames are
+  [Parameter, EditorRequired]
+  public required bool HasThemeCorners { get; set; }
 }
 
 <LinkTile Href="@WorkPageQuery.Url(Work.Slug.Value, CollectionSlug?.Value, imageNumber: null)" Title="@Work.Name.Value"
-          Image="Work.Image" IsSameSize="IsSameSize" IsUncropped="!IsSameSize" />
+          Image="Work.Image" IsSameSize="IsSameSize" IsUncropped="!IsSameSize" HasThemeCorners="HasThemeCorners" />

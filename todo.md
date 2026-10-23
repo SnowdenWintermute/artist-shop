@@ -1,5 +1,112 @@
 # Deployed 2026-09-29, checklist finished (step 9, expiry alerts, done the same day); handoff below
 
+## Component frames, links and a Button component, agreed 2026-10-23 (From Claude)
+
+Text over an image row can be hard to read, and nothing yet can link to a page. Two shared settings, kept small
+(presets, never free pixel values), plus a Button type.
+
+**Frame (every component type, Card grid and Carousel included).** Background, border and padding around the
+component, drawn by the wrapper `CustomComponentView` already has, so the six views don't change.
+- The theme gets a frame style: background (default the `panel` role), border colour (default `rule`), border
+  width None/Thin/Medium/Thick, corners None/Small/Medium/Large (default None) and padding Small/Medium/Large.
+  On the Theme page with colours and fonts, and in the look export with the rest of the theme.
+- A component's frame is Off / Theme / Custom. Custom keeps only the fields overridden; the rest come from the
+  theme. A custom background is any colour with an opacity slider (as the backdrop's), since a see-through panel
+  is what helps text over an image.
+- Frame sits beside the settings on `CustomComponent`, and is folded into the stored settings document as a
+  `"frame"` key. Prod's one site gets deleted and the non-identity database dropped, so the current versions change
+  shape with no upgrade; site_1 patched by hand.
+- `ImagePadding` goes: an image's padding is its frame's.
+
+**Links (only types that can't hold links themselves).** An `<a>` can't hold another, so Card grid, Post list,
+Carousel and Text get none. The link lives in each linkable type's own settings, so the compiler holds the rules:
+Button's is required, Heading's optional, and Image's `ImageLink` gains a "To" choice beside Lightbox / Artwork page
+/ None.
+- `LinkTarget` union (numeric enum + `Type`): Page, Work, Collection, Post, External address. Internal ones resolve
+  through `PageUrls` when drawn, so a changed address doesn't break them. Always the same tab (people can
+  ctrl+click).
+- Shared `LinkField` for the forms and one wrapper component drawing the `<a>`.
+- Link uses tracked in the database like image uses: one table of (component, page | work | collection | post),
+  exactly one set. Deleting a target deletes the Buttons linking to it and drops the link from Headings and
+  Images; the target's delete dialog lists both.
+
+**Button component.** Text, link (required), alignment Left/Centre/Right (as Heading), style Filled / Outline,
+size Small/Medium/Large, colour Accent / Primary / Normal. Colours and borders come from the theme: Accent =
+`accent` with `on-accent` text, Primary = `ink` with `page` text, Normal = `panel` with `ink` text and a `rule`
+border; Outline draws the colour as border and text on no fill. Corners and outline width follow the theme frame.
+New starter in Add component.
+
+**Build steps, each leaving the app working.**
+1. Theme frame style: theme JSON, Theme page section, look export.
+2. Component frame Off/Theme/Custom on every type, drawn in the wrapper; Image padding folded in.
+3. `LinkTarget`, the link uses table, `LinkField` and the wrapper; Heading and Image links; deletes of pages,
+   works, collections and posts drop links and list them.
+4. Button component, deleted with its target.
+
+Mike confirmed the Primary = ink and Normal = panel mapping.
+
+- Step 1 built 2026-10-23, uncommitted, 1340 tests, not browser-checked. `Domain/Website/ThemeFrame.cs`
+  (`ThemeFrame`: background and border are roles, from `BackgroundRoles` Panel/Page/Bar and `BorderRoles`
+  Rule/Ink/Accent, plus background opacity); every preset has Paper's (Panel 100%, Rule, Thin, no corners,
+  Medium padding). Theme JSON has a required `"frame"` object; a part left out or no longer offered reads as
+  Paper's, as fonts do. `Layout/FrameCss` writes `--theme-frame-*` from `ThemeStyle`; `Atoms/FrameBox` reads
+  them, and the Theme preview shows one over the painting. Theme page "Frames" section with one Reset.
+  The look export carries the frame through the theme JSON. site_1's one saved theme (Papillon) given Paper's
+  frame by hand.
+- Step 2 built 2026-10-23, uncommitted, 1346 tests, not browser-checked. `Domain/Website/ComponentFrame.cs`
+  (Off / Theme / Custom, Custom's parts null for the theme's); `CustomComponent` has `Frame`, written as the settings
+  document's `"frame"` key (`CustomComponentSettingsJson.Write(settings, frame)` / `ReadFrame`); new components
+  start Off, and the 0009 seed writes `{"type":"Off"}`. `CustomComponentView` wraps a framed component in
+  `FrameBox` (`flex flex-1 flex-col` when an Image or Carousel is set to Fill), a custom frame setting its parts
+  inline through `FrameCss.Overrides`. `ComponentFrameFields` in `ComponentSettingsForm`, so every type has it:
+  Frame Off/Theme/Custom, then Background and Border colour Theme / Own colour (picker, background opacity),
+  and Border width, Corners, Padding each with a Theme choice (native radios, Theme posts ""). The pickers start
+  from the theme in use's frame colours. `ImagePadding` is gone; `FramePadding` gained None. site_1 patched by
+  hand: every component Off, except Image 2 (was Medium padding) as Custom, transparent, no border, Large padding.
+  Open: a frame spans its slot, so round a Natural image narrower than the slot it's wider than the image.
+- Step 3 built 2026-10-23, uncommitted, 1360 tests, JS typecheck clean, not browser-checked.
+  `Domain/Website/LinkTarget.cs` (Page / Work / Collection / Post by id, Address: http(s) or mailto).
+  `HeadingSettings.LinkTarget` (optional); `ImageLink.Target` ("Link to…") with `ImageSettings.LinkTarget`, set
+  exactly when Link is Target. Stored as the settings' `"linkTarget"` key. Migration 0013: `custom_component_links`
+  (one row per component, exactly one of page/work/collection/post), rebuilt by `set_custom_component_links` on
+  add and update. `drop_custom_component_links_to` runs first in delete_works, delete_collection, delete_post and
+  delete_custom_page (delete_collection and delete_post now plpgsql): a heading's linkTarget goes, an image's link
+  becomes None. combine_works moves links to the kept work. `get_custom_components_linking_to` feeds
+  `UnlinkedComponentsWarning`, shown in the work (through `DeletedImageUses.Unlinked`), collection, post and
+  page delete dialogs. `TargetLink` reads the address as the page is drawn (so a renamed page or slug still
+  works); a heading's link is inside its h1/h2, styled `LinkStyles.Standalone`. Settings page: `LinkField`
+  (native radios, heading has "No link"; page/collection/post selects save on change, posts marked "(draft)";
+  work through the work picker's new `WorkPickerMode.WorkOnly`, last step "Link to {work}?" with its main
+  image; address saved with Save). `LinkTargetInput` on `CustomComponentForm.LinkTo`, whose setter turns the
+  binder's null (an image post with no link fields) into an empty link.
+  Mike, 2026-10-23: links to drafts, hidden pages and imageless works are drawn and may 404; the artist picks
+  where a link goes. Still open: works with no image can't be picked; switching the link type shows "Choose what
+  to link to." until one is chosen, since each choice saves.
+- Step 4 built 2026-10-23, uncommitted, 1366 tests, not browser-checked. `ButtonSettings` (Text, LinkTarget,
+  Alignment, Style Filled/Outline, Size Small/Medium/Large, Color Accent/Primary/Normal), type and starter 7,
+  "Button" in Add component. `HeadingAlignment` renamed `ComponentAlignment` (stored names unchanged). A new
+  button's LinkTarget is null and it draws nothing until one is chosen; saving refuses no link. `ButtonView` +
+  `ButtonClasses`: corners and border width from the theme frame variables, an outline at least 1px.
+  `drop_custom_component_links_to` deletes linking buttons (type 7) and their placements;
+  `get_custom_components_linking_to` returns the type, and the repository splits it into `LinkingComponents`
+  (DeletedButtons, Unlinked), shown by `LinkingComponentsWarning` ("Buttons deleted too:", "Links removed
+  from:") in the four delete dialogs; `DeletedImageUses.Linking` carries it for works. All four steps built.
+- Mike, 2026-10-23, after trying it: a new button links to the website's home page, so the preview shows it at
+  once (`NewCustomComponentSettings.For(starter, homeId)`, read by `PageOutline`; `ButtonSettings.New(target)`,
+  `LinkTarget` no longer nullable). Buttons have no frame: `CustomComponentSettings.HasFrame` (false for
+  buttons) hides the Frame section via `ComponentSettingsForm.HasFrame`, and their frame always saves Off.
+  1367 tests.
+- Mike, 2026-10-23: button size is a slider from 1 to 10 (`ButtonSettings.Size`, `MinimumSize`/`MaximumSize`;
+  `ButtonSize` enum gone), 12px plus 4px a step set round the button by `ButtonClasses.SizeStyle`, with padding
+  in ems; new buttons start at 4 (24px). Card pictures take the theme frame's corners in the even grid and rows,
+  not masonry (`LinkTile.HasThemeCorners`, from `CardGridView`, so the collection page too). 1371 tests.
+- Mike, 2026-10-23: the Theme preview's cards and sample button draw as on a real page (the button through
+  `ButtonClasses`, at size 2). Buttons have Border width and Corners of their own, each Theme or one of the
+  frame's sizes (`ButtonSettings.BorderWidth`/`Corners`, null for the theme's, optional JSON keys), set over the
+  frame variables by `ButtonClasses.Style` through `FrameCss.Overrides`. The Theme-or-size radios are
+  `ThemePartChoices`, shared with the frame fields. 1371 tests.
+  Buttons have no hover effect (Mike: none by default, as there's no control for one).
+
 ## Components list, agreed and built 2026-10-22 (From Claude)
 
 `/admin/website/components` (Dashboard → Publishing → Components, and "All components" on the Pages list): one list

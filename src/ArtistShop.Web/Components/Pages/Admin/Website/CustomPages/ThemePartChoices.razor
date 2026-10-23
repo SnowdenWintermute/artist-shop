@@ -1,0 +1,30 @@
+@* One part of a frame or a button's border as radios: Theme, which takes the theme frame's and posts "", binding null,
+   then each of the part's own. Native, so the null choice has a value *@
+@typeparam TEnum where TEnum : struct, Enum
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+  // the input's name, as the form binds it
+  [Parameter, EditorRequired]
+  public required string Name { get; set; }
+  // null for the theme's
+  [Parameter, EditorRequired]
+  public required TEnum? Chosen { get; set; }
+
+  private static readonly IReadOnlyList<(string Value, string Label)> Choices =
+    [("", "Theme"), .. Enum.GetValues<TEnum>().Select(value => (value.ToString(), value.ToString()))];
+}
+
+<fieldset class="mb-4">
+  <legend class="artist-shop-field-label">@Label</legend>
+  <div class="flex flex-wrap gap-x-4 gap-y-1">
+    @foreach (var (value, choiceLabel) in Choices)
+    {
+      <label class="flex cursor-pointer items-center gap-2">
+        <input type="radio" name="@Name" value="@value" checked="@(value == (Chosen?.ToString() ?? ""))" />
+        @choiceLabel
+      </label>
+    }
+  </div>
+</fieldset>

@@ -8,10 +8,14 @@
   [Parameter, EditorRequired]
   public required bool IsSameSize { get; set; }
 
+  // the picture's corners rounded as the theme's frames are
+  [Parameter, EditorRequired]
+  public required bool HasThemeCorners { get; set; }
+
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
 }
 
 <LinkTile Href="@PageUrls.Collection(Collection.Slug)" Title="@Collection.Name.Value" Image="Collection.Cover"
           Caption="@Wording.Work.CountOf(Collection.WorkCount)" IsSameSize="IsSameSize"
-          IsUncropped="!IsSameSize" />
+          IsUncropped="!IsSameSize" HasThemeCorners="HasThemeCorners" />

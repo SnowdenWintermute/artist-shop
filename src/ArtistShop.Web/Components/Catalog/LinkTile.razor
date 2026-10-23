@@ -18,11 +18,15 @@
   // the whole picture in its own shape, rather than cropped to the box
   [Parameter]
   public bool IsUncropped { get; set; }
+  // the picture's corners as the theme rounds a frame's (FrameCss)
+  [Parameter]
+  public bool HasThemeCorners { get; set; }
 }
 
 <a href="@Href" class="block">
   <span class="mb-2 block">
-    <TileImage Image="Image" BoxClass="@BoxClass" IsUncropped="IsUncropped" />
+    <TileImage Image="Image" BoxClass="@(HasThemeCorners ? $"{BoxClass} rounded-(--theme-frame-corners)" : BoxClass)"
+               IsUncropped="IsUncropped" />
   </span>
 
   @if (IsSameSize)

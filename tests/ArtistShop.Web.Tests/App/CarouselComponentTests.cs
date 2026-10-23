@@ -37,6 +37,7 @@ public sealed class CarouselComponentTests(TestApp app)
         new()
         {
             ["Input.Name"] = "Carousel 1",
+            ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
             ["Input.SlideSource"] = settings.Source.Type.ToString(),
             ["Input.CollectionId"] = collectionId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "",
             ["Input.Transition"] = settings.Transition.ToString(),

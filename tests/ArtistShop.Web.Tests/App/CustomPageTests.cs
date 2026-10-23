@@ -544,6 +544,7 @@ public sealed partial class CustomPageTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Front grid",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.Source"] = nameof(CardGridSourceType.AllCollections),
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.Automatic),
                 ["Input.CardsPerPage"] = "24",
@@ -710,7 +711,7 @@ public sealed partial class CustomPageTests(TestApp app)
         await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => slots.DeleteAsync(row.Id, slot.Id, slotCount: 2));
         await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() => new PageRowRepository(database).DeleteAsync(row.Id));
         await Assert.ThrowsAsync<CollectionsPageNeedsGridException>(() =>
-            components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.ChosenCards() }));
+            components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.ChosenCards() }, new ComponentFrame.Off()));
         var kept = Assert.Single((await pages.GetLayoutAsync(collectionsPage.Id)).Rows).Slots;
         Assert.Equal([[grid.Id], []], kept.Select(keptSlot => keptSlot.Stack.Select(component => component.Id)));
         Assert.Equal(grid.Settings, kept[0].Stack[0].Settings);
@@ -726,7 +727,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var grid = Assert.Single(Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(collectionsPage.Id)).Rows).Slots).Stack);
         var components = new CustomComponentRepository(database);
 
-        await components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.CollectionsAndLooseWorks() });
+        await components.UpdateAsync(grid.Id, grid.Name, CardGridSettings.AllCollections with { Source = new CardGridSource.CollectionsAndLooseWorks() }, new ComponentFrame.Off());
 
         Assert.True(Assert.IsType<CustomComponentInUse>(await components.GetAsync(grid.Id)).IsCollectionsPagesOnlyGrid);
     }
@@ -811,7 +812,7 @@ public sealed partial class CustomPageTests(TestApp app)
     [Fact]
     public void TheHeadingStarterMakesAHeadingComponent()
     {
-        Assert.Equal(HeadingSettings.New, NewCustomComponentSettings.For(CustomComponentStarter.Heading));
+        Assert.Equal(HeadingSettings.New, NewCustomComponentSettings.For(CustomComponentStarter.Heading, new CustomPageId(1)));
         Assert.Equal("Heading 1", CustomComponentNames.NewNames(CustomComponentStarter.Heading, SiteWording.Default, new HashSet<string>()).First());
     }
 
@@ -845,16 +846,17 @@ public sealed partial class CustomPageTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Heading 1",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.HeadingText"] = " About me ",
                 ["Input.Size"] = nameof(TextSize.Size128),
                 ["Input.Font"] = nameof(FontRole.Text),
                 // an unchecked box posts nothing
-                ["Input.Alignment"] = nameof(HeadingAlignment.Center),
+                ["Input.Alignment"] = nameof(ComponentAlignment.Center),
             }
         );
 
         Assert.Equal(
-            new HeadingSettings("About me", TextSize.Size128, FontRole.Text, Bold: false, HeadingAlignment.Center),
+            new HeadingSettings("About me", TextSize.Size128, FontRole.Text, Bold: false, ComponentAlignment.Center, LinkTarget: null),
             await SettingsOfAsync(site, id)
         );
     }
@@ -873,9 +875,10 @@ public sealed partial class CustomPageTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Heading 1",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.HeadingText"] = " ",
                 ["Input.Size"] = nameof(TextSize.Size24),
-                ["Input.Alignment"] = nameof(HeadingAlignment.Center),
+                ["Input.Alignment"] = nameof(ComponentAlignment.Center),
             }
         );
 
@@ -886,7 +889,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task AHeadingIsDrawnAtItsSizeInItsFontOnItsSide()
     {
         var site = await app.MakeSiteAsync();
-        await AddHeadingAsync(site, new HeadingSettings("About me", TextSize.Size96, FontRole.Text, Bold: false, HeadingAlignment.Right));
+        await AddHeadingAsync(site, new HeadingSettings("About me", TextSize.Size96, FontRole.Text, Bold: false, ComponentAlignment.Right, LinkTarget: null));
 
         var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
 

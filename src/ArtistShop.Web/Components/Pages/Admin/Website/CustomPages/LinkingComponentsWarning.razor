@@ -1,0 +1,32 @@
+@* What a delete does to the components linking to what it deletes, for those confirm dialogs: the buttons go
+   with it, and the rest lose their link *@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public required LinkingComponents Components { get; set; }
+
+  private static string PagesText(CustomComponentOnPages component) =>
+    component.PageNames.Count == 0 ? "on no page" : $"on {PageNamesText.Of(component.PageNames)}";
+}
+
+@if (Components.DeletedButtons.Count > 0)
+{
+  <p class="mb-2">Buttons deleted too:</p>
+  <ul class="mb-2 list-disc pl-6" data-test="deleted-buttons">
+    @foreach (var component in Components.DeletedButtons)
+    {
+      <li>@component.Name (@PagesText(component))</li>
+    }
+  </ul>
+}
+@if (Components.Unlinked.Count > 0)
+{
+  <p class="mb-2">Links removed from:</p>
+  <ul class="mb-2 list-disc pl-6" data-test="unlinked-components">
+    @foreach (var component in Components.Unlinked)
+    {
+      <li>@component.Name (@PagesText(component))</li>
+    }
+  </ul>
+}

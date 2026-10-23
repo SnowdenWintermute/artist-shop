@@ -21,6 +21,8 @@
 @inject SlideRepository SlideRepository
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
+@inject ThemeRepository ThemeRepository
+@inject PostRepository PostRepository
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
 
@@ -58,6 +60,10 @@
   private bool _isFullBleed;
   // a carousel's chosen list, read only while it shows it
   private List<SlideListItem>? _slides;
+  // what a heading or an image can link to, and the name of the work it links to
+  private IReadOnlyList<CustomPage> _pages = [];
+  private IReadOnlyList<PostSummary> _posts = [];
+  private string? _linkedWorkName;
 
   private CustomComponentId ComponentId => new(Id);
 
@@ -79,7 +85,9 @@
         _component.Component,
         _component.Component.Settings is TextSettings text
           ? await UploadedImageRepository.GetByStorageKeysAsync(RichTextImages.UploadedImageKeysOf([RichTextParser.Parse(text.Body)]))
-          : new Dictionary<string, UploadedImage>());
+          : new Dictionary<string, UploadedImage>(),
+        // a theme in use that no longer exists shows Paper, as public pages do
+        (await ThemeRepository.GetInUseAsync())?.Theme ?? ThemePresets.Paper.Theme);
     }
 
     if (_component?.Component.Settings is CardGridSettings or CarouselSettings)
@@ -87,6 +95,14 @@
       _collections = await CollectionRepository.GetAllAsync();
       _visibleCollectionIds = (await CollectionRepository.GetVisibleWithCoversAsync()).Select(collection =>
 collection.Id).ToHashSet();
+    }
+
+    if (_component?.Component.Settings is HeadingSettings or ImageSettings or ButtonSettings && Input is not null)
+    {
+      _pages = [.. (await CustomPageRepository.GetAllAsync()).OrderBy(page => page.Name, NameOrder.ByName)];
+      _collections = await CollectionRepository.GetAllAsync();
+      _posts = await PostRepository.GetAllAsync();
+      _linkedWorkName = Input.LinkTo.WorkId is int workId ? (await WorkRepository.GetByIdAsync(new WorkId(workId)))?.Name.Value : null;
     }
 
     if (_component?.Component.Settings is ImageSettings image)
@@ -115,7 +131,10 @@ collection.Id).ToHashSet();
         || !Input.CheckCardGrid(_component.Component.Settings, _collections)
         || !await Input.CheckImageAsync(UploadedImageRepository, WorkRepository, Wording, _component.Component.Settings)
         || !Input.CheckCarousel(_component.Component.Settings, _collections)
-        || !Input.CheckHeading(_component.Component.Settings))
+        || !Input.CheckHeading(_component.Component.Settings)
+        || !Input.CheckButton(_component.Component.Settings)
+        || !Input.CheckLink(_component.Component.Settings)
+        || !Input.CheckFrame(_component.Component.Settings))
     {
       return;
     }
@@ -123,7 +142,7 @@ collection.Id).ToHashSet();
     try
     {
       await CustomComponentRepository.UpdateAsync(ComponentId, Input.ToName(),
-Input.ToSettings(_component.Component.Settings));
+Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Component.Settings));
     }
     catch (NameAlreadyInUseException)
     {
@@ -178,13 +197,16 @@ Input.ToSettings(_component.Component.Settings));
 
   // the artwork page only for a work's image
   private static IReadOnlyList<ImageLink> ImageLinks(CustomComponentForm input) =>
-    input.ImageWorkId is null ? [ImageLink.Lightbox, ImageLink.None] : Enum.GetValues<ImageLink>();
+    input.ImageWorkId is null
+      ? [ImageLink.Lightbox, ImageLink.Target, ImageLink.None]
+      : [ImageLink.Lightbox, ImageLink.ArtworkPage, ImageLink.Target, ImageLink.None];
 
   private string ImageLinkLabel(ImageLink link) =>
     link switch
     {
       ImageLink.Lightbox => "Lightbox",
       ImageLink.ArtworkPage => $"{Wording.Work.SingularHeading} page",
+      ImageLink.Target => "Link to…",
       ImageLink.None => "None",
       _ => throw new InvalidOperationException($"{link} has no label."),
     };
@@ -197,12 +219,12 @@ Input.ToSettings(_component.Component.Settings));
       _ => throw new InvalidOperationException($"{font} has no label."),
     };
 
-  private static string AlignmentLabel(HeadingAlignment alignment) =>
+  private static string AlignmentLabel(ComponentAlignment alignment) =>
     alignment switch
     {
-      HeadingAlignment.Left => "Left",
-      HeadingAlignment.Center => "Centre",
-      HeadingAlignment.Right => "Right",
+      ComponentAlignment.Left => "Left",
+      ComponentAlignment.Center => "Centre",
+      ComponentAlignment.Right => "Right",
       _ => throw new InvalidOperationException($"{alignment} has no label."),
     };
 
@@ -282,7 +304,7 @@ Input.ToSettings(_component.Component.Settings));
       {
         <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name"
                         BodyField="Input.Body" HoldsUnsavedChanges="_formWasPosted">
-          <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+          <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
             @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
             <RichTextEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
             @* saves as soon as it changes, with the rest of the form *@
@@ -297,7 +319,7 @@ Input.ToSettings(_component.Component.Settings));
       }
       else if (component.Component.Settings is HeadingSettings)
       {
-        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           <TextField Label="Text" @bind-Value="Input.HeadingText" />
           @* in pixels, as the text editor names its sizes *@
           <SubmitOnChange>
@@ -315,14 +337,47 @@ Input.ToSettings(_component.Component.Settings));
             <CheckboxField Label="Bold" @bind-Value="Input.Bold" />
           </SubmitOnChange>
           <SubmitOnChange>
-            <RadioField Label="Alignment" @bind-Value="Input.Alignment" Values="Enum.GetValues<HeadingAlignment>()"
+            <RadioField Label="Alignment" @bind-Value="Input.Alignment" Values="Enum.GetValues<ComponentAlignment>()"
                         LabelOf="AlignmentLabel" />
+          </SubmitOnChange>
+          <LinkField Input="Input" IsOptional Pages="_pages" Collections="_collections" Posts="_posts" WorkName="@_linkedWorkName" />
+        </ComponentSettingsForm>
+      }
+      else if (component.Component.Settings is ButtonSettings)
+      {
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
+          <TextField Label="Text" @bind-Value="Input.ButtonText" />
+          <LinkField Input="Input" IsOptional="false" Pages="_pages" Collections="_collections" Posts="_posts"
+                     WorkName="@_linkedWorkName" />
+          <SubmitOnChange>
+            <RadioField Label="Alignment" @bind-Value="Input.Alignment" Values="Enum.GetValues<ComponentAlignment>()"
+                        LabelOf="AlignmentLabel" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Style" @bind-Value="Input.ButtonStyle" Values="Enum.GetValues<ButtonStyle>()" LabelOf="style => style.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            @* native, as the theme's font sizes are *@
+            <label class="mb-4 flex items-center gap-2">
+              Size
+              <input type="range" min="@ButtonSettings.MinimumSize" max="@ButtonSettings.MaximumSize" name="Input.ButtonSize"
+                     value="@Input.ButtonSize" class="cursor-pointer" />
+              @Input.ButtonSize
+            </label>
+            <ValidationMessage For="() => Input.ButtonSize" class="mb-4 block text-error" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Colour" @bind-Value="Input.ButtonColor" Values="Enum.GetValues<ButtonColor>()" LabelOf="color => color.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <ThemePartChoices TEnum="FrameBorderWidth" Label="Border width" Name="Input.ButtonBorderWidth" Chosen="Input.ButtonBorderWidth" />
+            <ThemePartChoices TEnum="FrameCorners" Label="Corners" Name="Input.ButtonCorners" Chosen="Input.ButtonCorners" />
           </SubmitOnChange>
         </ComponentSettingsForm>
       }
       else if (component.Component.Settings is CardGridSettings)
       {
-        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           @* each select saves as soon as it changes, so the fields it brings in appear *@
           <SubmitOnChange>
             <SelectField Label="Shows" @bind-Value="Input.Source">
@@ -386,7 +441,7 @@ Input.ToSettings(_component.Component.Settings));
       }
       else if (component.Component.Settings is ImageSettings)
       {
-        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           <ImageSourceField StorageKey="@Input.ImageStorageKey" WorkId="Input.ImageWorkId"
                             StorageKeyExpression="() => Input.ImageStorageKey" Picture="_picture"
                             IsFullBleed="_isFullBleed" />
@@ -398,17 +453,18 @@ Input.ToSettings(_component.Component.Settings));
                         IsUnavailable="!ImageSettings.HasFit(Input.ImageHeight)" />
           </SubmitOnChange>
           <SubmitOnChange>
-            <RadioField Label="Padding" @bind-Value="Input.Padding" Values="Enum.GetValues<ImagePadding>()"
-                        LabelOf="padding => padding.ToString()" />
-          </SubmitOnChange>
-          <SubmitOnChange>
             <RadioField Label="Link" @bind-Value="Input.Link" Values="ImageLinks(Input)" LabelOf="ImageLinkLabel" />
           </SubmitOnChange>
+          @if (Input.Link is ImageLink.Target)
+          {
+            <LinkField Input="Input" IsOptional="false" Pages="_pages" Collections="_collections" Posts="_posts"
+                       WorkName="@_linkedWorkName" />
+          }
         </ComponentSettingsForm>
       }
       else if (component.Component.Settings is CarouselSettings)
       {
-        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           <SubmitOnChange>
             <RadioField Label="Shows" @bind-Value="Input.SlideSource" Values="Enum.GetValues<SlideSourceType>()" LabelOf="source => SlideChoiceLabels.Of(source, Wording)" />
           </SubmitOnChange>
@@ -450,7 +506,7 @@ Input.ToSettings(_component.Component.Settings));
       }
       else
       {
-        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" />
+        <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame" />
       }
 
       @* drawn even when it can't be deleted, as a post made before that changed needs its form on the page *@

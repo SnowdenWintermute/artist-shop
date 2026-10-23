@@ -1,4 +1,6 @@
-@* a heading component's line of text, on its side of the slot, spaced below as a text is *@
+@* a heading component's line of text, on its side of the slot, spaced below as a text is. A link is inside
+   the heading, so the heading is still read as one *@
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Utilities
 
@@ -13,9 +15,9 @@
   private string AlignmentClass =>
     Settings.Alignment switch
     {
-      HeadingAlignment.Left => "text-left",
-      HeadingAlignment.Center => "text-center",
-      HeadingAlignment.Right => "text-right",
+      ComponentAlignment.Left => "text-left",
+      ComponentAlignment.Center => "text-center",
+      ComponentAlignment.Right => "text-right",
       _ => throw new InvalidOperationException($"{Settings.Alignment} has no class."),
     };
 
@@ -36,9 +38,9 @@
 
 @if (IsPageTitle)
 {
-  <h1 class="@Class">@Settings.Text</h1>
+  <h1 class="@Class"><TargetLink Target="Settings.LinkTarget" Class="@LinkStyles.Standalone">@Settings.Text</TargetLink></h1>
 }
 else
 {
-  <h2 class="@Class">@Settings.Text</h2>
+  <h2 class="@Class"><TargetLink Target="Settings.LinkTarget" Class="@LinkStyles.Standalone">@Settings.Text</TargetLink></h2>
 }

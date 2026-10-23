@@ -1,5 +1,7 @@
 @using ArtistShop.Web.Components.CustomPages.CardGrids
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages.Slides
+@using ArtistShop.Web.Components.Layout
 
 
 @code {
@@ -16,32 +18,55 @@
   // the page's first heading component, which is its h1
   [Parameter, EditorRequired]
   public required bool IsPageTitle { get; set; }
+
+  // set to fill what its slot's other components leave, which a frame round it then does too
+  private bool Fills => Component.Settings is ImageSettings { Height: ImageHeight.Fill } or CarouselSettings { Height: ImageHeight.Fill };
+
+  private RenderFragment View =>
+    @<text>
+      @switch (Component.Settings)
+      {
+        case CardGridSettings cardGrid:
+          <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)"
+                        IsPageTop="IsPageTop" />
+          break;
+        case PostListSettings:
+          <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" IsPageTop="IsPageTop" />
+          break;
+        case TextSettings text:
+          <TextView Settings="text" />
+          break;
+        case HeadingSettings heading:
+          <HeadingView Settings="heading" IsPageTitle="IsPageTitle" />
+          break;
+        case ImageSettings image:
+          <ImageView Settings="image" Slot="Slot" />
+          break;
+        case CarouselSettings carousel:
+          <CarouselView Settings="carousel" ComponentId="Component.Id" Slot="Slot" />
+          break;
+        case ButtonSettings button:
+          <ButtonView Settings="button" />
+          break;
+        default:
+          throw new InvalidOperationException($"{Component.Settings.Type} has no view.");
+      }
+    </text>;
 }
 
 @* what the editors' preview finds a component by. contents: it lays nothing out itself *@
 <div class="contents" data-component-id="@Component.Id.Value">
-  @switch (Component.Settings)
+  @* round a component that fills, a frame fills and lays it out in a column, as the slot does. A custom
+     frame sets its own parts over the theme's *@
+  @if (Component.Frame is ComponentFrame.Off)
   {
-    case CardGridSettings cardGrid:
-      <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)"
-                    IsPageTop="IsPageTop" />
-      break;
-    case PostListSettings:
-      <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" IsPageTop="IsPageTop" />
-      break;
-    case TextSettings text:
-      <TextView Settings="text" />
-      break;
-    case HeadingSettings heading:
-      <HeadingView Settings="heading" IsPageTitle="IsPageTitle" />
-      break;
-    case ImageSettings image:
-      <ImageView Settings="image" Slot="Slot" />
-      break;
-    case CarouselSettings carousel:
-      <CarouselView Settings="carousel" ComponentId="Component.Id" Slot="Slot" />
-      break;
-    default:
-      throw new InvalidOperationException($"{Component.Settings.Type} has no view.");
+    @View
+  }
+  else
+  {
+    <FrameBox Class="@(Fills ? "flex flex-1 flex-col" : null)"
+              style="@(Component.Frame is ComponentFrame.Custom custom ? FrameCss.Overrides(custom) : null)" data-test="component-frame">
+      @View
+    </FrameBox>
   }
 </div>

@@ -8,7 +8,7 @@ public sealed class LookImportFileTests
 {
     private const string Collection = """{ "singular": "Project", "plural": "Projects", "keepsCase": false }""";
 
-    private const string Evening = """{ "name": "Evening", "settings": { "colors": { "Page": "#202020", "Ink": "#ffffff", "Accent": "#ff0000" }, "fonts": {} } }""";
+    private const string Evening = """{ "name": "Evening", "settings": { "colors": { "Page": "#202020", "Ink": "#ffffff", "Accent": "#ff0000" }, "fonts": {}, "frame": {} } }""";
 
     private const string Valid = """
         {
@@ -19,7 +19,7 @@ public sealed class LookImportFileTests
             "description": { "label": "Notes", "keepsCase": true }
           },
           "themeInUse": { "theme": "evening" },
-          "themes": [ { "name": "Evening", "settings": { "colors": { "Page": "#202020", "Ink": "#ffffff", "Accent": "#ff0000" }, "fonts": {} } } ],
+          "themes": [ { "name": "Evening", "settings": { "colors": { "Page": "#202020", "Ink": "#ffffff", "Accent": "#ff0000" }, "fonts": {}, "frame": {} } } ],
           "brandImages": [ { "type": "Logo", "file": "branding/logo.svg", "sha256": "ABababababababababababababababababababababababababababababababab" } ]
         }
         """;
@@ -44,6 +44,7 @@ public sealed class LookImportFileTests
         Assert.Equal(RgbColor.Parse("#202020"), theme.Theme.Colors.ChosenFor(ColorRole.Page));
         // a role with no font is Paper's
         Assert.Equal(ThemePresets.Paper.Theme.Fonts, theme.Theme.Fonts);
+        Assert.Equal(ThemePresets.Paper.Theme.Frame, theme.Theme.Frame);
         Assert.Equal(
             [new LookImportBrandImage(BrandImageType.Logo, "branding/logo.svg", "abababababababababababababababababababababababababababababababab")],
             file.BrandImages

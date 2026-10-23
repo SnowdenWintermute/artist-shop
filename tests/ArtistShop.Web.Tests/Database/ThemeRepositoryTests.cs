@@ -25,7 +25,8 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
                     ]
                 )
             ),
-            ThemePresets.Paper.Theme.Fonts
+            ThemePresets.Paper.Theme.Fonts,
+            ThemePresets.Paper.Theme.Frame
         );
 
     [Fact]
@@ -67,6 +68,35 @@ public sealed class ThemeRepositoryTests(TestDatabaseFixture database)
         var id = await _themes.AddAsync(UniqueName(), Choosing() with { Fonts = fonts });
 
         Assert.Equal(fonts, (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Fonts);
+    }
+
+    [Fact]
+    public async Task TheFrameReadsBackAsItWasSaved()
+    {
+        var frame = new ThemeFrame(ColorRole.Bar, 60, ColorRole.Ink, FrameBorderWidth.Thick, FrameCorners.Medium, FramePadding.Large);
+        var id = await _themes.AddAsync(UniqueName(), Choosing() with { Frame = frame });
+
+        Assert.Equal(frame, (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Frame);
+    }
+
+    // a background no longer offered, and a padding left out
+    [Fact]
+    public async Task AFramePartThatCantBeReadShowsPapers()
+    {
+        var id = await _themes.AddAsync(UniqueName(), Choosing());
+        await using (var connection = await database.Site.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync(
+                """UPDATE themes SET settings = jsonb_set(settings, '{frame}', '{"background": "Accent", "backgroundOpacityPercent": 50, "border": "Ink", "borderWidth": "Thick", "corners": "Large"}') WHERE id = @Id""",
+                new { Id = id.Value }
+            );
+        }
+
+        var paper = ThemePresets.Paper.Theme.Frame;
+        Assert.Equal(
+            new ThemeFrame(paper.Background, 50, ColorRole.Ink, FrameBorderWidth.Thick, FrameCorners.Large, paper.Padding),
+            (await _themes.GetAllAsync()).Single(theme => theme.Id == id).Theme.Frame
+        );
     }
 
     // a font its role can no longer have

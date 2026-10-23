@@ -9,9 +9,11 @@
 
   private static readonly WorkPickerTrail AddTrail = new(WorkPickerMode.Add, ListQuery: null);
   private static readonly WorkPickerTrail ImageOnlyTrail = new(WorkPickerMode.ImageOnly, ListQuery: null);
+  private static readonly WorkPickerTrail WorkOnlyTrail = new(WorkPickerMode.WorkOnly, ListQuery: null);
 }
 
-@* The dialog the toolbar's Work button, an embed's Change image and an image component's Choose open.
+@* The dialog the toolbar's Work button, an embed's Change image, an image component's Choose and a link's
+   Choose open.
    WorkPickerDialog.razor.js opens it and hears back from the frame. The frame is only given a page on opening, so editing that
    never adds a work never loads the list *@
 <ModalDialog Title="@($"Choose {Wording.Work.SingularInSentence}")" Width="ModalDialogWidth.Wide" StartsClosed data-part="work-picker">
@@ -19,6 +21,7 @@
           data-add-src="@PageUrls.WorkPickerList(AddTrail)"
           data-change-image-src="@PageUrls.WorkPickerImages(WorkIdPlaceholder, ImageOnlyTrail)"
           data-choose-image-src="@PageUrls.WorkPickerList(ImageOnlyTrail)"
+          data-choose-work-src="@PageUrls.WorkPickerList(WorkOnlyTrail)"
           data-work-id-placeholder="@WorkIdPlaceholder"></iframe>
 
   <ModalDialogActions>

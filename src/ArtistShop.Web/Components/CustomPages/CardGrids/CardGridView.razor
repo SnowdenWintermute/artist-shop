@@ -110,6 +110,9 @@
   }
 
   // the cards missing from a short last page, when there are other pages to keep it level with
+  // only the even grid and rows take the theme's corners, not masonry (Mike, 2026-10-23)
+  private bool HasThemeCorners => Settings.Layout is not CardGridLayout.Masonry;
+
   private int PlaceholderCount(CardGridPage page) =>
     Settings.HasSameSizeCards && Settings.HasPageLinks && page.PageCount > 1 ? page.PageSize - page.Cards.Count : 0;
 
@@ -159,11 +162,11 @@
             {
               case GridCard.OfCollection collection:
                 <CollectionCard @key="collection.Collection.Id" Collection="collection.Collection"
-                                IsSameSize="Settings.HasSameSizeCards" />
+                                IsSameSize="Settings.HasSameSizeCards" HasThemeCorners="HasThemeCorners" />
                 break;
               case GridCard.OfWork work:
                 <WorkCard @key="work.Id" Work="work" CollectionSlug="loaded.WorksCollection"
-                          IsSameSize="Settings.HasSameSizeCards" />
+                          IsSameSize="Settings.HasSameSizeCards" HasThemeCorners="HasThemeCorners" />
                 break;
             }
           }

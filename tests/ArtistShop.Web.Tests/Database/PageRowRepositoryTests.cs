@@ -335,7 +335,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
         await Assert.ThrowsAsync<NameAlreadyInUseException>(() =>
             _components.AddToSlotAsync(slotId, name.ToUpperInvariant(), new PostListSettings())
         );
-        await Assert.ThrowsAsync<NameAlreadyInUseException>(() => _components.UpdateAsync(second, name, new PostListSettings()));
+        await Assert.ThrowsAsync<NameAlreadyInUseException>(() => _components.UpdateAsync(second, name, new PostListSettings(), new ComponentFrame.Off()));
         Assert.Equal(name, Assert.IsType<CustomComponentInUse>(await _components.GetAsync(first)).Component.Name);
     }
 
@@ -351,7 +351,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
 
         var body = """{"ops":[{"insert":"Hello\n"}]}""";
 
-        await _components.UpdateAsync(id, name, new TextSettings(new RichText(body), TextWidth.Full));
+        await _components.UpdateAsync(id, name, new TextSettings(new RichText(body), TextWidth.Full), new ComponentFrame.Off());
 
         var after = Assert.IsType<CustomComponentInUse>(await _components.GetAsync(id));
         var text = Assert.IsType<TextSettings>(after.Component.Settings);
@@ -408,7 +408,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task SavingADeletedComponentSaysItChanged() =>
         await Assert.ThrowsAsync<ChangedSincePageLoadException>(() =>
-            _components.UpdateAsync(new CustomComponentId(int.MaxValue), UniqueName(), new PostListSettings())
+            _components.UpdateAsync(new CustomComponentId(int.MaxValue), UniqueName(), new PostListSettings(), new ComponentFrame.Off())
         );
 
     // as a post's: derived from the text on every save, so a removed embed stops counting
@@ -427,7 +427,7 @@ public sealed class PageRowRepositoryTests(TestDatabaseFixture database)
 
         Assert.Equal([pageId], (await _pages.GetMentioningWorkAsync(workId)).Select(page => page.Id));
 
-        await _components.UpdateAsync(id, name, new TextSettings(RichText.Empty, TextWidth.Narrow));
+        await _components.UpdateAsync(id, name, new TextSettings(RichText.Empty, TextWidth.Narrow), new ComponentFrame.Off());
 
         Assert.Empty(await _pages.GetMentioningWorkAsync(workId));
     }

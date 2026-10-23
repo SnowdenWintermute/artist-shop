@@ -38,7 +38,7 @@ public sealed class ImageComponentTests(TestApp app)
         Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(app.DatabaseOf(site)).GetAsync(id)).Component.Settings;
 
     [Fact]
-    public async Task TheSettingsPageSavesHeightFitPaddingAndLink()
+    public async Task TheSettingsPageSavesHeightFitAndLink()
     {
         var site = await app.MakeSiteAsync();
         var imagePage = await AddImagePageAsync(site);
@@ -51,14 +51,14 @@ public sealed class ImageComponentTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Image 1",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.ImageHeight"] = nameof(ImageHeight.Medium),
                 ["Input.Fit"] = nameof(ImageFit.Contain),
-                ["Input.Padding"] = nameof(ImagePadding.Large),
                 ["Input.Link"] = nameof(ImageLink.None),
             }
         );
 
-        Assert.Equal(new ImageSettings(null, ImageHeight.Medium, ImageFit.Contain, ImagePadding.Large, ImageLink.None), await SettingsOfAsync(site, imagePage.ImageId));
+        Assert.Equal(new ImageSettings(null, ImageHeight.Medium, ImageFit.Contain, ImageLink.None, LinkTarget: null), await SettingsOfAsync(site, imagePage.ImageId));
     }
 
     [Fact]
@@ -75,9 +75,9 @@ public sealed class ImageComponentTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Image 1",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.ImageHeight"] = nameof(ImageHeight.Natural),
                 ["Input.Fit"] = nameof(ImageFit.Contain),
-                ["Input.Link"] = nameof(ImageLink.None),
             }
         );
 
@@ -96,10 +96,10 @@ public sealed class ImageComponentTests(TestApp app)
         new()
         {
             ["Input.Name"] = "Image 1",
+            ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
             ["Input.ImageStorageKey"] = storageKey,
             ["Input.ImageHeight"] = nameof(ImageHeight.Natural),
             ["Input.Fit"] = nameof(ImageFit.Cover),
-            ["Input.Padding"] = nameof(ImagePadding.None),
             ["Input.Link"] = nameof(ImageLink.Lightbox),
         };
 
@@ -159,7 +159,8 @@ public sealed class ImageComponentTests(TestApp app)
         await new CustomComponentRepository(app.DatabaseOf(site)).UpdateAsync(
             imagePage.ImageId,
             "Image 1",
-            ImageSettings.New with { Source = new ImageSource.Work(work.Id, StorageKey: null) }
+            ImageSettings.New with { Source = new ImageSource.Work(work.Id, StorageKey: null) },
+            new ComponentFrame.Off()
         );
         var fullBleedSize = $"/{ImageVariants.FileName(ImageVariants.FullBleedWidth, ImageVariantFormat.Avif)} {ImageVariants.FullBleedWidth}w";
         var hint = $"data-hint=\"{HintType.FullBleedWorkImages}\"";

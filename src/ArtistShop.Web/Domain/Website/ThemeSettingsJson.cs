@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 // A theme as one JSON document, as the themes table's settings column and look.json both keep it:
-// only what the theme chose, keyed by C#'s enum names, as {"colors": {"Page": "#202020"}, "fonts": {...}}
+// only what the theme chose, keyed by C#'s enum names, as {"colors": {"Page": "#202020"}, "fonts": {...}, "frame": {...}}
 public static class ThemeSettingsJson
 {
     // in ColorRole's order, so two themes choosing the same colours write the same text
@@ -23,6 +23,15 @@ public static class ThemeSettingsJson
                         SizePercent = theme.Fonts.For(definition.Role).SizePercent,
                     }
                 ),
+                Frame = new FrameSettings
+                {
+                    Background = theme.Frame.Background.ToString(),
+                    BackgroundOpacityPercent = theme.Frame.BackgroundOpacityPercent,
+                    Border = theme.Frame.Border.ToString(),
+                    BorderWidth = theme.Frame.BorderWidth.ToString(),
+                    Corners = theme.Frame.Corners.ToString(),
+                    Padding = theme.Frame.Padding.ToString(),
+                },
             },
             JsonSerializerOptions.Web
         );
@@ -70,7 +79,7 @@ public static class ThemeSettingsJson
             return false;
         }
 
-        theme = new Theme(new ThemeColors(colors), ThemeFonts.From(role => ReadFont(settings, role)));
+        theme = new Theme(new ThemeColors(colors), ThemeFonts.From(role => ReadFont(settings, role)), ReadFrame(settings.Frame));
         return true;
     }
 
@@ -91,17 +100,49 @@ public static class ThemeSettingsJson
         return ThemePresets.Paper.Theme.Fonts.For(role);
     }
 
+    // each part the same way: one no longer allowed, or left out, shows Paper's
+    private static ThemeFrame ReadFrame(FrameSettings stored)
+    {
+        var paper = ThemePresets.Paper.Theme.Frame;
+
+        return new ThemeFrame(
+            ReadEnum(stored.Background, paper.Background, ThemeFrame.BackgroundRoles.Contains),
+            stored.BackgroundOpacityPercent is int percent && ThemeFrame.AllowsOpacity(percent) ? percent : paper.BackgroundOpacityPercent,
+            ReadEnum(stored.Border, paper.Border, ThemeFrame.BorderRoles.Contains),
+            ReadEnum(stored.BorderWidth, paper.BorderWidth, _ => true),
+            ReadEnum(stored.Corners, paper.Corners, _ => true),
+            ReadEnum(stored.Padding, paper.Padding, _ => true)
+        );
+    }
+
+    private static TEnum ReadEnum<TEnum>(string? name, TEnum paper, Func<TEnum, bool> allows)
+        where TEnum : struct, Enum =>
+        Enum.TryParse<TEnum>(name, out var value) && Enum.IsDefined(value) && value.ToString() == name && allows(value) ? value : paper;
+
     private sealed class ThemeSettings
     {
         public Dictionary<string, string> Colors { get; init; } = [];
 
         // by FontRole name
         public required Dictionary<string, FontSettings> Fonts { get; init; }
+
+        public required FrameSettings Frame { get; init; }
     }
 
     private sealed class FontSettings
     {
         public required string Font { get; init; }
         public required int SizePercent { get; init; }
+    }
+
+    // by the enums' names
+    private sealed class FrameSettings
+    {
+        public string? Background { get; init; }
+        public int? BackgroundOpacityPercent { get; init; }
+        public string? Border { get; init; }
+        public string? BorderWidth { get; init; }
+        public string? Corners { get; init; }
+        public string? Padding { get; init; }
     }
 }

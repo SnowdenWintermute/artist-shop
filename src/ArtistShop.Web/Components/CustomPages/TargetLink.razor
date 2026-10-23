@@ -1,0 +1,45 @@
+@* What a component draws as a link to its LinkTarget, or as it is with none. The address is read as the page
+   is drawn, so a page or work renamed since still gets there. A target deleted meanwhile, whose link the
+   delete takes away, draws no link either *@
+@using ArtistShop.Web.Components.Pages.Catalog
+@using ArtistShop.Web.Database.Repositories
+@inject CustomPageRepository CustomPageRepository
+@inject WorkRepository WorkRepository
+@inject CollectionRepository CollectionRepository
+@inject PostRepository PostRepository
+
+@code {
+  [Parameter, EditorRequired]
+  public required LinkTarget? Target { get; set; }
+  [Parameter]
+  public string? Class { get; set; }
+  [Parameter, EditorRequired]
+  public required RenderFragment ChildContent { get; set; }
+
+  private string? _href;
+
+  protected override async Task OnParametersSetAsync() =>
+    _href = Target switch
+    {
+      null => null,
+      LinkTarget.Page page => await CustomPageRepository.GetAsync(page.Id) is { } found ? PageUrls.CustomPage(found) : null,
+      LinkTarget.Work work => await WorkRepository.GetByIdAsync(work.Id) is { } found
+        ? WorkPageQuery.Url(found.Slug.Value, collectionSlug: null, imageNumber: null)
+        : null,
+      LinkTarget.Collection collection => await CollectionRepository.GetByIdAsync(collection.Id) is { } found
+        ? PageUrls.Collection(found.Slug)
+        : null,
+      LinkTarget.Post post => await PostRepository.GetAsync(post.Id) is { } found ? PageUrls.Post(found.Slug) : null,
+      LinkTarget.Address address => address.Value,
+      _ => throw new InvalidOperationException($"{Target.Type} has no address."),
+    };
+}
+
+@if (_href is not null)
+{
+  <a href="@_href" class="@Class">@ChildContent</a>
+}
+else
+{
+  @ChildContent
+}

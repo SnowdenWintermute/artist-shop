@@ -1,0 +1,110 @@
+@* Where a component links: one of the website's pages, works, collections or posts, or an address. Choosing the
+   type and the page, collection or post saves at once, as the types' choices do; the work saves as the picker
+   closes, and the address with Save. Native radios, since a heading's No link posts "", which binds null *@
+@using System.Globalization
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Domain.Publishing
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public required CustomComponentForm Input { get; set; }
+
+  // a heading may link nowhere; an image set to link here must link somewhere
+  [Parameter, EditorRequired]
+  public required bool IsOptional { get; set; }
+
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<CustomPage> Pages { get; set; }
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<Collection> Collections { get; set; }
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<PostSummary> Posts { get; set; }
+
+  // the chosen work's name, null for none
+  [Parameter, EditorRequired]
+  public required string? WorkName { get; set; }
+
+  private LinkTargetInput LinkTo => Input.LinkTo;
+
+  private const string TypeName = "Input.LinkTo.Type";
+
+  private IReadOnlyList<(string Value, string Label)> Choices =>
+    [
+      .. IsOptional ? [("", "No link")] : Array.Empty<(string, string)>(),
+      .. Enum.GetValues<LinkTargetType>().Select(type => (type.ToString(), Label(type))),
+    ];
+
+  private string Label(LinkTargetType type) =>
+    type switch
+    {
+      LinkTargetType.Page => "Page",
+      LinkTargetType.Work => Wording.Work.SingularHeading,
+      LinkTargetType.Collection => Wording.Collection.SingularHeading,
+      LinkTargetType.Post => "Post",
+      LinkTargetType.Address => "Address",
+      _ => throw new InvalidOperationException($"{type} has no label."),
+    };
+
+  private static string PostLabel(PostSummary post) => post.PublishedAt is null ? $"{post.Title.Value} (draft)" : post.Title.Value;
+}
+
+<SubmitOnChange>
+  <fieldset class="mb-4">
+    <legend class="artist-shop-field-label">@(IsOptional ? "Link" : "Link to")</legend>
+    <div class="flex flex-wrap gap-x-4 gap-y-1">
+      @foreach (var (value, label) in Choices)
+      {
+        <label class="flex cursor-pointer items-center gap-2">
+          <input type="radio" name="@TypeName" value="@value" checked="@(value == (LinkTo.Type?.ToString() ?? ""))" />
+          @label
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  @switch (LinkTo.Type)
+  {
+    case LinkTargetType.Page:
+      <SelectField Label="Page" @bind-Value="Input.LinkTo.PageId">
+        <option value="">Choose a page</option>
+        @foreach (var customPage in Pages)
+        {
+          <option value="@customPage.Id.Value.ToString(CultureInfo.InvariantCulture)">@customPage.Name</option>
+        }
+      </SelectField>
+      break;
+    case LinkTargetType.Collection:
+      <SelectField Label="@Wording.Collection.SingularHeading" @bind-Value="Input.LinkTo.CollectionId">
+        <option value="">Choose one</option>
+        @foreach (var collection in Collections)
+        {
+          <option value="@collection.Id.Value.ToString(CultureInfo.InvariantCulture)">@collection.Name.Value</option>
+        }
+      </SelectField>
+      break;
+    case LinkTargetType.Post:
+      <SelectField Label="Post" @bind-Value="Input.LinkTo.PostId">
+        <option value="">Choose a post</option>
+        @foreach (var post in Posts)
+        {
+          <option value="@post.Id.Value.ToString(CultureInfo.InvariantCulture)">@PostLabel(post)</option>
+        }
+      </SelectField>
+      break;
+  }
+</SubmitOnChange>
+
+@* outside SubmitOnChange: the picker posts the form itself, and the address is saved with Save *@
+@if (LinkTo.Type is LinkTargetType.Work)
+{
+  <LinkWorkPicker WorkIdName="Input.LinkTo.WorkId" WorkId="LinkTo.WorkId" WorkName="@WorkName" />
+}
+else if (LinkTo.Type is LinkTargetType.Address)
+{
+  <TextField Label="Address" @bind-Value="Input.LinkTo.Address" placeholder="https://example.com" autocomplete="off" />
+}
+<ValidationMessage For="() => Input.LinkTo" class="mb-4 block text-error" />

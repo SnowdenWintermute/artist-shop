@@ -278,7 +278,8 @@ public class CustomPageRepository(SiteDatabase database)
             new(
                 new CustomComponentId(Unwrap.Value(ComponentId)),
                 Unwrap.Value(ComponentName),
-                CustomComponentSettingsJson.Read(Unwrap.Value(ComponentType), Unwrap.Value(SettingsVersion), Unwrap.Value(Settings))
+                CustomComponentSettingsJson.Read(Unwrap.Value(ComponentType), Unwrap.Value(SettingsVersion), Unwrap.Value(Settings)),
+                CustomComponentSettingsJson.ReadFrame(Unwrap.Value(Settings))
             );
     }
 }

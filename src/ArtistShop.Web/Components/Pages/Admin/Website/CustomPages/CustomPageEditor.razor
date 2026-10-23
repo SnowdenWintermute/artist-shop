@@ -12,6 +12,7 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject CustomPageRepository CustomPageRepository
+@inject CustomComponentRepository CustomComponentRepository
 @inject OwnAddresses OwnAddresses
 @inject NavigationManager NavigationManager
 @inject TimeProvider TimeProvider
@@ -29,6 +30,8 @@
   // a successful save redirects, so a page rendered from a post is one that didn't go through
   private bool _formWasPosted;
   private bool _changedElsewhere;
+  // the components linking here, which deleting the page deletes or takes the link from
+  private LinkingComponents _linkingHere = LinkingComponents.None;
 
   private CustomPageId PageId => new(Id);
 
@@ -40,6 +43,7 @@
     if (_page is not null)
     {
       Input ??= CustomPageDetailsForm.From(_page);
+      _linkingHere = await CustomComponentRepository.GetLinkingToPagesAsync([PageId]);
     }
   }
 
@@ -141,7 +145,8 @@
           {
             <ConfirmFormDialog Id="@DeleteDialogId" Title="@($"Delete {_page.Name}?")" ConfirmLabel="Delete"
                                OnConfirm="DeleteAsync">
-              Its components can still be added to other pages.
+              <p class="@(!_linkingHere.IsEmpty ? "mb-2" : null)">Its components can still be added to other pages.</p>
+              <LinkingComponentsWarning Components="_linkingHere" />
             </ConfirmFormDialog>
           }
         }

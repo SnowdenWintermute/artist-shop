@@ -1,0 +1,16 @@
+@* A box framed as the theme frames components: FrameCss's variables, which ThemeStyle writes. Class for
+   extras like a margin; data-test comes through AdditionalAttributes *@
+
+@code {
+  [Parameter]
+  public string? Class { get; set; }
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+  [Parameter, EditorRequired]
+  public required RenderFragment ChildContent { get; set; }
+}
+
+<div class="border-(length:--theme-frame-border-width) border-(color:--theme-frame-border) rounded-(--theme-frame-corners) bg-(--theme-frame-background) p-(--theme-frame-padding) @Class"
+     @attributes="AdditionalAttributes">
+  @ChildContent
+</div>

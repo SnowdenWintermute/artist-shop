@@ -1,6 +1,7 @@
 namespace ArtistShop.Web.Database.Repositories;
 
 using ArtistShop.Web.Domain.Catalog;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 using Dapper;
 using Npgsql;
@@ -31,12 +32,12 @@ public class CustomComponentRepository(SiteDatabase database)
         return row?.ToComponentInUse();
     }
 
-    // A new component, placed at the bottom of the slot in the same step. Npgsql sends a C# string
+    // A new component, unframed, placed at the bottom of the slot in the same step. Npgsql sends a C# string
     // as text, so the settings are cast to jsonb in the call
     public async Task<CustomComponentId> AddToSlotAsync(RowSlotId slotId, string name, CustomComponentSettings settings)
     {
         await using var connection = await database.OpenConnectionAsync();
-        var (json, version) = CustomComponentSettingsJson.Write(settings);
+        var (json, version) = CustomComponentSettingsJson.Write(settings, new ComponentFrame.Off());
 
         try
         {
@@ -64,10 +65,10 @@ public class CustomComponentRepository(SiteDatabase database)
         }
     }
 
-    public async Task UpdateAsync(CustomComponentId id, string name, CustomComponentSettings settings)
+    public async Task UpdateAsync(CustomComponentId id, string name, CustomComponentSettings settings, ComponentFrame frame)
     {
         await using var connection = await database.OpenConnectionAsync();
-        var (json, version) = CustomComponentSettingsJson.Write(settings);
+        var (json, version) = CustomComponentSettingsJson.Write(settings, frame);
 
         try
         {
@@ -132,6 +133,41 @@ public class CustomComponentRepository(SiteDatabase database)
     public Task<List<CustomComponentOnPages>> GetImageComponentsShowingImagesAsync(IReadOnlyCollection<string> storageKeys) =>
         GetImageComponentsShowingAsync([], [.. storageKeys]);
 
+    // the components linking to any of these, which deleting them deletes or takes the link from
+    public Task<LinkingComponents> GetLinkingToPagesAsync(IReadOnlyCollection<CustomPageId> ids) =>
+        GetLinkingToAsync([.. ids.Select(id => id.Value)], [], [], []);
+
+    public Task<LinkingComponents> GetLinkingToWorksAsync(IReadOnlyCollection<WorkId> ids) =>
+        GetLinkingToAsync([], [.. ids.Select(id => id.Value)], [], []);
+
+    public Task<LinkingComponents> GetLinkingToCollectionsAsync(IReadOnlyCollection<CollectionId> ids) =>
+        GetLinkingToAsync([], [], [.. ids.Select(id => id.Value)], []);
+
+    public Task<LinkingComponents> GetLinkingToPostsAsync(IReadOnlyCollection<PostId> ids) =>
+        GetLinkingToAsync([], [], [], [.. ids.Select(id => id.Value)]);
+
+    private async Task<LinkingComponents> GetLinkingToAsync(int[] pageIds, int[] workIds, int[] collectionIds, int[] postIds)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+
+        var rows = (
+            await connection.QueryAsync<LinkingRow>(
+                "SELECT * FROM get_custom_components_linking_to(@PageIds, @WorkIds, @CollectionIds, @PostIds)",
+                new { PageIds = pageIds, WorkIds = workIds, CollectionIds = collectionIds, PostIds = postIds }
+            )
+        ).ToLookup(row => row.Type is CustomComponentType.Button, row => new CustomComponentOnPages(new CustomComponentId(row.Id), row.Name, row.PageNames));
+
+        return new LinkingComponents([.. rows[true]], [.. rows[false]]);
+    }
+
+    private sealed class LinkingRow
+    {
+        public required int Id { get; init; }
+        public required CustomComponentType Type { get; init; }
+        public required string Name { get; init; }
+        public required string[] PageNames { get; init; }
+    }
+
     private async Task<List<CustomComponentOnPages>> GetImageComponentsShowingAsync(int[] workIds, string[] storageKeys)
     {
         await using var connection = await database.OpenConnectionAsync();
@@ -165,7 +201,12 @@ public class CustomComponentRepository(SiteDatabase database)
 
         public CustomComponentInUse ToComponentInUse() =>
             new(
-                new CustomComponent(new CustomComponentId(Id), Name, CustomComponentSettingsJson.Read(Type, SettingsVersion, Settings)),
+                new CustomComponent(
+                    new CustomComponentId(Id),
+                    Name,
+                    CustomComponentSettingsJson.Read(Type, SettingsVersion, Settings),
+                    CustomComponentSettingsJson.ReadFrame(Settings)
+                ),
                 PageNames,
                 UpdatedAt,
                 IsBlogPagesOnlyPostList,

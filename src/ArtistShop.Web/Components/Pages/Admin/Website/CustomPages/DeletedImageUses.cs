@@ -5,18 +5,20 @@ using ArtistShop.Web.Domain.Website;
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // What deleting works or library images takes with it on custom pages, read as the confirm opens: the
-// image components showing them, deleted, the pages with a row background showing them, cleared, and the
-// carousels and slideshows losing slides
+// image components showing them, deleted, the pages with a row background showing them, cleared, the
+// carousels and slideshows losing slides, and the components linking to works, deleted or losing the link
 public record DeletedImageUses(
     IReadOnlyList<CustomComponentOnPages> ImageComponents,
     IReadOnlyList<string> RowBackgroundPages,
-    SlideOwnersShowing Slides
+    SlideOwnersShowing Slides,
+    LinkingComponents Linking
 )
 {
-    public static readonly DeletedImageUses None = new([], [], new SlideOwnersShowing([], []));
+    public static readonly DeletedImageUses None = new([], [], new SlideOwnersShowing([], []), LinkingComponents.None);
 
     public bool IsEmpty =>
-        ImageComponents.Count == 0 && RowBackgroundPages.Count == 0 && Slides.Carousels.Count == 0 && Slides.SlideshowPages.Count == 0;
+        ImageComponents.Count == 0 && RowBackgroundPages.Count == 0 && Slides.Carousels.Count == 0 && Slides.SlideshowPages.Count == 0
+        && Linking.IsEmpty;
 
     public static async Task<DeletedImageUses> OfWorksAsync(
         CustomComponentRepository customComponentRepository,
@@ -27,7 +29,8 @@ public record DeletedImageUses(
         new(
             await customComponentRepository.GetImageComponentsShowingWorksAsync(ids),
             await pageRowRepository.GetPagesWithBackgroundsShowingWorksAsync(ids),
-            await slideRepository.GetOwnersShowingWorksAsync(ids)
+            await slideRepository.GetOwnersShowingWorksAsync(ids),
+            await customComponentRepository.GetLinkingToWorksAsync(ids)
         );
 
     public static async Task<DeletedImageUses> OfImagesAsync(
@@ -39,6 +42,7 @@ public record DeletedImageUses(
         new(
             await customComponentRepository.GetImageComponentsShowingImagesAsync(storageKeys),
             await pageRowRepository.GetPagesWithBackgroundsShowingImagesAsync(storageKeys),
-            await slideRepository.GetOwnersShowingImagesAsync(storageKeys)
+            await slideRepository.GetOwnersShowingImagesAsync(storageKeys),
+            LinkingComponents.None
         );
 }

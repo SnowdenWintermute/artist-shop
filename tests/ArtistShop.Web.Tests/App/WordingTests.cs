@@ -190,7 +190,7 @@ public sealed partial class WordingTests(TestApp app)
         // A component's name is the artist's own text, like a collection's, and the starting one was
         // made in the default words, before these were chosen
         var homeComponent = Assert.Single(Assert.Single(homeRow.Slots).Stack);
-        await new CustomComponentRepository(database).UpdateAsync(homeComponent.Id, "Front grid", homeComponent.Settings);
+        await new CustomComponentRepository(database).UpdateAsync(homeComponent.Id, "Front grid", homeComponent.Settings, homeComponent.Frame);
         await RenameStartingPageAsync(site);
         await SaveAsync(site, MadeUpWords);
         var owner = await app.SignedInClientAsync(site.Host, site.OwnerEmail);

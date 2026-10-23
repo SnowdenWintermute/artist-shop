@@ -1,0 +1,68 @@
+@* A component's frame: none, the theme's, or the theme's with some parts chosen here. Native inputs, as
+   ThemePartChoices' are. Each change saves, as the types' choices do *@
+@using ArtistShop.Web.Components.Forms
+
+@code {
+  [Parameter, EditorRequired]
+  public required CustomComponentForm Input { get; set; }
+
+  private ComponentFrameInput Frame => Input.Frame;
+
+  private static string NameOf(string property) => $"Input.Frame.{property}";
+
+  private static readonly IReadOnlyList<(string Value, string Label)> TypeChoices =
+    [.. Enum.GetValues<ComponentFrameType>().Select(type => (type.ToString(), type.ToString()))];
+
+  private static readonly IReadOnlyList<(string Value, string Label)> ColorChoices = [("false", "Theme"), ("true", "Own colour")];
+
+  private static string ValueOf(bool value) => value ? "true" : "false";
+
+  private RenderFragment Choices(string label, string property, string chosen, IReadOnlyList<(string Value, string Label)> choices) =>
+    @<fieldset class="mb-4">
+      <legend class="artist-shop-field-label">@label</legend>
+      <div class="flex flex-wrap gap-x-4 gap-y-1">
+        @foreach (var (value, choiceLabel) in choices)
+        {
+          <label class="flex cursor-pointer items-center gap-2">
+            <input type="radio" name="@NameOf(property)" value="@value" checked="@(value == chosen)" />
+            @choiceLabel
+          </label>
+        }
+      </div>
+    </fieldset>;
+
+  private static RenderFragment Picker(string label, string property, string? color) =>
+    @<input type="color" aria-label="@label" name="@NameOf(property)" value="@color"
+            class="mb-2 block h-10 w-14 cursor-pointer border border-rule bg-panel" />;
+}
+
+<SubmitOnChange>
+  @Choices("Frame", nameof(ComponentFrameInput.Type), Frame.Type.ToString(), TypeChoices)
+  @if (Frame.Type is ComponentFrameType.Custom)
+  {
+    @Choices("Background", nameof(ComponentFrameInput.HasOwnBackground), ValueOf(Frame.HasOwnBackground), ColorChoices)
+    @if (Frame.HasOwnBackground)
+    {
+      <div class="mb-4">
+        @Picker("Background colour", nameof(ComponentFrameInput.Background), Frame.Background)
+        <label class="flex items-center gap-2 text-sm">
+          Opacity
+          <input type="range" min="0" max="100" name="@NameOf(nameof(ComponentFrameInput.BackgroundOpacityPercent))"
+                 value="@Frame.BackgroundOpacityPercent" class="cursor-pointer" />
+          @Frame.BackgroundOpacityPercent%
+        </label>
+      </div>
+    }
+    @Choices("Border colour", nameof(ComponentFrameInput.HasOwnBorder), ValueOf(Frame.HasOwnBorder), ColorChoices)
+    @if (Frame.HasOwnBorder)
+    {
+      <div class="mb-4">
+        @Picker("Border colour", nameof(ComponentFrameInput.Border), Frame.Border)
+      </div>
+    }
+    <ThemePartChoices TEnum="FrameBorderWidth" Label="Border width" Name="@NameOf(nameof(ComponentFrameInput.BorderWidth))" Chosen="Frame.BorderWidth" />
+    <ThemePartChoices TEnum="FrameCorners" Label="Corners" Name="@NameOf(nameof(ComponentFrameInput.Corners))" Chosen="Frame.Corners" />
+    <ThemePartChoices TEnum="FramePadding" Label="Padding" Name="@NameOf(nameof(ComponentFrameInput.Padding))" Chosen="Frame.Padding" />
+  }
+  <ValidationMessage For="() => Input.Frame" class="mb-4 block text-error" />
+</SubmitOnChange>

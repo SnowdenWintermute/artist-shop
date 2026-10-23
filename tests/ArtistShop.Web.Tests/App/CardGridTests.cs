@@ -219,6 +219,7 @@ public sealed partial class CardGridTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Grid 0",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.Source"] = nameof(CardGridSourceType.WorksInCollection),
                 ["Input.CollectionId"] = collectionId.Value.ToString(),
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.Custom),
@@ -255,6 +256,7 @@ public sealed partial class CardGridTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Grid 0",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.Source"] = nameof(CardGridSourceType.WorksInCollection),
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.None),
                 ["Input.CardsPerPage"] = "24",
@@ -329,6 +331,22 @@ public sealed partial class CardGridTests(TestApp app)
         Assert.Equal(layout is CardGridLayout.Masonry, page.Contains("<tile-masonry"));
     }
 
+    [Theory]
+    [InlineData(CardGridLayout.EvenGrid, true)]
+    [InlineData(CardGridLayout.Rows, true)]
+    [InlineData(CardGridLayout.Masonry, false)]
+    public async Task CardsTakeTheThemesCornersOutsideMasonry(CardGridLayout layout, bool hasCorners)
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(app.DatabaseOf(site));
+        await catalog.AddPaintingInCollectionAsync(await catalog.AddCollectionAsync(), [CatalogTestData.CreateTestImage()]);
+        await AddGridPageAsync(site, CardGridSettings.AllCollections with { Layout = layout });
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/grid", TestContext.Current.CancellationToken);
+
+        Assert.Equal(hasCorners, page.Contains("rounded-(--theme-frame-corners)"));
+    }
+
     [Fact]
     public async Task ALayoutLeftOutIsRefused()
     {
@@ -343,6 +361,7 @@ public sealed partial class CardGridTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Grid 0",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.Source"] = nameof(CardGridSourceType.AllCollections),
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.None),
                 ["Input.CardsPerPage"] = "24",
@@ -422,6 +441,7 @@ public sealed partial class CardGridTests(TestApp app)
             new()
             {
                 ["Input.Name"] = "Grid 0",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
                 ["Input.Source"] = nameof(CardGridSourceType.ChosenCards),
                 ["Input.HeadingType"] = nameof(CardGridHeadingType.Automatic),
                 ["Input.CardsPerPage"] = "24",
@@ -509,7 +529,7 @@ public sealed partial class CardGridTests(TestApp app)
 
         var whileShown = await pages.GetMentioningWorkAsync(withImage.Id);
         var notVisible = await pages.GetMentioningWorkAsync(withoutImage.Id);
-        await components.UpdateAsync(gridPage.Grids[0], "Grid 0", CardGridSettings.AllCollections);
+        await components.UpdateAsync(gridPage.Grids[0], "Grid 0", CardGridSettings.AllCollections, new ComponentFrame.Off());
         var afterSwitching = await pages.GetMentioningWorkAsync(withImage.Id);
 
         Assert.Equal(gridPage.PageId, Assert.Single(whileShown).Id);

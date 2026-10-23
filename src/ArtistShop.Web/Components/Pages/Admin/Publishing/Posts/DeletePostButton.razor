@@ -1,8 +1,10 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Pages.Admin.Website.CustomPages
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Publishing
 @inject PostRepository PostRepository
+@inject CustomComponentRepository CustomComponentRepository
 @inject NavigationManager NavigationManager
 
 @code {
@@ -16,6 +18,14 @@
 
   private bool _dialogOpen;
   private bool _isDeleting;
+  // the components linking here, which deleting it deletes or takes the link from
+  private LinkingComponents _linkingHere = LinkingComponents.None;
+
+  private async Task OpenDialogAsync()
+  {
+    _linkingHere = await CustomComponentRepository.GetLinkingToPostsAsync([PostId]);
+    _dialogOpen = true;
+  }
 
   private async Task DeleteAsync()
   {
@@ -34,12 +44,15 @@
 }
 
 <DisabledUntilInteractive>
-  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" @onclick="() => _dialogOpen = true">
+  <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" @onclick="OpenDialogAsync">
     Delete post
   </ButtonBasic>
 
   <ConfirmDialog @bind-Open="_dialogOpen" Title="@($"Delete {PostTitle.Value}?")" ConfirmLabel="Delete"
                  OnConfirm="DeleteAsync" IsWorking="_isDeleting">
-    This deletes the post for good. Its page goes, and the @Wording.Work.PluralInSentence it shows stop listing it.
+    <p class="@(!_linkingHere.IsEmpty ? "mb-2" : null)">
+      This deletes the post for good. Its page goes, and the @Wording.Work.PluralInSentence it shows stop listing it.
+    </p>
+    <LinkingComponentsWarning Components="_linkingHere" />
   </ConfirmDialog>
 </DisabledUntilInteractive>

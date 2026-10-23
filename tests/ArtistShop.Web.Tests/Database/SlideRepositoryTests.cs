@@ -182,7 +182,7 @@ public sealed class SlideRepositoryTests(TestDatabaseFixture database)
 
         var collection = new SlideSource.WorksInCollection(await _catalog.AddCollectionAsync());
         await ShowSlideshowAsync(pageId, row, collection);
-        await _components.UpdateAsync(carousel, carouselName, CarouselSettings.New with { Source = collection });
+        await _components.UpdateAsync(carousel, carouselName, CarouselSettings.New with { Source = collection }, new ComponentFrame.Off());
 
         Assert.Equal(0, Assert.Single((await _library.GetPageAsync(altText, pageNumber: 1)).Items).UsedInCount);
         owners = await _slides.GetOwnersShowingImagesAsync([storageKey]);

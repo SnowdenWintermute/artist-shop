@@ -15,7 +15,8 @@
 }
 
 @* The last step of the picker. <work-embed-choice>, defined in WorkEmbedChoice.razor.js, sends
-   the choice to the page around the frame, which adds an embed, changes an embed's image or sets an image component's; nothing
+   the choice to the page around the frame, which adds an embed, changes an embed's image, sets an image component's or a
+   component's link; nothing
    here is posted *@
 <work-embed-choice class="block" data-work-id="@WorkId.Value" data-storage-key="@Image.StorageKey">
   <img src="@ImageUrls.Variant(Image.StorageKey, ImageSizeQueue.ReadyWidths(Image.StorageKey, Image.Width), ImageVariants.EmbedWidth(EmbedImageSize.Medium), ImageVariantFormat.Avif)" alt=""
@@ -44,6 +45,11 @@
   }
 
   <ButtonBasic type="button" Variant="ButtonVariant.Primary" data-part="insert">
-    @(Mode is WorkPickerMode.Add ? "Add this image" : "Use this image")
+    @(Mode switch
+    {
+      WorkPickerMode.Add => "Add this image",
+      WorkPickerMode.WorkOnly => "Link to it",
+      _ => "Use this image",
+    })
   </ButtonBasic>
 </work-embed-choice>

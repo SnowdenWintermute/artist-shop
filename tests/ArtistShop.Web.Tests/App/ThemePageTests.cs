@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
+using ArtistShop.Web.Components.Layout;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain.Website;
 using ArtistShop.Web.Sites;
@@ -20,10 +21,11 @@ public sealed class ThemePageTests(TestApp app)
         [ColorRole.Ink] = RgbColor.White,
         [ColorRole.Accent] = RgbColor.Parse("#99c1f1"),
         [ColorRole.Bar] = RgbColor.Parse("#aa0000"),
-    }), new ThemeFonts(new FontChoice(Font.Cinzel, 110), new FontChoice(Font.Bitter, 90)));
+    }), new ThemeFonts(new FontChoice(Font.Cinzel, 110), new FontChoice(Font.Bitter, 90)),
+        new ThemeFrame(ColorRole.Panel, 70, ColorRole.Accent, FrameBorderWidth.Medium, FrameCorners.Large, FramePadding.Small));
 
-    // every font and role as the page shows the open theme, then whatever the test changes, as a browser
-    // posts the form. Fonts at Input.Fonts[0] (heading) and [1] (text)
+    // every font, role and frame choice as the page shows the open theme, then whatever the test changes, as a
+    // browser posts the form. Fonts at Input.Fonts[0] (heading) and [1] (text)
     private static Dictionary<string, string> Fields(Theme open, string name, Action<Dictionary<string, string>, Func<ColorRole, string>> change)
     {
         // the page's name and the Save as new theme dialog's, which a test posts whichever it needs
@@ -49,6 +51,13 @@ public sealed class ThemePageTests(TestApp app)
             fields[$"Input.Roles[{index}].OpacityPercent"] = resolved.OpacityPercent.ToString();
             fields[$"Input.Roles[{index}].ShownOpacityPercent"] = resolved.OpacityPercent.ToString();
         }
+
+        fields["Input.Frame.Background"] = open.Frame.Background.ToString();
+        fields["Input.Frame.BackgroundOpacityPercent"] = open.Frame.BackgroundOpacityPercent.ToString();
+        fields["Input.Frame.Border"] = open.Frame.Border.ToString();
+        fields["Input.Frame.BorderWidth"] = open.Frame.BorderWidth.ToString();
+        fields["Input.Frame.Corners"] = open.Frame.Corners.ToString();
+        fields["Input.Frame.Padding"] = open.Frame.Padding.ToString();
 
         change(fields, role => $"Input.Roles[{ColorRoles.All.ToList().FindIndex(definition => definition.Role == role)}]");
         return fields;
@@ -186,6 +195,80 @@ public sealed class ThemePageTests(TestApp app)
         var saved = Assert.Single(await ThemesOf(site).GetAllAsync());
         Assert.Equal(new FontChoice(Font.OpenSans, 120), saved.Theme.Fonts.Text);
         Assert.Equal(Charcoal.Fonts.Heading, saved.Theme.Fonts.Heading);
+    }
+
+    [Fact]
+    public async Task SaveKeepsTheFrame()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        await PostThemeAsync(
+            site,
+            Fields(Charcoal, "Charcoal", (fields, _) =>
+            {
+                fields["Input.Frame.Background"] = nameof(ColorRole.Bar);
+                fields["Input.Frame.BackgroundOpacityPercent"] = "45";
+                fields["Input.Frame.Corners"] = nameof(FrameCorners.None);
+                fields["Input.Save"] = "true";
+            }),
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id))
+        );
+
+        Assert.Equal(
+            Charcoal.Frame with { Background = ColorRole.Bar, BackgroundOpacityPercent = 45, Corners = FrameCorners.None },
+            Assert.Single(await ThemesOf(site).GetAllAsync()).Theme.Frame
+        );
+    }
+
+    [Fact]
+    public async Task TheFramesResetPutsBackTheFrameAsSaved()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        var page = await PostThemeAsync(
+            site,
+            Fields(Charcoal, "Charcoal", (fields, _) =>
+            {
+                fields["Input.Frame.Padding"] = nameof(FramePadding.Large);
+                fields["Input.ResetFrame"] = "true";
+            }),
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id))
+        );
+
+        Assert.Contains($"[data-theme-preview] {{ {FrameCss.Declarations(Charcoal.Frame, Charcoal.Colors)}}}", page);
+    }
+
+    // a role the page doesn't offer for a frame's background, which only a hand-written post sends
+    [Fact]
+    public async Task AFrameBackgroundThePageDoesntOfferIsRefused()
+    {
+        var site = await app.MakeSiteAsync();
+        var id = await ThemesOf(site).AddAsync("Charcoal", Charcoal);
+
+        await PostThemeAsync(
+            site,
+            Fields(Charcoal, "Charcoal", (fields, _) =>
+            {
+                fields["Input.Frame.Background"] = nameof(ColorRole.Accent);
+                fields["Input.Save"] = "true";
+            }),
+            PageUrls.ThemeEditing(new ThemeKey.Saved(id))
+        );
+
+        Assert.Equal(Charcoal.Frame, Assert.Single(await ThemesOf(site).GetAllAsync()).Theme.Frame);
+    }
+
+    [Fact]
+    public async Task PublicPagesHaveTheThemesFrame()
+    {
+        var site = await app.MakeSiteAsync();
+        await ThemesOf(site).UseAsync(new ThemeKey.Saved(await ThemesOf(site).AddAsync("Charcoal", Charcoal)));
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains($":root:has([data-site-theme]) {{ {FrameCss.Declarations(Charcoal.Frame, Charcoal.Colors)}}}", page);
     }
 
     // only a hand-written post can, since the page lists only the fonts each role allows

@@ -4,7 +4,7 @@ using System.Globalization;
 using ArtistShop.Web.Utilities;
 
 // How a website's public pages look
-public sealed record Theme(ThemeColors Colors, ThemeFonts Fonts);
+public sealed record Theme(ThemeColors Colors, ThemeFonts Fonts, ThemeFrame Frame);
 
 public record ThemeId(int Value);
 
@@ -50,6 +50,16 @@ public static class ThemePresets
         new(Font.Roboto, 100)
     );
 
+    // a panel's look, which every preset has for now
+    private static readonly ThemeFrame PlatformFrame = new(
+        ColorRole.Panel,
+        100,
+        ColorRole.Rule,
+        FrameBorderWidth.Thin,
+        FrameCorners.None,
+        FramePadding.Medium
+    );
+
     // the platform's own look, which admin pages always have and a new website starts with
     public static readonly ThemePresetDefinition Paper = new(
         ThemePreset.Paper,
@@ -93,7 +103,8 @@ public static class ThemePresets
             new ThemeColors(
                 choices.ToDictionary(choice => choice.Role, choice => RgbColor.Parse(choice.Hex))
             ),
-            PlatformFonts
+            PlatformFonts,
+            PlatformFrame
         );
 }
 

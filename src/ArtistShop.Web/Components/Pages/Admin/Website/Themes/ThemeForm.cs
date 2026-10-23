@@ -5,8 +5,8 @@ using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.Themes;
 
-// The theme open on the Theme page: its name, its fonts in FontRoles' order and every colour role, in
-// ColorRoles' order. Form posts create this, so it keeps a single public constructor
+// The theme open on the Theme page: its name, its fonts in FontRoles' order, every colour role, in
+// ColorRoles' order, and its frame. Form posts create this, so it keeps a single public constructor
 public class ThemeForm : ServerValidatedForm, IValidatableObject
 {
     // a saved theme's, which Save renames it to
@@ -20,6 +20,8 @@ public class ThemeForm : ServerValidatedForm, IValidatableObject
     public List<FontChoiceInput> Fonts { get; set; } = [];
 
     public List<ColorChoiceInput> Roles { get; set; } = [];
+
+    public FrameInput Frame { get; set; } = new();
 
     // set by Save, which keeps the changes in the theme open; any other submit, like picking a
     // colour, only previews
@@ -40,6 +42,9 @@ public class ThemeForm : ServerValidatedForm, IValidatableObject
     // set by a font's Reset, which puts that font and its size back as the open theme has them saved
     public FontRole? ResetFont { get; set; }
 
+    // set by the frame's Reset, which puts the whole frame back as the open theme has it saved
+    public bool ResetFrame { get; set; }
+
     // set by Derive all from base colors, which derives every role that can be
     public bool DeriveAll { get; set; }
 
@@ -50,6 +55,7 @@ public class ThemeForm : ServerValidatedForm, IValidatableObject
             NewName = newName,
             Fonts = [.. FontRoles.All.Select(definition => FontChoiceInput.From(definition.Role, theme.Fonts))],
             Roles = [.. ColorRoles.All.Select(definition => ColorChoiceInput.From(definition.Role, theme.Colors))],
+            Frame = FrameInput.From(theme.Frame),
         };
 
     public bool IsSavingAsNew => SaveAsNew || SaveAsNewAndUse;
@@ -66,7 +72,12 @@ public class ThemeForm : ServerValidatedForm, IValidatableObject
 
     // a role the post left out, or sent a colour or font for that can't be read, keeps its saved one,
     // and Validate says why
-    public Theme ToTheme(Theme saved) => new(ToColors(saved.Colors), ThemeFonts.From(role => ChosenFont(role, saved.Fonts)));
+    public Theme ToTheme(Theme saved) =>
+        new(
+            ToColors(saved.Colors),
+            ThemeFonts.From(role => ChosenFont(role, saved.Fonts)),
+            ResetFrame ? saved.Frame : Frame.ChosenFrame() ?? saved.Frame
+        );
 
     private ThemeColors ToColors(ThemeColors saved)
     {
@@ -126,6 +137,11 @@ public class ThemeForm : ServerValidatedForm, IValidatableObject
         else if (Fonts.Any(choice => choice.ChosenFont() is null))
         {
             yield return new ValidationResult("A font sent isn't one this page could have picked. Reload it and try again.");
+        }
+
+        if (Frame.ChosenFrame() is null)
+        {
+            yield return new ValidationResult("The frame sent isn't one this page could have picked. Reload it and try again.");
         }
 
         if (IsSaving && ToName() == "")
@@ -213,5 +229,42 @@ public class FontChoiceInput
         && FontRoles.For(Role).Allows(font)
         && FontRoles.For(Role).AllowsSize(SizePercent)
             ? new FontChoice(font, SizePercent)
+            : null;
+}
+
+public class FrameInput
+{
+    public ColorRole Background { get; set; }
+
+    public int BackgroundOpacityPercent { get; set; }
+
+    public ColorRole Border { get; set; }
+
+    public FrameBorderWidth BorderWidth { get; set; }
+
+    public FrameCorners Corners { get; set; }
+
+    public FramePadding Padding { get; set; }
+
+    public static FrameInput From(ThemeFrame frame) =>
+        new()
+        {
+            Background = frame.Background,
+            BackgroundOpacityPercent = frame.BackgroundOpacityPercent,
+            Border = frame.Border,
+            BorderWidth = frame.BorderWidth,
+            Corners = frame.Corners,
+            Padding = frame.Padding,
+        };
+
+    // null when the post sent a choice the page doesn't offer, or left one out
+    public ThemeFrame? ChosenFrame() =>
+        ThemeFrame.BackgroundRoles.Contains(Background)
+        && ThemeFrame.AllowsOpacity(BackgroundOpacityPercent)
+        && ThemeFrame.BorderRoles.Contains(Border)
+        && Enum.IsDefined(BorderWidth)
+        && Enum.IsDefined(Corners)
+        && Enum.IsDefined(Padding)
+            ? new ThemeFrame(Background, BackgroundOpacityPercent, Border, BorderWidth, Corners, Padding)
             : null;
 }

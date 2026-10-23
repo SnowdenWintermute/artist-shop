@@ -12,8 +12,9 @@
     [.. FontRoles.All.Select(definition => Fonts.For(Theme.Fonts.For(definition.Role).Font)).Distinct()];
 }
 
-@* a theme's colours and fonts, with the fonts' files declared. A page that already declares a font,
+@* a theme's colours, fonts and frame, with the fonts' files declared. A page that already declares a font,
    like the Theme page's lists, declaring it again does no harm *@
 <ColorStyle Selector="@Selector" Colors="Theme.Colors" />
 <FontStyle Selector="@Selector" ThemeFonts="Theme.Fonts" />
+<style>@Selector { @FrameCss.Declarations(Theme.Frame, Theme.Colors)}</style>
 <FontFaces Fonts="FontFiles" />

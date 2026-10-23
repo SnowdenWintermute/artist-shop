@@ -171,6 +171,8 @@
   private static bool IsChanged(Theme shown, NamedTheme open, FontRole role) => shown.Fonts.For(role) !=
 open.Theme.Fonts.For(role);
 
+  private static string RoleName(ColorRole role) => ColorRoles.For(role).Name;
+
   // each with its place in Input.Fonts, which names its inputs
   private IEnumerable<(int Index, FontChoiceInput Choice)> NumberedFonts =>
     Input.Fonts.Select((choice, index) => (index, choice)).Where(entry => Enum.IsDefined(entry.choice.Role));
@@ -272,6 +274,36 @@ open.Theme.Fonts.For(role);
                   <ColorRoleField Index="index" Choice="choice" Problems="problems[choice.Role]"
                                   IsChanged="IsChanged(shown, open, choice.Role)" />
                 }
+              </section>
+
+              <section class="mb-6">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 class="mb-2 text-lg">Frames</h2>
+                    <p class="text-sm text-ink-faded">Around components framed by the theme.</p>
+                  </div>
+                  @if (shown.Frame != open.Theme.Frame)
+                  {
+                    @* previews, like a pick, so Save is still what keeps it *@
+                    <ButtonBasic type="submit" name="Input.ResetFrame" value="true" Variant="ButtonVariant.Outline"
+                                 aria-label="Reset frames">Reset</ButtonBasic>
+                  }
+                </div>
+                <RadioField Label="Background" @bind-Value="Input.Frame.Background" Values="ThemeFrame.BackgroundRoles"
+                            LabelOf="RoleName" />
+                <label class="mb-4 flex items-center gap-2 text-sm">
+                  Background opacity
+                  <input type="range" min="0" max="100" name="Input.Frame.BackgroundOpacityPercent"
+                         value="@Input.Frame.BackgroundOpacityPercent" class="cursor-pointer" />
+                  @Input.Frame.BackgroundOpacityPercent%
+                </label>
+                <RadioField Label="Border" @bind-Value="Input.Frame.Border" Values="ThemeFrame.BorderRoles" LabelOf="RoleName" />
+                <RadioField Label="Border width" @bind-Value="Input.Frame.BorderWidth" Values="Enum.GetValues<FrameBorderWidth>()"
+                            LabelOf="value => value.ToString()" />
+                <RadioField Label="Corners" @bind-Value="Input.Frame.Corners" Values="Enum.GetValues<FrameCorners>()"
+                            LabelOf="value => value.ToString()" />
+                <RadioField Label="Padding" @bind-Value="Input.Frame.Padding" Values="Enum.GetValues<FramePadding>()"
+                            LabelOf="value => value.ToString()" />
               </section>
 
               @* for a browser that runs no scripts, where picking a font or color can't preview by itself *@

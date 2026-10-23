@@ -255,12 +255,13 @@ component.Id)]));
     var taken = (await CustomComponentRepository.GetAllAsync())
       .Select(made => made.Component.Name)
       .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var settings = NewCustomComponentSettings.For(starter, (await CustomPageRepository.GetHomeAsync()).Id);
 
     foreach (var name in CustomComponentNames.NewNames(starter, Wording, taken))
     {
       try
       {
-        return await CustomComponentRepository.AddToSlotAsync(slotId, name, NewCustomComponentSettings.For(starter));
+        return await CustomComponentRepository.AddToSlotAsync(slotId, name, settings);
       }
       catch (NameAlreadyInUseException)
       {

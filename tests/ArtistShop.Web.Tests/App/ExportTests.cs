@@ -557,7 +557,8 @@ public sealed class ExportTests(TestApp app)
                     [ColorRole.Accent] = RgbColor.Parse("#ff8800"),
                 }
             ),
-            new ThemeFonts(new FontChoice(Font.Roboto, 120), new FontChoice(Font.Roboto, 90))
+            new ThemeFonts(new FontChoice(Font.Roboto, 120), new FontChoice(Font.Roboto, 90)),
+            new ThemeFrame(ColorRole.Bar, 80, ColorRole.Accent, FrameBorderWidth.Thick, FrameCorners.Small, FramePadding.Large)
         );
         var eveningId = await Themes(from.Id).AddAsync("Evening", evening);
         await Themes(from.Id).AddAsync("Unused", ThemePresets.Paper.Theme);

@@ -2,7 +2,7 @@
    shape or a fixed height. Set to Fill, it instead fills what the slot's other components leave, the
    slot being as tall as the tallest beside it, or the screen in a row that fills it. Fit fits it to any
    height but its own. Nothing is drawn until an image is chosen, or once it's gone. A click opens the
-   lightbox, or the artwork's page, or does nothing *@
+   lightbox, or the artwork's page, or goes to its link target, or does nothing *@
 @using System.Globalization
 @using ArtistShop.Web.Components.Dialogs
 @using ArtistShop.Web.Database.Repositories
@@ -36,22 +36,26 @@
                      Class="@($"block {(isSized ? "h-full" : "h-auto")} w-full")" data-test="image-component" />
     </span>;
 
-  @* Filling, the picture is laid over the space the group takes, inset by the padding. Elsewhere than a
+  @* Filling, the picture is laid over the space the group takes. Elsewhere than a
      row that fills the screen, an empty box of the image's shape holds the group at least that tall,
      so an image alone in its row is its own shape; in such a row, nothing does, so the image never
      makes the row taller than the screen *@
-  <LightboxGroup Class="@(fillsScreenRow ? "relative min-h-48 flex-1" : fills ? $"relative flex-1 {ImageClasses.Padding(Settings.Padding)}" : ImageClasses.Padding(Settings.Padding))"
+  <LightboxGroup Class="@(fillsScreenRow ? "relative min-h-48 flex-1" : fills ? "relative flex-1" : null)"
                  HasLightbox="Settings.Link is ImageLink.Lightbox">
     @if (fills && !fillsScreenRow)
     {
       <div class="mx-auto"
            style="@($"{maximumWidth} aspect-ratio: {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)};")"></div>
     }
-    <div class="@(fills ? $"absolute {ImageClasses.Inset(Settings.Padding)}" : isFixed ? $"mx-auto {ImageClasses.Height(Settings.Height)}" : "mx-auto")"
+    <div class="@(fills ? "absolute inset-0" : isFixed ? $"mx-auto {ImageClasses.Height(Settings.Height)}" : "mx-auto")"
          style="@(fills ? "" : maximumWidth)">
       @if (Settings.Link is ImageLink.ArtworkPage && shown.ArtworkPageUrl is { } href)
       {
         <a href="@href" class="@(isSized ? "block h-full" : "block")">@picture</a>
+      }
+      else if (Settings.Link is ImageLink.Target)
+      {
+        <TargetLink Target="Settings.LinkTarget" Class="@(isSized ? "block h-full" : "block")">@picture</TargetLink>
       }
       else if (Settings.Link is ImageLink.Lightbox)
       {

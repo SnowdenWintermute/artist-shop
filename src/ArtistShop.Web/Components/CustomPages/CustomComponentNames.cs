@@ -27,6 +27,7 @@ public static class CustomComponentNames
             CustomComponentStarter.Heading => Of(CustomComponentType.Heading, wording),
             CustomComponentStarter.Image => Of(CustomComponentType.Image, wording),
             CustomComponentStarter.Carousel => Of(CustomComponentType.Carousel, wording),
+            CustomComponentStarter.Button => Of(CustomComponentType.Button, wording),
             _ => throw new InvalidOperationException($"{starter} has no name."),
         };
 
@@ -39,6 +40,7 @@ public static class CustomComponentNames
             CustomComponentType.Image => "Image",
             CustomComponentType.Carousel => "Carousel",
             CustomComponentType.Heading => "Heading",
+            CustomComponentType.Button => "Button",
             _ => throw new InvalidOperationException($"{type} has no name."),
         };
 }

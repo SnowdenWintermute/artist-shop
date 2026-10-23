@@ -1,4 +1,4 @@
-@* the name every component has, then its type's own fields, and Save *@
+@* the name every component has, then its type's own fields, its frame if its type has one, and Save *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 
@@ -9,6 +9,9 @@
   public EventCallback OnSave { get; set; }
   [Parameter, EditorRequired]
   public bool HoldsUnsavedChanges { get; set; }
+  // CustomComponentSettings.HasFrame
+  [Parameter, EditorRequired]
+  public bool HasFrame { get; set; }
   // the type's fields, if it has any
   [Parameter]
   public RenderFragment? ChildContent { get; set; }
@@ -20,6 +23,10 @@
 
     <TextField Label="Name" @bind-Value="Input.Name" />
     @ChildContent
+    @if (HasFrame)
+    {
+      <ComponentFrameFields Input="Input" />
+    }
     <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
   </EditForm>
 </EnableSaveOnChange>

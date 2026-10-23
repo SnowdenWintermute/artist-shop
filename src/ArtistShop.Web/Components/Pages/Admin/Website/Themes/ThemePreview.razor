@@ -1,3 +1,5 @@
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.CustomPages
 @using ArtistShop.Web.Domain.Website
 
 @code {
@@ -9,6 +11,9 @@
 
   // shrunk from images/aunt tullie's living room.jpeg, small enough for a tile and the lightbox
   private const string PaintingPath = "images/aunt-tullies-living-room.avif";
+
+  // a button component as a new one is, at ordinary text's size to fit the preview; it links nowhere here
+  private static readonly ButtonSettings SampleButton = ButtonSettings.New(new LinkTarget.Address("https://example.com")) with { Size = 2 };
 }
 
 @* A small public page in the theme shown: ThemeStyle sets it on this box alone, so the classes inside
@@ -24,13 +29,14 @@
     <p class="mb-2 font-heading text-xl">@Wording.Collection.PluralHeading</p>
     <div class="mb-3 flex gap-3">
       <div class="w-24">
-        <img src="@Assets[PaintingPath]" alt="" class="mb-1 aspect-square w-full object-cover" />
+        @* cards' pictures take the frame's corners, as a card grid's do outside masonry *@
+        <img src="@Assets[PaintingPath]" alt="" class="mb-1 aspect-square w-full rounded-(--theme-frame-corners) object-cover" />
         <p>Interiors</p>
         <p class="text-ink-faded">@Wording.Work.CountOf(12)</p>
       </div>
       @* the tile of an image still loading, which shows the placeholder *@
       <div class="w-24">
-        <div class="mb-1 aspect-square bg-placeholder"></div>
+        <div class="mb-1 aspect-square rounded-(--theme-frame-corners) bg-placeholder"></div>
         <p>Gardens</p>
         <p class="text-ink-faded">@Wording.Work.CountOf(4)</p>
       </div>
@@ -47,7 +53,16 @@
 
     <div class="mb-3 border border-rule bg-panel p-2">
       <p class="mb-2">A panel</p>
-      <span class="inline-block border border-rule bg-accent px-3 py-1 text-on-accent">Button</span>
+      <span class="inline-block" style="@ButtonClasses.Style(SampleButton)">
+        <span class="@ButtonClasses.Of(SampleButton)">Button</span>
+      </span>
+    </div>
+
+    @* a framed component over a row's image, which the frame's opacity lets show through *@
+    <div class="mb-3 bg-cover bg-center p-3" style="@($"background-image: url('{Assets[PaintingPath]}')")">
+      <FrameBox data-test="frame-preview">
+        <p>A framed component</p>
+      </FrameBox>
     </div>
 
     @* the close button in the corner, out of the way of centring the image *@

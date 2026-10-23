@@ -1,8 +1,8 @@
 DROP FUNCTION IF EXISTS combine_works;
 
 -- Makes several works one, for images uploaded as separate works that were one all along. The kept
--- work takes the others' images, collections and terms, and the slides and row backgrounds showing
--- them, then they're deleted as delete_works deletes, along with whatever else shows them. The others
+-- work takes the others' images, collections and terms, the slides and row backgrounds showing them
+-- and the links to them, then they're deleted as delete_works deletes, along with whatever else shows them. The others
 -- come in the order given, which decides their images' order and whose term a mutually exclusive
 -- vocabulary keeps. An id already deleted is passed over. plpgsql, so the functions it calls are
 -- looked up when it runs and the files can run in any order
@@ -65,6 +65,22 @@ BEGIN
         background_work_image_key = COALESCE(page_row.background_work_image_key, work_main_image_key(page_row.background_work_id))
     WHERE
         page_row.background_work_id = ANY (p_other_ids);
+
+    UPDATE custom_components AS component
+    SET
+        settings = jsonb_set(component.settings, '{linkTarget,workId}', to_jsonb(p_kept_id)),
+        updated_at = now()
+    FROM
+        custom_component_links AS link
+    WHERE
+        link.component_id = component.id
+        AND link.work_id = ANY (p_other_ids);
+
+    UPDATE custom_component_links
+    SET
+        work_id = p_kept_id
+    WHERE
+        work_id = ANY (p_other_ids);
 
     -- after the kept work's own, each work's in its own order. Only a storage key names an image file,
     -- so moving the rows moves the images

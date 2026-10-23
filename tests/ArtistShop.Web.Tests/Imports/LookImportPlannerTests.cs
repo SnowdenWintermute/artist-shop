@@ -117,6 +117,7 @@ public sealed class LookImportPlannerTests
                     [ColorRole.Accent] = RgbColor.Parse("#ff0000"),
                 }
             ),
-            ThemePresets.Paper.Theme.Fonts
+            ThemePresets.Paper.Theme.Fonts,
+            ThemePresets.Paper.Theme.Frame
         );
 }

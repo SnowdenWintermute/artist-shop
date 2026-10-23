@@ -12,8 +12,8 @@ using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
-// A component's name, and the settings of its type: a text component's text and width, a heading's text, size,
-// font, boldness and alignment, a card grid's source, heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
+// A component's name, its frame, and the settings of its type: a text component's text and width, a heading's text, size,
+// font, boldness, alignment and link, a button's text, link, alignment, style, size and colour, a card grid's source, heading and paging, an image's fit and link, a carousel's source and how it shows its slides. Form posts
 // create this, so it keeps a single public constructor
 public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 {
@@ -40,7 +40,22 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 
     public bool Bold { get; set; }
 
-    public HeadingAlignment Alignment { get; set; }
+    // a heading's or a button's
+    public ComponentAlignment Alignment { get; set; }
+
+    [StringLength(ArtistShopLimits.HeadingTextMaximumLength)]
+    public string? ButtonText { get; set; }
+
+    public ButtonStyle ButtonStyle { get; set; }
+
+    public int ButtonSize { get; set; }
+
+    public ButtonColor ButtonColor { get; set; }
+
+    // null for the theme frame's
+    public FrameBorderWidth? ButtonBorderWidth { get; set; }
+
+    public FrameCorners? ButtonCorners { get; set; }
 
     [Range(1, ArtistShopLimits.CardGridMaximumCardsPerPage)]
     public int? CardsPerPage { get; set; }
@@ -52,8 +67,6 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
     public ImageHeight ImageHeight { get; set; }
 
     public ImageFit Fit { get; set; }
-
-    public ImagePadding Padding { get; set; }
 
     public ImageLink Link { get; set; }
 
@@ -69,9 +82,42 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 
     public CarouselCaption Caption { get; set; }
 
+    public ComponentFrameInput Frame { get; set; } = new();
+
+    // A heading's or a button's link, or an image's when its Link is Target. A post that sent none of its fields, as an image
+    // linking anywhere else doesn't, binds null, which is no link
+    public LinkTargetInput LinkTo
+    {
+        get => _linkTo;
+        set => _linkTo = value ?? new();
+    }
+
+    private LinkTargetInput _linkTo = new();
+
     // LibraryImages holds the library images a text component's text shows, which the editor draws its
-    // image embeds from
-    public static CustomComponentForm From(CustomComponent component, IReadOnlyDictionary<string, UploadedImage> libraryImages) =>
+    // image embeds from. Theme is the website's, whose frame colours the frame's pickers start from
+    public static CustomComponentForm From(
+        CustomComponent component,
+        IReadOnlyDictionary<string, UploadedImage> libraryImages,
+        Theme theme
+    )
+    {
+        var form = FromSettings(component, libraryImages);
+        form.Frame = ComponentFrameInput.From(component.Frame, theme);
+        form.LinkTo = LinkTargetInput.From(
+            component.Settings switch
+            {
+                HeadingSettings heading => heading.LinkTarget,
+                ImageSettings image => image.LinkTarget,
+                ButtonSettings button => button.LinkTarget,
+                _ => null,
+            }
+        );
+
+        return form;
+    }
+
+    private static CustomComponentForm FromSettings(CustomComponent component, IReadOnlyDictionary<string, UploadedImage> libraryImages) =>
         component.Settings switch
         {
             TextSettings text => new()
@@ -88,6 +134,17 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 Font = heading.Font,
                 Bold = heading.Bold,
                 Alignment = heading.Alignment,
+            },
+            ButtonSettings button => new()
+            {
+                Name = component.Name,
+                ButtonText = button.Text,
+                Alignment = button.Alignment,
+                ButtonStyle = button.Style,
+                ButtonSize = button.Size,
+                ButtonColor = button.Color,
+                ButtonBorderWidth = button.BorderWidth,
+                ButtonCorners = button.Corners,
             },
             CardGridSettings cardGrid => new()
             {
@@ -107,7 +164,6 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 ImageWorkId = ImageWorkIdOf(image.Source),
                 ImageHeight = image.Height,
                 Fit = image.Fit,
-                Padding = image.Padding,
                 Link = image.Link,
             },
             CarouselSettings carousel => new()
@@ -180,6 +236,32 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         return isValid;
     }
 
+    // A button's text and choices; its link is CheckLink's. False when the form says by the field why
+    public bool CheckButton(CustomComponentSettings saved)
+    {
+        if (saved is not ButtonSettings)
+        {
+            return true;
+        }
+
+        var isValid = CheckSelects(
+            (Enum.IsDefined(Alignment), nameof(Alignment)),
+            (Enum.IsDefined(ButtonStyle), nameof(ButtonStyle)),
+            (ButtonSettings.AllowsSize(ButtonSize), nameof(ButtonSize)),
+            (Enum.IsDefined(ButtonColor), nameof(ButtonColor)),
+            (ButtonBorderWidth is not { } width || Enum.IsDefined(width), nameof(ButtonBorderWidth)),
+            (ButtonCorners is not { } corners || Enum.IsDefined(corners), nameof(ButtonCorners))
+        );
+
+        if (string.IsNullOrWhiteSpace(ButtonText))
+        {
+            AddServerError(nameof(ButtonText), "Write the button's text.");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
     // A card grid's choices that depend on each other or on the catalog. False when the form says by the
     // field why
     public bool CheckCardGrid(CustomComponentSettings saved, IReadOnlyList<Collection> collections)
@@ -231,7 +313,6 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         var isValid = CheckSelects(
             (Enum.IsDefined(ImageHeight), nameof(ImageHeight)),
             (Enum.IsDefined(Fit), nameof(Fit)),
-            (Enum.IsDefined(Padding), nameof(Padding)),
             (Enum.IsDefined(Link), nameof(Link))
         );
 
@@ -265,14 +346,60 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         return isValid;
     }
 
+    // A heading's link, which may be none, a button's, which can't, or an image's set to link to a target. False
+    // when the form says by the link why
+    public bool CheckLink(CustomComponentSettings saved)
+    {
+        var problem = saved switch
+        {
+            HeadingSettings => LinkTo.Problem(),
+            ImageSettings when Link is ImageLink.Target => LinkTo.Type is null ? "Choose what to link to." : LinkTo.Problem(),
+            ButtonSettings => LinkTo.Type is null ? "Choose what to link to." : LinkTo.Problem(),
+            _ => null,
+        };
+
+        if (problem is null)
+        {
+            return true;
+        }
+
+        AddServerError(nameof(LinkTo), problem);
+        return false;
+    }
+
+    // False when the form says by the frame why. A type without frames posts none
+    public bool CheckFrame(CustomComponentSettings saved)
+    {
+        if (!saved.HasFrame || Frame.ToFrame() is not null)
+        {
+            return true;
+        }
+
+        AddServerError(nameof(Frame), "The frame sent isn't one this page could have picked. Reload it and try again.");
+        return false;
+    }
+
     public string ToName() => Unwrap.Value(Name).Trim();
+
+    public ComponentFrame ToFrame(CustomComponentSettings saved) =>
+        saved.HasFrame ? Frame.ToFrame() ?? throw new InvalidOperationException("Save checks the frame first.") : new ComponentFrame.Off();
 
     // the saved settings with this form's changes; a type with none comes back as it was
     public CustomComponentSettings ToSettings(CustomComponentSettings saved) =>
         saved switch
         {
             TextSettings => new TextSettings(LibraryImageFields.Strip(new RichText(Unwrap.Value(Body))), Width),
-            HeadingSettings => new HeadingSettings(Unwrap.Value(HeadingText).Trim(), Size, Font, Bold, Alignment),
+            HeadingSettings => new HeadingSettings(Unwrap.Value(HeadingText).Trim(), Size, Font, Bold, Alignment, LinkTo.ToTarget()),
+            ButtonSettings => new ButtonSettings(
+                Unwrap.Value(ButtonText).Trim(),
+                LinkTo.ToTarget() ?? throw new InvalidOperationException("Save checks the button's link first."),
+                Alignment,
+                ButtonStyle,
+                ButtonSize,
+                ButtonColor,
+                ButtonBorderWidth,
+                ButtonCorners
+            ),
             CardGridSettings => new CardGridSettings(
                 CardGridSource.Of(Source, ChosenCollectionId),
                 // a custom list has nothing to name it by, so Automatic, which a grid had before switching to one, is None
@@ -287,8 +414,8 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 ChosenImageSource,
                 ImageHeight,
                 Fit,
-                Padding,
-                Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link
+                Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link,
+                Link is ImageLink.Target ? LinkTo.ToTarget() : null
             ),
             CarouselSettings => new CarouselSettings(
                 Domain.Website.SlideSource.Of(SlideSource, ChosenCollectionId),
