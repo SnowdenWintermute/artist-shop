@@ -21,6 +21,9 @@
   // in the artist's order
   [Parameter, EditorRequired]
   public IReadOnlyList<Collection> AllCollections { get; set; } = default!;
+  // the type has a date created to fill in from the photos
+  [Parameter, EditorRequired]
+  public bool OffersDatesTaken { get; set; }
   [Parameter, EditorRequired]
   public EventCallback<DropCollectionChoice> OnOk { get; set; }
   [Parameter, EditorRequired]
@@ -32,6 +35,7 @@
   private readonly HashSet<string> _checkedFolders = [];
   private readonly HashSet<int> _checkedCollections = [];
   private bool _isAddingCollection;
+  private bool _usesDatesTaken;
 
   private IEnumerable<string> CheckablePaths =>
     Folders.Where(folder => folder.Type is not DroppedFolderCollectionType.CannotBeCollection).Select(folder =>
@@ -65,7 +69,8 @@ folder.Path);
       new DropCollectionChoice(
         [.. Folders.Where(folder => _checkedFolders.Contains(folder.Path))],
         [.. AllCollections.Where(collection => _checkedCollections.Contains(collection.Id.Value)).Select(collection =>
-collection.Id)]
+collection.Id)],
+        OffersDatesTaken && _usesDatesTaken
       )
     );
 
@@ -78,7 +83,7 @@ collection.Id)]
     };
 }
 
-<ModalDialog Title="@($"{Wording.Collection.PluralHeading} for these {Wording.Work.PluralInSentence}")"
+<ModalDialog Title="@($"Before adding these {Wording.Work.PluralInSentence}")"
              Width="ModalDialogWidth.Wide" OnClose="OnClose" KeepOpen="_isAddingCollection" IgnoresBackdropClick>
   @if (Folders.Count > 0)
   {
@@ -145,6 +150,15 @@ collection.Id)]
                                @bind-IsAdding="_isAddingCollection" />
           }
         </div>
+
+        @if (OffersDatesTaken)
+        {
+          <label class="mb-4 flex cursor-pointer items-center gap-2">
+            <input type="checkbox" class="cursor-pointer" checked="@_usesDatesTaken"
+                   @onchange="() => _usesDatesTaken = !_usesDatesTaken" />
+            Set each date created to the day its photo was taken
+          </label>
+        }
 
         <ModalDialogActions>
           <ModalCloseButton Label="Cancel" Disabled="_isAddingCollection" />

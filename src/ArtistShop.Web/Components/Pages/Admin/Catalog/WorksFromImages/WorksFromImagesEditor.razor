@@ -1,5 +1,6 @@
 @rendermode InteractiveServer
 @using System.Globalization
+@using System.Text.Json
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Catalog
 @using ArtistShop.Web.Components.Forms.FileUpload
@@ -49,6 +50,8 @@
   private IEnumerable<RowImage> RowImages => _rows.SelectMany(row => row.Images);
 
   private IReadOnlyList<SkippedImage> _skipped = [];
+  // works of the last drop left without a date created because their photo had none to give
+  private int _undatedCount;
   private UnusableFileCounts _unusable = UnusableFileCounts.None;
   private bool _tooManyFiles;
   private string? _dropError;
@@ -130,13 +133,14 @@
     ];
 
     _skipped = [];
+    _undatedCount = 0;
     _pendingDrop = null;
 
     // a drop with no images has only the files it couldn't use to report, and one whose images would
     // all be skipped whatever collections they joined has nothing to ask about
     if (candidates.Count > 0)
     {
-      var plan = await PlanAsync(type.Id, candidates, new DropCollectionChoice([], []));
+      var plan = await PlanAsync(type.Id, candidates, new DropCollectionChoice([], [], UsesDatesTaken: false));
 
       if (plan.Works.Count is 0)
       {
@@ -214,8 +218,13 @@ IReadOnlyList<BulkImageCandidate> candidates, DropCollectionChoice choice)
     var plan = await PlanAsync(typeId, candidates, choice);
     _skipped = plan.Skipped;
 
-    var identifiers = await WorkRepository.AddManyAsync([.. plan.Works.Select(work => ToAddition(typeId,
-work))]);
+    var datesTaken = choice.UsesDatesTaken ? await ReadDatesTakenAsync(candidates) : new Dictionary<string, PartialDate>();
+    // a work's date is its first image's, the one titling it
+    var dates = plan.Works.Select(work => datesTaken.GetValueOrDefault(work.Images[0].Id)).ToList();
+    _undatedCount = choice.UsesDatesTaken ? dates.Count(date => date is null) : 0;
+
+    var identifiers = await WorkRepository.AddManyAsync([.. plan.Works.Zip(dates, (work, date) => ToAddition(typeId,
+work, date))]);
 
     if (plan.Works.Any(work => work.NewCollectionName is not null))
     {
@@ -223,7 +232,8 @@ work))]);
     }
 
     var rows = plan.Works
-      .Zip(identifiers, (work, added) => WorkTableRow.FromDrop(added.Id, work, CollectionIdsFor(work)))
+      .Zip(identifiers, dates)
+      .Select(entry => WorkTableRow.FromDrop(entry.Second.Id, entry.First, CollectionIdsFor(entry.First), entry.Third))
       .ToList();
 
     foreach (var image in rows.SelectMany(row => row.Images))
@@ -249,13 +259,49 @@ work))]);
       ? [.. work.CollectionIds, _collections.Single(collection => collection.Slug == CollectionSlug.FromName(name.Value)).Id]
       : work.CollectionIds;
 
-  private static WorkCatalogAddition ToAddition(WorkTypeId typeId, PlannedWorkFromImages work) =>
+  // the script reads each photo's date in the browser, which holds the files; the server has none of them yet
+  private async Task<Dictionary<string, PartialDate>> ReadDatesTakenAsync(IReadOnlyList<BulkImageCandidate> candidates)
+  {
+    if (_uploader is null)
+    {
+      return [];
+    }
+
+    List<ImageDateTaken> read;
+
+    // the page closed while the dates were being read, so there is no one left to add the works for
+    try
+    {
+      await using var reference = await _uploader.Reference.InvokeAsync<IJSStreamReference>(
+        "datesTaken", Assets["lib/exifr/full.esm.js"].ToString(), candidates.Select(candidate => candidate.Id));
+      await using var stream = await reference.OpenReadStreamAsync(BulkImageDrop.MaximumDatesTakenBytes);
+      read = await JsonSerializer.DeserializeAsync<List<ImageDateTaken>>(stream, JsonSerializerOptions.Web) ?? [];
+    }
+    catch (JSDisconnectedException)
+    {
+      return [];
+    }
+
+    var dates = new Dictionary<string, PartialDate>();
+
+    foreach (var image in read)
+    {
+      if (ExifDateTaken.DayOf(image.DateTaken) is { } date)
+      {
+        dates[image.Id] = date;
+      }
+    }
+
+    return dates;
+  }
+
+  private static WorkCatalogAddition ToAddition(WorkTypeId typeId, PlannedWorkFromImages work, PartialDate? dateCreated) =>
     new(
       typeId,
       work.Name,
       WorkSlug.FromName(work.Name.Value),
       Description: null,
-      DateCreated: null,
+      DateCreated: dateCreated,
       Dimensions: null,
       Duration: null,
       Images: [],
@@ -460,6 +506,11 @@ work))]);
 
 <SkippedImagesReport Skipped="_skipped" Unusable="_unusable" />
 
+@if (_undatedCount > 0)
+{
+  <p class="mb-4 text-sm text-ink-faded">@Wording.Work.CountOf(_undatedCount) had no date taken in their photo.</p>
+}
+
 @if (_isUploading)
 {
   @* no Stop: the works are already added, so stopping would leave them without their images *@
@@ -499,5 +550,6 @@ else if (UnsentCount > 0)
   {
     <DropCollectionDialog Folders="pendingDrop.Folders"
                           LooseImageCount="@WorksFromImagesPlanner.LooseImageCount(pendingDrop.Candidates)" AllCollections="_collections"
+                          OffersDatesTaken="@(_type?.Fields.Contains(WorkField.DateCreated) is true)"
                           OnOk="CollectionChosenAsync" OnClose="() => _pendingDrop = null" OnCollectionAdded="DropCollectionAdded" />
   }

@@ -11,6 +11,9 @@ public static class BulkImageDrop
     // of an id, a path, a size and a content type
     public const long MaximumMetadataBytes = MaximumFiles * 400L;
 
+    // the same kind of backstop for an entry of an id and a date taken, both well under 100 bytes
+    public const long MaximumDatesTakenBytes = MaximumFiles * 100L;
+
     // the dropped folder and one level of folders inside it. Deeper than that is someone's thumbnails
     public const int MaximumDirectoryDepth = 2;
 

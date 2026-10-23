@@ -52,9 +52,14 @@ public record SkippedImage(string Path, WorkFromImagesSkipReason Reason);
 
 public record WorksFromImagesPlan(IReadOnlyList<PlannedWorkFromImages> Works, IReadOnlyList<SkippedImage> Skipped);
 
-// what the artist chose in the collection dialog after a drop: the folders whose names are collections, and
-// the collections for images dropped on their own
-public record DropCollectionChoice(IReadOnlyList<DroppedFolder> CollectionFolders, IReadOnlyList<CollectionId> LooseCollectionIds);
+// what the artist chose in the collection dialog after a drop: the folders whose names are collections,
+// the collections for images dropped on their own, and whether each work's date created is the day its
+// first photo was taken
+public record DropCollectionChoice(
+    IReadOnlyList<DroppedFolder> CollectionFolders,
+    IReadOnlyList<CollectionId> LooseCollectionIds,
+    bool UsesDatesTaken
+);
 
 // Turns dropped images into new works, titled by file name the way the Upload images page
 // matches them, so that page can still attach whatever this one didn't get to send

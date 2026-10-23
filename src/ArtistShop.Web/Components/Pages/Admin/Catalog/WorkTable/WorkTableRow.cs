@@ -62,10 +62,22 @@ public class WorkTableRow : EditableTableRow
     }
 
     // just created from a drop, with its images still to upload
-    public static WorkTableRow FromDrop(WorkId id, PlannedWorkFromImages planned, IReadOnlyList<CollectionId> collectionIds) =>
+    public static WorkTableRow FromDrop(
+        WorkId id,
+        PlannedWorkFromImages planned,
+        IReadOnlyList<CollectionId> collectionIds,
+        PartialDate? dateCreated
+    ) =>
         new(
             id,
-            new WorkForm { Name = planned.Name.Value, CollectionIds = [.. collectionIds.Select(collectionId => collectionId.Value)] },
+            new WorkForm
+            {
+                Name = planned.Name.Value,
+                CollectionIds = [.. collectionIds.Select(collectionId => collectionId.Value)],
+                YearCreated = dateCreated?.Date.Year,
+                MonthCreated = dateCreated?.Date.Month,
+                DayCreated = dateCreated?.Date.Day,
+            },
             [.. planned.Images.Select(image => new RowImage(image))]
         );
 

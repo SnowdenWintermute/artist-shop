@@ -7,8 +7,17 @@ namespace ArtistShop.Web.Tests.Components;
 
 public sealed class WorkTableRowTests
 {
-    private static WorkTableRow Row() =>
-        WorkTableRow.FromDrop(new WorkId(1), new PlannedWorkFromImages(new WorkName("Dawn"), [], NewCollectionName: null, [new BulkImageCandidate("a", "/P/Dawn.jpg")]), []);
+    private static WorkTableRow Row(PartialDate? dateCreated = null) =>
+        WorkTableRow.FromDrop(new WorkId(1), new PlannedWorkFromImages(new WorkName("Dawn"), [], NewCollectionName: null, [new BulkImageCandidate("a", "/P/Dawn.jpg")]), [], dateCreated);
+
+    [Fact]
+    public void ADateTakenFillsTheDateCreated()
+    {
+        var row = Row(new PartialDate(new DateOnly(2024, 5, 1), DatePrecision.Day));
+
+        Assert.Equal("2024", row.YearText);
+        Assert.Equal((5, 1), (row.Form.MonthCreated, row.Form.DayCreated));
+    }
 
     // Firefox takes letters in a type="number" input and reports them as blank, which is why these are text
     [Fact]
@@ -123,7 +132,8 @@ public sealed class WorkTableRowTests
         var row = WorkTableRow.FromDrop(
             new WorkId(1),
             new PlannedWorkFromImages(new WorkName("Dawn"), [], NewCollectionName: null, [new BulkImageCandidate("a", "/P/Dawn.jpg"), new BulkImageCandidate("b", "/P/Dawn (2).jpg")]),
-            []
+            [],
+            dateCreated: null
         );
         row.Images[0].State = RowImageState.Added;
         row.Images[0].Image = Image('a');

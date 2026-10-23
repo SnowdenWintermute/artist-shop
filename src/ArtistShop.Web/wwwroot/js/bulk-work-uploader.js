@@ -16,6 +16,9 @@ const LEAVE_QUESTION = "Images are still uploading. Leave anyway?";
 // takes a whole work, so a work's files still go in order
 const CONCURRENT_UPLOADS = 4;
 
+// exifr reads only the start of each file, so a few at once is plenty
+const CONCURRENT_DATE_READS = 8;
+
 // Shared by the Upload images page and the Add from images page
 
 /** @typedef {{ id: string, workId: number | null }} UploadItem */
@@ -136,10 +139,47 @@ export function createBulkUploader(zone, dotNetReference, maximumFiles) {
     }
   }
 
+  /**
+   * Each photo's date taken as EXIF writes it, "2024:05:01 10:00:00", or null when it has none or is
+   * a format exifr can't read, like WebP. exifrSrc is Assets' address, relative to the page's <base>,
+   * so it's made a full address for import(). A blob, as the list can pass SignalR's 32 KB cap
+   * @param {string} exifrSrc
+   * @param {string[]} ids
+   */
+  async function datesTaken(exifrSrc, ids) {
+    const { default: exifr } = await import(new URL(exifrSrc, document.baseURI).href);
+    const remaining = [...ids];
+    /** @type {{ id: string, dateTaken: string | null }[]} */
+    const found = [];
+
+    async function readRemaining() {
+      for (let id = remaining.shift(); id !== undefined; id = remaining.shift()) {
+        const file = files.fileOf(id);
+        let dateTaken = null;
+
+        try {
+          const tags = file
+            ? await exifr.parse(file, { pick: ["DateTimeOriginal", "CreateDate"], reviveValues: false })
+            : undefined;
+          const value = tags?.DateTimeOriginal ?? tags?.CreateDate;
+          dateTaken = typeof value === "string" ? value : null;
+        } catch {
+          // a format exifr doesn't read, or a damaged file: no date, as for a photo without one
+        }
+
+        found.push({ id, dateTaken });
+      }
+    }
+
+    await Promise.all(Array.from({ length: CONCURRENT_DATE_READS }, readRemaining));
+    return new Blob([JSON.stringify(found)]);
+  }
+
   const files = createFileCollection(zone, maximumFiles, { isRunning: () => isRunning, notify });
 
   return {
     metadata: files.metadata,
+    datesTaken,
     /**
      * @param {UploadItem[][]} works
      * @param {number} typeId
