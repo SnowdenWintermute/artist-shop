@@ -125,14 +125,14 @@ let quillLoaded = null;
 
 /**
  * @param {string} src
- * @param {() => void} registerFormats
+ * @param {() => void} register
  */
-function loadQuill(src, registerFormats) {
+function loadQuill(src, register) {
   quillLoaded ??= new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = src;
     script.onload = () => {
-      registerFormats();
+      register();
       resolve();
     };
     script.onerror = () => {
@@ -163,7 +163,17 @@ function registerFormats(sizes) {
   class Heading extends Block {
     static blotName = HEADING;
     static tagName = ["H2", "H1", "H3", "H4", "H5", "H6"];
-    static className = "font-heading";
+
+    // The class is added here rather than as className, which Quill would match before the tag, so
+    // pasting anything with font-heading, like a nav link from the site, would make a heading of it
+    /** @param {unknown} value */
+    static create(value) {
+      const node = super.create(value);
+      if (node instanceof HTMLElement) {
+        node.classList.add("font-heading");
+      }
+      return node;
+    }
 
     // whatever the tag, it's a heading, not a level of one
     static formats() {
