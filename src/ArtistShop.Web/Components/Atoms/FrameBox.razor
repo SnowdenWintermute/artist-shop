@@ -1,5 +1,7 @@
 @* A box framed as the theme frames components: FrameCss's variables, which ThemeStyle writes. Class for
-   extras like a margin; data-test comes through AdditionalAttributes *@
+   extras like a margin; data-test comes through AdditionalAttributes. What it holds is spaced below for the
+   next thing in its slot, as a heading or a text is, which inside the frame would make its padding deeper at
+   the bottom; so the last thing in it, and the last thing in that, lose their bottom margin *@
 
 @code {
   [Parameter]
@@ -10,7 +12,7 @@
   public required RenderFragment ChildContent { get; set; }
 }
 
-<div class="border-(length:--theme-frame-border-width) border-(color:--theme-frame-border) rounded-(--theme-frame-corners) bg-(--theme-frame-background) p-(--theme-frame-padding) @Class"
+<div class="border-(length:--theme-frame-border-width) border-(color:--theme-frame-border) rounded-(--theme-frame-corners) bg-(--theme-frame-background) p-(--theme-frame-padding) [&>:last-child]:mb-0 [&>:last-child>:last-child]:mb-0 @Class"
      @attributes="AdditionalAttributes">
   @ChildContent
 </div>

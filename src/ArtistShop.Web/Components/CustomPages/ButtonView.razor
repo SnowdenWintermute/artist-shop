@@ -1,11 +1,11 @@
-@* A button component: a link drawn as a button, on its side of the slot, spaced below as a heading is. The size's
-   font size, which the button's padding follows, and its own border width and corners are set round it *@
+@* A button component: a link drawn as a button, on its side of the slot, spaced below as a heading is. Its own
+   border width and corners are set round it *@
 
 @code {
   [Parameter, EditorRequired]
   public required ButtonSettings Settings { get; set; }
 }
 
-<div class="@($"mb-4 flex {ButtonClasses.Alignment(Settings.Alignment)}")" style="@ButtonClasses.Style(Settings)">
+<div class="@($"mb-4 flex {ComponentAlignmentClasses.Flex(Settings.Alignment)}")" style="@ButtonClasses.Style(Settings)">
   <TargetLink Target="Settings.LinkTarget" Class="@ButtonClasses.Of(Settings)">@Settings.Text</TargetLink>
 </div>

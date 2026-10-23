@@ -93,14 +93,14 @@ public enum ButtonColor
 
 // A link drawn as a button, going to its LinkTarget: a new one goes to the website's home page, so it shows at
 // once. Deleting what it links to deletes the button (Mike, 2026-10-23). It has no frame, being a box itself.
-// Size is a step from MinimumSize to MaximumSize, which ButtonClasses draws. BorderWidth and Corners null take the
+// Size is one of the heading's sizes, which the button's padding grows with. BorderWidth and Corners null take the
 // theme frame's, as a custom frame's parts do
 public sealed record ButtonSettings(
     string Text,
     LinkTarget LinkTarget,
     ComponentAlignment Alignment,
     ButtonStyle Style,
-    int Size,
+    TextSize Size,
     ButtonColor Color,
     FrameBorderWidth? BorderWidth,
     FrameCorners? Corners
@@ -110,13 +110,8 @@ public sealed record ButtonSettings(
 
     public override bool HasFrame => false;
 
-    public const int MinimumSize = 1;
-    public const int MaximumSize = 10;
-
-    public static bool AllowsSize(int size) => size is >= MinimumSize and <= MaximumSize;
-
     public static ButtonSettings New(LinkTarget target) =>
-        new("Learn more", target, ComponentAlignment.Left, ButtonStyle.Filled, Size: 4, ButtonColor.Accent, BorderWidth: null, Corners: null);
+        new("Learn more", target, ComponentAlignment.Left, ButtonStyle.Filled, TextSize.Size24, ButtonColor.Accent, BorderWidth: null, Corners: null);
 }
 
 // How tall an image is drawn. Natural is its own shape; the sizes are fixed heights, each held to a
@@ -194,13 +189,20 @@ public abstract record ImageSource
 }
 
 // One image, meant as a hero image rather than a picture in a text. Source is null until one is
-// chosen, and again once its image is deleted. LinkTarget is set exactly when Link is Target
-public sealed record ImageSettings(ImageSource? Source, ImageHeight Height, ImageFit Fit, ImageLink Link, LinkTarget? LinkTarget)
-    : CustomComponentSettings
+// chosen, and again once its image is deleted. LinkTarget is set exactly when Link is Target. Corners round the
+// picture, null as the theme rounds frames
+public sealed record ImageSettings(
+    ImageSource? Source,
+    ImageHeight Height,
+    ImageFit Fit,
+    ImageLink Link,
+    LinkTarget? LinkTarget,
+    FrameCorners? Corners
+) : CustomComponentSettings
 {
     public override CustomComponentType Type => CustomComponentType.Image;
 
-    public static readonly ImageSettings New = new(null, ImageHeight.Natural, ImageFit.Cover, ImageLink.Lightbox, LinkTarget: null);
+    public static readonly ImageSettings New = new(null, ImageHeight.Natural, ImageFit.Cover, ImageLink.Lightbox, LinkTarget: null, Corners: null);
 
     // whether Fit changes anything, wherever the image is placed
     public static bool HasFit(ImageHeight height) => height is not ImageHeight.Natural;

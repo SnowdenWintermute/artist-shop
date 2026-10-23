@@ -97,8 +97,7 @@
   // the picker posts the form when it closes, as change fires
   private RenderFragment BackgroundColorInput(RowSettingsForm input) =>
     @<div class="mb-4">
-      <InputText type="color" aria-label="Background colour" @bind-Value="input.BackgroundColor"
-                 class="block h-10 w-14 cursor-pointer border border-rule bg-panel" />
+      <ColorPicker aria-label="Background colour" name="Input.BackgroundColor" value="@input.BackgroundColor" Class="block" />
       <ValidationMessage class="text-error" For="() => input.BackgroundColor" />
     </div>;
 

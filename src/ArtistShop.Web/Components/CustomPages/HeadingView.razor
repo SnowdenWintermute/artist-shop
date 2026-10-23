@@ -1,6 +1,5 @@
 @* a heading component's line of text, on its side of the slot, spaced below as a text is. A link is inside
-   the heading, so the heading is still read as one *@
-@using ArtistShop.Web.Components.Atoms
+   the heading, so the heading is still read as one, and looks no different, as a card's title doesn't *@
 @using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Utilities
 
@@ -12,15 +11,6 @@
   [Parameter, EditorRequired]
   public required bool IsPageTitle { get; set; }
 
-  private string AlignmentClass =>
-    Settings.Alignment switch
-    {
-      ComponentAlignment.Left => "text-left",
-      ComponentAlignment.Center => "text-center",
-      ComponentAlignment.Right => "text-right",
-      _ => throw new InvalidOperationException($"{Settings.Alignment} has no class."),
-    };
-
   private string FontClass =>
     Settings.Font switch
     {
@@ -31,16 +21,16 @@
 
   private string Class =>
     ClassNames.Join(
-      $"mb-4 break-words {FontClass} {TextSizeNames.ClassOf(Settings.Size)} {AlignmentClass}",
+      $"mb-4 break-words {FontClass} {TextSizeNames.ClassOf(Settings.Size)} {ComponentAlignmentClasses.Text(Settings.Alignment)}",
       Settings.Bold ? "font-bold" : null
     );
 }
 
 @if (IsPageTitle)
 {
-  <h1 class="@Class"><TargetLink Target="Settings.LinkTarget" Class="@LinkStyles.Standalone">@Settings.Text</TargetLink></h1>
+  <h1 class="@Class"><TargetLink Target="Settings.LinkTarget">@Settings.Text</TargetLink></h1>
 }
 else
 {
-  <h2 class="@Class"><TargetLink Target="Settings.LinkTarget" Class="@LinkStyles.Standalone">@Settings.Text</TargetLink></h2>
+  <h2 class="@Class"><TargetLink Target="Settings.LinkTarget">@Settings.Text</TargetLink></h2>
 }

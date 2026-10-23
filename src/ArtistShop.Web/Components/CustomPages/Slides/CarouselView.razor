@@ -3,9 +3,10 @@
    CarouselView.razor.js, sets data-ready once Embla runs, which shows the controls; without it the first slide
    shows alone. Fill takes what the slot's other components leave, and outside a row that fills the screen an
    empty box of the first picture's shape holds it at least that tall, as an Image set to Fill is. Nothing is
-   drawn while there are no slides *@
+   drawn while there are no slides. Each picture's corners are the theme frame's, or the carousel's own *@
 @using System.Globalization
 @using ArtistShop.Web.Components.Icons
+@using ArtistShop.Web.Components.Layout
 @using ArtistShop.Web.Database.Repositories
 @using ArtistShop.Web.Domain.Catalog
 @inject SlideRepository SlideRepository
@@ -53,6 +54,7 @@
 @if (_slides is [var first, ..])
 {
   <image-carousel class="@(Fills ? "group/carousel flex flex-1 flex-col" : "group/carousel block")" data-test="carousel"
+                  style="@FrameCss.CornersOverride(Settings.Corners)"
                   data-transition="@Settings.Transition" data-interval-milliseconds="@IntervalMilliseconds"
                   data-embla-src="@Assets["lib/embla-carousel/embla-carousel.esm.js"]"
                   data-fade-src="@Assets["lib/embla-carousel/embla-carousel-fade.esm.js"]"
@@ -62,7 +64,7 @@
       <div class="absolute inset-0 flex" data-part="container">
         @foreach (var slide in _slides)
         {
-          RenderFragment picture = @<FittedPicture Image="slide.Image" Fit="Settings.Fit"
+          RenderFragment picture = @<FittedPicture Image="slide.Image" Fit="Settings.Fit" IsRounded
                                                    IsFullBleed="Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge"
                                                    Sizes="@Slot.Sizes(slide.Image.Width)" Alt="@slide.AltText"
                                                    Class="absolute inset-0 size-full" data-test="carousel-slide" />;

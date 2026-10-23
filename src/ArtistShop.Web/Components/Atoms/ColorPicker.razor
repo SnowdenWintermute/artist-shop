@@ -1,0 +1,13 @@
+@* A colour input drawn as a swatch, as every colour choice is. Class for extras like a margin; id, name,
+   value and aria-label come through AdditionalAttributes *@
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter]
+  public string? Class { get; set; }
+  [Parameter(CaptureUnmatchedValues = true)]
+  public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}
+
+<input type="color" class="@ClassNames.Join("h-10 w-14 cursor-pointer border border-rule bg-panel", Class)"
+       @attributes="AdditionalAttributes" />

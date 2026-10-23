@@ -1,5 +1,6 @@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.CustomPages
+@using ArtistShop.Web.Domain.Publishing
 @using ArtistShop.Web.Domain.Website
 
 @code {
@@ -13,7 +14,7 @@
   private const string PaintingPath = "images/aunt-tullies-living-room.avif";
 
   // a button component as a new one is, at ordinary text's size to fit the preview; it links nowhere here
-  private static readonly ButtonSettings SampleButton = ButtonSettings.New(new LinkTarget.Address("https://example.com")) with { Size = 2 };
+  private static readonly ButtonSettings SampleButton = ButtonSettings.New(new LinkTarget.Address("https://example.com")) with { Size = TextSize.Size16 };
 }
 
 @* A small public page in the theme shown: ThemeStyle sets it on this box alone, so the classes inside

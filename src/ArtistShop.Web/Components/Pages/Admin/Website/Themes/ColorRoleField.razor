@@ -1,4 +1,5 @@
 @using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Domain.Website
 
 @code {
@@ -34,8 +35,7 @@
   @* the role's state on the right, beside what it's the state of *@
   <div class="mb-2 flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <input type="color" id="@PickerId" name="@Name(nameof(ColorChoiceInput.Color))" value="@Choice.Color"
-             class="h-10 w-14 shrink-0 cursor-pointer border border-rule bg-panel" />
+      <ColorPicker id="@PickerId" name="@Name(nameof(ColorChoiceInput.Color))" value="@Choice.Color" Class="shrink-0" />
       <div>
         <label for="@PickerId" class="block font-bold">@Definition.Name</label>
         <p class="text-sm text-ink-faded">@Definition.Description</p>
@@ -58,12 +58,8 @@
 
   @if (Definition.AllowsOpacity)
   {
-    <label class="mb-1 flex items-center gap-2 text-sm">
-      Opacity
-      <input type="range" min="0" max="100" name="@Name(nameof(ColorChoiceInput.OpacityPercent))"
-             value="@Choice.OpacityPercent" class="cursor-pointer" />
-      @Choice.OpacityPercent%
-    </label>
+    <RangeField Label="Opacity" Name="@Name(nameof(ColorChoiceInput.OpacityPercent))" Minimum="0" Maximum="100"
+                Value="Choice.OpacityPercent" Unit="%" Class="mb-1" />
   }
 
   @foreach (var problem in Problems)

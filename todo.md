@@ -106,6 +106,27 @@ Mike confirmed the Primary = ink and Normal = panel mapping.
   frame variables by `ButtonClasses.Style` through `FrameCss.Overrides`. The Theme-or-size radios are
   `ThemePartChoices`, shared with the frame fields. 1371 tests.
   Buttons have no hover effect (Mike: none by default, as there's no control for one).
+- Review of 54eacec, 2026-10-23, fixes uncommitted, 1377 tests, not browser-checked:
+  - Forms/`NativeRadioField` (radios posted by name, for a "" choice), used by `ThemePartChoices`,
+    `ComponentFrameFields` and `LinkField`. Forms/`RangeField` for the three opacity sliders. Atoms/`ColorPicker`,
+    used by the frame fields, the row editor and `ColorRoleField`.
+  - The frame labels match on both pages: Frame, Background, Background opacity, Border colour, Border width,
+    Corners, Padding.
+  - `FrameBox` drops the bottom margin of its last child, and of that child's last child, so the padding is the
+    same at the top and bottom.
+  - `drop_custom_component_links_to` reads its ids from `get_custom_components_linking_to`.
+    `ComponentAlignmentClasses` (Text, Flex) is shared by heading and button.
+  - Heading links have no link classes, so they look like card titles.
+  - Button size is a `TextSize` from the same Size select as the heading's (`Input.Size` is shared), drawn with
+    `text-size-*`; the slider is gone and new buttons start at Size24.
+  - Image and Carousel have Corners of their own (Theme by default), `Input.Corners` shared with the button's,
+    set by `FrameCss.CornersOverride`. `FittedPicture.IsRounded` rounds the drawn picture: under Contain it's drawn
+    at its own shape in a `@container-size` box (checked in Chromium, Firefox and WebKit).
+  - Links: a Page, Collection or Post type with nothing picked starts at the home page or the first one listed
+    (`ChooseDefaultLink`, run on a posted form), and an image set to "Link to…" starts at the home page. The work
+    picker opens straight from the Work radio, which changes only once a work is picked; Address shows its
+    field by CSS and saves with Save (`LinkField.razor.js`, `LinkWorkPicker` folded in). Collection and Post are
+    offered only when there's one.
 
 ## Components list, agreed and built 2026-10-22 (From Claude)
 

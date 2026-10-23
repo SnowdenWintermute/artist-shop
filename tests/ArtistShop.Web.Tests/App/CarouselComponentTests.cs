@@ -47,6 +47,7 @@ public sealed class CarouselComponentTests(TestApp app)
             ["Input.Controls"] = settings.Controls.ToString(),
             ["Input.CarouselLink"] = settings.Link.ToString(),
             ["Input.Caption"] = settings.Caption.ToString(),
+            ["Input.Corners"] = settings.Corners?.ToString() ?? "",
         };
 
     private static Task<string> PublicPageAsync(TestApp app, TestSite site) =>
@@ -67,7 +68,8 @@ public sealed class CarouselComponentTests(TestApp app)
             ImageFit.Contain,
             CarouselControls.Dots,
             CarouselLink.None,
-            CarouselCaption.Title
+            CarouselCaption.Title,
+            FrameCorners.Small
         );
 
         await TestApp.PostFormAsync(client, carouselPage.SettingsUrl, "custom-component", FormWith(settings, collectionId.Value));

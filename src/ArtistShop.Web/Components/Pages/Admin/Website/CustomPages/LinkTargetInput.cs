@@ -4,8 +4,8 @@ using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
-// A component's link as its settings form posts it: the type of target, and the field for it. The other
-// fields keep what they held, so switching back finds the choice still there until the page reloads
+// A component's link as its settings form posts it: the type of target, and the field for it. The work and
+// the address are posted whatever the type, so switching back finds them still there
 public class LinkTargetInput
 {
     // null for no link, which only a heading offers
@@ -31,6 +31,24 @@ public class LinkTargetInput
             PostId = target is LinkTarget.Post post ? post.Id.Value : null,
             Address = target is LinkTarget.Address address ? address.Value : null,
         };
+
+    // a page, collection or post just chosen as the type, with none picked yet, starts at the home page or the
+    // first one listed; null when there's none to link to, which the type isn't offered for
+    public void ChooseDefaults(CustomPageId homeId, CollectionId? firstCollectionId, PostId? firstPostId)
+    {
+        switch (Type)
+        {
+            case LinkTargetType.Page:
+                PageId ??= homeId.Value;
+                break;
+            case LinkTargetType.Collection:
+                CollectionId ??= firstCollectionId?.Value;
+                break;
+            case LinkTargetType.Post:
+                PostId ??= firstPostId?.Value;
+                break;
+        }
+    }
 
     // why the post can't be saved as it is, or null
     public string? Problem() =>

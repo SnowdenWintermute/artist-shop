@@ -1,0 +1,29 @@
+@* A slider posted under Name, its value beside it as the page last drew it, for a static form. Class for
+   extras like a margin *@
+@using System.Globalization
+@using ArtistShop.Web.Utilities
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+  // the input's name, as the form binds it
+  [Parameter, EditorRequired]
+  public required string Name { get; set; }
+  [Parameter, EditorRequired]
+  public required int Minimum { get; set; }
+  [Parameter, EditorRequired]
+  public required int Maximum { get; set; }
+  [Parameter, EditorRequired]
+  public required int Value { get; set; }
+  // written after the value, as "%"
+  [Parameter]
+  public string? Unit { get; set; }
+  [Parameter]
+  public string? Class { get; set; }
+}
+
+<label class="@ClassNames.Join("flex items-center gap-2 text-sm", Class)">
+  @Label
+  <input type="range" min="@Minimum" max="@Maximum" name="@Name" value="@Value" class="cursor-pointer" />
+  @Value.ToString(CultureInfo.InvariantCulture)@Unit
+</label>

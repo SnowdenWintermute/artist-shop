@@ -85,7 +85,7 @@ public static class CustomComponentSettingsJson
                 ReadOptional(frame, "background") is { } background ? RgbColor.Parse(background) : null,
                 ReadOptional(frame, "border") is { } border ? RgbColor.Parse(border) : null,
                 ReadOptional(frame, "borderWidth") is { } width ? Enum.Parse<FrameBorderWidth>(width) : null,
-                ReadOptional(frame, "corners") is { } corners ? Enum.Parse<FrameCorners>(corners) : null,
+                ReadCorners(frame),
                 ReadOptional(frame, "padding") is { } padding ? Enum.Parse<FramePadding>(padding) : null
             ),
             var type => throw new InvalidOperationException($"No reader for a {type} frame."),
@@ -94,6 +94,10 @@ public static class CustomComponentSettingsJson
 
     private static string? ReadOptional(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) ? value.GetString() : null;
+
+    // a frame's, button's, image's or carousel's own corners, left out for the theme frame's
+    private static FrameCorners? ReadCorners(JsonElement root) =>
+        ReadOptional(root, "corners") is { } corners ? Enum.Parse<FrameCorners>(corners) : null;
 
     // The body is the editor's Delta as a JSON object, not a string holding one, so the database can
     // read the images in it as it reads a post's: {"body": {"ops": [...]}, "width": "Text"}
@@ -200,7 +204,7 @@ public static class CustomComponentSettingsJson
         );
     }
 
-    // {"text": "Learn more", "linkTarget": {...}, "alignment": "Left", "style": "Filled", "size": 4, "color": "Accent"},
+    // {"text": "Learn more", "linkTarget": {...}, "alignment": "Left", "style": "Filled", "size": "Size24", "color": "Accent"},
     // the linkTarget as a heading's, and a borderWidth and corners only when chosen rather than the theme's
     private static string WriteButton(ButtonSettings button)
     {
@@ -209,7 +213,7 @@ public static class CustomComponentSettingsJson
             ["text"] = button.Text,
             ["alignment"] = button.Alignment.ToString(),
             ["style"] = button.Style.ToString(),
-            ["size"] = button.Size,
+            ["size"] = button.Size.ToString(),
             ["color"] = button.Color.ToString(),
         };
         AddLinkTarget(json, button.LinkTarget);
@@ -229,10 +233,10 @@ public static class CustomComponentSettingsJson
             ReadLinkTarget(root) ?? throw new InvalidOperationException("A button has no link."),
             Enum.Parse<ComponentAlignment>(ReadString(root, "alignment")),
             Enum.Parse<ButtonStyle>(ReadString(root, "style")),
-            root.GetProperty("size").GetInt32(),
+            Enum.Parse<TextSize>(ReadString(root, "size")),
             Enum.Parse<ButtonColor>(ReadString(root, "color")),
             ReadOptional(root, "borderWidth") is { } width ? Enum.Parse<FrameBorderWidth>(width) : null,
-            ReadOptional(root, "corners") is { } corners ? Enum.Parse<FrameCorners>(corners) : null
+            ReadCorners(root)
         );
     }
 
@@ -261,7 +265,7 @@ public static class CustomComponentSettingsJson
     }
 
     // {"source": {"type": "Library", "storageKey": "…"}, "height": "Natural", "fit": "Cover", "link": "Lightbox"},
-    // with a linkTarget as a heading's when the link is Target,
+    // with a linkTarget as a heading's when the link is Target, and corners only when chosen rather than the theme's,
     // with no source until one is chosen, or {"type": "Work", "workId": 4} with a storageKey only for an image
     // other than the work's main one. The database reads the storage key and work id for the image's uses
     private static string WriteImage(ImageSettings image)
@@ -290,6 +294,7 @@ public static class CustomComponentSettingsJson
         }
 
         AddLinkTarget(json, image.LinkTarget);
+        AddIfChosen(json, "corners", image.Corners?.ToString());
 
         return json.ToJsonString();
     }
@@ -304,7 +309,8 @@ public static class CustomComponentSettingsJson
             Enum.Parse<ImageHeight>(ReadString(root, "height")),
             Enum.Parse<ImageFit>(ReadString(root, "fit")),
             Enum.Parse<ImageLink>(ReadString(root, "link")),
-            ReadLinkTarget(root)
+            ReadLinkTarget(root),
+            ReadCorners(root)
         );
     }
 
@@ -321,7 +327,7 @@ public static class CustomComponentSettingsJson
 
     // {"source": {"type": "WorksInCollection", "collectionId": 4}, "transition": "Fade", "autoplay": "Off",
     //  "height": "Medium", "fit": "Cover", "controls": "Both", "link": "ArtworkPage", "caption": "None"}, the source
-    // {"type": "ChosenSlides"} for the slides table's list
+    // {"type": "ChosenSlides"} for the slides table's list, and corners only when chosen rather than the theme's
     private static string WriteCarousel(CarouselSettings carousel)
     {
         var source = new JsonObject { ["type"] = carousel.Source.Type.ToString() };
@@ -331,7 +337,7 @@ public static class CustomComponentSettingsJson
             source["collectionId"] = inCollection.CollectionId.Value;
         }
 
-        return new JsonObject
+        var json = new JsonObject
         {
             ["source"] = source,
             ["transition"] = carousel.Transition.ToString(),
@@ -341,7 +347,10 @@ public static class CustomComponentSettingsJson
             ["controls"] = carousel.Controls.ToString(),
             ["link"] = carousel.Link.ToString(),
             ["caption"] = carousel.Caption.ToString(),
-        }.ToJsonString();
+        };
+        AddIfChosen(json, "corners", carousel.Corners?.ToString());
+
+        return json.ToJsonString();
     }
 
     private static CarouselSettings ReadCarousel(string json)
@@ -361,7 +370,8 @@ public static class CustomComponentSettingsJson
             Enum.Parse<ImageFit>(ReadString(root, "fit")),
             Enum.Parse<CarouselControls>(ReadString(root, "controls")),
             Enum.Parse<CarouselLink>(ReadString(root, "link")),
-            Enum.Parse<CarouselCaption>(ReadString(root, "caption"))
+            Enum.Parse<CarouselCaption>(ReadString(root, "caption")),
+            ReadCorners(root)
         );
     }
 

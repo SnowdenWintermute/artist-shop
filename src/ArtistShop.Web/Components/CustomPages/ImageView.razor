@@ -2,9 +2,11 @@
    shape or a fixed height. Set to Fill, it instead fills what the slot's other components leave, the
    slot being as tall as the tallest beside it, or the screen in a row that fills it. Fit fits it to any
    height but its own. Nothing is drawn until an image is chosen, or once it's gone. A click opens the
-   lightbox, or the artwork's page, or goes to its link target, or does nothing *@
+   lightbox, or the artwork's page, or goes to its link target, or does nothing. Its corners are the theme
+   frame's, or its own *@
 @using System.Globalization
 @using ArtistShop.Web.Components.Dialogs
+@using ArtistShop.Web.Components.Layout
 @using ArtistShop.Web.Database.Repositories
 @inject UploadedImageRepository UploadedImageRepository
 @inject WorkRepository WorkRepository
@@ -31,7 +33,8 @@
   var maximumWidth = $"max-width: {image.Width.ToString(CultureInfo.InvariantCulture)}px;";
 
   RenderFragment picture = @<span class="@(isSized ? "relative block h-full" : "relative block")">
-      <FittedPicture Image="image" Fit="Settings.Fit" IsFullBleed="Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge"
+      @* at its own height the picture is its box, so Fit, which changes nothing there, doesn't choose how it's rounded *@
+      <FittedPicture Image="image" Fit="@(isSized ? Settings.Fit : ImageFit.Cover)" IsRounded IsFullBleed="Slot.Row.ContentWidth is RowContentWidth.EdgeToEdge"
                      Sizes="@Slot.Sizes(image.Width)" Alt="@shown.AltText"
                      Class="@($"block {(isSized ? "h-full" : "h-auto")} w-full")" data-test="image-component" />
     </span>;
@@ -48,7 +51,7 @@
            style="@($"{maximumWidth} aspect-ratio: {image.Width.ToString(CultureInfo.InvariantCulture)} / {image.Height.ToString(CultureInfo.InvariantCulture)};")"></div>
     }
     <div class="@(fills ? "absolute inset-0" : isFixed ? $"mx-auto {ImageClasses.Height(Settings.Height)}" : "mx-auto")"
-         style="@(fills ? "" : maximumWidth)">
+         style="@($"{(fills ? "" : maximumWidth)} {FrameCss.CornersOverride(Settings.Corners)}")">
       @if (Settings.Link is ImageLink.ArtworkPage && shown.ArtworkPageUrl is { } href)
       {
         <a href="@href" class="@(isSized ? "block h-full" : "block")">@picture</a>

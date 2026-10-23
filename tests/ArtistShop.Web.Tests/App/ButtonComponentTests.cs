@@ -1,6 +1,7 @@
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Components.CustomPages;
 using ArtistShop.Web.Database.Repositories;
+using ArtistShop.Web.Domain.Publishing;
 using ArtistShop.Web.Domain.Website;
 
 namespace ArtistShop.Web.Tests.App;
@@ -47,10 +48,10 @@ public sealed class ButtonComponentTests(TestApp app)
             ["Input.ButtonText"] = button.Text,
             ["Input.Alignment"] = button.Alignment.ToString(),
             ["Input.ButtonStyle"] = button.Style.ToString(),
-            ["Input.ButtonSize"] = button.Size.ToString(),
+            ["Input.Size"] = button.Size.ToString(),
             ["Input.ButtonColor"] = button.Color.ToString(),
             ["Input.ButtonBorderWidth"] = button.BorderWidth?.ToString() ?? "",
-            ["Input.ButtonCorners"] = button.Corners?.ToString() ?? "",
+            ["Input.Corners"] = button.Corners?.ToString() ?? "",
         };
 
     private Task LinkAsync(TestSite site, CustomComponentId id, ButtonSettings button) =>
@@ -64,7 +65,7 @@ public sealed class ButtonComponentTests(TestApp app)
         var about = await AddPageAsync(site, "about");
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var chosen = new ButtonSettings("Read more", new LinkTarget.Page(about.Id), ComponentAlignment.Center, ButtonStyle.Outline,
-            Size: 9, ButtonColor.Primary, FrameBorderWidth.Thick, FrameCorners.Large);
+            TextSize.Size48, ButtonColor.Primary, FrameBorderWidth.Thick, FrameCorners.Large);
 
         await TestApp.PostFormAsync(
             client,
@@ -95,7 +96,7 @@ public sealed class ButtonComponentTests(TestApp app)
     }
 
     [Fact]
-    public async Task ASizeTheSliderCantMakeIsRefused()
+    public async Task ASizeTheSelectDoesntOfferIsRefused()
     {
         var site = await app.MakeSiteAsync();
         var buttonPage = await AddButtonPageAsync(site);
@@ -105,8 +106,10 @@ public sealed class ButtonComponentTests(TestApp app)
             client,
             buttonPage.SettingsUrl,
             "custom-component",
-            ButtonForm(buttonPage.Settings with { Size = ButtonSettings.MaximumSize + 1 },
-                new() { ["Input.LinkTo.Type"] = nameof(LinkTargetType.Address), ["Input.LinkTo.Address"] = "https://example.com" })
+            new(ButtonForm(buttonPage.Settings, new() { ["Input.LinkTo.Type"] = nameof(LinkTargetType.Address), ["Input.LinkTo.Address"] = "https://example.com" }))
+            {
+                ["Input.Size"] = "Size13",
+            }
         );
 
         Assert.Equal(buttonPage.Settings, await SettingsOfAsync(site, buttonPage.ButtonId));

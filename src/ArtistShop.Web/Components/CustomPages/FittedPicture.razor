@@ -1,6 +1,9 @@
 @* A custom page's picture at an ImageFit: the sizes ready now, its blur behind it, fitted as the picture
    is, until the sharp one loads. Full bleed adds the large size made for pictures across the screen.
-   The caller's box must be positioned, for the label shown while sizes are made *@
+   The caller's box must be positioned, for the label shown while sizes are made. Rounded, the picture
+   itself has the theme frame's corners (FrameCss): under Cover it fills its box, so the box is rounded;
+   under Contain it's narrower or shorter than its box, so it's drawn at its own shape in the middle of a
+   box of the caller's, as large as fits, and that's rounded *@
 @using System.Globalization
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Domain.Catalog
@@ -24,6 +27,8 @@
   // its size and place in the caller's box
   [Parameter, EditorRequired]
   public required string Class { get; set; }
+  [Parameter]
+  public bool IsRounded { get; set; }
   // data-test
   [Parameter(CaptureUnmatchedValues = true)]
   public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
@@ -31,14 +36,31 @@
 
 @{
   var (readyWidths, width) = FullBleedImageSizes.For(Image.StorageKey, Image.Width, IsFullBleed);
+  var blurStyle = Image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "";
+  var imageWidth = Image.Width.ToString(CultureInfo.InvariantCulture);
+  var imageHeight = Image.Height.ToString(CultureInfo.InvariantCulture);
+
+  RenderFragment<(string Class, string Style)> picture = shape =>
+    @<img src="@ImageUrls.Variant(Image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
+          srcset="@ImageUrls.SourceSet(Image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
+          sizes="@Sizes" alt="@Alt" width="@imageWidth" height="@imageHeight"
+          loading="@(IsEager ? "eager" : "lazy")" @attributes="AdditionalAttributes" class="@shape.Class"
+          style="@($"{shape.Style}{blurStyle}")" />;
 }
-<img src="@ImageUrls.Variant(Image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
-     srcset="@ImageUrls.SourceSet(Image.StorageKey, readyWidths, width, ImageVariantFormat.Avif)"
-     sizes="@Sizes" alt="@Alt"
-     width="@Image.Width.ToString(CultureInfo.InvariantCulture)" height="@Image.Height.ToString(CultureInfo.InvariantCulture)"
-     loading="@(IsEager ? "eager" : "lazy")" @attributes="AdditionalAttributes"
-     class="@($"{Class} {ImageClasses.PlaceholderFit(Fit)} {ImageClasses.Fit(Fit)}")"
-     style="@(Image.BlurDataUri is { } blurDataUri ? $"background-image: url({blurDataUri});" : "")" />
+@if (IsRounded && Fit is ImageFit.Contain)
+{
+  @* the box's size as container units: the picture is its full width, or as wide as its shape allows at the
+     box's full height, whichever is narrower. Placed against the caller's positioned box, which this one
+     matches, centred by its auto margins *@
+  <span class="@($"{Class} @container-size")">
+    @picture(($"absolute inset-0 m-auto rounded-(--theme-frame-corners) {ImageClasses.PlaceholderFit(ImageFit.Cover)}",
+      $"width: min(100cqw, 100cqh * {imageWidth} / {imageHeight}); aspect-ratio: {imageWidth} / {imageHeight}; "))
+  </span>
+}
+else
+{
+  @picture(($"{Class} {ImageClasses.PlaceholderFit(Fit)} {ImageClasses.Fit(Fit)}{(IsRounded ? " rounded-(--theme-frame-corners)" : "")}", ""))
+}
 @if (ImageSizeQueue.IsProcessing(Image.StorageKey, width))
 {
   <ProcessingLabel />

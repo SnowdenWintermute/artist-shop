@@ -1,8 +1,12 @@
-@* Where a component links: one of the website's pages, works, collections or posts, or an address. Choosing the
-   type and the page, collection or post saves at once, as the types' choices do; the work saves as the picker
-   closes, and the address with Save. Native radios, since a heading's No link posts "", which binds null *@
+@* Where a component links: one of the website's pages, works, collections or posts, or an address. Choosing a
+   page, collection or post saves at once, as the types' choices do, starting at the first one
+   (CustomComponentForm.ChooseDefaultLink). Choosing Work opens the work picker, and the type changes only once
+   a work is picked; choosing Address shows its field, saved with Save. <link-field>, defined in
+   LinkField.razor.js, does both. Collection and Post are offered only when there's one to link to *@
 @using System.Globalization
+@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Components.Pages.Admin.Catalog.WorkPicker
 @using ArtistShop.Web.Domain.Catalog
 @using ArtistShop.Web.Domain.Publishing
 
@@ -13,7 +17,7 @@
   [Parameter, EditorRequired]
   public required CustomComponentForm Input { get; set; }
 
-  // a heading may link nowhere; an image set to link here must link somewhere
+  // a heading may link nowhere; a button, or an image set to link here, must link somewhere
   [Parameter, EditorRequired]
   public required bool IsOptional { get; set; }
 
@@ -24,19 +28,25 @@
   [Parameter, EditorRequired]
   public required IReadOnlyList<PostSummary> Posts { get; set; }
 
-  // the chosen work's name, null for none
+  // the chosen work's name, null for none, or one deleted meanwhile
   [Parameter, EditorRequired]
   public required string? WorkName { get; set; }
 
   private LinkTargetInput LinkTo => Input.LinkTo;
 
-  private const string TypeName = "Input.LinkTo.Type";
-
   private IReadOnlyList<(string Value, string Label)> Choices =>
     [
       .. IsOptional ? [("", "No link")] : Array.Empty<(string, string)>(),
-      .. Enum.GetValues<LinkTargetType>().Select(type => (type.ToString(), Label(type))),
+      .. Enum.GetValues<LinkTargetType>().Where(IsOffered).Select(type => (type.ToString(), Label(type))),
     ];
+
+  private bool IsOffered(LinkTargetType type) =>
+    type switch
+    {
+      LinkTargetType.Collection => Collections.Count > 0,
+      LinkTargetType.Post => Posts.Count > 0,
+      _ => true,
+    };
 
   private string Label(LinkTargetType type) =>
     type switch
@@ -52,59 +62,57 @@
   private static string PostLabel(PostSummary post) => post.PublishedAt is null ? $"{post.Title.Value} (draft)" : post.Title.Value;
 }
 
-<SubmitOnChange>
-  <fieldset class="mb-4">
-    <legend class="artist-shop-field-label">@(IsOptional ? "Link" : "Link to")</legend>
-    <div class="flex flex-wrap gap-x-4 gap-y-1">
-      @foreach (var (value, label) in Choices)
-      {
-        <label class="flex cursor-pointer items-center gap-2">
-          <input type="radio" name="@TypeName" value="@value" checked="@(value == (LinkTo.Type?.ToString() ?? ""))" />
-          @label
-        </label>
-      }
-    </div>
-  </fieldset>
+<link-field class="group/link block">
+  <SubmitOnChange>
+    <NativeRadioField Label="@(IsOptional ? "Link" : "Link to")" Name="Input.LinkTo.Type" Choices="Choices"
+                      Chosen="@(LinkTo.Type?.ToString() ?? "")" />
 
-  @switch (LinkTo.Type)
+    @switch (LinkTo.Type)
+    {
+      case LinkTargetType.Page:
+        <SelectField Label="Page" @bind-Value="Input.LinkTo.PageId">
+          @foreach (var customPage in Pages)
+          {
+            <option value="@customPage.Id.Value.ToString(CultureInfo.InvariantCulture)">@customPage.Name</option>
+          }
+        </SelectField>
+        break;
+      case LinkTargetType.Collection:
+        <SelectField Label="@Wording.Collection.SingularHeading" @bind-Value="Input.LinkTo.CollectionId">
+          @foreach (var collection in Collections)
+          {
+            <option value="@collection.Id.Value.ToString(CultureInfo.InvariantCulture)">@collection.Name.Value</option>
+          }
+        </SelectField>
+        break;
+      case LinkTargetType.Post:
+        <SelectField Label="Post" @bind-Value="Input.LinkTo.PostId">
+          @foreach (var post in Posts)
+          {
+            <option value="@post.Id.Value.ToString(CultureInfo.InvariantCulture)">@PostLabel(post)</option>
+          }
+        </SelectField>
+        break;
+    }
+  </SubmitOnChange>
+
+  @* drawn whatever the type, for the picker to fill when Work is chosen *@
+  <input type="hidden" name="Input.LinkTo.WorkId" value="@LinkTo.WorkId?.ToString(CultureInfo.InvariantCulture)"
+         data-part="work-id" />
+  @if (LinkTo.Type is LinkTargetType.Work)
   {
-    case LinkTargetType.Page:
-      <SelectField Label="Page" @bind-Value="Input.LinkTo.PageId">
-        <option value="">Choose a page</option>
-        @foreach (var customPage in Pages)
-        {
-          <option value="@customPage.Id.Value.ToString(CultureInfo.InvariantCulture)">@customPage.Name</option>
-        }
-      </SelectField>
-      break;
-    case LinkTargetType.Collection:
-      <SelectField Label="@Wording.Collection.SingularHeading" @bind-Value="Input.LinkTo.CollectionId">
-        <option value="">Choose one</option>
-        @foreach (var collection in Collections)
-        {
-          <option value="@collection.Id.Value.ToString(CultureInfo.InvariantCulture)">@collection.Name.Value</option>
-        }
-      </SelectField>
-      break;
-    case LinkTargetType.Post:
-      <SelectField Label="Post" @bind-Value="Input.LinkTo.PostId">
-        <option value="">Choose a post</option>
-        @foreach (var post in Posts)
-        {
-          <option value="@post.Id.Value.ToString(CultureInfo.InvariantCulture)">@PostLabel(post)</option>
-        }
-      </SelectField>
-      break;
+    <div class="mb-4">
+      <p class="mb-2">@(WorkName ?? $"No {Wording.Work.SingularInSentence} chosen yet.")</p>
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" data-action="choose-work">
+        Choose @Wording.Work.SingularInSentence
+      </ButtonBasic>
+    </div>
   }
-</SubmitOnChange>
+  <WorkPickerDialog />
 
-@* outside SubmitOnChange: the picker posts the form itself, and the address is saved with Save *@
-@if (LinkTo.Type is LinkTargetType.Work)
-{
-  <LinkWorkPicker WorkIdName="Input.LinkTo.WorkId" WorkId="LinkTo.WorkId" WorkName="@WorkName" />
-}
-else if (LinkTo.Type is LinkTargetType.Address)
-{
-  <TextField Label="Address" @bind-Value="Input.LinkTo.Address" placeholder="https://example.com" autocomplete="off" />
-}
-<ValidationMessage For="() => Input.LinkTo" class="mb-4 block text-error" />
+  @* drawn whatever the type and shown while Address is checked, so choosing it needs no save first *@
+  <div class="hidden group-has-[input[value=Address]:checked]/link:block">
+    <TextField Label="Address" @bind-Value="Input.LinkTo.Address" placeholder="https://example.com" autocomplete="off" />
+  </div>
+  <ValidationMessage For="() => Input.LinkTo" class="mb-4 block text-error" />
+</link-field>

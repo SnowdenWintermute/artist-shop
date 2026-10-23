@@ -1,4 +1,5 @@
 using ArtistShop.Web.Components;
+using ArtistShop.Web.Components.Layout;
 using ArtistShop.Web.Components.Pages.Catalog;
 using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
@@ -38,7 +39,7 @@ public sealed class ImageComponentTests(TestApp app)
         Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(app.DatabaseOf(site)).GetAsync(id)).Component.Settings;
 
     [Fact]
-    public async Task TheSettingsPageSavesHeightFitAndLink()
+    public async Task TheSettingsPageSavesHeightFitLinkAndCorners()
     {
         var site = await app.MakeSiteAsync();
         var imagePage = await AddImagePageAsync(site);
@@ -55,10 +56,12 @@ public sealed class ImageComponentTests(TestApp app)
                 ["Input.ImageHeight"] = nameof(ImageHeight.Medium),
                 ["Input.Fit"] = nameof(ImageFit.Contain),
                 ["Input.Link"] = nameof(ImageLink.None),
+                ["Input.Corners"] = nameof(FrameCorners.Large),
             }
         );
 
-        Assert.Equal(new ImageSettings(null, ImageHeight.Medium, ImageFit.Contain, ImageLink.None, LinkTarget: null), await SettingsOfAsync(site, imagePage.ImageId));
+        Assert.Equal(new ImageSettings(null, ImageHeight.Medium, ImageFit.Contain, ImageLink.None, LinkTarget: null, FrameCorners.Large),
+            await SettingsOfAsync(site, imagePage.ImageId));
     }
 
     [Fact]
@@ -286,6 +289,22 @@ public sealed class ImageComponentTests(TestApp app)
 
         Assert.Contains("data-lightbox-open", page);
         Assert.Contains("<image-lightbox", page);
+    }
+
+    [Fact]
+    public async Task AnImagesOwnCornersAreSetRoundItsPicture()
+    {
+        var site = await app.MakeSiteAsync();
+        var imagePage = await AddImagePageAsync(site);
+        var image = await AddLibraryImageAsync(site);
+
+        var page = await PublicPageAfterSavingAsync(
+            site,
+            imagePage,
+            new(FormChoosing(image.StorageKey)) { ["Input.Corners"] = nameof(FrameCorners.Large) }
+        );
+
+        Assert.Contains(FrameCss.CornersOverride(FrameCorners.Large), page);
     }
 
     [Fact]

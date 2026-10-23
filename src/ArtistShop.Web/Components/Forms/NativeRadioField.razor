@@ -1,0 +1,28 @@
+@* One choice from a few as plain radios posted under Name, looking as RadioField's do, for a choice RadioField
+   can't post: one sending "", which binds null *@
+
+@code {
+  [Parameter, EditorRequired]
+  public required string Label { get; set; }
+  // the inputs' name, as the form binds it
+  [Parameter, EditorRequired]
+  public required string Name { get; set; }
+  [Parameter, EditorRequired]
+  public required IReadOnlyList<(string Value, string Label)> Choices { get; set; }
+  // the chosen one's value
+  [Parameter, EditorRequired]
+  public required string Chosen { get; set; }
+}
+
+<fieldset class="mb-4">
+  <legend class="artist-shop-field-label">@Label</legend>
+  <div class="flex flex-wrap gap-x-4 gap-y-1">
+    @foreach (var (value, choiceLabel) in Choices)
+    {
+      <label class="flex cursor-pointer items-center gap-2">
+        <input type="radio" name="@Name" value="@value" checked="@(value == Chosen)" />
+        @choiceLabel
+      </label>
+    }
+  </div>
+</fieldset>

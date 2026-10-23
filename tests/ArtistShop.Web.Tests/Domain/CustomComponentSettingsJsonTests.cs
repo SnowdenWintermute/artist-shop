@@ -38,10 +38,22 @@ public class CustomComponentSettingsJsonTests
     public void AButtonReadsBackAsWritten()
     {
         var button = new ButtonSettings("Shop", new LinkTarget.Post(new PostId(2)), ComponentAlignment.Right, ButtonStyle.Outline,
-            Size: 1, ButtonColor.Normal, FrameBorderWidth.None, Corners: null);
+            TextSize.Size14, ButtonColor.Normal, FrameBorderWidth.None, Corners: null);
         var (json, version) = CustomComponentSettingsJson.Write(button, new ComponentFrame.Theme());
 
         Assert.Equal(button, CustomComponentSettingsJson.Read(CustomComponentType.Button, version, json));
+    }
+
+    [Fact]
+    public void AnImagesAndACarouselsOwnCornersReadBackAsWritten()
+    {
+        var image = ImageSettings.New with { Corners = FrameCorners.Small };
+        var carousel = CarouselSettings.New with { Corners = FrameCorners.None };
+        var (imageJson, imageVersion) = CustomComponentSettingsJson.Write(image, new ComponentFrame.Off());
+        var (carouselJson, carouselVersion) = CustomComponentSettingsJson.Write(carousel, new ComponentFrame.Off());
+
+        Assert.Equal(image, CustomComponentSettingsJson.Read(CustomComponentType.Image, imageVersion, imageJson));
+        Assert.Equal(carousel, CustomComponentSettingsJson.Read(CustomComponentType.Carousel, carouselVersion, carouselJson));
     }
 
     [Fact]

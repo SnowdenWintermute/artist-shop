@@ -279,25 +279,21 @@ open.Theme.Fonts.For(role);
               <section class="mb-6">
                 <div class="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <h2 class="mb-2 text-lg">Frames</h2>
+                    <h2 class="mb-2 text-lg">Frame</h2>
                     <p class="text-sm text-ink-faded">Around components framed by the theme.</p>
                   </div>
                   @if (shown.Frame != open.Theme.Frame)
                   {
                     @* previews, like a pick, so Save is still what keeps it *@
                     <ButtonBasic type="submit" name="Input.ResetFrame" value="true" Variant="ButtonVariant.Outline"
-                                 aria-label="Reset frames">Reset</ButtonBasic>
+                                 aria-label="Reset frame">Reset</ButtonBasic>
                   }
                 </div>
                 <RadioField Label="Background" @bind-Value="Input.Frame.Background" Values="ThemeFrame.BackgroundRoles"
                             LabelOf="RoleName" />
-                <label class="mb-4 flex items-center gap-2 text-sm">
-                  Background opacity
-                  <input type="range" min="0" max="100" name="Input.Frame.BackgroundOpacityPercent"
-                         value="@Input.Frame.BackgroundOpacityPercent" class="cursor-pointer" />
-                  @Input.Frame.BackgroundOpacityPercent%
-                </label>
-                <RadioField Label="Border" @bind-Value="Input.Frame.Border" Values="ThemeFrame.BorderRoles" LabelOf="RoleName" />
+                <RangeField Label="Background opacity" Name="Input.Frame.BackgroundOpacityPercent" Minimum="0" Maximum="100"
+                            Value="Input.Frame.BackgroundOpacityPercent" Unit="%" Class="mb-4" />
+                <RadioField Label="Border colour" @bind-Value="Input.Frame.Border" Values="ThemeFrame.BorderRoles" LabelOf="RoleName" />
                 <RadioField Label="Border width" @bind-Value="Input.Frame.BorderWidth" Values="Enum.GetValues<FrameBorderWidth>()"
                             LabelOf="value => value.ToString()" />
                 <RadioField Label="Corners" @bind-Value="Input.Frame.Corners" Values="Enum.GetValues<FrameCorners>()"

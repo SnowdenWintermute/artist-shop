@@ -25,8 +25,12 @@ public static class FrameCss
         (frame.Background is { } background ? $"{BackgroundVariable}: {background.Hex}; " : "")
         + (frame.Border is { } border ? $"{BorderVariable}: {border.Hex}; " : "")
         + (frame.BorderWidth is { } width ? $"{BorderWidthVariable}: {Pixels(BorderWidth(width))}; " : "")
-        + (frame.Corners is { } corners ? $"{CornersVariable}: {Pixels(Corners(corners))}; " : "")
+        + CornersOverride(frame.Corners)
         + (frame.Padding is { } padding ? $"{PaddingVariable}: {Pixels(Padding(padding))}; " : "");
+
+    // a picture's own corners, set round it over the theme frame's; none for null, which keeps the theme's
+    public static string CornersOverride(FrameCorners? corners) =>
+        corners is { } chosen ? $"{CornersVariable}: {Pixels(Corners(chosen))}; " : "";
 
     private static int BorderWidth(FrameBorderWidth width) =>
         width switch

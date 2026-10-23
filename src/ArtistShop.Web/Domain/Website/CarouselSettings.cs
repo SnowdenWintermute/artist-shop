@@ -38,7 +38,7 @@ public enum CarouselCaption
 }
 
 // Slides one at a time, each fitted to the carousel's height, which is never the image's own, since slides of
-// different shapes would move the page as they change
+// different shapes would move the page as they change. Corners round each picture, null as the theme rounds frames
 public sealed record CarouselSettings(
     SlideSource Source,
     CarouselTransition Transition,
@@ -47,7 +47,8 @@ public sealed record CarouselSettings(
     ImageFit Fit,
     CarouselControls Controls,
     CarouselLink Link,
-    CarouselCaption Caption
+    CarouselCaption Caption,
+    FrameCorners? Corners
 ) : CustomComponentSettings
 {
     public override CustomComponentType Type => CustomComponentType.Carousel;
@@ -62,7 +63,8 @@ public sealed record CarouselSettings(
         ImageFit.Cover,
         CarouselControls.Both,
         CarouselLink.ArtworkPage,
-        CarouselCaption.None
+        CarouselCaption.None,
+        Corners: null
     );
 
     public static TimeSpan? IntervalOf(CarouselAutoplay autoplay) =>

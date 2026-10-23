@@ -98,6 +98,77 @@ public sealed class ComponentLinkTests(TestApp app)
         Assert.Contains($"href=\"{PageUrls.CustomPage(about)}\"", await PublicPageAsync(site));
     }
 
+    // as a card's title is
+    [Fact]
+    public async Task AHeadingLinkLooksLikeItsText()
+    {
+        var site = await app.MakeSiteAsync();
+        var linked = await AddLinkedPageAsync(site);
+        var about = await AddPageAsync(site, "about");
+        await LinkAsync(site, linked.HeadingId, new LinkTarget.Page(about.Id));
+
+        Assert.Contains($"<a href=\"{PageUrls.CustomPage(about)}\">{HeadingSettings.New.Text}</a>", await PublicPageAsync(site));
+    }
+
+    // choosing the type saves at once, before a page is picked
+    [Fact]
+    public async Task APageLinkWithNoPageChosenLinksToTheHomePage()
+    {
+        var site = await app.MakeSiteAsync();
+        var linked = await AddLinkedPageAsync(site);
+        var home = await new CustomPageRepository(app.DatabaseOf(site)).GetHomeAsync();
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(client, linked.SettingsUrl, "custom-component",
+            HeadingForm(new() { ["Input.LinkTo.Type"] = nameof(LinkTargetType.Page) }));
+
+        Assert.Equal(new LinkTarget.Page(home.Id), await HeadingLinkOfAsync(site, linked.HeadingId));
+    }
+
+    [Fact]
+    public async Task ACollectionLinkWithNoCollectionChosenLinksToTheFirstOne()
+    {
+        var site = await app.MakeSiteAsync();
+        var linked = await AddLinkedPageAsync(site);
+        var catalog = new CatalogTestData(app.DatabaseOf(site));
+        await catalog.AddCollectionAsync();
+        await catalog.AddCollectionAsync();
+        var first = (await new CollectionRepository(app.DatabaseOf(site)).GetAllAsync())[0];
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(client, linked.SettingsUrl, "custom-component",
+            HeadingForm(new() { ["Input.LinkTo.Type"] = nameof(LinkTargetType.Collection) }));
+
+        Assert.Equal(new LinkTarget.Collection(first.Id), await HeadingLinkOfAsync(site, linked.HeadingId));
+    }
+
+    // as a new button does
+    [Fact]
+    public async Task AnImageSetToLinkStartsAtTheHomePage()
+    {
+        var site = await app.MakeSiteAsync();
+        var linked = await AddLinkedPageAsync(site);
+        var home = await new CustomPageRepository(app.DatabaseOf(site)).GetHomeAsync();
+        var imageId = await new CustomComponentRepository(app.DatabaseOf(site)).AddToSlotAsync(linked.SlotId, "Image 1", ImageSettings.New);
+        var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
+
+        await TestApp.PostFormAsync(
+            client,
+            PageUrls.EditCustomComponent(imageId, linked.PageId, linked.RowId),
+            "custom-component",
+            new()
+            {
+                ["Input.Name"] = "Image 1",
+                ["Input.Frame.Type"] = nameof(ComponentFrameType.Off),
+                ["Input.ImageHeight"] = nameof(ImageHeight.Natural),
+                ["Input.Fit"] = nameof(ImageFit.Cover),
+                ["Input.Link"] = nameof(ImageLink.Target),
+            }
+        );
+
+        Assert.Equal(new LinkTarget.Page(home.Id), Assert.IsType<ImageSettings>(await SettingsOfAsync(site, imageId)).LinkTarget);
+    }
+
     [Fact]
     public async Task AnAddressThatIsntWholeIsRefused()
     {

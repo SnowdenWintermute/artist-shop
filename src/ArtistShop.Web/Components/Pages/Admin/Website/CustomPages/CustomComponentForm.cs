@@ -13,7 +13,7 @@ using ArtistShop.Web.Utilities;
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
 // A component's name, its frame, and the settings of its type: a text component's text and width, a heading's text, size,
-// font, boldness, alignment and link, a button's text, link, alignment, style, size and colour, a card grid's source, heading and paging, an image's fit and link, a carousel's source and how it shows its slides. Form posts
+// font, boldness, alignment and link, a button's text, link, alignment, style, size, colour, border and corners, a card grid's source, heading and paging, an image's fit, link and corners, a carousel's source and how it shows its slides. Form posts
 // create this, so it keeps a single public constructor
 public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 {
@@ -34,6 +34,7 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
     [StringLength(ArtistShopLimits.HeadingTextMaximumLength)]
     public string? HeadingText { get; set; }
 
+    // a heading's or a button's
     public TextSize Size { get; set; }
 
     public FontRole Font { get; set; }
@@ -48,14 +49,13 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 
     public ButtonStyle ButtonStyle { get; set; }
 
-    public int ButtonSize { get; set; }
-
     public ButtonColor ButtonColor { get; set; }
 
     // null for the theme frame's
     public FrameBorderWidth? ButtonBorderWidth { get; set; }
 
-    public FrameCorners? ButtonCorners { get; set; }
+    // a button's, an image's or a carousel's, null for the theme frame's
+    public FrameCorners? Corners { get; set; }
 
     [Range(1, ArtistShopLimits.CardGridMaximumCardsPerPage)]
     public int? CardsPerPage { get; set; }
@@ -141,10 +141,10 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 ButtonText = button.Text,
                 Alignment = button.Alignment,
                 ButtonStyle = button.Style,
-                ButtonSize = button.Size,
+                Size = button.Size,
                 ButtonColor = button.Color,
                 ButtonBorderWidth = button.BorderWidth,
-                ButtonCorners = button.Corners,
+                Corners = button.Corners,
             },
             CardGridSettings cardGrid => new()
             {
@@ -165,6 +165,7 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 ImageHeight = image.Height,
                 Fit = image.Fit,
                 Link = image.Link,
+                Corners = image.Corners,
             },
             CarouselSettings carousel => new()
             {
@@ -178,6 +179,7 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 Controls = carousel.Controls,
                 CarouselLink = carousel.Link,
                 Caption = carousel.Caption,
+                Corners = carousel.Corners,
             },
             _ => new() { Name = component.Name },
         };
@@ -247,10 +249,10 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         var isValid = CheckSelects(
             (Enum.IsDefined(Alignment), nameof(Alignment)),
             (Enum.IsDefined(ButtonStyle), nameof(ButtonStyle)),
-            (ButtonSettings.AllowsSize(ButtonSize), nameof(ButtonSize)),
+            (Enum.IsDefined(Size), nameof(Size)),
             (Enum.IsDefined(ButtonColor), nameof(ButtonColor)),
             (ButtonBorderWidth is not { } width || Enum.IsDefined(width), nameof(ButtonBorderWidth)),
-            (ButtonCorners is not { } corners || Enum.IsDefined(corners), nameof(ButtonCorners))
+            (AreCornersDefined, nameof(Corners))
         );
 
         if (string.IsNullOrWhiteSpace(ButtonText))
@@ -313,7 +315,8 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         var isValid = CheckSelects(
             (Enum.IsDefined(ImageHeight), nameof(ImageHeight)),
             (Enum.IsDefined(Fit), nameof(Fit)),
-            (Enum.IsDefined(Link), nameof(Link))
+            (Enum.IsDefined(Link), nameof(Link)),
+            (AreCornersDefined, nameof(Corners))
         );
 
         return await CheckChosenImageAsync(uploadedImageRepository, workRepository, wording) && isValid;
@@ -335,7 +338,8 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
             (Enum.IsDefined(Fit), nameof(Fit)),
             (Enum.IsDefined(Controls), nameof(Controls)),
             (Enum.IsDefined(CarouselLink), nameof(CarouselLink)),
-            (Enum.IsDefined(Caption), nameof(Caption))
+            (Enum.IsDefined(Caption), nameof(Caption)),
+            (AreCornersDefined, nameof(Corners))
         );
 
         if (SlideSource is SlideSourceType.WorksInCollection && !CheckCollectionChosen(collections))
@@ -344,6 +348,18 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         }
 
         return isValid;
+    }
+
+    // A link given a type with nothing picked for it starts at that type's first choice (LinkTargetInput.ChooseDefaults),
+    // and an image just set to link somewhere starts at the home page, as a new button does
+    public void ChooseDefaultLink(CustomComponentSettings saved, CustomPageId homeId, CollectionId? firstCollectionId, PostId? firstPostId)
+    {
+        if (saved is ImageSettings && Link is ImageLink.Target && LinkTo.Type is null)
+        {
+            LinkTo.Type = LinkTargetType.Page;
+        }
+
+        LinkTo.ChooseDefaults(homeId, firstCollectionId, firstPostId);
     }
 
     // A heading's link, which may be none, a button's, which can't, or an image's set to link to a target. False
@@ -379,6 +395,8 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         return false;
     }
 
+    private bool AreCornersDefined => Corners is not { } corners || Enum.IsDefined(corners);
+
     public string ToName() => Unwrap.Value(Name).Trim();
 
     public ComponentFrame ToFrame(CustomComponentSettings saved) =>
@@ -395,10 +413,10 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 LinkTo.ToTarget() ?? throw new InvalidOperationException("Save checks the button's link first."),
                 Alignment,
                 ButtonStyle,
-                ButtonSize,
+                Size,
                 ButtonColor,
                 ButtonBorderWidth,
-                ButtonCorners
+                Corners
             ),
             CardGridSettings => new CardGridSettings(
                 CardGridSource.Of(Source, ChosenCollectionId),
@@ -415,7 +433,8 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 ImageHeight,
                 Fit,
                 Link is ImageLink.ArtworkPage && ChosenImageSource is not ImageSource.Work ? ImageLink.Lightbox : Link,
-                Link is ImageLink.Target ? LinkTo.ToTarget() : null
+                Link is ImageLink.Target ? LinkTo.ToTarget() : null,
+                Corners
             ),
             CarouselSettings => new CarouselSettings(
                 Domain.Website.SlideSource.Of(SlideSource, ChosenCollectionId),
@@ -425,7 +444,8 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
                 Fit,
                 Controls,
                 CarouselLink,
-                Caption
+                Caption,
+                Corners
             ),
             _ => saved,
         };

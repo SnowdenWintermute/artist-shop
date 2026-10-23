@@ -102,6 +102,13 @@ collection.Id).ToHashSet();
       _pages = [.. (await CustomPageRepository.GetAllAsync()).OrderBy(page => page.Name, NameOrder.ByName)];
       _collections = await CollectionRepository.GetAllAsync();
       _posts = await PostRepository.GetAllAsync();
+
+      if (_formWasPosted)
+      {
+        Input.ChooseDefaultLink(_component.Component.Settings, (await CustomPageRepository.GetHomeAsync()).Id,
+          _collections.FirstOrDefault()?.Id, _posts.FirstOrDefault()?.Id);
+      }
+
       _linkedWorkName = Input.LinkTo.WorkId is int workId ? (await WorkRepository.GetByIdAsync(new WorkId(workId)))?.Name.Value : null;
     }
 
@@ -219,6 +226,17 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       _ => throw new InvalidOperationException($"{font} has no label."),
     };
 
+  // a heading's or a button's, in pixels, as the text editor names its sizes
+  private RenderFragment SizeField(CustomComponentForm input) =>
+    @<SubmitOnChange>
+      <SelectField Label="Size" @bind-Value="input.Size">
+        @foreach (var size in Enum.GetValues<TextSize>())
+        {
+          <option value="@size">@TextSizeNames.Of(size)</option>
+        }
+      </SelectField>
+    </SubmitOnChange>;
+
   private static string AlignmentLabel(ComponentAlignment alignment) =>
     alignment switch
     {
@@ -321,15 +339,7 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           <TextField Label="Text" @bind-Value="Input.HeadingText" />
-          @* in pixels, as the text editor names its sizes *@
-          <SubmitOnChange>
-            <SelectField Label="Size" @bind-Value="Input.Size">
-              @foreach (var size in Enum.GetValues<TextSize>())
-              {
-                <option value="@size">@TextSizeNames.Of(size)</option>
-              }
-            </SelectField>
-          </SubmitOnChange>
+          @SizeField(Input)
           <SubmitOnChange>
             <RadioField Label="Font" @bind-Value="Input.Font" Values="Enum.GetValues<FontRole>()" LabelOf="FontLabel" />
           </SubmitOnChange>
@@ -356,22 +366,13 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
           <SubmitOnChange>
             <RadioField Label="Style" @bind-Value="Input.ButtonStyle" Values="Enum.GetValues<ButtonStyle>()" LabelOf="style => style.ToString()" />
           </SubmitOnChange>
-          <SubmitOnChange>
-            @* native, as the theme's font sizes are *@
-            <label class="mb-4 flex items-center gap-2">
-              Size
-              <input type="range" min="@ButtonSettings.MinimumSize" max="@ButtonSettings.MaximumSize" name="Input.ButtonSize"
-                     value="@Input.ButtonSize" class="cursor-pointer" />
-              @Input.ButtonSize
-            </label>
-            <ValidationMessage For="() => Input.ButtonSize" class="mb-4 block text-error" />
-          </SubmitOnChange>
+          @SizeField(Input)
           <SubmitOnChange>
             <RadioField Label="Colour" @bind-Value="Input.ButtonColor" Values="Enum.GetValues<ButtonColor>()" LabelOf="color => color.ToString()" />
           </SubmitOnChange>
           <SubmitOnChange>
             <ThemePartChoices TEnum="FrameBorderWidth" Label="Border width" Name="Input.ButtonBorderWidth" Chosen="Input.ButtonBorderWidth" />
-            <ThemePartChoices TEnum="FrameCorners" Label="Corners" Name="Input.ButtonCorners" Chosen="Input.ButtonCorners" />
+            <ThemePartChoices TEnum="FrameCorners" Label="Corners" Name="Input.Corners" Chosen="Input.Corners" />
           </SubmitOnChange>
         </ComponentSettingsForm>
       }
@@ -453,6 +454,9 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
                         IsUnavailable="!ImageSettings.HasFit(Input.ImageHeight)" />
           </SubmitOnChange>
           <SubmitOnChange>
+            <ThemePartChoices TEnum="FrameCorners" Label="Corners" Name="Input.Corners" Chosen="Input.Corners" />
+          </SubmitOnChange>
+          <SubmitOnChange>
             <RadioField Label="Link" @bind-Value="Input.Link" Values="ImageLinks(Input)" LabelOf="ImageLinkLabel" />
           </SubmitOnChange>
           @if (Input.Link is ImageLink.Target)
@@ -485,6 +489,9 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
           </SubmitOnChange>
           <SubmitOnChange>
             <RadioField Label="Fit" @bind-Value="Input.Fit" Values="Enum.GetValues<ImageFit>()" LabelOf="fit => fit.ToString()" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <ThemePartChoices TEnum="FrameCorners" Label="Corners" Name="Input.Corners" Chosen="Input.Corners" />
           </SubmitOnChange>
           <SubmitOnChange>
             <RadioField Label="Controls" @bind-Value="Input.Controls" Values="Enum.GetValues<CarouselControls>()"
