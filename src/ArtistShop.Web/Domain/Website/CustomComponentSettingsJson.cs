@@ -18,7 +18,7 @@ public static class CustomComponentSettingsJson
             TextSettings text => (WriteText(text), 1),
             ImageSettings image => (WriteImage(image), 1),
             CarouselSettings carousel => (WriteCarousel(carousel), 1),
-            HeadingSettings heading => (WriteHeading(heading), 1),
+            HeadingSettings heading => (WriteHeading(heading), 2),
             _ => throw new InvalidOperationException($"No writer for a {settings.Type}'s settings."),
         };
 
@@ -30,7 +30,8 @@ public static class CustomComponentSettingsJson
             (CustomComponentType.Text, 1) => ReadText(json),
             (CustomComponentType.Image, 1) => ReadImage(json),
             (CustomComponentType.Carousel, 1) => ReadCarousel(json),
-            (CustomComponentType.Heading, 1) => ReadHeading(json),
+            (CustomComponentType.Heading, 1) => ReadLeveledHeading(json),
+            (CustomComponentType.Heading, 2) => ReadHeading(json),
             _ => throw new InvalidOperationException($"No reader for version {version} of a {type}'s settings."),
         };
 
@@ -54,12 +55,14 @@ public static class CustomComponentSettingsJson
         );
     }
 
-    // {"text": "…", "level": "One", "alignment": "Left"}
+    // {"text": "…", "size": "Size36", "font": "Heading", "bold": true, "alignment": "Left"}
     private static string WriteHeading(HeadingSettings heading) =>
         new JsonObject
         {
             ["text"] = heading.Text,
-            ["level"] = heading.Level.ToString(),
+            ["size"] = heading.Size.ToString(),
+            ["font"] = heading.Font.ToString(),
+            ["bold"] = heading.Bold,
             ["alignment"] = heading.Alignment.ToString(),
         }.ToJsonString();
 
@@ -70,7 +73,32 @@ public static class CustomComponentSettingsJson
 
         return new HeadingSettings(
             ReadString(root, "text"),
-            Enum.Parse<HeadingLevel>(ReadString(root, "level")),
+            Enum.Parse<TextSize>(ReadString(root, "size")),
+            Enum.Parse<FontRole>(ReadString(root, "font")),
+            root.GetProperty("bold").GetBoolean(),
+            Enum.Parse<HeadingAlignment>(ReadString(root, "alignment"))
+        );
+    }
+
+    // Version 1, {"text": "…", "level": "One", "alignment": "Left"}, when a level gave the size and font,
+    // as a heading in the editor's text did, and was always bold
+    private static HeadingSettings ReadLeveledHeading(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var (size, font) = ReadString(root, "level") switch
+        {
+            "One" => (TextSize.Size36, FontRole.Heading),
+            "Two" => (TextSize.Size24, FontRole.Heading),
+            "Three" => (TextSize.Size18, FontRole.Text),
+            var level => throw new InvalidOperationException($"A heading has the level {level}."),
+        };
+
+        return new HeadingSettings(
+            ReadString(root, "text"),
+            size,
+            font,
+            Bold: true,
             Enum.Parse<HeadingAlignment>(ReadString(root, "alignment"))
         );
     }

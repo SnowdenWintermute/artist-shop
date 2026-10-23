@@ -8,6 +8,10 @@
   [Parameter, EditorRequired]
   public required RowPosition Position { get; set; }
 
+  // the page's h1, from CustomPageLayout.PageTitle
+  [Parameter, EditorRequired]
+  public required StackPlace? PageTitle { get; set; }
+
   // in a box MainLayout makes a screen high with the nav or the footer, a row that fills the screen
   // grows to fill what they leave rather than being a screen high itself
   [Parameter]
@@ -76,10 +80,11 @@
     @foreach (var (slot, width) in Slots)
     {
       <div class="@SlotClass(width)">
-        @foreach (var component in slot.Stack)
+        @foreach (var (component, index) in slot.Stack.Select((component, index) => (component, index)))
         {
           <CustomComponentView @key="component.Id" Component="component" Slot="width"
-                               IsPageTop="Position.IsFirst && component == slot.Stack[0]" />
+                               IsPageTop="Position.IsFirst && index == 0"
+                               IsPageTitle="PageTitle == new StackPlace(slot.Id, index)" />
         }
       </div>
     }

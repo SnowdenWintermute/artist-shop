@@ -14,8 +14,9 @@ public class RichTextDeltaWriterTests
           {"insert":"all at once","attributes":{"bold":true,"italic":true,"underline":true,"link":"https://example.com/"}},
           {"insert":"\n"},
           {"insert":"\n"},
-          {"insert":"A heading"},{"insert":"\n","attributes":{"header":2}},
-          {"insert":"A smaller one"},{"insert":"\n","attributes":{"header":3}},
+          {"insert":"A heading"},{"insert":"\n","attributes":{"artshop-heading":true}},
+          {"insert":"Large","attributes":{"size":"72","bold":true}},{"insert":" and tiny","attributes":{"size":"14"}},{"insert":"\n","attributes":{"artshop-heading":true}},
+          {"insert":"Sized text","attributes":{"size":"24"}},{"insert":"\n"},
           {"insert":"Quoted"},{"insert":"\n","attributes":{"blockquote":true}},
           {"insert":"One"},{"insert":"\n","attributes":{"list":"bullet"}},
           {"insert":"Two","attributes":{"link":"/collections/gardens"}},{"insert":"\n","attributes":{"list":"bullet"}},
@@ -36,6 +37,17 @@ public class RichTextDeltaWriterTests
         var written = RichTextDeltaWriter.Write(document);
 
         Assert.Equivalent(document, RichTextParser.Parse(written), strict: true);
+    }
+
+    [Fact]
+    public void RewritingGivesOlderTextsHeadingsTheirSizes()
+    {
+        var older = new RichText("""{"ops":[{"insert":"Title"},{"insert":"\n","attributes":{"header":1}}]}""");
+
+        Assert.Equal(
+            """{"ops":[{"insert":"Title","attributes":{"bold":true,"size":"36"}},{"insert":"\n","attributes":{"artshop-heading":true}}]}""",
+            RichTextDeltaWriter.Rewrite(older).Json
+        );
     }
 
     [Fact]

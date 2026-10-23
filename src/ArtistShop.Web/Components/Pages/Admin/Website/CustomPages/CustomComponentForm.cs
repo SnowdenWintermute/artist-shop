@@ -12,8 +12,8 @@ using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Components.Pages.Admin.Website.CustomPages;
 
-// A component's name, and the settings of its type: a text component's text and width, a heading's text, level
-// and alignment, a card grid's source, heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
+// A component's name, and the settings of its type: a text component's text and width, a heading's text, size,
+// font, boldness and alignment, a card grid's source, heading and paging, an image's fit, padding and link, a carousel's source and how it shows its slides. Form posts
 // create this, so it keeps a single public constructor
 public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
 {
@@ -34,7 +34,11 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
     [StringLength(ArtistShopLimits.HeadingTextMaximumLength)]
     public string? HeadingText { get; set; }
 
-    public HeadingLevel Level { get; set; }
+    public TextSize Size { get; set; }
+
+    public FontRole Font { get; set; }
+
+    public bool Bold { get; set; }
 
     public HeadingAlignment Alignment { get; set; }
 
@@ -73,14 +77,16 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
             TextSettings text => new()
             {
                 Name = component.Name,
-                Body = LibraryImageFields.Fill(text.Body, libraryImages).Json,
+                Body = LibraryImageFields.Fill(RichTextDeltaWriter.Rewrite(text.Body), libraryImages).Json,
                 Width = text.Width,
             },
             HeadingSettings heading => new()
             {
                 Name = component.Name,
                 HeadingText = heading.Text,
-                Level = heading.Level,
+                Size = heading.Size,
+                Font = heading.Font,
+                Bold = heading.Bold,
                 Alignment = heading.Alignment,
             },
             CardGridSettings cardGrid => new()
@@ -159,7 +165,11 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
             return true;
         }
 
-        var isValid = CheckSelects((Enum.IsDefined(Level), nameof(Level)), (Enum.IsDefined(Alignment), nameof(Alignment)));
+        var isValid = CheckSelects(
+            (Enum.IsDefined(Size), nameof(Size)),
+            (Enum.IsDefined(Font), nameof(Font)),
+            (Enum.IsDefined(Alignment), nameof(Alignment))
+        );
 
         if (string.IsNullOrWhiteSpace(HeadingText))
         {
@@ -262,7 +272,7 @@ public class CustomComponentForm : CollectionChoiceForm, IValidatableObject
         saved switch
         {
             TextSettings => new TextSettings(LibraryImageFields.Strip(new RichText(Unwrap.Value(Body))), Width),
-            HeadingSettings => new HeadingSettings(Unwrap.Value(HeadingText).Trim(), Level, Alignment),
+            HeadingSettings => new HeadingSettings(Unwrap.Value(HeadingText).Trim(), Size, Font, Bold, Alignment),
             CardGridSettings => new CardGridSettings(
                 CardGridSource.Of(Source, ChosenCollectionId),
                 // a custom list has nothing to name it by, so Automatic, which a grid had before switching to one, is None

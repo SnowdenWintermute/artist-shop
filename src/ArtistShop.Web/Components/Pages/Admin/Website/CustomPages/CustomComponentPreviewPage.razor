@@ -34,10 +34,12 @@
 
 @if (_component is { } component)
 {
+  var row = RowHolding(component);
+
   <PageTitle>@component.Name</PageTitle>
 
   @* MainLayout drops its padding around this, since the row holds its own *@
   <main data-custom-page>
-    <PageRowView Row="RowHolding(component)" Position="new RowPosition(IsFirst: true, IsLast: true)" />
+    <PageRowView Row="row" Position="new RowPosition(IsFirst: true, IsLast: true)" PageTitle="new CustomPageLayout([row]).PageTitle" />
   </main>
 }

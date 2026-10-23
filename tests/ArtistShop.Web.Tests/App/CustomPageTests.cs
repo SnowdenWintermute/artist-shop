@@ -846,12 +846,17 @@ public sealed partial class CustomPageTests(TestApp app)
             {
                 ["Input.Name"] = "Heading 1",
                 ["Input.HeadingText"] = " About me ",
-                ["Input.Level"] = nameof(HeadingLevel.Two),
+                ["Input.Size"] = nameof(TextSize.Size128),
+                ["Input.Font"] = nameof(FontRole.Text),
+                // an unchecked box posts nothing
                 ["Input.Alignment"] = nameof(HeadingAlignment.Center),
             }
         );
 
-        Assert.Equal(new HeadingSettings("About me", HeadingLevel.Two, HeadingAlignment.Center), await SettingsOfAsync(site, id));
+        Assert.Equal(
+            new HeadingSettings("About me", TextSize.Size128, FontRole.Text, Bold: false, HeadingAlignment.Center),
+            await SettingsOfAsync(site, id)
+        );
     }
 
     [Fact]
@@ -869,7 +874,7 @@ public sealed partial class CustomPageTests(TestApp app)
             {
                 ["Input.Name"] = "Heading 1",
                 ["Input.HeadingText"] = " ",
-                ["Input.Level"] = nameof(HeadingLevel.Two),
+                ["Input.Size"] = nameof(TextSize.Size24),
                 ["Input.Alignment"] = nameof(HeadingAlignment.Center),
             }
         );
@@ -878,15 +883,45 @@ public sealed partial class CustomPageTests(TestApp app)
     }
 
     [Fact]
-    public async Task AHeadingIsDrawnAtItsLevelOnItsSide()
+    public async Task AHeadingIsDrawnAtItsSizeInItsFontOnItsSide()
     {
         var site = await app.MakeSiteAsync();
-        await AddHeadingAsync(site, new HeadingSettings("About me", HeadingLevel.Two, HeadingAlignment.Right));
+        await AddHeadingAsync(site, new HeadingSettings("About me", TextSize.Size96, FontRole.Text, Bold: false, HeadingAlignment.Right));
 
         var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
 
-        Assert.Matches("<h2 class=\"[^\"]*text-right[^\"]*\">About me</h2>", page);
+        var heading = Assert.Single(HeadingClasses().Matches(page), match => match.Groups["text"].Value == "About me");
+        var classes = heading.Groups["class"].Value.Split(' ');
+        Assert.Contains(TextSizeNames.ClassOf(TextSize.Size96), classes);
+        Assert.Contains("font-text", classes);
+        Assert.Contains("text-right", classes);
+        Assert.DoesNotContain("font-bold", classes);
     }
+
+    [Fact]
+    public async Task OnlyThePagesFirstHeadingIsItsTitle()
+    {
+        var site = await app.MakeSiteAsync();
+        await AddHeadingAsync(site, HeadingSettings.New with { Text = "First" });
+        var row = Assert.Single((await PagesOf(site).GetLayoutAsync((await PagesOf(site).GetHomeAsync()).Id)).Rows);
+        await new CustomComponentRepository(app.DatabaseOf(site)).AddToSlotAsync(
+            Assert.Single(row.Slots).Id,
+            "Heading 2",
+            HeadingSettings.New with { Text = "Second" }
+        );
+
+        var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [("h1", "First"), ("h2", "Second")],
+            HeadingClasses().Matches(page)
+                .Where(match => match.Groups["text"].Value is "First" or "Second")
+                .Select(match => (match.Groups["tag"].Value, match.Groups["text"].Value))
+        );
+    }
+
+    [GeneratedRegex("""<(?<tag>h[12]) class="(?<class>[^"]*)">(?<text>[^<]*)</h[12]>""")]
+    private static partial Regex HeadingClasses();
 
     [GeneratedRegex("""<a (?=[^>]*class="font-heading)[^>]*href="(?<href>[^"]*)"[^>]*>(?<text>[^<]*)</a>""")]
     private static partial Regex NavLink();

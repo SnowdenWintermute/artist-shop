@@ -17,7 +17,7 @@ public class PostForm : ServerValidatedForm, IValidatableObject
 
     // LibraryImages holds the library images the body shows, which the editor draws its image embeds from
     public static PostForm FromPost(Post post, IReadOnlyDictionary<string, UploadedImage> libraryImages) =>
-        new() { Title = post.Title.Value, Body = LibraryImageFields.Fill(post.Body, libraryImages).Json };
+        new() { Title = post.Title.Value, Body = LibraryImageFields.Fill(RichTextDeltaWriter.Rewrite(post.Body), libraryImages).Json };
 
     [Required]
     [StringLength(ArtistShopLimits.PostTitleMaximumLength)]

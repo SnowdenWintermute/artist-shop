@@ -82,6 +82,56 @@ html {
   --text-3xl--line-height: calc(2.25 / 1.875 * var(--current-font-scale));
 }
 
+/* The sizes an artist gives words in the editor, or a heading component (TextSize), named by their pixels.
+   Plain classes, since C# and the editor build the names. The larger the text, the tighter its lines, as
+   tailwind's sizes go */
+@layer utilities {
+  .text-size-14 {
+    font-size: 0.875rem;
+    line-height: calc(1.25 / 0.875 * var(--current-font-scale));
+  }
+  .text-size-16 {
+    font-size: 1rem;
+    line-height: calc(1.5 * var(--current-font-scale));
+  }
+  .text-size-18 {
+    font-size: 1.125rem;
+    line-height: calc(1.75 / 1.125 * var(--current-font-scale));
+  }
+  .text-size-24 {
+    font-size: 1.5rem;
+    line-height: calc(2 / 1.5 * var(--current-font-scale));
+  }
+  .text-size-36 {
+    font-size: 2.25rem;
+    line-height: calc(2.5 / 2.25 * var(--current-font-scale));
+  }
+  .text-size-48 {
+    font-size: 3rem;
+    line-height: var(--current-font-scale);
+  }
+  .text-size-60 {
+    font-size: 3.75rem;
+    line-height: var(--current-font-scale);
+  }
+  .text-size-72 {
+    font-size: 4.5rem;
+    line-height: var(--current-font-scale);
+  }
+  .text-size-96 {
+    font-size: 6rem;
+    line-height: var(--current-font-scale);
+  }
+  .text-size-128 {
+    font-size: 8rem;
+    line-height: var(--current-font-scale);
+  }
+  .text-size-160 {
+    font-size: 10rem;
+    line-height: var(--current-font-scale);
+  }
+}
+
 /* a browser gives a dialog or a popover colours of its own, Canvas and CanvasText, which ignore the
    theme: text without a colour class, like the drawer's Log out, stayed black on a dark menu. Each
    sets its own background; its text follows the page's. In the base layer, so a class like the

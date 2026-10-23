@@ -39,7 +39,7 @@
       <SectionContent SectionName="@MainLayout.BelowNavSectionName">
         <CascadingValue Value="Page" IsFixed>
           <div data-below-nav class="flex flex-1 flex-col bg-page">
-            <PageRowView Row="first" Position="layout.PositionOf(first)" FillsBox />
+            <PageRowView Row="first" Position="layout.PositionOf(first)" PageTitle="layout.PageTitle" FillsBox />
           </div>
         </CascadingValue>
       </SectionContent>
@@ -49,7 +49,7 @@
     <main data-custom-page>
       @foreach (var row in layout.Rows.Where(row => row != belowNav && row != aboveFooter))
       {
-        <PageRowView @key="row.Id" Row="row" Position="layout.PositionOf(row)" />
+        <PageRowView @key="row.Id" Row="row" Position="layout.PositionOf(row)" PageTitle="layout.PageTitle" />
       }
     </main>
 
@@ -69,7 +69,7 @@
           <div data-last-row data-above-footer="@(layout.Rows.Count > 1 && last.Height is RowHeight.FillScreen)"
                data-box-of="@marker" class="flex flex-1 flex-col">
             <RowBackgroundLayer Background="last.Background" RowId="last.Id" IsFirstRow="layout.PositionOf(last).IsFirst" />
-            <PageRowView Row="last" Position="layout.PositionOf(last)" FillsBox="last.Height is RowHeight.FillScreen" LeavesBackgroundToBox />
+            <PageRowView Row="last" Position="layout.PositionOf(last)" PageTitle="layout.PageTitle" FillsBox="last.Height is RowHeight.FillScreen" LeavesBackgroundToBox />
           </div>
         </CascadingValue>
       </SectionContent>

@@ -9,7 +9,7 @@ public class RichTextParserTests
     private static IReadOnlyList<RichTextBlock> Parse(string json) =>
         RichTextParser.Parse(new RichText(json)).Blocks;
 
-    private static RichTextRun Plain(string text) => new(text, false, false, false, null);
+    private static RichTextRun Plain(string text) => new(text, false, false, false, null, TextSize.Size16);
 
     [Fact]
     public void EachLineIsAParagraph()
@@ -49,9 +49,9 @@ public class RichTextParserTests
         Assert.Equal(
             [
                 Plain("plain "),
-                new RichTextRun("bold", Bold: true, Italic: false, Underline: true, Link: null),
+                new RichTextRun("bold", Bold: true, Italic: false, Underline: true, Link: null, TextSize.Size16),
                 Plain(" "),
-                new RichTextRun("italic", Bold: false, Italic: true, Underline: false, Link: null),
+                new RichTextRun("italic", Bold: false, Italic: true, Underline: false, Link: null, TextSize.Size16),
             ],
             Assert.IsType<ParagraphBlock>(Assert.Single(blocks)).Text
         );
@@ -61,28 +61,56 @@ public class RichTextParserTests
     public void TheLineFormatComesFromItsNewline()
     {
         var blocks = Parse(
-            """{"ops":[{"insert":"Intro\nTitle"},{"insert":"\n","attributes":{"header":2}},{"insert":"Body\n"}]}"""
+            """{"ops":[{"insert":"Intro\nTitle"},{"insert":"\n","attributes":{"artshop-heading":true}},{"insert":"Body\n"}]}"""
         );
 
         Assert.IsType<ParagraphBlock>(blocks[0]);
-        var heading = Assert.IsType<HeadingBlock>(blocks[1]);
-        Assert.Equal(HeadingLevel.Two, heading.Level);
-        Assert.Equal([Plain("Title")], heading.Text);
+        Assert.Equal([Plain("Title")], Assert.IsType<HeadingBlock>(blocks[1]).Text);
         Assert.IsType<ParagraphBlock>(blocks[2]);
     }
 
+    [Fact]
+    public void EachWordKeepsItsOwnSize()
+    {
+        var blocks = Parse(
+            """{"ops":[{"insert":"small ","attributes":{"size":"14"}},{"insert":"plain "},{"insert":"huge","attributes":{"size":"160"}},{"insert":"\n"}]}"""
+        );
+
+        Assert.Equal(
+            [TextSize.Size14, TextSize.Size16, TextSize.Size160],
+            Assert.IsType<ParagraphBlock>(Assert.Single(blocks)).Text.Select(run => run.Size)
+        );
+    }
+
     [Theory]
-    [InlineData(1, HeadingLevel.One)]
-    [InlineData(2, HeadingLevel.Two)]
-    [InlineData(3, HeadingLevel.Three)]
-    [InlineData(4, HeadingLevel.Three)]
-    public void FoldsLowerHeadingLevelsIntoTheSmallestOffered(int level, HeadingLevel expected)
+    [InlineData("\"15\"")]
+    [InlineData("\"large\"")]
+    [InlineData("36")]
+    public void AnUnknownSizeIsThePagesOwn(string size)
+    {
+        var blocks = Parse($$$"""{"ops":[{"insert":"text","attributes":{"size":{{{size}}}}},{"insert":"\n"}]}""");
+
+        Assert.Equal(TextSize.Size16, Assert.Single(Assert.IsType<ParagraphBlock>(Assert.Single(blocks)).Text).Size);
+    }
+
+    // text saved when a heading's level gave it its size and font, and every level was bold
+    [Theory]
+    [InlineData(1, true, TextSize.Size36)]
+    [InlineData(2, true, TextSize.Size24)]
+    [InlineData(3, false, TextSize.Size18)]
+    [InlineData(4, false, TextSize.Size18)]
+    public void AHeadingLevelBecomesItsSizeAndFont(int level, bool isHeading, TextSize size)
     {
         var blocks = Parse(
             $$$"""{"ops":[{"insert":"Title"},{"insert":"\n","attributes":{"header":{{{level}}}}}]}"""
         );
 
-        Assert.Equal(expected, Assert.IsType<HeadingBlock>(Assert.Single(blocks)).Level);
+        var block = Assert.Single(blocks);
+        Assert.Equal(isHeading, block is HeadingBlock);
+        Assert.Equal(
+            [new RichTextRun("Title", Bold: true, Italic: false, Underline: false, Link: null, size)],
+            block is HeadingBlock heading ? heading.Text : Assert.IsType<ParagraphBlock>(block).Text
+        );
     }
 
     [Fact]

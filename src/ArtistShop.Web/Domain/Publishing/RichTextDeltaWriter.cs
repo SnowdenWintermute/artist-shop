@@ -9,6 +9,10 @@ public static class RichTextDeltaWriter
 {
     public static RichText Write(RichTextDocument document) => new(Delta(document, Embed).ToJsonString());
 
+    // stored text as this writes it, so the editor never loads a format only older text has, such as
+    // a heading's level
+    public static RichText Rewrite(RichText body) => Write(RichTextParser.Parse(body));
+
     // Embed gives each embed block's insert, such as {"artshop-image": {...}}, or null to leave the
     // embed out
     public static JsonObject Delta(RichTextDocument document, Func<RichTextBlock, JsonObject?> embed)
@@ -26,7 +30,7 @@ public static class RichTextDeltaWriter
                     break;
 
                 case HeadingBlock heading:
-                    AddLine(ops, heading.Text, new JsonObject { ["header"] = (int)heading.Level });
+                    AddLine(ops, heading.Text, new JsonObject { [RichTextParser.HeadingName] = true });
                     endsWithLine = true;
                     break;
 
@@ -158,6 +162,11 @@ public static class RichTextDeltaWriter
             if (run.Link is { } link)
             {
                 formats["link"] = link;
+            }
+
+            if (run.Size is not TextSize.Size16)
+            {
+                formats["size"] = TextSizeNames.Of(run.Size);
             }
 
             ops.Add(formats.Count is 0 ? new JsonObject { ["insert"] = run.Text } : new JsonObject { ["insert"] = run.Text, ["attributes"] = formats });

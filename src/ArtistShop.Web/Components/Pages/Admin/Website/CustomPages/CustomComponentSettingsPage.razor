@@ -189,8 +189,13 @@ Input.ToSettings(_component.Component.Settings));
       _ => throw new InvalidOperationException($"{link} has no label."),
     };
 
-  // Heading 1 to 3, as the text editor names its levels
-  private static string LevelLabel(HeadingLevel level) => $"Heading {(int)level}";
+  private static string FontLabel(FontRole font) =>
+    font switch
+    {
+      FontRole.Heading => "Heading font",
+      FontRole.Text => "Text font",
+      _ => throw new InvalidOperationException($"{font} has no label."),
+    };
 
   private static string AlignmentLabel(HeadingAlignment alignment) =>
     alignment switch
@@ -294,9 +299,20 @@ Input.ToSettings(_component.Component.Settings));
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted">
           <TextField Label="Text" @bind-Value="Input.HeadingText" />
+          @* in pixels, as the text editor names its sizes *@
           <SubmitOnChange>
-            <RadioField Label="Size" @bind-Value="Input.Level" Values="Enum.GetValues<HeadingLevel>()"
-                        LabelOf="LevelLabel" />
+            <SelectField Label="Size" @bind-Value="Input.Size">
+              @foreach (var size in Enum.GetValues<TextSize>())
+              {
+                <option value="@size">@TextSizeNames.Of(size)</option>
+              }
+            </SelectField>
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <RadioField Label="Font" @bind-Value="Input.Font" Values="Enum.GetValues<FontRole>()" LabelOf="FontLabel" />
+          </SubmitOnChange>
+          <SubmitOnChange>
+            <CheckboxField Label="Bold" @bind-Value="Input.Bold" />
           </SubmitOnChange>
           <SubmitOnChange>
             <RadioField Label="Alignment" @bind-Value="Input.Alignment" Values="Enum.GetValues<HeadingAlignment>()"

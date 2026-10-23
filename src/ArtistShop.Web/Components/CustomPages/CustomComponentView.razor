@@ -12,6 +12,10 @@
   // first in a column of the page's first row
   [Parameter, EditorRequired]
   public required bool IsPageTop { get; set; }
+
+  // the page's first heading component, which is its h1
+  [Parameter, EditorRequired]
+  public required bool IsPageTitle { get; set; }
 }
 
 @* what the editors' preview finds a component by. contents: it lays nothing out itself *@
@@ -29,7 +33,7 @@
       <TextView Settings="text" />
       break;
     case HeadingSettings heading:
-      <HeadingView Settings="heading" />
+      <HeadingView Settings="heading" IsPageTitle="IsPageTitle" />
       break;
     case ImageSettings image:
       <ImageView Settings="image" Slot="Slot" />

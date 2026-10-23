@@ -27,7 +27,8 @@ type QuillOperation = {
 declare class QuillDelta {
   constructor(ops?: QuillOperation[]);
   ops: QuillOperation[];
-  retain(length: number): this;
+  // with attributes, sets or (with null) takes off those formats over the length
+  retain(length: number, attributes?: Record<string, unknown>): this;
   delete(length: number): this;
   insert(value: string | Record<string, unknown>, attributes?: Record<string, unknown>): this;
   // where index ends up once this change is applied
@@ -37,7 +38,8 @@ declare class QuillDelta {
 // a piece of the document, which Quill keeps in step with its DOM node
 declare class QuillBlot {
   static blotName: string;
-  static tagName: string;
+  // several when any of those tags is this blot, the first being the one it makes
+  static tagName: string | string[];
   static className: string;
   static create(value?: unknown): Node;
   static value(node: Node): unknown;
@@ -47,6 +49,15 @@ declare class QuillBlot {
 
 type QuillRange = { index: number; length: number };
 
+// a format kept on a blot's node rather than being a blot, such as a class
+declare class QuillAttributor {}
+
+type QuillParchment = {
+  // a format kept as the class keyName-value, one of whitelist
+  ClassAttributor: new (attrName: string, keyName: string, options: { scope: number; whitelist?: string[] }) => QuillAttributor;
+  Scope: { INLINE: number };
+};
+
 // called with the keyboard module as this; returning true lets the next binding, or the browser, have the key
 // a modifier left out must not be held
 type QuillKeyBinding = {
@@ -54,7 +65,12 @@ type QuillKeyBinding = {
   shiftKey?: boolean;
   // only when nothing is selected
   collapsed?: boolean;
-  handler: (this: { quill: Quill }, range: QuillRange) => boolean;
+  // only in a line with all of these formats
+  format?: string[];
+  // only when the line's text after the cursor matches
+  suffix?: RegExp;
+  // context.format is the formats where the cursor is
+  handler: (this: { quill: Quill }, range: QuillRange, context: { format: Record<string, unknown> }) => boolean;
 };
 
 declare class QuillLink extends QuillBlot {
@@ -102,6 +118,7 @@ declare class Quill {
   // the whole text's length, its final "\n" included
   getLength(): number;
   getLine(index: number): [QuillBlot | null, number];
+  scrollSelectionIntoView(): void;
   getModule(name: "toolbar"): QuillToolbar;
   getModule(name: "keyboard"): { addBinding(binding: QuillKeyBinding): void };
   getModule(name: "history"): { undo(): void; redo(): void };
@@ -109,10 +126,14 @@ declare class Quill {
   getBounds(index: number, length?: number): { top: number; bottom: number; left: number; right: number } | null;
   static import(path: "formats/link"): typeof QuillLink;
   static import(path: "blots/block/embed"): typeof QuillBlot;
+  static import(path: "blots/block"): typeof QuillBlot;
+  static import(path: "parchment"): QuillParchment;
   static import(path: "delta"): typeof QuillDelta;
   // each format's toolbar icon as SVG markup, or one per value, such as align's "", "center" and "right"
   static import(path: "ui/icons"): { image: string; video: string; [format: string]: string | Record<string, string> };
   static register(blot: typeof QuillBlot, overwrite?: boolean): void;
+  // each format by its path, such as "formats/size"
+  static register(definitions: Record<string, QuillAttributor>, overwrite?: boolean): void;
   // with bubble, the nearest blot holding node, where node itself isn't one
   static find(node: Node, bubble?: boolean): QuillBlot | Quill | null;
 }

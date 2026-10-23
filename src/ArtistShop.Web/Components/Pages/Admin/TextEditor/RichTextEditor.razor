@@ -3,6 +3,7 @@
 @using ArtistShop.Web.Components.Forms
 @using ArtistShop.Web.Components.Icons
 @using ArtistShop.Web.Components.Publishing
+@using ArtistShop.Web.Domain.Publishing
 @using System.Linq.Expressions
 
 @code {
@@ -38,6 +39,8 @@
      would remove Quill's toolbar and editing area, since the server never renders them *@
   <rich-text-editor class="block bg-panel" data-permanent="@DocumentKey" data-quill-src="@Assets["lib/quill/quill.js"]"
                     data-column-class="@RichTextColumn.WidthClass" data-video-address-dialog="@VideoAddressDialog.ElementId"
+                    data-text-sizes="@string.Join(' ', Enum.GetValues<TextSize>().Select(TextSizeNames.Of))"
+                    data-normal-text-size="@TextSizeNames.Of(TextSize.Size16)"
                     data-work-button-text="@Wording.Work.SingularHeading"
                     data-work-button-label="@($"Add {Wording.Work.SingularInSentence}")">
     <InputText type="hidden" id="@elementId" Value="@Value" ValueChanged="ValueChanged"

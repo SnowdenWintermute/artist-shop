@@ -11,7 +11,8 @@ public abstract record RichTextBlock;
 // an empty paragraph is a blank line the artist left on purpose
 public record ParagraphBlock(IReadOnlyList<RichTextRun> Text) : RichTextBlock;
 
-public record HeadingBlock(HeadingLevel Level, IReadOnlyList<RichTextRun> Text) : RichTextBlock;
+// a line in the theme's heading font; its words carry their own sizes, as any line's do
+public record HeadingBlock(IReadOnlyList<RichTextRun> Text) : RichTextBlock;
 
 public record BlockquoteBlock(IReadOnlyList<RichTextRun> Text) : RichTextBlock;
 
@@ -48,15 +49,22 @@ public record YouTubeVideo(string Id) : VideoSource;
 public record VimeoVideo(string Id, string? UnlistedHash) : VideoSource;
 
 // Link is null for plain text, and only ever an http, https or mailto address, or a path on this site
-public record RichTextRun(string Text, bool Bold, bool Italic, bool Underline, string? Link);
+public record RichTextRun(string Text, bool Bold, bool Italic, bool Underline, string? Link, TextSize Size);
 
-// The editor's heading levels, largest first, as Quill numbers them in the Delta, and drawn as h1 to h3.
-// One came later, for very large text, above the two posts had
-public enum HeadingLevel
+// The sizes text can be, numbered by its pixels in a font at 100%. 16 is the page's own text size
+public enum TextSize
 {
-    One = 1,
-    Two = 2,
-    Three = 3,
+    Size14 = 14,
+    Size16 = 16,
+    Size18 = 18,
+    Size24 = 24,
+    Size36 = 36,
+    Size48 = 48,
+    Size60 = 60,
+    Size72 = 72,
+    Size96 = 96,
+    Size128 = 128,
+    Size160 = 160,
 }
 
 public enum ListStyle

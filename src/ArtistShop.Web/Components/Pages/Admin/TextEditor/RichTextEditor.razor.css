@@ -16,31 +16,10 @@ rich-text-editor ::deep .ql-editor {
   line-height: inherit;
 }
 
-/* Quill leaves heading weight to the browser's defaults, which Tailwind's reset takes away. The sizes
-   and fonts are RichTextView's (font-heading's, for the two larger), so a heading looks as it will on the page */
-rich-text-editor ::deep .ql-editor h1,
-rich-text-editor ::deep .ql-editor h2,
-rich-text-editor ::deep .ql-editor h3 {
-  font-weight: 700;
-}
-
-rich-text-editor ::deep .ql-editor h1 {
-  font-family: var(--theme-heading-font), ui-sans-serif, system-ui, sans-serif;
-  font-size-adjust: var(--theme-heading-font-size-adjust);
-  font-size: var(--text-4xl);
-  line-height: var(--text-4xl--line-height);
-}
-
+/* A heading is font-heading, from its blot, with its words' own sizes as on the page. quill.snow.css sizes
+   an h2 itself, and isn't in a layer, so it would beat the size classes on its words */
 rich-text-editor ::deep .ql-editor h2 {
-  font-family: var(--theme-heading-font), ui-sans-serif, system-ui, sans-serif;
-  font-size-adjust: var(--theme-heading-font-size-adjust);
-  font-size: var(--text-2xl);
-  line-height: var(--text-2xl--line-height);
-}
-
-rich-text-editor ::deep .ql-editor h3 {
-  font-size: var(--text-lg);
-  line-height: var(--text-lg--line-height);
+  font-size: inherit;
 }
 
 /* Redo is Undo's icon turned round */
@@ -48,8 +27,9 @@ rich-text-editor ::deep .ql-snow.ql-toolbar button.ql-redo svg {
   transform: scaleX(-1);
 }
 
-/* The Work button, which has text where the others have an icon. Quill sets the text at the
-   top of the button, so it's centred here */
+/* The Work and Heading buttons, which have text where the others have an icon. Quill sets the text at
+   the top of the button, so it's centred here */
+rich-text-editor ::deep .ql-snow.ql-toolbar button.ql-artshop-heading,
 rich-text-editor ::deep .ql-snow.ql-toolbar button.ql-artshop-work {
   display: inline-flex;
   align-items: center;

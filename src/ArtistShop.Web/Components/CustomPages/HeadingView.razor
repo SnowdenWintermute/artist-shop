@@ -1,9 +1,14 @@
-@* a heading component's line of text at its level, on its side of the slot, spaced below as a text is *@
-@using ArtistShop.Web.Components.Publishing
+@* a heading component's line of text, on its side of the slot, spaced below as a text is *@
+@using ArtistShop.Web.Domain.Publishing
+@using ArtistShop.Web.Utilities
 
 @code {
   [Parameter, EditorRequired]
   public required HeadingSettings Settings { get; set; }
+
+  // the page's first heading component, an h1; the rest are h2s, as a text's headings are
+  [Parameter, EditorRequired]
+  public required bool IsPageTitle { get; set; }
 
   private string AlignmentClass =>
     Settings.Alignment switch
@@ -13,6 +18,27 @@
       HeadingAlignment.Right => "text-right",
       _ => throw new InvalidOperationException($"{Settings.Alignment} has no class."),
     };
+
+  private string FontClass =>
+    Settings.Font switch
+    {
+      FontRole.Heading => "font-heading",
+      FontRole.Text => "font-text",
+      _ => throw new InvalidOperationException($"{Settings.Font} has no class."),
+    };
+
+  private string Class =>
+    ClassNames.Join(
+      $"mb-4 break-words {FontClass} {TextSizeNames.ClassOf(Settings.Size)} {AlignmentClass}",
+      Settings.Bold ? "font-bold" : null
+    );
 }
 
-<LeveledHeading Level="Settings.Level" Class="@($"mb-4 break-words {AlignmentClass}")">@Settings.Text</LeveledHeading>
+@if (IsPageTitle)
+{
+  <h1 class="@Class">@Settings.Text</h1>
+}
+else
+{
+  <h2 class="@Class">@Settings.Text</h2>
+}

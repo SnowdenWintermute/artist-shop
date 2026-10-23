@@ -5,7 +5,7 @@ namespace ArtistShop.Web.Tests.Domain;
 
 public class PostExcerptTests
 {
-    private static IReadOnlyList<RichTextRun> Plain(string text) => [new RichTextRun(text, false, false, false, null)];
+    private static IReadOnlyList<RichTextRun> Plain(string text) => [new RichTextRun(text, false, false, false, null, TextSize.Size16)];
 
     private static RichTextDocument Document(params RichTextBlock[] blocks) => new(blocks);
 
@@ -23,7 +23,7 @@ public class PostExcerptTests
             "Heading Opening line. Quoted One Two",
             PostExcerpt.From(
                 Document(
-                    new HeadingBlock(HeadingLevel.Two, Plain("Heading")),
+                    new HeadingBlock(Plain("Heading")),
                     Work,
                     new ParagraphBlock(Plain("Opening line.")),
                     new ParagraphBlock([]),
@@ -41,10 +41,10 @@ public class PostExcerptTests
                 Document(
                     new ParagraphBlock(
                         [
-                            new RichTextRun("A ", false, false, false, null),
-                            new RichTextRun("bold", true, false, false, null),
-                            new RichTextRun(" link", false, false, false, "https://example.com"),
-                            new RichTextRun("  \n here", false, false, false, null),
+                            new RichTextRun("A ", false, false, false, null, TextSize.Size16),
+                            new RichTextRun("bold", true, false, false, null, TextSize.Size16),
+                            new RichTextRun(" link", false, false, false, "https://example.com", TextSize.Size16),
+                            new RichTextRun("  \n here", false, false, false, null, TextSize.Size16),
                         ]
                     )
                 )

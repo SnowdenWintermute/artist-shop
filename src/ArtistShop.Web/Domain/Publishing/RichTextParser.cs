@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using ArtistShop.Web.Domain.Catalog;
 
 // Reads the editor's Delta into a RichTextDocument. A Delta is a flat list of ops, not a tree: text
-// arrives in runs carrying their own bold/italic/link, and a line's heading, list or quote format
+// arrives in runs carrying their own bold/italic/link/size, and a line's heading, list or quote format
 // rides on the "\n" that ends the line. Anything not recognised is dropped rather than refused,
 // so the text keeps showing what it can if the editor ever stores something new
 public static partial class RichTextParser
@@ -15,6 +15,10 @@ public static partial class RichTextParser
     public const string WorkEmbedName = "artshop-work";
     public const string UploadedImageEmbedName = "artshop-image";
     public const string VideoEmbedName = "artshop-video";
+
+    // the line format of a heading, which the editor registers as its own: Quill's header gave each
+    // level a size, which the words now carry
+    public const string HeadingName = "artshop-heading";
 
     public static RichTextDocument Parse(RichText body) => Read(body, droppedLinks: []);
 
@@ -121,7 +125,8 @@ public static partial class RichTextParser
                         IsTrue(attributes, "bold"),
                         IsTrue(attributes, "italic"),
                         IsTrue(attributes, "underline"),
-                        safeLink
+                        safeLink,
+                        TextSizeNames.Parse(GetString(attributes, "size"))
                     )
                 );
             }
@@ -133,16 +138,23 @@ public static partial class RichTextParser
         List<RichTextRun> text = [.. line];
         line.Clear();
 
-        if (GetInt(attributes, "header") is int level)
+        if (IsTrue(attributes, HeadingName))
         {
-            // the toolbar offers three levels, but a pasted h4 or lower keeps its header, so it is
-            // folded into the smallest rather than lost
-            blocks.Add(new HeadingBlock(level switch
+            blocks.Add(new HeadingBlock(text));
+        }
+        else if (GetInt(attributes, "header") is int level)
+        {
+            // Text saved before sizes were the words' own, when a heading's level gave its size and
+            // font, and every level was bold. It looks as it did: the third level, and a pasted h4 or
+            // lower, were in the text font
+            List<RichTextRun> Bolded(TextSize size) => [.. text.Select(run => run with { Bold = true, Size = size })];
+
+            blocks.Add(level switch
             {
-                <= 1 => HeadingLevel.One,
-                2 => HeadingLevel.Two,
-                _ => HeadingLevel.Three,
-            }, text));
+                <= 1 => new HeadingBlock(Bolded(TextSize.Size36)),
+                2 => new HeadingBlock(Bolded(TextSize.Size24)),
+                _ => new ParagraphBlock(Bolded(TextSize.Size18)),
+            });
         }
         else if (ReadListStyle(GetString(attributes, "list")) is ListStyle style)
         {

@@ -22,10 +22,14 @@ import { attachEmbedLines, quillEmbedArrowBindingsOff } from "/js/embed-lines.js
 import { attachEmbedSelection } from "/js/embed-selection.js";
 import { attachEmbedDrag } from "/js/embed-drag.js";
 
+// the line format the parser reads a heading from: the theme's heading font, with no size of its own
+const HEADING = "artshop-heading";
+
 // Must stay within what RichTextParser reads. Leaving out indent also turns off Tab-to-indent,
 // since the parser would flatten a nested list anyway
 const FORMATS = [
-  "header",
+  HEADING,
+  "size",
   "bold",
   "italic",
   "underline",
@@ -39,15 +43,51 @@ const FORMATS = [
   VIDEO_EMBED,
 ];
 
-// Undo and Redo first, as a phone's browser has no undo of its own for the text
-const TOOLBAR = [
-  ["undo", "redo"],
-  [{ header: [1, 2, 3, false] }],
-  ["bold", "italic", "underline", "link"],
-  ["blockquote"],
-  [WORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
-  ["clean"],
-];
+// Undo and Redo first, as a phone's browser has no undo of its own for the text. The size picker
+// offers the page's own size as false, Quill's way of taking the size off
+/**
+ * @param {string[]} sizes
+ * @param {string} normalSize
+ */
+function toolbarOf(sizes, normalSize) {
+  return [
+    ["undo", "redo"],
+    [{ size: sizes.map((size) => (size === normalSize ? false : size)) }, HEADING],
+    ["bold", "italic", "underline", "link"],
+    ["blockquote"],
+    [WORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
+    ["clean"],
+  ];
+}
+
+// Enter at the end of a heading starts a plain line, as Quill's own "header enter" does for its header
+/** @type {Record<string, QuillKeyBinding>} */
+const headingBindings = {
+  "heading enter": {
+    key: "Enter",
+    collapsed: true,
+    format: [HEADING],
+    suffix: /^$/,
+    handler(range, context) {
+      const Delta = Quill.import("delta");
+      const [line, offset] = this.quill.getLine(range.index);
+
+      if (line === null) {
+        return true;
+      }
+
+      const change = new Delta()
+        .retain(range.index)
+        .insert("\n", context.format)
+        .retain(line.length() - offset - 1)
+        .retain(1, { [HEADING]: null });
+      this.quill.updateContents(change, "user");
+      this.quill.setSelection(range.index + 1, 0, "silent");
+      this.quill.scrollSelectionIntoView();
+      return false;
+    },
+  },
+};
 
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const EMAIL_ADDRESS = /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/;
@@ -85,15 +125,14 @@ let quillLoaded = null;
 
 /**
  * @param {string} src
- * @param {() => void} registerEmbeds
+ * @param {() => void} registerFormats
  */
-function loadQuill(src, registerEmbeds) {
+function loadQuill(src, registerFormats) {
   quillLoaded ??= new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = src;
     script.onload = () => {
       registerFormats();
-      registerEmbeds();
       resolve();
     };
     script.onerror = () => {
@@ -107,8 +146,32 @@ function loadQuill(src, registerEmbeds) {
   return quillLoaded;
 }
 
-function registerFormats() {
+/** @param {string[]} sizes the sizes besides the page's own, which has no class */
+function registerFormats(sizes) {
+  const Parchment = Quill.import("parchment");
+  const Block = Quill.import("blots/block");
   const Link = Quill.import("formats/link");
+
+  // a word's size as the class the page gives it, such as text-size-36
+  const size = new Parchment.ClassAttributor("size", "text-size", {
+    scope: Parchment.Scope.INLINE,
+    whitelist: sizes,
+  });
+  Quill.register({ "formats/size": size }, true);
+
+  // An h2, as on the page. A pasted heading of any level becomes one, which Quill matches by its tag
+  class Heading extends Block {
+    static blotName = HEADING;
+    static tagName = ["H2", "H1", "H3", "H4", "H5", "H6"];
+    static className = "font-heading";
+
+    // whatever the tag, it's a heading, not a level of one
+    static formats() {
+      return true;
+    }
+  }
+
+  Quill.register(Heading, true);
 
   // Quill passes every link through sanitize, whether typed into the link box or pasted, and the
   // stored Delta holds what it returns
@@ -142,6 +205,8 @@ customElements.define(
       const imagePickerDialog = this.querySelector('dialog[data-part="image-picker"]');
       const undoIcon = this.querySelector('template[data-part="undo-icon"]');
       const quillSource = this.dataset.quillSrc;
+      const sizes = (this.dataset.textSizes ?? "").split(" ").filter(Boolean);
+      const normalSize = this.dataset.normalTextSize;
 
       // Only a move would connect this element again, and Blazor never moves one: it keeps a
       // data-permanent element where it is (checked in blazor.web.js, .NET 10.0.11). This only
@@ -160,15 +225,17 @@ customElements.define(
         !(workPicker instanceof HTMLDialogElement) ||
         !(imagePickerDialog instanceof HTMLDialogElement) ||
         !(undoIcon instanceof HTMLTemplateElement) ||
-        quillSource === undefined
+        quillSource === undefined ||
+        normalSize === undefined
       ) {
         throw new Error(
-          "The rich text editor is missing its input, an embed toolbar, the image file input, the work picker, the image picker, the undo icon or Quill's address."
+          "The rich text editor is missing its input, an embed toolbar, the image file input, the work picker, the image picker, the undo icon, Quill's address or its text sizes."
         );
       }
 
       this.#isMounted = true;
       await loadQuill(quillSource, () => {
+        registerFormats(sizes.filter((size) => size !== normalSize));
         registerWorkEmbed(workToolbar);
         registerUploadedImageEmbed(imageToolbar);
         registerVideoEmbed(videoToolbar);
@@ -194,7 +261,7 @@ customElements.define(
         formats: FORMATS,
         modules: {
           toolbar: {
-            container: TOOLBAR,
+            container: toolbarOf(sizes, normalSize),
             // only ever called once quill below is set
             handlers: {
               undo: () => quill.getModule("history").undo(),
@@ -208,7 +275,7 @@ customElements.define(
           // coming and going, is left out, and the steps kept are adjusted around it
           history: { userOnly: true },
           // embed-lines.js and embed-selection.js move the cursor past embeds in their place
-          keyboard: { bindings: quillEmbedArrowBindingsOff },
+          keyboard: { bindings: { ...quillEmbedArrowBindingsOff, ...headingBindings } },
           // Quill's own drop and paste handling, which hands over the files of a type it takes.
           // Its default puts each image in the Delta as a data: address. Also only ever called
           // once imageUploads below is set
@@ -241,6 +308,24 @@ customElements.define(
         }
       }
 
+      // Quill has no icon for a heading that isn't a level
+      const headingButton = toolbar.querySelector(`button.ql-${HEADING}`);
+      if (headingButton !== null) {
+        headingButton.textContent = "Heading";
+      }
+
+      // Each size by its pixels, as a word processor names them. Quill shows a picker's data-label,
+      // copying the chosen item's onto the label; the label's own is for before the first choice
+      for (const item of toolbar.querySelectorAll(".ql-size .ql-picker-item")) {
+        if (item instanceof HTMLElement) {
+          item.dataset.label = item.dataset.value ?? normalSize;
+        }
+      }
+      const sizeLabel = toolbar.querySelector(".ql-size .ql-picker-label");
+      if (sizeLabel instanceof HTMLElement) {
+        sizeLabel.dataset.label = normalSize;
+      }
+
       // the website's own word, which the artist typed, so as text rather than markup
       const workButton = toolbar.querySelector(`button.ql-${WORK_EMBED}`);
       if (workButton !== null) {
@@ -248,11 +333,12 @@ customElements.define(
       }
 
       // Quill gives its controls no tooltip, and names them to screen readers by their format, such
-      // as "bold". The heading picker's label is what takes the clicks
+      // as "bold". The size picker's label is what takes the clicks
       for (const [selector, label] of [
         ["button.ql-undo", "Undo"],
         ["button.ql-redo", "Redo"],
-        [".ql-header .ql-picker-label", "Heading"],
+        [".ql-size .ql-picker-label", "Text size"],
+        [`button.ql-${HEADING}`, "Heading"],
         ["button.ql-bold", "Bold"],
         ["button.ql-italic", "Italic"],
         ["button.ql-underline", "Underline"],

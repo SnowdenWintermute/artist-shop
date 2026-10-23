@@ -251,7 +251,20 @@ public record CustomPageLayout(IReadOnlyList<PageRow> Rows)
             ? new RowPosition(index == 0, index == Rows.Count - 1)
             : throw new InvalidOperationException($"Row {row.Id.Value} isn't on this page.");
     }
+
+    // the first heading component reading down the page, row by row and each row's slots from the left,
+    // which is the page's h1; null when it has none
+    public StackPlace? PageTitle =>
+        Rows.SelectMany(row => row.Slots)
+            .SelectMany(slot => slot.Stack.Select((component, index) => (component, place: new StackPlace(slot.Id, index))))
+            .Where(each => each.component.Settings is HeadingSettings)
+            .Select(each => each.place)
+            .FirstOrDefault();
 }
 
 // where a row sits on its page, which its padding depends on
 public record RowPosition(bool IsFirst, bool IsLast);
+
+// a component's place on a page: its slot, and how far down the slot's stack. The same component may
+// be in more than one
+public record StackPlace(RowSlotId Slot, int Index);

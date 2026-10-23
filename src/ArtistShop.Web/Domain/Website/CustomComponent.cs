@@ -53,12 +53,13 @@ public enum HeadingAlignment
     Right = 3,
 }
 
-// one line of heading text, drawn as the text editor draws a heading of its level
-public sealed record HeadingSettings(string Text, HeadingLevel Level, HeadingAlignment Alignment) : CustomComponentSettings
+// one line of heading text, at any of the editor's sizes, in either of the theme's fonts
+public sealed record HeadingSettings(string Text, TextSize Size, FontRole Font, bool Bold, HeadingAlignment Alignment)
+    : CustomComponentSettings
 {
     public override CustomComponentType Type => CustomComponentType.Heading;
 
-    public static readonly HeadingSettings New = new("Heading", HeadingLevel.One, HeadingAlignment.Left);
+    public static readonly HeadingSettings New = new("Heading", TextSize.Size36, FontRole.Heading, Bold: true, HeadingAlignment.Left);
 }
 
 // How tall an image is drawn. Natural is its own shape; the sizes are fixed heights, each held to a

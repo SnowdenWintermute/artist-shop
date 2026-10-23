@@ -13,7 +13,7 @@ public sealed class PostExportHtmlTests
     public void TextAndLinksAreEscaped()
     {
         var document = new RichTextDocument(
-            [new ParagraphBlock([new RichTextRun("<script>alert(1)</script>", Bold: false, Italic: false, Underline: false, Link: "https://example.com/?a=1&b=\"2\"")])]
+            [new ParagraphBlock([new RichTextRun("<script>alert(1)</script>", Bold: false, Italic: false, Underline: false, Link: "https://example.com/?a=1&b=\"2\"", Size: TextSize.Size16)])]
         );
 
         var page = PostExportHtml.Page(Draft("Tom & <Jerry>"), document, new Dictionary<RichTextBlock, PostExportImage>(), "https://site.example");
@@ -22,6 +22,18 @@ public sealed class PostExportHtmlTests
         Assert.DoesNotContain("<Jerry>", page);
         Assert.Contains("&lt;script&gt;", page);
         Assert.Contains("href=\"https://example.com/?a=1&amp;b=&quot;2&quot;\"", page);
+    }
+
+    [Fact]
+    public void ASizedWordKeepsItsPixels()
+    {
+        var document = new RichTextDocument(
+            [new HeadingBlock([new RichTextRun("Big", Bold: false, Italic: false, Underline: false, Link: null, Size: TextSize.Size96)])]
+        );
+
+        var page = PostExportHtml.Page(Draft("Notes"), document, new Dictionary<RichTextBlock, PostExportImage>(), "https://site.example");
+
+        Assert.Contains($"""<h2><span style="font-size: {TextSizeNames.Of(TextSize.Size96)}px">Big</span></h2>""", page);
     }
 
     [Fact]
