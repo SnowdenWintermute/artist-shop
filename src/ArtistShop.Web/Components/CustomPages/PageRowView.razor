@@ -78,7 +78,8 @@
       <div class="@SlotClass(width)">
         @foreach (var component in slot.Stack)
         {
-          <CustomComponentView @key="component.Id" Component="component" Slot="width" />
+          <CustomComponentView @key="component.Id" Component="component" Slot="width"
+                               IsPageTop="Position.IsFirst && component == slot.Stack[0]" />
         }
       </div>
     }

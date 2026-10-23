@@ -18,6 +18,10 @@
   [Parameter, EditorRequired]
   public required string PageKey { get; set; }
 
+  // its page links start the page from its top; see PageLinks
+  [Parameter, EditorRequired]
+  public required bool IsPageTop { get; set; }
+
   private PostListPage? _posts;
 
   // not OnInitializedAsync: turning a page is the same page with a new query parameter
@@ -67,6 +71,6 @@
       </ul>
     }
 
-    <PageLinks Key="@PageKey" PageNumber="posts.PageNumber" PageCount="posts.PageCount" PreviousText="← Newer" NextText="Older →" />
+    <PageLinks Key="@PageKey" IsPageTop="IsPageTop" PageNumber="posts.PageNumber" PageCount="posts.PageCount" PreviousText="← Newer" NextText="Older →" />
   }
 </section>

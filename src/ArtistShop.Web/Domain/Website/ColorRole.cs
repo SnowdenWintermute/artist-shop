@@ -44,17 +44,53 @@ public static class ColorRoles
         new(ColorRole.Accent, "Accent", "Main buttons and progress bars.", "accent"),
         new(ColorRole.Bar, "Menu bar", "The bar at the top and the menu it opens.", "bar"),
         new(ColorRole.Panel, "Panels", "Boxes and dialogs.", "panel"),
-        new(ColorRole.Placeholder, "Image placeholder", "Where an image is still loading.", "placeholder"),
-        new(ColorRole.InkFaded, "Faded text", "Secondary text, like a date or a count.", "ink-faded"),
-        new(ColorRole.InkUnavailable, "Unavailable text", "A step that can't be taken, like Next on the last image.", "ink-unavailable"),
-        new(ColorRole.Link, "Links", "Links, underlined in a sentence or standing alone.", "link"),
-        new(ColorRole.LinkHover, "Links under the pointer", "Links that stand alone, like menu items, while the pointer is over them.", "link-hover"),
+        new(
+            ColorRole.Placeholder,
+            "Image placeholder",
+            "Where an image is still loading.",
+            "placeholder"
+        ),
+        new(
+            ColorRole.InkFaded,
+            "Faded text",
+            "Secondary text, like a date or a count.",
+            "ink-faded"
+        ),
+        new(
+            ColorRole.InkUnavailable,
+            "Unavailable text",
+            "Disabled links or content.",
+            "ink-unavailable"
+        ),
+        new(ColorRole.Link, "Links", "Clickable text.", "link"),
+        new(
+            ColorRole.LinkHover,
+            "Links under the pointer",
+            "Links that stand alone, like menu items, while the pointer is over them.",
+            "link-hover"
+        ),
         new(ColorRole.OnAccent, "Text on the accent", "The label of a main button.", "on-accent"),
         new(ColorRole.Rule, "Lines", "Dividers and the borders of boxes and fields.", "rule"),
-        new(ColorRole.Lightbox, "Full-screen background", "Behind an image opened full screen.", "lightbox"),
-        new(ColorRole.OnLightbox, "Full-screen buttons", "The buttons over an image opened full screen.", "on-lightbox"),
-        new(ColorRole.Backdrop, "Dialog backdrop", "Over the page behind an open dialog.", "backdrop"),
+        new(
+            ColorRole.Lightbox,
+            "Full-screen background",
+            "Behind an image opened full screen.",
+            "lightbox"
+        ),
+        new(
+            ColorRole.OnLightbox,
+            "Full-screen buttons",
+            "The buttons over an image opened full screen.",
+            "on-lightbox"
+        ),
+        new(
+            ColorRole.Backdrop,
+            "Dialog backdrop",
+            "Over the page behind an open dialog.",
+            "backdrop"
+        ),
     ];
 
-    public static ColorRoleDefinition For(ColorRole role) => All.Single(definition => definition.Role == role);
+    public static ColorRoleDefinition For(ColorRole role) =>
+        All.Single(definition => definition.Role == role);
 }

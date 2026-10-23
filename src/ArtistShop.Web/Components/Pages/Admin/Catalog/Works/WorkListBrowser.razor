@@ -194,7 +194,7 @@ else if (_loaded is { } loaded)
   <div class="flex justify-between items-center  mb-2">
     <span class="text-sm">@Wording.Work.CountOf(loaded.Works.TotalCount)</span>
 
-    <PageLinks PageNumber="loaded.Works.PageNumber" PageCount="loaded.Works.PageCount" />
+    <PageLinks IsPageTop PageNumber="loaded.Works.PageNumber" PageCount="loaded.Works.PageCount" />
   </div>
 
   @if (Rows is not null)
@@ -228,6 +228,6 @@ else if (_loaded is { } loaded)
   }
 
   <div class="flex justify-end">
-    <PageLinks PageNumber="loaded.Works.PageNumber" PageCount="loaded.Works.PageCount" />
+    <PageLinks IsPageTop PageNumber="loaded.Works.PageNumber" PageCount="loaded.Works.PageCount" />
   </div>
 }

@@ -8,6 +8,10 @@
 
   [Parameter, EditorRequired]
   public required SlotWidth Slot { get; set; }
+
+  // first in a column of the page's first row
+  [Parameter, EditorRequired]
+  public required bool IsPageTop { get; set; }
 }
 
 @* what the editors' preview finds a component by. contents: it lays nothing out itself *@
@@ -15,10 +19,11 @@
   @switch (Component.Settings)
   {
     case CardGridSettings cardGrid:
-      <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)" />
+      <CardGridView Settings="cardGrid" ComponentId="Component.Id" PageKey="@CustomComponentPageKey.For(Component.Id)"
+                    IsPageTop="IsPageTop" />
       break;
     case PostListSettings:
-      <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" />
+      <PostList PageKey="@CustomComponentPageKey.For(Component.Id)" IsPageTop="IsPageTop" />
       break;
     case TextSettings text:
       <TextView Settings="text" />

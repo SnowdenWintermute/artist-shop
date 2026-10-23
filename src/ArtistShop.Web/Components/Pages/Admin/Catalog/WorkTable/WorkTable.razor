@@ -159,7 +159,8 @@
 
   private async Task SaveAsync(WorkTableRow row)
   {
-    await EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(() => WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id))));
+    await EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(() =>
+WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id))));
     await OnSaveFinished.InvokeAsync(row);
   }
 
@@ -346,7 +347,8 @@ termIds))
   private DeletedImageUses _imageUses = DeletedImageUses.None;
 
   private async Task ReadImageUsesAsync(IReadOnlyList<WorkTableRow> rows) =>
-    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, SlideRepository, [.. rows.Select(row => row.Id)]);
+    _imageUses = await DeletedImageUses.OfWorksAsync(CustomComponentRepository, PageRowRepository, SlideRepository, [..
+rows.Select(row => row.Id)]);
 
   private async Task DeleteAsync(IReadOnlyList<WorkTableRow> rows)
   {
@@ -417,9 +419,9 @@ collection.Name.Value));
 
 <EditableTable TRow="WorkTableRow" Rows="Rows" Headings="Headings" RowName="@(row => row.Form.Name ?? string.Empty)"
                SelectionPrompt="@($"Select multiple {Wording.Work.PluralInSentence} to edit them as a group:")"
-               DeleteTitle="@(rows => $"Delete {Wording.Work.CountOf(rows.Count)}?")" OnDeleteAsked="ReadImageUsesAsync" OnDelete="DeleteAsync" IsBusy="_isApplying"
-               DeleteBlockedBy="DeleteBlockedBy" Class="text-sm" FitsContent StickyHeadings
-               BoxClass="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
+               DeleteTitle="@(rows => $"Delete {Wording.Work.CountOf(rows.Count)}?")" OnDeleteAsked="ReadImageUsesAsync"
+               OnDelete="DeleteAsync" IsBusy="_isApplying" DeleteBlockedBy="DeleteBlockedBy" Class="text-sm" FitsContent
+               StickyHeadings BoxClass="mb-4 overflow-auto pr-1 pointer-coarse:max-h-[75dvh]">
   @* a check re-renders only the table, so the buttons go by the rows it hands them *@
   <BulkActions Context="checkedRows">
     <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count == 0 || _isApplying)"
@@ -434,104 +436,106 @@ collection.Name.Value));
     @{
       var combineBlockedBy = checkedRows.Count < 2 ? null : CombineBlockedBy(checkedRows);
     }
-    <ButtonBasic type="button" Variant="ButtonVariant.Outline" disabled="@(checkedRows.Count < 2 || _isApplying || combineBlockedBy is not null)"
-                 title="@combineBlockedBy" @onclick="() => _combineRows = checkedRows">Combine</ButtonBasic>
+    <ButtonBasic type="button" Variant="ButtonVariant.Outline"
+                 disabled="@(checkedRows.Count < 2 || _isApplying || combineBlockedBy is not null)" title="@combineBlockedBy"
+                 @onclick="() => _combineRows = checkedRows">Combine</ButtonBasic>
   </BulkActions>
   <DeleteWarning Context="rows">
-    <DeleteWorksWarning WorkCount="rows.Count" ImageCount="rows.Sum(row => row.SavedImages.Count)" ImageUses="_imageUses" />
+    <DeleteWorksWarning WorkCount="rows.Count" ImageCount="rows.Sum(row => row.SavedImages.Count)"
+                        ImageUses="_imageUses" />
   </DeleteWarning>
   <Row Context="row">
-      <DataTableCell Class="@($"align-top {ImagesColumnClass} {PinnedCellClass}")">
-        <RowImagesCell Row="row" OnEdit="() => _imagesRow = row" />
-      </DataTableCell>
+    <DataTableCell Class="@($"align-top {ImagesColumnClass} {PinnedCellClass}")">
+      <RowImagesCell Row="row" OnEdit="() => _imagesRow = row" />
+    </DataTableCell>
 
-      <DataTableCell Class="@($"align-top {TitleColumnClass} {PinnedCellClass}")">
-        <input class="@($"{InputClass} w-24 sm:w-32 md:w-48")" aria-label="Title" @bind="row.Form.Name"
+    <DataTableCell Class="@($"align-top {TitleColumnClass} {PinnedCellClass}")">
+      <input class="@($"{InputClass} w-24 sm:w-32 md:w-48")" aria-label="Title" @bind="row.Form.Name"
+             @bind:after="() => SaveAsync(row)" />
+      <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Name))" />
+      <RowFieldError Message="@row.SaveError" />
+    </DataTableCell>
+
+    <DataTableCell Class="@FieldCellClass">
+      <button type="button" class="@DialogButtonClass" @onclick="() => _vocabularyRow = row">
+        @(VocabularyText(row) is { Length: > 0 } terms ? terms : "Choose…")
+      </button>
+    </DataTableCell>
+
+    <DataTableCell Class="@FieldCellClass">
+      <button type="button" class="@DialogButtonClass" @onclick="() => _collectionRow = row">
+        @(row.Form.CollectionIds.Count is 0 ? "Choose…" : CollectionsText(row))
+      </button>
+    </DataTableCell>
+
+    @if (Fields.Contains(WorkField.DateCreated))
+    {
+      <DataTableCell Class="@FieldCellClass">
+        <div class="flex gap-1">
+          <input inputmode="numeric" class="@($"{InputClass} w-14")" placeholder="Year" aria-label="Year created"
+                 @bind="row.YearText" @bind:after="() => SaveAsync(row)" />
+          <select class="@($"{InputClass} w-20")" aria-label="Month created" @bind="row.Form.MonthCreated"
+                  @bind:after="() => SaveAsync(row)">
+            <option value="">Month</option>
+            @for (var month = 1; month <= 12; month++)
+            {
+              <option value="@month">@(PartialDate.MonthName(month)[..3])</option>
+            }
+          </select>
+          <select class="@($"{InputClass} w-16")" aria-label="Day created" @bind="row.Form.DayCreated"
+                  @bind:after="() => SaveAsync(row)">
+            <option value="">Day</option>
+            @for (var day = 1; day <= 31; day++)
+            {
+              <option value="@day"
+                      disabled="@(day > PartialDate.MaximumDayIn(row.Form.YearCreated, row.Form.MonthCreated))">@day</option>
+            }
+          </select>
+        </div>
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.YearCreated))" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.MonthCreated))" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.DayCreated))" />
+      </DataTableCell>
+    }
+
+    @if (Fields.Contains(WorkField.HeightAndWidth))
+    {
+      <DataTableCell Class="@FieldCellClass">
+        <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Height in centimetres"
+               @bind="row.HeightText" @bind:after="() => SaveAsync(row)" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.HeightCm))" />
+      </DataTableCell>
+      <DataTableCell Class="@FieldCellClass">
+        <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Width in centimetres" @bind="row.WidthText"
                @bind:after="() => SaveAsync(row)" />
-        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Name))" />
-        <RowFieldError Message="@row.SaveError" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.WidthCm))" />
       </DataTableCell>
+    }
 
+    @if (Fields.Contains(WorkField.Depth))
+    {
       <DataTableCell Class="@FieldCellClass">
-        <button type="button" class="@DialogButtonClass" @onclick="() => _vocabularyRow = row">
-          @(VocabularyText(row) is { Length: > 0 } terms ? terms : "Choose…")
-        </button>
+        <input inputmode="decimal" class="@($"{InputClass} w-24")" aria-label="Depth in centimetres" @bind="row.DepthText"
+               @bind:after="() => SaveAsync(row)" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.DepthCm))" />
       </DataTableCell>
+    }
 
+    @if (Fields.Contains(WorkField.Duration))
+    {
       <DataTableCell Class="@FieldCellClass">
-        <button type="button" class="@DialogButtonClass" @onclick="() => _collectionRow = row">
-          @(row.Form.CollectionIds.Count is 0 ? "Choose…" : CollectionsText(row))
-        </button>
+        <input class="@($"{InputClass} w-28")" placeholder="h:mm:ss" aria-label="Duration" @bind="row.Form.Duration"
+               @bind:after="() => SaveAsync(row)" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Duration))" />
       </DataTableCell>
-
-      @if (Fields.Contains(WorkField.DateCreated))
-      {
-        <DataTableCell Class="@FieldCellClass">
-          <div class="flex gap-1">
-            <input inputmode="numeric" class="@($"{InputClass} w-20")" placeholder="Year" aria-label="Year created"
-                   @bind="row.YearText" @bind:after="() => SaveAsync(row)" />
-            <select class="@($"{InputClass} w-20")" aria-label="Month created" @bind="row.Form.MonthCreated"
-                    @bind:after="() => SaveAsync(row)">
-              <option value="">Month</option>
-              @for (var month = 1; month <= 12; month++)
-              {
-                <option value="@month">@(PartialDate.MonthName(month)[..3])</option>
-              }
-            </select>
-            <select class="@($"{InputClass} w-16")" aria-label="Day created" @bind="row.Form.DayCreated"
-                    @bind:after="() => SaveAsync(row)">
-              <option value="">Day</option>
-              @for (var day = 1; day <= 31; day++)
-              {
-                <option value="@day"
-                        disabled="@(day > PartialDate.MaximumDayIn(row.Form.YearCreated, row.Form.MonthCreated))">@day</option>
-              }
-            </select>
-          </div>
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.YearCreated))" />
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.MonthCreated))" />
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.DayCreated))" />
-        </DataTableCell>
-      }
-
-      @if (Fields.Contains(WorkField.HeightAndWidth))
-      {
-        <DataTableCell Class="@FieldCellClass">
-          <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Height in centimetres"
-                 @bind="row.HeightText" @bind:after="() => SaveAsync(row)" />
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.HeightCm))" />
-        </DataTableCell>
-        <DataTableCell Class="@FieldCellClass">
-          <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Width in centimetres"
-                 @bind="row.WidthText" @bind:after="() => SaveAsync(row)" />
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.WidthCm))" />
-        </DataTableCell>
-      }
-
-      @if (Fields.Contains(WorkField.Depth))
-      {
-        <DataTableCell Class="@FieldCellClass">
-          <input inputmode="decimal" class="@($"{InputClass} w-24")" aria-label="Depth in centimetres"
-                 @bind="row.DepthText" @bind:after="() => SaveAsync(row)" />
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.DepthCm))" />
-        </DataTableCell>
-      }
-
-      @if (Fields.Contains(WorkField.Duration))
-      {
-        <DataTableCell Class="@FieldCellClass">
-          <input class="@($"{InputClass} w-28")" placeholder="h:mm:ss" aria-label="Duration" @bind="row.Form.Duration"
-                 @bind:after="() => SaveAsync(row)" />
-          <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Duration))" />
-        </DataTableCell>
-      }
+    }
 
 
-      <DataTableCell Class="@FieldCellClass">
-        <button type="button" class="@DialogButtonClass" @onclick="() => _descriptionRow = row">
-          @(string.IsNullOrWhiteSpace(row.Form.Description) ? "Edit…" : row.Form.Description)
-        </button>
-      </DataTableCell>
+    <DataTableCell Class="@FieldCellClass">
+      <button type="button" class="@DialogButtonClass" @onclick="() => _descriptionRow = row">
+        @(string.IsNullOrWhiteSpace(row.Form.Description) ? "Edit…" : row.Form.Description)
+      </button>
+    </DataTableCell>
   </Row>
 </EditableTable>
 

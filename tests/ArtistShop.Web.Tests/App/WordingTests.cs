@@ -34,6 +34,15 @@ public sealed partial class WordingTests(TestApp app)
         return (site, PageUrls.Collection(slug), $"/works/{work.Slug.Value}");
     }
 
+    // A page's name is the artist's own text, like a collection's, and the starting one was named in
+    // the default words, before these were chosen
+    private async Task RenameStartingPageAsync(TestSite site)
+    {
+        var pages = new CustomPageRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        var collections = await pages.GetCollectionsAsync();
+        await pages.UpdateAsync(collections.Id, "Front", collections.Address);
+    }
+
     private static readonly Dictionary<string, string> MadeUpWords = new()
     {
         ["Input.CollectionSingular"] = "Zorb",
@@ -135,6 +144,7 @@ public sealed partial class WordingTests(TestApp app)
     public async Task NoPublicPageSaysAWordTheArtistRenamed()
     {
         var (site, collectionPath, workPath) = await SiteWithAWorkAsync();
+        await RenameStartingPageAsync(site);
         await SaveAsync(site, MadeUpWords);
         var visitor = app.ClientFor(site.Host);
         // so the check below can't pass by finding no page at all
@@ -181,6 +191,7 @@ public sealed partial class WordingTests(TestApp app)
         // made in the default words, before these were chosen
         var homeComponent = Assert.Single(Assert.Single(homeRow.Slots).Stack);
         await new CustomComponentRepository(database).UpdateAsync(homeComponent.Id, "Front grid", homeComponent.Settings);
+        await RenameStartingPageAsync(site);
         await SaveAsync(site, MadeUpWords);
         var owner = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 

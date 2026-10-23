@@ -12,6 +12,7 @@
 @using ArtistShop.Web.Utilities
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 @inject CustomPageRepository CustomPageRepository
 @inject PageRowRepository PageRowRepository
 @inject RowSlotRepository RowSlotRepository
@@ -38,7 +39,7 @@
   private int _saveCount;
   private RowSketch? _removingRow;
   private (RowSketch Row, SlotSketch Slot)? _removingSlot;
-  private SlotSketch? _addingTo;
+  private (RowSketch Row, SlotSketch Slot)? _addingTo;
   private ElementReference _root;
   private InteropObject<PageOutline>? _drag;
 
@@ -228,21 +229,28 @@ component.Id)]));
   public Task TakeOutAsync(SlotSketch slot, ComponentSketch component) =>
     SaveAsync(() => RowSlotRepository.RemovePlacementAsync(slot.Id, component.Id));
 
-  public void AddTo(SlotSketch slot)
+  public void AddTo(RowSketch row, SlotSketch slot)
   {
-    _addingTo = slot;
+    _addingTo = (row, slot);
     StateHasChanged();
   }
 
+  // a new component opens in its editor, as its Edit link would; one that couldn't be added leaves the outline as is
   private async Task AddNewAsync(CustomComponentStarter starter)
   {
-    var slot = Unwrap.Value(_addingTo);
-    await SaveAsync(() => AddNamedAsync(slot.Id, starter));
+    var (row, slot) = Unwrap.Value(_addingTo);
+    CustomComponentId? added = null;
+    await SaveAsync(async () => added = await AddNamedAsync(slot.Id, starter));
     _addingTo = null;
+
+    if (added is { } id)
+    {
+      NavigationManager.NavigateTo(PageUrls.EditCustomComponent(id, Page.Id, row.Id));
+    }
   }
 
   // the first free name; one taken meanwhile by another tab is skipped for the next
-  private async Task AddNamedAsync(RowSlotId slotId, CustomComponentStarter starter)
+  private async Task<CustomComponentId?> AddNamedAsync(RowSlotId slotId, CustomComponentStarter starter)
   {
     var taken = (await CustomComponentRepository.GetAllAsync())
       .Select(made => made.Component.Name)
@@ -252,18 +260,19 @@ component.Id)]));
     {
       try
       {
-        await CustomComponentRepository.AddToSlotAsync(slotId, name, NewCustomComponentSettings.For(starter));
-        return;
+        return await CustomComponentRepository.AddToSlotAsync(slotId, name, NewCustomComponentSettings.For(starter));
       }
       catch (NameAlreadyInUseException)
       {
       }
     }
+
+    return null;
   }
 
   private async Task AddExistingAsync(CustomComponent component)
   {
-    var slot = Unwrap.Value(_addingTo);
+    var (_, slot) = Unwrap.Value(_addingTo);
     await SaveAsync(() => RowSlotRepository.PlaceAsync(slot.Id, component.Id));
     _addingTo = null;
   }
@@ -359,7 +368,7 @@ component.Id)]));
     </button>
   </div>
 
-  @if (_addingTo is { } addingTo)
+  @if (_addingTo is (_, var addingTo))
   {
     <AddComponentDialog InSlot="[.. addingTo.Components.Select(component => component.Id)]" IsSaving="IsSaving"
                         OnNew="AddNewAsync" OnExisting="AddExistingAsync" OnClose="() => _addingTo = null" />

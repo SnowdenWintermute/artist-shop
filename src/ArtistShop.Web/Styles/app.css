@@ -92,6 +92,12 @@ html {
     @apply text-ink;
   }
 
+  /* a browser lets a fieldset widen to fit its content, so a long label overflowed rather than
+     truncating */
+  fieldset {
+    min-width: 0;
+  }
+
   /* set by js/pending-link.js between a link's click and its page arriving */
   a[data-pending] {
     opacity: 50%;

@@ -57,7 +57,7 @@
     <div class="h-2"></div>
     <button type="button" data-drop="component" data-parent-id="@Slot.Id.Value" data-index="@Slot.Components.Count"
             class="@($"cursor-pointer {LinkStyles.InSentence} {OutlineClasses.End}")" disabled="@Outline.IsSaving"
-            @onclick="() => Outline.AddTo(Slot)">
+            @onclick="() => Outline.AddTo(Row, Slot)">
       Add component
     </button>
   </div>

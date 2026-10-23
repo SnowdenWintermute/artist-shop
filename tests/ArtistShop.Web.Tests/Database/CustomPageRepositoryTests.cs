@@ -15,7 +15,7 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
         var home = await _pages.GetHomeAsync();
         var layout = await _pages.GetLayoutAsync(home.Id);
 
-        Assert.Equal(new CustomPageAddress("home"), home.Address);
+        Assert.Equal(new CustomPageAddress("collections"), home.Address);
         Assert.True(home.IsHome);
         var row = Assert.Single(layout.Rows);
         Assert.Equal((RowWidths.Whole, RowAlignment.Start), (row.Widths, row.Alignment));
@@ -26,7 +26,7 @@ public sealed class CustomPageRepositoryTests(TestDatabaseFixture database)
     [Fact]
     public async Task APageIsFoundByItsAddressAlone()
     {
-        Assert.Equal(await _pages.GetHomeAsync(), await _pages.GetByAddressAsync(new CustomPageAddress("home")));
+        Assert.Equal(await _pages.GetHomeAsync(), await _pages.GetByAddressAsync(new CustomPageAddress("collections")));
         Assert.Null(await _pages.GetByAddressAsync(new CustomPageAddress("no-such-page")));
     }
 

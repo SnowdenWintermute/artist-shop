@@ -46,7 +46,7 @@ public sealed class HostRoutingTests(TestApp app)
         var page = await app.ClientFor(TestApp.FirstSiteHost)
             .GetStringAsync("/", TestContext.Current.CancellationToken);
 
-        Assert.Contains("<title>Home</title>", page);
+        Assert.Contains("<title>Collections</title>", page);
         Assert.DoesNotContain("Artist websites", page);
     }
 

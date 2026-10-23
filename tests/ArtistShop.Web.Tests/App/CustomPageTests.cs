@@ -47,9 +47,11 @@ public sealed partial class CustomPageTests(TestApp app)
 
         var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
 
-        Assert.Contains("<title>Home</title>", page);
+        Assert.Contains("<title>Collections</title>", page);
         Assert.Contains($"<h1 class=\"mb-4\">{SiteWording.Default.Collection.PluralHeading}</h1>", page);
     }
+
+    private const string CardGrid = "data-test=\"card-grid\"";
 
     // the home page's one row holds the collections, under their heading
     [Fact]
@@ -60,7 +62,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
 
         Assert.Contains("<main data-custom-page></main>", page);
-        Assert.True(page.IndexOf("data-last-row") < page.IndexOf(SiteWording.Default.Collection.PluralHeading));
+        Assert.True(page.IndexOf("data-last-row") < page.IndexOf(CardGrid));
     }
 
     // the first row joins the nav and the last the footer, leaving <main> empty
@@ -77,15 +79,15 @@ public sealed partial class CustomPageTests(TestApp app)
         var page = await app.ClientFor(site.Host).GetStringAsync("/", TestContext.Current.CancellationToken);
 
         Assert.Contains("<main data-custom-page></main>", page);
-        Assert.True(page.IndexOf("data-below-nav") < page.IndexOf(SiteWording.Default.Collection.PluralHeading));
-        Assert.True(page.IndexOf(SiteWording.Default.Collection.PluralHeading) < page.IndexOf("data-above-footer"));
+        Assert.True(page.IndexOf("data-below-nav") < page.IndexOf(CardGrid));
+        Assert.True(page.IndexOf(CardGrid) < page.IndexOf("data-above-footer"));
     }
 
     [Fact]
     public async Task TheHomePagesOwnAddressGoesToSlash()
     {
         var response = await app.ClientFor(TestApp.FirstSiteHost)
-            .GetAsync("/home", TestContext.Current.CancellationToken);
+            .GetAsync("/collections", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/", response.Headers.Location?.AbsolutePath);
@@ -107,7 +109,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var site = await app.MakeSiteAsync();
 
         Assert.Equal(
-            [("/", "Home"), ("/posts", "Blog"), ("/", "Home"), ("/posts", "Blog")],
+            [("/", "Collections"), ("/posts", "Blog"), ("/", "Collections"), ("/posts", "Blog")],
             await NavLinksAsync(app.ClientFor(site.Host))
         );
     }
@@ -122,7 +124,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var visitor = app.ClientFor(site.Host);
 
         Assert.Contains("<title>About</title>", await visitor.GetStringAsync("/", TestContext.Current.CancellationToken));
-        Assert.Contains("<title>Home</title>", await visitor.GetStringAsync("/home", TestContext.Current.CancellationToken));
+        Assert.Contains("<title>Collections</title>", await visitor.GetStringAsync("/collections", TestContext.Current.CancellationToken));
         var response = await visitor.GetAsync("/about", TestContext.Current.CancellationToken);
         Assert.Equal("/", response.Headers.Location?.AbsolutePath);
     }
@@ -765,7 +767,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
-        // not the grid Home starts with, which the collections page keeps
+        // not the grid the home page starts with, which the collections page keeps
         var componentId = await new CustomComponentRepository(database).AddToSlotAsync(Assert.Single(row.Slots).Id, "Viewer", CardGridSettings.AllCollections);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var path = PageUrls.EditCustomComponent(componentId, home.Id, row.Id);
@@ -773,7 +775,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var settings = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
         var response = await TestApp.PostFormAsync(client, path, "delete-custom-component", []);
 
-        Assert.Contains("It will be taken off Home.", settings);
+        Assert.Contains("It will be taken off Collections.", settings);
         Assert.Equal(PageUrls.EditCustomPage(home.Id), response.Headers.Location?.AbsolutePath);
         Assert.Null(await new CustomComponentRepository(database).GetAsync(componentId));
     }

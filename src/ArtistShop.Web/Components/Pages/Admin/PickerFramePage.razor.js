@@ -1,6 +1,6 @@
 // A page of one of the pickers, shown in a frame inside the opening page's dialog. It passes on
 // Escape, which a frame keeps to itself. Back links return to where a list was scrolled through
-// js/scroll-restoration.js
+// js/navigation-scroll.js
 import { sendToPickerOwner } from "/js/picker-frame.js";
 
 customElements.define(

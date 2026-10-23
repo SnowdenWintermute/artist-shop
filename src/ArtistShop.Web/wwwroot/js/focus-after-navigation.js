@@ -26,7 +26,7 @@ Blazor.addEventListener("enhancednavigationend", () => {
   }
 
   // tabindex -1 lets a script focus it without adding it to the Tab order, as FocusOnNavigate did.
-  // preventScroll leaves the scrolling to Blazor and scroll-restoration.js
+  // preventScroll leaves the scrolling to Blazor and navigation-scroll.js
   if (!heading.hasAttribute("tabindex")) {
     heading.tabIndex = -1;
   }

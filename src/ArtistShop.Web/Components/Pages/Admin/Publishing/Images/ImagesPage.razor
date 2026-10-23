@@ -79,7 +79,7 @@
         {
           <div class="mb-2 flex items-center justify-between">
             <span class="text-sm">@CountText.Of(images.TotalCount, "image")</span>
-            <PageLinks PageNumber="images.PageNumber" PageCount="images.PageCount" />
+            <PageLinks IsPageTop PageNumber="images.PageNumber" PageCount="images.PageCount" />
           </div>
 
           @* the indicator is positioned against this wrapper *@
@@ -89,7 +89,7 @@
           </div>
 
           <div class="flex justify-end">
-            <PageLinks PageNumber="images.PageNumber" PageCount="images.PageCount" />
+            <PageLinks IsPageTop PageNumber="images.PageNumber" PageCount="images.PageCount" />
           </div>
         }
       }

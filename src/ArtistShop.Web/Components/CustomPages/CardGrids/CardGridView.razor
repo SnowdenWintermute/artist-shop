@@ -21,6 +21,10 @@
   [Parameter, EditorRequired]
   public required string PageKey { get; set; }
 
+  // its page links start the page from its top; see PageLinks
+  [Parameter, EditorRequired]
+  public required bool IsPageTop { get; set; }
+
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
 
@@ -134,7 +138,7 @@
 
 @if (_loaded is { } loaded)
 {
-  <section>
+  <section data-test="card-grid">
     @if (loaded.Heading is { } heading)
     {
       @* not PageHeading: these keep the text font, rather than the theme's heading font *@
@@ -173,7 +177,7 @@
       @if (Settings.HasPageLinks)
       {
         <div class="flex justify-end">
-          <PageLinks Key="@PageKey" PageNumber="loaded.Page.PageNumber" PageCount="loaded.Page.PageCount" />
+          <PageLinks Key="@PageKey" IsPageTop="IsPageTop" PageNumber="loaded.Page.PageNumber" PageCount="loaded.Page.PageCount" />
         </div>
       }
     }

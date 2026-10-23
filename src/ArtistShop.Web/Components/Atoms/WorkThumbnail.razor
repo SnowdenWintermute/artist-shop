@@ -13,4 +13,5 @@
   public string Class { get; set; } = "size-10";
 }
 
-<TileImage Image="Image" BoxClass="@($"{Class}")" MaximumWidth="ImageVariants.AdminThumbnailWidth" />
+@* shrink-0 so a long name beside it in a flex row truncates rather than squeezing it *@
+<TileImage Image="Image" BoxClass="@($"{Class} shrink-0")" MaximumWidth="ImageVariants.AdminThumbnailWidth" />

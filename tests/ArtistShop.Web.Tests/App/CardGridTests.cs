@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using ArtistShop.Web.Components;
 using ArtistShop.Web.Database;
@@ -50,6 +51,19 @@ public sealed partial class CardGridTests(TestApp app)
     // the cards' links, in the order the page draws them
     private static List<string> CardLinks(string page) =>
         [.. CardLink().Matches(page).Select(match => match.Groups["href"].Value)];
+
+    // the page numbers the grid's page links go to, Previous and Next among them, in order
+    private static List<int> LinkedPageNumbers(string page, string key)
+    {
+        var nav = PageLinksNav().Match(page).Value;
+        return
+        [
+            .. Regex.Matches(nav, $"href=\"[^\"]*?(?:\\?{key}=(?<number>\\d+))?\"")
+                .Select(match => match.Groups["number"].Success ? int.Parse(match.Groups["number"].Value, CultureInfo.InvariantCulture) : 1)
+                .Distinct()
+                .Order(),
+        ];
+    }
 
     [Fact]
     public async Task OneCollectionsWorksAreHeadedByItsNameAndLinkWithinIt()
@@ -125,9 +139,29 @@ public sealed partial class CardGridTests(TestApp app)
             CardLinks(pageOne)
         );
         // the collections fill the first page, and the works after them still count towards its page links
-        Assert.Contains("Page 1 of 3", pageOne);
+        Assert.Equal([2, 3], LinkedPageNumbers(pageOne, key));
         Assert.Equal([$"/works/{newest.Slug.Value}", $"/works/{middle.Slug.Value}"], CardLinks(pageTwo));
         Assert.Equal([$"/works/{oldest.Slug.Value}"], CardLinks(pageThree));
+    }
+
+    [Fact]
+    public async Task PageLinksNumberTheEndsAndTheCurrentPagesNeighbours()
+    {
+        var site = await app.MakeSiteAsync();
+        var catalog = new CatalogTestData(DatabaseOf(site));
+        for (var index = 0; index < 10; index++)
+        {
+            await catalog.AddPaintingInCollectionAsync(await catalog.AddCollectionAsync(), [CatalogTestData.CreateTestImage()]);
+        }
+
+        var gridPage = await AddGridPageAsync(site, CardGridSettings.AllCollections with { CardsPerPage = 1 });
+        var key = $"page-{gridPage.Grids[0].Value}";
+
+        var page = await app.ClientFor(site.Host).GetStringAsync($"/grid?{key}=6", TestContext.Current.CancellationToken);
+
+        // 1 … 4 5 6 7 8 9 10: three is skipped, and nine shows as the only page between eight and ten
+        Assert.Matches(CurrentPage(6), page);
+        Assert.Equal([1, 4, 5, 7, 8, 9, 10], LinkedPageNumbers(page, key));
     }
 
     [Fact]
@@ -169,7 +203,7 @@ public sealed partial class CardGridTests(TestApp app)
             .GetStringAsync($"/grid?page-{gridPage.Grids[0].Value}=2", TestContext.Current.CancellationToken);
 
         Assert.Equal([PageUrls.Collection(await SlugOfAsync(new CollectionRepository(DatabaseOf(site)), first))], CardLinks(page));
-        Assert.DoesNotContain("Page 1 of", page);
+        Assert.DoesNotContain("data-test=\"page-links\"", page);
     }
 
     [Fact]
@@ -536,7 +570,8 @@ public sealed partial class CardGridTests(TestApp app)
         var pastTheEnd = await client.GetAsync($"/grid?page-{gridPage.Grids[0].Value}=3", TestContext.Current.CancellationToken);
 
         Assert.Equal([$"/works/{second.Slug.Value}"], CardLinks(secondPage));
-        Assert.Contains("Page 2 of 2", secondPage);
+        Assert.Matches(CurrentPage(2), secondPage);
+        Assert.Equal([1], LinkedPageNumbers(secondPage, $"page-{gridPage.Grids[0].Value}"));
         Assert.Equal(System.Net.HttpStatusCode.Redirect, pastTheEnd.StatusCode);
     }
 
@@ -597,6 +632,11 @@ public sealed partial class CardGridTests(TestApp app)
 
     [GeneratedRegex("<div class=\"invisible\" aria-hidden=\"true\">")]
     private static partial Regex Placeholder();
+
+    private static string CurrentPage(int number) => $"data-test=\"current-page\"[^>]*>{number}<";
+
+    [GeneratedRegex("<nav[^>]* data-test=\"page-links\".*?</nav>", RegexOptions.Singleline)]
+    private static partial Regex PageLinksNav();
 
     [GeneratedRegex("""<a href="(?<href>/(?:collections|works)/[^"]*)" class="block">""")]
     private static partial Regex CardLink();
