@@ -11,7 +11,7 @@ public sealed class StarterVocabularyTests(TestApp app)
     public async Task ANewSiteHasMediumAndSupportForPaintings()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var painting = (await new WorkTypeRepository(database).GetAllAsync()).Single(type => type.Name.Value == "Painting");
         var vocabularies = new VocabularyRepository(database);
         var terms = new VocabularyTermRepository(database);

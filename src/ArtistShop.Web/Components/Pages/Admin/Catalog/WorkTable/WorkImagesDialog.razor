@@ -45,7 +45,7 @@
 }
 
 <ModalDialog Title="@(WorkName is null ? "Images" : $"Images of {WorkName}")" Width="ModalDialogWidth.Wide" OnClose="OnClose"
-             KeepOpen="_isSaving">
+             KeepOpen="_isSaving || _state.IsUploading">
   <TitleEnd>
     @* no href while images upload, as leaving would cut them off *@
     <a class="@($"{LinkStyles.InSentence} [&:not([href])]:text-ink-unavailable")"
@@ -58,7 +58,7 @@
   </div>
 
   <ModalDialogActions>
-    <ModalCloseButton Label="Cancel" Disabled="_isSaving" />
+    <ModalCloseButton Label="Cancel" Disabled="_isSaving || _state.IsUploading" />
     <ButtonBasic type="button" Variant="ButtonVariant.Primary" Class="min-w-24" Busy="_isSaving"
                  disabled="@(_isSaving || _state.IsUploading)" @onclick="OkAsync">OK</ButtonBasic>
   </ModalDialogActions>

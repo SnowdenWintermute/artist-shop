@@ -26,7 +26,7 @@ public sealed class WorkImageAppendTests(TestApp app)
     private async Task<(TestSite Site, CatalogTestData Catalog, WorkRepository Works, HttpClient Client)> SiteWithAdminAsync()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
 
         return (site, new CatalogTestData(database), new WorkRepository(database), client);
@@ -91,7 +91,7 @@ public sealed class WorkImageAppendTests(TestApp app)
     public async Task SomeoneWhoIsntAnAdminCantAddAnImage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var catalog = new CatalogTestData(database);
         var dawn = await catalog.AddWorkAsync(await catalog.GetPaintingTypeIdAsync(), "Dawn");
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAccountAsync());

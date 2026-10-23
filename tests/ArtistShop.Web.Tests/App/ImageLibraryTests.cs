@@ -23,7 +23,7 @@ public sealed class ImageLibraryTests(TestApp app)
     }
 
     private UploadedImageRepository Library(TestSite site) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        new(app.DatabaseOf(site));
 
     private static async Task<HttpResponseMessage> UploadAsync(HttpClient client)
     {
@@ -76,7 +76,7 @@ public sealed class ImageLibraryTests(TestApp app)
         var uploaded = await (await UploadAsync(client)).Content.ReadFromJsonAsync<LibraryImageUploadResult>(TestContext.Current.CancellationToken);
         Assert.NotNull(uploaded);
         var slug = new PostSlug("pier");
-        await new PostRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).AddAsync(
+        await new PostRepository(app.DatabaseOf(site)).AddAsync(
             new PostTitle("Pier"),
             slug,
             new RichText("""{"ops":[{"insert":{"artshop-image":{"storageKey":"KEY"}}},{"insert":"\n"}]}""".Replace("KEY", uploaded.StorageKey)),

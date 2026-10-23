@@ -21,7 +21,7 @@ public sealed partial class WordingTests(TestApp app)
     private async Task<(TestSite Site, string CollectionPath, string WorkPath)> SiteWithAWorkAsync()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var slug = CollectionSlug.FromName("Gardens");
         var collectionId = await new CollectionRepository(database).AddAsync(new CollectionName("Gardens"), slug);
         var work = await new CatalogTestData(database).AddPaintingAsync(
@@ -38,7 +38,7 @@ public sealed partial class WordingTests(TestApp app)
     // the default words, before these were chosen
     private async Task RenameStartingPageAsync(TestSite site)
     {
-        var pages = new CustomPageRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        var pages = new CustomPageRepository(app.DatabaseOf(site));
         var collections = await pages.GetCollectionsAsync();
         await pages.UpdateAsync(collections.Id, "Front", collections.Address);
     }
@@ -62,7 +62,7 @@ public sealed partial class WordingTests(TestApp app)
     }
 
     private Task<SiteWording> SavedWordingAsync(TestSite site) =>
-        new WordingRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetAsync();
+        new WordingRepository(app.DatabaseOf(site)).GetAsync();
 
     [Fact]
     public async Task ANewWebsiteSaysCollectionsAndWorks()
@@ -114,7 +114,7 @@ public sealed partial class WordingTests(TestApp app)
             }
         );
 
-        var pages = new CustomPageRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        var pages = new CustomPageRepository(app.DatabaseOf(site));
         var collectionsPage = await pages.GetCollectionsAsync();
         var row = Assert.Single((await pages.GetLayoutAsync(collectionsPage.Id)).Rows);
         var grid = Assert.Single(Assert.Single(row.Slots).Stack);
@@ -166,7 +166,7 @@ public sealed partial class WordingTests(TestApp app)
     public async Task NoAdminPageSaysAWordTheArtistRenamed()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var catalog = new CatalogTestData(database);
         var typeId = await catalog.GetPaintingTypeIdAsync();
         // not AddCollectionAsync, whose name says "Collection"

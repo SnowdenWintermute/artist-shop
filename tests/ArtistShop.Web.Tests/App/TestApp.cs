@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using ArtistShop.Web.Database;
 using ArtistShop.Web.Database.Repositories;
 using ArtistShop.Web.Domain;
 using ArtistShop.Web.Domain.Platform;
@@ -206,6 +207,10 @@ public sealed partial class TestApp : WebApplicationFactory<Program>, IAsyncLife
     }
 
     // a client whose requests are for the given host, and that shows redirects rather than following them
+    public SiteDatabase DatabaseOf(SiteId siteId) => Services.GetRequiredService<SiteDatabases>().For(siteId);
+
+    public SiteDatabase DatabaseOf(TestSite site) => DatabaseOf(site.Id);
+
     public HttpClient ClientFor(string host) =>
         CreateClient(
             new WebApplicationFactoryClientOptions

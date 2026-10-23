@@ -13,8 +13,6 @@ namespace ArtistShop.Web.Tests.App;
 // a carousel's settings page, its chosen slides, and what it shows visitors
 public sealed class CarouselComponentTests(TestApp app)
 {
-    private SiteDatabase DatabaseOf(TestSite site) => app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-
     private sealed record CarouselPage(CustomPageId PageId, PageRowId RowId, CustomComponentId CarouselId)
     {
         public string SettingsUrl => PageUrls.EditCustomComponent(CarouselId, PageId, RowId);
@@ -23,7 +21,7 @@ public sealed class CarouselComponentTests(TestApp app)
     // a page at /carousel whose one row holds a new carousel
     private async Task<CarouselPage> AddCarouselPageAsync(TestSite site)
     {
-        var database = DatabaseOf(site);
+        var database = app.DatabaseOf(site);
         var pageId = await new CustomPageRepository(database).AddAsync("Carousel", new CustomPageAddress("carousel"));
         var rowId = await new PageRowRepository(database).AddAsync(pageId);
         var slot = Assert.Single(Assert.Single((await new CustomPageRepository(database).GetLayoutAsync(pageId)).Rows).Slots);
@@ -33,7 +31,7 @@ public sealed class CarouselComponentTests(TestApp app)
     }
 
     private async Task<CustomComponentSettings> SettingsOfAsync(TestSite site, CustomComponentId id) =>
-        Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(id)).Component.Settings;
+        Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(app.DatabaseOf(site)).GetAsync(id)).Component.Settings;
 
     private static Dictionary<string, string> FormWith(CarouselSettings settings, int? collectionId) =>
         new()
@@ -58,7 +56,7 @@ public sealed class CarouselComponentTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
         var carouselPage = await AddCarouselPageAsync(site);
-        var collectionId = await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
+        var collectionId = await new CatalogTestData(app.DatabaseOf(site)).AddCollectionAsync();
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var settings = new CarouselSettings(
             new SlideSource.WorksInCollection(collectionId),
@@ -94,18 +92,18 @@ public sealed class CarouselComponentTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
         var carouselPage = await AddCarouselPageAsync(site);
-        var library = new UploadedImageRepository(DatabaseOf(site));
+        var library = new UploadedImageRepository(app.DatabaseOf(site));
         var altText = $"Pier {Guid.NewGuid():n}";
         var storageKey = await UploadedImageTestData.AddAsync(library, "pier.jpg", altText);
         var workName = $"Harbour {Guid.NewGuid():n}";
-        var work = await new CatalogTestData(DatabaseOf(site)).AddPaintingAsync(workName, [], [], [CatalogTestData.CreateTestImage()]);
+        var work = await new CatalogTestData(app.DatabaseOf(site)).AddPaintingAsync(workName, [], [], [CatalogTestData.CreateTestImage()]);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         await TestApp.PostFormAsync(client, carouselPage.SettingsUrl, "add-slide", new() { ["Slide.ImageStorageKey"] = storageKey });
         await TestApp.PostFormAsync(client, carouselPage.SettingsUrl, "add-slide",
             new() { ["Slide.ImageStorageKey"] = "", ["Slide.ImageWorkId"] = work.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) });
 
-        var slides = await new SlideRepository(DatabaseOf(site)).GetAsync(new SlideOwner.Component(carouselPage.CarouselId));
+        var slides = await new SlideRepository(app.DatabaseOf(site)).GetAsync(new SlideOwner.Component(carouselPage.CarouselId));
         Assert.Equal([new ImageSource.Library(storageKey), new ImageSource.Work(work.Id, StorageKey: null)], slides.Select(slide => slide.Source));
         var page = await PublicPageAsync(app, site);
         Assert.True(page.IndexOf($"alt=\"{altText}\"", StringComparison.Ordinal) < page.IndexOf($"alt=\"{workName}\"", StringComparison.Ordinal));
@@ -117,7 +115,7 @@ public sealed class CarouselComponentTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
         var carouselPage = await AddCarouselPageAsync(site);
-        var catalog = new CatalogTestData(DatabaseOf(site));
+        var catalog = new CatalogTestData(app.DatabaseOf(site));
         var collectionId = await catalog.AddCollectionAsync();
         var shownName = $"Shown {Guid.NewGuid():n}";
         await catalog.AddPaintingAsync(shownName, [], [collectionId], [CatalogTestData.CreateTestImage()]);
@@ -138,8 +136,8 @@ public sealed class CarouselComponentTests(TestApp app)
     {
         var site = await app.MakeSiteAsync();
         var carouselPage = await AddCarouselPageAsync(site);
-        var library = new UploadedImageRepository(DatabaseOf(site));
-        var slides = new SlideRepository(DatabaseOf(site));
+        var library = new UploadedImageRepository(app.DatabaseOf(site));
+        var slides = new SlideRepository(app.DatabaseOf(site));
         var owner = new SlideOwner.Component(carouselPage.CarouselId);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         await slides.AddAsync(owner, new ImageSource.Library(await UploadedImageTestData.AddAsync(library, "pier.jpg", "Pier")));

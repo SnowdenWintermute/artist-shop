@@ -19,19 +19,19 @@ namespace ArtistShop.Web.Tests.App;
 public sealed partial class CustomPageTests(TestApp app)
 {
     private CustomPageRepository PagesOf(TestSite site) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        new(app.DatabaseOf(site));
 
     private PageRowRepository RowsOf(TestSite site) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        new(app.DatabaseOf(site));
 
     private UploadedImageRepository LibraryOf(TestSite site) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        new(app.DatabaseOf(site));
 
     private SlideRepository SlidesOf(TestSite site) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        new(app.DatabaseOf(site));
 
     private NavEntryRepository NavOf(TestSite site) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        new(app.DatabaseOf(site));
 
     private static async Task<IEnumerable<(string Href, string Text)>> NavLinksAsync(HttpClient client)
     {
@@ -256,7 +256,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task APostLinksUpToTheBlogPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var pages = PagesOf(site);
         var blog = await pages.GetBlogAsync();
         await pages.UpdateAsync(blog.Id, "Journal", new CustomPageAddress("journal"));
@@ -277,7 +277,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task ARowShowsEachSlotsComponents()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var pageId = await PagesOf(site).AddAsync("Both", new CustomPageAddress("both"));
         var rowId = await new PageRowRepository(database).AddAsync(pageId);
         await new RowSlotRepository(database).AddAsync(rowId, slotCount: 1);
@@ -510,7 +510,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task AnArticleIsDrawnAtItsWidth()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var pageId = await PagesOf(site).AddAsync("About", new CustomPageAddress("about"));
         await new PageRowRepository(database).AddAsync(pageId);
         var slot = Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(pageId)).Rows).Slots);
@@ -531,7 +531,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task AComponentIsRenamedOnItsSettingsPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
         var component = Assert.Single(Assert.Single(row.Slots).Stack);
@@ -561,7 +561,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task AnArticlesSettingsPageHasThePostEditor()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
         var id = await new CustomComponentRepository(database).AddToSlotAsync(
@@ -598,7 +598,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task TheBlogPagesOnlyPostListCantBeTakenOff()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var pages = PagesOf(site);
         var blog = await pages.GetBlogAsync();
         var row = Assert.Single((await pages.GetLayoutAsync(blog.Id)).Rows);
@@ -620,7 +620,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task ABlogPagePostListCanGoWhileAnotherStays()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var blog = await PagesOf(site).GetBlogAsync();
         var slot = Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(blog.Id)).Rows).Slots);
         var components = new CustomComponentRepository(database);
@@ -665,7 +665,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task ACollectionLinksUpToTheCollectionsPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var slug = CollectionSlug.FromName("Gardens");
         await new CollectionRepository(database).AddAsync(new CollectionName("Gardens"), slug);
         await MoveCollectionsPageAsync(site);
@@ -679,7 +679,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task AWorkInNoCollectionLinksUpToTheCollectionsPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var work = await new CatalogTestData(database).AddPaintingAsync("Dawn", termIds: [], collectionIds: [],
             images: [CatalogTestData.CreateTestImage()]);
         await MoveCollectionsPageAsync(site);
@@ -694,7 +694,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task TheCollectionsPagesOnlyGridCantBeTakenOffOrChanged()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var pages = PagesOf(site);
         var collectionsPage = await pages.GetCollectionsAsync();
         var row = Assert.Single((await pages.GetLayoutAsync(collectionsPage.Id)).Rows);
@@ -721,7 +721,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task TheCollectionsPagesGridCanAddWorksInNoCollection()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var collectionsPage = await PagesOf(site).GetCollectionsAsync();
         var grid = Assert.Single(Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync(collectionsPage.Id)).Rows).Slots).Stack);
         var components = new CustomComponentRepository(database);
@@ -764,7 +764,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task AComponentIsDeletedFromItsSettingsPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
         // not the grid the home page starts with, which the collections page keeps
@@ -785,7 +785,7 @@ public sealed partial class CustomPageTests(TestApp app)
     public async Task ARefusedDeleteStaysOnTheSettingsPage()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var postList = Assert.Single(Assert.Single(Assert.Single((await PagesOf(site).GetLayoutAsync((await PagesOf(site).GetBlogAsync()).Id)).Rows).Slots).Stack);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var path = PageUrls.EditCustomComponent(postList.Id, origin: null);
@@ -818,7 +818,7 @@ public sealed partial class CustomPageTests(TestApp app)
     // the home page's one row with a heading added to its slot
     private async Task<(CustomPage Home, PageRowId RowId, CustomComponentId HeadingId)> AddHeadingAsync(TestSite site, HeadingSettings settings)
     {
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var home = await PagesOf(site).GetHomeAsync();
         var row = Assert.Single((await PagesOf(site).GetLayoutAsync(home.Id)).Rows);
         var id = await new CustomComponentRepository(database).AddToSlotAsync(Assert.Single(row.Slots).Id, "Heading 1", settings);
@@ -828,7 +828,7 @@ public sealed partial class CustomPageTests(TestApp app)
 
     private async Task<CustomComponentSettings> SettingsOfAsync(TestSite site, CustomComponentId id) =>
         Assert.IsType<CustomComponentInUse>(
-            await new CustomComponentRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetAsync(id)
+            await new CustomComponentRepository(app.DatabaseOf(site)).GetAsync(id)
         ).Component.Settings;
 
     [Fact]

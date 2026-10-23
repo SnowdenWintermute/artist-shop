@@ -16,14 +16,12 @@ namespace ArtistShop.Web.Tests.App;
 // the settings of the fixed page each collection has, and that page following them
 public sealed partial class CollectionPageSettingsTests(TestApp app)
 {
-    private SiteDatabase DatabaseOf(TestSite site) => app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-
     [Fact]
     public async Task ANewSiteStartsWithAnEvenGridOf24()
     {
         var site = await app.MakeSiteAsync();
 
-        var settings = await new CollectionPageRepository(DatabaseOf(site)).GetAsync();
+        var settings = await new CollectionPageRepository(app.DatabaseOf(site)).GetAsync();
 
         Assert.Equal(new CollectionPageSettings(CardGridLayout.EvenGrid, CardGridSettings.DefaultCardsPerPage), settings);
     }
@@ -32,7 +30,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
     public async Task TheCollectionPageDrawsItsWorksWithTheSavedSettings()
     {
         var site = await app.MakeSiteAsync();
-        var database = DatabaseOf(site);
+        var database = app.DatabaseOf(site);
         var catalog = new CatalogTestData(database);
         var collectionId = await catalog.AddCollectionAsync();
 
@@ -71,7 +69,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
 
         Assert.Equal(
             new CollectionPageSettings(CardGridLayout.Rows, 12),
-            await new CollectionPageRepository(DatabaseOf(site)).GetAsync()
+            await new CollectionPageRepository(app.DatabaseOf(site)).GetAsync()
         );
     }
 
@@ -100,7 +98,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(
             new CollectionPageSettings(CardGridLayout.EvenGrid, CardGridSettings.DefaultCardsPerPage),
-            await new CollectionPageRepository(DatabaseOf(site)).GetAsync()
+            await new CollectionPageRepository(app.DatabaseOf(site)).GetAsync()
         );
     }
 
@@ -120,7 +118,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
     public async Task ThePreviewShowsTheCollectionItWasOpenedFromWithTheSavedSettings()
     {
         var site = await app.MakeSiteAsync();
-        var database = DatabaseOf(site);
+        var database = app.DatabaseOf(site);
         var catalog = new CatalogTestData(database);
         var first = await catalog.AddCollectionAsync();
         var second = await catalog.AddCollectionAsync();
@@ -145,7 +143,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
     public async Task ThePreviewIsDrawnWithoutAnIsland()
     {
         var site = await app.MakeSiteAsync();
-        await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
+        await new CatalogTestData(app.DatabaseOf(site)).AddCollectionAsync();
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var page = await client.GetStringAsync(PageUrls.CollectionPageSettings, TestContext.Current.CancellationToken);
@@ -159,7 +157,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
     public async Task ASaveKeepsTheCollectionBeingPreviewed()
     {
         var site = await app.MakeSiteAsync();
-        var catalog = new CatalogTestData(DatabaseOf(site));
+        var catalog = new CatalogTestData(app.DatabaseOf(site));
         await catalog.AddPaintingInCollectionAsync(await catalog.AddCollectionAsync(), [CatalogTestData.CreateTestImage()]);
         var second = await catalog.AddCollectionAsync();
         await catalog.AddPaintingInCollectionAsync(second, [CatalogTestData.CreateTestImage()]);
@@ -222,7 +220,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
     public async Task AnEmptyCollectionIsPreviewedAndMarkedEmpty()
     {
         var site = await app.MakeSiteAsync();
-        var database = DatabaseOf(site);
+        var database = app.DatabaseOf(site);
         var catalog = new CatalogTestData(database);
         await catalog.AddPaintingInCollectionAsync(await catalog.AddCollectionAsync(), [CatalogTestData.CreateTestImage()]);
         var empty = await catalog.AddCollectionAsync();
@@ -253,7 +251,7 @@ public sealed partial class CollectionPageSettingsTests(TestApp app)
     public async Task AnUnknownCollectionToPreviewIsNotFound(string collection)
     {
         var site = await app.MakeSiteAsync();
-        await new CatalogTestData(DatabaseOf(site)).AddCollectionAsync();
+        await new CatalogTestData(app.DatabaseOf(site)).AddCollectionAsync();
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var response = await client.GetAsync(

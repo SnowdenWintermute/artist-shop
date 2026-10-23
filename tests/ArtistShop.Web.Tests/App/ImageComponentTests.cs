@@ -17,8 +17,6 @@ namespace ArtistShop.Web.Tests.App;
 // an image component's settings page, and what it shows visitors
 public sealed class ImageComponentTests(TestApp app)
 {
-    private SiteDatabase DatabaseOf(TestSite site) => app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
-
     private sealed record ImagePage(CustomPageId PageId, PageRowId RowId, CustomComponentId ImageId)
     {
         public string SettingsUrl => PageUrls.EditCustomComponent(ImageId, PageId, RowId);
@@ -27,7 +25,7 @@ public sealed class ImageComponentTests(TestApp app)
     // a page at /image whose one row holds a new image component
     private async Task<ImagePage> AddImagePageAsync(TestSite site)
     {
-        var database = DatabaseOf(site);
+        var database = app.DatabaseOf(site);
         var pageId = await new CustomPageRepository(database).AddAsync("Image", new CustomPageAddress("image"));
         var rowId = await new PageRowRepository(database).AddAsync(pageId);
         var slot = Assert.Single(Assert.Single((await new CustomPageRepository(database).GetLayoutAsync(pageId)).Rows).Slots);
@@ -37,7 +35,7 @@ public sealed class ImageComponentTests(TestApp app)
     }
 
     private async Task<CustomComponentSettings> SettingsOfAsync(TestSite site, CustomComponentId id) =>
-        Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(DatabaseOf(site)).GetAsync(id)).Component.Settings;
+        Assert.IsType<CustomComponentInUse>(await new CustomComponentRepository(app.DatabaseOf(site)).GetAsync(id)).Component.Settings;
 
     [Fact]
     public async Task TheSettingsPageSavesHeightFitPaddingAndLink()
@@ -89,7 +87,7 @@ public sealed class ImageComponentTests(TestApp app)
 
     private async Task<UploadedImage> AddLibraryImageAsync(TestSite site)
     {
-        var library = new UploadedImageRepository(DatabaseOf(site));
+        var library = new UploadedImageRepository(app.DatabaseOf(site));
         var storageKey = await UploadedImageTestData.AddAsync(library, "pier.jpg", "A pier at dusk");
         return (await library.GetByStorageKeysAsync([storageKey]))[storageKey];
     }
@@ -138,7 +136,7 @@ public sealed class ImageComponentTests(TestApp app)
         var site = await app.MakeSiteAsync();
         var imagePage = await AddImagePageAsync(site);
         var image = await AddLibraryImageAsync(site);
-        await new UploadedImageRepository(DatabaseOf(site)).DeleteAsync([image.StorageKey]);
+        await new UploadedImageRepository(app.DatabaseOf(site)).DeleteAsync([image.StorageKey]);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         var response = await TestApp.PostFormAsync(client, imagePage.SettingsUrl, "custom-component", FormChoosing(image.StorageKey));
@@ -156,9 +154,9 @@ public sealed class ImageComponentTests(TestApp app)
     {
         var workImage = await app.MakeSiteWithAWorkImageAsync(imageWidth: 2400);
         var site = workImage.Site;
-        var work = Assert.IsType<Work>(await new WorkRepository(DatabaseOf(site)).GetBySlugAsync(workImage.WorkSlug.Value));
+        var work = Assert.IsType<Work>(await new WorkRepository(app.DatabaseOf(site)).GetBySlugAsync(workImage.WorkSlug.Value));
         var imagePage = await AddImagePageAsync(site);
-        await new CustomComponentRepository(DatabaseOf(site)).UpdateAsync(
+        await new CustomComponentRepository(app.DatabaseOf(site)).UpdateAsync(
             imagePage.ImageId,
             "Image 1",
             ImageSettings.New with { Source = new ImageSource.Work(work.Id, StorageKey: null) }
@@ -173,8 +171,8 @@ public sealed class ImageComponentTests(TestApp app)
         Assert.DoesNotContain(fullBleedSize, await visitor.GetStringAsync("/image", cancellationToken));
         Assert.DoesNotContain(hint, await admin.GetStringAsync(imagePage.SettingsUrl, cancellationToken));
 
-        var row = Assert.Single((await new CustomPageRepository(DatabaseOf(site)).GetLayoutAsync(imagePage.PageId)).Rows);
-        await new PageRowRepository(DatabaseOf(site)).SetSettingsAsync(row.Id, row.Settings with { ContentWidth = RowContentWidth.EdgeToEdge });
+        var row = Assert.Single((await new CustomPageRepository(app.DatabaseOf(site)).GetLayoutAsync(imagePage.PageId)).Rows);
+        await new PageRowRepository(app.DatabaseOf(site)).SetSettingsAsync(row.Id, row.Settings with { ContentWidth = RowContentWidth.EdgeToEdge });
 
         await visitor.GetStringAsync("/image", cancellationToken);
         Assert.Contains(fullBleedSize, await visitor.GetStringAsync("/image", cancellationToken));
@@ -183,13 +181,13 @@ public sealed class ImageComponentTests(TestApp app)
 
     private async Task<Work> AddPaintingAsync(TestSite site)
     {
-        var identifiers = await new CatalogTestData(DatabaseOf(site)).AddPaintingAsync(
+        var identifiers = await new CatalogTestData(app.DatabaseOf(site)).AddPaintingAsync(
             $"Image test painting {Guid.NewGuid():n}",
             termIds: [],
             collectionIds: [],
             [CatalogTestData.CreateTestImage(), CatalogTestData.CreateTestImage()]
         );
-        return Assert.IsType<Work>(await new WorkRepository(DatabaseOf(site)).GetByIdAsync(identifiers.Id));
+        return Assert.IsType<Work>(await new WorkRepository(app.DatabaseOf(site)).GetByIdAsync(identifiers.Id));
     }
 
     private static Dictionary<string, string> FormChoosing(Work work, WorkImage image) =>
@@ -204,14 +202,14 @@ public sealed class ImageComponentTests(TestApp app)
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
 
         await TestApp.PostFormAsync(client, imagePage.SettingsUrl, "custom-component", FormChoosing(work, work.Images[0]));
-        await new WorkRepository(DatabaseOf(site)).UpdateImagesAsync(work.Id, work.Images, mainImageIndex: 1);
+        await new WorkRepository(app.DatabaseOf(site)).UpdateImagesAsync(work.Id, work.Images, mainImageIndex: 1);
 
         Assert.Equal(ImageSettings.New with { Source = new ImageSource.Work(work.Id, null) }, await SettingsOfAsync(site, imagePage.ImageId));
         var page = await app.ClientFor(site.Host).GetStringAsync("/image", TestContext.Current.CancellationToken);
         Assert.Contains($"alt=\"{work.Name.Value}\"", page);
         Assert.Contains(work.Images[1].StorageKey, page);
         Assert.DoesNotContain(work.Images[0].StorageKey, page);
-        Assert.Contains(imagePage.PageId, (await new CustomPageRepository(DatabaseOf(site)).GetMentioningWorkAsync(work.Id)).Select(page => page.Id));
+        Assert.Contains(imagePage.PageId, (await new CustomPageRepository(app.DatabaseOf(site)).GetMentioningWorkAsync(work.Id)).Select(page => page.Id));
     }
 
     [Fact]
@@ -241,14 +239,14 @@ public sealed class ImageComponentTests(TestApp app)
         await TestApp.PostFormAsync(client, imagePage.SettingsUrl, "custom-component", FormChoosing(work, work.Images[1]));
         var saved = await SettingsOfAsync(site, imagePage.ImageId);
 
-        await new WorkRepository(DatabaseOf(site)).UpdateImagesAsync(work.Id, [work.Images[0]], mainImageIndex: 0);
+        await new WorkRepository(app.DatabaseOf(site)).UpdateImagesAsync(work.Id, [work.Images[0]], mainImageIndex: 0);
         var response = await TestApp.PostFormAsync(client, imagePage.SettingsUrl, "custom-component", FormChoosing(work, work.Images[1]));
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(saved, await SettingsOfAsync(site, imagePage.ImageId));
         var page = await app.ClientFor(site.Host).GetStringAsync("/image", TestContext.Current.CancellationToken);
         Assert.DoesNotContain("data-test=\"image-component\"", page);
-        Assert.Empty(await new CustomPageRepository(DatabaseOf(site)).GetMentioningWorkAsync(work.Id));
+        Assert.Empty(await new CustomPageRepository(app.DatabaseOf(site)).GetMentioningWorkAsync(work.Id));
     }
 
     // listed for the confirm dialog first, then gone from its page with the work
@@ -260,13 +258,13 @@ public sealed class ImageComponentTests(TestApp app)
         var work = await AddPaintingAsync(site);
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         await TestApp.PostFormAsync(client, imagePage.SettingsUrl, "custom-component", FormChoosing(work, work.Images[1]));
-        var components = new CustomComponentRepository(DatabaseOf(site));
+        var components = new CustomComponentRepository(app.DatabaseOf(site));
 
         Assert.Equal([imagePage.ImageId], (await components.GetImageComponentsShowingWorksAsync([work.Id])).Select(component => component.Id));
-        await new WorkRepository(DatabaseOf(site)).DeleteAsync(work.Id);
+        await new WorkRepository(app.DatabaseOf(site)).DeleteAsync(work.Id);
 
         Assert.Null(await components.GetAsync(imagePage.ImageId));
-        Assert.Empty(Assert.Single((await new CustomPageRepository(DatabaseOf(site)).GetLayoutAsync(imagePage.PageId)).Rows).Slots.SelectMany(slot => slot.Stack));
+        Assert.Empty(Assert.Single((await new CustomPageRepository(app.DatabaseOf(site)).GetLayoutAsync(imagePage.PageId)).Rows).Slots.SelectMany(slot => slot.Stack));
     }
 
     private async Task<string> PublicPageAfterSavingAsync(TestSite site, ImagePage imagePage, Dictionary<string, string> form)

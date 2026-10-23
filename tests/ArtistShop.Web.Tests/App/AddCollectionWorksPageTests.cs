@@ -14,7 +14,7 @@ public sealed class AddCollectionWorksPageTests(TestApp app)
     private async Task<(CatalogTestData Catalog, CollectionRepository Collections, HttpClient Client)> SiteWithAdminAsync()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
 
         return (new CatalogTestData(database), new CollectionRepository(database), client);

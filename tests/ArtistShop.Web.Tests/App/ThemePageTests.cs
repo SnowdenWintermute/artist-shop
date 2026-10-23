@@ -10,7 +10,7 @@ namespace ArtistShop.Web.Tests.App;
 // The Theme page, where an artist previews, saves and chooses the look of their website's public pages
 public sealed class ThemePageTests(TestApp app)
 {
-    private ThemeRepository ThemesOf(TestSite site) => new(app.Services.GetRequiredService<SiteDatabases>().For(site.Id));
+    private ThemeRepository ThemesOf(TestSite site) => new(app.DatabaseOf(site));
 
     private static readonly ThemeColors Paper = ThemePresets.Paper.Theme.Colors;
 

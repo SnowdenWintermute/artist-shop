@@ -1137,7 +1137,7 @@ public sealed class ExportTests(TestApp app)
 
     private SiteCatalog Catalog(SiteId siteId)
     {
-        SiteDatabase database = app.Services.GetRequiredService<SiteDatabases>().For(siteId);
+        SiteDatabase database = app.DatabaseOf(siteId);
         return new SiteCatalog(
             new WorkRepository(database),
             new WorkFieldRepository(database),
@@ -1162,10 +1162,10 @@ public sealed class ExportTests(TestApp app)
     }
 
     private PostRepository Posts(SiteId siteId) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+        new(app.DatabaseOf(siteId));
 
     private UploadedImageRepository Library(SiteId siteId) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+        new(app.DatabaseOf(siteId));
 
     // a library row for an original saved by SaveOriginalAsync, as an editor upload adds one
     private async Task AddToLibraryAsync(SiteId siteId, WorkImage upload, string altText) =>
@@ -1174,14 +1174,14 @@ public sealed class ExportTests(TestApp app)
         );
 
     private WordingRepository Wording(SiteId siteId) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+        new(app.DatabaseOf(siteId));
 
     private ThemeRepository Themes(SiteId siteId) =>
-        new(app.Services.GetRequiredService<SiteDatabases>().For(siteId));
+        new(app.DatabaseOf(siteId));
 
     private BrandImageStore BrandImages(SiteId siteId) =>
         new(
-            new BrandImageRepository(app.Services.GetRequiredService<SiteDatabases>().For(siteId)),
+            new BrandImageRepository(app.DatabaseOf(siteId)),
             ImageStorage.ForSite(app.Services.GetRequiredService<ImageStorageSettings>(), siteId),
             ActivatorUtilities.CreateInstance<BrandImageProcessor>(app.Services),
             NullLogger<BrandImageStore>.Instance

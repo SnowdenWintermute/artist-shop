@@ -20,7 +20,7 @@ public sealed partial class RememberedInputTests(TestApp app)
     private async Task<(CatalogTestData Catalog, HttpClient Client)> SiteWithAdminAsync()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var client = await app.SignedInClientAsync(site.Host, await app.MakeAdminAsync(site.Id));
 
         return (new CatalogTestData(database), client);
@@ -66,7 +66,7 @@ public sealed partial class RememberedInputTests(TestApp app)
     public async Task ASavedTypeSinceDeletedGoesToTheFirstByName()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         await app
             .Services.GetRequiredService<SiteMemberInputValueRepository>()
             .SetAsync(site.Id, await app.UserIdAsync(site.OwnerEmail), RememberedInputs.WorkType, "999999");

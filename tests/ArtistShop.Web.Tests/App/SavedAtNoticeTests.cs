@@ -13,7 +13,7 @@ public sealed class SavedAtNoticeTests(TestApp app)
     public async Task APageDrawsTheNoticeInItsLayoutsTopBar()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var vocabularyId = await new CatalogTestData(database).AddPaintingVocabularyAsync();
         var client = await app.SignedInClientAsync(site.Host, site.OwnerEmail);
         var savedAt = new DateTimeOffset(2026, 10, 14, 16, 20, 0, TimeSpan.Zero);

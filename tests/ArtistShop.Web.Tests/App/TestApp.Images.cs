@@ -18,7 +18,7 @@ public sealed partial class TestApp
     public async Task<TestWorkImage> MakeSiteWithAWorkImageAsync(int imageWidth)
     {
         var site = await MakeSiteAsync();
-        var catalog = new CatalogTestData(Services.GetRequiredService<SiteDatabases>().For(site.Id));
+        var catalog = new CatalogTestData(DatabaseOf(site));
         var client = await SignedInClientAsync(site.Host, await MakeAdminAsync(site.Id));
         var work = await catalog.AddWorkAsync(await catalog.GetPaintingTypeIdAsync(), "Dawn");
 

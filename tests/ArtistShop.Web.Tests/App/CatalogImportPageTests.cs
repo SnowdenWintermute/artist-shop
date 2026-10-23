@@ -37,7 +37,7 @@ public sealed partial class CatalogImportPageTests(TestApp app)
         Assert.Contains("Import 1 work type", reviewPage);
         Assert.Equal(HttpStatusCode.Redirect, confirmed.StatusCode);
         Assert.Contains("imported=1", confirmed.Headers.Location?.Query);
-        var types = await new WorkTypeRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetAllAsync();
+        var types = await new WorkTypeRepository(app.DatabaseOf(site)).GetAllAsync();
         Assert.Contains(types, type => type.Name.Value == "Video");
     }
 
@@ -46,7 +46,7 @@ public sealed partial class CatalogImportPageTests(TestApp app)
     public async Task AnExistingVocabularyGainsAnWorkType()
     {
         var site = await app.MakeSiteAsync();
-        var database = app.Services.GetRequiredService<SiteDatabases>().For(site.Id);
+        var database = app.DatabaseOf(site);
         var types = await new WorkTypeRepository(database).GetAllAsync();
         WorkTypeId TypeId(string name) => types.Single(type => type.Name.Value == name).Id;
         var vocabularies = new VocabularyRepository(database);

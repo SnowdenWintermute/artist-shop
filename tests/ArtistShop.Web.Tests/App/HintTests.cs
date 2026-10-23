@@ -187,7 +187,7 @@ public sealed partial class HintTests(TestApp app)
     public async Task ThePagesHintLinksToTheHomePagesEditor()
     {
         var (site, client) = await SiteWithOwnerAsync();
-        var home = await new CustomPageRepository(app.Services.GetRequiredService<SiteDatabases>().For(site.Id)).GetHomeAsync();
+        var home = await new CustomPageRepository(app.DatabaseOf(site)).GetHomeAsync();
 
         Assert.Contains($"href=\"{PageUrls.EditCustomPage(home.Id)}\"", await PageAsync(client, PageUrls.Hints));
         Assert.Contains(nameof(HintType.CustomPages), Hints(await PageAsync(client, PageUrls.EditCustomPage(home.Id))));
