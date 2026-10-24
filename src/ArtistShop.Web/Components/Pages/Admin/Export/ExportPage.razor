@@ -14,13 +14,14 @@
 @inject UploadedImageRepository UploadedImageRepository
 @inject ImageSizeQueue ImageSizeQueue
 
-<PageTitle>Export your website</PageTitle>
+<PageTitle>Export data</PageTitle>
 
 <AdminPanel>
   <AdminUpLink />
-  <h1 class="mb-4 text-xl">Export your website</h1>
+  <h1 class="mb-4 text-xl">Export your website's data</h1>
   <p class="mb-4">
-    Back up your website or move it to another PictureCord site.
+    Back up your data, including images and blog posts. The data can be used to recreate your site on the PictureCord
+    platform.
     Only one image or post download can run at a time.
   </p>
   <p class="mb-4 font-bold" data-test="custom-pages-not-exported">
@@ -110,7 +111,7 @@
         <div>
           <div>All images</div>
           <div class="text-sm">@CountText.Of(_parts.Sum(part => part.Size.Count), "image"), @Size(_parts.Sum(part =>
-                                                                                                                                                                                                                                    part.Size.Bytes))
+                                                                                                                                                                                                                                                                                    part.Size.Bytes))
           </div>
         </div>
         @* no download attribute, as below *@
@@ -129,7 +130,7 @@
           {
             <li class="mb-2 flex flex-wrap items-center justify-between gap-4" @key="ExportEndpoints.ImagesUrl(part.Part)">
               <div>
-                <div>@part.Part.Type.Name.Value — @(part.Part.Collection?.Name.Value ?? $"no {Wording.Collection.SingularInSentence}")</div>
+                <div>@part.Part.Type.Name.Value — @(part.Part.Collection?.Name.Value ?? $"no          {Wording.Collection.SingularInSentence}")</div>
                 <div class="text-sm">@CountText.Of(part.Size.Count, "image"), @Size(part.Size.Bytes)</div>
               </div>
               @* no download attribute, so a refusal ("another download is running") shows as a page

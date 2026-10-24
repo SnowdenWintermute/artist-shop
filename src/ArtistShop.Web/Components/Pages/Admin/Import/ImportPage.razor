@@ -15,20 +15,37 @@
 
 <PageTitle>Import into your website</PageTitle>
 
-  <h1 class="mb-4 text-xl">Import into your website</h1>
-  <div class="mb-6">
-    <h2 class="mb-1 text-lg">All at once:</h2>
-    <p class="mb-2">
-      Upload the full site folder exported from another PictureCord website. It must be unzipped.
-    </p>
-    <LinkButton href="@PageUrls.WebsiteImport" Variant="ButtonVariant.Primary">
-      <IconLabel Icon="folder-open">Import</IconLabel>
-    </LinkButton>
+<h1 class="mb-4 text-xl">Import into your website</h1>
+<div class="mb-6">
+  <h2 class="mb-1 text-lg">From a PictureCord export:</h2>
+  <p class="mb-2">
+    Upload the full site folder exported from another PictureCord website. It must be unzipped.
+  </p>
+  <LinkButton href="@PageUrls.WebsiteImport" Variant="ButtonVariant.Primary">
+    <IconLabel Icon="folder-open">Import</IconLabel>
+  </LinkButton>
+</div>
+
+<Divider Class="mb-6" />
+<div class="mb-6">
+  <h2 class="mb-1 text-lg">From your own spreadsheets:</h2>
+  <p class="mb-2">
+    If you have your own spreadsheets with your @Wording.Work.SingularInSentence data, you can upload the spreadsheets
+    first then the matching images. If your spreadsheets contains vocabularies, first create them <a
+    href="@PageUrls.NewVocabulary" class="@LinkStyles.InSentence">here</a>.
+  </p>
+  <div class="mb-2">
+    <ImportStep Title="1. Spreadsheet" Href="@ImportSteps.Works.Href" Icon="csv" ButtonLabel="Import">
+      Bring your own @Wording.Work.SingularInSentence data in a spreadsheet.</ImportStep>
+    </div>
+
+    <ImportStep Title="2. Images" Href="@ImportSteps.Images.Href" Icon="folder-open" ButtonLabel="Upload">
+      Image files whose names match existing @Wording.Work.PluralInSentence in the catalog.
+    </ImportStep>
   </div>
 
   <Divider Class="mb-6" />
-
-  <h2 class="mb-1 text-lg">Step by step:</h2>
+  <h2 class="mb-1 text-lg">From another PictureCord site, step by step:</h2>
 
 
   <Hint Type="HintType.StepByStepImport">
@@ -43,23 +60,28 @@
     </Hint>
 
     <div class="flex flex-col gap-6">
-      <ImportStep Title="@ImportSteps.Look.Title(Wording)" Href="@ImportSteps.Look.Href" Icon="folder-open" ButtonLabel="Import">
+      <ImportStep Title="@ImportSteps.Look.Title(Wording)" Href="@ImportSteps.Look.Href" Icon="folder-open"
+                  ButtonLabel="Import">
         The wording, themes, logos and icon, from the look and wording download.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.WorkTypes.Title(Wording)" Href="@ImportSteps.WorkTypes.Href" Icon="csv" ButtonLabel="Import">
-        Each @Wording.Work.SingularInSentence type and its fields, from <Bold translate="no">@CatalogExportArchive.WorkTypesFileName</Bold>
+      <ImportStep Title="@ImportSteps.WorkTypes.Title(Wording)" Href="@ImportSteps.WorkTypes.Href" Icon="csv"
+                  ButtonLabel="Import">
+        Each @Wording.Work.SingularInSentence type and its fields, from <Bold translate="no">
+        @CatalogExportArchive.WorkTypesFileName</Bold>
         in the catalog
         download.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.Vocabularies.Title(Wording)" Href="@ImportSteps.Vocabularies.Href" Icon="csv" ButtonLabel="Import">
+      <ImportStep Title="@ImportSteps.Vocabularies.Title(Wording)" Href="@ImportSteps.Vocabularies.Href" Icon="csv"
+                  ButtonLabel="Import">
         Each vocabulary and its terms, from <Bold translate="no">@CatalogExportArchive.VocabulariesFileName</Bold>, and
         the @Wording.Work.SingularInSentence types they apply to.
       </ImportStep>
 
       <ImportStep Title="@ImportSteps.Works.Title(Wording)" Href="@ImportSteps.Works.Href" Icon="csv" ButtonLabel="Import">
-        Bring your own @Wording.Work.SingularInSentence data in a spreadsheet. If using data exported from another PictureCord site, this is each
+        Bring your own @Wording.Work.SingularInSentence data in a spreadsheet. If using data exported from another
+        PictureCord site, this is each
         file in the catalog download's <Bold translate="no">@CatalogExportArchive.WorksFolder</Bold> folder.
         Every @Wording.Work.SingularInSentence type gets its own .csv file.
       </ImportStep>
@@ -69,7 +91,8 @@
         Image files whose names match existing @Wording.Work.PluralInSentence in the catalog.
       </ImportStep>
 
-      <ImportStep Title="@ImportSteps.Posts.Title(Wording)" Href="@ImportSteps.Posts.Href" Icon="folder-open" ButtonLabel="Import">
+      <ImportStep Title="@ImportSteps.Posts.Title(Wording)" Href="@ImportSteps.Posts.Href" Icon="folder-open"
+                  ButtonLabel="Import">
         Upload the blog posts last because they may link to @Wording.Work.PluralInSentence uploaded in previous steps.
       </ImportStep>
     </div>

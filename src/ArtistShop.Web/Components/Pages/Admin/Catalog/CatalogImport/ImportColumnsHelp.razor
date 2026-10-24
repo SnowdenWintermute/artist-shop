@@ -34,18 +34,8 @@
   </text>;
 }
 
-<Hint Type="Hint" Variant="HintVariant.Collapses">
+<Hint Type="Hint">
   <p class="mb-2">@Intro</p>
-  @if (Collapsed)
-  {
-    <Disclosure>
-      <Summary>@Heading</Summary>
-      <ChildContent>@ColumnList</ChildContent>
-    </Disclosure>
-  }
-  else
-  {
-    <p class="mb-2">@Heading:</p>
-    @ColumnList
-  }
+  <p class="mb-2">@Heading:</p>
+  @ColumnList
 </Hint>

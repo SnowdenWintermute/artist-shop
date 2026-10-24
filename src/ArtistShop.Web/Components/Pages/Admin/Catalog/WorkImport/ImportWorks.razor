@@ -184,111 +184,112 @@
 
 <PageTitle>Import @Wording.Work.PluralInSentence</PageTitle>
 
-    <h1 class="mb-4 text-xl">Import @Wording.Work.PluralInSentence from a spreadsheet</h1>
+<h1 class="mb-4 text-xl">Import @Wording.Work.PluralInSentence from a spreadsheet</h1>
 
-    @* the type decides which columns and fields the page asks for *@
-    <WorkTypeQueryForm>
-      <RememberedWorkTypeSelect Name="type" WorkTypes="_workTypes" Value="_type?.Id" Placeholder="Choose a type" />
-    </WorkTypeQueryForm>
+@* the type decides which columns and fields the page asks for *@
+<WorkTypeQueryForm>
+  <RememberedWorkTypeSelect Name="type" WorkTypes="_workTypes" Value="_type?.Id" Placeholder="Choose a type" />
+</WorkTypeQueryForm>
 
-    @if (_type is not null)
-    {
-      @if (ImportedCount is int importedCount && _plan is null)
-      {
-        <p class="mb-4 text-success">Imported @Wording.Work.CountOf(importedCount).</p>
-        <a href="@PageUrls.WorkBulkImageUpload(_type.Id)" class="block text-success mb-2 underline">Upload matching
-          images next.</a>
-      }
+@if (_type is not null)
+{
+  <WorkImportColumnsHelp WorkType="_type" TypeVocabularies="_typeVocabularies" />
 
-        <WorkImportColumnsHelp WorkType="_type" TypeVocabularies="_typeVocabularies" />
-
-        @* multipart: the file needs it, and the form's size limit then applies to the text as sent.
+  @* multipart: the file needs it, and the form's size limit then applies to the text as sent.
          Enhance: an enhanced post keeps the multipart body, so the file still arrives, and it leaves
          no history entry of its own. Without it the review was a posted document, which the browser
          refuses to redisplay on Back ("Document Expired") because the antiforgery headers forbid
          storing it. The review dialog arrives with the patch that inserts it, so it still opens *@
-        <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
-                  enctype="multipart/form-data" Enhance class="mb-4">
-          <DataAnnotationsValidator />
+  <EditForm EditContext="Check.EditContext" FormName="@CheckFormName" OnSubmit="CheckAsync" action="@ImportUrl"
+            enctype="multipart/form-data" Enhance class="mb-4">
+    <DataAnnotationsValidator />
 
-          <ImportFileFields Form="Check" FormPropertyName="@nameof(Check)" />
+    <ImportFileFields Form="Check" FormPropertyName="@nameof(Check)" />
 
-          @if (AsksForLengthUnit)
-          {
-            <SelectField Label="Measurements are in" @bind-Value="Check.LengthUnit">
-              <option value="">Choose a unit</option>
-              <option value="@LengthUnit.Centimeters">Centimetres</option>
-              <option value="@LengthUnit.Inches">Inches</option>
-            </SelectField>
-          }
-
-          <SelectField Label="Each row's product" @bind-Value="Check.ProductTypeId">
-            <option value="">Choose a product type</option>
-            @foreach (var productType in _productTypes)
-            {
-              <option value="@productType.Id.Value">@productType.Name.Value</option>
-            }
-          </SelectField>
-
-          <CheckboxField Label="One of a kind" @bind-Value="Check.IsOneOfAKind"
-                         Hint="When checked: CSV must provide a &quot;sold&quot; column otherwise it must provide an &quot;editionSize&quot; and &quot;stock&quot; columns." />
-
-          <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
-
-          <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
-        </EditForm>
-
-        @if (_reviewLost)
-        {
-          <p class="mb-4 text-error">The review didn't come back complete. Check the file again.</p>
-        }
-
-        @* rendered on every request, even with nothing to confirm: a post is matched to its form by
-         rendering the page before the handler runs, when there is no review yet. The dialog's Import
-         button submits it through form="" *@
-        <EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
-                  OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data" Enhance
-                  id="@ConfirmFormName">
-          <DataAnnotationsValidator />
-
-          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
-          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
-          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.LengthUnit))" value="@Confirm.LengthUnit" />
-          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ProductTypeId))" value="@Confirm.ProductTypeId" />
-          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))"
-                 value="@Confirm.IsOneOfAKind.ToString()" />
-          <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
-        </EditForm>
-
-        @if (_plan is not null)
-        {
-          @* the review opens by itself; this opens it again after it's closed *@
-          <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" data-opens-dialog="@ReviewDialogId">
-            Show the review
-          </ButtonBasic>
-          <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
-            @if (_catalogChangedSinceReview)
-            {
-              <p class="mb-4 shrink-0 text-error">
-                The catalog changed since the last review, so nothing was imported. This is the review as things
-                are now.
-              </p>
-            }
-
-            <WorkImportReview Plan="_plan" WorkTypeName="_type.Name" />
-
-            <ModalDialogActions>
-              <ModalCloseButton Label="Close" />
-              @if (_plan.CanImport)
-              {
-                <ButtonBasic type="submit" form="@ConfirmFormName" Variant="ButtonVariant.Primary">
-                  Import @Wording.Work.CountOf(_plan.Additions.Count)
-                </ButtonBasic>
-              }
-            </ModalDialogActions>
-          </ModalDialog>
-        }
-
+    @if (AsksForLengthUnit)
+    {
+      <SelectField Label="Measurements are in" @bind-Value="Check.LengthUnit">
+        <option value="">Choose a unit</option>
+        <option value="@LengthUnit.Centimeters">Centimetres</option>
+        <option value="@LengthUnit.Inches">Inches</option>
+      </SelectField>
     }
 
-<ImportStepButtons Step="ImportSteps.Works" NextHref="@PageUrls.WorkBulkImageUpload(_type?.Id)" />
+    <SelectField Label="Each row's product" @bind-Value="Check.ProductTypeId">
+      <option value="">Choose a product type</option>
+      @foreach (var productType in _productTypes)
+      {
+        <option value="@productType.Id.Value">@productType.Name.Value</option>
+      }
+    </SelectField>
+
+    <CheckboxField Label="One of a kind" @bind-Value="Check.IsOneOfAKind"
+                   Hint="When checked: CSV must provide a &quot;sold&quot; column otherwise it must provide an &quot;editionSize&quot; and &quot;stock&quot; columns." />
+
+    <TextField Label="List separator, between names in one cell" @bind-Value="Check.ListSeparator" />
+
+    <div class="mb-2">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
+    </div>
+    @if (ImportedCount is int importedCount && _plan is null)
+    {
+      <p class="mb-2 text-success">Imported @Wording.Work.CountOf(importedCount).</p>
+      <LinkButton Variant="@ButtonVariant.Primary" href="@PageUrls.WorkBulkImageUpload(_type.Id)">Upload matching
+        images next.</LinkButton>
+      }
+    </EditForm>
+
+    @if (_reviewLost)
+    {
+      <p class="mb-4 text-error">The review didn't come back complete. Check the file again.</p>
+    }
+
+    @* rendered on every request, even with nothing to confirm: a post is matched to its form by
+         rendering the page before the handler runs, when there is no review yet. The dialog's Import
+         button submits it through form="" *@
+    <EditForm EditContext="Confirm.EditContext" FormName="@ConfirmFormName" OnValidSubmit="ConfirmAsync"
+              OnInvalidSubmit="() => _reviewLost = true" action="@ImportUrl" enctype="multipart/form-data" Enhance
+              id="@ConfirmFormName">
+      <DataAnnotationsValidator />
+
+      <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.CsvText))" value="@Confirm.CsvText" />
+      <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.Fingerprint))" value="@Confirm.Fingerprint" />
+      <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.LengthUnit))" value="@Confirm.LengthUnit" />
+      <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ProductTypeId))" value="@Confirm.ProductTypeId" />
+      <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.IsOneOfAKind))"
+             value="@Confirm.IsOneOfAKind.ToString()" />
+      <input type="hidden" name="@ConfirmFieldName(nameof(Confirm.ListSeparator))" value="@Confirm.ListSeparator" />
+    </EditForm>
+
+    @if (_plan is not null)
+    {
+      @* the review opens by itself; this opens it again after it's closed *@
+      <ButtonBasic type="button" Variant="ButtonVariant.Outline" Class="mb-4" data-opens-dialog="@ReviewDialogId">
+        Show the review
+      </ButtonBasic>
+      <ModalDialog Title="Review" Width="ModalDialogWidth.Wide" Id="@ReviewDialogId">
+        @if (_catalogChangedSinceReview)
+        {
+          <p class="mb-4 shrink-0 text-error">
+            The catalog changed since the last review, so nothing was imported. This is the review as things
+            are now.
+          </p>
+        }
+
+        <WorkImportReview Plan="_plan" WorkTypeName="_type.Name" />
+
+        <ModalDialogActions>
+          <ModalCloseButton Label="Close" />
+          @if (_plan.CanImport)
+          {
+            <ButtonBasic type="submit" form="@ConfirmFormName" Variant="ButtonVariant.Primary">
+              Import @Wording.Work.CountOf(_plan.Additions.Count)
+            </ButtonBasic>
+          }
+        </ModalDialogActions>
+      </ModalDialog>
+    }
+
+  }
+
+  <ImportStepButtons Step="ImportSteps.Works" NextHref="@PageUrls.WorkBulkImageUpload(_type?.Id)" />

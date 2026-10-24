@@ -18,9 +18,16 @@
 
 <ImportColumnsHelp Hint="HintType.WorkImport" Collapsed>
   <Intro>
-    Upload your existing spreadsheet of @Wording.Work.PluralInSentence and their associated data. If you don't have
-    such a spreadsheet, <a class="underline" href="@PageUrls.AddWorksFromImages">add @Wording.Work.PluralInSentence from
-    images directly</a>
+    <p class="mb-2">
+      Upload your existing spreadsheets of @Wording.Work.PluralInSentence and their associated data. If you don't have
+      such a spreadsheet, <a class="underline" href="@PageUrls.AddWorksFromImages">add @Wording.Work.PluralInSentence
+      from
+      images directly</a>
+    </p>
+    <p class="mb-2">
+      Each @Wording.Work.SingularInSentence type must have it's own spreadsheet because the fields may be different for
+      each type.
+    </p>
   </Intro>
   <Note>The first row names the columns, in any order and with any capitals. Only a title column is needed.</Note>
   <Columns>
@@ -38,7 +45,8 @@
 
     @if (Has(WorkField.DateCreated))
     {
-      <ImportColumn Header="@WorkImportHeaders.DateCreated">yyyy, yyyy-MM or yyyy-MM-dd. Blank or 0 when unknown.</ImportColumn>
+      <ImportColumn Header="@WorkImportHeaders.DateCreated">yyyy, yyyy-MM or yyyy-MM-dd. Blank or 0 when unknown.
+      </ImportColumn>
     }
 
     @if (Has(WorkField.HeightAndWidth))
@@ -60,7 +68,8 @@
 
     <ImportColumn Header="@WorkImportHeaders.Collections">
       @Wording.Collection.SingularHeading names, separated by the list separator. A name that isn't one of your
-      @Wording.Collection.PluralInSentence yet becomes a new one, and the review lists those before anything is imported.
+      @Wording.Collection.PluralInSentence yet becomes a new one, and the review lists those before anything is
+      imported.
     </ImportColumn>
 
     <ImportColumn Header="@WorkImportHeaders.Price">
@@ -88,8 +97,8 @@
         {
           <text>Starts with @WorkImportHeaders.VocabularyPrefix, since @vocabulary.Name.Value alone is one of the
             columns above.</text>
-        }
-      </ImportColumn>
-    }
-  </Columns>
-</ImportColumnsHelp>
+          }
+        </ImportColumn>
+      }
+    </Columns>
+  </ImportColumnsHelp>

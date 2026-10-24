@@ -112,7 +112,13 @@
   {
     var plan = await PlanAsync(csvText, listSeparator[0]);
     _plan = plan;
-    Confirm = new CatalogImportConfirmForm { CsvText = csvText, Fingerprint = plan.Fingerprint(), ListSeparator = listSeparator };
+    Confirm = new CatalogImportConfirmForm
+    {
+      CsvText = csvText,
+      Fingerprint = plan.Fingerprint(),
+      ListSeparator =
+listSeparator
+    };
     return plan;
   }
 }
