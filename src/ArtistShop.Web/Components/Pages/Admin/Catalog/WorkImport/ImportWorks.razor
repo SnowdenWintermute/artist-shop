@@ -231,13 +231,15 @@
     <div class="mb-2">
       <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Check file</ButtonBasic>
     </div>
-    @if (ImportedCount is int importedCount && _plan is null)
-    {
-      <p class="mb-2 text-success">Imported @Wording.Work.CountOf(importedCount).</p>
-      <LinkButton Variant="@ButtonVariant.Primary" href="@PageUrls.WorkBulkImageUpload(_type.Id)">Upload matching
-        images next.</LinkButton>
-      }
-    </EditForm>
+  </EditForm>
+
+  @if (ImportedCount is int importedCount && _plan is null)
+  {
+    <p class="mb-2 text-success">Imported @Wording.Work.CountOf(importedCount).</p>
+    <LinkButton Variant="@ButtonVariant.Primary" href="@PageUrls.WorkBulkImageUpload(_type.Id)" Class="mb-4">
+      Upload matching images next
+    </LinkButton>
+  }
 
     @if (_reviewLost)
     {

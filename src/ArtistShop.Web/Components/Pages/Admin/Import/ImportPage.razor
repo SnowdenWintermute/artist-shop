@@ -31,18 +31,19 @@
   <h2 class="mb-1 text-lg">From your own spreadsheets:</h2>
   <p class="mb-2">
     If you have your own spreadsheets with your @Wording.Work.SingularInSentence data, you can upload the spreadsheets
-    first then the matching images. If your spreadsheets contains vocabularies, first create them <a
+    first then the matching images. If your spreadsheets contain vocabularies, first create them <a
     href="@PageUrls.NewVocabulary" class="@LinkStyles.InSentence">here</a>.
   </p>
   <div class="mb-2">
     <ImportStep Title="1. Spreadsheet" Href="@ImportSteps.Works.Href" Icon="csv" ButtonLabel="Import">
-      Bring your own @Wording.Work.SingularInSentence data in a spreadsheet.</ImportStep>
-    </div>
-
-    <ImportStep Title="2. Images" Href="@ImportSteps.Images.Href" Icon="folder-open" ButtonLabel="Upload">
-      Image files whose names match existing @Wording.Work.PluralInSentence in the catalog.
+      Bring your own @Wording.Work.SingularInSentence data in a spreadsheet.
     </ImportStep>
   </div>
+
+  <ImportStep Title="2. Images" Href="@ImportSteps.Images.Href" Icon="folder-open" ButtonLabel="Upload">
+    Image files whose names match existing @Wording.Work.PluralInSentence in the catalog.
+  </ImportStep>
+</div>
 
   <Divider Class="mb-6" />
   <h2 class="mb-1 text-lg">From another PictureCord site, step by step:</h2>
@@ -80,9 +81,7 @@
       </ImportStep>
 
       <ImportStep Title="@ImportSteps.Works.Title(Wording)" Href="@ImportSteps.Works.Href" Icon="csv" ButtonLabel="Import">
-        Bring your own @Wording.Work.SingularInSentence data in a spreadsheet. If using data exported from another
-        PictureCord site, this is each
-        file in the catalog download's <Bold translate="no">@CatalogExportArchive.WorksFolder</Bold> folder.
+        Each file in the catalog download's <Bold translate="no">@CatalogExportArchive.WorksFolder</Bold> folder.
         Every @Wording.Work.SingularInSentence type gets its own .csv file.
       </ImportStep>
 

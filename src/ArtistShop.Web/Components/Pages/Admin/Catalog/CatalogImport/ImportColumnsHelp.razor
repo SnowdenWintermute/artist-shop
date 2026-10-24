@@ -19,10 +19,6 @@
   [Parameter, EditorRequired]
   public RenderFragment Columns { get; set; } = default!;
 
-  // a long list starts closed behind a summary, so it doesn't push the upload down the page
-  [Parameter]
-  public bool Collapsed { get; set; }
-
   private const string Heading = "Columns the spreadsheet .csv file can have";
 
   private RenderFragment ColumnList => @<text>
@@ -34,8 +30,8 @@
   </text>;
 }
 
-<Hint Type="Hint">
-  <p class="mb-2">@Intro</p>
+<Hint Type="Hint" Variant="HintVariant.Collapses">
+  <div class="mb-2">@Intro</div>
   <p class="mb-2">@Heading:</p>
   @ColumnList
 </Hint>
