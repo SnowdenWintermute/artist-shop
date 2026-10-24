@@ -13,7 +13,7 @@ public static class VideoUrls
         {
             YouTubeVideo video => YouTubePlayer(video.Id),
             VimeoVideo video => VimeoPlayer(video.Id, video.UnlistedHash),
-            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
+            _ => throw new InvalidOperationException($"{source.GetType().Name} isn't a video source."),
         };
 
     // the video on its own site, for a link rather than a player
@@ -22,7 +22,7 @@ public static class VideoUrls
         {
             YouTubeVideo video => YouTubePage(video.Id),
             VimeoVideo video => VimeoPage(video.Id, video.UnlistedHash),
-            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
+            _ => throw new InvalidOperationException($"{source.GetType().Name} isn't a video source."),
         };
 
     public static string YouTubePlayer(string id) => $"https://www.youtube-nocookie.com/embed/{id}";

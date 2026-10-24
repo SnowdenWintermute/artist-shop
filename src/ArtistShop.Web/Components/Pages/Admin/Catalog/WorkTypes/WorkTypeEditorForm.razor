@@ -165,13 +165,13 @@
                          Disabled="_isSaving" />
 
     <div class="flex items-baseline justify-between">
-      @if (Loaded is null)
+      @if (Loaded is not { } loaded)
       {
         <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="_isSavingName" disabled="@_isSaving">
           Create @Wording.Work.SingularInSentence type
         </ButtonBasic>
       }
-      else if (Loaded is { } loaded)
+      else
       {
         if (loaded.WorkCounts.Total > 0)
         {

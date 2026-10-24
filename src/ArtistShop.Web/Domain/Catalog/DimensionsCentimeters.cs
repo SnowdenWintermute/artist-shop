@@ -14,7 +14,7 @@ public record DimensionsCentimeters(Dimensions Value)
             DimensionDisplay.Centimeters => TextIn(LengthUnit.Centimeters),
             DimensionDisplay.Inches => TextIn(LengthUnit.Inches),
             DimensionDisplay.InchesThenCentimeters => $"{TextIn(LengthUnit.Inches)} ({TextIn(LengthUnit.Centimeters)})",
-            _ => throw new ArgumentOutOfRangeException(nameof(display), display, null),
+            _ => throw new InvalidOperationException($"{display} has no text."),
         };
 
     // height first, the way a gallery label reads

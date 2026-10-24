@@ -134,7 +134,7 @@ public static class RichTextDeltaWriter
                 ["hash"] = hash,
             },
             VimeoVideo vimeo => new JsonObject { ["provider"] = VideoSources.VimeoProvider, ["videoId"] = vimeo.Id },
-            _ => throw new ArgumentOutOfRangeException(nameof(video), video.Source, null),
+            _ => throw new InvalidOperationException($"{video.Source.GetType().Name} isn't a video source."),
         };
 
         value["layout"] = EmbedLayoutNames.Of(video.Layout);
@@ -180,7 +180,8 @@ public static class RichTextDeltaWriter
         // Quill leaves a left-aligned line without the format
         if (alignment is not TextAlignment.Left)
         {
-            lineFormat["align"] = alignment is TextAlignment.Center ? "center" : "right";
+            lineFormat["align"] =
+                alignment is TextAlignment.Center ? RichTextParser.AlignCenterValue : RichTextParser.AlignRightValue;
         }
 
         ops.Add(lineFormat.Count is 0 ? new JsonObject { ["insert"] = "\n" } : new JsonObject { ["insert"] = "\n", ["attributes"] = lineFormat });

@@ -20,6 +20,10 @@ public static partial class RichTextParser
     // level a size, which the words now carry
     public const string HeadingName = "artshop-heading";
 
+    // Quill's align values; a left-aligned line has none
+    public const string AlignCenterValue = "center";
+    public const string AlignRightValue = "right";
+
     public static RichTextDocument Parse(RichText body) => Read(body, droppedLinks: []);
 
     // The links Parse drops, each once, in the order they appear: anything but a page on this site,
@@ -253,8 +257,8 @@ public static partial class RichTextParser
     private static TextAlignment ReadAlignment(string? value) =>
         value switch
         {
-            "center" => TextAlignment.Center,
-            "right" => TextAlignment.Right,
+            AlignCenterValue => TextAlignment.Center,
+            AlignRightValue => TextAlignment.Right,
             _ => TextAlignment.Left,
         };
 

@@ -59,7 +59,7 @@ public class WorkImportRowReader(CsvRow row)
             return null;
         }
 
-        var centimeters = unit is LengthUnit.Inches ? length * Lengths.CentimetersPerInch : length;
+        var centimeters = Lengths.ToCentimeters(length, unit);
 
         if (centimeters < ArtistShopLimits.MinimumDimensionCm || centimeters > ArtistShopLimits.MaximumDimensionCm)
         {

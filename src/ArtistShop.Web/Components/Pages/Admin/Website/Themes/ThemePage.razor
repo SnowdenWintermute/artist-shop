@@ -324,8 +324,7 @@ open.Theme.Fonts.For(role);
           <div class="mb-2 flex flex-wrap gap-3">
             @if (open.IsSaved)
             {
-              <ButtonBasic type="submit" name="Input.Save" value="true" Variant="ButtonVariant.Primary"
-                           data-waits-for-change>Save</ButtonBasic>
+              <SaveButton name="Input.Save" value="true" />
             }
             <ButtonBasic type="button" data-opens-dialog="@SaveThemeDialog.DialogId"
                          Variant="@(open.IsSaved ? ButtonVariant.Outline : ButtonVariant.Primary)">Save as new theme</ButtonBasic>

@@ -340,7 +340,7 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           <TextFieldWithButton Label="Text" @bind-Value="Input.HeadingText">
-            <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+            <SaveButton />
           </TextFieldWithButton>
           @SizeField(Input)
           <SubmitOnChange>
@@ -360,7 +360,7 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
           <TextFieldWithButton Label="Text" @bind-Value="Input.ButtonText">
-            <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+            <SaveButton />
           </TextFieldWithButton>
           <LinkField Input="Input" IsOptional="false" Pages="_pages" Collections="_collections" Posts="_posts"
                      WorkName="@_linkedWorkName" />
@@ -424,7 +424,7 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
           @if (Input.HeadingType is CardGridHeadingType.Custom)
           {
             <TextFieldWithButton Label="Heading text" @bind-Value="Input.HeadingText">
-              <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+              <SaveButton />
             </TextFieldWithButton>
           }
 
@@ -433,7 +433,7 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
               <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
             </Field>
             <Button>
-              <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+              <SaveButton />
             </Button>
           </FieldWithButton>
           <SubmitOnChange>

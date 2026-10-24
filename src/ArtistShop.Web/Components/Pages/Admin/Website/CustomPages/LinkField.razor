@@ -113,7 +113,7 @@
   @* drawn whatever the type and shown while Address is checked, so choosing it needs no save first *@
   <div class="hidden group-has-[input[value=Address]:checked]/link:block">
     <TextFieldWithButton Label="Address" @bind-Value="Input.LinkTo.Address" placeholder="https://example.com" autocomplete="off">
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+      <SaveButton />
     </TextFieldWithButton>
   </div>
   <ValidationMessage For="() => Input.LinkTo" class="mb-4 block text-error" />

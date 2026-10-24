@@ -1,6 +1,5 @@
 @* the name every component has, then its type's own fields and its frame if its type has one. Each
    typed field has Save beside it, which saves the whole form; choices save as they change *@
-@using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 
 @code {
@@ -26,7 +25,7 @@
     <DataAnnotationsValidator />
 
     <TextFieldWithButton Label="Name" @bind-Value="Input.Name">
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+      <SaveButton />
     </TextFieldWithButton>
     @ChildContent
     @if (HasFrame)
@@ -35,7 +34,7 @@
     }
     @if (HasRichText)
     {
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+      <SaveButton />
     }
   </EditForm>
 </EnableSaveOnChange>

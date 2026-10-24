@@ -1,0 +1,10 @@
+@* A form's Save, disabled by EnableSaveOnChange until there's something to save *@
+@using ArtistShop.Web.Components.Atoms
+
+@code {
+  // such as a name and value for the post to say which button sent it
+  [Parameter(CaptureUnmatchedValues = true)]
+  public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}
+
+<ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change @attributes="AdditionalAttributes">Save</ButtonBasic>

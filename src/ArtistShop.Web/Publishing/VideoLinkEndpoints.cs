@@ -30,7 +30,7 @@ public static class VideoLinkEndpoints
         {
             YouTubeVideo video => new VideoParts(VideoSources.YouTubeProvider, video.Id, null),
             VimeoVideo video => new VideoParts(VideoSources.VimeoProvider, video.Id, video.UnlistedHash),
-            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
+            _ => throw new InvalidOperationException($"{source.GetType().Name} isn't a video source."),
         };
 
     // The parts the embed stores, or 422 when the link isn't to a video this can read. Not 404,

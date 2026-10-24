@@ -115,8 +115,8 @@ public sealed class WorkTypeSettingsTests(TestApp app)
             }
         );
 
-        Assert.Contains("Height (in)", page);
-        Assert.Contains("value=\"11.8110\"", page);
+        Assert.Contains($"Height ({Lengths.Symbol(LengthUnit.Inches)})", page);
+        Assert.Contains("value=\"11.811\"", page);
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal(
             new DimensionsCentimeters(new Dimensions(30m, 40.64m, depth: null)),
