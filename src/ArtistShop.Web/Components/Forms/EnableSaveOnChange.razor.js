@@ -6,7 +6,8 @@ const LEAVE_QUESTION = "You have unsaved changes. Leave anyway?";
 // Keeps an edit form's Save disabled while the form still holds what was loaded (FormChanges).
 // Typing raises input, and a hidden input changed by code raises nothing, but its value is an
 // attribute, so the observer sees it: the image list's inputs, rendered by an island, and whatever
-// an editor writes back. Marked data-guards-leaving, it also asks before leaving with changes
+// an editor writes back. A button in a FieldWithButton row waits for that row's field alone.
+// Marked data-guards-leaving, it also asks before leaving with changes
 class EnableSaveOnChange extends HTMLElement {
   /** @type {AbortController | null} */
   #listeners = null;
@@ -21,6 +22,7 @@ class EnableSaveOnChange extends HTMLElement {
     this.#listeners = new AbortController();
     this.addEventListener("input", () => this.#update(), { signal: this.#listeners.signal });
     this.addEventListener("change", () => this.#update(), { signal: this.#listeners.signal });
+    this.addEventListener("keydown", (event) => this.#submitBesideField(event), { signal: this.#listeners.signal });
     this.#observer = new MutationObserver(() => this.#update());
     this.#observer.observe(this, {
       subtree: true,
@@ -47,7 +49,8 @@ class EnableSaveOnChange extends HTMLElement {
     const isUnchanged = !this.#changes.hasChanges;
 
     this.querySelectorAll("[data-waits-for-change]").forEach((button) => {
-      button.toggleAttribute("disabled", isUnchanged);
+      const row = button.closest("[data-field-with-button]");
+      button.toggleAttribute("disabled", row === null ? isUnchanged : !this.#changes.hasChangesIn(row));
     });
 
     if (isUnchanged || !this.hasAttribute("data-guards-leaving")) {
@@ -55,6 +58,28 @@ class EnableSaveOnChange extends HTMLElement {
       this.#stopGuarding = null;
     } else if (this.#stopGuarding === null) {
       this.#stopGuarding = guardLeaving(LEAVE_QUESTION);
+    }
+  }
+
+  // Enter in a field posts with the button beside it, which then shows the post as busy. The
+  // browser would press the form's first button instead, another field's, and press nothing at
+  // all while that one waits for its own field to change
+  /** @param {KeyboardEvent} event */
+  #submitBesideField(event) {
+    if (event.key !== "Enter" || event.isComposing || !(event.target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const button = event.target.closest("[data-field-with-button]")?.querySelector("button[type=submit]");
+
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!button.disabled) {
+      button.form?.requestSubmit(button);
     }
   }
 }

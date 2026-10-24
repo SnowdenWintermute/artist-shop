@@ -75,13 +75,15 @@ else
 
 @if (OnCollectionAdded.HasDelegate)
 {
-  <EditForm EditContext="_newCollection.EditContext" OnValidSubmit="AddCollectionAsync" class="mb-4 shrink-0">
+  <EditForm EditContext="_newCollection.EditContext" OnValidSubmit="AddCollectionAsync" class="shrink-0">
     <DataAnnotationsValidator />
 
-    <TextField Label="@($"New {Wording.Collection.SingularInSentence}")" @bind-Value="_newCollection.Name" UpdatesPerKeystroke />
-    <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="IsAdding"
-                 disabled="@(IsAdding || string.IsNullOrWhiteSpace(_newCollection.Name))">
-      Add @Wording.Collection.SingularInSentence
-    </ButtonBasic>
+    <TextFieldWithButton Label="@($"New {Wording.Collection.SingularInSentence}")" @bind-Value="_newCollection.Name"
+                         UpdatesPerKeystroke>
+      <ButtonBasic type="submit" Variant="ButtonVariant.Outline" Busy="IsAdding"
+                   disabled="@(IsAdding || string.IsNullOrWhiteSpace(_newCollection.Name))">
+        Add @Wording.Collection.SingularInSentence
+      </ButtonBasic>
+    </TextFieldWithButton>
   </EditForm>
 }

@@ -6,13 +6,20 @@ rich-text-editor ::deep .ql-container {
   font-size: 1rem;
 }
 
+/* The toolbar and box are only as wide as the writing area with its padding and the box's 1px
+   borders, so a click anywhere inside the box lands in the text */
+rich-text-editor {
+  --editor-padding-x: 15px;
+  max-width: calc(var(--container-rich-text) + 2 * var(--editor-padding-x) + 2px);
+}
+
 /* The writing area gets RichTextColumn's width from the script. box-sizing is set again here because
    quill.snow.css's border-box beats the class's content-box, and would take Quill's padding out of
    the text's width. The line height is the page's, so a wrapped image has as many lines beside it */
 rich-text-editor ::deep .ql-editor {
   min-height: 16rem;
   box-sizing: content-box;
-  margin: 0 auto;
+  padding-inline: var(--editor-padding-x);
   line-height: inherit;
 }
 

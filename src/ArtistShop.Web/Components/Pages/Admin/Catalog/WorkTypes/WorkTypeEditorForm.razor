@@ -21,10 +21,9 @@
 
   private readonly WorkTypeForm _form = new();
   private bool _isSaving;
-
-  // only when Save itself was clicked; a dialog's confirm button spins for the saves and deletes
-  // it starts
-  private bool SaveButtonBusy => _isSaving && !_switchOffDialogOpen && !_deleteDialogOpen;
+  // only when Save or Create itself was clicked; a checkbox's save disables the checkboxes, and a
+  // dialog's confirm button spins for the saves and deletes it starts
+  private bool _isSavingName;
   private bool _switchOffDialogOpen;
   private bool _deleteDialogOpen;
 
@@ -44,31 +43,61 @@
       : [.. FieldDefinitions.Where(definition =>
           _form.WasSwitchedOff(definition.Field) && Loaded.WorkCounts.WithValueIn(definition.Field) > 0)];
 
-  private void ToggleField(WorkFieldDefinition definition) => _form.ToggleField(definition, FieldDefinitions);
-
+  // on an existing type the checkboxes save as they change, so this saves only the name
   private async Task HandleValidSubmit()
   {
+    _isSavingName = true;
+
+    try
+    {
+      await SaveAsync(_form.ToWorkTypeName());
+    }
+    finally
+    {
+      _isSavingName = false;
+    }
+  }
+
+  // saves with the saved name rather than the field's, which may be half typed
+  private async Task ToggleFieldAsync(WorkFieldDefinition definition)
+  {
+    _form.ToggleField(definition, FieldDefinitions);
+
+    if (Loaded is null)
+    {
+      return;
+    }
+
     if (SwitchedOffFieldsInUse.Count > 0)
     {
       _switchOffDialogOpen = true;
       return;
     }
 
-    await SaveAsync();
+    await SaveAsync(Loaded.WorkType.Name);
   }
 
-  private async Task SaveAsync()
+  // only on Cancel: a confirmed save closes the dialog itself
+  private void SwitchOffDialogOpenChanged(bool open)
+  {
+    _switchOffDialogOpen = open;
+
+    if (!open)
+    {
+      _form.RevertFields();
+    }
+  }
+
+  private async Task SaveAsync(WorkTypeName name)
   {
     _isSaving = true;
 
     try
     {
-      var name = _form.ToWorkTypeName();
-
       if (Loaded is null)
       {
         var id = await WorkTypeRepository.AddAsync(name, _form.Fields);
-        NavigationManager.NavigateTo(PageUrls.EditWorkType(id));
+        NavigationManager.NavigateTo(PageUrls.NewWorkTypeAdded(id));
         return;
       }
 
@@ -119,16 +148,30 @@
   <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
 
-    <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
-    <WorkFieldCheckboxes FieldDefinitions="FieldDefinitions" Selected="_form.Fields" OnToggle="ToggleField" />
+    @if (Loaded is null)
+    {
+      <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
+    }
+    else
+    {
+      <TextFieldWithButton Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke>
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="_isSavingName"
+                     disabled="@(_isSaving || !_form.NameHasChanges)">
+          Save
+        </ButtonBasic>
+      </TextFieldWithButton>
+    }
+    <WorkFieldCheckboxes FieldDefinitions="FieldDefinitions" Selected="_form.Fields" OnToggle="ToggleFieldAsync"
+                         Disabled="_isSaving" />
 
     <div class="flex items-baseline justify-between">
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="SaveButtonBusy"
-                   disabled="@(_isSaving || (Loaded is not null && !_form.HasChanges))">
-        @(Loaded is null ? $"Create {Wording.Work.SingularInSentence} type" : "Save")
-      </ButtonBasic>
-
-      @if (Loaded is { } loaded)
+      @if (Loaded is null)
+      {
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="_isSavingName" disabled="@_isSaving">
+          Create @Wording.Work.SingularInSentence type
+        </ButtonBasic>
+      }
+      else if (Loaded is { } loaded)
       {
         if (loaded.WorkCounts.Total > 0)
         {
@@ -151,8 +194,8 @@
 
   @if (Loaded is { } loadedType)
   {
-    <SwitchOffWorkFieldsDialog @bind-Open="_switchOffDialogOpen" SwitchedOffFields="SwitchedOffFieldsInUse"
-                                  WorkCounts="loadedType.WorkCounts" OnConfirm="SaveAsync"
+    <SwitchOffWorkFieldsDialog Open="_switchOffDialogOpen" OpenChanged="SwitchOffDialogOpenChanged" SwitchedOffFields="SwitchedOffFieldsInUse"
+                                  WorkCounts="loadedType.WorkCounts" OnConfirm="() => SaveAsync(loadedType.WorkType.Name)"
                                   IsWorking="_isSaving" />
 
     <ConfirmDialog @bind-Open="_deleteDialogOpen" Title="@($"Delete {loadedType.WorkType.Name.Value}?")"

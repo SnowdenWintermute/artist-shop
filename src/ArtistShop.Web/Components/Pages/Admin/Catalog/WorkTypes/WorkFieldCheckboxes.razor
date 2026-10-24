@@ -13,6 +13,9 @@
   [Parameter, EditorRequired]
   public EventCallback<WorkFieldDefinition> OnToggle { get; set; }
 
+  [Parameter]
+  public bool Disabled { get; set; }
+
   private IEnumerable<WorkFieldDefinition> Requiring(WorkField field) =>
     FieldDefinitions.Where(definition => definition.HasRequirement && definition.RequiredField == field);
 
@@ -20,7 +23,7 @@
   private RenderFragment Checkbox(WorkFieldDefinition definition, bool isEnabled) =>
     @<label class="inline-flex items-center gap-2 @(isEnabled ? "cursor-pointer" : "text-ink-unavailable")">
       <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(definition.Field)"
-             disabled="@(!isEnabled)" @onchange="() => OnToggle.InvokeAsync(definition)" />
+             disabled="@(!isEnabled || Disabled)" @onchange="() => OnToggle.InvokeAsync(definition)" />
       @definition.Name
     </label>;
 }

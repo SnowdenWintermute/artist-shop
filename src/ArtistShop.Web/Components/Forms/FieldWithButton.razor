@@ -1,0 +1,19 @@
+@* A field with its form's button beside it, for a field that's saved or added on its own *@
+
+@code {
+  [Parameter, EditorRequired]
+  public RenderFragment Field { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public RenderFragment Button { get; set; } = default!;
+}
+
+@* the button's margin matches the field's, so items-end lines it up with the input rather than the
+   space under it. data-field-with-button: EnableSaveOnChange enables the button from this field
+   alone, and Enter in it presses this button *@
+<div class="flex items-end gap-2" data-field-with-button>
+  @Field
+  <div class="mb-4 shrink-0">
+    @Button
+  </div>
+</div>

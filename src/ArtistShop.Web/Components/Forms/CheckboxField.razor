@@ -14,12 +14,15 @@
 
   [Parameter]
   public Expression<Func<bool>> ValueExpression { get; set; } = default!;
+
+  [Parameter]
+  public bool Disabled { get; set; }
 }
 
 @* the label wraps the checkbox, so it needs no id *@
 <div class="mb-4">
   <label class="inline-flex cursor-pointer items-center gap-2">
-    <InputCheckbox class="cursor-pointer" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression" />
+    <InputCheckbox class="cursor-pointer" disabled="@Disabled" Value="Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression" />
     @Label
   </label>
   @if (Hint is not null)

@@ -37,6 +37,7 @@ const FORMATS = [
   // no toolbar button: Quill makes a list when "1. " or "- " is typed, if the format is allowed
   "list",
   "blockquote",
+  "align",
   WORK_EMBED,
   IMAGE_EMBED,
   UPLOAD_PLACEHOLDER,
@@ -55,6 +56,8 @@ function toolbarOf(sizes, normalSize) {
     [{ size: sizes.map((size) => (size === normalSize ? false : size)) }, HEADING],
     ["bold", "italic", "underline", "link"],
     ["blockquote"],
+    // left is no alignment, which "" takes the format off for
+    [{ align: "" }, { align: "center" }, { align: "right" }],
     [WORK_EMBED, IMAGE_EMBED, VIDEO_EMBED],
     ["clean"],
   ];
@@ -158,6 +161,14 @@ function registerFormats(sizes) {
     whitelist: sizes,
   });
   Quill.register({ "formats/size": size }, true);
+
+  // Quill's own alignment, with its classes, without justify, which the page doesn't show. Pasted
+  // justified text comes in left-aligned
+  const align = new Parchment.ClassAttributor("align", "ql-align", {
+    scope: Parchment.Scope.BLOCK,
+    whitelist: ["center", "right"],
+  });
+  Quill.register({ "formats/align": align }, true);
 
   // An h2, as on the page. A pasted heading of any level becomes one, which Quill matches by its tag
   class Heading extends Block {
@@ -354,6 +365,9 @@ customElements.define(
         ["button.ql-underline", "Underline"],
         ["button.ql-link", "Link"],
         ["button.ql-blockquote", "Quote"],
+        ['button.ql-align[value=""]', "Align left"],
+        ['button.ql-align[value="center"]', "Centre"],
+        ['button.ql-align[value="right"]', "Align right"],
         [`button.ql-${WORK_EMBED}`, this.dataset.workButtonLabel ?? ""],
         [`button.ql-${IMAGE_EMBED}`, "Upload an image"],
         [`button.ql-${VIDEO_EMBED}`, "Add a video"],

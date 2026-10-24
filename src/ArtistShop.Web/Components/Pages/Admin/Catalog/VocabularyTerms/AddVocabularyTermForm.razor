@@ -20,8 +20,9 @@
     try
     {
       await VocabularyTermRepository.AddAsync(VocabularyId, Input.ToVocabularyTermName());
-      // redirect to this same page: the list reloads, and refreshing the browser won't post again
-      NavigationManager.NavigateTo(NavigationManager.Uri);
+      // redirect to the vocabulary's page: the list reloads, refreshing the browser won't post again, and an
+      // earlier ?saved= notice is dropped
+      NavigationManager.NavigateTo(PageUrls.EditVocabulary(VocabularyId));
     }
     catch (NameAlreadyInUseException exception)
     {
@@ -30,9 +31,10 @@
   }
 }
 
-<EditForm EditContext="Input.EditContext" FormName="add-vocabulary-term" OnValidSubmit="AddAsync" Enhance class="mb-6">
+<EditForm EditContext="Input.EditContext" FormName="add-vocabulary-term" OnValidSubmit="AddAsync" Enhance class="mb-2">
   <DataAnnotationsValidator />
 
-  <TextField Label="New term" @bind-Value="Input.Name" />
-  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Add term</ButtonBasic>
+  <TextFieldWithButton Label="New term" @bind-Value="Input.Name">
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Add term</ButtonBasic>
+  </TextFieldWithButton>
 </EditForm>

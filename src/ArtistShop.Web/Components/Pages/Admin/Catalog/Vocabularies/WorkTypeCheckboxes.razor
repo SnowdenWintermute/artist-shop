@@ -13,6 +13,9 @@
 
   [Parameter, EditorRequired]
   public EventCallback<WorkTypeId> OnToggle { get; set; }
+
+  [Parameter]
+  public bool Disabled { get; set; }
 }
 
 <fieldset class="mb-4">
@@ -22,7 +25,7 @@
     @foreach (var workType in WorkTypes)
     {
       <label class="mr-4 inline-flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(workType.Id)"
+        <input type="checkbox" class="cursor-pointer" checked="@Selected.Contains(workType.Id)" disabled="@Disabled"
                @onchange="() => OnToggle.InvokeAsync(workType.Id)" />
         @workType.Name.Value
       </label>

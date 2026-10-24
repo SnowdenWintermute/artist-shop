@@ -13,8 +13,8 @@ public static class ArtistShopLimits
 
     public const int MinimumStock = 0;
 
-    public const string MinimumDimensionCm = "0.01";
-    public const string MaximumDimensionCm = "9999.9999";
+    public const decimal MinimumDimensionCm = 0.01m;
+    public const decimal MaximumDimensionCm = 9999.9999m;
 
     // the size columns are numeric(8, 4), which round anything finer
     public const int DimensionDecimalPlaces = 4;

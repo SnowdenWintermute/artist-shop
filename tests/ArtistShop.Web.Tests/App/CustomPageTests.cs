@@ -523,7 +523,7 @@ public sealed partial class CustomPageTests(TestApp app)
         var page = await app.ClientFor(site.Host).GetStringAsync("/about", TestContext.Current.CancellationToken);
 
         Assert.Contains("I paint rooms.", page);
-        Assert.Contains("max-w-[42rem]", page);
+        Assert.Contains(TextColumns.PageClass(TextWidth.Narrow), page);
         Assert.DoesNotContain("Statement", page);
     }
 

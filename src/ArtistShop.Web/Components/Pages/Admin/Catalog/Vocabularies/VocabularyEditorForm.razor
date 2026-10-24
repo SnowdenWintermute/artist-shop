@@ -20,10 +20,9 @@
 
   private readonly VocabularyForm _form = new();
   private bool _isSaving;
-
-  // only when Save itself was clicked; a dialog's confirm button spins for the saves and deletes
-  // it starts
-  private bool SaveButtonBusy => _isSaving && !_removeTermsDialogOpen && !_deleteDialogOpen;
+  // only when Save or Create itself was clicked; a checkbox's save disables the checkboxes, and a
+  // dialog's confirm button spins for the saves and deletes it starts
+  private bool _isSavingName;
   private bool _removeTermsDialogOpen;
   private bool _deleteDialogOpen;
 
@@ -46,29 +45,65 @@
   private IReadOnlyList<WorkName> WorksLosingTermsToMutuallyExclusive =>
     Loaded is not null && _form.BecameMutuallyExclusive ? Loaded.WorksWithSeveralTerms : [];
 
+  // on an existing vocabulary the checkboxes save as they change, so this saves only the name
   private async Task HandleValidSubmit()
   {
+    _isSavingName = true;
+
+    try
+    {
+      await SaveAsync(_form.ToVocabularyName());
+    }
+    finally
+    {
+      _isSavingName = false;
+    }
+  }
+
+  private async Task ToggleWorkTypeAsync(WorkTypeId workTypeId)
+  {
+    _form.ToggleWorkType(workTypeId);
+    await SaveCheckboxesAsync();
+  }
+
+  // with the saved name rather than the field's, which may be half typed
+  private async Task SaveCheckboxesAsync()
+  {
+    if (Loaded is null)
+    {
+      return;
+    }
+
     if (UnselectedWorkTypesInUse.Count > 0 || WorksLosingTermsToMutuallyExclusive.Count > 0)
     {
       _removeTermsDialogOpen = true;
       return;
     }
 
-    await SaveAsync();
+    await SaveAsync(Loaded.Vocabulary.Name);
   }
 
-  private async Task SaveAsync()
+  // only on Cancel: a confirmed save closes the dialog itself
+  private void RemoveTermsDialogOpenChanged(bool open)
+  {
+    _removeTermsDialogOpen = open;
+
+    if (!open)
+    {
+      _form.RevertCheckboxes();
+    }
+  }
+
+  private async Task SaveAsync(VocabularyName name)
   {
     _isSaving = true;
 
     try
     {
-      var name = _form.ToVocabularyName();
-
       if (Loaded is null)
       {
         var id = await VocabularyRepository.AddAsync(name, _form.IsMutuallyExclusive, _form.WorkTypeIds);
-        NavigationManager.NavigateTo(PageUrls.EditVocabulary(id));
+        NavigationManager.NavigateTo(PageUrls.NewVocabularyAdded(id));
         return;
       }
 
@@ -113,33 +148,45 @@
   <EditForm EditContext="_form.EditContext" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
 
-    <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
-    <WorkTypeCheckboxes WorkTypes="WorkTypes" Selected="_form.WorkTypeIds"
-                           OnToggle="_form.ToggleWorkType" />
+    @if (Loaded is null)
+    {
+      <TextField Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke />
+    }
+    else
+    {
+      <TextFieldWithButton Label="Name" @bind-Value="_form.Name" UpdatesPerKeystroke>
+        <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="_isSavingName"
+                     disabled="@(_isSaving || !_form.NameHasChanges)">
+          Save
+        </ButtonBasic>
+      </TextFieldWithButton>
+    }
+    <WorkTypeCheckboxes WorkTypes="WorkTypes" Selected="_form.WorkTypeIds" OnToggle="ToggleWorkTypeAsync"
+                        Disabled="_isSaving" />
     <CheckboxField Label="Mutually exclusive" @bind-Value="_form.IsMutuallyExclusive"
+                   @bind-Value:after="SaveCheckboxesAsync" Disabled="_isSaving"
                    Hint="@($"Each {Wording.Work.SingularInSentence} may only have one of these terms.")" />
 
-    <div class="flex justify-between">
-      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="SaveButtonBusy"
-                   disabled="@(_isSaving || (Loaded is not null && !_form.HasChanges))">
-        @(Loaded is null ? "Create vocabulary" : "Save")
+    @if (Loaded is null)
+    {
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" Busy="_isSavingName" disabled="@_isSaving">
+        Create vocabulary
       </ButtonBasic>
-
-      @if (Loaded is not null)
-      {
-        <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" disabled="@_isSaving"
-                     @onclick="() => _deleteDialogOpen = true">
-          Delete vocabulary
-        </ButtonBasic>
-      }
-    </div>
+    }
+    else
+    {
+      <ButtonBasic type="button" Variant="ButtonVariant.DangerOutline" disabled="@_isSaving"
+                   @onclick="() => _deleteDialogOpen = true">
+        Delete vocabulary
+      </ButtonBasic>
+    }
   </EditForm>
 
   @if (Loaded is { } loaded)
   {
-    <RemoveWorkTermsDialog @bind-Open="_removeTermsDialogOpen" VocabularyName="loaded.Vocabulary.Name"
+    <RemoveWorkTermsDialog Open="_removeTermsDialogOpen" OpenChanged="RemoveTermsDialogOpenChanged" VocabularyName="loaded.Vocabulary.Name"
                               UnselectedWorkTypes="UnselectedWorkTypesInUse" Usage="loaded.Usage"
-                              WorksWithSeveralTerms="WorksLosingTermsToMutuallyExclusive" OnConfirm="SaveAsync" IsWorking="_isSaving" />
+                              WorksWithSeveralTerms="WorksLosingTermsToMutuallyExclusive" OnConfirm="() => SaveAsync(loaded.Vocabulary.Name)" IsWorking="_isSaving" />
 
     <DeleteVocabularyDialog @bind-Open="_deleteDialogOpen" VocabularyName="loaded.Vocabulary.Name" Usage="loaded.Usage"
                             OnConfirm="() => DeleteAsync(loaded)" IsWorking="_isSaving" />

@@ -26,19 +26,19 @@
     @switch (block)
     {
       case ParagraphBlock paragraph:
-        <p><RichTextRuns Text="paragraph.Text" /></p>
+        <p class="@TextAlignmentClasses.Text(paragraph.Alignment)"><RichTextRuns Text="paragraph.Text" /></p>
         break;
 
       case HeadingBlock heading:
-        <SectionHeading><RichTextRuns Text="heading.Text" /></SectionHeading>
+        <SectionHeading Class="@TextAlignmentClasses.Text(heading.Alignment)"><RichTextRuns Text="heading.Text" /></SectionHeading>
         break;
 
       case BlockquoteBlock quote:
-        <blockquote class="border-l-4 border-rule pl-4"><RichTextRuns Text="quote.Text" /></blockquote>
+        <blockquote class="@($"border-l-4 border-rule pl-4 {TextAlignmentClasses.Text(quote.Alignment)}")"><RichTextRuns Text="quote.Text" /></blockquote>
         break;
 
       case ListBlock { Style: ListStyle.Bullet } list:
-        <ul class="list-disc pl-6">
+        <ul class="@($"list-disc {TextAlignmentClasses.List(list.Alignment)}")">
           @foreach (var item in list.Items)
           {
             <li><RichTextRuns Text="item" /></li>
@@ -47,7 +47,7 @@
         break;
 
       case ListBlock list:
-        <ol class="list-decimal pl-6">
+        <ol class="@($"list-decimal {TextAlignmentClasses.List(list.Alignment)}")">
           @foreach (var item in list.Items)
           {
             <li><RichTextRuns Text="item" /></li>

@@ -14,6 +14,7 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject WorkRepository WorkRepository
 @inject WorkTypeRepository WorkTypeRepository
+@inject WorkTypeSettingsRepository WorkTypeSettingsRepository
 @inject VocabularyRepository VocabularyRepository
 @inject CollectionRepository CollectionRepository
 @inject NavigationManager NavigationManager
@@ -50,7 +51,8 @@
 
   protected override async Task OnInitializedAsync()
   {
-    Input ??= new();
+    // on a post the binder has filled this in, unit included
+    Input ??= new() { LengthUnit = (await WorkTypeSettingsRepository.GetAsync()).EnteredLengthUnit };
     _workTypes = WorkTypeOrder.SortedByName(await WorkTypeRepository.GetAllAsync());
 
     if (TypeIdValue is null)
@@ -179,6 +181,7 @@ else if (_type is not null)
 
       <EditForm Model="Input" FormName="new-work" OnValidSubmit="SubmitWork" Enhance data-waits-for-pending>
         <DataAnnotationsValidator />
+        <input type="hidden" name="Input.LengthUnit" value="@Input.LengthUnit" />
 
         <TextField Label="Title" @bind-Value="Input.Name" />
         @if (_fields.Contains(WorkField.DateCreated))
@@ -190,13 +193,13 @@ else if (_type is not null)
         @if (_fields.Contains(WorkField.HeightAndWidth))
         {
           <div class="flex gap-2">
-            <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
-            <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+            <NumberField Label="@($"Height ({Lengths.Symbol(Input.LengthUnit)})")" @bind-Value="Input.Height" />
+            <NumberField Label="@($"Width ({Lengths.Symbol(Input.LengthUnit)})")" @bind-Value="Input.Width" />
           </div>
         }
         @if (_fields.Contains(WorkField.Depth))
         {
-          <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
+          <NumberField Label="@($"Depth ({Lengths.Symbol(Input.LengthUnit)})")" @bind-Value="Input.Depth" />
         }
         @if (_fields.Contains(WorkField.Duration))
         {

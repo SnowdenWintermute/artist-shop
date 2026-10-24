@@ -14,10 +14,15 @@ public class WorkTypeForm : ServerValidatedForm
 
     // Loads into this form rather than making a new one, so the EditContext stays the same:
     // EditForm rebuilds every element inside it when handed a new one, which takes the focus out
-    // of the field the artist just pressed Enter in
+    // of the field the artist just pressed Enter in. An unsaved name edit is kept, as a checkbox's save
+    // reloads the page without saving the name
     public void Load(WorkTypeWithFields saved)
     {
-        Name = saved.Name.Value;
+        if (Name == _savedName)
+        {
+            Name = saved.Name.Value;
+        }
+
         _savedName = saved.Name.Value;
         _fields.Clear();
         _fields.UnionWith(saved.Fields);
@@ -31,7 +36,7 @@ public class WorkTypeForm : ServerValidatedForm
 
     public IReadOnlySet<WorkField> Fields => _fields;
 
-    public bool HasChanges => Name != _savedName || !_fields.SetEquals(_savedFields);
+    public bool NameHasChanges => Name != _savedName;
 
     public void ToggleField(
         WorkFieldDefinition toggled,
@@ -51,6 +56,13 @@ public class WorkTypeForm : ServerValidatedForm
         {
             _fields.Remove(definition.Field);
         }
+    }
+
+    // after the artist cancels a checkbox change that would clear values on works
+    public void RevertFields()
+    {
+        _fields.Clear();
+        _fields.UnionWith(_savedFields);
     }
 
     public bool WasSwitchedOff(WorkField field) =>

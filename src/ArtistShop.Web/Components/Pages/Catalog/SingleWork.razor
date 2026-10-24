@@ -7,6 +7,7 @@
 @inject WorkRepository WorkRepository
 @inject PostRepository PostRepository
 @inject CustomPageRepository CustomPageRepository
+@inject WorkTypeSettingsRepository WorkTypeSettingsRepository
 @inject NavigationManager NavigationManager
 @inject ImageSizeQueue ImageSizeQueue
 
@@ -70,7 +71,9 @@
 
     var collectionsPage = walk.Collection is null ? await CustomPageRepository.GetCollectionsAsync() : null;
 
-    _loaded = new LoadedWork(work, walk, mentions, pageMentions, collectionsPage);
+    var settings = await WorkTypeSettingsRepository.GetAsync();
+
+    _loaded = new LoadedWork(work, walk, mentions, pageMentions, collectionsPage, settings.DimensionDisplay);
   }
 }
 
@@ -103,7 +106,8 @@
                       NextUrl="@NextStepUrl(loaded)"
                       WalkStep="WorkWalkStep.For(loaded.Work, loaded.Walk, ImageSizeQueue)" />
 
-      <WorkDetails Work="loaded.Work" Mentions="loaded.Mentions" PageMentions="loaded.PageMentions" />
+      <WorkDetails Work="loaded.Work" Mentions="loaded.Mentions" PageMentions="loaded.PageMentions"
+                   DimensionDisplay="loaded.DimensionDisplay" />
     </div>
   </main>
 }

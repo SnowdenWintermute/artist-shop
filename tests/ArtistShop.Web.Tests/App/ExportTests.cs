@@ -1217,7 +1217,7 @@ public sealed class ExportTests(TestApp app)
                     work.Slug.Value,
                     work.Description,
                     work.DateCreated?.Text,
-                    work.Dimensions?.Text,
+                    work.Dimensions?.Text(DimensionDisplay.Centimeters),
                     work.Duration,
                     string.Join(", ", work.Collections.Select(collection => collection.Name.Value)),
                     string.Join(", ", work.VocabularyTerms.Select(term => $"{term.VocabularyName.Value}: {term.Name.Value}"))

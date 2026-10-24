@@ -7,8 +7,6 @@ namespace ArtistShop.Web.Imports;
 // reads typed values from one row's cells; a bad cell adds an error and reads as null
 public class WorkImportRowReader(CsvRow row)
 {
-    private const decimal CentimetersPerInch = 2.54m;
-
     // an inch value with 2 decimal places converts to exactly 4, which is what the columns hold
     private const int MaximumInchDecimalPlaces = 2;
     private const int MaximumCentimeterDecimalPlaces = 4;
@@ -17,8 +15,6 @@ public class WorkImportRowReader(CsvRow row)
     // spreadsheets often store an unknown year as 0
     private const string UnknownYear = "0";
 
-    private static readonly decimal MinimumDimensionCm = ParseLimit(ArtistShopLimits.MinimumDimensionCm);
-    private static readonly decimal MaximumDimensionCm = ParseLimit(ArtistShopLimits.MaximumDimensionCm);
     private static readonly decimal MinimumPrice = ParseLimit(ArtistShopLimits.MinimumPrice);
     private static readonly decimal MaximumPrice = ParseLimit(ArtistShopLimits.MaximumPrice);
 
@@ -63,12 +59,13 @@ public class WorkImportRowReader(CsvRow row)
             return null;
         }
 
-        var centimeters = unit is LengthUnit.Inches ? length * CentimetersPerInch : length;
+        var centimeters = unit is LengthUnit.Inches ? length * Lengths.CentimetersPerInch : length;
 
-        if (centimeters < MinimumDimensionCm || centimeters > MaximumDimensionCm)
+        if (centimeters < ArtistShopLimits.MinimumDimensionCm || centimeters > ArtistShopLimits.MaximumDimensionCm)
         {
             var value = unit is LengthUnit.Inches ? $"{Text(column)} inches ({centimeters} cm)" : $"{Text(column)} cm";
-            AddError(header, $"{value} is outside {MinimumDimensionCm} to {MaximumDimensionCm} cm.");
+            AddError(header, string.Create(CultureInfo.InvariantCulture,
+                $"{value} is outside {ArtistShopLimits.MinimumDimensionCm} to {ArtistShopLimits.MaximumDimensionCm} cm."));
             return null;
         }
 

@@ -66,6 +66,7 @@
 <EditForm EditContext="Input.EditContext" FormName="invite-admin" OnValidSubmit="InviteAsync" Enhance>
   <DataAnnotationsValidator />
 
-  <TextField Label="Email" @bind-Value="Input.Email" type="email" autocomplete="off" />
-  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Invite</ButtonBasic>
+  <TextFieldWithButton Label="Email" @bind-Value="Input.Email" type="email" autocomplete="off">
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Invite</ButtonBasic>
+  </TextFieldWithButton>
 </EditForm>

@@ -1,4 +1,5 @@
-@* the name every component has, then its type's own fields, its frame if its type has one, and Save *@
+@* the name every component has, then its type's own fields and its frame if its type has one. Each
+   typed field has Save beside it, which saves the whole form; choices save as they change *@
 @using ArtistShop.Web.Components.Atoms
 @using ArtistShop.Web.Components.Forms
 
@@ -12,6 +13,9 @@
   // CustomComponentSettings.HasFrame
   [Parameter, EditorRequired]
   public bool HasFrame { get; set; }
+  // a rich text body is too long to put Save beside, so it gets one under it
+  [Parameter]
+  public bool HasRichText { get; set; }
   // the type's fields, if it has any
   [Parameter]
   public RenderFragment? ChildContent { get; set; }
@@ -21,12 +25,17 @@
   <EditForm EditContext="Input.EditContext" FormName="custom-component" OnValidSubmit="OnSave" Enhance class="mb-8">
     <DataAnnotationsValidator />
 
-    <TextField Label="Name" @bind-Value="Input.Name" />
+    <TextFieldWithButton Label="Name" @bind-Value="Input.Name">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+    </TextFieldWithButton>
     @ChildContent
     @if (HasFrame)
     {
       <ComponentFrameFields Input="Input" />
     }
-    <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+    @if (HasRichText)
+    {
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+    }
   </EditForm>
 </EnableSaveOnChange>

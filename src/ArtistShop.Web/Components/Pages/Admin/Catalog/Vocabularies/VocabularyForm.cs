@@ -15,10 +15,15 @@ public class VocabularyForm : ServerValidatedForm
 
     // Loads into this form rather than making a new one, so the EditContext stays the same:
     // EditForm rebuilds every element inside it when handed a new one, which takes the focus out
-    // of the field the artist just pressed Enter in
+    // of the field the artist just pressed Enter in. An unsaved name edit is kept, as a checkbox's save
+    // reloads the page without saving the name
     public void Load(VocabularyWithWorkTypes saved)
     {
-        Name = saved.Name.Value;
+        if (Name == _savedName)
+        {
+            Name = saved.Name.Value;
+        }
+
         _savedName = saved.Name.Value;
         IsMutuallyExclusive = saved.IsMutuallyExclusive;
         _savedIsMutuallyExclusive = saved.IsMutuallyExclusive;
@@ -38,14 +43,19 @@ public class VocabularyForm : ServerValidatedForm
 
     public IReadOnlySet<WorkTypeId> WorkTypeIds => _workTypeIds;
 
-    public bool HasChanges =>
-        Name != _savedName
-        || IsMutuallyExclusive != _savedIsMutuallyExclusive
-        || !_workTypeIds.SetEquals(_savedWorkTypeIds);
+    public bool NameHasChanges => Name != _savedName;
 
     public void ToggleWorkType(WorkTypeId workTypeId)
     {
         _workTypeIds.Toggle(workTypeId);
+    }
+
+    // after the artist cancels a checkbox change that would take terms off works
+    public void RevertCheckboxes()
+    {
+        IsMutuallyExclusive = _savedIsMutuallyExclusive;
+        _workTypeIds.Clear();
+        _workTypeIds.UnionWith(_savedWorkTypeIds);
     }
 
     public bool WasUnselected(WorkTypeId workTypeId) =>

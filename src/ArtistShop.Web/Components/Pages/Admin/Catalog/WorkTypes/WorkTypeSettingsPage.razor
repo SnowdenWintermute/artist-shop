@@ -1,0 +1,64 @@
+@page "/admin/catalog/types/settings"
+@layout WorkTypeLayout
+@using ArtistShop.Web.Components.Atoms
+@using ArtistShop.Web.Components.Forms
+@using ArtistShop.Web.Database.Repositories
+@using ArtistShop.Web.Domain.Catalog
+@using ArtistShop.Web.Sites
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = SitePolicies.Admin)]
+@inject WorkTypeSettingsRepository WorkTypeSettingsRepository
+@inject NavigationManager NavigationManager
+@inject TimeProvider TimeProvider
+
+@code {
+  [CascadingParameter]
+  public SiteWording Wording { get; set; } = default!;
+
+  [SupplyParameterFromForm(FormName = "work-type-settings")]
+  private WorkTypeSettingsForm? Input { get; set; }
+  // a successful save redirects, so a page rendered from a post is one that didn't go through
+  private bool _formWasPosted;
+
+  private string Title => $"{Wording.Work.SingularHeading} type settings";
+
+  protected override async Task OnInitializedAsync()
+  {
+    _formWasPosted = Input is not null;
+    Input ??= WorkTypeSettingsForm.From(await WorkTypeSettingsRepository.GetAsync());
+  }
+
+  private async Task SaveAsync()
+  {
+    if (Input is null || !Input.Check())
+    {
+      return;
+    }
+
+    await WorkTypeSettingsRepository.UpdateAsync(Input.ToSettings());
+    NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>
+    { [SavedAtQuery.Key] = SavedAtQuery.Value(TimeProvider.GetUtcNow()) }));
+  }
+}
+
+<PageTitle>@Title</PageTitle>
+
+<h1 class="mb-4 text-xl">@Title</h1>
+<SavedAtNotice HoldsUnsavedChanges="_formWasPosted" />
+
+@if (Input is not null)
+{
+  <EditForm EditContext="Input.EditContext" FormName="work-type-settings" OnValidSubmit="SaveAsync" Enhance
+            data-waits-for-pending>
+    <SubmitOnChange>
+      <SelectField Label="Dimensions shown in" Hint="Sizes are entered in the first unit shown."
+                   @bind-Value="Input.DimensionDisplay">
+        <option value="@DimensionDisplay.Centimeters">Centimetres</option>
+        <option value="@DimensionDisplay.Inches">Inches</option>
+        <option value="@DimensionDisplay.InchesThenCentimeters">Inches (centimetres)</option>
+      </SelectField>
+      @* app.css hides this unless the browser runs no scripts *@
+      <ButtonBasic type="submit" Variant="ButtonVariant.Outline" data-part="apply">Save</ButtonBasic>
+    </SubmitOnChange>
+  </EditForm>
+}

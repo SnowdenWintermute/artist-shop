@@ -4,6 +4,7 @@
 @inject WorkRepository WorkRepository
 @inject WorkTypeRepository WorkTypeRepository
 @inject CollectionRepository CollectionRepository
+@inject WorkTypeSettingsRepository WorkTypeSettingsRepository
 @inject NavigationManager NavigationManager
 
 @* One page of the filtered work list as an editable table. The rows are read again only when the
@@ -24,7 +25,7 @@
   [Parameter, EditorRequired]
   public string Address { get; set; } = default!;
 
-  private record LoadedRows(WorkTypeWithFields Type, List<WorkTableRow> Rows);
+  private record LoadedRows(WorkTypeWithFields Type, LengthUnit LengthUnit, List<WorkTableRow> Rows);
 
   // null while loading, and for a type deleted since the list was read
   private LoadedRows? _loaded;
@@ -57,6 +58,7 @@
 
     var type = await WorkTypeRepository.GetAsync(typeId);
     var collections = await CollectionRepository.GetAllAsync();
+    var lengthUnit = (await WorkTypeSettingsRepository.GetAsync()).EnteredLengthUnit;
     var works = (await WorkRepository.GetManyAsync(ids)).ToDictionary(work => work.Id);
 
     // the address changed while this was loading, and that change's load is the one to show
@@ -72,7 +74,8 @@
       ? null
       : new LoadedRows(
         type,
-        [.. ids.Select(works.GetValueOrDefault).OfType<Work>().Select(WorkTableRow.FromWork)]
+        lengthUnit,
+        [.. ids.Select(works.GetValueOrDefault).OfType<Work>().Select(work => WorkTableRow.FromWork(work, lengthUnit))]
       );
     _isLoading = false;
   }
@@ -112,6 +115,6 @@ else
 {
   <p class="mb-2 text-sm text-ink-faded">Each change saves when you leave its field.</p>
 
-  <WorkTable Rows="_loaded.Rows" Type="_loaded.Type" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnChoicesAdded="ChoicesAdded"
+  <WorkTable Rows="_loaded.Rows" Type="_loaded.Type" LengthUnit="_loaded.LengthUnit" AllCollections="_collections" OnCollectionAdded="CollectionAdded" OnChoicesAdded="ChoicesAdded"
                 OnRowsDeleted="RowsDeleted" />
 }

@@ -8,7 +8,7 @@ namespace ArtistShop.Web.Tests.Components;
 public sealed class WorkTableRowTests
 {
     private static WorkTableRow Row(PartialDate? dateCreated = null) =>
-        WorkTableRow.FromDrop(new WorkId(1), new PlannedWorkFromImages(new WorkName("Dawn"), [], NewCollectionName: null, [new BulkImageCandidate("a", "/P/Dawn.jpg")]), [], dateCreated);
+        WorkTableRow.FromDrop(new WorkId(1), new PlannedWorkFromImages(new WorkName("Dawn"), [], NewCollectionName: null, [new BulkImageCandidate("a", "/P/Dawn.jpg")]), [], dateCreated, LengthUnit.Centimeters);
 
     [Fact]
     public void ADateTakenFillsTheDateCreated()
@@ -40,8 +40,8 @@ public sealed class WorkTableRowTests
         row.WidthText = "30";
 
         Assert.False(row.Validate());
-        Assert.Equal("Enter a number, like 12.5.", row.ErrorFor(nameof(WorkForm.HeightCm)));
-        Assert.Null(row.ErrorFor(nameof(WorkForm.WidthCm)));
+        Assert.Equal("Enter a number, like 12.5.", row.ErrorFor(nameof(WorkForm.Height)));
+        Assert.Null(row.ErrorFor(nameof(WorkForm.Width)));
     }
 
     [Fact]
@@ -52,8 +52,8 @@ public sealed class WorkTableRowTests
         row.HeightText = "12.5";
 
         Assert.False(row.Validate());
-        Assert.Null(row.ErrorFor(nameof(WorkForm.HeightCm)));
-        Assert.Equal("Enter a width too.", row.ErrorFor(nameof(WorkForm.WidthCm)));
+        Assert.Null(row.ErrorFor(nameof(WorkForm.Height)));
+        Assert.Equal("Enter a width too.", row.ErrorFor(nameof(WorkForm.Width)));
     }
 
     [Fact]
@@ -67,8 +67,8 @@ public sealed class WorkTableRowTests
         row.WidthText = "30";
 
         Assert.True(row.Validate());
-        Assert.Equal(12.5m, row.Form.HeightCm);
-        Assert.Equal(30m, row.Form.WidthCm);
+        Assert.Equal(12.5m, row.Form.Height);
+        Assert.Equal(30m, row.Form.Width);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public sealed class WorkTableRowTests
     [Fact]
     public void ASavedWorkFillsTheNumberFields()
     {
-        var row = WorkTableRow.FromWork(SavedWork());
+        var row = WorkTableRow.FromWork(SavedWork(), LengthUnit.Centimeters);
 
         Assert.Equal("1998", row.YearText);
         Assert.Equal("12.5", row.HeightText);
@@ -121,7 +121,7 @@ public sealed class WorkTableRowTests
     [Fact]
     public void TheThumbnailIsTheStarredImage()
     {
-        var row = WorkTableRow.FromWork(SavedWork());
+        var row = WorkTableRow.FromWork(SavedWork(), LengthUnit.Centimeters);
 
         Assert.Equal(Image('b'), row.Thumbnail);
     }
@@ -133,7 +133,8 @@ public sealed class WorkTableRowTests
             new WorkId(1),
             new PlannedWorkFromImages(new WorkName("Dawn"), [], NewCollectionName: null, [new BulkImageCandidate("a", "/P/Dawn.jpg"), new BulkImageCandidate("b", "/P/Dawn (2).jpg")]),
             [],
-            dateCreated: null
+            dateCreated: null,
+            LengthUnit.Centimeters
         );
         row.Images[0].State = RowImageState.Added;
         row.Images[0].Image = Image('a');
@@ -157,7 +158,7 @@ public sealed class WorkTableRowTests
 
         Assert.Equal("30", row.HeightText);
         Assert.Equal("30.2445", row.WidthText);
-        Assert.Equal(30.2445m, row.Form.WidthCm);
+        Assert.Equal(30.2445m, row.Form.Width);
     }
 
     [Fact]
@@ -168,5 +169,21 @@ public sealed class WorkTableRowTests
         row.HeightText = "12,5";
 
         Assert.Equal("12,5", row.HeightText);
+    }
+
+    // the row takes inches, and a size saved in centimetres isn't moved by being shown in them
+    [Fact]
+    public void AnInchRowShowsTheSavedSizeInInchesAndLeavesItUnmoved()
+    {
+        var row = WorkTableRow.FromWork(SavedWork(), LengthUnit.Inches);
+
+        Assert.Equal("4.9213", row.HeightText);
+        Assert.Equal("11.811", row.WidthText);
+
+        row.HeightText = "5";
+        row.WidthText = "11.811";
+        var dimensions = row.Form.ToDetailsUpdate(row.Id, row.SavedDimensions).Dimensions;
+
+        Assert.Equal(new DimensionsCentimeters(new Dimensions(12.7m, 30m, depth: null)), dimensions);
     }
 }

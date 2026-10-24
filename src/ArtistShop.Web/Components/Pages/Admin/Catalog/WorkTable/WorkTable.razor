@@ -27,6 +27,9 @@
   // the type every row has, whose fields are the columns
   [Parameter, EditorRequired]
   public WorkTypeWithFields Type { get; set; } = default!;
+  // what the size columns show and take
+  [Parameter, EditorRequired]
+  public LengthUnit LengthUnit { get; set; }
   // in the artist's order
   [Parameter, EditorRequired]
   public IReadOnlyList<Collection> AllCollections { get; set; } = default!;
@@ -138,12 +141,12 @@
 
       if (Fields.Contains(WorkField.HeightAndWidth))
       {
-        headings.AddRange(["Height (cm)", "Width (cm)"]);
+        headings.AddRange([$"Height ({Lengths.Symbol(LengthUnit)})", $"Width ({Lengths.Symbol(LengthUnit)})"]);
       }
 
       if (Fields.Contains(WorkField.Depth))
       {
-        headings.Add("Depth (cm)");
+        headings.Add($"Depth ({Lengths.Symbol(LengthUnit)})");
       }
 
       if (Fields.Contains(WorkField.Duration))
@@ -160,7 +163,7 @@
   private async Task SaveAsync(WorkTableRow row)
   {
     await EditableTableRow.SaveAsync(row, () => SaveErrorOfAsync(() =>
-WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id))));
+WorkRepository.UpdateDetailsAsync(row.Form.ToDetailsUpdate(row.Id, row.SavedDimensions))));
     await OnSaveFinished.InvokeAsync(row);
   }
 
@@ -501,23 +504,23 @@ collection.Name.Value));
     @if (Fields.Contains(WorkField.HeightAndWidth))
     {
       <DataTableCell Class="@FieldCellClass">
-        <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Height in centimetres"
+        <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="@($"Height in {Lengths.Name(LengthUnit)}")"
                @bind="row.HeightText" @bind:after="() => SaveAsync(row)" />
-        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.HeightCm))" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Height))" />
       </DataTableCell>
       <DataTableCell Class="@FieldCellClass">
-        <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="Width in centimetres" @bind="row.WidthText"
+        <input inputmode="decimal" class="@($"{InputClass} w-18")" aria-label="@($"Width in {Lengths.Name(LengthUnit)}")" @bind="row.WidthText"
                @bind:after="() => SaveAsync(row)" />
-        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.WidthCm))" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Width))" />
       </DataTableCell>
     }
 
     @if (Fields.Contains(WorkField.Depth))
     {
       <DataTableCell Class="@FieldCellClass">
-        <input inputmode="decimal" class="@($"{InputClass} w-24")" aria-label="Depth in centimetres" @bind="row.DepthText"
+        <input inputmode="decimal" class="@($"{InputClass} w-24")" aria-label="@($"Depth in {Lengths.Name(LengthUnit)}")" @bind="row.DepthText"
                @bind:after="() => SaveAsync(row)" />
-        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.DepthCm))" />
+        <RowFieldError Message="@row.ErrorFor(nameof(WorkForm.Depth))" />
       </DataTableCell>
     }
 

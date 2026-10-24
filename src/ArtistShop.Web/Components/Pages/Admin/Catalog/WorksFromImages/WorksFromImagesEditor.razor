@@ -18,6 +18,7 @@
 @inject WorkTypeRepository WorkTypeRepository
 @inject RememberedWorkType RememberedWorkType
 @inject CollectionRepository CollectionRepository
+@inject WorkTypeSettingsRepository WorkTypeSettingsRepository
 @inject IJSRuntime JS
 @inject TimeProvider TimeProvider
 @implements IAsyncDisposable
@@ -64,6 +65,9 @@
   private DateTimeOffset? _lastSavedAt;
   private TimeSpan? _browserUtcOffset;
 
+  // what the table's size columns take; read on initializing, before there are rows
+  private LengthUnit _lengthUnit;
+
   private int UnsentCount =>
     RowImages.Count(image => image.State is RowImageState.Waiting or RowImageState.Failed);
 
@@ -71,6 +75,7 @@
   {
     _workTypes = WorkTypeOrder.SortedByName(await WorkTypeRepository.GetAllAsync());
     _collections = await CollectionRepository.GetAllAsync();
+    _lengthUnit = (await WorkTypeSettingsRepository.GetAsync()).EnteredLengthUnit;
     _workTypeId = InitialWorkTypeId ?? (await RememberedWorkType.FindInAsync(_workTypes))?.Id.Value;
     await LoadTypeAsync();
   }
@@ -233,7 +238,7 @@ work, date))]);
 
     var rows = plan.Works
       .Zip(identifiers, dates)
-      .Select(entry => WorkTableRow.FromDrop(entry.Second.Id, entry.First, CollectionIdsFor(entry.First), entry.Third))
+      .Select(entry => WorkTableRow.FromDrop(entry.Second.Id, entry.First, CollectionIdsFor(entry.First), entry.Third, _lengthUnit))
       .ToList();
 
     foreach (var image in rows.SelectMany(row => row.Images))
@@ -532,7 +537,7 @@ else if (UnsentCount > 0)
     @Wording.Work.CountOf(_rows.Count) added. Each change saves when you leave its field.
   </p>
 
-  <WorkTable Rows="_rows" Type="rowsType" AllCollections="_collections" OnCollectionAdded="CollectionAdded"
+  <WorkTable Rows="_rows" Type="rowsType" LengthUnit="_lengthUnit" AllCollections="_collections" OnCollectionAdded="CollectionAdded"
              OnSaveFinished="SaveFinished" OnRowsDeleted="RowsDeleted" />
 
   <p class="text-sm text-ink-faded">

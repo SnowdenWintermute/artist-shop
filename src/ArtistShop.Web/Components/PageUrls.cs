@@ -41,16 +41,24 @@ public static class PageUrls
 
     public const string NewWorkType = "/admin/catalog/types/new";
 
+    public const string NewWorkTypeAddedQueryKey = "added";
+
+    public static string NewWorkTypeAdded(WorkTypeId id) => $"{NewWorkType}?{NewWorkTypeAddedQueryKey}={id.Value}";
+
     public static string EditWorkType(WorkTypeId id) => $"/admin/catalog/types/{id.Value}/edit";
+
+    public const string WorkTypeSettings = "/admin/catalog/types/settings";
 
     public const string WorkTypeImport = "/admin/catalog/types/import";
 
     // where the admin's Vocabularies links land, as it lists the vocabularies not linked to a type
     public const string NewVocabulary = "/admin/catalog/vocabularies/new";
 
-    public static string EditVocabulary(VocabularyId id) => $"/admin/catalog/vocabularies/{id.Value}/edit";
+    public const string NewVocabularyAddedQueryKey = "added";
 
-    public static string VocabularyTerms(VocabularyId id) => $"/admin/catalog/vocabularies/{id.Value}";
+    public static string NewVocabularyAdded(VocabularyId id) => $"{NewVocabulary}?{NewVocabularyAddedQueryKey}={id.Value}";
+
+    public static string EditVocabulary(VocabularyId id) => $"/admin/catalog/vocabularies/{id.Value}/edit";
 
     public const string VocabularyImport = "/admin/catalog/vocabularies/import";
 

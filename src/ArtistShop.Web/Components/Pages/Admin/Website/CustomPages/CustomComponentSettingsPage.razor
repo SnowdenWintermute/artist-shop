@@ -322,7 +322,8 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       {
         <RichTextBackup BackupKey="@DocumentKey" SavedAt="component.UpdatedAt" Noun="component" TitleField="Input.Name"
                         BodyField="Input.Body" HoldsUnsavedChanges="_formWasPosted">
-          <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
+          <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame"
+                                 HasRichText>
             @* the post's column whatever the width, since rebuilding the editor at a new width jumps the page *@
             <RichTextEditor Label="Text" DocumentKey="@DocumentKey" @bind-Value="Input.Body" />
             @* saves as soon as it changes, with the rest of the form *@
@@ -338,7 +339,9 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       else if (component.Component.Settings is HeadingSettings)
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
-          <TextField Label="Text" @bind-Value="Input.HeadingText" />
+          <TextFieldWithButton Label="Text" @bind-Value="Input.HeadingText">
+            <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+          </TextFieldWithButton>
           @SizeField(Input)
           <SubmitOnChange>
             <RadioField Label="Font" @bind-Value="Input.Font" Values="Enum.GetValues<FontRole>()" LabelOf="FontLabel" />
@@ -356,7 +359,9 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
       else if (component.Component.Settings is ButtonSettings)
       {
         <ComponentSettingsForm Input="Input" OnSave="SaveAsync" HoldsUnsavedChanges="_formWasPosted" HasFrame="component.Component.Settings.HasFrame">
-          <TextField Label="Text" @bind-Value="Input.ButtonText" />
+          <TextFieldWithButton Label="Text" @bind-Value="Input.ButtonText">
+            <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+          </TextFieldWithButton>
           <LinkField Input="Input" IsOptional="false" Pages="_pages" Collections="_collections" Posts="_posts"
                      WorkName="@_linkedWorkName" />
           <SubmitOnChange>
@@ -418,10 +423,19 @@ Input.ToSettings(_component.Component.Settings), Input.ToFrame(_component.Compon
 
           @if (Input.HeadingType is CardGridHeadingType.Custom)
           {
-            <TextField Label="Heading text" @bind-Value="Input.HeadingText" />
+            <TextFieldWithButton Label="Heading text" @bind-Value="Input.HeadingText">
+              <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+            </TextFieldWithButton>
           }
 
-          <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
+          <FieldWithButton>
+            <Field>
+              <NumberField Label="Cards per page" @bind-Value="Input.CardsPerPage" />
+            </Field>
+            <Button>
+              <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+            </Button>
+          </FieldWithButton>
           <SubmitOnChange>
             <CheckboxField Label="Page links" Hint="Show buttons for next/previous page in the grid."
                            @bind-Value="Input.HasPageLinks" />

@@ -1,13 +1,8 @@
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Utilities;
 
 namespace ArtistShop.Web.Imports;
-
-public enum LengthUnit : byte
-{
-    Centimeters = 1,
-    Inches = 2,
-}
 
 // IsOneOfAKind: every product is edition size 1 and a "sold" column sets its stock; otherwise the
 // file gives "editionSize" and "stock" itself

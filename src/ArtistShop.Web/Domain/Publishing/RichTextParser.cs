@@ -137,10 +137,11 @@ public static partial class RichTextParser
     {
         List<RichTextRun> text = [.. line];
         line.Clear();
+        var alignment = ReadAlignment(GetString(attributes, "align"));
 
         if (IsTrue(attributes, HeadingName))
         {
-            blocks.Add(new HeadingBlock(text));
+            blocks.Add(new HeadingBlock(text, alignment));
         }
         else if (GetInt(attributes, "header") is int level)
         {
@@ -151,30 +152,30 @@ public static partial class RichTextParser
 
             blocks.Add(level switch
             {
-                <= 1 => new HeadingBlock(Bolded(TextSize.Size36)),
-                2 => new HeadingBlock(Bolded(TextSize.Size24)),
-                _ => new ParagraphBlock(Bolded(TextSize.Size18)),
+                <= 1 => new HeadingBlock(Bolded(TextSize.Size36), alignment),
+                2 => new HeadingBlock(Bolded(TextSize.Size24), alignment),
+                _ => new ParagraphBlock(Bolded(TextSize.Size18), alignment),
             });
         }
         else if (ReadListStyle(GetString(attributes, "list")) is ListStyle style)
         {
-            // consecutive lines of one style are one list
-            if (blocks is [.., ListBlock previous] && previous.Style == style)
+            // consecutive lines of one style and alignment are one list
+            if (blocks is [.., ListBlock previous] && previous.Style == style && previous.Alignment == alignment)
             {
                 blocks[^1] = previous with { Items = [.. previous.Items, text] };
             }
             else
             {
-                blocks.Add(new ListBlock(style, [text]));
+                blocks.Add(new ListBlock(style, [text], alignment));
             }
         }
         else if (IsTrue(attributes, "blockquote"))
         {
-            blocks.Add(new BlockquoteBlock(text));
+            blocks.Add(new BlockquoteBlock(text, alignment));
         }
         else
         {
-            blocks.Add(new ParagraphBlock(text));
+            blocks.Add(new ParagraphBlock(text, alignment));
         }
     }
 
@@ -245,6 +246,16 @@ public static partial class RichTextParser
             "bullet" => ListStyle.Bullet,
             "ordered" => ListStyle.Ordered,
             _ => null,
+        };
+
+    // Quill leaves a left-aligned line without the format. The editor never stores justify; any
+    // other value is read as left
+    private static TextAlignment ReadAlignment(string? value) =>
+        value switch
+        {
+            "center" => TextAlignment.Center,
+            "right" => TextAlignment.Right,
+            _ => TextAlignment.Left,
         };
 
     // Blazor encodes an href's characters but will still write javascript:alert(1) into one, so

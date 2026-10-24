@@ -15,6 +15,9 @@
 
   [Parameter, EditorRequired]
   public IReadOnlyList<CustomPage> PageMentions { get; set; } = default!;
+  // the site's choice of units for the size
+  [Parameter, EditorRequired]
+  public DimensionDisplay DimensionDisplay { get; set; }
 
   [CascadingParameter]
   public SiteWording Wording { get; set; } = default!;
@@ -81,7 +84,7 @@
     @if (Work.Dimensions is { } dimensions)
     {
       <dt class="text-ink-faded">Size</dt>
-      <dd class="mb-2">@dimensions.Text</dd>
+      <dd class="mb-2">@dimensions.Text(DimensionDisplay)</dd>
     }
 
     @if (Work.Duration is { } duration)

@@ -28,7 +28,7 @@
     @foreach (var vocabulary in _vocabularies)
     {
       <SectionNavLink href="@PageUrls.EditVocabulary(vocabulary.Id)"
-                      ActivePath="@PageUrls.VocabularyTerms(vocabulary.Id)" ActiveClass="underline">
+                      ActivePath="@PageUrls.EditVocabulary(vocabulary.Id)" ActiveClass="underline">
         @vocabulary.Name.Value
       </SectionNavLink>
     }

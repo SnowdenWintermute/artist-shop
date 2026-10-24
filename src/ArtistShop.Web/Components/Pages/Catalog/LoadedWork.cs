@@ -13,5 +13,6 @@ public record LoadedWork(
     WorkWalk Walk,
     IReadOnlyList<PostMention> Mentions,
     IReadOnlyList<CustomPage> PageMentions,
-    CustomPage? CollectionsPage
+    CustomPage? CollectionsPage,
+    DimensionDisplay DimensionDisplay
 );

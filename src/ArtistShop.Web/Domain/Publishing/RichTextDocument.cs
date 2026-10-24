@@ -9,14 +9,16 @@ public record RichTextDocument(IReadOnlyList<RichTextBlock> Blocks);
 public abstract record RichTextBlock;
 
 // an empty paragraph is a blank line the artist left on purpose
-public record ParagraphBlock(IReadOnlyList<RichTextRun> Text) : RichTextBlock;
+public record ParagraphBlock(IReadOnlyList<RichTextRun> Text, TextAlignment Alignment) : RichTextBlock;
 
 // a line in the theme's heading font; its words carry their own sizes, as any line's do
-public record HeadingBlock(IReadOnlyList<RichTextRun> Text) : RichTextBlock;
+public record HeadingBlock(IReadOnlyList<RichTextRun> Text, TextAlignment Alignment) : RichTextBlock;
 
-public record BlockquoteBlock(IReadOnlyList<RichTextRun> Text) : RichTextBlock;
+public record BlockquoteBlock(IReadOnlyList<RichTextRun> Text, TextAlignment Alignment) : RichTextBlock;
 
-public record ListBlock(ListStyle Style, IReadOnlyList<IReadOnlyList<RichTextRun>> Items) : RichTextBlock;
+// every item has the list's alignment: a line aligned differently starts another list
+public record ListBlock(ListStyle Style, IReadOnlyList<IReadOnlyList<RichTextRun>> Items, TextAlignment Alignment)
+    : RichTextBlock;
 
 // StorageKey names the one of the work's images it shows. Caption is null when there is none
 public record WorkEmbedBlock(
@@ -65,6 +67,13 @@ public enum TextSize
     Size96 = 96,
     Size128 = 128,
     Size160 = 160,
+}
+
+public enum TextAlignment
+{
+    Left,
+    Center,
+    Right,
 }
 
 public enum ListStyle

@@ -5,7 +5,7 @@ namespace ArtistShop.Web.Components.Publishing;
 // own and padding around it never narrows it
 public static class RichTextColumn
 {
-    public const string WidthClass = "box-content max-w-[42rem]";
+    public const string WidthClass = "box-content max-w-rich-text";
 
     // that column, centred in a wider space
     public const string CenteredClass = $"mx-auto w-full {WidthClass}";

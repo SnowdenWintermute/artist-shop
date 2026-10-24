@@ -25,24 +25,29 @@ public static class RichTextDeltaWriter
             switch (block)
             {
                 case ParagraphBlock paragraph:
-                    AddLine(ops, paragraph.Text, lineFormat: null);
+                    AddLine(ops, paragraph.Text, new JsonObject(), paragraph.Alignment);
                     endsWithLine = true;
                     break;
 
                 case HeadingBlock heading:
-                    AddLine(ops, heading.Text, new JsonObject { [RichTextParser.HeadingName] = true });
+                    AddLine(ops, heading.Text, new JsonObject { [RichTextParser.HeadingName] = true }, heading.Alignment);
                     endsWithLine = true;
                     break;
 
                 case BlockquoteBlock quote:
-                    AddLine(ops, quote.Text, new JsonObject { ["blockquote"] = true });
+                    AddLine(ops, quote.Text, new JsonObject { ["blockquote"] = true }, quote.Alignment);
                     endsWithLine = true;
                     break;
 
                 case ListBlock list:
                     foreach (var item in list.Items)
                     {
-                        AddLine(ops, item, new JsonObject { ["list"] = list.Style is ListStyle.Bullet ? "bullet" : "ordered" });
+                        AddLine(
+                            ops,
+                            item,
+                            new JsonObject { ["list"] = list.Style is ListStyle.Bullet ? "bullet" : "ordered" },
+                            list.Alignment
+                        );
                     }
 
                     endsWithLine = true;
@@ -137,8 +142,8 @@ public static class RichTextDeltaWriter
         return value;
     }
 
-    // a run's formats ride on the run, and the line's own ride on the "\n" that ends it
-    private static void AddLine(JsonArray ops, IReadOnlyList<RichTextRun> text, JsonObject? lineFormat)
+    // a run's formats ride on the run, and the line's own, with its alignment, ride on the "\n" that ends it
+    private static void AddLine(JsonArray ops, IReadOnlyList<RichTextRun> text, JsonObject lineFormat, TextAlignment alignment)
     {
         foreach (var run in text)
         {
@@ -172,6 +177,12 @@ public static class RichTextDeltaWriter
             ops.Add(formats.Count is 0 ? new JsonObject { ["insert"] = run.Text } : new JsonObject { ["insert"] = run.Text, ["attributes"] = formats });
         }
 
-        ops.Add(lineFormat is null ? new JsonObject { ["insert"] = "\n" } : new JsonObject { ["insert"] = "\n", ["attributes"] = lineFormat });
+        // Quill leaves a left-aligned line without the format
+        if (alignment is not TextAlignment.Left)
+        {
+            lineFormat["align"] = alignment is TextAlignment.Center ? "center" : "right";
+        }
+
+        ops.Add(lineFormat.Count is 0 ? new JsonObject { ["insert"] = "\n" } : new JsonObject { ["insert"] = "\n", ["attributes"] = lineFormat });
     }
 }

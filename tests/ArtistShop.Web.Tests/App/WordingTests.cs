@@ -200,7 +200,6 @@ public sealed partial class WordingTests(TestApp app)
             ["/admin/catalog/collections/{Id:int}"] = PageUrls.EditCollection(collectionId),
             ["/admin/catalog/collections/{Id:int}/add-works"] = PageUrls.AddCollectionWorks(collectionId),
             ["/admin/catalog/types/{Id:int}/edit"] = PageUrls.EditWorkType(typeId),
-            ["/admin/catalog/vocabularies/{Id:int}"] = PageUrls.VocabularyTerms(vocabularyId),
             ["/admin/catalog/vocabularies/{Id:int}/edit"] = PageUrls.EditVocabulary(vocabularyId),
             ["/admin/catalog/works/{Id:int}/edit"] = PageUrls.EditWork(work.Id),
             ["/admin/catalog/works/pick/{Id:int}"] = PageUrls.WorkPickerImages(work.Id, new WorkPickerTrail(WorkPickerMode.Add, null)),

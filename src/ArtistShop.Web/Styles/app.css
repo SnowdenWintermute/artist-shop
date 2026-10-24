@@ -155,6 +155,9 @@ html {
 }
 
 @theme {
+  /* RichTextColumn's width, as max-w-rich-text, and named so the editor can size its box around it */
+  --container-rich-text: 42rem;
+
   /* Quill's snow theme colours, which quill.snow.css writes out rather than naming, for the post
      editor's own controls that match it */
   --color-quill-ink: #444;

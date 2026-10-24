@@ -70,7 +70,7 @@
     @switch (LinkTo.Type)
     {
       case LinkTargetType.Page:
-        <SelectField Label="Page" @bind-Value="Input.LinkTo.PageId">
+        <SelectField Label="Links to" @bind-Value="Input.LinkTo.PageId">
           @foreach (var customPage in Pages)
           {
             <option value="@customPage.Id.Value.ToString(CultureInfo.InvariantCulture)">@customPage.Name</option>
@@ -78,7 +78,7 @@
         </SelectField>
         break;
       case LinkTargetType.Collection:
-        <SelectField Label="@Wording.Collection.SingularHeading" @bind-Value="Input.LinkTo.CollectionId">
+        <SelectField Label="Links to" @bind-Value="Input.LinkTo.CollectionId">
           @foreach (var collection in Collections)
           {
             <option value="@collection.Id.Value.ToString(CultureInfo.InvariantCulture)">@collection.Name.Value</option>
@@ -86,7 +86,7 @@
         </SelectField>
         break;
       case LinkTargetType.Post:
-        <SelectField Label="Post" @bind-Value="Input.LinkTo.PostId">
+        <SelectField Label="Links to" @bind-Value="Input.LinkTo.PostId">
           @foreach (var post in Posts)
           {
             <option value="@post.Id.Value.ToString(CultureInfo.InvariantCulture)">@PostLabel(post)</option>
@@ -112,7 +112,9 @@
 
   @* drawn whatever the type and shown while Address is checked, so choosing it needs no save first *@
   <div class="hidden group-has-[input[value=Address]:checked]/link:block">
-    <TextField Label="Address" @bind-Value="Input.LinkTo.Address" placeholder="https://example.com" autocomplete="off" />
+    <TextFieldWithButton Label="Address" @bind-Value="Input.LinkTo.Address" placeholder="https://example.com" autocomplete="off">
+      <ButtonBasic type="submit" Variant="ButtonVariant.Primary" data-waits-for-change>Save</ButtonBasic>
+    </TextFieldWithButton>
   </div>
   <ValidationMessage For="() => Input.LinkTo" class="mb-4 block text-error" />
 </link-field>

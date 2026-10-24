@@ -28,10 +28,12 @@
   <SectionNav>
     <NavLink href="@PageUrls.NewWorkType" ActiveClass="underline">+ New @Wording.Work.SingularInSentence type</NavLink>
     <div aria-hidden="true" class="pointer-events-none">|</div>
+    <NavLink href="@PageUrls.WorkTypeSettings" ActiveClass="underline">Settings</NavLink>
+    <div aria-hidden="true" class="pointer-events-none">|</div>
     @foreach (var workType in _workTypes)
     {
-      <SectionNavLink href="@PageUrls.EditWorkType(workType.Id)"
-                      ActivePath="@PageUrls.EditWorkType(workType.Id)" ActiveClass="underline">
+      <SectionNavLink href="@PageUrls.EditWorkType(workType.Id)" ActivePath="@PageUrls.EditWorkType(workType.Id)"
+                      ActiveClass="underline">
         @workType.Name.Value
       </SectionNavLink>
     }

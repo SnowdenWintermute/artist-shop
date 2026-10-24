@@ -50,15 +50,16 @@ public class RowImage
 // rules as the add and edit pages
 public class WorkTableRow : EditableTableRow
 {
-    private WorkTableRow(WorkId id, WorkForm form, List<RowImage> images)
+    private WorkTableRow(WorkId id, WorkForm form, List<RowImage> images, DimensionsCentimeters? savedDimensions)
     {
         Id = id;
         Form = form;
         Images = images;
+        SavedDimensions = savedDimensions;
         YearText = form.YearCreated?.ToString(CultureInfo.InvariantCulture);
-        HeightText = CentimetresText(form.HeightCm);
-        WidthText = CentimetresText(form.WidthCm);
-        DepthText = CentimetresText(form.DepthCm);
+        HeightText = LengthText(form.Height);
+        WidthText = LengthText(form.Width);
+        DepthText = LengthText(form.Depth);
     }
 
     // just created from a drop, with its images still to upload
@@ -66,34 +67,43 @@ public class WorkTableRow : EditableTableRow
         WorkId id,
         PlannedWorkFromImages planned,
         IReadOnlyList<CollectionId> collectionIds,
-        PartialDate? dateCreated
+        PartialDate? dateCreated,
+        LengthUnit lengthUnit
     ) =>
         new(
             id,
             new WorkForm
             {
+                LengthUnit = lengthUnit,
                 Name = planned.Name.Value,
                 CollectionIds = [.. collectionIds.Select(collectionId => collectionId.Value)],
                 YearCreated = dateCreated?.Date.Year,
                 MonthCreated = dateCreated?.KnownMonth,
                 DayCreated = dateCreated?.KnownDay,
             },
-            [.. planned.Images.Select(image => new RowImage(image))]
+            [.. planned.Images.Select(image => new RowImage(image))],
+            savedDimensions: null
         );
 
-    public static WorkTableRow FromWork(Work work) =>
-        new(work.Id, WorkForm.FromWork(work), [.. work.Images.Select(RowImage.Saved)]) { MainImageKey = MainImageKeyOf(work) };
+    public static WorkTableRow FromWork(Work work, LengthUnit lengthUnit) =>
+        new(work.Id, WorkForm.FromWork(work, lengthUnit), [.. work.Images.Select(RowImage.Saved)], work.Dimensions)
+        {
+            MainImageKey = MainImageKeyOf(work),
+        };
 
     private static string? MainImageKeyOf(Work work) =>
         work.Images.Count > 0 ? work.Images[work.MainImageIndex].StorageKey : null;
 
-    // as the database keeps it, without the trailing zeros it reads back: 30 rather than 30.0000
-    private static string? CentimetresText(decimal? centimetres) =>
-        centimetres?.ToString("0.####", CultureInfo.InvariantCulture);
+    // to as many places as the database keeps, without the trailing zeros it reads back: 30 rather than 30.0000
+    private static string? LengthText(decimal? length) =>
+        length?.ToString("0.####", CultureInfo.InvariantCulture);
 
     public WorkId Id { get; }
 
     public WorkForm Form { get; }
+
+    // as the row was read, which a length left as shown keeps; see Lengths.ToCentimeters
+    public DimensionsCentimeters? SavedDimensions { get; }
 
     public IReadOnlyList<RowImage> Images { get; private set; }
 
@@ -138,8 +148,8 @@ public class WorkTableRow : EditableTableRow
         get;
         set
         {
-            Form.HeightCm = ReadCentimetres(value, nameof(WorkForm.HeightCm));
-            field = CentimetresText(Form.HeightCm) ?? value;
+            Form.Height = ReadLength(value, nameof(WorkForm.Height));
+            field = LengthText(Form.Height) ?? value;
         }
     }
 
@@ -148,8 +158,8 @@ public class WorkTableRow : EditableTableRow
         get;
         set
         {
-            Form.WidthCm = ReadCentimetres(value, nameof(WorkForm.WidthCm));
-            field = CentimetresText(Form.WidthCm) ?? value;
+            Form.Width = ReadLength(value, nameof(WorkForm.Width));
+            field = LengthText(Form.Width) ?? value;
         }
     }
 
@@ -158,17 +168,17 @@ public class WorkTableRow : EditableTableRow
         get;
         set
         {
-            Form.DepthCm = ReadCentimetres(value, nameof(WorkForm.DepthCm));
-            field = CentimetresText(Form.DepthCm) ?? value;
+            Form.Depth = ReadLength(value, nameof(WorkForm.Depth));
+            field = LengthText(Form.Depth) ?? value;
         }
     }
 
     private const string DecimalMessage = "Enter a number, like 12.5.";
 
-    // rounded here as the database would, so the field shows what's saved
-    private decimal? ReadCentimetres(string? text, string propertyName) =>
-        ReadNumber<decimal>(text, propertyName, NumberStyles.Float, DecimalMessage) is { } centimetres
-            ? Math.Round(centimetres, ArtistShopLimits.DimensionDecimalPlaces)
+    // rounded here as the field will show it once saved
+    private decimal? ReadLength(string? text, string propertyName) =>
+        ReadNumber<decimal>(text, propertyName, NumberStyles.Float, DecimalMessage) is { } length
+            ? Math.Round(length, ArtistShopLimits.DimensionDecimalPlaces)
             : null;
 
     // by form property name, text in a number field that isn't a number

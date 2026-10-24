@@ -13,7 +13,7 @@ public sealed class PostExportHtmlTests
     public void TextAndLinksAreEscaped()
     {
         var document = new RichTextDocument(
-            [new ParagraphBlock([new RichTextRun("<script>alert(1)</script>", Bold: false, Italic: false, Underline: false, Link: "https://example.com/?a=1&b=\"2\"", Size: TextSize.Size16)])]
+            [new ParagraphBlock([new RichTextRun("<script>alert(1)</script>", Bold: false, Italic: false, Underline: false, Link: "https://example.com/?a=1&b=\"2\"", Size: TextSize.Size16)], TextAlignment.Left)]
         );
 
         var page = PostExportHtml.Page(Draft("Tom & <Jerry>"), document, new Dictionary<RichTextBlock, PostExportImage>(), "https://site.example");
@@ -28,12 +28,28 @@ public sealed class PostExportHtmlTests
     public void ASizedWordKeepsItsPixels()
     {
         var document = new RichTextDocument(
-            [new HeadingBlock([new RichTextRun("Big", Bold: false, Italic: false, Underline: false, Link: null, Size: TextSize.Size96)])]
+            [new HeadingBlock([new RichTextRun("Big", Bold: false, Italic: false, Underline: false, Link: null, Size: TextSize.Size96)], TextAlignment.Left)]
         );
 
         var page = PostExportHtml.Page(Draft("Notes"), document, new Dictionary<RichTextBlock, PostExportImage>(), "https://site.example");
 
         Assert.Contains($"""<h2><span style="font-size: {TextSizeNames.Of(TextSize.Size96)}px">Big</span></h2>""", page);
+    }
+
+    [Fact]
+    public void AnAlignedLineKeepsItsAlignment()
+    {
+        var document = new RichTextDocument(
+            [
+                new ParagraphBlock([new RichTextRun("Middle", Bold: false, Italic: false, Underline: false, Link: null, Size: TextSize.Size16)], TextAlignment.Center),
+                new ListBlock(ListStyle.Bullet, [[new RichTextRun("Edge", Bold: false, Italic: false, Underline: false, Link: null, Size: TextSize.Size16)]], TextAlignment.Right),
+            ]
+        );
+
+        var page = PostExportHtml.Page(Draft("Notes"), document, new Dictionary<RichTextBlock, PostExportImage>(), "https://site.example");
+
+        Assert.Contains("""<p class="align-center">Middle</p>""", page);
+        Assert.Contains("""<ul class="align-right">""", page);
     }
 
     [Fact]

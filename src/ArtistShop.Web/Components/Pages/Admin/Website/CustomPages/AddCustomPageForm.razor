@@ -21,9 +21,10 @@
   }
 }
 
-<EditForm EditContext="Input.EditContext" FormName="add-custom-page" OnValidSubmit="AddAsync" Enhance class="mb-6">
+<EditForm EditContext="Input.EditContext" FormName="add-custom-page" OnValidSubmit="AddAsync" Enhance class="mb-2">
   <DataAnnotationsValidator />
 
-  <TextField Label="New page" @bind-Value="Input.Name" />
-  <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Add page</ButtonBasic>
+  <TextFieldWithButton Label="New page" @bind-Value="Input.Name">
+    <ButtonBasic type="submit" Variant="ButtonVariant.Primary">Add page</ButtonBasic>
+  </TextFieldWithButton>
 </EditForm>

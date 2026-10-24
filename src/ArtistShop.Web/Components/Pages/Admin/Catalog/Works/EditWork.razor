@@ -13,6 +13,7 @@
 @attribute [Authorize(Policy = SitePolicies.Admin)]
 @inject WorkRepository WorkRepository
 @inject WorkTypeRepository WorkTypeRepository
+@inject WorkTypeSettingsRepository WorkTypeSettingsRepository
 @inject VocabularyRepository VocabularyRepository
 @inject CollectionRepository CollectionRepository
 @inject NavigationManager NavigationManager
@@ -62,7 +63,7 @@
     }
 
     // on a post the binder has already filled this in, so only a fresh page seeds it from the work
-    Input ??= WorkForm.FromWork(_work);
+    Input ??= WorkForm.FromWork(_work, (await WorkTypeSettingsRepository.GetAsync()).EnteredLengthUnit);
 
     // a work type can't be deleted while any work still has it, so this one is here
     var typeWithFields = Unwrap.Value(await WorkTypeRepository.GetAsync(_work.Type.Id));
@@ -100,7 +101,7 @@
 
     try
     {
-      await WorkRepository.UpdateAsync(Input.ToCatalogUpdate(_work.Id));
+      await WorkRepository.UpdateAsync(Input.ToCatalogUpdate(_work.Id, _work.Dimensions));
     }
     catch (WorkDeletedException)
     {
@@ -154,6 +155,7 @@
         <EditForm Model="Input" FormName="edit-work" OnValidSubmit="SaveWork" Enhance data-waits-for-pending
                   class="mb-8">
           <DataAnnotationsValidator />
+          <input type="hidden" name="Input.LengthUnit" value="@Input.LengthUnit" />
 
           <TextField Label="Title" @bind-Value="Input.Name" />
           @if (_fields.Contains(WorkField.DateCreated))
@@ -164,12 +166,12 @@
           <TextAreaField Label="@Wording.Description.Heading" @bind-Value="Input.Description" />
           @if (_fields.Contains(WorkField.HeightAndWidth))
           {
-            <NumberField Label="Height (cm)" @bind-Value="Input.HeightCm" />
-            <NumberField Label="Width (cm)" @bind-Value="Input.WidthCm" />
+            <NumberField Label="@($"Height ({Lengths.Symbol(Input.LengthUnit)})")" @bind-Value="Input.Height" />
+            <NumberField Label="@($"Width ({Lengths.Symbol(Input.LengthUnit)})")" @bind-Value="Input.Width" />
           }
           @if (_fields.Contains(WorkField.Depth))
           {
-            <NumberField Label="Depth (cm)" @bind-Value="Input.DepthCm" />
+            <NumberField Label="@($"Depth ({Lengths.Symbol(Input.LengthUnit)})")" @bind-Value="Input.Depth" />
           }
           @if (_fields.Contains(WorkField.Duration))
           {

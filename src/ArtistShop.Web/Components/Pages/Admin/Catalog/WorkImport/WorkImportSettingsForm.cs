@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ArtistShop.Web.Components.Forms;
+using ArtistShop.Web.Domain.Catalog;
 using ArtistShop.Web.Domain.Commerce;
 using ArtistShop.Web.Imports;
 using ArtistShop.Web.Utilities;
@@ -37,7 +38,7 @@ public abstract class WorkImportSettingsForm : ServerValidatedForm
     // a type without height and width rejects length columns, so its unit is never used
     public WorkImportSettings ToSettings() =>
         new(
-            LengthUnit ?? Imports.LengthUnit.Centimeters,
+            LengthUnit ?? Domain.Catalog.LengthUnit.Centimeters,
             new ProductTypeId(Unwrap.Value(ProductTypeId)),
             IsOneOfAKind,
             Unwrap.Value(ListSeparator)[0]

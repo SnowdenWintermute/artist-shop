@@ -1,0 +1,34 @@
+@* A text field with its form's button beside it, for a form that's mostly this one field: a name
+   saved on its own, or a new thing added by name *@
+
+@code {
+  [Parameter, EditorRequired]
+  public string Label { get; set; } = default!;
+
+  [Parameter, EditorRequired]
+  public string? Value { get; set; }
+
+  [Parameter]
+  public EventCallback<string?> ValueChanged { get; set; }
+
+  [Parameter]
+  public Expression<Func<string?>> ValueExpression { get; set; } = default!;
+
+  [Parameter]
+  public bool UpdatesPerKeystroke { get; set; }
+
+  // the button
+  [Parameter, EditorRequired]
+  public RenderFragment ChildContent { get; set; } = default!;
+
+  // any other attributes, such as type="email", go on the input
+  [Parameter(CaptureUnmatchedValues = true)]
+  public Dictionary<string, object>? InputAttributes { get; set; }
+}
+
+<FieldWithButton Button="ChildContent">
+  <Field>
+    <TextField Label="@Label" Value="@Value" ValueChanged="ValueChanged" ValueExpression="ValueExpression"
+               UpdatesPerKeystroke="UpdatesPerKeystroke" @attributes="InputAttributes" />
+  </Field>
+</FieldWithButton>

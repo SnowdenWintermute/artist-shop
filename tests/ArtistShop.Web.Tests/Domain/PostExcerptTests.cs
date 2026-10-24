@@ -23,12 +23,12 @@ public class PostExcerptTests
             "Heading Opening line. Quoted One Two",
             PostExcerpt.From(
                 Document(
-                    new HeadingBlock(Plain("Heading")),
+                    new HeadingBlock(Plain("Heading"), TextAlignment.Left),
                     Work,
-                    new ParagraphBlock(Plain("Opening line.")),
-                    new ParagraphBlock([]),
-                    new BlockquoteBlock(Plain("Quoted")),
-                    new ListBlock(ListStyle.Bullet, [Plain("One"), Plain("Two")])
+                    new ParagraphBlock(Plain("Opening line."), TextAlignment.Left),
+                    new ParagraphBlock([], TextAlignment.Left),
+                    new BlockquoteBlock(Plain("Quoted"), TextAlignment.Left),
+                    new ListBlock(ListStyle.Bullet, [Plain("One"), Plain("Two")], TextAlignment.Left)
                 )
             )
         );
@@ -45,7 +45,8 @@ public class PostExcerptTests
                             new RichTextRun("bold", true, false, false, null, TextSize.Size16),
                             new RichTextRun(" link", false, false, false, "https://example.com", TextSize.Size16),
                             new RichTextRun("  \n here", false, false, false, null, TextSize.Size16),
-                        ]
+                        ],
+                        TextAlignment.Left
                     )
                 )
             )
@@ -54,7 +55,7 @@ public class PostExcerptTests
     [Fact]
     public void CutsALongPostOnAWholeWord()
     {
-        var excerpt = PostExcerpt.From(Document(new ParagraphBlock(Plain(string.Join(" ", Enumerable.Repeat("word", 100))))));
+        var excerpt = PostExcerpt.From(Document(new ParagraphBlock(Plain(string.Join(" ", Enumerable.Repeat("word", 100))), TextAlignment.Left)));
 
         Assert.NotNull(excerpt);
         Assert.EndsWith("word…", excerpt);
@@ -64,15 +65,15 @@ public class PostExcerptTests
     [Fact]
     public void CutsASingleOverlongWordMidWord()
     {
-        var excerpt = PostExcerpt.From(Document(new ParagraphBlock(Plain(new string('a', 400)))));
+        var excerpt = PostExcerpt.From(Document(new ParagraphBlock(Plain(new string('a', 400)), TextAlignment.Left)));
 
         Assert.Equal(new string('a', PostExcerpt.MaximumLength) + "…", excerpt);
     }
 
     [Fact]
     public void AShortPostIsWhole() =>
-        Assert.Equal("Just this.", PostExcerpt.From(Document(new ParagraphBlock(Plain("Just this.")))));
+        Assert.Equal("Just this.", PostExcerpt.From(Document(new ParagraphBlock(Plain("Just this."), TextAlignment.Left))));
 
     [Fact]
-    public void APostWithNoTextHasNone() => Assert.Null(PostExcerpt.From(Document(Work, new ParagraphBlock([]))));
+    public void APostWithNoTextHasNone() => Assert.Null(PostExcerpt.From(Document(Work, new ParagraphBlock([], TextAlignment.Left))));
 }

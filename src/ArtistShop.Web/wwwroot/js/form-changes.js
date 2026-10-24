@@ -5,7 +5,7 @@
 export class FormChanges {
   /** @type {() => HTMLFormElement | null} */
   #findForm;
-  #loadedState = "";
+  #loadedState = new URLSearchParams();
 
   // a finder rather than the form, since Blazor adds an element to the page before its children
   /** @param {() => HTMLFormElement | null} findForm */
@@ -20,9 +20,26 @@ export class FormChanges {
   }
 
   get hasChanges() {
-    const holdsUnsavedChanges = this.#findForm()?.closest("[data-holds-unsaved-changes]") != null;
+    return this.#holdsUnsavedChanges() || this.#state().toString() !== this.#loadedState.toString();
+  }
 
-    return holdsUnsavedChanges || this.#state() !== this.#loadedState;
+  // only the fields inside the container, like the one field a Save beside it saves
+  /** @param {Element} container */
+  hasChangesIn(container) {
+    if (this.#holdsUnsavedChanges()) {
+      return true;
+    }
+
+    const state = this.#state();
+    const names = new Set(
+      [...container.querySelectorAll("[name]")].map((control) => control.getAttribute("name") ?? "")
+    );
+
+    return [...names].some((name) => state.getAll(name).join("\n") !== this.#loadedState.getAll(name).join("\n"));
+  }
+
+  #holdsUnsavedChanges() {
+    return this.#findForm()?.closest("[data-holds-unsaved-changes]") != null;
   }
 
   // Not FormData, which leaves out disabled controls: an island's controls are disabled until its
@@ -31,7 +48,7 @@ export class FormChanges {
     const form = this.#findForm();
 
     if (form === null) {
-      return "";
+      return new URLSearchParams();
     }
 
     const entries = new URLSearchParams();
@@ -55,6 +72,6 @@ export class FormChanges {
       }
     }
 
-    return entries.toString();
+    return entries;
   }
 }

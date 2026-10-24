@@ -21,19 +21,18 @@ public class ImageInput
 // properties by FromWork rather than passed to a constructor.
 public class WorkForm : IValidatableObject
 {
-    private const string DimensionRangeMessage = "Use a number from {1} to {2}.";
-
-    public static WorkForm FromWork(Work work) =>
+    public static WorkForm FromWork(Work work, LengthUnit lengthUnit) =>
         new()
         {
+            LengthUnit = lengthUnit,
             Name = work.Name.Value,
             YearCreated = work.DateCreated?.Date.Year,
             MonthCreated = work.DateCreated?.KnownMonth,
             DayCreated = work.DateCreated?.KnownDay,
             Description = work.Description,
-            HeightCm = work.Dimensions?.Height,
-            WidthCm = work.Dimensions?.Width,
-            DepthCm = work.Dimensions?.Depth,
+            Height = LengthForEntry(work.Dimensions?.Height, lengthUnit),
+            Width = LengthForEntry(work.Dimensions?.Width, lengthUnit),
+            Depth = LengthForEntry(work.Dimensions?.Depth, lengthUnit),
             Duration = work.Duration is TimeSpan duration
                 ? WorkDuration.ToText(duration)
                 : null,
@@ -70,14 +69,18 @@ public class WorkForm : IValidatableObject
 
     public string? Description { get; set; }
 
-    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm, ErrorMessage = DimensionRangeMessage)]
-    public decimal? HeightCm { get; set; }
+    // What Height, Width and Depth are in. Posted with them, so a unit changed in another tab while this form
+    // was open can't reread what was typed
+    public LengthUnit LengthUnit { get; set; } = LengthUnit.Centimeters;
 
-    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm, ErrorMessage = DimensionRangeMessage)]
-    public decimal? WidthCm { get; set; }
+    [LengthRange]
+    public decimal? Height { get; set; }
 
-    [Range(typeof(decimal), ArtistShopLimits.MinimumDimensionCm, ArtistShopLimits.MaximumDimensionCm, ErrorMessage = DimensionRangeMessage)]
-    public decimal? DepthCm { get; set; }
+    [LengthRange]
+    public decimal? Width { get; set; }
+
+    [LengthRange]
+    public decimal? Depth { get; set; }
 
     // text rather than parts, because h:mm:ss is how a duration is written and read
     public string? Duration { get; set; }
@@ -104,13 +107,13 @@ public class WorkForm : IValidatableObject
 
         if (!fields.Contains(WorkField.HeightAndWidth))
         {
-            HeightCm = null;
-            WidthCm = null;
+            Height = null;
+            Width = null;
         }
 
         if (!fields.Contains(WorkField.Depth))
         {
-            DepthCm = null;
+            Depth = null;
         }
 
         if (!fields.Contains(WorkField.Duration))
@@ -154,7 +157,7 @@ public class WorkForm : IValidatableObject
             WorkSlug.FromName(name),
             Description,
             ToDateCreated(),
-            ToDimensions(),
+            ToDimensions(saved: null),
             ToDuration(),
             Images: images,
             MainImageIndex: MainImageIndex(images),
@@ -165,14 +168,15 @@ public class WorkForm : IValidatableObject
         );
     }
 
-    public WorkCatalogUpdate ToCatalogUpdate(WorkId id)
+    // saved: the work's dimensions as the form was filled from them, which lengths left unchanged keep
+    public WorkCatalogUpdate ToCatalogUpdate(WorkId id, DimensionsCentimeters? saved)
     {
         var images = ToWorkImages();
 
-        return new WorkCatalogUpdate(ToDetailsUpdate(id), images, MainImageIndex(images));
+        return new WorkCatalogUpdate(ToDetailsUpdate(id, saved), images, MainImageIndex(images));
     }
 
-    public WorkDetailsUpdate ToDetailsUpdate(WorkId id)
+    public WorkDetailsUpdate ToDetailsUpdate(WorkId id, DimensionsCentimeters? saved)
     {
         var name = Unwrap.Value(Name);
 
@@ -183,7 +187,7 @@ public class WorkForm : IValidatableObject
             WorkSlug.FromName(name),
             Description,
             ToDateCreated(),
-            ToDimensions(),
+            ToDimensions(saved),
             ToDuration(),
             VocabularyTermIds: [.. VocabularyTermIds.Select(id => new VocabularyTermId(id))],
             CollectionIds: [.. CollectionIds.Select(id => new CollectionId(id))]
@@ -192,9 +196,16 @@ public class WorkForm : IValidatableObject
 
     private PartialDate? ToDateCreated() => PartialDate.FromParts(YearCreated, MonthCreated, DayCreated);
 
-    private DimensionsCentimeters? ToDimensions() =>
-        HeightCm.HasValue && WidthCm.HasValue
-            ? new DimensionsCentimeters(new Dimensions(HeightCm.Value, WidthCm.Value, DepthCm))
+    private static decimal? LengthForEntry(decimal? centimeters, LengthUnit unit) =>
+        centimeters is decimal known ? Lengths.ForEntry(known, unit) : null;
+
+    private DimensionsCentimeters? ToDimensions(DimensionsCentimeters? saved) =>
+        Height is decimal height && Width is decimal width
+            ? new DimensionsCentimeters(new Dimensions(
+                Lengths.ToCentimeters(height, LengthUnit, saved?.Height),
+                Lengths.ToCentimeters(width, LengthUnit, saved?.Width),
+                Depth is decimal depth ? Lengths.ToCentimeters(depth, LengthUnit, saved?.Depth) : null
+            ))
             : null;
 
     private TimeSpan? ToDuration() =>
@@ -226,23 +237,29 @@ public class WorkForm : IValidatableObject
 
         // under the empty one only, where the artist goes next. A height that isn't a number reads
         // as empty here too, so the width beside it isn't blamed for it
-        if (HeightCm.HasValue && !WidthCm.HasValue)
+        if (Height.HasValue && !Width.HasValue)
         {
-            yield return new ValidationResult("Enter a width too.", [nameof(WidthCm)]);
+            yield return new ValidationResult("Enter a width too.", [nameof(Width)]);
         }
 
-        if (WidthCm.HasValue && !HeightCm.HasValue)
+        if (Width.HasValue && !Height.HasValue)
         {
-            yield return new ValidationResult("Enter a height too.", [nameof(HeightCm)]);
+            yield return new ValidationResult("Enter a height too.", [nameof(Height)]);
         }
 
-        var depthWithoutHeightAndWidth = DepthCm.HasValue && !HeightCm.HasValue;
+        var depthWithoutHeightAndWidth = Depth.HasValue && !Height.HasValue;
         if (depthWithoutHeightAndWidth)
         {
             yield return new ValidationResult(
                 "Enter height and width to give a depth.",
-                [nameof(DepthCm)]
+                [nameof(Depth)]
             );
+        }
+
+        // a post a script made, or an edited page
+        if (!Enum.IsDefined(LengthUnit))
+        {
+            yield return new ValidationResult("Unknown length unit.", [nameof(LengthUnit)]);
         }
 
         var durationUnreadable = !string.IsNullOrWhiteSpace(Duration) && ToDuration() is null;

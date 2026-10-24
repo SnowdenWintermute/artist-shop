@@ -165,6 +165,56 @@ public class RichTextParserTests
         Assert.Equal([Plain("Said")], Assert.IsType<BlockquoteBlock>(Assert.Single(blocks)).Text);
     }
 
+    [Fact]
+    public void ReadsEachLinesAlignment()
+    {
+        var blocks = Parse(
+            """
+            {"ops":[
+                {"insert":"Left\n"},
+                {"insert":"Middle"},{"insert":"\n","attributes":{"align":"center"}},
+                {"insert":"Title"},{"insert":"\n","attributes":{"artshop-heading":true,"align":"right"}},
+                {"insert":"Said"},{"insert":"\n","attributes":{"blockquote":true,"align":"center"}},
+                {"insert":"Even"},{"insert":"\n","attributes":{"align":"justify"}}
+            ]}
+            """
+        );
+
+        Assert.Collection(
+            blocks,
+            block => Assert.Equal(TextAlignment.Left, Assert.IsType<ParagraphBlock>(block).Alignment),
+            block => Assert.Equal(TextAlignment.Center, Assert.IsType<ParagraphBlock>(block).Alignment),
+            block => Assert.Equal(TextAlignment.Right, Assert.IsType<HeadingBlock>(block).Alignment),
+            block => Assert.Equal(TextAlignment.Center, Assert.IsType<BlockquoteBlock>(block).Alignment),
+            block => Assert.Equal(TextAlignment.Left, Assert.IsType<ParagraphBlock>(block).Alignment)
+        );
+    }
+
+    [Fact]
+    public void AListLineAlignedDifferentlyStartsANewList()
+    {
+        var blocks = Parse(
+            """
+            {"ops":[
+                {"insert":"a"},{"insert":"\n","attributes":{"list":"bullet","align":"center"}},
+                {"insert":"b"},{"insert":"\n","attributes":{"list":"bullet","align":"center"}},
+                {"insert":"c"},{"insert":"\n","attributes":{"list":"bullet"}}
+            ]}
+            """
+        );
+
+        Assert.Collection(
+            blocks,
+            block =>
+            {
+                var list = Assert.IsType<ListBlock>(block);
+                Assert.Equal(TextAlignment.Center, list.Alignment);
+                Assert.Equal(2, list.Items.Count);
+            },
+            block => Assert.Equal(TextAlignment.Left, Assert.IsType<ListBlock>(block).Alignment)
+        );
+    }
+
     [Theory]
     [InlineData("https://example.com/a")]
     [InlineData("http://example.com")]

@@ -33,6 +33,9 @@ public static class PostExportHtml
         article p, article h2, article blockquote, article li { white-space: pre-wrap; }
         article h2 { font-size: inherit; font-weight: inherit; }
         article ul, article ol { padding-left: 1.5rem; }
+        .align-center { text-align: center; }
+        .align-right { text-align: right; }
+        ul.align-center, ul.align-right, ol.align-center, ol.align-right { list-style-position: inside; padding-left: 0; }
         blockquote { border-left: 4px solid #ccc; padding-left: 1rem; }
         figure { margin: 0.5rem 0; max-width: 100%; }
         figure.center { margin-left: auto; margin-right: auto; }
@@ -159,20 +162,20 @@ public static class PostExportHtml
         switch (block)
         {
             case ParagraphBlock paragraph:
-                html.Append($"<p>{Inline(paragraph.Text, siteOrigin)}</p>\n");
+                html.Append($"<p{AlignmentClass(paragraph.Alignment)}>{Inline(paragraph.Text, siteOrigin)}</p>\n");
                 break;
 
             case HeadingBlock heading:
-                html.Append($"<h2>{Inline(heading.Text, siteOrigin)}</h2>\n");
+                html.Append($"<h2{AlignmentClass(heading.Alignment)}>{Inline(heading.Text, siteOrigin)}</h2>\n");
                 break;
 
             case BlockquoteBlock quote:
-                html.Append($"<blockquote>{Inline(quote.Text, siteOrigin)}</blockquote>\n");
+                html.Append($"<blockquote{AlignmentClass(quote.Alignment)}>{Inline(quote.Text, siteOrigin)}</blockquote>\n");
                 break;
 
             case ListBlock list:
                 var tag = list.Style is ListStyle.Bullet ? "ul" : "ol";
-                html.Append($"<{tag}>\n");
+                html.Append($"<{tag}{AlignmentClass(list.Alignment)}>\n");
 
                 foreach (var item in list.Items)
                 {
@@ -196,6 +199,16 @@ public static class PostExportHtml
                 break;
         }
     }
+
+    // a left-aligned line has no class
+    private static string AlignmentClass(TextAlignment alignment) =>
+        alignment switch
+        {
+            TextAlignment.Left => "",
+            TextAlignment.Center => " class=\"align-center\"",
+            TextAlignment.Right => " class=\"align-right\"",
+            _ => throw new InvalidOperationException($"{alignment} has no class."),
+        };
 
     // as wide as the size picked, the image's own shape
     private static void AppendFigure(StringBuilder html, PostExportImage image, EmbedImageSize size, EmbedLayout layout, string? caption)
